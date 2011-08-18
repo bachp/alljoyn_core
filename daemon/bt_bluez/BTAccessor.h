@@ -34,6 +34,7 @@
 #include <alljoyn/MessageReceiver.h>
 #include <alljoyn/ProxyBusObject.h>
 
+#include "AdapterObject.h"
 #include "BDAddress.h"
 #include "BlueZUtils.h"
 #include "BTController.h"
@@ -192,7 +193,7 @@ class BTTransport::BTAccessor : public MessageReceiver, public qcc::AlarmListene
      */
     void RequestBTRole(const BDAddress& addr, bt::BluetoothRole role);
 
-    bool IsEIRCapable() const { return true; }
+    bool IsEIRCapable() const;
 
 
   private:

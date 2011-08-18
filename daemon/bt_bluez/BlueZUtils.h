@@ -44,21 +44,6 @@ namespace bluez {
 
 typedef qcc::ManagedObj<std::vector<qcc::String> > AdvertisedNamesList;
 
-class _AdapterObject : public ProxyBusObject {
-  public:
-    int id;
-    BDAddress address;
-    bool bluezDiscovering;
-
-    _AdapterObject() { }
-    _AdapterObject(BusAttachment& bus,
-                   const qcc::String& path);
-    bool operator==(const _AdapterObject& other) const { return address == other.address; }
-};
-
-typedef qcc::ManagedObj<_AdapterObject> AdapterObject;
-
-
 
 class BTSocketStream : public qcc::SocketStream {
   public:

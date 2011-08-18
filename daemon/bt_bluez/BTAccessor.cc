@@ -59,6 +59,7 @@
 #include <alljoyn/ProxyBusObject.h>
 #include <alljoyn/version.h>
 
+#include "AdapterObject.h"
 #include "BDAddress.h"
 #include "BlueZ.h"
 #include "BlueZHCIUtils.h"
@@ -572,8 +573,8 @@ QStatus BTTransport::BTAccessor::AddRecord(const char* recordXml,
         status = adapter->MethodCall(*org.bluez.Service.AddRecord, &arg, 1, rsp, BT_DEFAULT_TO);
         if (status == ER_OK) {
             rsp->GetArg(0)->Get("u", &newHandle);
-            QCC_DbgPrintf(("SJK: old cod: %08x   new cod: %08x\n", cod, cod | 0x00800000));
-            status = ConfigureClassOfDevice(adapter->id, cod | 0x00800000);
+            QCC_DbgPrintf(("old cod: %08x   new cod: %08x", cod, cod | 0x00800000));
+            status = adapter->ConfigureClassOfDevice(cod | 0x00800000);
         } else {
             qcc::String errMsg;
             const char* errName = rsp->GetErrorName(&errMsg);
@@ -616,7 +617,7 @@ QStatus BTTransport::BTAccessor::StartConnectable(BDAddress& addr,
     L2CAP_SOCKADDR l2capAddr;
     int ret;
 
-    addr = GetDefaultAdapterObject()->address;
+    addr = GetDefaultAdapterObject()->GetAddress();
 
     l2capLFd = socket(AF_BLUETOOTH, SOCK_SEQPACKET, L2CAP_PROTOCOL_ID);
     if (l2capLFd == -1) {
@@ -714,12 +715,14 @@ QStatus BTTransport::BTAccessor::FillAdapterAddress(AdapterObject& adapter)
 
             status = arg->GetElement("{ss}", "Address", &bdAddrStr);
             if (status == ER_OK) {
-                status = adapter->address.FromString(bdAddrStr);
+                status = adapter->SetAddress(bdAddrStr);
             }
 
-            arg->GetElement("{sb}", "Discovering", &adapter->bluezDiscovering);
-
             status  = arg->GetElement("{su}", "Class", &cod);
+            if (status == ER_OK) {
+                fprintf(stderr, "old cod: %08x   new cod: %08x", cod, cod | 0x00800000);
+                status = adapter->ConfigureClassOfDevice(cod | 0x00800000);
+            }
         }
     }
 
@@ -1020,10 +1023,10 @@ void BTTransport::BTAccessor::AdapterAdded(const char* adapterObjPath)
     /*
      * Configure the inquiry scan parameters the way we want them.
      */
-    ConfigureInquiryScan(newAdapterObj->id, 11, 1280, true, 8);
+    newAdapterObj->ConfigureInquiryScan(11, 1280, true, 8);
 
 #ifdef ENABLE_AIR_SNIFFING
-    ConfigureSimplePairingDebugMode(newAdapterObj->id, true);
+    newAdapterObj->ConfigureSimplePairingDebugMode(true);
 #endif
 }
 
@@ -1486,7 +1489,7 @@ QStatus BTTransport::BTAccessor::IsMaster(const BDAddress& addr, bool& master) c
     AdapterObject adapter = GetDefaultAdapterObject();
     QStatus status = ER_FAIL;
     if (adapter->IsValid()) {
-        status = bluez::IsMaster(adapter->id, addr, master);
+        status = adapter->IsMaster(addr, master);
     }
     return status;
 }
@@ -1496,8 +1499,18 @@ void BTTransport::BTAccessor::RequestBTRole(const BDAddress& addr, bt::Bluetooth
 {
     AdapterObject adapter = GetDefaultAdapterObject();
     if (adapter->IsValid()) {
-        bluez::RequestBTRole(adapter->id, addr, role);
+        adapter->RequestBTRole(addr, role);
     }
+}
+
+
+bool BTTransport::BTAccessor::IsEIRCapable() const
+{
+    AdapterObject adapter = GetDefaultAdapterObject();
+    if (adapter->IsValid()) {
+        return adapter->IsEIRCapable();
+    }
+    return false;  // If no adapter, assume no support unless proven otherwise
 }
 
 
@@ -1892,7 +1905,7 @@ QStatus BTTransport::BTAccessor::DiscoveryControl(const InterfaceDescription::Me
                 static const uint8_t LENGTH = 2;
                 static const uint8_t NUM_RESPONSES = 8;
 
-                ConfigurePeriodicInquiry(adapter->id, MIN_PERIOD, MAX_PERIOD, LENGTH, NUM_RESPONSES);
+                adapter->ConfigurePeriodicInquiry(MIN_PERIOD, MAX_PERIOD, LENGTH, NUM_RESPONSES);
             }
 #endif
         } else {
@@ -1903,11 +1916,10 @@ QStatus BTTransport::BTAccessor::DiscoveryControl(const InterfaceDescription::Me
                                   errName, errMsg.c_str()));
         }
 
-        // SJK Temporary test code.
         if (true) {
             uint64_t stopTime = GetTimestamp64() + 10000;  // give up after 10 seconds
-            while ((GetTimestamp64() < stopTime) && adapter->IsValid() && (adapter->bluezDiscovering != start)) {
-                QCC_DbgPrintf(("SJK: Waiting 100 ms for discovery to %s.", start ? "start" : "stop"));
+            while ((GetTimestamp64() < stopTime) && adapter->IsValid() && (adapter->IsDiscovering() != start)) {
+                QCC_DbgPrintf(("Waiting 100 ms for discovery to %s.", start ? "start" : "stop"));
                 Sleep(100);
                 adapter = GetDefaultAdapterObject();  // In case adapter goes away
             }
@@ -1940,7 +1952,7 @@ QStatus BTTransport::BTAccessor::SetDiscoverabilityProperty()
 
     for (list<AdapterObject>::const_iterator it = adapterList.begin(); it != adapterList.end(); ++it) {
         Message reply(bzBus);
-        QCC_DbgPrintf(("%s discoverability on %s", discoverable ? "Enabling" : "Disabling", (*it)->address.ToString().c_str()));
+        QCC_DbgPrintf(("%s discoverability on %s", discoverable ? "Enabling" : "Disabling", (*it)->GetAddress().ToString().c_str()));
         status = (*it)->MethodCall(*org.bluez.Adapter.SetProperty, dargs, ArraySize(dargs));
         if (status != ER_OK) {
             QCC_LogError(status, ("Failed to set 'Discoverable' %s on %s",
@@ -1986,10 +1998,10 @@ void BTTransport::BTAccessor::AdapterPropertyChangedSignalHandler(const Interfac
         } else if (strcmp(property, "Discovering") == 0) {
             bool disc;
             value->Get("b", &disc);
-            QCC_DbgPrintf(("Adapter %s is %s.", adapter->address.ToString().c_str(),
+            QCC_DbgPrintf(("Adapter %s is %s.", adapter->GetAddress().ToString().c_str(),
                            disc ? "discovering" : "NOT discovering"));
 
-            adapter->bluezDiscovering = disc;
+            adapter->SetDiscovering(disc);
         }
     }
 }

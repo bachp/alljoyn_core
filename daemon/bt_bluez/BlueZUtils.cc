@@ -48,27 +48,6 @@ using namespace qcc;
 namespace ajn {
 namespace bluez {
 
-/******************************************************************************/
-
-_AdapterObject::_AdapterObject(BusAttachment& bus, const qcc::String& path) :
-    ProxyBusObject(bus, bzBusName, path.c_str(), 0),
-    id(0)
-{
-    size_t i = path.size();
-    while (i > 0) {
-        --i;
-        char c = path[i];
-        if (!isdigit(c)) {
-            break;
-        }
-        id *= 10;
-        id += c - '0';
-    }
-}
-
-
-/******************************************************************************/
-
 
 BTSocketStream::BTSocketStream(SocketFd sock) :
     SocketStream(sock),
