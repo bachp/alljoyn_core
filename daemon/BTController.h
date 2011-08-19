@@ -156,8 +156,6 @@ class BluetoothDeviceInterface {
                                   BTBusAddress& connAddr,
                                   BTNodeDB& adInfo) = 0;
 
-    virtual QStatus Connect(const BTBusAddress& addr) = 0;
-
     virtual QStatus Disconnect(const qcc::String& busName) = 0;
     virtual void ReturnEndpoint(RemoteEndpoint* ep) = 0;
     virtual RemoteEndpoint* LookupEndpoint(const qcc::String& busName) = 0;

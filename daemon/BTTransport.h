@@ -364,8 +364,6 @@ class BTTransport :
                     RemoteEndpoint** newep,
                     qcc::String& redirection);
 
-    QStatus Connect(const BTBusAddress& addr) { qcc::String redir; return Connect(addr, NULL, redir); }
-
     /**
      * Internal disconnect method to remove a bus connection from a given BD Address.
      *
