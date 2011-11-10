@@ -95,7 +95,7 @@ class BusObject : public MessageReceiver {
     BusAttachment& bus;
 
     /**
-     * Reply to a method call
+     * Reply to a method call.
      *
      * @param msg      The method call message
      * @param args     The reply arguments (can be NULL)
@@ -104,10 +104,10 @@ class BusObject : public MessageReceiver {
      *      - #ER_OK if successful
      *      - An error status otherwise
      */
-    QStatus MethodReply(Message& msg, const MsgArg* args = NULL, size_t numArgs = 0);
+    QStatus MethodReply(const Message& msg, const MsgArg* args = NULL, size_t numArgs = 0);
 
     /**
-     * Reply to a method call with an error message
+     * Reply to a method call with an error message.
      *
      * @param msg              The method call message
      * @param error            The name of the error
@@ -116,10 +116,10 @@ class BusObject : public MessageReceiver {
      *      - #ER_OK if successful
      *      - An error status otherwise
      */
-    QStatus MethodReply(Message& msg, const char* error, const char* errorMessage = NULL);
+    QStatus MethodReply(const Message& msg, const char* error, const char* errorMessage = NULL);
 
     /**
-     * Reply to a method call with an error message
+     * Reply to a method call with an error message.
      *
      * @param msg        The method call message
      * @param status     The status code for the error
@@ -127,7 +127,7 @@ class BusObject : public MessageReceiver {
      *      - #ER_OK if successful
      *      - An error status otherwise
      */
-    QStatus MethodReply(Message& msg, QStatus status);
+    QStatus MethodReply(const Message& msg, QStatus status);
 
     /**
      * Send a signal.
