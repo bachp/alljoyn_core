@@ -2492,7 +2492,7 @@ void AllJoynObj::RemoveBusToBusEndpoint(RemoteEndpoint& endpoint)
             /* Let directly connected daemons know that this virtual endpoint is gone. */
             map<qcc::StringMapKey, RemoteEndpoint*>::iterator it2 = b2bEndpoints.begin();
             const qcc::GUID128& otherSideGuid = endpoint.GetRemoteGUID();
-            while (it2 != b2bEndpoints.end()) {
+            while ((it2 != b2bEndpoints.end()) && (it != virtualEndpoints.end())) {
                 if ((it2->second != &endpoint) && (it2->second->GetRemoteGUID() != otherSideGuid)) {
                     Message sigMsg(bus);
                     MsgArg args[3];
@@ -2511,13 +2511,28 @@ void AllJoynObj::RemoveBusToBusEndpoint(RemoteEndpoint& endpoint)
                                                        0,
                                                        0);
                     if (ER_OK == status) {
-                        status = it2->second->PushMessage(sigMsg);
+                        String key = it->first;
+                        StringMapKey key2 = it2->first;
+                        RemoteEndpoint*ep = it2->second;
+                        ep->IncrementWaiters();
+                        ReleaseLocks();
+                        status = ep->PushMessage(sigMsg);
+                        if (ER_OK != status) {
+                            QCC_LogError(status, ("Failed to send NameChanged to %s", ep->GetUniqueName().c_str()));
+                        }
+                        ep->DecrementWaiters();
+                        AcquireLocks();
+                        it2 = b2bEndpoints.lower_bound(key2);
+                        if (it2->first == key2) {
+                            ++it2;
+                        }
+                        it = virtualEndpoints.lower_bound(key);
+                    } else {
+                        ++it2;;
                     }
-                    if (ER_OK != status) {
-                        QCC_LogError(status, ("Failed to send NameChanged to %s", it2->second->GetUniqueName().c_str()));
-                    }
+                } else {
+                    ++it2;
                 }
-                ++it2;
             }
         } else {
             ++it;
@@ -2589,7 +2604,11 @@ QStatus AllJoynObj::ExchangeNames(RemoteEndpoint& endpoint)
                                         0,
                                         0);
         if (ER_OK == status) {
+            endpoint.IncrementWaiters();
+            ReleaseLocks();
             status = endpoint.PushMessage(exchangeMsg);
+            endpoint.DecrementWaiters();
+            AcquireLocks();
         }
     }
     if (status != ER_OK) {
@@ -2673,12 +2692,23 @@ void AllJoynObj::ExchangeNamesSignalHandler(const InterfaceDescription::Member* 
                 QCC_DbgPrintf(("Propagating ExchangeName signal to %s", it->second->GetUniqueName().c_str()));
                 Message m2(msg, true);
                 m2->ReMarshal(bus.GetInternal().GetLocalEndpoint().GetUniqueName().c_str(), true);
-                QStatus status = it->second->PushMessage(m2);
+                StringMapKey key = it->first;
+                RemoteEndpoint*ep = it->second;
+                ep->IncrementWaiters();
+                ReleaseLocks();
+                QStatus status = ep->PushMessage(m2);
                 if (ER_OK != status) {
-                    QCC_LogError(status, ("Failed to forward ExchangeNames to %s", it->second->GetUniqueName().c_str()));
+                    QCC_LogError(status, ("Failed to forward ExchangeNames to %s", ep->GetUniqueName().c_str()));
                 }
+                ep->DecrementWaiters();
+                AcquireLocks();
+                it = b2bEndpoints.lower_bound(key);
+                if (it->first == key) {
+                    ++it;
+                }
+            } else {
+                ++it;
             }
-            ++it;
         }
         ReleaseLocks();
     }
@@ -2752,12 +2782,24 @@ void AllJoynObj::NameChangedSignalHandler(const InterfaceDescription::Member* me
                 QCC_DbgPrintf(("Propagating NameChanged signal to %s", it->second->GetUniqueName().c_str()));
                 Message m2(msg, true);
                 m2->ReMarshal(bus.GetInternal().GetLocalEndpoint().GetUniqueName().c_str(), true);
-                QStatus status = it->second->PushMessage(m2);
+
+                StringMapKey key = it->first;
+                RemoteEndpoint*ep = it->second;
+                ep->IncrementWaiters();
+                ReleaseLocks();
+                QStatus status = ep->PushMessage(m2);
                 if (ER_OK != status) {
-                    QCC_LogError(status, ("Failed to forward NameChanged to %s", it->second->GetUniqueName().c_str()));
+                    QCC_LogError(status, ("Failed to forward NameChanged to %s", ep->GetUniqueName().c_str()));
                 }
+                ep->DecrementWaiters();
+                AcquireLocks();
+                it = b2bEndpoints.lower_bound(key);
+                if (it->first == key) {
+                    ++it;
+                }
+            } else {
+                ++it;
             }
-            ++it;
         }
         ReleaseLocks();
     }
@@ -2949,12 +2991,23 @@ void AllJoynObj::NameOwnerChanged(const qcc::String& alias, const qcc::String* o
                                        0,
                                        0);
             if (ER_OK == status) {
-                status = it->second->PushMessage(sigMsg);
+                StringMapKey key = it->first;
+                RemoteEndpoint*ep = it->second;
+                ep->IncrementWaiters();
+                ReleaseLocks();
+                status = ep->PushMessage(sigMsg);
+                ep->DecrementWaiters();
+                AcquireLocks();
+                it = b2bEndpoints.lower_bound(key);
+                if (it->first == key) {
+                    ++it;
+                }
+            } else {
+                ++it;
             }
             if (ER_OK != status) {
                 QCC_LogError(status, ("Failed to send NameChanged to %s", un.c_str()));
             }
-            ++it;
         }
 
         /* If a local well-known name dropped, then remove any nameMap entry */
