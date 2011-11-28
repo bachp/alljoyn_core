@@ -168,7 +168,7 @@ class ProxyBusObject : public MessageReceiver {
     /**
      * Get a property from an interface on the remote object.
      *
-     * @param iface        ame of interface to retrieve property from.
+     * @param iface       Name of interface to retrieve property from.
      * @param property    The name of the property to get.
      * @param[out] value  Property value.
      *
@@ -301,7 +301,7 @@ class ProxyBusObject : public MessageReceiver {
      * Add an interface to this ProxyBusObject.
      *
      * Occasionally, AllJoyn library user may wish to call a method on
-     * a %ProxyBusObject that was not reported during introspection of the remote obejct.
+     * a %ProxyBusObject that was not reported during introspection of the remote object.
      * When this happens, the InterfaceDescription will have to be registered with the
      * Bus manually and the interface will have to be added to the %ProxyBusObject using this method.
      * @remark
@@ -435,7 +435,7 @@ class ProxyBusObject : public MessageReceiver {
 
     /**
      * Make a fire-and-forget method call from this object. The caller will not be able to tell if
-     * the method call was succesful or not. This is equivalent to calling MethodCall() with
+     * the method call was successful or not. This is equivalent to calling MethodCall() with
      * flags == ALLJOYN_FLAG_NO_REPLY_EXPECTED. Because this call doesn't block it can be made from
      * within a signal handler.
      *
@@ -462,7 +462,7 @@ class ProxyBusObject : public MessageReceiver {
 
     /**
      * Make a fire-and-forget method call from this object. The caller will not be able to tell if
-     * the method call was succesful or not. This is equivalent to calling MethodCall() with
+     * the method call was successful or not. This is equivalent to calling MethodCall() with
      * flags == ALLJOYN_FLAG_NO_REPLY_EXPECTED. Because this call doesn't block it can be made from
      * within a signal handler.
      *
@@ -493,7 +493,7 @@ class ProxyBusObject : public MessageReceiver {
      * @param receiver     The object to be called when the asych method call completes.
      * @param replyFunc    The function that is called to deliver the reply
      * @param args         The arguments for the method call (can be NULL)
-     * @param numArgs      The nummber of arguments
+     * @param numArgs      The number of arguments
      * @param receiver     The object to be called when the asych method call completes.
      * @param context      User-defined context that will be returned to the reply handler
      * @param timeout      Timeout specified in milliseconds to wait for a reply
@@ -592,7 +592,7 @@ class ProxyBusObject : public MessageReceiver {
     QStatus SecureConnection(bool forceAuth = false);
 
     /**
-     * Aynchronously secure the connection to the remote peer for this proxy object. Peer-to-peer
+     * Asynchronously secure the connection to the remote peer for this proxy object. Peer-to-peer
      * connections can only be secured if EnablePeerSecurity() was previously called on the bus
      * attachment for this proxy object. If the peer-to-peer connection is already secure this
      * function does nothing. Note that peer-to-peer connections are automatically secured when a
@@ -658,7 +658,7 @@ class ProxyBusObject : public MessageReceiver {
 
     /**
      * @internal
-     * Helper used to destruct and cleanu-up  ProxyBusObject::components member.
+     * Helper used to destruct and clean-up  ProxyBusObject::components member.
      */
     void DestructComponents();
 
@@ -670,7 +670,7 @@ class ProxyBusObject : public MessageReceiver {
 
     /**
      * @internal
-     * Parse a single introspecton <node> element.
+     * Parse a single introspection <node> element.
      *
      * @param parseNode  XML element (must be a <node>).
      *
@@ -682,7 +682,7 @@ class ProxyBusObject : public MessageReceiver {
 
     /**
      * @internal
-     * Parse a single introspecton <interface> element.
+     * Parse a single introspection <interface> element.
      *
      * @param parseNode  XML element (must be an <interface>).
      *

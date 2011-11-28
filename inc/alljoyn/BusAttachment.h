@@ -112,7 +112,7 @@ class BusAttachment : public MessageReceiver {
 
     /**
      * Initialize one more interface descriptions from an XML string in DBus introspection format.
-     * The root tag of the XML can be a \<node\> or a standalone \<interface\> tag. To initialize more
+     * The root tag of the XML can be a \<node\> or a stand alone \<interface\> tag. To initialize more
      * than one interface the interfaces need to be nested in a \<node\> tag.
      *
      * Note that when this method fails during parsing, the return code will be set accordingly.
@@ -176,18 +176,18 @@ class BusAttachment : public MessageReceiver {
      * send callbacks to registered listeners using its own internal threads.
      * This means that any time a listener of any kind is used in a program, the
      * implication is that a the overall program is multithreaded, irrespective
-     * of whether or not threads are explicilty used.  This, in turn, means that
+     * of whether or not threads are explicitly used.  This, in turn, means that
      * any time shared state is accessed in listener methods, that state must be
      * protected.
      *
      * As soon as Start() is called, clients of a bus attachment with listeners
-     * must be prepared to recieve callbacks on those listeners in the context
+     * must be prepared to receive callbacks on those listeners in the context
      * of a thread that will be different from the thread running the main
      * program or any other thread in the client.
      *
      * Although intimate knowledge of the details of the threading model are not
      * required to use a bus attachment (beyond the caveat above) we do provide
-     * methods on the bus attachment that help users reason abount more complex
+     * methods on the bus attachment that help users reason about more complex
      * threading situations.  This will apply to situations where clients of the
      * bus attachment are multithreaded and need to interact with the
      * multithreaded bus attachment.  These methods can be especially useful
@@ -233,7 +233,7 @@ class BusAttachment : public MessageReceiver {
      * A call to the Join() method should be thought of as mapping to a
      * threading package join function call.  It blocks and waits until all of
      * the threads in the BusAttachment have in fact exited their Run functions,
-     * gone throught the stopping state and have returned their status.  When
+     * gone through the stopping state and have returned their status.  When
      * the Join() method returns, one may be assured that no threads are running
      * in the bus attachment, and therefore there will be no callbacks in
      * progress and no further callbacks will ever come out of a particular
@@ -258,7 +258,7 @@ class BusAttachment : public MessageReceiver {
      * @brief Ask the threading subsystem in the bus attachment to begin the
      * process of ending the execution of its threads.
      *
-     * The Stop() method call on a bus atatchment should be thought of as
+     * The Stop() method call on a bus attachment should be thought of as
      * mapping to a threading package stop function.  It asks the BusAttachment
      * to begin shutting down its various threads of execution, but does not
      * wait for any threads to exit.
@@ -267,7 +267,7 @@ class BusAttachment : public MessageReceiver {
      * of a bus attachment.
      *
      * @warning There is no guarantee that a listener callback may begin executing
-     * after a call to Stop().  To achieve that efffect, the Stop() must be followed
+     * after a call to Stop().  To achieve that effect, the Stop() must be followed
      * by a Join().
      *
      * @see Start()
@@ -287,14 +287,14 @@ class BusAttachment : public MessageReceiver {
      * A call to the Join() method should be thought of as mapping to a
      * threading package join function call.  It blocks and waits until all of
      * the threads in the BusAttachment have, in fact, exited their Run functions,
-     * gone throught the stopping state and have returned their status.  When
+     * gone through the stopping state and have returned their status.  When
      * the Join() method returns, one may be assured that no threads are running
      * in the bus attachment, and therefore there will be no callbacks in
      * progress and no further callbacks will ever come out of the instance of a
      * bus attachment on which Join() was called.
      *
      * A call to Join() is implied as one of the first steps in the destruction
-     * of a bus attachment.  Thus, when a bus attachemnt is destroyed, it is
+     * of a bus attachment.  Thus, when a bus attachment is destroyed, it is
      * guaranteed that before it completes its destruction process, there will be
      * no callbacks in process.
      *
@@ -539,7 +539,7 @@ class BusAttachment : public MessageReceiver {
      * applications. It is up to the applications to coordinate how and when the shared key store is
      * modified.
      *
-     * @return - ER_OK if the key store was succesfully reloaded
+     * @return - ER_OK if the key store was successfully reloaded
      *         - An error status indicating that the key store reload failed.
      */
     QStatus ReloadKeyStore();
@@ -552,7 +552,7 @@ class BusAttachment : public MessageReceiver {
     void ClearKeyStore();
 
     /**
-     * Clear the keys associated with aa specific remote peer as identified by its peer GUID. The
+     * Clear the keys associated with a specific remote peer as identified by its peer GUID. The
      * peer GUID associated with a bus name can be obtained by calling GetPeerGUID().
      *
      * @param guid  The guid of a remote authenticated peer.
@@ -571,7 +571,7 @@ class BusAttachment : public MessageReceiver {
      * @param guid     The GUID of a remote authenticated peer.
      * @param timeout  The time in seconds relative to the current time to expire the keys.
      *
-     * @return  - ER_OK if the expiration time was succesfully set.
+     * @return  - ER_OK if the expiration time was successfully set.
      *          - ER_UNKNOWN_GUID if there is no authenticated peer with the specified GUID
      *          - Other errors
      */
@@ -585,7 +585,7 @@ class BusAttachment : public MessageReceiver {
      * @param guid     The GUID of a remote authenticated peer.
      * @param timeout  The time in seconds relative to the current time when the keys will expire.
      *
-     * @return  - ER_OK if the expiration time was succesfully set.
+     * @return  - ER_OK if the expiration time was successfully set.
      *          - ER_UNKNOWN_GUID if there is no authenticated peer with the specified GUID
      *          - Other errors
      */
@@ -628,7 +628,7 @@ class BusAttachment : public MessageReceiver {
     QStatus RequestName(const char* requestedName, uint32_t flags);
 
     /**
-     * Release a previously requeted well-known name.
+     * Release a previously requested well-known name.
      * This method is a shortcut/helper that issues an org.freedesktop.DBus.ReleaseName method call to the local daemon
      * and interprets the response.
      *
@@ -674,7 +674,7 @@ class BusAttachment : public MessageReceiver {
      * and interprets the response.
      *
      * @param[in]  name          the well-known name to advertise. (Must be owned by the caller via RequestName).
-     * @param[in]  transports    Set of transports to use for sending advertisment.
+     * @param[in]  transports    Set of transports to use for sending advertisement.
      *
      * @return
      *      - #ER_OK iff daemon response was received and advertise was successful.
@@ -690,10 +690,10 @@ class BusAttachment : public MessageReceiver {
      * and interprets the response.
      *
      * @param[in]  name          A well-known name that was previously advertised via AdvertiseName.
-     * @param[in]  transports    Set of transports whose name advertisment will be cancelled.
+     * @param[in]  transports    Set of transports whose name advertisement will be canceled.
      *
      * @return
-     *      - #ER_OK iff daemon response was received and advertisements were sucessfully stopped.
+     *      - #ER_OK iff daemon response was received and advertisements were successfully stopped.
      *      - #ER_BUS_NOT_CONNECTED if a connection has not been made with a local bus.
      *      - Other error status codes indicating a failure.
      */
@@ -734,7 +734,7 @@ class BusAttachment : public MessageReceiver {
      * Make a SessionPort available for external BusAttachments to join.
      *
      * Each BusAttachment binds its own set of SessionPorts. Session joiners use the bound session
-     * port along with the name of the attachement to create a persistent logical connection (called
+     * port along with the name of the attachment to create a persistent logical connection (called
      * a Session) with the original BusAttachment.
      *
      * A SessionPort and bus name form a unique identifier that BusAttachments use when joining a
@@ -744,7 +744,7 @@ class BusAttachment : public MessageReceiver {
      * SessionPorts).
      *
      * Once a session is joined using one of the service's well-known SessionPorts, the service may
-     * bind additional SessionPorts (dyanamically) and share these SessionPorts with the joiner over
+     * bind additional SessionPorts (dynamically) and share these SessionPorts with the joiner over
      * the original session. The joiner can then create additional sessions with the service by
      * calling JoinSession with these dynamic SessionPort ids.
      *
@@ -823,7 +823,7 @@ class BusAttachment : public MessageReceiver {
 
     /**
      * Set the SessionListener for an existing sessionId.
-     * Calling this method will override the listener set by a previoius call to SetSessionListener or any
+     * Calling this method will override the listener set by a previous call to SetSessionListener or any
      * listener specified in JoinSession.
      *
      * @param sessionId    The session id of an existing session.
@@ -849,7 +849,7 @@ class BusAttachment : public MessageReceiver {
     /**
      * Get the file descriptor for a raw (non-message based) session.
      *
-     * @param sessionId   Id of an existing streamming session.
+     * @param sessionId   Id of an existing streaming session.
      * @param sockFd      [OUT] Socket file descriptor for session.
      *
      * @return ER_OK if successful.
@@ -889,7 +889,7 @@ class BusAttachment : public MessageReceiver {
      *
      * @param[in]  name       The well known name that the caller is inquiring about.
      * @param[out] hasOwner   If return is ER_OK, indicates whether name exists on the bus.
-     *                        If return is not ER_OK, param is not modified.
+     *                        If return is not ER_OK, hasOwner parameter is not modified.
      * @return
      *      - #ER_OK if name ownership was able to be determined.
      *      - An error status otherwise
@@ -924,7 +924,7 @@ class BusAttachment : public MessageReceiver {
      * and "ALLJOYN_NS" for the TCP name services.  Debug levels for specific
      * subsystems override the setting for "ALL" subsystems.  For example if
      * "ALL" is set to 7, but "ALLJOYN_OBJ" is set to 1, then detailed debug
-     * output will be generated for all subsystems expcept for "ALLJOYN_OBJ"
+     * output will be generated for all subsystems except for "ALLJOYN_OBJ"
      * which will only generate high level debug output.  "ALL" defaults to 0
      * which is off, or no debug output.
      *

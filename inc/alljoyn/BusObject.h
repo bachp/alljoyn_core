@@ -83,7 +83,7 @@ class BusObject : public MessageReceiver {
   protected:
 
     /**
-     * Type used to add mulitple methods at one time.
+     * Type used to add multiple methods at one time.
      * @see AddMethodHandlers()
      */
     typedef struct {
@@ -216,7 +216,7 @@ class BusObject : public MessageReceiver {
     virtual QStatus Get(const char* ifcName, const char* propName, MsgArg& val) { return ER_BUS_NO_SUCH_PROPERTY; }
 
     /**
-     * Handle a bus attempt to write a propterty value to this object.
+     * Handle a bus attempt to write a property value to this object.
      * BusObjects that implement properties should override this method.
      * This default version just replies with ER_BUS_NO_SUCH_PROPERTY
      *
@@ -234,7 +234,7 @@ class BusObject : public MessageReceiver {
      * introspection XML presented to remote nodes. Note that to DTD description and
      * the root element are not generated.
      *
-     * @param deep     Include XML for all decendents rather than stopping at direct children.
+     * @param deep     Include XML for all descendants rather than stopping at direct children.
      * @param indent   Number of characters to indent the XML
      * @return Description of the object in D-Bus introspection XML format
      */
@@ -257,7 +257,7 @@ class BusObject : public MessageReceiver {
      * Default handler for a bus attempt to read a property value.
      * @remark
      * A derived class can override this function to provide a custom handler for the GetProp method
-     * call. If overriden the custom handler must compose an appropriate reply message to return the
+     * call. If overridden the custom handler must compose an appropriate reply message to return the
      * requested property value.
      *
      * @param member   Identifies the org.freedesktop.DBus.Properties.Get method.
@@ -269,7 +269,7 @@ class BusObject : public MessageReceiver {
      * Default handler for a bus attempt to write a property value.
      * @remark
      * A derived class can override this function to provide a custom handler for the SetProp method
-     * call. If overriden the custom handler must compose an appropriate reply message.
+     * call. If overridden the custom handler must compose an appropriate reply message.
      *
      * @param member   Identifies the org.freedesktop.DBus.Properties.Set method.
      * @param msg      The Properties.Set request.
@@ -280,7 +280,7 @@ class BusObject : public MessageReceiver {
      * Default handler for a bus attempt to read all properties on an interface.
      * @remark
      * A derived class can override this function to provide a custom handler for the GetAllProps
-     * method call. If overriden the custom handler must compose an appropriate reply message
+     * method call. If overridden the custom handler must compose an appropriate reply message
      * listing all properties on this object.
      *
      * @param member   Identifies the org.freedesktop.DBus.Properties.GetAll method.
@@ -292,7 +292,7 @@ class BusObject : public MessageReceiver {
      * Default handler for a bus attempt to read the object's introspection data.
      * @remark
      * A derived class can override this function to provide a custom handler for the GetProp method
-     * call. If overriden the custom handler must compose an appropriate reply message.
+     * call. If overridden the custom handler must compose an appropriate reply message.
      *
      * @param member   Identifies the @c org.freedesktop.DBus.Introspectable.Introspect method.
      * @param msg      The Introspectable.Introspect request.
@@ -373,7 +373,7 @@ class BusObject : public MessageReceiver {
      * Indicate that this BusObject is being used by an alternate thread.
      * This BusObject should not be deleted till the remote thread has completed
      * using this object.
-     * This will incrament a counter for each thread that calls this method
+     * This will increment a counter for each thread that calls this method
      */
     void InUseIncrement();
 

@@ -55,7 +55,7 @@ class BusListener {
     virtual void ListenerRegistered(BusAttachment* bus) { }
 
     /**
-     * Called by the bus when the listener is unegistered.
+     * Called by the bus when the listener is unregistered.
      */
     virtual void ListenerUnregistered() { }
 
@@ -64,7 +64,7 @@ class BusListener {
      * that this attachment has registered interest in via a DBus call to org.alljoyn.Bus.FindAdvertisedName
      *
      * @param name         A well known name that the remote bus is advertising.
-     * @param transport    Transport that received the advertisment.
+     * @param transport    Transport that received the advertisement.
      * @param namePrefix   The well-known name prefix used in call to FindAdvertisedName that triggered this callback.
      */
     virtual void FoundAdvertisedName(const char* name, TransportMask transport, const char* namePrefix) { }

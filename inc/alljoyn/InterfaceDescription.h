@@ -44,7 +44,7 @@ static const uint8_t PROP_ACCESS_READ  = 1; /**< Read Access type */
 static const uint8_t PROP_ACCESS_WRITE = 2; /**< Write Access type */
 static const uint8_t PROP_ACCESS_RW    = 3; /**< Read-Write Access type */
 // @}
-/** @name Anotation flags */
+/** @name Annotation flags */
 // @{
 static const uint8_t MEMBER_ANNOTATE_NO_REPLY   = 1; /**< No reply annotate flag */
 static const uint8_t MEMBER_ANNOTATE_DEPRECATED = 2; /**< Deprecated annotate flag */

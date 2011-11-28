@@ -39,7 +39,7 @@ static const size_t ALLJOYN_MAX_NAME_LEN   =     255;  /*!<  The maximum length 
 static const size_t ALLJOYN_MAX_ARRAY_LEN  =  131072;  /*!<  DBus limits array length to 2^26. AllJoyn limits it to 2^17 */
 static const size_t ALLJOYN_MAX_PACKET_LEN =  (ALLJOYN_MAX_ARRAY_LEN + 4096);  /*!<  DBus limits packet length to 2^27. AllJoyn limits it further to 2^17 + 4096 to allow for 2^17 payload */
 
-/** @name Endianess indicators */
+/** @name Endianness indicators */
 // @{
 /** indicates the bus is little endian */
 static const uint8_t ALLJOYN_LITTLE_ENDIAN = 'l';
@@ -229,7 +229,7 @@ class _Message {
      * Determine if the message is marked as unreliable. Unreliable messages have a non-zero
      * time-to-live and may be silently discarded.
      *
-     * @return  Returns true if the message is unreliabled, that is, has a non-zero time-to-live.
+     * @return  Returns true if the message is unreliable, that is, has a non-zero time-to-live.
      */
     bool IsUnreliable() const { return ttl != 0; }
 
@@ -342,7 +342,7 @@ class _Message {
     /**
      * Accessor function to get the member (method/signal) name for this message
      * @return
-     *      - The AllJoyn member (methoud/signal) name string stored in the AllJoyn header field
+     *      - The AllJoyn member (method/signal) name string stored in the AllJoyn header field
      *      - An empty string if unable to find the member name
      */
     const char* GetMemberName() const {
@@ -383,7 +383,7 @@ class _Message {
     }
 
     /**
-     * Get the unique name of the endpoint that the message was recevied on.
+     * Get the unique name of the endpoint that the message was received on.
      *
      * @return
      *     - The unique name of the endpoint that the message was received on.
@@ -628,7 +628,7 @@ class _Message {
      * time.
      *
      * @param endpoint       The endpoint to marshal the message data from.
-     * @param checkSender    True if message's sender field shold be validated against the endpoint's unique name.
+     * @param checkSender    True if message's sender field should be validated against the endpoint's unique name.
      * @param pedantic       Perform detailed checks on the header fields.
      * @param timeout        If non-zero, a timeout in milliseconds to wait for a message to unmarshal.
      * @return
@@ -671,7 +671,7 @@ class _Message {
      * @param expansionArg  The the list of arguments that describes the expansion.
      *
      * @return
-     *      - #ER_OK if the expansion rule was succesfully parsed and added.
+     *      - #ER_OK if the expansion rule was successfully parsed and added.
      *      - An error status otherwise
      */
     QStatus AddExpansionRule(uint32_t token, const MsgArg* expansionArg);
@@ -713,7 +713,7 @@ class _Message {
     QStatus HelloReply(bool isBusToBus, const qcc::String& uniqueName);
 
     typedef struct MessageHeader {
-        char endian;           ///< The endian-ness of this message
+        char endian;           ///< The endianness of this message
         uint8_t msgType;       ///< Indicates if the message is method call, signal, etc.
         uint8_t flags;         ///< Flag bits
         uint8_t majorVersion;  ///< Major version of this message
@@ -746,7 +746,7 @@ class _Message {
     uint8_t* bodyPtr;            ///< Pointer to start of message body.
 
     uint16_t ttl;                ///< Time to live
-    uint32_t timestamp;          ///< Timestamp (local time) for messages with a ttl.
+    uint32_t timestamp;          ///< Timestamp (local time) for messages with a ttl (time to live).
 
     qcc::String replySignature;  ///< Expected reply signature for a method call
 
@@ -776,7 +776,7 @@ class _Message {
 
     /**
      * Check that the header fields are valid. This check is automatically performed when a header
-     * is successfully unmarshalled.
+     * is successfully unmarshaled.
      *
      * @param pedantic   Perform more detailed checks on the header fields.
      *

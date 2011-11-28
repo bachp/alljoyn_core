@@ -34,7 +34,7 @@ namespace ajn {
 namespace org {
 namespace freedesktop {
 
-/** Inteface Definitions for org.freedesktop.DBus */
+/** Interface Definitions for org.freedesktop.DBus */
 namespace DBus {
 extern const char* ObjectPath;                         /**< Object path */
 extern const char* InterfaceName;                      /**< Name of the interface */
@@ -72,7 +72,7 @@ QStatus CreateInterfaces(BusAttachment& bus);
 // @{
 #define DBUS_NAME_FLAG_ALLOW_REPLACEMENT 0x01     /**< RequestName input flag: Allow others to take ownership of this name */
 #define DBUS_NAME_FLAG_REPLACE_EXISTING  0x02     /**< RequestName input flag: Attempt to take ownership of name if already taken */
-#define DBUS_NAME_FLAG_DO_NOT_QUEUE      0x04     /**< RequestName input flag: Fail if name cannot be immediatly obtained */
+#define DBUS_NAME_FLAG_DO_NOT_QUEUE      0x04     /**< RequestName input flag: Fail if name cannot be immediately obtained */
 // @}
 /**
  * @name DBus RequestName return values

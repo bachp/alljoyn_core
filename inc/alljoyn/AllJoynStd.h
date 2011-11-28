@@ -25,8 +25,8 @@
 
 #include <alljoyn/InterfaceDescription.h>
 
-/*!
- * \def QCC_MODULE
+/**
+ * @def QCC_MODULE
  * Internal usage
  */
 #define QCC_MODULE  "ALLJOYN"
@@ -143,7 +143,7 @@ QStatus CreateInterfaces(BusAttachment& bus);          /**< Create the org.alljo
  * Out params:
  *  status      - JoinSession return value (see below).
  *  sessionId   - Session id.
- *  outOpts     - Acutal (final) session options.
+ *  outOpts     - Actual (final) session options.
  */
 // @{
 /* org.alljoyn.Bus.JoinSession */
@@ -271,20 +271,20 @@ QStatus CreateInterfaces(BusAttachment& bus);          /**< Create the org.alljo
  *     sessionId - Id of session whose link timeout will be modified.
  *
  *     linkTimeout - Max number of seconds that a link can be unresponsive before being
- *                   delcared lost. 0 indicates that AllJoyn link monitoring will be disabled.
+ *                   declared lost. 0 indicates that AllJoyn link monitoring will be disabled.
  *
  *  Output params:
  *     disposition - One of the ALLJOYN_SETLINKTMEOUT_* dispositions listed below
  *
  *     replyLinkTimeout - On successful disposition, this value will contain the resulting
- *                        (possibly upward) adjusted linkTimeout value that is acceptible
+ *                        (possibly upward) adjusted linkTimeout value that is acceptable
  *                        to the underlying transport.
  *
  */
 // @{
 /* org.alljoyn.Bus.SetLinkTimeout */
 #define ALLJOYN_SETLINKTIMEOUT_REPLY_SUCCESS          1   /**< SetLinkTimeout reply: Success */
-#define ALLJOYN_SETLINKTIMEOUT_REPLY_NO_DEST_SUPPORT  2   /**< SetLinkTimeout reply: Dest ep does not support link monitoring */
+#define ALLJOYN_SETLINKTIMEOUT_REPLY_NO_DEST_SUPPORT  2   /**< SetLinkTimeout reply: Destination endpoint does not support link monitoring */
 #define ALLJOYN_SETLINKTIMEOUT_REPLY_NO_SESSION       3   /**< SetLinkTimeout reply: Session with given id does not exist */
 #define ALLJOYN_SETLINKTIMEOUT_REPLY_FAILED           4   /**< SetLinkTimeout reply: Failed */
 // @}

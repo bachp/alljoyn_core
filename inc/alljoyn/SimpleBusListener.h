@@ -60,7 +60,7 @@ class SimpleBusListener : public BusListener {
     static const uint32_t FOREVER = -1;
 
     /**
-     * Constructor that intializes a bus listener with specific events enabled.
+     * Constructor that initializes a bus listener with specific events enabled.
      *
      * @param enabled   A logical OR of the bus events to be enabled for this listener.
      */
@@ -84,7 +84,7 @@ class SimpleBusListener : public BusListener {
         union {
             struct {
                 const char* name;               ///< well known name that the remote bus is advertising that is of interest to this attachment.
-                TransportMask transport;        ///< Transport that received the advertisment.
+                TransportMask transport;        ///< Transport that received the advertisement.
                 const char* namePrefix;         ///< The well-known name prefix used in call to FindAdvertisedName that triggered the busEvent.
             } foundAdvertisedName;
             struct {

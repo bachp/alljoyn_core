@@ -28,7 +28,7 @@ namespace ajn {
 
 /**
  * SessionPort identifies a per-BusAttachment receiver for incoming JoinSession requests.
- * SessionPort values are bound to a BusAttachment when the attachement calls
+ * SessionPort values are bound to a BusAttachment when the attachment calls
  * BindSessionPort.
  *
  * NOTE: Valid SessionPort values range from 1 to 0xFFFF.

@@ -151,7 +151,7 @@ Copyright 2010 - 2011, Qualcomm Innovation Center, Inc.
   <status name="ER_ALLJOYN_ADVERTISENAME_REPLY_ALREADY_ADVERTISING" value="0x908d" comment="AdvertiseName reply: This endpoint is already advertising this name"/>
   <status name="ER_ALLJOYN_ADVERTISENAME_REPLY_FAILED" value="0x908e" comment="AdvertiseName reply: Advertise failed"/>
   <status name="ER_ALLJOYN_CANCELADVERTISENAME_REPLY_FAILED" value="0x9090" comment="CancelAdvertiseName reply: Advertise failed"/>
-  <status name="ER_ALLJOYN_FINDADVERTISEDNAME_REPLY_ALREADY_DISCOVERING" value="0x9092" comment="FindAdvertisedName reply: This enpoint is already discovering this name"/>
+  <status name="ER_ALLJOYN_FINDADVERTISEDNAME_REPLY_ALREADY_DISCOVERING" value="0x9092" comment="FindAdvertisedName reply: This endpoint is already discovering this name"/>
   <status name="ER_ALLJOYN_FINDADVERTISEDNAME_REPLY_FAILED" value="0x9093" comment="FindAdvertisedName reply: Failed"/>
   <status name="ER_ALLJOYN_CANCELFINDADVERTISEDNAME_REPLY_FAILED" value="0x9095" comment="CancelFindAdvertisedName reply: Failed"/>
   <status name="ER_BUS_UNEXPECTED_DISPOSITION" value="0x9096" comment="An unexpected disposition was returned and has been treated as an error"/>
@@ -162,7 +162,7 @@ Copyright 2010 - 2011, Qualcomm Innovation Center, Inc.
   <status name="ER_ALLJOYN_JOINSESSION_REPLY_ALREADY_JOINED" value="0x909b" comment="JoinSession reply: Caller has already joined the session"/>
   <status name="ER_BUS_SELF_CONNECT" value="0x909c" comment="Received BusHello from self"/>
   <status name="ER_BUS_SECURITY_NOT_ENABLED" value="0x909d" comment="Security is not enabled for this bus attachment"/>
-  <status name="ER_BUS_LISTENER_ALREADY_SET" value="0x909e" comment="A listener has alread been set"/>
+  <status name="ER_BUS_LISTENER_ALREADY_SET" value="0x909e" comment="A listener has already been set"/>
   <status name="ER_BUS_PEER_AUTH_VERSION_MISMATCH" value="0x909f" comment="Incompatible peer authentication version numbers"/>
   <status name="ER_ALLJOYN_SETLINKTIMEOUT_REPLY_NOT_SUPPORTED" value="0x90a0" comment="Local daemon does not support SetLinkTimeout"/>
   <status name="ER_ALLJOYN_SETLINKTIMEOUT_REPLY_NO_DEST_SUPPORT" value="0x90a1" comment="SetLinkTimeout not supported by destination"/>

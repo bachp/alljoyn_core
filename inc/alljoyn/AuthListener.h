@@ -2,8 +2,8 @@
 #define _ALLJOYN_AUTHLISTENER_H
 /**
  * @file
- * This file defines the AuthListener class that provides the interface between authentication
- * mechansisms and applications.
+ * This file defines the AuthListener class that provides the interface between
+ * authentication mechanisms and applications.
  */
 
 /******************************************************************************
