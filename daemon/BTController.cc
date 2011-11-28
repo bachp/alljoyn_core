@@ -701,7 +701,7 @@ BTNodeInfo BTController::PrepConnect(const BTBusAddress& addr)
 
     QCC_DEBUG_ONLY(connectStartTimes[node->GetBusAddress().addr] = connectTimer.StartTime());
 
-    QCC_DbgPrintf(("Connect address %s for %s (add = %s) is %s as %s  (nodeDB size = %d  maxConnections = %d)",
+    QCC_DbgPrintf(("Connect address %s for %s (addr = %s) is %s as %s  (nodeDB size = %d  maxConnections = %d)",
                    node->GetConnectNode()->ToString().c_str(),
                    node->ToString().c_str(),
                    addr.ToString().c_str(),
@@ -821,43 +821,42 @@ bool BTController::CheckIncomingAddress(const BDAddress& addr) const
     QCC_DbgTrace(("BTController::CheckIncomingAddress(addr = %s)", addr.ToString().c_str()));
     if (IsMaster()) {
         const BTNodeInfo& node = nodeDB.FindNode(addr);
-        if (incompleteConnections > 0) {
-            if (node->IsValid() && node->IsDirectMinion()) {
-                QCC_DbgPrintf(("Allowing incoming connection from a direct minion while creating a new outgoing connection as master."));
-                return true;
-            } else if (joinSessionNode->GetBusAddress().addr == addr) {
-                QCC_DbgPrintf(("Allowing incoming connection from a new remote device while we are creating a new outgoing connection to that same device (cross-connect) as master."));
-                return true;
-            } else {
-                QCC_DbgPrintf(("Rejecting incoming connection from a new remote device while we are creating a new outgoing connection to a different device as master."));
-                return false;
-            }
-        } else if (node->IsValid() && !node->IsDirectMinion()) {
-            QCC_DbgPrintf(("Rejecting incoming connections from indirect minions as master."));
-            return false;
+        if (node->IsValid()) {
+            bool allow  = node->IsDirectMinion();
+            QCC_DbgPrintf(("%s incoming connection from %s minion as master.",
+                           allow ? "Accept" : "Reject",
+                           allow ? "a direct" : "an indirect"));
+            return allow;
+        } else if (incompleteConnections > 0) {
+            bool allow = joinSessionNode->GetBusAddress().addr == addr;
+            QCC_DbgPrintf(("%s incoming connection from a new remote device while we are creating a new outgoing connection to %s device as master.",
+                           allow ? "Accept" : "Reject",
+                           allow ? "the same" : "a different"));
+            return allow;
         } else if ((nodeDB.Size() - 1) >= maxConnections) {
-            QCC_DbgPrintf(("Rejecting incomming connection from new device since we've reached our max connections."));
+            QCC_DbgPrintf(("Reject incomming connection from new device since we've reached our max connections."));
             return false;
         } else {
-            QCC_DbgPrintf(("Accepting incoming connection as Master."));
+            QCC_DbgPrintf(("Accept incoming connection as master."));
             return true;
         }
 
     } else if (addr == masterNode->GetBusAddress().addr) {
-        QCC_DbgPrintf(("Always accept incoming connection from Master."));
+        QCC_DbgPrintf(("Always accept incoming connection from our master."));
         return true;
 
     } else if (IsDrone()) {
         const BTNodeInfo& node = nodeDB.FindNode(addr);
+        bool allow = node->IsValid() && node->IsDirectMinion();
         QCC_DbgPrintf(("% incoming connection from %s %s.",
-                       (node->IsValid() && node->IsDirectMinion()) ? "Accepting" : "Not Accepting",
+                       allow ? "Accept" : "Reject",
                        node->IsValid() ?
                        (node->IsDirectMinion() ? "direct" : "indirect") : "unknown node:",
                        node->IsValid() ? "minion" : addr.ToString().c_str()));
-        return node->IsValid() && node->IsDirectMinion();
+        return allow;
     }
 
-    QCC_DbgPrintf(("Rejecting incoming connection from %s because we are a minion (our master is %s).",
+    QCC_DbgPrintf(("Reject incoming connection from %s because we are a minion (our master is %s).",
                    addr.ToString().c_str(),
                    masterNode->GetBusAddress().addr.ToString().c_str()));
     return false;
