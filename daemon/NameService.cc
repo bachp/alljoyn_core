@@ -752,6 +752,9 @@ void NameService::ClearLiveInterfaces(void)
 
         qcc::Close(m_liveInterfaces[i].m_sockFd);
         m_liveInterfaces[i].m_sockFd = -1;
+
+        delete m_liveInterfaces[i].m_event;
+        m_liveInterfaces[i].m_event = NULL;
     }
 
     m_liveInterfaces.clear();
@@ -1120,6 +1123,7 @@ void NameService::LazyUpdateInterfaces(void)
         live.m_mtu = entries[i].m_mtu;
         live.m_index = entries[i].m_index;
         live.m_sockFd = sockFd;
+        live.m_event = new qcc::Event(sockFd, qcc::Event::IO_READ, false);
         m_liveInterfaces.push_back(live);
     }
 }
@@ -1962,13 +1966,13 @@ void* NameService::Run(void* arg)
         checkEvents.push_back(&m_wakeEvent);
 
         //
-        // We also need to wait on all of the sockets that correspond to the
-        // "live" interfaces we need to listen for inbound multicast messages
-        // on.
+        // We also need to wait on events from all of the sockets that
+        // correspond to the "live" interfaces we need to listen for inbound
+        // multicast messages on.
         //
         for (uint32_t i = 0; i < m_liveInterfaces.size(); ++i) {
             if (m_liveInterfaces[i].m_sockFd != -1) {
-                checkEvents.push_back(new qcc::Event(m_liveInterfaces[i].m_sockFd, qcc::Event::IO_READ, false));
+                checkEvents.push_back(m_liveInterfaces[i].m_event);
             }
         }
 
@@ -2056,15 +2060,6 @@ void* NameService::Run(void* arg)
                 // We got a message over the multicast channel.  Deal with it.
                 //
                 HandleProtocolMessage(buffer, nbytes, address);
-            }
-        }
-
-        //
-        // Delete the checkEvents we created above
-        //
-        for (uint32_t i = 0; i < checkEvents.size(); ++i) {
-            if (checkEvents[i] != &stopEvent && checkEvents[i] != &timerEvent && checkEvents[i] != &m_wakeEvent) {
-                delete checkEvents[i];
             }
         }
     }

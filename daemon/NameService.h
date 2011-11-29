@@ -669,6 +669,7 @@ class NameService : public qcc::Thread {
         qcc::IPAddress m_address;   /**< The address of the interface we are talking to */
         uint32_t m_prefixlen;       /**< The address prefix (cf netmask) of the interface we are talking to */
         qcc::SocketFd m_sockFd;     /**< The socket we are using to talk over */
+        qcc::Event* m_event;        /**< The event we use to get read notifications over */
         uint32_t m_mtu;             /**< The MTU of the protocol/device we are using */
         uint32_t m_index;           /**< The interface index of the protocol/device we are using if IPv6 */
         uint32_t m_flags;           /**< The flags we found during the qcc::IfConfig() that originally discovered this iface */
