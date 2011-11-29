@@ -566,9 +566,9 @@ void BTController::ProcessDeviceChange(const BDAddress& adBdAddr,
 
                 foundNodeDB.UpdateDB(&added, &removed, false);  // Remove names only.
 
-                removed.Clear();
-                oldAdInfo.NodeDiff(newAdInfo, NULL, &removed);  // Remove nodes that are actually gone.
-                foundNodeDB.UpdateDB(NULL, &removed);
+                BTNodeDB removedNodes;  // Don't re-use removed since it is still used later.
+                oldAdInfo.NodeDiff(newAdInfo, NULL, &removedNodes);  // Remove nodes that are actually gone.
+                foundNodeDB.UpdateDB(NULL, &removedNodes);
 
 
                 connNode->SetUUIDRev(newUUIDRev);
@@ -2202,8 +2202,8 @@ void BTController::SendFoundNamesChange(const BTNodeInfo& destNode,
                                         const BTNodeDB& adInfo,
                                         bool lost)
 {
-    QCC_DbgTrace(("BTController::SendFoundNamesChange(destNode = \"%s\", adInfo = <>, <%s>)",
-                  destNode->ToString().c_str(),
+    QCC_DbgTrace(("BTController::SendFoundNamesChange(destNode = %s (\"%s\"), adInfo = <>, <%s>)",
+                  destNode->ToString().c_str(), destNode->GetUniqueName().c_str(),
                   lost ? "lost" : "found/changed"));
 
     vector<MsgArg> nodeList;
