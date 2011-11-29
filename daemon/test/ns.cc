@@ -25,6 +25,7 @@
 #include <qcc/platform.h>
 #include <qcc/Debug.h>
 #include <qcc/String.h>
+#include <qcc/IfConfig.h>
 #include <qcc/GUID.h>
 #include <vector>
 #include <stdlib.h>
@@ -111,52 +112,52 @@ class Finder {
 static void PrintFlags(uint32_t flags)
 {
     printf("(");
-    if (flags & NameService::IfConfigEntry::UP) {
+    if (flags & qcc::IfConfigEntry::UP) {
         printf("UP ");
     }
-    if (flags & NameService::IfConfigEntry::BROADCAST) {
+    if (flags & qcc::IfConfigEntry::BROADCAST) {
         printf("BROADCAST ");
     }
-    if (flags & NameService::IfConfigEntry::DEBUG) {
+    if (flags & qcc::IfConfigEntry::DEBUG) {
         printf("DEBUG ");
     }
-    if (flags & NameService::IfConfigEntry::LOOPBACK) {
+    if (flags & qcc::IfConfigEntry::LOOPBACK) {
         printf("LOOPBACK ");
     }
-    if (flags & NameService::IfConfigEntry::POINTOPOINT) {
+    if (flags & qcc::IfConfigEntry::POINTOPOINT) {
         printf("POINTOPOINT ");
     }
-    if (flags & NameService::IfConfigEntry::RUNNING) {
+    if (flags & qcc::IfConfigEntry::RUNNING) {
         printf("RUNNING ");
     }
-    if (flags & NameService::IfConfigEntry::NOARP) {
+    if (flags & qcc::IfConfigEntry::NOARP) {
         printf("NOARP ");
     }
-    if (flags & NameService::IfConfigEntry::PROMISC) {
+    if (flags & qcc::IfConfigEntry::PROMISC) {
         printf("PROMISC ");
     }
-    if (flags & NameService::IfConfigEntry::NOTRAILERS) {
+    if (flags & qcc::IfConfigEntry::NOTRAILERS) {
         printf("NOTRAILERS ");
     }
-    if (flags & NameService::IfConfigEntry::ALLMULTI) {
+    if (flags & qcc::IfConfigEntry::ALLMULTI) {
         printf("ALLMULTI ");
     }
-    if (flags & NameService::IfConfigEntry::MASTER) {
+    if (flags & qcc::IfConfigEntry::MASTER) {
         printf("MASTER ");
     }
-    if (flags & NameService::IfConfigEntry::SLAVE) {
+    if (flags & qcc::IfConfigEntry::SLAVE) {
         printf("SLAVE ");
     }
-    if (flags & NameService::IfConfigEntry::MULTICAST) {
+    if (flags & qcc::IfConfigEntry::MULTICAST) {
         printf("MULTICAST ");
     }
-    if (flags & NameService::IfConfigEntry::PORTSEL) {
+    if (flags & qcc::IfConfigEntry::PORTSEL) {
         printf("PORTSEL ");
     }
-    if (flags & NameService::IfConfigEntry::AUTOMEDIA) {
+    if (flags & qcc::IfConfigEntry::AUTOMEDIA) {
         printf("AUTOMEDIA ");
     }
-    if (flags & NameService::IfConfigEntry::DYNAMIC) {
+    if (flags & qcc::IfConfigEntry::DYNAMIC) {
         printf("DYNAMIC ");
     }
     if (flags) printf("\b");
@@ -210,8 +211,8 @@ int main(int argc, char** argv)
     //
     // Figure out which interfaces we want to enable discovery on.
     //
-    std::vector<NameService::IfConfigEntry> entries;
-    status = ns.IfConfig(entries);
+    std::vector<qcc::IfConfigEntry> entries;
+    status = qcc::IfConfig(entries);
     if (status != ER_OK) {
         QCC_LogError(status, ("IfConfig failed"));
         ERROR_EXIT;
@@ -229,9 +230,9 @@ int main(int argc, char** argv)
         printf("    %s: ", entries[i].m_name.c_str());
         printf("0x%x = ", entries[i].m_flags);
         PrintFlags(entries[i].m_flags);
-        if (entries[i].m_flags & NameService::IfConfigEntry::UP) {
+        if (entries[i].m_flags & qcc::IfConfigEntry::UP) {
             printf(", MTU = %d, address = %s", entries[i].m_mtu, entries[i].m_addr.c_str());
-            if ((entries[i].m_flags & NameService::IfConfigEntry::LOOPBACK) == 0) {
+            if ((entries[i].m_flags & qcc::IfConfigEntry::LOOPBACK) == 0) {
                 printf(" <--- Let's use this one");
                 overrideInterface = entries[i].m_name;
                 //

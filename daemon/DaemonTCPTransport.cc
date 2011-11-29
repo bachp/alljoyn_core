@@ -25,6 +25,7 @@
 #include <qcc/SocketStream.h>
 #include <qcc/String.h>
 #include <qcc/StringUtil.h>
+#include <qcc/IfConfig.h>
 
 #include <alljoyn/BusAttachment.h>
 #include <alljoyn/TransportMask.h>
@@ -662,8 +663,8 @@ QStatus DaemonTCPTransport::GetListenAddresses(const SessionOpts& opts, std::vec
      */
     QCC_DbgPrintf(("DaemonTCPTransport::GetListenAddresses(): IfConfig()"));
 
-    std::vector<NameService::IfConfigEntry> entries;
-    QStatus status = m_ns->IfConfig(entries);
+    std::vector<qcc::IfConfigEntry> entries;
+    QStatus status = qcc::IfConfig(entries);
     if (status != ER_OK) {
         QCC_LogError(status, ("DaemonTCPTransport::GetListenAddresses(): ns.IfConfig() failed"));
         return status;
@@ -730,10 +731,10 @@ QStatus DaemonTCPTransport::GetListenAddresses(const SessionOpts& opts, std::vec
              *   - be UP which means it has an IP address assigned;
              *   - not be the LOOPBACK device and therefore be remotely available.
              */
-            uint32_t mask = NameService::IfConfigEntry::UP |
-                            NameService::IfConfigEntry::LOOPBACK;
+            uint32_t mask = qcc::IfConfigEntry::UP |
+                            qcc::IfConfigEntry::LOOPBACK;
 
-            uint32_t state = NameService::IfConfigEntry::UP;
+            uint32_t state = qcc::IfConfigEntry::UP;
 
             if ((entries[i].m_flags & mask) == state) {
                 QCC_DbgPrintf(("DaemonTCPTransport::GetListenAddresses(): %s has correct state", entries[i].m_name.c_str()));
@@ -1297,9 +1298,8 @@ QStatus DaemonTCPTransport::Connect(const char* connectSpec, const SessionOpts& 
      */
     if (anyEncountered) {
         QCC_DbgHLPrintf(("DaemonTCPTransport::Connect(): Checking for implicit connection to self"));
-        std::vector<NameService::IfConfigEntry> entries;
-        assert(m_ns);
-        QStatus status = m_ns->IfConfig(entries);
+        std::vector<qcc::IfConfigEntry> entries;
+        QStatus status = qcc::IfConfig(entries);
 
         /*
          * Only do the check for self-ness if we can get interfaces to check.
@@ -1319,7 +1319,7 @@ QStatus DaemonTCPTransport::Connect(const char* connectSpec, const SessionOpts& 
              */
             for (uint32_t i = 0; i < entries.size(); ++i) {
                 QCC_DbgHLPrintf(("DaemonTCPTransport::Connect(): Checking interface %s", entries[i].m_name.c_str()));
-                if (entries[i].m_flags & NameService::IfConfigEntry::UP) {
+                if (entries[i].m_flags & qcc::IfConfigEntry::UP) {
                     QCC_DbgHLPrintf(("DaemonTCPTransport::Connect(): Interface UP with addresss %s", entries[i].m_addr.c_str()));
                     IPAddress foundAddr(entries[i].m_addr);
                     if (foundAddr == ipAddr) {

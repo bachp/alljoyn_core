@@ -211,35 +211,6 @@ class NameService : public qcc::Thread {
      */
     virtual ~NameService();
 
-    class IfConfigEntry {
-      public:
-        qcc::String m_name;
-        qcc::String m_addr;
-        uint32_t m_prefixlen;
-        uint32_t m_family;
-
-        static const uint32_t UP = 1;
-        static const uint32_t BROADCAST = 2;
-        static const uint32_t DEBUG = 4;
-        static const uint32_t LOOPBACK = 8;
-        static const uint32_t POINTOPOINT = 16;
-        static const uint32_t RUNNING = 32;
-        static const uint32_t NOARP = 64;
-        static const uint32_t PROMISC = 128;
-        static const uint32_t NOTRAILERS = 256;
-        static const uint32_t ALLMULTI = 512;
-        static const uint32_t MASTER = 1024;
-        static const uint32_t SLAVE = 2048;
-        static const uint32_t MULTICAST = 4096;
-        static const uint32_t PORTSEL = 8192;
-        static const uint32_t AUTOMEDIA = 16384;
-        static const uint32_t DYNAMIC = 32768;
-
-        uint32_t m_flags;
-        uint32_t m_mtu;
-        uint32_t m_index;
-    };
-
     /**
      * @brief Initialize the name service.
      *
@@ -283,29 +254,16 @@ class NameService : public qcc::Thread {
                                uint32_t modulus, uint32_t retries);
 
     /**
-     * @brief Get information regarding the network interfaces on the
-     * host.
-     *
-     * @param entries A vector of IfConfigEntry that will be filled out
-     *     with information on the found network interfaces.
-     *
-     * @return Status of the operation.  Returns ER_OK on success.
-     *
-     * @see IfConfigEntry
-     */
-    QStatus IfConfig(std::vector<IfConfigEntry>& entries);
-
-    /**
      * @brief Tell the name service to begin listening and transmitting
      * on the provided network interface.
      *
-     * There may be a choice of network interfaces available to run the
-     * name service protocol over.  A user of the name service can
-     * find these interfaces and explore their charactersistics using
-     * the IfConfig method.  When it is decided to actually use one of
-     * the interfaces, one can pass the m_name (interface name) variable
-     * provided in the selected IfConfigEntry into this method to enable
-     * the name service for that interface (or pass a configured name).
+     * There may be a choice of network interfaces available to run the name
+     * service protocol over.  A user of the name service can find these
+     * interfaces and explore their charactersistics using qcc::IfConfig().
+     * When it is decided to actually use one of the interfaces, one can pass
+     * the m_name (interface name) variable provided in the selected
+     * qcc::IfConfigEntry into this method to enable the name service for that
+     * interface (or pass a configured name).
      *
      * If the interface is not IFF_UP, the name service will periodically
      * check to see if one comes up and will begin to use it whenever it
@@ -316,8 +274,8 @@ class NameService : public qcc::Thread {
      *
      * @return Status of the operation.  Returns ER_OK on success.
      *
-     * @see IfConfig
-     * @see IfConfigEntry
+     * @see qcc::IfConfig()
+     * @see qcc::IfConfigEntry
      */
     QStatus OpenInterface(const qcc::String& name);
 
@@ -325,14 +283,13 @@ class NameService : public qcc::Thread {
      * @brief Tell the name service to begin listening and transmitting
      * on the provided network interface.
      *
-     * There may be a choice of network interfaces available to run the
-     * name service protocol over.  A user of the name service can
-     * find these interfaces and explore their charactersistics using
-     * the IfConfig method.  When it is decided to actually use one of
-     * the interfaces, pass an IPAddress constructed using the m_addr
-     * (interface address) variable provided in the selected
-     * IfConfigEntry into this method to enable the name service for
-     * that address.
+     * There may be a choice of network interfaces available to run the name
+     * service protocol over.  A user of the name service can find these
+     * interfaces and explore their charactersistics using qcc::IfConfig().
+     * When it is decided to actually use one of the interfaces, pass an
+     * IPAddress constructed using the m_addr (interface address) variable
+     * provided in the selected qcc::IfConfigEntry into this method to enable
+     * the name service for that address.
      *
      * If there is no interface that is IFF_UP with the specific address
      * the name service will periodically check to see if one comes up
@@ -343,8 +300,8 @@ class NameService : public qcc::Thread {
      *
      * @return Status of the operation.  Returns ER_OK on success.
      *
-     * @see IfConfig
-     * @see IfConfigEntry
+     * @see qcc::IfConfig()
+     * @see qcc::IfConfigEntry
      */
     QStatus OpenInterface(const qcc::IPAddress& address);
 
@@ -709,12 +666,12 @@ class NameService : public qcc::Thread {
 
     class LiveInterface : public InterfaceSpecifier {
       public:
-        qcc::IPAddress m_address;           /**< The address of the interface we are talking to */
-        uint32_t m_prefixlen;               /**< The address prefix (cf netmask) of the interface we are talking to */
-        qcc::SocketFd m_sockFd;             /**< The socket we are using to talk over */
-        uint32_t m_mtu;                     /**< The MTU of the protocol/device we are using */
-        uint32_t m_index;                   /**< The interface index of the protocol/device we are using if IPv6 */
-        uint32_t m_flags;                   /**< The interface flags we found during the ifconfig that found us */
+        qcc::IPAddress m_address;   /**< The address of the interface we are talking to */
+        uint32_t m_prefixlen;       /**< The address prefix (cf netmask) of the interface we are talking to */
+        qcc::SocketFd m_sockFd;     /**< The socket we are using to talk over */
+        uint32_t m_mtu;             /**< The MTU of the protocol/device we are using */
+        uint32_t m_index;           /**< The interface index of the protocol/device we are using if IPv6 */
+        uint32_t m_flags;           /**< The flags we found during the qcc::IfConfig() that originally discovered this iface */
     };
 
     /**
