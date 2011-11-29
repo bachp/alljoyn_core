@@ -350,14 +350,21 @@ class BTTransport :
     /**
      * Internal connect method to establish a bus connection to a given BD Address.
      *
-     * @param bdAddr    BD Address of the device to connect to.
-     * @param psm       L2CAP PSM to connect to.
+     * @param bdAddr       BD Address of the device to connect to.
+     * @param newep        The new endpoint if the connect succeeded
+     * @param redirection  A connect spec for a new address if the connection was redirected
      *
-     * @return  ER_OK if successful.
+     * @return  Returns
+     *          - ER_OK if successful.
+     *          - ER_BUS_ENDPOINT_REDIRECTED if the connection is being redirected
+     *          - Other error status codes
+     *
      */
     QStatus Connect(const BTBusAddress& addr,
-                    RemoteEndpoint** newep);
-    QStatus Connect(const BTBusAddress& addr) { return Connect(addr, NULL); }
+                    RemoteEndpoint** newep,
+                    qcc::String& redirection);
+
+    QStatus Connect(const BTBusAddress& addr) { qcc::String redir; return Connect(addr, NULL, redir); }
 
     /**
      * Internal disconnect method to remove a bus connection from a given BD Address.

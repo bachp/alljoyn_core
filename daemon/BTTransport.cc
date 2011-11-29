@@ -339,10 +339,22 @@ QStatus BTTransport::Connect(const char* connectSpec, const SessionOpts& opts, R
         return ER_BUS_TRANSPORT_NOT_AVAILABLE;
     }
 
-    String spec(connectSpec);
-    BTBusAddress addr(spec);
+    qcc::String spec = connectSpec;
+    QStatus status = ER_OK;
 
-    return Connect(addr, newep);
+    while (status == ER_OK) {
+        qcc::String redirection;
+        BTBusAddress addr(spec);
+        status = Connect(addr, newep, redirection);
+        if (status == ER_OK) {
+            break;
+        }
+        if (status == ER_BUS_ENDPOINT_REDIRECTED) {
+            spec = redirection;
+            status = ER_OK;
+        }
+    }
+    return status;
 }
 
 QStatus BTTransport::Disconnect(const char* connectSpec)
@@ -553,13 +565,13 @@ QStatus BTTransport::GetDeviceInfo(const BDAddress& addr,
 
 
 QStatus BTTransport::Connect(const BTBusAddress& addr,
-                             RemoteEndpoint** newep)
+                             RemoteEndpoint** newep,
+                             qcc::String& redirection)
 {
     QStatus status;
     RemoteEndpoint* conn = NULL;
 
     qcc::String authName;
-    qcc::String redirection;
 
     BTNodeInfo connNode = btController->PrepConnect(addr);
     if (!connNode->IsValid()) {
