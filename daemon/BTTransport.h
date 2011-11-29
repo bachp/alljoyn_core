@@ -251,11 +251,12 @@ class BTTransport :
      * Check if it is OK to accept the incoming connection from the specified
      * address.
      *
-     * @param addr  BT device address to check
+     * @param addr          BT device address to check
+     * @param redirectAddr  [OUT] BT bus address to redirect the connection to if the return value is true.
      *
      * @return  true if OK to accept the connection, false otherwise.
      */
-    bool CheckIncomingAddress(const BDAddress& addr) const;
+    bool CheckIncomingAddress(const BDAddress& addr, BTBusAddress& redirectAddr) const;
 
     /**
      * Disconnect all endpoints.
@@ -350,19 +351,14 @@ class BTTransport :
     /**
      * Internal connect method to establish a bus connection to a given BD Address.
      *
-     * @param bdAddr       BD Address of the device to connect to.
-     * @param newep        The new endpoint if the connect succeeded
-     * @param redirection  A connect spec for a new address if the connection was redirected
-     *
-     * @return  Returns
-     *          - ER_OK if successful.
-     *          - ER_BUS_ENDPOINT_REDIRECTED if the connection is being redirected
-     *          - Other error status codes
+     * @param addr  BT bus address of the device to connect to.
+     * @param newep Pointer to newly created endpoint (if non-NULL).
      *
      */
     QStatus Connect(const BTBusAddress& addr,
-                    RemoteEndpoint** newep,
-                    qcc::String& redirection);
+                    RemoteEndpoint** newep);
+
+    QStatus Connect(const BTBusAddress& addr) { return Connect(addr, NULL); }
 
     /**
      * Internal disconnect method to remove a bus connection from a given BD Address.

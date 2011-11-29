@@ -40,8 +40,9 @@ class BlueZBTEndpoint : public BTEndpoint {
     BlueZBTEndpoint(BusAttachment& bus,
                     bool incoming,
                     qcc::SocketFd sockFd,
-                    const BTNodeInfo& node) :
-        BTEndpoint(bus, incoming, sockStream, node),
+                    const BTNodeInfo& node,
+                    const BTBusAddress& redirect) :
+        BTEndpoint(bus, incoming, sockStream, node, redirect),
         sockStream(sockFd)
     { }
 

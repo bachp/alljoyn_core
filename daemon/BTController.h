@@ -282,11 +282,12 @@ class BTController :
      * connections.  It also looks up the real connect address for a device
      * given the device's address.
      *
-     * @param addr  Connect address for the device.
+     * @param addr          Connect address for the device.
+     * @param redirection   Bus Address spec if we were told to redirect.
      *
      * @return  The actual address to use to create the connection.
      */
-    BTNodeInfo PrepConnect(const BTBusAddress& addr);
+    BTNodeInfo PrepConnect(const BTBusAddress& addr, const qcc::String& redirection);
 
     /**
      * Perform operations necessary based on the result of connect operation.
@@ -314,11 +315,12 @@ class BTController :
      * Check if it is OK to accept the incoming connection from the specified
      * address.
      *
-     * @param addr  BT device address to check
+     * @param addr          BT device address to check
+     * @param redirectAddr  [OUT] BT bus address to redirect the connection to if the return value is true.
      *
      * @return  true if OK to accept the connection, false otherwise.
      */
-    bool CheckIncomingAddress(const BDAddress& addr) const;
+    bool CheckIncomingAddress(const BDAddress& addr, BTBusAddress& redirectAddr) const;
 
     /**
      * Get the "best" listen spec for a given set of session options.

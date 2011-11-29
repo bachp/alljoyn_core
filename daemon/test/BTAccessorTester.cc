@@ -35,6 +35,8 @@
 #include <qcc/time.h>
 
 #include "BDAddress.h"
+#include "BTBusAddress.h"
+#include "Bus.h"
 #include "Transport.h"
 
 
@@ -52,6 +54,8 @@ static const size_t CONNECT_MULTIPLE_MAX_CONNECTIONS = 19;
 
 static const size_t HASH_SIZE = Crypto_MD5::DIGEST_SIZE;
 
+static const ajn::BTBusAddress redirectAddress(ajn::BDAddress("11:22:33:44:55:66"), 0x4321);
+static ajn::TransportFactoryContainer cntr;
 
 namespace ajn {
 
@@ -72,12 +76,12 @@ class BTTransport {
     virtual ~BTTransport() { }
 
     void BTDeviceAvailable(bool avail);
-    bool CheckIncomingAddress(const BDAddress& addr) const;
+    bool CheckIncomingAddress(const BDAddress& addr, BTBusAddress& redirectAddr) const;
     void DisconnectAll();
 
   protected:
     virtual void TestBTDeviceAvailable(bool avail) = 0;
-    virtual bool TestCheckIncomingAddress(const BDAddress& addr) const = 0;
+    virtual bool TestCheckIncomingAddress(const BDAddress& addr, BTBusAddress& redirectAddr) const = 0;
     virtual void TestDeviceChange(const BDAddress& bdAddr, uint32_t uuidRev, bool eirCapable) = 0;
 
   private:
@@ -90,9 +94,9 @@ void BTTransport::BTDeviceAvailable(bool avail)
 {
     TestBTDeviceAvailable(avail);
 }
-bool BTTransport::CheckIncomingAddress(const BDAddress& addr) const
+bool BTTransport::CheckIncomingAddress(const BDAddress& addr, BTBusAddress& redirectAddr) const
 {
-    return TestCheckIncomingAddress(addr);
+    return TestCheckIncomingAddress(addr, redirectAddr);
 }
 void BTTransport::DeviceChange(const BDAddress& bdAddr, uint32_t uuidRev, bool eirCapable)
 {
@@ -196,7 +200,7 @@ class TestDriver : public BTTransport {
 
   protected:
     BTAccessor* btAccessor;
-    BusAttachment bus;
+    Bus bus;
     const CmdLineOptions& opts;
     qcc::GUID128 busGuid;
     RemoteEndpoint* ep;
@@ -214,7 +218,7 @@ class TestDriver : public BTTransport {
     BTNodeDB nodeDB;
 
     void TestBTDeviceAvailable(bool available);
-    virtual bool TestCheckIncomingAddress(const BDAddress& addr) const;
+    virtual bool TestCheckIncomingAddress(const BDAddress& addr, BTBusAddress& redirectAddr) const;
     virtual void TestDeviceChange(const BDAddress& bdAddr, uint32_t uuidRev, bool eirCapable);
 
     void ReportTestDetail(const String& detail, size_t indent = 0) const;
@@ -269,13 +273,15 @@ class ClientTestDriver : public TestDriver {
     ClientTestDriver(const CmdLineOptions& opts);
     virtual ~ClientTestDriver() { }
 
-    bool TestCheckIncomingAddress(const BDAddress& addr) const;
+    bool TestCheckIncomingAddress(const BDAddress& addr, BTBusAddress& redirectAddr) const;
     void TestDeviceChange(const BDAddress& bdAddr, uint32_t uuidRev, bool eirCapable);
 
     bool TC_StartDiscovery();
     bool TC_StopDiscovery();
     bool TC_GetDeviceInfo();
     bool TC_ConnectSingle();
+    bool TC_ConnectSingleReject();
+    bool TC_ConnectSingleRedirect();
     bool TC_ConnectMultiple();
     bool TC_ExchangeSmallData();
     bool TC_ExchangeLargeData();
@@ -297,7 +303,7 @@ class ServerTestDriver : public TestDriver {
     ServerTestDriver(const CmdLineOptions& opts);
     virtual ~ServerTestDriver() { }
 
-    bool TestCheckIncomingAddress(const BDAddress& addr) const;
+    bool TestCheckIncomingAddress(const BDAddress& addr, BTBusAddress& redirectAddr) const;
     void TestDeviceChange(const BDAddress& bdAddr, uint32_t uuidRev, bool eirCapable);
 
     bool TC_StartDiscoverability();
@@ -305,12 +311,15 @@ class ServerTestDriver : public TestDriver {
     bool TC_SetSDPInfo();
     bool TC_GetL2CAPConnectEvent();
     bool TC_AcceptSingle();
+    bool TC_RejectSingle();
+    bool TC_RedirectSingle();
     bool TC_AcceptMultiple();
     bool TC_ExchangeSmallData();
     bool TC_ExchangeLargeData();
 
   private:
     bool allowIncomingAddress;
+    bool redirect;
     uint32_t uuidRev;
 
     bool ExchangeData(size_t size);
@@ -319,7 +328,7 @@ class ServerTestDriver : public TestDriver {
 
 TestDriver::TestDriver(const CmdLineOptions& opts) :
     btAccessor(NULL),
-    bus("BTAccessorTester"),
+    bus("BTAccessorTester", cntr, ""),
     opts(opts),
     ep(NULL),
     testcase(0),
@@ -349,6 +358,8 @@ TestDriver::TestDriver(const CmdLineOptions& opts) :
     --insertPos;
     tcList.push_back(TestCaseInfo(TestCaseFunction(TestDriver::TC_StopBTAccessor), "Stop BTAccessor"));
     tcList.push_back(TestCaseInfo(TestCaseFunction(TestDriver::TC_DestroyBTAccessor), "Destroy BTAccessor"));
+
+    bus.Start();
 }
 
 TestDriver::~TestDriver()
@@ -586,7 +597,7 @@ void TestDriver::TestBTDeviceAvailable(bool available)
     btDevAvailEvent.SetEvent();
 }
 
-bool TestDriver::TestCheckIncomingAddress(const BDAddress& addr) const
+bool TestDriver::TestCheckIncomingAddress(const BDAddress& addr, BTBusAddress& redirectAddr) const
 {
     String detail = "BTAccessor needs BD Address ";
     detail += addr.ToString().c_str();
@@ -596,7 +607,26 @@ bool TestDriver::TestCheckIncomingAddress(const BDAddress& addr) const
     return false;
 }
 
-bool ClientTestDriver::TestCheckIncomingAddress(const BDAddress& addr) const
+void TestDriver::ReportTransferRate(uint64_t t0, uint64_t t1, size_t bytesTransferred, bool sending) const
+{
+    uint64_t tDelta = t1 - t0;
+
+    if (bytesTransferred > TRANFER_RATE_MIN_BYTES && tDelta > 0) {
+        uint64_t bytesPerSecond = (bytesTransferred * 1000) / tDelta;
+        String detail = sending ? "Sent " : "Received ";
+
+        detail += U64ToString(bytesTransferred);
+        detail += " bytes in ";
+        detail += U64ToString(tDelta / 1000);
+        detail += " seconds. Or ";
+        detail += U64ToString(bytesPerSecond);
+        detail += " bytes per second.";
+
+        ReportTestDetail(detail);
+    }
+}
+
+bool ClientTestDriver::TestCheckIncomingAddress(const BDAddress& addr, BTBusAddress& redirectAddr) const
 {
     String detail = "BTAccessor needs BD Address ";
     detail += addr.ToString().c_str();
@@ -606,12 +636,19 @@ bool ClientTestDriver::TestCheckIncomingAddress(const BDAddress& addr) const
     return false;
 }
 
-bool ServerTestDriver::TestCheckIncomingAddress(const BDAddress& addr) const
+bool ServerTestDriver::TestCheckIncomingAddress(const BDAddress& addr, BTBusAddress& redirectAddr) const
 {
     String detail = "BTAccessor needs BD Address ";
     detail += addr.ToString().c_str();
     detail += " checked: ";
-    detail += allowIncomingAddress ? "allowed." : "rejected.";
+    if (redirect) {
+        redirectAddr = redirectAddress;
+        detail += "redirected to ";
+        detail += redirectAddr.ToString();
+        detail += ".";
+    } else {
+        detail += allowIncomingAddress ? "allowed." : "rejected.";
+    }
     ReportTestDetail(detail);
 
     return allowIncomingAddress;
@@ -1173,6 +1210,130 @@ exit:
     return tcSuccess;
 }
 
+bool ClientTestDriver::TC_ConnectSingleReject()
+{
+    bool tcSuccess = true;
+    BTNodeInfo node;
+    String detail;
+    RemoteEndpoint* tep;
+    char buf[100];
+    size_t size = sizeof(buf);
+    size_t received;
+    QStatus status;
+
+    if (!connNode->IsValid()) {
+        ReportTestDetail("Cannot continue with connection testing.  Connection address not set (no device found).");
+        tcSuccess = false;
+        goto exit;
+    }
+
+    detail = "Connecting to ";
+    detail += connNode->GetBusAddress().ToString();
+    detail += ".";
+    ReportTestDetail(detail);
+
+    tep = btAccessor->Connect(bus, connNode);
+
+    if (!tep) {
+        String detail = "Connection to ";
+        detail += connNode->GetBusAddress().ToString();
+        detail += " failed when it should have succeeded.";
+        ReportTestDetail(detail);
+        tcSuccess = false;
+        goto exit;
+    }
+
+    status = tep->GetSource().PullBytes(buf, size, received, 1000);
+    if (status != ER_SOCK_OTHER_END_CLOSED) {
+        ReportTestDetail("Server side failed to reject the connection.");
+        tcSuccess = false;
+    }
+
+exit:
+    if (tep) {
+        delete tep;
+    }
+
+    return tcSuccess;
+}
+
+bool ClientTestDriver::TC_ConnectSingleRedirect()
+{
+    bool tcSuccess = true;
+    BTNodeInfo node;
+    String detail;
+    RemoteEndpoint* tep;
+    BTBusAddress raddr;
+    String authName;
+    String redirectSpec;
+    QStatus status;
+
+    if (!connNode->IsValid()) {
+        ReportTestDetail("Cannot continue with connection testing.  Connection address not set (no device found).");
+        tcSuccess = false;
+        goto exit;
+    }
+
+    detail = "Connecting to ";
+    detail += connNode->GetBusAddress().ToString();
+    detail += ".";
+    ReportTestDetail(detail);
+
+    tep = btAccessor->Connect(bus, connNode);
+
+    if (!tep) {
+        ReportTestDetail("Failed to create outgoing connection.");
+        tcSuccess = false;
+        goto exit;
+    }
+
+    tep->GetFeatures().isBusToBus = true;
+    tep->GetFeatures().allowRemote = true;
+    tep->GetFeatures().handlePassing = false;
+
+    status = tep->Establish("ANONYMOUS", authName, redirectSpec);
+    if (status != ER_BUS_ENDPOINT_REDIRECTED) {
+        detail = "Connection establishment failed to get redirect spec: ";
+        detail += QCC_StatusText(status);
+        detail += ".";
+        ReportTestDetail(detail);
+        tcSuccess = false;
+        goto exit;
+    }
+
+    raddr.FromSpec(redirectSpec);
+
+    if (raddr != redirectAddress) {
+        detail = "Redirect address ";
+        detail += raddr.ToString();
+        detail += " (redirectSpec = \"";
+        detail += redirectSpec;
+        detail += "\")";
+        detail += " does not match expected value: ";
+        detail += redirectAddress.ToString();
+        detail += ".";
+        tcSuccess = false;
+        ReportTestDetail(detail);
+        goto exit;
+    }
+
+    detail = "Got redirect address ";
+    detail += raddr.ToString();
+    detail += " from redirect bus spec \"";
+    detail += redirectSpec;
+    detail += "\".";
+    ReportTestDetail(detail);
+
+exit:
+    qcc::Sleep(3000);
+
+    if (tep) {
+        delete tep;
+    }
+
+    return tcSuccess;
+}
+
 bool ClientTestDriver::TC_ConnectMultiple()
 {
     bool tcSuccess = true;
@@ -1543,6 +1704,115 @@ exit:
     return tcSuccess;
 }
 
+bool ServerTestDriver::TC_RejectSingle()
+{
+    bool tcSuccess = true;
+    QStatus status;
+    BTNodeInfo node;
+    String detail;
+    BDAddress invalidAddr;
+    RemoteEndpoint* tep;
+
+    allowIncomingAddress = false;
+
+    Event* l2capEvent = btAccessor->GetL2CAPConnectEvent();
+
+    if (!l2capEvent) {
+        ReportTestDetail("L2CAP connect event object does not exist.");
+        tcSuccess = false;
+        goto exit;
+    }
+
+    ReportTestDetail("Waiting up to 3 minutes for incoming connection.");
+    status = Event::Wait(*l2capEvent, 180000);
+    if (status != ER_OK) {
+        detail = "Failed to wait for incoming connection: ";
+        detail += QCC_StatusText(status);
+        detail += ".";
+        ReportTestDetail(detail);
+        tcSuccess = false;
+        goto exit;
+    }
+
+    tep = btAccessor->Accept(bus, l2capEvent);
+
+    if (tep) {
+        ReportTestDetail("Failed to reject incoming connection.");
+        tcSuccess = false;
+        delete tep;
+    }
+
+exit:
+    allowIncomingAddress = true;
+
+    return tcSuccess;
+}
+
+bool ServerTestDriver::TC_RedirectSingle()
+{
+    bool tcSuccess = true;
+    QStatus status;
+    BTNodeInfo node;
+    String detail;
+    BDAddress invalidAddr;
+    RemoteEndpoint* tep;
+    BTBusAddress raddr;
+    String authName;
+    String unused;
+
+    redirect = true;
+
+    Event* l2capEvent = btAccessor->GetL2CAPConnectEvent();
+
+    if (!l2capEvent) {
+        ReportTestDetail("L2CAP connect event object does not exist.");
+        tcSuccess = false;
+        goto exit;
+    }
+
+    ReportTestDetail("Waiting up to 3 minutes for incoming connection.");
+    status = Event::Wait(*l2capEvent, 180000);
+    if (status != ER_OK) {
+        detail = "Failed to wait for incoming connection: ";
+        detail += QCC_StatusText(status);
+        detail += ".";
+        ReportTestDetail(detail);
+        tcSuccess = false;
+        goto exit;
+    }
+
+    tep = btAccessor->Accept(bus, l2capEvent);
+
+    if (!tep) {
+        ReportTestDetail("Failed to accept incoming connection.");
+        tcSuccess = false;
+        goto exit;
+    }
+
+    status = tep->Establish("ANONYMOUS", authName, unused);
+    if (status != ER_BUS_ENDPOINT_REDIRECTED) {
+        detail = "Failed to redirect communications: ";
+        detail += QCC_StatusText(status);
+        detail += ".";
+        ReportTestDetail(detail);
+        tcSuccess = false;
+        goto exit;
+    }
+
+
+exit:
+    qcc::Sleep(3000);
+
+    redirect = false;
+
+    if (tep)
+    {
+        delete tep;
+    }
+
+    return tcSuccess;
+}
+
 bool ServerTestDriver::TC_AcceptMultiple()
 {
     bool tcSuccess = true;
@@ -1683,6 +1953,8 @@ ClientTestDriver::ClientTestDriver(const CmdLineOptions& opts) :
     AddTestCase(TestCaseFunction(ClientTestDriver::TC_StopDiscovery), "Stop Discovery (~35 sec)");
     if (!opts.local) {
         AddTestCase(TestCaseFunction(ClientTestDriver::TC_ConnectSingle), "Single Connection to Server");
+        AddTestCase(TestCaseFunction(ClientTestDriver::TC_ConnectSingleReject), "Single Connection to Server - Trigger Reject");
+        AddTestCase(TestCaseFunction(ClientTestDriver::TC_ConnectSingleRedirect), "Single Connection to Server - Trigger Redirect on Server");
         AddTestCase(TestCaseFunction(ClientTestDriver::TC_ConnectMultiple), "Multiple Simultaneous Connections to Server");
         AddTestCase(TestCaseFunction(ClientTestDriver::TC_ExchangeSmallData), "Exchange Small Amount of Data");
         AddTestCase(TestCaseFunction(ClientTestDriver::TC_ExchangeLargeData), "Exchange Large Amount of Data");
@@ -1694,7 +1966,8 @@ ClientTestDriver::ClientTestDriver(const CmdLineOptions& opts) :
 
 ServerTestDriver::ServerTestDriver(const CmdLineOptions& opts) :
     TestDriver(opts),
-    allowIncomingAddress(true)
+    allowIncomingAddress(true),
+    redirect(false)
 {
     while (uuidRev == bt::INVALID_UUIDREV) {
         uuidRev = Rand32();
@@ -1705,6 +1978,8 @@ ServerTestDriver::ServerTestDriver(const CmdLineOptions& opts) :
     AddTestCase(TestCaseFunction(ServerTestDriver::TC_StartDiscoverability), "Start Discoverability");
     if (!opts.local) {
         AddTestCase(TestCaseFunction(ServerTestDriver::TC_AcceptSingle), "Accept Single Incoming Connection");
+        AddTestCase(TestCaseFunction(ServerTestDriver::TC_RejectSingle), "Reject Single Incoming Connection");
+        AddTestCase(TestCaseFunction(ServerTestDriver::TC_RedirectSingle), "Accept Single Incoming Connection - Check Redirect");
         AddTestCase(TestCaseFunction(ServerTestDriver::TC_AcceptMultiple), "Accept Multiple Incoming Connections");
         AddTestCase(TestCaseFunction(ServerTestDriver::TC_ExchangeSmallData), "Exchange Small Amount of Data");
         AddTestCase(TestCaseFunction(ServerTestDriver::TC_ExchangeLargeData), "Exchange Large Amount of Data");

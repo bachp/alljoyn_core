@@ -794,6 +794,7 @@ RemoteEndpoint* BTTransport::BTAccessor::Accept(BusAttachment& alljoyn,
     BT_SOCKADDR remoteAddr;
     socklen_t ralen = sizeof(remoteAddr);
     BDAddress remAddr;
+    BTBusAddress redirectAddr;
     QStatus status;
     int flags, ret;
     SocketFd listenFd = connectEvent->GetFD();
@@ -818,13 +819,11 @@ RemoteEndpoint* BTTransport::BTAccessor::Accept(BusAttachment& alljoyn,
     }
 
     remAddr.CopyFrom(remoteAddr.l2cap.bdaddr.b, true);
-    if (!transport->CheckIncomingAddress(remAddr)) {
+    if (!transport->CheckIncomingAddress(remAddr, redirectAddr)) {
         status = ER_BUS_CONNECTION_REJECTED;
         QCC_DbgPrintf(("Rejected connection from: %s", remAddr.ToString().c_str()));
         goto exit;
     }
-
-    QCC_DbgPrintf(("Accepted connection from: %s", remAddr.ToString().c_str()));
 
     flags = fcntl(sockFd, F_GETFL);
     ret = fcntl(sockFd, F_SETFL, flags | O_NONBLOCK);
@@ -844,7 +843,14 @@ exit:
     } else {
         BTBusAddress incomingAddr(remAddr, bt::INCOMING_PSM);
         BTNodeInfo dummyNode(incomingAddr);
-        conn = new BlueZBTEndpoint(alljoyn, true, sockFd, dummyNode);
+
+        QCC_DbgPrintf(("%s connection from %s%s%s",
+                       redirectAddr.IsValid() ? "Redirect" : "Accept",
+                       remAddr.ToString().c_str(),
+                       redirectAddr.IsValid() ? " to " : "",
+                       redirectAddr.IsValid() ? redirectAddr.ToString().c_str() : ""));
+
+        conn = new BlueZBTEndpoint(alljoyn, true, sockFd, dummyNode, redirectAddr);
     }
 
     return conn;
@@ -963,7 +969,8 @@ RemoteEndpoint* BTTransport::BTAccessor::Connect(BusAttachment& alljoyn,
 exit:
 
     if (status == ER_OK) {
-        conn = new BlueZBTEndpoint(alljoyn, false, sockFd, node);
+        BTBusAddress noRedirect;
+        conn = new BlueZBTEndpoint(alljoyn, false, sockFd, node, noRedirect);
     } else {
         if (sockFd > 0) {
             QCC_DbgPrintf(("Closing sockFd: %d", sockFd));
@@ -1243,7 +1250,7 @@ void BTTransport::BTAccessor::DeviceFoundSignalHandler(const InterfaceDescriptio
     const MsgArg* uuids;
     size_t listSize;
     bool ajDev = false;
-    bool eirCapable;
+    bool eirCapable = false;
     uint32_t cod = 0xdeadbeef;
     int16_t rssi = 0;
 

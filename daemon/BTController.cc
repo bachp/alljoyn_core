@@ -608,7 +608,7 @@ void BTController::ProcessDeviceChange(const BDAddress& adBdAddr,
 }
 
 
-BTNodeInfo BTController::PrepConnect(const BTBusAddress& addr)
+BTNodeInfo BTController::PrepConnect(const BTBusAddress& addr, const String& redirection)
 {
     BTNodeInfo node;
 
@@ -634,8 +634,35 @@ BTNodeInfo BTController::PrepConnect(const BTBusAddress& addr)
         if (!IsMinion()) {
             node = nodeDB.FindNode(addr);
             if (IsMaster() && !node->IsValid() && ((nodeDB.Size() - 1) < maxConnections)) {
-                node = foundNodeDB.FindNode(addr);
-                newDevice = node->IsValid() && (node != joinSessionNode);
+                if (redirection.empty()) {
+                    node = foundNodeDB.FindNode(addr);
+                    newDevice = node->IsValid() && (node != joinSessionNode);
+                } else {
+                    foundNodeDB.Lock();
+                    BTBusAddress redirAddr(redirection);
+                    BTNodeInfo destNode = foundNodeDB.FindNode(addr)->GetConnectNode();
+                    // Make sure we haven't lost the advertisement for the
+                    // destination node and that the redirextion is at least
+                    // sensible.
+                    if (destNode->IsValid() &&
+                        redirAddr.IsValid() &&
+                        !nodeDB.FindNode(redirAddr)->IsValid()) {
+                        // Need a node to connect to.
+                        node = foundNodeDB.FindNode(redirAddr);
+                        if (!node->IsValid()) {
+                            // Connect node isn't found so trust the redirect
+                            // spec and assume the node we're told about
+                            // exists.
+                            node = BTNodeInfo(redirAddr);
+                            node->SetExpireTime(destNode->GetExpireTime());
+                            foundNodeDB.RemoveNode(destNode); // Make sure connect node indexing gets refreshed
+                            destNode->SetConnectNode(node);
+                            foundNodeDB.AddNode(node);
+                            foundNodeDB.Unlock();
+                        }
+                    }
+                    foundNodeDB.AddNode(destNode);
+                }
             }
         }
 
@@ -818,10 +845,12 @@ void BTController::BTDeviceAvailable(bool on)
 }
 
 
-bool BTController::CheckIncomingAddress(const BDAddress& addr) const
+bool BTController::CheckIncomingAddress(const BDAddress& addr, BTBusAddress& redirectAddr) const
 {
     QCC_DbgTrace(("BTController::CheckIncomingAddress(addr = %s)", addr.ToString().c_str()));
     if (IsMaster()) {
+        redirectAddr = BTBusAddress(); // Master redirects to no one.
+
         const BTNodeInfo& node = nodeDB.FindNode(addr);
         if (node->IsValid()) {
             bool allow  = node->IsDirectMinion();
@@ -849,19 +878,22 @@ bool BTController::CheckIncomingAddress(const BDAddress& addr) const
 
     } else if (IsDrone()) {
         const BTNodeInfo& node = nodeDB.FindNode(addr);
-        bool allow = node->IsValid() && node->IsDirectMinion();
+        bool redirect = !node->IsValid();
+        bool allow = redirect || node->IsDirectMinion();
         QCC_DbgPrintf(("% incoming connection from %s %s.",
-                       allow ? "Accept" : "Reject",
+                       redirect ? "Redirect" : (allow ? "Accept" : "Reject"),
                        node->IsValid() ?
                        (node->IsDirectMinion() ? "direct" : "indirect") : "unknown node:",
                        node->IsValid() ? "minion" : addr.ToString().c_str()));
+        redirectAddr = redirect ? masterNode->GetBusAddress() : BTBusAddress();
         return allow;
     }
 
-    QCC_DbgPrintf(("Reject incoming connection from %s because we are a minion (our master is %s).",
+    QCC_DbgPrintf(("Redirect incoming connection from %s because we are a minion (our master is %s).",
                    addr.ToString().c_str(),
                    masterNode->GetBusAddress().addr.ToString().c_str()));
-    return false;
+    redirectAddr = masterNode->GetBusAddress();
+    return true;
 }
 
 
