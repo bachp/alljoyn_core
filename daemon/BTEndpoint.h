@@ -42,17 +42,23 @@ class BTEndpoint : public RemoteEndpoint {
     BTEndpoint(BusAttachment& bus,
                bool incoming,
                qcc::Stream& stream,
-               const BTNodeInfo& node) :
+               const BTNodeInfo& node,
+               const BTBusAddress& redirect) :
         RemoteEndpoint(bus, incoming, node->GetBusAddress().ToSpec(), stream, "bluetooth"),
-        node(node)
+        node(node),
+        redirect(redirect)
     { }
 
     virtual ~BTEndpoint() { }
 
+
     BTNodeInfo& GetNode() { return node; }
 
   private:
+    qcc::String RedirectionAddress() { return redirect.IsValid() ? redirect.ToSpec() : ""; }
+
     BTNodeInfo node;
+    BTBusAddress redirect;
 };
 
 } // namespace ajn
