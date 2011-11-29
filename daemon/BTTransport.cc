@@ -157,6 +157,7 @@ void* BTTransport::Run(void* arg)
         /* Iterate over signaled events */
         for (vector<Event*>::iterator it = signaledEvents.begin(); it != signaledEvents.end(); ++it) {
             if (*it != &stopEvent) {
+                qcc::String unused;
                 /* Accept a new connection */
                 qcc::String authName;
                 RemoteEndpoint* conn(btAccessor->Accept(bus, *it));
@@ -173,7 +174,7 @@ void* BTTransport::Run(void* arg)
                 threadList.insert(conn);
                 threadListLock.Unlock(MUTEX_CONTEXT);
                 QCC_DbgPrintf(("BTTransport::Run: Calling conn->Establish() [for accepted connection]"));
-                status = conn->Establish("ANONYMOUS", authName);
+                status = conn->Establish("ANONYMOUS", authName, unused);
                 if (ER_OK == status) {
                     QCC_DbgPrintf(("Starting endpoint [for accepted connection]"));
                     conn->SetListener(this);
@@ -558,6 +559,7 @@ QStatus BTTransport::Connect(const BTBusAddress& addr,
     RemoteEndpoint* conn = NULL;
 
     qcc::String authName;
+    qcc::String redirection;
 
     BTNodeInfo connNode = btController->PrepConnect(addr);
     if (!connNode->IsValid()) {
@@ -582,7 +584,7 @@ QStatus BTTransport::Connect(const BTBusAddress& addr,
     threadListLock.Unlock(MUTEX_CONTEXT);
     QCC_DbgPrintf(("BTTransport::Connect: Calling conn->Establish() [addr = %s via %s]",
                    addr.ToString().c_str(), connNode->ToString().c_str()));
-    status = conn->Establish("ANONYMOUS", authName);
+    status = conn->Establish("ANONYMOUS", authName, redirection);
     if (status != ER_OK) {
         QCC_LogError(status, ("BTEndpoint::Establish failed"));
         EndpointExit(conn);

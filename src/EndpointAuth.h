@@ -72,11 +72,14 @@ class EndpointAuth : public SASLEngine::ExtensionHandler {
      *
      * @param authMechanisms  The authentication mechanisms to try.
      * @param authUsed        Returns the name of the authentication method that was used to establish the connection.
+     * @param redirection     Returns a redirection address for the endpoint. This value is only meaninful if the
+     *                        return status is ER_BUS_ENDPOINT_REDIRECTED.
      * @return
      *      - ER_OK if successful
+     *      = ER_BUS_ENDPOINT_REDIRECTED if the endpoint is being redirected.
      *      - An error status otherwise
      */
-    QStatus Establish(const qcc::String& authMechanisms, qcc::String& authUsed);
+    QStatus Establish(const qcc::String& authMechanisms, qcc::String& authUsed, qcc::String& redirection);
 
     /**
      * Get the unique bus name assigned by the bus for this endpoint.
@@ -134,13 +137,13 @@ class EndpointAuth : public SASLEngine::ExtensionHandler {
     bool isAccepting;                ///< Indicates if this is a client or server
 
     qcc::GUID128 remoteGUID;            ///< GUID of the remote side (when applicable)
-    uint32_t remoteProtocolVersion;  ///< ALLJOYN protocol version of the remote side
+    uint32_t remoteProtocolVersion;     ///< ALLJOYN protocol version of the remote side
 
     ProtectedAuthListener authListener;  ///< Authentication listener
 
     /* Internal methods */
 
-    QStatus Hello();
+    QStatus Hello(qcc::String& redirection);
     QStatus WaitHello();
 };
 

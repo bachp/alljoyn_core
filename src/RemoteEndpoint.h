@@ -203,12 +203,15 @@ class RemoteEndpoint : public BusEndpoint, public qcc::ThreadListener {
      * @param authMechanisms  The authentication mechanism(s) to use.
      * @param authUsed        [OUT]    Returns the name of the authentication method
      *                                 that was used to establish the connection.
+     * @param redirection     [OUT}    Returns a redirection address for the endpoint. This value
+     *                                 is only meaninful if the return status is ER_BUS_ENDPOINT_REDIRECT.
      * @return
      *      - ER_OK if successful.
+     *      = ER_BUS_ENDPOINT_REDIRECT if the endpoint is being redirected.
      *      - An error status otherwise
      */
-    QStatus Establish(const qcc::String& authMechanisms, qcc::String& authUsed) {
-        return auth.Establish(authMechanisms, authUsed);
+    QStatus Establish(const qcc::String& authMechanisms, qcc::String& authUsed, qcc::String& redirection) {
+        return auth.Establish(authMechanisms, authUsed, redirection);
     }
 
     /**
@@ -343,9 +346,9 @@ class RemoteEndpoint : public BusEndpoint, public qcc::ThreadListener {
   private:
 
     /**
-     * Assignment operator is private - LocalEndpoints cannot be assigned.
+     * Assignment operator is undefined - RemoteEndpoints cannot be assigned.
      */
-    RemoteEndpoint& operator=(const RemoteEndpoint& other) { return *this; }
+    RemoteEndpoint& operator=(const RemoteEndpoint& other);
 
     /**
      * Utility function used to generate an idle probe (req or ack)
@@ -364,6 +367,14 @@ class RemoteEndpoint : public BusEndpoint, public qcc::ThreadListener {
      * @return  true if message is ProbeReq or ProbeAck.
      */
     bool IsProbeMsg(const Message& msg, bool& isAck);
+
+    /**
+     * Called during endpoint establishment to to check if connections are being accepted or
+     * redirected to a different address.
+     *
+     * @return  An empty string or a connect spec for the address to redirect the connection to.
+     */
+    virtual qcc::String RedirectionAddress() { return ""; }
 
     /**
      * Thread used to receive endpoint data.

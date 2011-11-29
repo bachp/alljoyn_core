@@ -364,6 +364,7 @@ void* DaemonUnixTransport::Run(void* arg)
 
             if (status == ER_OK) {
                 qcc::String authName;
+                qcc::String redirection;
                 DaemonUnixEndpoint* conn;
 
                 conn = new DaemonUnixEndpoint(m_bus, true, "", newSock);
@@ -379,7 +380,7 @@ void* DaemonUnixTransport::Run(void* arg)
                 m_endpointListLock.Lock(MUTEX_CONTEXT);
                 m_endpointList.push_back(conn);
                 m_endpointListLock.Unlock(MUTEX_CONTEXT);
-                status = conn->Establish("EXTERNAL", authName);
+                status = conn->Establish("EXTERNAL", authName, redirection);
                 if (ER_OK == status) {
                     conn->SetListener(this);
                     status = conn->Start();

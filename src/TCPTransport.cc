@@ -334,7 +334,8 @@ QStatus TCPTransport::Connect(const char* connectSpec, const SessionOpts& opts, 
             conn->GetFeatures().handlePassing = true;
 
             qcc::String authName;
-            status = conn->Establish("ANONYMOUS", authName);
+            qcc::String redirection;
+            status = conn->Establish("ANONYMOUS", authName, redirection);
             if (status == ER_OK) {
                 conn->SetListener(this);
                 status = conn->Start();

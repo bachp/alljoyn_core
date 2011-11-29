@@ -269,11 +269,12 @@ void* DaemonTCPEndpoint::AuthThread::Run(void* arg)
 
     /* Run the actual connection authentication code. */
     qcc::String authName;
-    status = conn->Establish("ANONYMOUS", authName);
+    qcc::String redirection;
+    status = conn->Establish("ANONYMOUS", authName, redirection);
     if (status != ER_OK) {
         conn->m_stream.Close();
         conn->m_state = FAILED;
-        QCC_LogError(status, ("Failed to authenticate TCP endpoint"));
+        QCC_LogError(status, ("Failed to establish TCP endpoint"));
         return (void*)status;
     }
 
@@ -1389,7 +1390,8 @@ QStatus DaemonTCPTransport::Connect(const char* connectSpec, const SessionOpts& 
         conn->GetFeatures().handlePassing = false;
 
         qcc::String authName;
-        status = conn->Establish("ANONYMOUS", authName);
+        qcc::String redirection;
+        status = conn->Establish("ANONYMOUS", authName, redirection);
         if (status == ER_OK) {
             conn->SetListener(this);
             status = conn->Start();

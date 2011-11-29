@@ -50,8 +50,10 @@ namespace ajn {
 
 static const uint32_t HELLO_RESPONSE_TIMEOUT = 5000;
 
+static const char* RedirectError = "org.alljoyn.error.redirect";
 
-QStatus EndpointAuth::Hello()
+
+QStatus EndpointAuth::Hello(qcc::String& redirection)
 {
     QStatus status;
     Message hello(bus);
@@ -75,10 +77,20 @@ QStatus EndpointAuth::Hello()
         return status;
     }
     if (response->GetType() == MESSAGE_ERROR) {
+        status = response->UnmarshalArgs("*");
+        if (status != ER_OK) {
+            return status;
+        }
         qcc::String msg;
-        QCC_DbgPrintf(("error: %s", response->GetErrorName(&msg)));
-        QCC_DbgPrintf(("%s", msg.c_str()));
-        return ER_BUS_ESTABLISH_FAILED;
+        if (strcmp(response->GetErrorName(&msg), RedirectError) == 0) {
+            QCC_DbgPrintf(("Endpoint redirected: %s", msg.c_str()));
+            redirection = msg;
+            return ER_BUS_ENDPOINT_REDIRECTED;
+        } else {
+            QCC_DbgPrintf(("error: %s", response->GetErrorName(&msg)));
+            QCC_DbgPrintf(("%s", msg.c_str()));
+            return ER_BUS_ESTABLISH_FAILED;
+        }
     }
     if (response->GetType() != MESSAGE_METHOD_RET) {
         return ER_BUS_ESTABLISH_FAILED;
@@ -128,8 +140,12 @@ QStatus EndpointAuth::Hello()
 }
 
 
+static const uint32_t REDIRECT_TIMEOUT = 30 * 1000;
+
+
 QStatus EndpointAuth::WaitHello()
 {
+    qcc::String redirection;
     QStatus status;
     Message hello(bus);
 
@@ -196,6 +212,7 @@ QStatus EndpointAuth::WaitHello()
             }
             endpoint.features.isBusToBus = true;
             endpoint.features.allowRemote = true;
+
             /*
              * Remote name for the endpoint is the sender of the hello.
              */
@@ -205,11 +222,38 @@ QStatus EndpointAuth::WaitHello()
                            org::alljoyn::Bus::InterfaceName));
             return ER_BUS_ESTABLISH_FAILED;
         }
-        QCC_DbgHLPrintf(("EP remote %sname %s", endpoint.features.isBusToBus ? "(bus-to-bus) " : "", remoteName.c_str()));
-        status = hello->HelloReply(endpoint.features.isBusToBus, uniqueName);
+        redirection = endpoint.RedirectionAddress();
+        if (redirection.empty()) {
+            QCC_DbgHLPrintf(("Endpoint remote %sname %s", endpoint.features.isBusToBus ? "(bus-to-bus) " : "", remoteName.c_str()));
+            status = hello->HelloReply(endpoint.features.isBusToBus, uniqueName);
+        } else {
+            QCC_DbgHLPrintf(("Endpoint redirecting name %s to %d", remoteName.c_str(), redirection.c_str()));
+            status = hello->ErrorMsg(hello, RedirectError, redirection.c_str());
+        }
     }
     if (ER_OK == status) {
         status = hello->Deliver(endpoint);
+        if (ER_OK != status) {
+            QCC_LogError(status, ("%s", __FUNCTION__));
+        }
+    }
+    if ((ER_OK == status) && !redirection.empty()) {
+        /*
+         * We expect the other end to shutdown the endpoint socket as soon as it receives the
+         * redirection error response. The only way we can tell if the socket is closed is by
+         * attempting to read or write to it. We do a read with a timeout. If we actually read data
+         * or the timeout expires it means the socket wasn't closed by the other end so we assume
+         * the the redirection failed.
+         */
+        uint8_t buf[1];
+        size_t sz;
+        Source& source = endpoint.GetSource();
+        status = source.PullBytes(buf, sizeof(buf), sz, REDIRECT_TIMEOUT);
+        if (status == ER_OK || status == ER_TIMEOUT) {
+            status = ER_BUS_ESTABLISH_FAILED;
+        } else {
+            status = ER_BUS_ENDPOINT_REDIRECTED;
+        }
     }
     return status;
 }
@@ -247,7 +291,8 @@ qcc::String EndpointAuth::SASLCallout(SASLEngine& sasl, const qcc::String& extCm
 }
 
 QStatus EndpointAuth::Establish(const qcc::String& authMechanisms,
-                                qcc::String& authUsed)
+                                qcc::String& authUsed,
+                                qcc::String& redirection)
 {
     QStatus status = ER_OK;
     size_t numPushed;
@@ -349,7 +394,7 @@ QStatus EndpointAuth::Establish(const qcc::String& authMechanisms,
         /*
          * Send the hello message and wait for a response
          */
-        status = Hello();
+        status = Hello(redirection);
     }
 
 ExitEstablish:

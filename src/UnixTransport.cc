@@ -380,7 +380,8 @@ QStatus UnixTransport::Connect(const char* connectArgs, const SessionOpts& opts,
             conn->GetFeatures().handlePassing = true;
 
             qcc::String authName;
-            status = conn->Establish("EXTERNAL", authName);
+            qcc::String redirection;
+            status = conn->Establish("EXTERNAL", authName, redirection);
             if (status == ER_OK) {
                 conn->SetListener(this);
                 status = conn->Start();
