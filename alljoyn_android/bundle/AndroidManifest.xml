@@ -7,7 +7,7 @@
     <uses-permission android:name="android.permission.CHANGE_WIFI_MULTICAST_STATE" />
           
     <application>
-    <service android:name=".BundleuDaemonService">
+    <service android:name="org.alljoyn.bus.alljoyn.BundleDaemonService">
     </service>
     </application>
 </manifest> 
