@@ -27,8 +27,8 @@
 #define HELLO_GROUP "239.255.37.41"
 #define HELLO_GROUP_IPV6 "ff03::239.255.37.41"
 
-#define IPV4 0
-#define IPV6 1
+#define IPV4 1
+#define IPV6 0
 
 #define MSGBUFSIZE 256
 

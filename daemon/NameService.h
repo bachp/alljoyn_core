@@ -604,20 +604,34 @@ class NameService : public qcc::Thread {
 
   private:
     /**
-     * @brief The IPv4 multicast address for the  multicast name service.
-     * Should eventually be registered with IANA.
-     *
-     * @see http://www.iana.org/assignments/multicast-addresses/
+     * @brief The temporary IPv4 multicast address for the multicast name
+     * service.
      */
     static const char* IPV4_MULTICAST_GROUP;
 
     /**
-     * @brief The IPv6 multicast address for the  multicast name service.
-     * Should eventually be registered with IANA.
+     * @brief The IANA assigned IPv4 multicast address for the multicast name
+     * service.
+     *
+     * @see http://www.iana.org/assignments/multicast-addresses/
+     */
+    static const char* IPV4_ALLJOYN_MULTICAST_GROUP;
+
+    /**
+     * @brief The temporary IPv6 multicast address for the multicast name
+     * service.
      *
      * @see http://www.iana.org/assignments/multicast-addresses/
      */
     static const char* IPV6_MULTICAST_GROUP;
+
+    /**
+     * @brief The IANA assigned IPv6 multicast address for the multicast name
+     * service.
+     *
+     * @see http://www.iana.org/assignments/multicast-addresses/
+     */
+    static const char* IPV6_ALLJOYN_MULTICAST_GROUP;
 
     /**
      * @brief The port number for the  multicast name service.
@@ -626,12 +640,6 @@ class NameService : public qcc::Thread {
      * @see http://www.iana.org/assignments/multicast-addresses/
      */
     static const uint16_t MULTICAST_PORT;
-
-    /**
-     * @brief The IPv4 broadcast address for the fallback case when Access
-     * Points disable multicast.
-     */
-    static const char* IPV4_GLOBAL_BROADCAST_ADDR;
 
     /**
      * @brief The port number for the broadcast name service packets.

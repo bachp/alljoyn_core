@@ -34,14 +34,10 @@
 
 #endif
 
-#if defined(QCC_OS_DARWIN)
-#define IPV6_DROP_MEMBERSHIP IPV6_LEAVE_GROUP
-#define IPV6_ADD_MEMBERSHIP IPV6_JOIN_GROUP
-#endif
-
 #include <qcc/Debug.h>
 #include <qcc/Event.h>
 #include <qcc/Socket.h>
+#include <qcc/SocketTypes.h>
 #include <qcc/IfConfig.h>
 #include <qcc/time.h>
 
@@ -92,36 +88,43 @@ const char* NameService::INTERFACES_WILDCARD = "*";
 const char* NameService::BROADCAST_PROPERTY = "disable_directed_broadcast";
 
 //
-// This is just a random multicast group chosen out of an unreserved block of
-// addresses and a port next to the AllJoyn daemon port.  In the future we
-// will contact IANA an reserve a multicast group and port; but for now we
-// appropriate an IPv4 Local Scope group as defined in RFC 2365.
+// This is just a random IPv4 multicast group chosen out of the defined site
+// administered block of addresses.  This was a temporary choice while an IANA
+// reservation was in process, and remains for backward compatibility.
 //
 const char* NameService::IPV4_MULTICAST_GROUP = "239.255.37.41";
-const uint16_t NameService::MULTICAST_PORT = 9956;
 
 //
-// Define a broadcast address to allow Access Points in SEA to fall back onto
-// broadcast in case multicast is turned of.  If we are going to control which
-// interfaces ensuing broadcasts should be sent out on, we will need to do a
-// subnet directed broadcast, e.g. 192.168.1.255, but since most OSes will
-// convert the global broadcast address to a subnet directed broadcast using
-// default routes, we define the global broadcast address in case we need it.
+// This is the IANA assigned IPv4 multicast group for AllJoyn.
 //
-// Note that there is no corresponding IPv6 broadcast address.
+const char* NameService::IPV4_ALLJOYN_MULTICAST_GROUP = "224.0.0.113";
+
 //
-const char* NameService::IPV4_GLOBAL_BROADCAST_ADDR = "255.255.255.255";
+// This is just a port next to the default daemon TCP listen port.  These are
+// both from an unassigned area in the IANA port range and was a temporary
+// choice while the IANA port reservation was in process, and remains for
+// backward compatibility.
+//
+const uint16_t NameService::MULTICAST_PORT = 9956;
 const uint16_t NameService::BROADCAST_PORT = NameService::MULTICAST_PORT;
 
 //
-// IPv6 multicast groups are composed of a prefix containing 0xff and then
-// flags (4 bits) followed by the IPv6 Scope (4 bits) and finally the IPv4
+// This is an IPv6 version of the temporary IPv4 multicast address described
+// above.  IPv6 multicast groups are composed of a prefix containing 0xff and
+// then flags (4 bits) followed by the IPv6 Scope (4 bits) and finally the IPv4
 // group, as in "ff03::239.255.37.41".  The Scope corresponding to the IPv4
 // Local Scope group is defined to be "3" by RFC 2365.  Unfortunately, the
 // qcc::IPAddress code can't deal with "ff03::239.255.37.41" so we have to
 // translate it.
 //
 const char* NameService::IPV6_MULTICAST_GROUP = "ff03::efff:2529";
+
+//
+// This is the IANA assigned IPv6 multicast group for AllJoyn.  The assigned
+// address is a variable scope address (ff0x) but we always use the link local
+// scope (ff02).
+//
+const char* NameService::IPV6_ALLJOYN_MULTICAST_GROUP = "ff02::13a";
 
 //
 // Simple pattern matching function that supports '*' and '?' only.  Returns a
@@ -381,14 +384,15 @@ NameService::~NameService()
 // Once we have determined that we need to use IP_MULTICAST_IF, we needed to
 // understand exactly what changing the IP address out from under that call
 // would do.  The first thing to observe is that IP_MULTICAST_IF takes an IP
-// address in the case of IPv4, but we want to specify an interface index as
-// in IPv6 or for human beings, a name (e.g., "wlan0").  It may be the case that
+// address in the case of IPv4, but we want to specify an interface index as in
+// IPv6 or for human beings, a name (e.g., "wlan0").  It may be the case that
 // the interface does not have an IP address assigned (is not up or connected to
 // an access point) at the time the call to OpenInterface is made, so a call to
-// setsockopt is not possible until an address is available.  If the IP address
-// is not valid you will see a "network unreachable" error.  So, we need to defer
-// this action until we need to do it; and we use lazy evaluation on the IP
-// address and only store the interface name in OpenInterface.
+// set the interface (via the appropriate abstract qcc call) is not possible
+// until an address is available.  If the IP address is not valid you will see a
+// "network unreachable" error.  So, we need to defer this action until we need
+// to do it; and we use lazy evaluation on the IP address and only store the
+// interface name in OpenInterface.
 //
 // If we try to rely on sockets to notify us whenever an error happens and then
 // try to re-open the socket using the correct interface name, as we metioned
@@ -681,73 +685,21 @@ void NameService::ClearLiveInterfaces(void)
         }
 
         //
-        // Arrange an IGMP drop via the appropriate setsockopt. Android
-        // doesn't bother to compile its kernel with CONFIG_IP_MULTICAST set.
-        // This doesn't mean that there is no multicast code in the Android
-        // kernel, it means there is no IGMP code in the kernel.  What this
-        // means to us is that even through we are doing an IP_DROP_MEMBERSHIP
-        // request, which is ultimately an IGMP operation, the request will
-        // filter through the IP code before being ignored and will do useful
-        // things in the kernel even though CONFIG_IP_MULTICAST was not set
-        // for the Android build -- i.e., we have to do it anyway.
+        // Arrange an IGMP drop via the appropriate socket option (via the qcc
+        // absraction layer). Android doesn't bother to compile its kernel with
+        // CONFIG_IP_MULTICAST set.  This doesn't mean that there is no
+        // multicast code in the Android kernel, it means there is no IGMP code
+        // in the kernel.  What this means to us is that even through we are
+        // doing an IP_DROP_MEMBERSHIP request, which is ultimately an IGMP
+        // operation, the request will filter through the IP code before being
+        // ignored and will do useful things in the kernel even though
+        // CONFIG_IP_MULTICAST was not set for the Android build -- i.e., we
+        // have to do it anyway.
         //
         if (m_liveInterfaces[i].m_address.IsIPv4()) {
-            struct ip_mreq mreq;
-            mreq.imr_multiaddr.s_addr = inet_addr(IPV4_MULTICAST_GROUP);
-            mreq.imr_interface.s_addr = m_liveInterfaces[i].m_address.GetIPv4AddressNetOrder();
-
-            if (setsockopt(m_liveInterfaces[i].m_sockFd, IPPROTO_IP, IP_DROP_MEMBERSHIP,
-                           reinterpret_cast<const char*>(&mreq), sizeof(mreq)) < 0) {
-                QCC_DbgPrintf(("NameService::ClearLiveInterfaces(void): setsockopt(IP_DROP_MEMBERSHIP) failed"));
-            }
+            qcc::LeaveMulticastGroup(m_liveInterfaces[i].m_sockFd, qcc::QCC_AF_INET, IPV4_MULTICAST_GROUP, m_liveInterfaces[i].m_interfaceName);
         } else if (m_liveInterfaces[i].m_address.IsIPv6()) {
-            struct ipv6_mreq mreq;
-
-            //
-            // If we can't convert the multicast group to an IP address, there's
-            // nothing we can do about letting routers on the net know that we
-            // are closing down.
-            //
-            qcc::String mcGroup = qcc::String(IPV6_MULTICAST_GROUP);
-            if (INET_PTON(AF_INET6, mcGroup.c_str(), &mreq.ipv6mr_multiaddr) == 0) {
-                QCC_DbgPrintf(("NameService::ClearLiveInterfaces(void): INET_PTON failed"));
-                continue;
-            }
-
-            //
-            // The IPv6 version of selecting the multicast interface works on
-            // an interface index instead of an IP address.  This index may
-            // be changed on a per-socket basis so We have to figure out what
-            // this index is using a getsockopt.
-            //
-            uint32_t index = 0;
-            socklen_t indexLen = sizeof(index);
-
-            if (getsockopt(m_liveInterfaces[i].m_sockFd, IPPROTO_IPV6, IPV6_MULTICAST_IF,
-                           reinterpret_cast<char*>(&index), &indexLen) < 0) {
-                QCC_DbgPrintf(("NameService::ClearLiveInterfaces(void): getsockopt(IPV6_MULTICAST_IF) failed"));
-                continue;
-            }
-
-            mreq.ipv6mr_interface = index;
-
-            //
-            // This call tells the OS to issue an IGMP leave event.  This is
-            // primarily going to send an IGMP packet to routers on the local
-            // subnet telling them that we are no longer interested in hearing
-            // packets destined for our multicast group.  Various operating
-            // systems take this with various degrees of seriousness.  Android
-            // ignores it completely, Linux generates the packet but leaves the
-            // net device enabled for multicast reception, and Windows does
-            // everything.
-            //
-            if (setsockopt(m_liveInterfaces[i].m_sockFd, IPPROTO_IPV6, IPV6_DROP_MEMBERSHIP,
-                           reinterpret_cast<const char*>(&mreq), sizeof(mreq)) < 0) {
-                QCC_DbgPrintf(("NameService::ClearLiveInterfaces(void): setsockopt(IPV6_DROP_MEMBERSHIP) failed"));
-                continue;
-            }
-        } else {
-            QCC_LogError(ER_FAIL, ("NameService:ClearLiveInterfaces: Address not IPv4 or IPv6"));
+            qcc::LeaveMulticastGroup(m_liveInterfaces[i].m_sockFd, qcc::QCC_AF_INET6, IPV6_MULTICAST_GROUP, m_liveInterfaces[i].m_interfaceName);
         }
 
         qcc::Close(m_liveInterfaces[i].m_sockFd);
@@ -848,8 +800,8 @@ void NameService::LazyUpdateInterfaces(void)
         // just works with the live interfaces irrespective of address family,
         // this is the only place we need to do this check.
         //
-        if ((m_enableIPv4 == false && entries[i].m_family == AF_INET) ||
-            (m_enableIPv6 == false && entries[i].m_family == AF_INET6)) {
+        if ((m_enableIPv4 == false && entries[i].m_family == qcc::QCC_AF_INET) ||
+            (m_enableIPv6 == false && entries[i].m_family == qcc::QCC_AF_INET6)) {
             QCC_DbgPrintf(("NameService::LazyUpdateInterfaces(): family %d not enabled", entries[i].m_family));
             continue;
         }
@@ -895,7 +847,7 @@ void NameService::LazyUpdateInterfaces(void)
         // If we aren't configured to use this entry, or have no idea how to use
         // this entry (not AF_INET or AF_INET6), try the next one.
         //
-        if (useEntry == false || (entries[i].m_family != AF_INET && entries[i].m_family != AF_INET6)) {
+        if (useEntry == false || (entries[i].m_family != qcc::QCC_AF_INET && entries[i].m_family != qcc::QCC_AF_INET6)) {
             QCC_DbgPrintf(("NameService::LazyUpdateInterfaces(): Won't use this IfConfig entry"));
             continue;
         }
@@ -916,15 +868,23 @@ void NameService::LazyUpdateInterfaces(void)
         // do an IPv4 subnet directed broadcast on this interface.
         //
         if ((entries[i].m_flags & qcc::IfConfigEntry::MULTICAST) == 0) {
-            if ((entries[i].m_family != AF_INET) || (m_broadcast == false)) {
+            if ((entries[i].m_family != qcc::QCC_AF_INET) || (m_broadcast == false)) {
                 QCC_DbgPrintf(("LazyUpdateInterfaces:  Not MULTICAST, or BROADCAST not enabled and AF_INET.  Ignoring"));
                 continue;
             }
         }
 
+        //
+        // We've decided the interface in question is interesting and we want to
+        // use it to send and receive name service messages.  Now we need to
+        // start the long process of convincing the network to do what we want.
+        // This is going to mostly be done by setting a series of socket
+        // options.  The small number of the ones we need are absracted in the
+        // qcc package.
+        //
         qcc::SocketFd sockFd;
 
-        if (entries[i].m_family == AF_INET) {
+        if (entries[i].m_family == qcc::QCC_AF_INET) {
             QStatus status = qcc::Socket(qcc::QCC_AF_INET, qcc::QCC_SOCK_DGRAM, sockFd);
             if (status != ER_OK) {
                 QCC_LogError(status, ("LazyUpdateInterfaces: qcc::Socket(AF_INET) failed: %d - %s",
@@ -932,19 +892,18 @@ void NameService::LazyUpdateInterfaces(void)
                 continue;
             }
 
+            //
+            // If we're going to send broadcasts, we have to ask for
+            // permission.
+            //
             if (m_broadcast) {
-                //
-                // If we're going to send broadcasts, we have to ask for
-                // permission.
-                //
-                int broadcast = 1;
-                if (setsockopt(sockFd, SOL_SOCKET, SO_BROADCAST, (char*)&broadcast, sizeof broadcast) == -1) {
-                    QCC_LogError(status, ("LazyUpdateInterfaces: setsockopt(SO_BROADCAST) failed: %d - %s",
-                                          qcc::GetLastError(), qcc::GetLastErrorString().c_str()));
+                status = qcc::SetBroadcast(sockFd, true);
+                if (status != ER_OK) {
+                    QCC_LogError(status, ("LazyUpdateInterfaces: enable broadcast failed"));
                     continue;
                 }
             }
-        } else if (entries[i].m_family == AF_INET6) {
+        } else if (entries[i].m_family == qcc::QCC_AF_INET6) {
             QStatus status = qcc::Socket(qcc::QCC_AF_INET6, qcc::QCC_SOCK_DGRAM, sockFd);
             if (status != ER_OK) {
                 QCC_LogError(status, ("LazyUpdateInterfaces: qcc::Socket(AF_INET6) failed: %d - %s",
@@ -957,82 +916,68 @@ void NameService::LazyUpdateInterfaces(void)
         }
 
         //
-        // We must be able to reuse the address (well, port, but not all systems
-        // support SO_REUSEPORT) so other AllJoyn daemon instances on this host can
-        // listen in if desired.
+        // We must be able to reuse the address/port combination so other
+        // AllJoyn daemon instances on the same host can listen in if desired.
+        // This will set the SO_REUSEPORT socket option if available or fall
+        // back onto SO_REUSEADDR if not.
         //
-#ifndef SO_REUSEPORT
-#define SO_REUSEPORT SO_REUSEADDR
-#endif
-        uint32_t yes = 1;
-        if (setsockopt(sockFd, SOL_SOCKET, SO_REUSEPORT, reinterpret_cast<const char*>(&yes), sizeof(yes)) < 0) {
-            QCC_LogError(status, ("NameService::LazyUpdateInterfaces(): setsockopt(SO_REUSEPORT) failed: %d - %s",
-                                  qcc::GetLastError(), qcc::GetLastErrorString().c_str()));
+        status = qcc::SetReusePort(sockFd, true);
+        if (status != ER_OK) {
+            QCC_LogError(status, ("NameService::LazyUpdateInterfaces(): SetReusePort() failed"));
             qcc::Close(sockFd);
             continue;
         }
 
         //
-        // If the MULTICAST flag is set, we are going to try and multicast out over
-        // the interface in question, so we are going to have to play the usual
-        // multicast games.  If the MULTICAST flag is not set, then we want to fall
-        // back to IPv4 subnet directed broadcast.
+        // If the MULTICAST flag is set, we are going to try and multicast out
+        // over the interface in question.  If the MULTICAST flag is not set,
+        // then we want to fall back to IPv4 subnet directed broadcast, so we
+        // optionally do all of the multicast games and take the interface live
+        // even if it doesn't support multicast.
         //
         if (entries[i].m_flags & qcc::IfConfigEntry::MULTICAST) {
             //
             // Restrict the scope of the sent muticast packets to the local subnet.
-            // Of course, IPv4 and IPv6 have to do it differently.
             //
-            uint32_t ttl = 1;
-            if (entries[i].m_family == AF_INET) {
-                if (setsockopt(sockFd, IPPROTO_IP, IP_MULTICAST_TTL, reinterpret_cast<const char*>(&ttl), sizeof(ttl)) < 0) {
-                    QCC_LogError(status, (
-                                     "NameService::LazyUpdateInterfaces(): setsockopt(IP_MULTICAST_TTL) failed: %d - %s",
-                                     qcc::GetLastError(), qcc::GetLastErrorString().c_str()));
-                    qcc::Close(sockFd);
-                    continue;
-                }
-            }
-
-            if (entries[i].m_family == AF_INET6) {
-                if (setsockopt(sockFd, IPPROTO_IPV6, IPV6_MULTICAST_HOPS, reinterpret_cast<const char*>(&ttl), sizeof(ttl)) < 0) {
-                    QCC_LogError(status, (
-                                     "NameService::LazyUpdateInterfaces(): setsockopt(IP_MULTICAST_HOPS) failed: %d - %s",
-                                     qcc::GetLastError(), qcc::GetLastErrorString().c_str()));
-                    qcc::Close(sockFd);
-                    continue;
-                }
-            }
-        }
-
-        qcc::IPAddress address(entries[i].m_addr);
-
-        //
-        // In order to control which interfaces get our multicast datagrams, it
-        // is necessary to do so via a socket option.  See the Long Sidebar above.
-        // Yes, you have to do it differently depending on whether or not you're
-        // using IPv4 or IPv6.
-        //
-        if (entries[i].m_family == AF_INET) {
-            struct in_addr addr;
-            addr.s_addr = address.GetIPv4AddressNetOrder();
-            if (setsockopt(sockFd, IPPROTO_IP, IP_MULTICAST_IF,
-                           reinterpret_cast<const char*>(&addr), sizeof(addr)) < 0) {
-                QCC_LogError(status, (
-                                 "NameService::LazyUpdateInterfaces(): setsockopt(IP_MULTICAST_IF) failed: %d - %s",
-                                 qcc::GetLastError(), qcc::GetLastErrorString().c_str()));
+            status = qcc::SetMulticastHops(sockFd, entries[i].m_family, 1);
+            if (status != ER_OK) {
+                QCC_LogError(status, ("NameService::LazyUpdateInterfaces(): SetMulticastHops() failed"));
                 qcc::Close(sockFd);
                 continue;
             }
-        }
 
-        if (entries[i].m_family == AF_INET6) {
-            uint32_t index = entries[i].m_index;
-            if (setsockopt(sockFd, IPPROTO_IPV6, IPV6_MULTICAST_IF,
-                           reinterpret_cast<const char*>(&index), sizeof(index)) < 0) {
-                QCC_LogError(status, (
-                                 "NameService::LazyUpdateInterfaces(): setsockopt(IPV6_MULTICAST_IF) failed: %d - %s",
-                                 qcc::GetLastError(), qcc::GetLastErrorString().c_str()));
+            //
+            // In order to control which interfaces get our multicast datagrams, it
+            // is necessary to do so via a socket option.  See the Long Sidebar above.
+            // Yes, you have to do it differently depending on whether or not you're
+            // using IPv4 or IPv6.
+            //
+            status = qcc::SetMulticastInterface(sockFd, entries[i].m_family, entries[i].m_name);
+            if (status != ER_OK) {
+                QCC_LogError(status, ("NameService::LazyUpdateInterfaces(): SetMulticastInterface() failed"));
+                qcc::Close(sockFd);
+                continue;
+            }
+
+            //
+            // Arrange an IGMP join via the appropriate socket option (via the
+            // qcc abstraction layer). Android doesn't bother to compile its
+            // kernel with CONFIG_IP_MULTICAST set.  This doesn't mean that
+            // there is no multicast code in the Android kernel, it means there
+            // is no IGMP code in the kernel.  What this means to us is that
+            // even through we are doing an IP_ADD_MEMBERSHIP request, which is
+            // ultimately an IGMP operation, the request will filter through the
+            // IP code before being ignored and will do useful things in the
+            // kernel even though CONFIG_IP_MULTICAST was not set for the
+            // Android build -- i.e., we have to do it anyway.
+            //
+            if (entries[i].m_family == qcc::QCC_AF_INET) {
+                status = qcc::JoinMulticastGroup(sockFd, qcc::QCC_AF_INET, IPV4_MULTICAST_GROUP, entries[i].m_name);
+            } else if (entries[i].m_family == qcc::QCC_AF_INET6) {
+                status = qcc::JoinMulticastGroup(sockFd, qcc::QCC_AF_INET6, IPV6_MULTICAST_GROUP, entries[i].m_name);
+            }
+            if (status != ER_OK) {
+                QCC_LogError(status, ("NameService::LazyUpdateInterfaces(): unable to join multicast group"));
                 qcc::Close(sockFd);
                 continue;
             }
@@ -1044,70 +989,19 @@ void NameService::LazyUpdateInterfaces(void)
         // are a little different.  Binding to INADDR_ANY is the correct thing
         // to do.  The See the Long Sidebar above.
         //
-        if (entries[i].m_family == AF_INET) {
+        if (entries[i].m_family == qcc::QCC_AF_INET) {
             status = qcc::Bind(sockFd, qcc::IPAddress("0.0.0.0"), MULTICAST_PORT);
             if (status != ER_OK) {
                 QCC_LogError(status, ("NameService::LazyUpdateInterfaces(): bind(0.0.0.0) failed"));
                 qcc::Close(sockFd);
                 continue;
             }
-        }
-
-        if (entries[i].m_family == AF_INET6) {
+        } else if (entries[i].m_family == qcc::QCC_AF_INET6) {
             status = qcc::Bind(sockFd, qcc::IPAddress("::"), MULTICAST_PORT);
             if (status != ER_OK) {
                 QCC_LogError(status, ("NameService::LazyUpdateInterfaces(): bind(::) failed"));
                 qcc::Close(sockFd);
                 continue;
-            }
-        }
-
-        //
-        // Arrange an IGMP join via the appropriate setsockopt. Android
-        // doesn't bother to compile its kernel with CONFIG_IP_MULTICAST set.
-        // This doesn't mean that there is no multicast code in the Android
-        // kernel, it means there is no IGMP code in the kernel.  What this
-        // means to us is that even through we are doing an IP_ADD_MEMBERSHIP
-        // request, which is ultimately an IGMP operation, the request will
-        // filter through the IP code before being ignored and will do useful
-        // things in the kernel even though CONFIG_IP_MULTICAST was not set
-        // for the Android build -- i.e., we have to do it anyway.
-        //
-        if (entries[i].m_flags & qcc::IfConfigEntry::MULTICAST) {
-            if (entries[i].m_family == AF_INET) {
-                struct ip_mreq mreq;
-                mreq.imr_multiaddr.s_addr = inet_addr(IPV4_MULTICAST_GROUP);
-                mreq.imr_interface.s_addr = address.GetIPv4AddressNetOrder();
-
-                if (setsockopt(sockFd, IPPROTO_IP, IP_ADD_MEMBERSHIP, reinterpret_cast<const char*>(&mreq), sizeof(mreq)) < 0) {
-                    QCC_LogError(status, (
-                                     "NameService::LazyUpdateInterfaces(): setsockopt(IP_ADD_MEMBERSHIP) failed: %d - %s",
-                                     qcc::GetLastError(), qcc::GetLastErrorString().c_str()));
-                    qcc::Close(sockFd);
-                    continue;
-                }
-            }
-
-            if (entries[i].m_family == AF_INET6) {
-                struct ipv6_mreq mreq;
-                qcc::String mcGroup(IPV6_MULTICAST_GROUP);
-                if (INET_PTON(AF_INET6, mcGroup.c_str(), &mreq.ipv6mr_multiaddr) == 0) {
-                    QCC_LogError(status, ("NameService::LazyUpdateInterfaces(): INET_PTON failed"));
-                    qcc::Close(sockFd);
-                    continue;
-                }
-
-                mreq.ipv6mr_interface = entries[i].m_index;
-
-                if (setsockopt(sockFd, IPPROTO_IPV6, IPV6_ADD_MEMBERSHIP,
-                               reinterpret_cast<const char*>(&mreq), sizeof(mreq)) < 0) {
-                    QCC_LogError(status, (
-                                     "NameService::LazyUpdateInterfaces(): setsockopt(IPV6_ADD_MEMBERSHIP) failed: %d-%s",
-                                     qcc::GetLastError(), qcc::GetLastErrorString().c_str()));
-                    qcc::Close(sockFd);
-                    continue;
-                }
-
             }
         }
 
@@ -1118,7 +1012,7 @@ void NameService::LazyUpdateInterfaces(void)
         live.m_interfaceName = entries[i].m_name;
         live.m_interfaceAddr = entries[i].m_addr;
         live.m_prefixlen = entries[i].m_prefixlen;
-        live.m_address = address;
+        live.m_address = qcc::IPAddress(entries[i].m_addr);
         live.m_flags = entries[i].m_flags;
         live.m_mtu = entries[i].m_mtu;
         live.m_index = entries[i].m_index;
@@ -2041,8 +1935,8 @@ void* NameService::Run(void* arg)
                     // We have a RecvFrom error.  We want to avoid states where
                     // we get repeated read errors and just end up in an
                     // infinite loop getting errors sucking up all available
-                    // CPU, so we make sure we sleep for a short time after
-                    // detecting the error.
+                    // CPU, so we make sure we sleep for at least a short time
+                    // after detecting the error.
                     //
                     // Our basic strategy is to hope that this is a transient
                     // error, or one that will be recovered at the next lazy
@@ -2051,8 +1945,18 @@ void* NameService::Run(void* arg)
                     // the worst that can happen is that we introduce a short
                     // delay here in our handler whenever we detect an error.
                     //
+                    // Although this could happen for any number of reasons, it
+                    // typically happens due to a confusion in the Windows event
+                    // code between the read and write side events in a socket.
+                    // The result is that we get an event from the write side
+                    // that wakes us up here on the read side.  When we call
+                    // RecvFrom, we then get back an ER_WOULDBLOCK since there's
+                    // really no data waiting to be read.  There is nothing we
+                    // can do about it here, so we just deal with the
+                    // possibility.
+                    //
                     QCC_LogError(status, ("NameService::Run(): qcc::RecvFrom(): Failed"));
-                    qcc::Sleep(50);
+                    qcc::Sleep(1);
                     continue;
                 }
 

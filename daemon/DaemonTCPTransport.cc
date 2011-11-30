@@ -1629,9 +1629,6 @@ QStatus DaemonTCPTransport::StartListen(const char* listenSpec)
     }
 
     /*
-     * Create the TCP listener socket and set SO_REUSEADDR/SO_REUSEPORT so we don't have
-     * to wait for four minutes to relaunch the daemon if it crashes.
-     *
      * XXX We should enable IPv6 listerners.
      */
     SocketFd listenFd = -1;
@@ -1642,15 +1639,14 @@ QStatus DaemonTCPTransport::StartListen(const char* listenSpec)
         return status;
     }
 
-#ifndef SO_REUSEPORT
-#define SO_REUSEPORT SO_REUSEADDR
-#endif
-
-    uint32_t yes = 1;
-    if (setsockopt(listenFd, SOL_SOCKET, SO_REUSEPORT, reinterpret_cast<const char*>(&yes), sizeof(yes)) < 0) {
-        status = ER_OS_ERROR;
-        m_listenFdsLock.Unlock(MUTEX_CONTEXT);
-        QCC_LogError(status, ("DaemonTCPTransport::StartListen(): setsockopt(SO_REUSEPORT) failed"));
+    /*
+     * Set the SO_REUSEADDR socket option so we don't have to wait for four
+     * minutes while the endponit is in TIME_WAIT if we crash (or control-C).
+     */
+    status = qcc::SetReuseAddress(listenFd, true);
+    if (status != ER_OK) {
+        QCC_LogError(status, ("DaemonTCPTransport::StartListen(): SetReuseAddress() failed"));
+        qcc::Close(listenFd);
         return status;
     }
 
@@ -1660,9 +1656,11 @@ QStatus DaemonTCPTransport::StartListen(const char* listenSpec)
      */
     status = Bind(listenFd, listenAddr, listenPort);
     if (status == ER_OK) {
-        /* On Android, bundled daemon will not set the TCP port in the listen spec so as to let the kernel to find an
-         * unused port for TCP transport, thus call GetLocalAddress() to get the actual TCP port used after Bind()
-         * and update the connect spec here.
+        /*
+         * On Android, the bundled daemon will not set the TCP port in the listen
+         * spec so as to let the kernel to find an unused port for the TCP
+         * transport; thus call GetLocalAddress() to get the actual TCP port
+         * used after Bind() and update the connect spec here.
          */
         qcc::GetLocalAddress(listenFd, listenAddr, listenPort);
         normSpec = "tcp:addr=" + argMap["addr"] + ",port=" + U32ToString(listenPort);
