@@ -305,36 +305,42 @@ QStatus BusAttachment::TryAlternativeDaemon(RemoteEndpoint** newep)
 
     if (!isBundleDaemonStarted) {
         /* To start the BundleDaemonService of the application associated with this process, we should explicitly give the component name of the service.
-         * The component name includes the application package name and the service name. Here we read the package name from file /proc/${PID}/cmdline.
-         * Android uses package name as process name by default*/
+         * The component name includes the application package name and the service name.*/
         qcc::String packageName;
-        const uint32_t MAX_PID_STR_SIZE = 32;
-        char pidStr [MAX_PID_STR_SIZE];
-        pid_t pid = getpid();
-        snprintf(pidStr, MAX_PID_STR_SIZE, "%d", pid);
-        qcc::String fileName = "/proc/";
-        fileName += pidStr;
-        fileName += "/cmdline";
-        QCC_DbgHLPrintf(("Read fileName %s ", fileName.c_str()));
-        FileSource source(fileName);
-        const uint32_t maxBufferLen = 128;
-        char pkgBuffer[maxBufferLen];
-        uint32_t actualRead = 0;
-        if (source.IsValid()) {
-            source.PullBytes(pkgBuffer, maxBufferLen - 1, actualRead);
-            pkgBuffer[actualRead] = '\0';
-            packageName += pkgBuffer;
-
-            while (actualRead == (maxBufferLen - 1)) {
-                actualRead = 0;
+        /* The application should pass the package name as the first argument when creating the BusAttachment object */
+        if (!busInternal->application.empty()) {
+            packageName = busInternal->application;
+        } else {
+            /* If empty, then fallback to reading the package name from file /proc/${PID}/cmdline; By default Android uses package name as process name.
+               NOTE that when a service is delcared with attribute "android:process=:remote", the service is running in a new process with the name
+               different the package name. */
+            const uint32_t MAX_PID_STR_SIZE = 32;
+            char pidStr [MAX_PID_STR_SIZE];
+            pid_t pid = getpid();
+            snprintf(pidStr, MAX_PID_STR_SIZE, "%d", pid);
+            qcc::String fileName = "/proc/";
+            fileName += pidStr;
+            fileName += "/cmdline";
+            QCC_DbgHLPrintf(("Read fileName %s ", fileName.c_str()));
+            FileSource source(fileName);
+            const uint32_t maxBufferLen = 128;
+            char pkgBuffer[maxBufferLen];
+            uint32_t actualRead = 0;
+            if (source.IsValid()) {
                 source.PullBytes(pkgBuffer, maxBufferLen - 1, actualRead);
                 pkgBuffer[actualRead] = '\0';
                 packageName += pkgBuffer;
+
+                while (actualRead == (maxBufferLen - 1)) {
+                    actualRead = 0;
+                    source.PullBytes(pkgBuffer, maxBufferLen - 1, actualRead);
+                    pkgBuffer[actualRead] = '\0';
+                    packageName += pkgBuffer;
+                }
+            } else {
+                /* It may fail to read from the file /proc/${PID}/cmdline if Android locks the dir /proc*/
+                QCC_LogError(ER_FAIL, ("Fail to %s", fileName.c_str()));
             }
-        } else {
-            /*It may fail to read from the file /proc/${PID}/cmdline if Android locks the dir /proc in the future, then fallback to use the application name*/
-            QCC_DbgHLPrintf(("Fail to read file %s, use application name instead.", fileName.c_str()));
-            packageName = busInternal->application;
         }
 
         QCC_DbgHLPrintf(("BusAttachment::Try to start bundle daemon: packageName =%s\n", packageName.c_str()));
