@@ -50,8 +50,219 @@ using namespace std;
 
 namespace ajn {
 
+// ============================================================================
+// Long sidebar on why this looks so complicated:
 //
-// There are configurable attributes of the name servcie which are determined
+// In order to understand all of the trouble we are going to go through below,
+// it is helpful to thoroughly understand what is done on our platforms in the
+// presence of multicast.  This is long reading, but worthwhile reading if you
+// are trying to understand what is going on.  I don't know of anywhere you
+// can find all of this written in one place.
+//
+// The first thing to grok is that all platforms are implemented differently.
+// Windows and Linux use IGMP to enable and disable multicast, and use other
+// multicast-related socket calls to do the fine-grained control.  Android
+// doesn't bother to compile its kernel with CONFIG_IP_MULTICAST set.  This
+// doesn't mean that there is no multicast code in the Android kernel, it means
+// there is no IGMP code in the kernel.  Since IGMP isn't implemented, Android
+// can't use it to enable and disable multicast at the driver level, so it uses
+// wpa_supplicant driver-private commands instead.  This means that you will
+// probably get three different answers if you ask how some piece of the
+// multicast puzzle works.
+//
+// On the send side, multicast is controlled by the IP_MULTICAST_IF (or for
+// IPv6 IPV6_MULTICAST_IF) socket.  In IPv4 you provide an IP address and in
+// IPv6 you provide an interface index.  These differences are abstracted in
+// the qcc code and there you are asked to provide an interface name, which the
+// abstraction function uses to figure out the appropriate address or index
+// depending on the address family.  Unfortunately, you can't abstract away
+// the operating system differences in how they interpret the calls; so you
+// really need to understand what is happening at a low level in order to get
+// the high level multicast operations to do what you really want.
+//
+// If you do nothing (leave the sockets as you find them), or set the interface
+// address to 0.0.0.0 for IPv4 or the interface index to 0 for IPv6 the
+// multicast output interface is essentially selected by the system routing
+// code.
+//
+// In Linux (and Android), multicast packets are sent out the interface that is
+// used for the default route (the default interface).  You can see this if you
+// type "ip ro sh".  In Windows, however, the system chooses its default
+// interface by looking for the lowest value for the routing metric for a
+// destination IP address of 224.0.0.0 in its routing table.  You can see this
+// in the output of "route print".
+//
+// We want all of our multicast code to work in the presence of IP addresses
+// changing when phones move from one Wifi access point to another, or when our
+// desktop access point changes when someone with a mobile access point walks
+// by; so it is also important to know what will happen when these addresses
+// change (or come up or go down).
+//
+// On Linux, if you set the IP_MULTICAST_IF to 0.0.0.0 (or index 0 in IPv6) and
+// bring down the default interface or change the IP address on the default
+// interface, you will begin to fail the multicast sends with "network
+// unreachable" errors since the default route goes away when you change the IP
+// address (e.g, just do somthing like "sudo ifconfig eth1 10.4.108.237 netmask
+// 255.255.255.0 up to change the address).  Until you provide a new default
+// route (e.g., "route add default gw 10.4.108.1") the multicast packets will be
+// dropped, but as soon as a new default route is set, they will begin flowing
+// again.
+//
+// In Windows, if you set the IP_MULTICAST_IF address to 0.0.0.0 and release the
+// ip address (e.g., "ipconfig /release") the sends may still appear to work at
+// the level of the program but nothing goes out the original interface.  The
+// sends fail silently.  This is because Windows will dynamically change the
+// default multicast route according to its internal multicast routing table.
+// It selects another interface based on a routing metric, and it could, for
+// example, just switch to a VMware virtual interface silently.  The name
+// service would never know it just "broke" and is no longer sending packets out
+// the interface it thinks it is.
+//
+// When we set up multicast advertisements in our system, we most likely do not
+// want to route our advertisements only to the default adapter.  For example,
+// on a desktop system, the default interface is probably one of the wired
+// Ethernets.  We may or many not want to advertise on that interface, but we
+// may also want to advertise on other wired interfaces and other wireless
+// interfaces as well.
+//
+// We do not want the system to start changing multicast destinations out from
+// under us, EVER.  Because of this, the only time using INADDR_ANY would be
+// appropriate in the IP_MULTICAST_IF socket option is in the simplest, static
+// network situations.  For the general case, we really need to keep multiple
+// sockets that are each talking to an INTERFACE of interest (not an IP address
+// of interest, since they can change at any time because of normal access point
+// dis-associations, for example).
+//
+// Since we determined that we needed to use IP_MULTICAST_IF to control which
+// interfaces are used for discovery, we needed to understand exactly what
+// changing an IP address out from under a corresponding interface would do.
+//
+// The first thing we observed is that IP_MULTICAST_IF takes an IP address in
+// the case of IPv4, but we wanted to specify an interface index as in IPv6 or
+// for mere mortal human beings, a name (e.g., "wlan0").  It may be the case
+// that the interface does not have an IP address assigned (is not up or
+// connected to an access point) at the time we want to start our name service,
+// so a call to set the IP_MULTICAST_IF (via the appropriate abstract qcc call)
+// would not be possible until an address is available, perhaps an arbitrary
+// unknowable time later.  If sendto() operations are attempted and the IP
+// address is not valid one will see "network unreachable" errors.  As we will
+// discuss shortly, joining a multicast group also requires an IP address in the
+// case of IPv4 (need to send IGMP Join messages), so it is not possible to
+// express interest in receiving multicast packets until an IP address is
+// available.
+//
+// So we needed to provide an API that allows a user to specify a network
+// interface over which she is interested in advertising.  This explains the
+// method OpenInterface(qcc::String interface) defined below.  The client is
+// expected to figure out which interfaces it wants to do discovery over (e.g.,
+// "wlan0", "eth0") and explicitly tell the name service which interfaces it is
+// interested in.  We clearly need a lazy evaluation mechanism in the name
+// service to look at the interfaces which the client expresses interest in, and
+// when IP addresses are available, or change, we begin using those interfaces.
+// If the interfaces go down, or change out from under the name service, we need
+// to deal with that fact and make things right.
+//
+// We can either hook system "IP address changed" or "interface state changed"
+// events to drive the re-evaluation process as described above, or we can poll
+// for those changes.  Since the event systems in our various target platforms
+// are wildly different, creating an abstract event system is non-trivial (for
+// example, a DBus-based network manager exists on Linux, but even though
+// Android is basically Linux and has DBus, it doesn't use it.  You'd need to
+// use Netlink sockets on most Posix systems, but Darwin doesn't have Netlink.
+// Windows is from another planet.
+//
+// Because of all of these complications, we just choose the better part of
+// valor and poll for changes using a maintenance thread that fires off every
+// second and looks for changes in the networking environment and adjusts
+// accordingly.
+//
+// We could check for IP address changes on the interfaces and re-evaluate and
+// open new sockets bound to the correct interfaces whenever an address change
+// happens.  It is possible, however, that we could miss the fact that we have
+// switched access points if DHCP gives us the same IP address.  Windows, for
+// example, could happily begin rerouting packets to other interfaces if one
+// goes down.  If the interface comes back up on a different access point, which
+// gives out the same IP address, Windows could bring us back up but leave the
+// multicast route pointing somewhere else and we would never notice.  Because
+// of these byzantine kinds of errors, we chose the better part of valor and
+// decided to close all of our multicast sockets down and restart them in a
+// known state periodically.
+//
+// The receive side has similar kinds of issues.
+//
+// In order to receive multicast datagrams sent to a particular port, it is
+// necessary to bind that local port leaving the local address unspecified
+// (i.e., INADDR_ANY or in6addr_any).  What you might think of as binding is
+// then actually handled by the Internet Group Management Protocol (IGMP) or its
+// ICMPv6 equivalent.  Recall that Android does not implement IGMP, so we have
+// yet another complication.
+//
+// Using IGMP, we join the socket to the multicast group instead of binding the
+// socket to a specific interface (address) and port.  Binding the socket to
+// INADDR_ANY or in6addr_any may look strange, but it is actually the right
+// thing to do.  Since joining a multicast group requires sending packets over
+// the IGMP protocol, we need a valid IP address in order to do the join.  As
+// mentioned above, an interface must be IFF_UP with an assigned IP address in
+// order to join a multicast group.
+//
+// The socket option for joining a multicast group, of course, works differently
+// for IPv4 and IPv6.  IP_ADD_MEMBERSHIP (for IPv4) has a provided IP address
+// that can be either INADDR_ANY or a specific address.  If INADDR_ANY is
+// provided, the interface of the default route is added to the group, and the
+// IGMP join is sent out that interface.  IPV6_ADD_MEMBERSHIP (for IPv6) has a
+// provided interface index that can be either 0 or a specific interface.  If 0
+// is provided, the interface of the default route is added to the group, and
+// the IGMP Join (actually an ICMPv6 equivalent) is sent out that interface.  If
+// a specific interface index is that interface is added to the group and the
+// IGMP join is sent out that interface.  Note that since an ICMP packet is sent,
+// the interface must be IFF_UP with an assigned IP address even though the
+// interface is specified by an index.
+//
+// A side effect of the IGMP join deep down in the kernel is to enable reception
+// of multicast MAC addresses in the device driver.  Since there is no IGMP in
+// Android, we must rely on a multicast (Java) lock being taken by some external
+// code on phones that do not leave multicast always enabled (HTC Desire, for
+// example).  When the Java multicast lock is taken, a private driver command is
+// sent to the wpa_supplicant which, in turn, calls into the appropriate network
+// device driver(s) to enable reception of multicast MAC packets.  This is
+// completely out of our control here.
+//
+// Similar to the situation on the send side, we most likely do not want to rely
+// on the system routing tables to configure which network interfaces our name
+// service receives over; so we really need to provide a specific address.
+//
+// If a specific IP address is provided, then that address must be an address
+// assigned to a currently-UP interface.  This is the same catch-22 as we have
+// on the send side.  We need to lazily evaluate the interface in order to find
+// if an IP address has appeared on that interface and then join the multicast
+// group to enable multicast on the underlying network device.
+//
+// It turns out that in Linux, the IP address passed to the join multicast group
+// socket option call is actually not significant after the initial call.  It is
+// used to look up an interface and its associated net device and to then set
+// the PACKET_MULTICAST filter on the net device to receive packets destined for
+// the specified multicast address.  If the IP address associated with the
+// interface changes, multicast messages will continue to be received.
+//
+// Of course, Windows does it differently.  They look at the IP address passed
+// to the socket option as being significant, and so if the underlying IP
+// address changes on a Windows system, multicast packets will no longer be
+// delivered.  Because of this, the receive side of the multicast name service
+// has also got to look for changes to IP address configuration and re-set
+// itself whenever it finds a change.
+//
+// So the code you find below may look overly complicated, but (hopefully most
+// of it, anyway) needs to be that way.
+//
+// As an aside, the daemon that owns us can be happy as a clam by simply binding
+// to INADDR_ANY since the semantics of this action, as interpreted by both
+// Windows and Linux, are to listen for connections on all current and future
+// interfaces and their IP addresses.  The complexity is fairly well contained
+// here.
+// ============================================================================
+
+//
+// There are configurable attributes of the name service which are determined
 // by the configuration database.  A module name is required and is defined
 // here.  An example of how to use this is in setting the interfaces the name
 // service will use for discovery.
@@ -301,7 +512,6 @@ NameService::~NameService()
     //
     // Delete any callbacks that a user of this class may have set.
     //
-
     delete m_callback;
     m_callback = 0;
 
@@ -310,178 +520,6 @@ NameService::~NameService()
     //
     m_state = IMPL_SHUTDOWN;
 }
-
-//
-// Long Sidebar:
-//
-// In order to understand all of the trouble we are going to go through below,
-// it is helpful to thoroughly understand what is done on our platforms in the
-// presence of multicast.  This is long reading, but worthwhile reading if you
-// are trying to understand what is going on.  I don't know of anywhere you
-// can find all of this written in one place.
-//
-// The first thing to grok is that all platforms are implemented differently.
-// Windows and Linux use IGMP to enable and disable multicast, and other
-// multicast-related socket calls to do the fine-grained control.  Android
-// doesn't bother to compile its kernel with CONFIG_IP_MULTICAST set.  This
-// doesn't mean that there is no multicast code in the Android kernel, it means
-// there is no IGMP code in the kernel.  Since IGMP isn't implemented, Android
-// can't use it to enable and disable multicast, so it uses wpa_supplicant
-// driver-private commands instead.  This means that you will probably get
-// three different answers if you ask how some piece of the multicast puzzle
-// works.
-//
-// On the send side, multicast is controlled by the IP_MULTICAST_IF (or for
-// IPv6 IPV6_MULTICAST_IF) socket.  In IPv4 you provide an IP address and in
-// IPv6 you provide an interface index.  If you do nothing, or set the
-// interface address to 0.0.0.0 for IPv4 or the interface index to 0 for IPv6
-// the multicast output interface is essentially selected by the system routing
-// code.  In Linux (and Android), multicast packets are sent out the interface
-// that is used for the default route (the default interface).  You can see this
-// if you type "ip ro sh".  In Windows, the system chooses its default interface
-// by looking for the lowest value for the routing metric for a destination IP
-// address of 224.0.0.0 in its routing table.  You can see this in the output
-// of "route print".
-//
-// We want all of our multicast code to work in the presence of IP addresses
-// changing when phones move from one Wifi access point to another, or when
-// our desktop access point changes when someone with a mobile access point
-// walks by; so it is important to know what will happen when these addresses
-// change.
-//
-// On Linux, if you set the IP_MULTICAST_IF to 0.0.0.0 (or index 0 in IPv6)
-// and bring down the default interface or change the IP address on the
-// default interface, you will begin to fail the multicast sends with "network
-// unreachable" errors since the default route goes away when you change the
-// IP address (e.g, "sudo ifconfig eth1 10.4.108.237 netmask 255.255.255.0 upâ€?).
-// As soon as you provide a new default route (e.g., "route add default gw
-// 10.4.108.1") the multicast packets will start flowing again.
-//
-// In Windows, if you set the IP_MULTICAST_IF address to 0.0.0.0 and release
-// the ip address (e.g., "ipconfig /release") the sends may still appear to
-// work but nothing goes out the original interface.  This is because Windows
-// will dynamically change the default multicast route according to its internal
-// multicast routing table.  It selects another interface based on a routing
-// metric, and it could, for example, just switch to a VMware virtual interface
-// silently.  The name service would never know it just "broke."
-//
-// When we set up multicast advertisements in our system, we most likely do not
-// want to route our advertisements only to the default adapter.  For example,
-// on a desktop system, the default interface is probably one of the wired
-// Ethernets.  We most likely want to advertise on that interface, but we may
-// also want to advertise on other wired interfaces and any wireless interfaces
-// as well.  We do not want the system to start changing multicast destinations
-// out from under us ever.  Because of this, the only time using INADDR_ANY
-// would be appropriate in the IP_MULTICAST_IF socket option is in the simplest,
-// static network situations.  For the general case, we really need to keep
-// multiple sockets that are each talking to an interface of interest (not IP
-// address, since they can change).
-//
-// So we need to provide API that allows a user to specify a network interface
-// over which she is interested in advertising.  This explains the method
-// OpenInterface(qcc::String interface) defined below.
-//
-// Once we have determined that we need to use IP_MULTICAST_IF, we needed to
-// understand exactly what changing the IP address out from under that call
-// would do.  The first thing to observe is that IP_MULTICAST_IF takes an IP
-// address in the case of IPv4, but we want to specify an interface index as in
-// IPv6 or for human beings, a name (e.g., "wlan0").  It may be the case that
-// the interface does not have an IP address assigned (is not up or connected to
-// an access point) at the time the call to OpenInterface is made, so a call to
-// set the interface (via the appropriate abstract qcc call) is not possible
-// until an address is available.  If the IP address is not valid you will see a
-// "network unreachable" error.  So, we need to defer this action until we need
-// to do it; and we use lazy evaluation on the IP address and only store the
-// interface name in OpenInterface.
-//
-// If we try to rely on sockets to notify us whenever an error happens and then
-// try to re-open the socket using the correct interface name, as we metioned
-// above, we could miss the fact that our routing has changed.  The safest thing
-// to do would be to check for IP address changes and re-evaluate and open new
-// sockets bound to the correct interfaces whenever we want to send a multicast
-// packet.  It is conceivable that we could miss the fact that we have switched
-// access points if DHCP gives us the same IP (using either the error return or
-// address check methods), but that shouldn't actually matter.
-//
-// The receive side has similar issues.
-//
-// In order to receive multicast datagrams sent to a particular port, it is
-// necessary to bind that local port leaving the local address unspecified
-// (i.e., INADDR_ANY or in6addr_any).  What you might think of as binding is
-// then actually handled by the Internet Group Management Protocol (IGMP).
-// Recall that Android does not implement IGMP, so we have yet another small
-// complication.
-//
-// Using IGMP, we join the socket to the multicast group instead of binding
-// the socket to a specific interface (address) and port.  Binding the socket
-// to INADDR_ANY or in6addr_any may look strange, but it is actually the right
-// thing to do.
-//
-// The socket option for joining a multicast group, of course, works differently
-// for IPv4 and IPv6.  IP_ADD_MEMBERSHIP (for IPv4) has a provided IP address
-// that can be either INADDR_ANY or a specific address.  If INADDR_ANY is
-// provided, the interface of the default route is added to the group, and the
-// IGMP join is sent out that interface.  IPV6_ADD_MEMBERSHIP (for IPv6) has a
-// provided interface index that can be either 0 or a specific interface.  If 0
-// is provided, the interface of the default route is added to the group, and the
-// IGMP join is sent out that interface.  If a specific interface index is
-// that interface is added to the group and the IGMP join is sent out that
-// interface.
-//
-// A side effect of the IGMP join deep down in the kernel is to enable reception
-// of multicast MAC addresses in the device driver.  Since there is no IGMP in
-// Android, we must rely on a multicast (Java) lock being taken by some external
-// code on phones that do not leave multicast always enabled (HTC Desire, for
-// example).  When the multicast lock is taken, a private driver command is sent
-// to the wpa_supplicant which, in turn, calls into the driver to enable reception
-// of multicast MAC packets.
-//
-// Similar to the situation on the send side, we most likely do not want to rely
-// on the system routing tables to configure our name service.  So we really need
-// to provide a specific address.
-//
-// If a specific IP address is provided, then that address must be an
-// address assigned to a currently-UP interface.  This is the same catch-22
-// as we have on the send side.  We need to lazily evaluate the interface
-// when we "need" to, in order to find if an IP address has appeared on
-// that interface and then join the multicast group to enable multicast on
-// the underlying device.
-//
-// We can either hook "IP address changed" events to drive the re-evaluation
-// process or we can poll for those changes.  We have a maintenance thread
-// that fires off every second, so it can look for these changes.  It seems
-// that "IP address changed" events are communicated by the DBus-based network
-// manager in Linux, other Windows-specific events, or an unknown mechanism in
-// Android.  The better part of valor seems to be to poll in the maintenance
-// thread.
-//
-// It turns out that in Linux, the IP address passed to the join socket option
-// call is actually not significant after the initial call.  It is used to look
-// up an interface and its associated net device and to then set the
-// PACKET_MULTICAST filter on the net device to receive packets destined for
-// the specified multicast address.  If the IP address associated with the
-// interface changes, multicast messages will continue to be received.
-//
-// Of course, Windows does it differently.  They look at the IP address passed
-// to the socket option as being significant, and so if the underlying IP address
-// changes on a Windows system, multicast packets will no longer be delivered.
-// Because of this, the receive side of the multicast name service has also
-// got to look for changes to IP address configuration and set itself up
-// whenever it finds a change.
-//
-// So it may look overly complicated, but we provide an OpenInterface call that
-// takes an interface name.  This just remembers that name.  The maintenance
-// thread wakes up every second and checks to make sure we are ready to listen
-// to and talk over the correct interfaces (as specified by the calls to
-// OpenInterface) by closing and opening sockets.  When an advertise or cancel
-// is called, we also check to make sure we are ready to talk over the correct
-// interfaces before sending packets.
-//
-// As an aside, the daemon that owns us can be happy as a clam by simply binding
-// to INADDR_ANY since the semantics of this, as interpreted by both Windows and
-// Linux, are to listen for connections on all current and future interfaces and
-// their IP addresses.
-//
 
 QStatus NameService::OpenInterface(const qcc::String& name)
 {
