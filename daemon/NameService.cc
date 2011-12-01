@@ -981,7 +981,6 @@ void NameService::LazyUpdateInterfaces(void)
             if (status != ER_OK) {
                 QCC_LogError(status, ("NameService::LazyUpdateInterfaces(): SetMulticastHops() failed"));
                 qcc::Close(sockFd);
-                continue;
             }
 
             //
