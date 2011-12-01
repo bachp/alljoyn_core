@@ -109,11 +109,6 @@ BTTransport::BTAccessor::~BTAccessor()
     adapterChangeThread.Join();
 
     Stop();
-
-    if (radioHandle) {
-        ::CloseHandle(radioHandle);
-        radioHandle = 0;
-    }
 }
 
 void BTTransport::BTAccessor::HandleL2CapEvent(const USER_KERNEL_MESSAGE* message)
@@ -2267,6 +2262,13 @@ qcc::ThreadReturn STDCALL BTTransport::BTAccessor::AdapterChangeThread::Run(void
 
         Event::Wait(GetStopEvent(), adapterCheckPeriodInMilliseconds);
     } while (!IsStopping());
+
+    // Bluetooth was previously available.
+    if (btAccessor.BluetoothIsAvailable()) {
+        btAccessor.KernelDisconnect();
+        ::CloseHandle(btAccessor.radioHandle);
+        btAccessor.radioHandle = 0;
+    }
 
     return 0;
 }
