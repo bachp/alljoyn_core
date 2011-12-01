@@ -2553,12 +2553,11 @@ QStatus BTController::ExtractNodeInfo(const MsgArg* entries, size_t size, BTNode
 
         BTBusAddress connNodeAddr(BDAddress(connAddrRaw), connPSM);
         if ((self->GetBusAddress() == connNodeAddr) || nodeDB.FindNode(connNodeAddr)->IsValid()) {
-            // Don't add ourself or any node on our piconet/scatternet to foundNodeDB.
+            // Don't add ourself or any minions on our piconet/scatternet to foundNodeDB.
             QCC_DbgPrintf(("    Skipping nodes with connect address: %s", connNodeAddr.ToString().c_str()));
             continue;
         }
 
-        assert(!db.FindNode(connNodeAddr)->IsValid());
         BTNodeInfo connNode = BTNodeInfo(connNodeAddr);
 
         for (j = 0; j < adMapSize; ++j) {
