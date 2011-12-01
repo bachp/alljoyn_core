@@ -302,7 +302,7 @@ class BTController :
      */
     void PostConnect(QStatus status, BTNodeInfo& node, const qcc::String& remoteName);
 
-    void LostLastConnection(const BDAddress& addr);
+    void LostLastConnection(const BTNodeInfo& node);
 
     /**
      * Function for the BT Transport to inform a change in the

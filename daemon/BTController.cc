@@ -778,31 +778,35 @@ void BTController::PostConnect(QStatus status, BTNodeInfo& node, const String& r
 }
 
 
-void BTController::LostLastConnection(const BDAddress& addr)
+void BTController::LostLastConnection(const BTNodeInfo& node)
 {
-    QCC_DbgTrace(("BTController::LostLastConnection(addr = %s)",
-                  addr.ToString().c_str()));
+    QCC_DbgTrace(("BTController::LostLastConnection(node = %s)",
+                  node->ToString().c_str()));
 
-    BTNodeInfo node;
+    BTNodeInfo lostNode;
 
-    if (addr == masterNode->GetBusAddress().addr) {
-        node = masterNode;
-    } else {
-        BTNodeDB::const_iterator it;
-        BTNodeDB::const_iterator end;
-        nodeDB.Lock();
-        nodeDB.FindNodes(addr, it, end);
-        for (; it != end; ++it) {
-            if ((*it)->GetConnectionCount() == 1) {
-                node = *it;
-                break;
+    if (node->GetBusAddress().psm == bt::INCOMING_PSM) {
+        if (node->GetBusAddress().addr == masterNode->GetBusAddress().addr) {
+            lostNode = masterNode;
+        } else {
+            BTNodeDB::const_iterator it;
+            BTNodeDB::const_iterator end;
+            nodeDB.Lock();
+            nodeDB.FindNodes(node->GetBusAddress().addr, it, end);
+            for (; it != end; ++it) {
+                if ((*it)->GetConnectionCount() == 1) {
+                    lostNode = *it;
+                    break;
+                }
             }
+            nodeDB.Unlock();
         }
-        nodeDB.Unlock();
+    } else {
+        lostNode = node;
     }
 
-    if ((node->IsValid()) && (node->IsEIRCapable())) {
-        SessionId sessionID = node->GetSessionID();
+    if (lostNode->IsValid()) {
+        SessionId sessionID = lostNode->GetSessionID();
         nodeDB.NodeSessionLost(sessionID);
         bus.LeaveSession(sessionID);
     }

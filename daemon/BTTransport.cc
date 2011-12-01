@@ -452,7 +452,7 @@ void BTTransport::EndpointExit(RemoteEndpoint* endpoint)
         }
 
         if (connCount == 1) {
-            btController->LostLastConnection(node->GetBusAddress().addr);
+            btController->LostLastConnection(node);
         }
     }
 
