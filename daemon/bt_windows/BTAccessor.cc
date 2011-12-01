@@ -75,24 +75,23 @@ static const::GUID alljoynUUIDBase =
 
 BTTransport::BTAccessor::BTAccessor(BTTransport* transport,
                                     const qcc::String& busGuid) :
-    bzBus("WindowsBTTransport"),
+    winBus("WindowsBTTransport"),
     busGuid(busGuid),
     transport(transport),
     recordHandle(NULL),
     deviceHandle(INVALID_HANDLE_VALUE),
     discoveryThread(*this),
     getMessageThread(*this),
+    adapterChangeThread(*this),
     wsaInitialized(false),
+    radioHandle(0),
     l2capEvent(NULL)
 {
     QCC_DbgTrace(("BTTransport::BTAccessor::BTAccessor()"));
 
-    if (GetRadioHandle()) {
-        GetRadioAddress();
-    }
-
     EndPointsInit();
     ConnectRequestsInit();
+    adapterChangeThread.Start();
     discoveryThread.Start();
 }
 
@@ -100,15 +99,21 @@ BTTransport::BTAccessor::~BTAccessor()
 {
     QCC_DbgTrace(("BTTransport::BTAccessor::~BTAccessor()"));
 
+    adapterChangeThread.Stop();
     StopConnectable();
     discoveryThread.StopDiscovery();
+
+    // adapterChangeThread must have exited before closing the radio handle or calling Stop()
+    // so that it does not get a new radio handle and call Start() when it discovers the radio
+    // handle is closed.
+    adapterChangeThread.Join();
+
+    Stop();
 
     if (radioHandle) {
         ::CloseHandle(radioHandle);
         radioHandle = 0;
     }
-
-    Stop();
 }
 
 void BTTransport::BTAccessor::HandleL2CapEvent(const USER_KERNEL_MESSAGE* message)
@@ -238,7 +243,7 @@ QStatus BTTransport::BTAccessor::DeviceSendMessage(USER_KERNEL_MESSAGE* messageI
         memset(messageOut, 0, sizeof(*messageOut));
     }
 
-    if (INVALID_HANDLE_VALUE == deviceHandle) {
+    if (!BluetoothIsAvailable() || INVALID_HANDLE_VALUE == deviceHandle) {
         returnValue = ER_INIT_FAILED;
     } else {
         size_t bytesReturned = 0;
@@ -346,44 +351,50 @@ exit:
     return deviceInterfaceDetailData;
 }
 
-QStatus BTTransport::BTAccessor::Start()
+QStatus BTTransport::BTAccessor::KernelConnect()
 {
-    QCC_DbgTrace(("BTTransport::BTAccessor::Start()"));
+    QCC_DbgTrace(("BTTransport::BTAccessor::KernelConnect()"));
 
     QStatus status = ER_OK;
 
     USER_KERNEL_MESSAGE messageIn = { USRKRNCMD_SETMESSAGEEVENT };
     USER_KERNEL_MESSAGE messageOut = { USRKRNCMD_SETMESSAGEEVENT };
-    WSADATA wsaData;
-    WORD version = MAKEWORD(2, 2);
-    int error = WSAStartup(version, &wsaData);
 
-    if (0 != error) {
-        status = ER_INIT_FAILED;
-        goto Error;
+    if (!wsaInitialized) {
+        WSADATA wsaData;
+        WORD version = MAKEWORD(2, 2);
+        int error = WSAStartup(version, &wsaData);
+
+        if (0 != error) {
+            status = ER_INIT_FAILED;
+            goto Error;
+        }
+
+        wsaInitialized = true;
     }
-
-    wsaInitialized = true;
 
     HRESULT hr = S_OK;
-    PSP_DEVICE_INTERFACE_DETAIL_DATA deviceInterfaceDetailData = NULL;
 
-    deviceInterfaceDetailData = GetDeviceInterfaceDetailData();
-    if (deviceInterfaceDetailData == NULL) {
-        status = ER_OPEN_FAILED;
-        QCC_LogError(status, ("Unable to connect to Bluetooth device"));
-        goto Error;
+    if (INVALID_HANDLE_VALUE == deviceHandle) {
+        PSP_DEVICE_INTERFACE_DETAIL_DATA deviceInterfaceDetailData = NULL;
+
+        deviceInterfaceDetailData = GetDeviceInterfaceDetailData();
+        if (deviceInterfaceDetailData == NULL) {
+            status = ER_OPEN_FAILED;
+            QCC_LogError(status, ("Unable to connect to Bluetooth device"));
+            goto Error;
+        }
+
+        deviceHandle = ::CreateFile(deviceInterfaceDetailData->DevicePath,
+                                    GENERIC_READ | GENERIC_WRITE,
+                                    FILE_SHARE_READ | FILE_SHARE_WRITE,
+                                    NULL,
+                                    OPEN_EXISTING,
+                                    FILE_FLAG_OVERLAPPED,
+                                    NULL);
+
+        LocalFree(deviceInterfaceDetailData);
     }
-
-    deviceHandle = ::CreateFile(deviceInterfaceDetailData->DevicePath,
-                                GENERIC_READ | GENERIC_WRITE,
-                                FILE_SHARE_READ | FILE_SHARE_WRITE,
-                                NULL,
-                                OPEN_EXISTING,
-                                FILE_FLAG_OVERLAPPED,
-                                NULL);
-
-    LocalFree(deviceInterfaceDetailData);
 
     if (deviceHandle == INVALID_HANDLE_VALUE) {
         status = ER_OPEN_FAILED;
@@ -393,45 +404,50 @@ QStatus BTTransport::BTAccessor::Start()
     messageIn.messageData.setMessageEventData.eventHandle = getMessageEvent.GetHandle();
     status = DeviceSendMessage(&messageIn, &messageOut);
 
-    if (ER_OK == status) {
-        status = messageOut.commandStatus.status;
-
-        if (ER_OK != status) {
-            QCC_LogError(status,
-                         ("BTTransport::BTAccessor::Start(): Unable to connect to Bluetooth driver"));
-        }
-
-        // Expect the negative of the version from the kernel.
-        if (DRIVER_VERSION != -messageOut.version || messageOut.is64Bit != IS_64BIT) {
-            status = ER_INIT_FAILED;
-            QCC_LogError(status,
-                         ("BTTransport::BTAccessor::Start() user mode expects version %d %s but driver was version %d %s",
-                          DRIVER_VERSION, IS_64BIT ? "64-bit" : "32-bit",
-                          -messageOut.version, messageOut.is64Bit ? "64-bit" : "32-bit"));
-        }
-    }
-
-    // If we were not successful in giving the event to the kernel no messages are coming back.
     if (ER_OK != status) {
         goto Error;
     }
+    status = messageOut.commandStatus.status;
 
-    status = getMessageThread.Start();
-    if (status == ER_OK) {
-        transport->BTDeviceAvailable(true);
+    if (ER_OK != status) {
+        QCC_LogError(status,
+                     ("BTTransport::BTAccessor::KernelConnect(): Unable to connect to Bluetooth driver"));
+        goto Error;
     }
 
+    // Expect the negative of the version from the kernel.
+    if (DRIVER_VERSION != -messageOut.version || messageOut.is64Bit != IS_64BIT) {
+        status = ER_INIT_FAILED;
+        QCC_LogError(status,
+                     ("BTTransport::BTAccessor::KernelConnect() user mode expects version %d %s but driver was version %d %s",
+                      DRIVER_VERSION, IS_64BIT ? "64-bit" : "32-bit",
+                      -messageOut.version, messageOut.is64Bit ? "64-bit" : "32-bit"));
+        // If we were not successful in giving the event to the kernel no messages are coming back.
+        goto Error;
+    }
+
+    if (!getMessageThread.IsRunning()) {
+        status = getMessageThread.Start();
+    }
+
+    if (status != ER_OK) {
+        goto Error;
+    }
+
+    transport->BTDeviceAvailable(true);
+
 Error:
+
     if (ER_OK != status) {
-        Stop();
+        KernelDisconnect();
     }
 
     return status;
 }
 
-void BTTransport::BTAccessor::Stop()
+void BTTransport::BTAccessor::KernelDisconnect(void)
 {
-    QCC_DbgTrace(("BTTransport::BTAccessor::Stop()"));
+    QCC_DbgTrace(("BTTransport::BTAccessor::KernelDisconnect()"));
 
     transport->BTDeviceAvailable(false);
 
@@ -454,9 +470,9 @@ void BTTransport::BTAccessor::Stop()
     // Delete the SDP record if it exists.
     this->RemoveRecord();
 
-    if (this->wsaInitialized) {
+    if (wsaInitialized) {
         WSACleanup();
-        this->wsaInitialized = false;
+        wsaInitialized = false;
     }
 
     getMessageThread.Join();
@@ -519,62 +535,71 @@ qcc::ThreadReturn STDCALL BTTransport::BTAccessor::DiscoveryThread::Run(void* ar
                 timeout = Event::WAIT_FOREVER;
                 continue;
             }
+
             // We don't have a radio handle initially
-            deviceSearchParms.hRadio = btAccessor.radioHandle;
-
-            QCC_DbgHLPrintf(("DiscoveryThread duration=%I32u mS", duration));
-
-            HBLUETOOTH_DEVICE_FIND deviceFindHandle;
-            BLUETOOTH_DEVICE_INFO deviceInfo;
-
-            deviceInfo.dwSize = sizeof(deviceInfo);
-
             btAccessor.deviceLock.Lock(MUTEX_CONTEXT);
-            if (duration < DISCOVERY_TIME_IN_MILLISECONDS) {
-                deviceSearchParms.cTimeoutMultiplier = MillisecondsToTicks(duration);
-                duration = 1;
-            } else {
-                deviceSearchParms.cTimeoutMultiplier = MillisecondsToTicks(DISCOVERY_TIME_IN_MILLISECONDS);
-                duration -= DISCOVERY_TIME_IN_MILLISECONDS;
+
+            if (btAccessor.BluetoothIsAvailable()) {
+                deviceSearchParms.hRadio = btAccessor.radioHandle;
             }
+
             btAccessor.deviceLock.Unlock(MUTEX_CONTEXT);
 
-            deviceFindHandle = BluetoothFindFirstDevice(&deviceSearchParms, &deviceInfo);
-            // Report found devices unless duration has gone to zero
-            while (deviceFindHandle && duration) {
-                BDAddress address(deviceInfo.Address.ullLong);
-                // Filter out devices that don't have the INFORMATION bit set
-                if (GET_COD_SERVICE(deviceInfo.ulClassofDevice) & COD_SERVICE_INFORMATION) {
+            if (deviceSearchParms.hRadio) {
+                QCC_DbgHLPrintf(("DiscoveryThread duration=%I32u mS", duration));
 
-                    QCC_DbgHLPrintf(("DiscoveryThread found AllJoyn %s", address.ToString().c_str()));
+                HBLUETOOTH_DEVICE_FIND deviceFindHandle;
+                BLUETOOTH_DEVICE_INFO deviceInfo;
 
-                    btAccessor.deviceLock.Lock(MUTEX_CONTEXT);
-                    bool ignoreThisOne = btAccessor.discoveryIgnoreAddrs->count(address) != 0;
-                    btAccessor.deviceLock.Unlock(MUTEX_CONTEXT);
+                deviceInfo.dwSize = sizeof(deviceInfo);
 
-                    if (ignoreThisOne) {
-                        QCC_DbgHLPrintf(("DiscoveryThread %s is black-listed", address.ToString().c_str()));
-                    } else {
-                        btAccessor.DeviceFound(address);
-                    }
+                btAccessor.deviceLock.Lock(MUTEX_CONTEXT);
+                if (duration < DISCOVERY_TIME_IN_MILLISECONDS) {
+                    deviceSearchParms.cTimeoutMultiplier = MillisecondsToTicks(duration);
+                    duration = 1;
                 } else {
-                    QCC_DbgHLPrintf(("DiscoveryThread non-AllJoyn %s", address.ToString().c_str()));
+                    deviceSearchParms.cTimeoutMultiplier = MillisecondsToTicks(DISCOVERY_TIME_IN_MILLISECONDS);
+                    duration -= DISCOVERY_TIME_IN_MILLISECONDS;
                 }
-                if (!BluetoothFindNextDevice(deviceFindHandle, &deviceInfo)) {
-                    break;
+                btAccessor.deviceLock.Unlock(MUTEX_CONTEXT);
+
+                deviceFindHandle = BluetoothFindFirstDevice(&deviceSearchParms, &deviceInfo);
+                // Report found devices unless duration has gone to zero
+                while (deviceFindHandle && duration) {
+                    BDAddress address(deviceInfo.Address.ullLong);
+                    // Filter out devices that don't have the INFORMATION bit set
+                    if (GET_COD_SERVICE(deviceInfo.ulClassofDevice) & COD_SERVICE_INFORMATION) {
+
+                        QCC_DbgHLPrintf(("DiscoveryThread found AllJoyn %s", address.ToString().c_str()));
+
+                        btAccessor.deviceLock.Lock(MUTEX_CONTEXT);
+                        bool ignoreThisOne = btAccessor.discoveryIgnoreAddrs->count(address) != 0;
+                        btAccessor.deviceLock.Unlock(MUTEX_CONTEXT);
+
+                        if (ignoreThisOne) {
+                            QCC_DbgHLPrintf(("DiscoveryThread %s is black-listed", address.ToString().c_str()));
+                        } else {
+                            btAccessor.DeviceFound(address);
+                        }
+                    } else {
+                        QCC_DbgHLPrintf(("DiscoveryThread non-AllJoyn %s", address.ToString().c_str()));
+                    }
+                    if (!BluetoothFindNextDevice(deviceFindHandle, &deviceInfo)) {
+                        break;
+                    }
                 }
+                BluetoothFindDeviceClose(deviceFindHandle);
+                // Figure out how long to wait
+                btAccessor.deviceLock.Lock(MUTEX_CONTEXT);
+                if (duration < DISCOVERY_PAUSE_IN_MILLISECONDS) {
+                    timeout = Event::WAIT_FOREVER;
+                    duration = 0;
+                } else {
+                    timeout = DISCOVERY_PAUSE_IN_MILLISECONDS;
+                    duration -= DISCOVERY_PAUSE_IN_MILLISECONDS;
+                }
+                btAccessor.deviceLock.Unlock(MUTEX_CONTEXT);
             }
-            BluetoothFindDeviceClose(deviceFindHandle);
-            // Figure out how long to wait
-            btAccessor.deviceLock.Lock(MUTEX_CONTEXT);
-            if (duration < DISCOVERY_PAUSE_IN_MILLISECONDS) {
-                timeout = Event::WAIT_FOREVER;
-                duration = 0;
-            } else {
-                timeout = DISCOVERY_PAUSE_IN_MILLISECONDS;
-                duration -= DISCOVERY_PAUSE_IN_MILLISECONDS;
-            }
-            btAccessor.deviceLock.Unlock(MUTEX_CONTEXT);
         }
     }
     QCC_DbgHLPrintf(("BTTransport::BTAccessor::DiscoveryThread::Run exit"));
@@ -592,23 +617,17 @@ QStatus BTTransport::BTAccessor::StartDiscovery(const BDAddressSet& ignoreAddrs,
 {
     QCC_DbgTrace(("BTTransport::BTAccessor::StartDiscovery()"));
 
-    if (radioHandle) {
-        deviceLock.Lock(MUTEX_CONTEXT);
-        discoveryIgnoreAddrs = ignoreAddrs;
-        discoveryThread.StartDiscovery(duration ? duration : 0xFFFFFFFF);
-        deviceLock.Unlock(MUTEX_CONTEXT);
-        return ER_OK;
-    } else {
-        return ER_FAIL;
-    }
+    discoveryIgnoreAddrs = ignoreAddrs;
+    discoveryThread.StartDiscovery(duration ? duration : 0xFFFFFFFF);
+
+    return ER_OK;
 }
 
 QStatus BTTransport::BTAccessor::StopDiscovery()
 {
     QCC_DbgHLPrintf(("BTTransport::BTAccessor::StopDiscovery"));
-    deviceLock.Lock(MUTEX_CONTEXT);
     discoveryThread.StopDiscovery();
-    deviceLock.Unlock(MUTEX_CONTEXT);
+
     return ER_OK;
 }
 
@@ -618,12 +637,17 @@ QStatus BTTransport::BTAccessor::StartDiscoverability(uint32_t duration)
 
     QStatus status = ER_FAIL;
 
+    deviceLock.Lock(MUTEX_CONTEXT);
+
     if (radioHandle && (::BluetoothIsDiscoverable(radioHandle) || ::BluetoothEnableDiscovery(radioHandle, TRUE))) {
         if (duration > 0) {
             DispatchOperation(new DispatchInfo(DispatchInfo::STOP_DISCOVERABILITY),  duration * 1000);
         }
         status = ER_OK;
     }
+
+    deviceLock.Unlock(MUTEX_CONTEXT);
+
     return status;
 }
 
@@ -633,11 +657,15 @@ QStatus BTTransport::BTAccessor::StopDiscoverability()
 
     QStatus status = ER_FAIL;
 
+    deviceLock.Lock(MUTEX_CONTEXT);
+
     if (radioHandle &&
         (!::BluetoothIsDiscoverable(radioHandle) ||
          ::BluetoothEnableDiscovery(radioHandle, FALSE))) {
         status = ER_OK;
     }
+
+    deviceLock.Unlock(MUTEX_CONTEXT);
 
     return status;
 }
@@ -910,7 +938,7 @@ QStatus BTTransport::BTAccessor::SetSDPInfo(uint32_t uuidRev,
                         }
                     } else {
                         status = ER_OK;
-                        QCC_DbgPrintf(("Got record handle %x", recordHandle));
+                        QCC_DbgPrintf(("Got record handle 0x%08x", recordHandle));
                     }
                 }
 
@@ -928,6 +956,8 @@ QStatus BTTransport::BTAccessor::StartConnectable(BDAddress& addr, uint16_t& psm
 
     QStatus status = ER_FAIL;
 
+    deviceLock.Lock(MUTEX_CONTEXT);
+
     if (radioHandle && INVALID_HANDLE_VALUE != deviceHandle) {
         USER_KERNEL_MESSAGE messageIn = { USRKRNCMD_STARTCONNECTABLE };
         USER_KERNEL_MESSAGE messageOut;
@@ -941,7 +971,7 @@ QStatus BTTransport::BTAccessor::StartConnectable(BDAddress& addr, uint16_t& psm
             status = messageOut.commandStatus.status;
 
             if (ER_OK == status) {
-                bool isConnectable = BluetoothIsConnectable(radioHandle);
+                bool isConnectable = ::BluetoothIsConnectable(radioHandle);
 
                 if (!isConnectable) {
                     if (!::BluetoothEnableIncomingConnections(radioHandle, TRUE)) {
@@ -951,6 +981,8 @@ QStatus BTTransport::BTAccessor::StartConnectable(BDAddress& addr, uint16_t& psm
             }
         }
     }
+
+    deviceLock.Unlock(MUTEX_CONTEXT);
 
     if (ER_OK == status && NULL == l2capEvent) {
         l2capEvent = new qcc::Event;
@@ -963,6 +995,8 @@ void BTTransport::BTAccessor::StopConnectable()
 {
     QCC_DbgTrace(("BTTransport::BTAccessor::StopConnectable()"));
 
+    deviceLock.Lock(MUTEX_CONTEXT);
+
     // From MSDN (http://msdn.microsoft.com/en-us/library/aa362778):
     // A radio that is non-connectable is non-discoverable. The radio must be made
     // non-discoverable prior to making a radio non-connectable. Failure to make a radio
@@ -974,6 +1008,8 @@ void BTTransport::BTAccessor::StopConnectable()
 
         DeviceSendMessage(&messageIn, 0);
     }
+
+    deviceLock.Unlock(MUTEX_CONTEXT);
 
     if (l2capEvent) {
         delete l2capEvent;
@@ -1085,13 +1121,17 @@ RemoteEndpoint* BTTransport::BTAccessor::Connect(BusAttachment& alljoyn,
             // The radio will not fully connect to another if it is currently connectable.
             // If we were in a connectable state then save that information and stop being
             // connectable for the duration of Connect().
+            deviceLock.Lock(MUTEX_CONTEXT);
+
             bool wasConnectable = radioHandle &&
                                   INVALID_HANDLE_VALUE != deviceHandle &&
-                                  BluetoothIsConnectable(radioHandle);
+                                  ::BluetoothIsConnectable(radioHandle);
 
             if (wasConnectable) {
                 ::BluetoothEnableIncomingConnections(radioHandle, FALSE);
             }
+
+            deviceLock.Unlock(MUTEX_CONTEXT);
 
             QStatus status = DeviceSendMessage(&messageIn, &messageOut);
 
@@ -1127,9 +1167,13 @@ RemoteEndpoint* BTTransport::BTAccessor::Connect(BusAttachment& alljoyn,
                 conn = NULL;
             }
 
-            if (wasConnectable) {
+            deviceLock.Lock(MUTEX_CONTEXT);
+
+            if (wasConnectable && radioHandle) {
                 ::BluetoothEnableIncomingConnections(radioHandle, TRUE);
             }
+
+            deviceLock.Unlock(MUTEX_CONTEXT);
         }
     }
 
@@ -1754,11 +1798,6 @@ void BTTransport::BTAccessor::AlarmTriggered(const Alarm& alarm, QStatus reason)
 
     if (reason == ER_OK) {
         switch (op->operation) {
-        case DispatchInfo::STOP_DISCOVERY:
-            QCC_DbgPrintf(("Stopping Discovery"));
-            StopDiscovery();
-            break;
-
         case DispatchInfo::STOP_DISCOVERABILITY:
             QCC_DbgPrintf(("Stopping Discoverability"));
             StopDiscoverability();
@@ -1769,18 +1808,17 @@ void BTTransport::BTAccessor::AlarmTriggered(const Alarm& alarm, QStatus reason)
     delete op;
 }
 
-bool BTTransport::BTAccessor::GetRadioHandle()
+HANDLE BTTransport::BTAccessor::GetRadioHandle()
 {
-    QCC_DbgTrace(("BTTransport::BTAccessor::GetRadioHandle()"));
-
     BLUETOOTH_FIND_RADIO_PARAMS radioParms;
     HBLUETOOTH_RADIO_FIND radioFindHandle;
+    HANDLE returnValue = NULL;
 
     radioParms.dwSize = sizeof(radioParms);
 
     // Always use the first radio found. Some documentation says that only one
     // radio is supported anyway.
-    radioFindHandle = ::BluetoothFindFirstRadio(&radioParms, &radioHandle);
+    radioFindHandle = ::BluetoothFindFirstRadio(&radioParms, &returnValue);
 
     // Returns NULL if failure.
     if (radioFindHandle) {
@@ -1796,10 +1834,10 @@ bool BTTransport::BTAccessor::GetRadioHandle()
         ::BluetoothFindRadioClose(radioFindHandle);
     } else {
         // Set to NULL as a flag for no BT radio available.
-        radioHandle = NULL;
+        returnValue = NULL;
     }
 
-    return radioHandle != NULL;
+    return returnValue;
 }
 
 bool BTTransport::BTAccessor::GetRadioAddress()
@@ -1808,16 +1846,20 @@ bool BTTransport::BTAccessor::GetRadioAddress()
 
     DWORD errCode = ERROR_DEV_NOT_EXIST;
 
+    deviceLock.Lock(MUTEX_CONTEXT);
+
     if (radioHandle) {
         BLUETOOTH_RADIO_INFO radioInfo = { 0 };
 
         radioInfo.dwSize = sizeof(radioInfo);
-        errCode = BluetoothGetRadioInfo(radioHandle, &radioInfo);
+        errCode = ::BluetoothGetRadioInfo(radioHandle, &radioInfo);
 
         if (ERROR_SUCCESS == errCode) {
             address.SetRaw(radioInfo.address.ullLong);
         }
     }
+
+    deviceLock.Unlock(MUTEX_CONTEXT);
 
     return ERROR_SUCCESS == errCode;
 }
@@ -2175,6 +2217,58 @@ void BTTransport::BTAccessor::DebugDumpKernelState(void) const
             }
         }
     }
+}
+
+qcc::ThreadReturn STDCALL BTTransport::BTAccessor::AdapterChangeThread::Run(void* arg)
+{
+    QCC_DbgTrace(("AdapterChangeThread()"));
+
+    do {
+        const uint32_t adapterCheckPeriodInMilliseconds = 2000;
+
+        if (btAccessor.IsStarted()) {
+            HANDLE tempRadioHandle = btAccessor.GetRadioHandle();
+
+            if (btAccessor.BluetoothIsAvailable()) {
+                // If Bluetooth was previously available and still is then there is no change.
+                if (tempRadioHandle) {
+                    // Just close the new handle we got.
+                    ::CloseHandle(tempRadioHandle);
+                } else {
+                    // Bluetooth was previously available and now it is not.
+                    btAccessor.KernelDisconnect();
+
+                    btAccessor.deviceLock.Lock(MUTEX_CONTEXT);
+
+                    assert(btAccessor.radioHandle);
+                    ::CloseHandle(btAccessor.radioHandle);
+                    btAccessor.radioHandle = 0;
+
+                    btAccessor.deviceLock.Unlock(MUTEX_CONTEXT);
+                }
+            } else {
+                // If Bluetooth was not available and now it is then make the change.
+                if (tempRadioHandle) {
+                    btAccessor.deviceLock.Lock(MUTEX_CONTEXT);
+
+                    assert(!btAccessor.radioHandle);
+                    btAccessor.radioHandle = tempRadioHandle;
+
+                    btAccessor.deviceLock.Unlock(MUTEX_CONTEXT);
+
+                    // It could be that a different Bluetooth device was plugged in so we
+                    // have a different address now.
+                    if (btAccessor.GetRadioAddress()) {
+                        btAccessor.KernelConnect();
+                    }
+                }
+            }
+        }
+
+        Event::Wait(GetStopEvent(), adapterCheckPeriodInMilliseconds);
+    } while (!IsStopping());
+
+    return 0;
 }
 
 } // namespace ajn

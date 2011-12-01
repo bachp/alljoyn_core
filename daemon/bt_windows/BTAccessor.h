@@ -67,12 +67,27 @@ class BTTransport::BTAccessor : public MessageReceiver, public qcc::AlarmListene
      *
      * @return ER_OK if successful.
      */
-    QStatus Start();
+    QStatus Start()
+    {
+        isStarted = true;
+
+        // If Bluetooth becomes available later then transport->BTDeviceAvailable(true)
+        // will be called then.
+        if (BluetoothIsAvailable()) {
+            transport->BTDeviceAvailable(true);
+        }
+
+        return ER_OK;
+    }
 
     /**
      * Start the underlying Bluetooth subsystem.
      */
-    void Stop();
+    void Stop()
+    {
+        isStarted = false;
+        transport->BTDeviceAvailable(false);
+    }
 
     /**
      * Start discovery (inquiry)
@@ -233,10 +248,43 @@ class BTTransport::BTAccessor : public MessageReceiver, public qcc::AlarmListene
      */
     mutable qcc::Mutex deviceLock;
 
-    HANDLE radioHandle;         // Handle of the BT radio on this system.
-    BDAddress address;          // Address of the BT radio on this system.
-    HANDLE recordHandle;        // Handle of the SDP record.
-    HANDLE deviceHandle;        // The handle used for communication to the driver.
+    volatile HANDLE radioHandle;    // Handle of the BT radio on this system.
+    BDAddress address;              // Address of the BT radio on this system.
+    HANDLE recordHandle;            // Handle of the SDP record.
+    HANDLE deviceHandle;            // The handle used for communication to the driver.
+    bool isStarted;                 // Set to true if Start() has been called. Set to false when Stop() is called.
+
+    /**
+     * Has Start() been called more recently than Stop()?
+     *
+     * @return true Start() has been called more recently than Stop().
+     */
+    bool IsStarted() const
+    {
+        return isStarted;
+    }
+
+    /**
+     * Is there a bluetooth radio available?
+     *
+     * @return true if a bluetooth radio is available.
+     */
+    bool BluetoothIsAvailable() const
+    {
+        return radioHandle != NULL;
+    }
+
+    /**
+     * Class for handling Bluetooth enable/disable.
+     */
+    class AdapterChangeThread : public qcc::Thread {
+      public:
+        AdapterChangeThread(BTAccessor& btAccessor) : qcc::Thread("AdapterChangeThread"), btAccessor(btAccessor) { }
+
+      private:
+        qcc::ThreadReturn STDCALL Run(void* args);
+        BTAccessor& btAccessor;
+    };
 
     /**
      * Class for handling Bluetooth discovery
@@ -273,13 +321,14 @@ class BTTransport::BTAccessor : public MessageReceiver, public qcc::AlarmListene
 
     DiscoveryThread discoveryThread; // The discovery thread.
     MessageThread getMessageThread;  // Thread for receiving messages from the kernel mode driver
-    qcc::Event getMessageEvent;      // Signals between kernel and user space.
+    AdapterChangeThread adapterChangeThread;    // Thread to detect Bluetooth adapter removal/disable/enable
+    qcc::Event getMessageEvent;      // Set if there is a message waiting in the kernel.
 
-    bool wsaInitialized;            // Set to true if WSAStartup() was called successfully.
+    bool wsaInitialized;                // Set to true if WSAStartup() was called successfully.
 
     BDAddressSet discoveryIgnoreAddrs;  // BT addresses to ignore during discovery.
     qcc::Event* l2capEvent;             // Signaled when a connection request is made.
-    BusAttachment bzBus;
+    BusAttachment winBus;
     BTTransport* transport;
     const qcc::String busGuid;
 
@@ -301,18 +350,25 @@ class BTTransport::BTAccessor : public MessageReceiver, public qcc::AlarmListene
 
     struct DispatchInfo {
         typedef enum {
-            STOP_DISCOVERY,
             STOP_DISCOVERABILITY,
-            ADAPTER_ADDED,
-            ADAPTER_REMOVED,
-            DEFAULT_ADAPTER_CHANGED,
-            DEVICE_FOUND
         } DispatchTypes;
         DispatchTypes operation;
 
         DispatchInfo(DispatchTypes operation) : operation(operation) { }
         virtual ~DispatchInfo() { }
     };
+
+    /**
+     * This connects to the driver in the kernel and does other initialization when a bluetooth
+     * device becomes available.
+     */
+    QStatus KernelConnect(void);
+
+    /**
+     * This disconnects from the driver in the kernel and does other cleanup when a bluetooth
+     * device becomes unavailable.
+     */
+    void KernelDisconnect(void);
 
     /**
      * This initializes the array of pointers for the WindowsBTEndpoints to be saved.
@@ -399,15 +455,15 @@ class BTTransport::BTAccessor : public MessageReceiver, public qcc::AlarmListene
     qcc::Alarm DispatchOperation(DispatchInfo* op, uint32_t delay = 0)
     {
         qcc::Alarm alarm(delay, this, 0, (void*)op);
-        bzBus.GetInternal().GetDispatcher().AddAlarm(alarm);
+        winBus.GetInternal().GetDispatcher().AddAlarm(alarm);
         return alarm;
     }
 
     /**
-     * Initialize this->radioHandle.
-     * @return true if successful.
+     * Get a handle to the Bluetooth radio.
+     * @return the handle if successful or NULL if not.
      */
-    bool GetRadioHandle(void);
+    HANDLE GetRadioHandle(void);
 
     /**
      * Initialize this->address.
