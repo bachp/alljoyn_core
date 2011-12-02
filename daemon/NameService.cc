@@ -1982,18 +1982,13 @@ void* NameService::Run(void* arg)
                     // the worst that can happen is that we introduce a short
                     // delay here in our handler whenever we detect an error.
                     //
-                    // Although this could happen for any number of reasons, it
-                    // typically happens due to a confusion in the Windows event
-                    // code between the read and write side events in a socket.
-                    // The result is that we get an event from the write side
-                    // that wakes us up here on the read side.  When we call
-                    // RecvFrom, we then get back an ER_WOULDBLOCK since there's
-                    // really no data waiting to be read.  There is nothing we
-                    // can do about it here, so we just deal with the
-                    // possibility.
+                    // On Windows ER_WOULBLOCK can be expected because it takes
+                    // an initial call to recv to determine if the socket is readable.
                     //
-                    QCC_LogError(status, ("NameService::Run(): qcc::RecvFrom(): Failed"));
-                    qcc::Sleep(1);
+                    if (status != ER_WOULDBLOCK) {
+                        QCC_LogError(status, ("NameService::Run(): qcc::RecvFrom(%d, ...): Failed", sockFd));
+                        qcc::Sleep(1);
+                    }
                     continue;
                 }
 
