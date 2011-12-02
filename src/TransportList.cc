@@ -143,10 +143,24 @@ QStatus TransportList::Start(const String& transportSpecs)
             size_t colonOff = spec.find_first_of(':');
             if (String::npos != colonOff) {
                 String ttype = spec.substr(0, colonOff);
-                for (uint32_t i = 0; i < m_factories.Size(); ++i) {
-                    TransportFactoryBase* factory = m_factories.Get(i);
-                    if (factory->GetType() == ttype && factory->IsDefault() == false) {
-                        transportList.push_back(factory->Create(bus));
+                Transport* exists = NULL;
+                /*
+                 * Check if transport has already been created
+                 */
+                for (size_t i = 0; i < transportList.size(); ++i) {
+                    if (ttype == transportList[i]->GetTransportName()) {
+                        exists = transportList[i];
+                        break;
+                    }
+                }
+                if (exists) {
+                    QCC_DbgHLPrintf(("Transport %s already created", ttype.c_str()));
+                } else {
+                    for (uint32_t i = 0; i < m_factories.Size(); ++i) {
+                        TransportFactoryBase* factory = m_factories.Get(i);
+                        if (factory->GetType() == ttype && factory->IsDefault() == false) {
+                            transportList.push_back(factory->Create(bus));
+                        }
                     }
                 }
             }
