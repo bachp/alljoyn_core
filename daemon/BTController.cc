@@ -1180,7 +1180,6 @@ void BTController::HandleSetState(const InterfaceDescription::Member* member, Me
     MsgArg* nodeStateArgs;
     size_t numFoundNodeArgs;
     MsgArg* foundNodeArgs;
-    bool updateDelegations = false;
 
     lock.Lock(MUTEX_CONTEXT);
     if (!IsMaster()) {
@@ -1350,7 +1349,6 @@ void BTController::HandleSetState(const InterfaceDescription::Member* member, Me
             advertise.dirty = true;
             find.dirty = true;
         }
-        updateDelegations = true;
     }
 
     QCC_DbgPrintf(("We are %s, %s is now our %s",
@@ -1388,11 +1386,11 @@ void BTController::HandleSetState(const InterfaceDescription::Member* member, Me
                          self->GetBusAddress().psm,
                          nodeStateArgsStorage.size(), &nodeStateArgsStorage.front(),
                          foundNodeArgsStorage.size(), &foundNodeArgsStorage.front());
-    lock.Unlock(MUTEX_CONTEXT);
 
     if (status != ER_OK) {
         QCC_LogError(status, ("MsgArg::Set(%s)", SIG_SET_STATE_OUT));
         bt.Disconnect(sender);
+        lock.Unlock(MUTEX_CONTEXT);
         return;
     }
 
@@ -1400,14 +1398,18 @@ void BTController::HandleSetState(const InterfaceDescription::Member* member, Me
     if (status != ER_OK) {
         QCC_LogError(status, ("MethodReply"));
         bt.Disconnect(sender);
+        lock.Unlock(MUTEX_CONTEXT);
         return;
     }
 
     connectingNode->SetSessionState(_BTNodeInfo::SESSION_UP);  // Just in case it wasn't set before
 
-    if (updateDelegations) {
-        DispatchOperation(new UpdateDelegationsDispatchInfo());
+
+    if (connectingNode == joinSessionNode) {
+        JoinSessionNodeComplete();  // Also triggers UpdateDelegations if we stay the master.
     }
+
+    lock.Unlock(MUTEX_CONTEXT);
 }
 
 
