@@ -96,10 +96,10 @@ class BTNodeDB {
     {
         BTBusAddress lower(addr, 0x0000);
         BTBusAddress upper(addr, 0xffff);
-        Lock();
+        Lock(MUTEX_CONTEXT);
         begin = nodes.lower_bound(lower);
         end = nodes.upper_bound(upper);
-        Unlock();
+        Unlock(MUTEX_CONTEXT);
     }
 
 
@@ -209,7 +209,7 @@ class BTNodeDB {
      */
     void GetNodesFromConnectNode(const BTNodeInfo& connNode, BTNodeDB& subDB) const
     {
-        Lock();
+        Lock(MUTEX_CONTEXT);
         ConnAddrMap::const_iterator cmit = connMap.lower_bound(connNode);
         ConnAddrMap::const_iterator end = connMap.upper_bound(connNode);
 
@@ -217,12 +217,12 @@ class BTNodeDB {
             subDB.AddNode(cmit->second);
             ++cmit;
         }
-        Unlock();
+        Unlock(MUTEX_CONTEXT);
     }
 
     void PopExpiredNodes(BTNodeDB& expiredDB)
     {
-        Lock();
+        Lock(MUTEX_CONTEXT);
         qcc::Timespec now;
         qcc::GetTimeNow(&now);
         while (!expireSet.empty() && ((*expireSet.begin())->GetExpireTime() <= now.GetAbsoluteMillis())) {
@@ -230,7 +230,7 @@ class BTNodeDB {
             RemoveNode(node);
             expiredDB.AddNode(node);
         }
-        Unlock();
+        Unlock(MUTEX_CONTEXT);
     }
 
     uint64_t NextNodeExpiration()
@@ -248,11 +248,13 @@ class BTNodeDB {
     /**
      * Lock the mutex that protects the database from unsafe access.
      */
+    void Lock(const char* file, uint32_t line) const { lock.Lock(file, line); }
     void Lock() const { lock.Lock(MUTEX_CONTEXT); }
 
     /**
      * Release the the mutex that protects the database from unsafe access.
      */
+    void Unlock(const char* file, uint32_t line) const { lock.Unlock(file, line); }
     void Unlock() const { lock.Unlock(MUTEX_CONTEXT); }
 
     /**
@@ -276,9 +278,9 @@ class BTNodeDB {
      */
     size_t Size() const
     {
-        Lock();
+        Lock(MUTEX_CONTEXT);
         size_t size = nodes.size();
-        Unlock();
+        Unlock(MUTEX_CONTEXT);
         return size;
     }
 
