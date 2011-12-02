@@ -1316,6 +1316,9 @@ qcc::ThreadReturn STDCALL AllJoynObj::JoinSessionThread::RunAttach()
                 VirtualEndpoint*vep = static_cast<VirtualEndpoint*>(destEp);
                 b2bEp = vep->GetBusToBusEndpoint(msg->GetSessionId());
                 b2bEpName = b2bEp ? b2bEp->GetUniqueName() : "";
+                if (b2bEp) {
+                    b2bEp->IncrementRef();
+                }
             } else if (busAddr[0] != '\0') {
                 /* Ask the transport for an endpoint */
                 TransportList& transList = ajObj.bus.GetInternal().GetTransportList();
@@ -1327,6 +1330,7 @@ qcc::ThreadReturn STDCALL AllJoynObj::JoinSessionThread::RunAttach()
                     status = trans->Connect(busAddr, optsIn, &b2bEp);
                     ajObj.AcquireLocks();
                     if (status == ER_OK) {
+                        b2bEp->IncrementRef();
                         b2bEpName = b2bEp->GetUniqueName();
                     } else {
                         QCC_LogError(status, ("trans->Connect(%s) failed", busAddr));
@@ -1402,6 +1406,9 @@ qcc::ThreadReturn STDCALL AllJoynObj::JoinSessionThread::RunAttach()
                     replyCode = ALLJOYN_JOINSESSION_REPLY_FAILED;
                     QCC_LogError(status, ("AttachSession failed"));
                 }
+            }
+            if (b2bEp) {
+                b2bEp->DecrementRef();
             }
         }
     }
