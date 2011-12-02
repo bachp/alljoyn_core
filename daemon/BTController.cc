@@ -522,7 +522,7 @@ void BTController::ProcessDeviceChange(const BDAddress& adBdAddr,
                     return;
                 }
 
-                foundNodeDB.Lock();
+                foundNodeDB.Lock(MUTEX_CONTEXT);
 
                 if (knownAdNode) {
                     foundNodeDB.GetNodesFromConnectNode(adNode->GetConnectNode(), oldAdInfo);
@@ -579,7 +579,7 @@ void BTController::ProcessDeviceChange(const BDAddress& adBdAddr,
                 foundNodeDB.RefreshExpiration(connNode, LOST_DEVICE_TIMEOUT);
                 foundNodeDB.DumpTable("foundNodeDB - Updated set of found devices due to remote device advertisement change");
 
-                foundNodeDB.Unlock();
+                foundNodeDB.Unlock(MUTEX_CONTEXT);
 
                 distributeChanges = true;
                 ResetExpireNameAlarm();
@@ -758,7 +758,7 @@ void BTController::PostConnect(QStatus status, BTNodeInfo& node, const String& r
             JoinSessionNodeComplete();
         }
 
-        foundNodeDB.Lock();
+        foundNodeDB.Lock(MUTEX_CONTEXT);
         if (foundNodeDB.FindNode(node->GetBusAddress())->IsValid()) {
             // Failed to connect to the device.  Send out a lost advertised
             // name for all names in all nodes connectable via this node so
@@ -768,11 +768,11 @@ void BTController::PostConnect(QStatus status, BTNodeInfo& node, const String& r
             BTNodeDB reapDB;
             foundNodeDB.GetNodesFromConnectNode(node, reapDB);
             foundNodeDB.UpdateDB(NULL, &reapDB);
-            foundNodeDB.Unlock();
+            foundNodeDB.Unlock(MUTEX_CONTEXT);
 
             DistributeAdvertisedNameChanges(NULL, &reapDB);
         } else {
-            foundNodeDB.Unlock();
+            foundNodeDB.Unlock(MUTEX_CONTEXT);
         }
     }
 }
@@ -791,7 +791,7 @@ void BTController::LostLastConnection(const BTNodeInfo& node)
         } else {
             BTNodeDB::const_iterator it;
             BTNodeDB::const_iterator end;
-            nodeDB.Lock();
+            nodeDB.Lock(MUTEX_CONTEXT);
             nodeDB.FindNodes(node->GetBusAddress().addr, it, end);
             for (; it != end; ++it) {
                 if ((*it)->GetConnectionCount() == 1) {
@@ -799,7 +799,7 @@ void BTController::LostLastConnection(const BTNodeInfo& node)
                     break;
                 }
             }
-            nodeDB.Unlock();
+            nodeDB.Unlock(MUTEX_CONTEXT);
         }
     } else {
         lostNode = node;
@@ -1550,7 +1550,7 @@ void BTController::HandleConnectAddrChanged(const InterfaceDescription::Member* 
         BTBusAddress oldAddr(oldRawAddr, oldPSM);
         BTBusAddress newAddr(newRawAddr, newPSM);
         if (!IsMinion()) {
-            nodeDB.Lock();
+            nodeDB.Lock(MUTEX_CONTEXT);
             BTNodeInfo changedNode = nodeDB.FindNode(oldAddr);
             if (changedNode->IsValid()) {
                 nodeDB.RemoveNode(changedNode);
@@ -1558,7 +1558,7 @@ void BTController::HandleConnectAddrChanged(const InterfaceDescription::Member* 
                 changedNode->SetBusAddress(newAddr);
                 nodeDB.AddNode(changedNode);
             }
-            nodeDB.Unlock();
+            nodeDB.Unlock(MUTEX_CONTEXT);
         }
         if (!IsMaster()) {
             lock.Lock(MUTEX_CONTEXT);
@@ -2150,7 +2150,7 @@ void BTController::DistributeAdvertisedNameChanges(const BTNodeDB* newAdInfo,
     if (!IsMinion() && devAvailable) {
         set<BTNodeInfo> destNodesOld;
         set<BTNodeInfo> destNodesNew;
-        nodeDB.Lock();
+        nodeDB.Lock(MUTEX_CONTEXT);
         for (BTNodeDB::const_iterator it = nodeDB.Begin(); it != nodeDB.End(); ++it) {
             const BTNodeInfo& node = *it;
             if (node->IsDirectMinion()) {
@@ -2164,7 +2164,7 @@ void BTController::DistributeAdvertisedNameChanges(const BTNodeDB* newAdInfo,
                 }
             }
         }
-        nodeDB.Unlock();
+        nodeDB.Unlock(MUTEX_CONTEXT);
 
         for (set<BTNodeInfo>::const_iterator it = destNodesOld.begin(); it != destNodesOld.end(); ++it) {
             SendFoundNamesChange(*it, *oldAdInfo, true);
@@ -2368,7 +2368,7 @@ QStatus BTController::ImportState(BTNodeInfo& connectingNode,
     // (if we are the master).
 
     lock.Lock(MUTEX_CONTEXT);  // Must be acquired before the foundNodeDB lock.
-    foundNodeDB.Lock();
+    foundNodeDB.Lock(MUTEX_CONTEXT);
     // Figure out set of devices/names that are part of the incoming
     // device/piconet to be removed from the set of found nodes.
     foundNodeDB.Diff(incomingDB, &addedDB, &removedDB);
@@ -2421,7 +2421,8 @@ QStatus BTController::ImportState(BTNodeInfo& connectingNode,
     } else {
         RemoveExpireNameAlarm();
     }
-    foundNodeDB.Unlock();
+
+    foundNodeDB.Unlock(MUTEX_CONTEXT);
     lock.Unlock(MUTEX_CONTEXT);
 
     DistributeAdvertisedNameChanges(&addedDB, &staleDB);
@@ -2618,7 +2619,7 @@ void BTController::FillNodeStateMsgArgs(vector<MsgArg>& args) const
 {
     BTNodeDB::const_iterator it;
 
-    nodeDB.Lock();
+    nodeDB.Lock(MUTEX_CONTEXT);
     args.reserve(nodeDB.Size());
     for (it = nodeDB.Begin(); it != nodeDB.End(); ++it) {
         const BTNodeInfo& node = *it;
@@ -2650,7 +2651,7 @@ void BTController::FillNodeStateMsgArgs(vector<MsgArg>& args) const
 
         args.back().Stabilize();
     }
-    nodeDB.Unlock();
+    nodeDB.Unlock(MUTEX_CONTEXT);
 }
 
 
@@ -2658,11 +2659,11 @@ void BTController::FillFoundNodesMsgArgs(vector<MsgArg>& args, const BTNodeDB& a
 {
     BTNodeDB::const_iterator it;
     map<BTBusAddress, BTNodeDB> xformMap;
-    adInfo.Lock();
+    adInfo.Lock(MUTEX_CONTEXT);
     for (it = adInfo.Begin(); it != adInfo.End(); ++it) {
         xformMap[(&adInfo == &nodeDB) ? self->GetBusAddress() : (*it)->GetConnectNode()->GetBusAddress()].AddNode(*it);
     }
-    adInfo.Unlock();
+    adInfo.Unlock(MUTEX_CONTEXT);
 
     args.reserve(args.size() + xformMap.size());
     map<BTBusAddress, BTNodeDB>::const_iterator xmit;
@@ -2726,7 +2727,7 @@ uint8_t BTController::ComputeSlaveFactor() const
     BTNodeDB::const_iterator nit;
     uint8_t cnt = 0;
 
-    nodeDB.Lock();
+    nodeDB.Lock(MUTEX_CONTEXT);
     for (nit = nodeDB.Begin(); nit != nodeDB.End(); ++nit) {
         const BTNodeInfo& minion = *nit;
         if (minion->IsDirectMinion()) {
@@ -2740,7 +2741,7 @@ uint8_t BTController::ComputeSlaveFactor() const
             }
         }
     }
-    nodeDB.Unlock();
+    nodeDB.Unlock(MUTEX_CONTEXT);
 
     return cnt;
 }
@@ -2764,7 +2765,7 @@ void BTController::SetSelfAddress(const BTBusAddress& newAddr)
 
     dests.reserve(directMinions + (!IsMaster() ? 1 : 0));
 
-    nodeDB.Lock();
+    nodeDB.Lock(MUTEX_CONTEXT);
     nodeDB.RemoveNode(self);
     assert(newAddr.IsValid());
     self->SetBusAddress(newAddr);
@@ -2775,7 +2776,7 @@ void BTController::SetSelfAddress(const BTBusAddress& newAddr)
             dests.push_back(minion);
         }
     }
-    nodeDB.Unlock();
+    nodeDB.Unlock(MUTEX_CONTEXT);
 
     if (!IsMaster()) {
         dests.push_back(master->GetServiceName());
@@ -3063,7 +3064,7 @@ void BTController::AdvertiseNameArgInfo::SetArgs()
     NameArgs newArgs(argsSize);
     size_t localArgsSize = argsSize;
 
-    bto.nodeDB.Lock();
+    bto.nodeDB.Lock(MUTEX_CONTEXT);
     adInfoArgs.clear();
     adInfoArgs.reserve(bto.nodeDB.Size());
 
@@ -3084,7 +3085,7 @@ void BTController::AdvertiseNameArgInfo::SetArgs()
                                     names.size(), &names.front()));
     }
 
-    bto.nodeDB.Unlock();
+    bto.nodeDB.Unlock(MUTEX_CONTEXT);
 
     MsgArg::Set(newArgs->args, localArgsSize, SIG_DELEGATE_AD,
                 bto.masterUUIDRev,
@@ -3183,14 +3184,14 @@ void BTController::FindNameArgInfo::SetArgs()
     size_t localArgsSize = argsSize;
 
     bto.lock.Lock(MUTEX_CONTEXT);
-    bto.nodeDB.Lock();
+    bto.nodeDB.Lock(MUTEX_CONTEXT);
     ignoreAddrsCache.clear();
     ignoreAddrsCache.reserve(bto.nodeDB.Size() + bto.blacklist->size());
     BTNodeDB::const_iterator it;
     for (it = bto.nodeDB.Begin(); it != bto.nodeDB.End(); ++it) {
         ignoreAddrsCache.push_back((*it)->GetBusAddress().addr.GetRaw());
     }
-    bto.nodeDB.Unlock();
+    bto.nodeDB.Unlock(MUTEX_CONTEXT);
 
     set<BDAddress>::const_iterator bit;
     for (bit = bto.blacklist->begin(); bit != bto.blacklist->end(); ++bit) {
@@ -3228,13 +3229,13 @@ void BTController::FindNameArgInfo::ClearArgs()
 
 QStatus BTController::FindNameArgInfo::StartLocal()
 {
-    bto.nodeDB.Lock();
+    bto.nodeDB.Lock(MUTEX_CONTEXT);
     BDAddressSet ignoreAddrs(*bto.blacklist); // initialize ignore addresses with the blacklist
     BTNodeDB::const_iterator it;
     for (it = bto.nodeDB.Begin(); it != bto.nodeDB.End(); ++it) {
         ignoreAddrs->insert((*it)->GetBusAddress().addr);
     }
-    bto.nodeDB.Unlock();
+    bto.nodeDB.Unlock(MUTEX_CONTEXT);
 
     QCC_DbgPrintf(("Starting local find..."));
     return bto.bt.StartFind(ignoreAddrs);

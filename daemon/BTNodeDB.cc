@@ -46,12 +46,12 @@ namespace ajn {
 const BTNodeInfo BTNodeDB::FindNode(const BTBusAddress& addr) const
 {
     BTNodeInfo node;
-    Lock();
+    Lock(MUTEX_CONTEXT);
     NodeAddrMap::const_iterator it = addrMap.find(addr);
     if (it != addrMap.end()) {
         node = it->second;
     }
-    Unlock();
+    Unlock(MUTEX_CONTEXT);
     return node;
 }
 
@@ -60,12 +60,12 @@ const BTNodeInfo BTNodeDB::FindNode(const BDAddress& addr) const
 {
     BTNodeInfo node;
     BTBusAddress busAddr(addr, bt::INVALID_PSM);
-    Lock();
+    Lock(MUTEX_CONTEXT);
     NodeAddrMap::const_iterator it = addrMap.lower_bound(busAddr);
     if (it != addrMap.end() && (it->second)->GetBusAddress().addr == addr) {
         node = it->second;
     }
-    Unlock();
+    Unlock(MUTEX_CONTEXT);
     return node;
 }
 
@@ -73,19 +73,19 @@ const BTNodeInfo BTNodeDB::FindNode(const BDAddress& addr) const
 const BTNodeInfo BTNodeDB::FindNode(const String& uniqueName) const
 {
     BTNodeInfo node;
-    Lock();
+    Lock(MUTEX_CONTEXT);
     NodeNameMap::const_iterator it = nameMap.find(uniqueName);
     if (it != nameMap.end()) {
         node = it->second;
     }
-    Unlock();
+    Unlock(MUTEX_CONTEXT);
     return node;
 }
 
 
 BTNodeInfo BTNodeDB::FindDelegateMinion(const BTNodeInfo& start, const BTNodeInfo& skip, bool eirCapable) const
 {
-    Lock();
+    Lock(MUTEX_CONTEXT);
     const_iterator next = nodes.find(start);
     const_iterator traditional = nodes.end();
 #ifndef NDEBUG
@@ -108,7 +108,7 @@ BTNodeInfo BTNodeDB::FindDelegateMinion(const BTNodeInfo& start, const BTNodeInf
 
 
     } while ((*next != start) && (!(*next)->IsMinion() || (*next == skip) || !(*next)->IsEIRCapable()));
-    Unlock();
+    Unlock(MUTEX_CONTEXT);
 
     if (!eirCapable) {
         next = (*next == start) ? traditional : next;
@@ -120,7 +120,7 @@ BTNodeInfo BTNodeDB::FindDelegateMinion(const BTNodeInfo& start, const BTNodeInf
 
 void BTNodeDB::AddNode(const BTNodeInfo& node)
 {
-    Lock();
+    Lock(MUTEX_CONTEXT);
     assert(node->IsValid());
     RemoveNode(node);  // remove the old one (if it exists) before adding the new one with updated info
 
@@ -148,13 +148,13 @@ void BTNodeDB::AddNode(const BTNodeInfo& node)
 
     assert(connMap.size() == nodes.size());
     assert(!useExpirations || (expireSet.size() == nodes.size()));
-    Unlock();
+    Unlock(MUTEX_CONTEXT);
 }
 
 
 void BTNodeDB::RemoveNode(const BTNodeInfo& node)
 {
-    Lock();
+    Lock(MUTEX_CONTEXT);
     NodeAddrMap::iterator it = addrMap.find(node->GetBusAddress());
     if (it != addrMap.end()) {
         BTNodeInfo lnode = it->second;
@@ -201,19 +201,19 @@ void BTNodeDB::RemoveNode(const BTNodeInfo& node)
 
     assert(connMap.size() == nodes.size());
     assert(!useExpirations || (expireSet.size() == nodes.size()));
-    Unlock();
+    Unlock(MUTEX_CONTEXT);
 }
 
 
 void BTNodeDB::Diff(const BTNodeDB& other, BTNodeDB* added, BTNodeDB* removed) const
 {
-    Lock();
-    other.Lock();
+    Lock(MUTEX_CONTEXT);
+    other.Lock(MUTEX_CONTEXT);
     if (added) {
-        added->Lock();
+        added->Lock(MUTEX_CONTEXT);
     }
     if (removed) {
-        removed->Lock();
+        removed->Lock(MUTEX_CONTEXT);
     }
 
     const_iterator nodeit;
@@ -276,25 +276,25 @@ void BTNodeDB::Diff(const BTNodeDB& other, BTNodeDB* added, BTNodeDB* removed) c
     }
 
     if (removed) {
-        removed->Unlock();
+        removed->Unlock(MUTEX_CONTEXT);
     }
     if (added) {
-        added->Unlock();
+        added->Unlock(MUTEX_CONTEXT);
     }
-    other.Unlock();
-    Unlock();
+    other.Unlock(MUTEX_CONTEXT);
+    Unlock(MUTEX_CONTEXT);
 }
 
 
 void BTNodeDB::NodeDiff(const BTNodeDB& other, BTNodeDB* added, BTNodeDB* removed) const
 {
-    Lock();
-    other.Lock();
+    Lock(MUTEX_CONTEXT);
+    other.Lock(MUTEX_CONTEXT);
     if (added) {
-        added->Lock();
+        added->Lock(MUTEX_CONTEXT);
     }
     if (removed) {
-        removed->Lock();
+        removed->Lock(MUTEX_CONTEXT);
     }
 
     const_iterator nodeit;
@@ -323,20 +323,20 @@ void BTNodeDB::NodeDiff(const BTNodeDB& other, BTNodeDB* added, BTNodeDB* remove
     }
 
     if (removed) {
-        removed->Unlock();
+        removed->Unlock(MUTEX_CONTEXT);
     }
     if (added) {
-        added->Unlock();
+        added->Unlock(MUTEX_CONTEXT);
     }
-    other.Unlock();
-    Unlock();
+    other.Unlock(MUTEX_CONTEXT);
+    Unlock(MUTEX_CONTEXT);
 }
 
 
 void BTNodeDB::UpdateDB(const BTNodeDB* added, const BTNodeDB* removed, bool removeNodes)
 {
     // Remove names/nodes
-    Lock();
+    Lock(MUTEX_CONTEXT);
     if (removed) {
         const_iterator rit;
         for (rit = removed->Begin(); rit != removed->End(); ++rit) {
@@ -427,14 +427,14 @@ void BTNodeDB::UpdateDB(const BTNodeDB* added, const BTNodeDB* removed, bool rem
 
     assert(connMap.size() == nodes.size());
     assert(!useExpirations || (expireSet.size() == nodes.size()));
-    Unlock();
+    Unlock(MUTEX_CONTEXT);
 }
 
 
 void BTNodeDB::RemoveExpiration()
 {
     if (useExpirations) {
-        Lock();
+        Lock(MUTEX_CONTEXT);
         uint64_t expireTime = numeric_limits<uint64_t>::max();
         expireSet.clear();
         iterator it = nodes.begin();
@@ -445,7 +445,7 @@ void BTNodeDB::RemoveExpiration()
             ++it;
         }
         assert(expireSet.size() == nodes.size());
-        Unlock();
+        Unlock(MUTEX_CONTEXT);
     } else {
         QCC_LogError(ER_FAIL, ("Called RemoveExpiration on BTNodeDB instance initialized without expiration support."));
         assert(false);
@@ -456,7 +456,7 @@ void BTNodeDB::RemoveExpiration()
 void BTNodeDB::RefreshExpiration(uint32_t expireDelta)
 {
     if (useExpirations) {
-        Lock();
+        Lock(MUTEX_CONTEXT);
         Timespec now;
         GetTimeNow(&now);
         uint64_t expireTime = now.GetAbsoluteMillis() + expireDelta;
@@ -469,7 +469,7 @@ void BTNodeDB::RefreshExpiration(uint32_t expireDelta)
             ++it;
         }
         assert(expireSet.size() == nodes.size());
-        Unlock();
+        Unlock(MUTEX_CONTEXT);
     } else {
         QCC_LogError(ER_FAIL, ("Called RefreshExpiration on BTNodeDB instance initialized without expiration support."));
         assert(false);
@@ -480,7 +480,7 @@ void BTNodeDB::RefreshExpiration(uint32_t expireDelta)
 void BTNodeDB::RefreshExpiration(const BTNodeInfo& connNode, uint32_t expireDelta)
 {
     if (useExpirations) {
-        Lock();
+        Lock(MUTEX_CONTEXT);
         ConnAddrMap::iterator cmit = connMap.lower_bound(connNode);
         ConnAddrMap::iterator end = connMap.upper_bound(connNode);
 
@@ -500,7 +500,7 @@ void BTNodeDB::RefreshExpiration(const BTNodeInfo& connNode, uint32_t expireDelt
         assert((end == connMap.end()) || (connNode < (end->second->GetConnectNode())));
         assert(connMap.size() == nodes.size());
         assert(expireSet.size() == nodes.size());
-        Unlock();
+        Unlock(MUTEX_CONTEXT);
     } else {
         QCC_LogError(ER_FAIL, ("Called RefreshExpiration on BTNodeDB instance initialized without expiration support."));
         assert(false);
@@ -510,7 +510,7 @@ void BTNodeDB::RefreshExpiration(const BTNodeInfo& connNode, uint32_t expireDelt
 
 void BTNodeDB::NodeSessionLost(SessionId sessionID)
 {
-    Lock();
+    Lock(MUTEX_CONTEXT);
     SessionIDMap::iterator it = sessionIDMap.find(sessionID);
     if (it != sessionIDMap.end()) {
         BTNodeInfo lnode = it->second;
@@ -519,13 +519,13 @@ void BTNodeDB::NodeSessionLost(SessionId sessionID)
         lnode->SetSessionID(0);
         lnode->SetSessionState(_BTNodeInfo::NO_SESSION);
     }
-    Unlock();
+    Unlock(MUTEX_CONTEXT);
 }
 
 
 void BTNodeDB::UpdateNodeSessionID(SessionId sessionID, const BTNodeInfo& node)
 {
-    Lock();
+    Lock(MUTEX_CONTEXT);
     NodeAddrMap::iterator it = addrMap.find(node->GetBusAddress());
     if (it != addrMap.end()) {
         BTNodeInfo lnode = it->second;
@@ -540,14 +540,14 @@ void BTNodeDB::UpdateNodeSessionID(SessionId sessionID, const BTNodeInfo& node)
 
         sessionIDMap[sessionID] = lnode;
     }
-    Unlock();
+    Unlock(MUTEX_CONTEXT);
 }
 
 
 #ifndef NDEBUG
 void BTNodeDB::DumpTable(const char* info) const
 {
-    Lock();
+    Lock(MUTEX_CONTEXT);
     const_iterator nodeit;
     QCC_DbgPrintf(("Node DB (%s):", info));
     for (nodeit = Begin(); nodeit != End(); ++nodeit) {
@@ -579,7 +579,7 @@ void BTNodeDB::DumpTable(const char* info) const
             QCC_DbgPrintf(("            %s", nameit->c_str()));
         }
     }
-    Unlock();
+    Unlock(MUTEX_CONTEXT);
 }
 #endif
 
