@@ -740,11 +740,14 @@ void NameService::ClearLiveInterfaces(void)
             qcc::LeaveMulticastGroup(m_liveInterfaces[i].m_sockFd, qcc::QCC_AF_INET6, IPV6_MULTICAST_GROUP, m_liveInterfaces[i].m_interfaceName);
         }
 
+        // Delete event before closing the socket because the event
+        // is monitoring the socket state.
+        delete m_liveInterfaces[i].m_event;
+        m_liveInterfaces[i].m_event = NULL;
+
         qcc::Close(m_liveInterfaces[i].m_sockFd);
         m_liveInterfaces[i].m_sockFd = -1;
 
-        delete m_liveInterfaces[i].m_event;
-        m_liveInterfaces[i].m_event = NULL;
     }
 
     m_liveInterfaces.clear();
