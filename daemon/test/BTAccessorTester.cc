@@ -1835,8 +1835,7 @@ exit:
 
     redirect = false;
 
-    if (tep)
-    {
+    if (tep) {
         delete tep;
     }
 
