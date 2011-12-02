@@ -1051,8 +1051,18 @@ RemoteEndpoint* BTTransport::BTAccessor::Accept(BusAttachment& alljoyn, Event* c
 
         BTBusAddress incomingAddr(remAddr, bt::INCOMING_PSM);
         BTNodeInfo dummyNode(incomingAddr);
+        BTBusAddress redirectAddr;
 
-        conn = new WindowsBTEndpoint(alljoyn, true, dummyNode, this, address);
+        // The rejection of the incoming request must come after the normal accept proceedure.
+        // So save this status for later testing and potentially reject it then.
+        QStatus redirectStatus = ER_OK;
+
+        if (!transport->CheckIncomingAddress(remAddr, redirectAddr)) {
+            redirectStatus = ER_BUS_CONNECTION_REJECTED;
+            QCC_DbgPrintf(("Rejected connection from: %s", remAddr.ToString().c_str()));
+        }
+
+        conn = new WindowsBTEndpoint(alljoyn, true, dummyNode, this, address, redirectAddr);
 
         if (conn) {
             conn->SetChannelHandle(channelHandle);
@@ -1082,7 +1092,7 @@ RemoteEndpoint* BTTransport::BTAccessor::Accept(BusAttachment& alljoyn, Event* c
                                    QCC_StatusText(conn->GetConnectionStatus())));
                 }
 
-                if (ER_OK != status || ER_OK != conn->GetConnectionStatus()) {
+                if (ER_OK != redirectStatus || ER_OK != status || ER_OK != conn->GetConnectionStatus()) {
                     // The destructor will cause a disconnect to be send to the kernel and
                     // for it to be removed from activeEndPoints[].
                     delete conn;
@@ -1104,6 +1114,7 @@ RemoteEndpoint* BTTransport::BTAccessor::Connect(BusAttachment& alljoyn,
     USER_KERNEL_MESSAGE messageIn = { USRKRNCMD_CONNECT };
     USER_KERNEL_MESSAGE messageOut;
     const BTBusAddress& connAddr = node->GetBusAddress();
+    BTBusAddress noRedirect;
 
     QCC_DbgTrace(("BTTransport::BTAccessor::Connect(node = %s)",
                   connAddr.ToString().c_str()));
@@ -1120,7 +1131,7 @@ RemoteEndpoint* BTTransport::BTAccessor::Connect(BusAttachment& alljoyn,
 
     QCC_DbgPrintf(("L2CapConnect(address = 0x%012I64X, psm = 0x%04X)", address, connAddr.psm));
 
-    conn = new WindowsBTEndpoint(alljoyn, false, node, this, address);
+    conn = new WindowsBTEndpoint(alljoyn, false, node, this, address, noRedirect);
 
     if (conn) {
         // The connection must be added before we send the message to the kernel because the kernel
