@@ -418,6 +418,7 @@ class _BTNodeInfo {
             } // connectProxyNode == NULL -- nothing to do
         } else {
             if (connectProxyNode) {
+                fprintf(stderr, "SJK: replacing connect node %s with %s\n", (*connectProxyNode)->ToString().c_str(), node->ToString().c_str());
                 *connectProxyNode = node;
             } else {
                 connectProxyNode = new BTNodeInfo(node);
@@ -590,6 +591,58 @@ class _BTNodeInfo {
         clone->sessionState = sessionState;
 
         return clone;
+    }
+
+    void Diff(const BTNodeInfo& other, BTNodeInfo* added, BTNodeInfo* removed) const
+    {
+        NameSet::const_iterator it;
+        if (added) {
+            assert((*added)->adNames.empty() && (*added)->findNames.empty());
+            for (it = other->adNames.begin(); it != other->adNames.end(); ++it) {
+                if (adNames.find(*it) == adNames.end()) {
+                    (*added)->adNames.insert(*it);
+                }
+            }
+            for (it = other->findNames.begin(); it != other->findNames.end(); ++it) {
+                if (findNames.find(*it) == findNames.end()) {
+                    (*added)->findNames.insert(*it);
+                }
+            }
+        }
+        if (removed) {
+            assert((*removed)->adNames.empty() && (*removed)->findNames.empty());
+            for (it = adNames.begin(); it != adNames.end(); ++it) {
+                if (other->adNames.find(*it) == other->adNames.end()) {
+                    (*removed)->adNames.insert(*it);
+                }
+            }
+            for (it = findNames.begin(); it != findNames.end(); ++it) {
+                if (other->findNames.find(*it) == other->findNames.end()) {
+                    (*removed)->findNames.insert(*it);
+                }
+            }
+        }
+    }
+
+    void Update(const BTNodeInfo* added, const BTNodeInfo* removed)
+    {
+        NameSet::const_iterator it;
+        if (removed) {
+            for (it = (*removed)->adNames.begin(); it != (*removed)->adNames.end(); ++it) {
+                adNames.erase(*it);
+            }
+            for (it = (*removed)->findNames.begin(); it != (*removed)->findNames.end(); ++it) {
+                findNames.erase(*it);
+            }
+        }
+        if (added) {
+            for (it = (*added)->adNames.begin(); it != (*added)->adNames.end(); ++it) {
+                adNames.insert(*it);
+            }
+            for (it = (*added)->findNames.begin(); it != (*added)->findNames.end(); ++it) {
+                findNames.insert(*it);
+            }
+        }
     }
 
 

@@ -425,6 +425,11 @@ void BTNodeDB::UpdateDB(const BTNodeDB* added, const BTNodeDB* removed, bool rem
         }
     }
 
+    if (connMap.size() != nodes.size()) {
+        DumpTable("ASSERT FAIL: updated DB");
+        if (added) added->DumpTable("ASSERT FAIL: added DB");
+        if (removed) removed->DumpTable("ASSERT FAIL: removed DB");
+    }
     assert(connMap.size() == nodes.size());
     assert(!useExpirations || (expireSet.size() == nodes.size()));
     Unlock(MUTEX_CONTEXT);
