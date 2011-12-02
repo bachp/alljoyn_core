@@ -49,8 +49,9 @@ class WindowsBTEndpoint : public BTEndpoint {
                       bool incoming,
                       const BTNodeInfo& node,
                       ajn::BTTransport::BTAccessor* accessor,
-                      BTH_ADDR address) :
-        BTEndpoint(bus, incoming, btStream, node),
+                      BTH_ADDR address,
+                      const BTBusAddress& redirect) :
+        BTEndpoint(bus, incoming, btStream, node, redirect),
         connectionStatus(ER_FAIL),
         btStream(address, accessor)
     {
