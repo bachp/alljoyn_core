@@ -422,22 +422,32 @@ int main()
     CHECK(bn4 == bn5);
 
     // Test over random values
-    printf("divsion and multiplication stress\n");
+    printf("division and multiplication stress\n");
     for (int i = 1; i < 200; ++i) {
-        for (int j = 0; j < 50; ++j) {
-            bn1.gen_rand(i + 1);
-            if ((i % 8) == 1) {
-                bn1 = -bn1;
+        for (int n = 0; n < 1000; ++n) {
+            for (int j = 0; j < 50; ++j) {
+                bn1.gen_rand(i + 1 + j / 10);
+                if ((i % 8) == 1) {
+                    bn1 = -bn1;
+                }
+                do {
+                    bn2.gen_rand(i);
+                } while (bn2 == 0);
+                if ((i % 16) == 1) {
+                    bn2 = -bn2;
+                }
+                bn3 = bn1 / bn2;
+                bn4 = bn1 % bn2;
+                if (((bn2 * bn3) + bn4) != bn1) {
+                    printf("div mul test failed\n");
+                    printf("bn1: %s\n", bn1.get_hex().c_str());
+                    printf("bn2: %s\n", bn2.get_hex().c_str());
+                    printf("bn3: %s\n", bn3.get_hex().c_str());
+                    printf("bn4: %s\n", bn4.get_hex().c_str());
+                    printf("!!!!!check failed\n");
+                    exit(1);
+                }
             }
-            do {
-                bn2.gen_rand(i);
-            } while (bn2 == 0);
-            if ((i % 16) == 1) {
-                bn2 = -bn2;
-            }
-            bn3 = bn1 / bn2;
-            bn4 = bn1 % bn2;
-            CHECK(((bn2 * bn3) + bn4) == bn1);
         }
         printf("%d ", i);
         if ((i % 20) == 0) {
