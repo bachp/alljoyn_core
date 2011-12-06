@@ -2932,13 +2932,15 @@ void BTController::AlarmTriggered(const Alarm& alarm, QStatus reason)
         QCC_DbgPrintf(("Handling deferred operation:"));
         switch (op->operation) {
         case DispatchInfo::UPDATE_DELEGATIONS:
-            QCC_DbgPrintf(("    Updating delegations"));
-            lock.Lock(MUTEX_CONTEXT);
-            UpdateDelegations(advertise);
-            UpdateDelegations(find);
-            QCC_DbgPrintf(("NodeDB after updating delegations"));
-            QCC_DEBUG_ONLY(DumpNodeStateTable());
-            lock.Unlock(MUTEX_CONTEXT);
+            if (incompleteConnections == 0) {
+                QCC_DbgPrintf(("    Updating delegations"));
+                lock.Lock(MUTEX_CONTEXT);
+                UpdateDelegations(advertise);
+                UpdateDelegations(find);
+                QCC_DbgPrintf(("NodeDB after updating delegations"));
+                QCC_DEBUG_ONLY(DumpNodeStateTable());
+                lock.Unlock(MUTEX_CONTEXT);
+            }
             break;
 
         case DispatchInfo::EXPIRE_CACHED_NODES: {
