@@ -608,6 +608,9 @@ class _BTNodeInfo {
                     (*added)->findNames.insert(*it);
                 }
             }
+            if (!(*added)->adNames.empty() || !(*added)->findNames.empty()) {
+                (*added)->nodeAddr = nodeAddr;
+            }
         }
         if (removed) {
             assert((*removed)->adNames.empty() && (*removed)->findNames.empty());
@@ -620,6 +623,9 @@ class _BTNodeInfo {
                 if (other->findNames.find(*it) == other->findNames.end()) {
                     (*removed)->findNames.insert(*it);
                 }
+            }
+            if (!(*removed)->adNames.empty() || !(*removed)->findNames.empty()) {
+                (*removed)->nodeAddr = nodeAddr;
             }
         }
     }
