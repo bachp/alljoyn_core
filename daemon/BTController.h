@@ -905,7 +905,7 @@ class BTController :
 
     BDAddressSet blacklist;
 
-    int32_t incompleteConnections; // Number of outgoing connections that are being setup
+    volatile int32_t incompleteConnections; // Number of outgoing connections that are being setup
     qcc::Event connectCompleted;
 
     struct {
