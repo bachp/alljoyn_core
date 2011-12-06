@@ -394,7 +394,7 @@ class BTTransport::BTAccessor : public MessageReceiver, public qcc::AlarmListene
 
     bool bluetoothAvailable;
     bool discoverable;
-    int32_t discoveryCtrl;
+    volatile int32_t discoveryCtrl;
 
     qcc::SocketFd l2capLFd;
     qcc::Event* l2capEvent;
