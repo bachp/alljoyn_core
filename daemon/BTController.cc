@@ -705,7 +705,7 @@ BTNodeInfo BTController::PrepConnect(const BTBusAddress& addr)
                    node->GetConnectNode()->ToString().c_str(),
                    node->ToString().c_str(),
                    addr.ToString().c_str(),
-                   !node->IsValid() ? "<unkown>" :
+                   !node->IsValid() ? "<unknown>" :
                    (foundNodeDB.FindNode(addr) == node) ? "in foundNodeDB" :
                    ((nodeDB.FindNode(addr) == node) ? "in nodeDB" :
                     ((node == masterNode) ? "masterNode" : "<impossible>")),
@@ -1374,6 +1374,10 @@ void BTController::HandleSetState(const InterfaceDescription::Member* member, Me
 
     if (IsMaster()) {
         ResetExpireNameAlarm();
+
+        QCC_DbgPrintf(("NodeDB after updating handling SetState"));
+        QCC_DEBUG_ONLY(DumpNodeStateTable());
+
     } else {
         RemoveExpireNameAlarm();
         //dispatcher.RemoveAlarm(stopAd);
@@ -1822,6 +1826,10 @@ void BTController::DeferredProcessSetStateReply(Message& reply,
                 }
 
                 ResetExpireNameAlarm();
+
+                QCC_DbgPrintf(("NodeDB after updating handling SetState reply"));
+                QCC_DEBUG_ONLY(DumpNodeStateTable());
+
             } else {
                 RemoveExpireNameAlarm();
                 //dispatcher.RemoveAlarm(stopAd);
