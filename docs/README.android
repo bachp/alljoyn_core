@@ -1,13 +1,13 @@
-AllJoyn version 2.2.0 README.TXT
+AllJoyn version 2.3.0 README.TXT
 --------------------------------
 
 What's inside:
 -------------
 
- * alljoyn_2_2_0_dbg : AllJoyn SDK for Android (debug), version 2.2.0
- * alljoyn_2_2_0_rel : AllJoyn SDK for Android (release), version 2.2.0
+ * alljoyn_2_3_0_dbg : AllJoyn SDK for Android (debug), version 2.3.0
+ * alljoyn_2_3_0_rel : AllJoyn SDK for Android (release), version 2.3.0
     The above directorys are identical, except for compilation options.
-    The file and directory structure inside them is described below. 
+    The file and directory structure inside them is described below.
 
  * ReleaseNotes
     New features, known issues, etc.
@@ -20,11 +20,11 @@ Summary of NDK file and directory structure:
    Android NDK:
 
     ./alljoyn_android
-        Contains the Alljoyn daemon project 
-            alljoyn - The 'alljoyn' project is the AllJoyn.apk.  A precompiled 
+        Contains the Alljoyn daemon project
+            alljoyn - The 'alljoyn' project is the AllJoyn.apk.  A precompiled
                       binary of the AllJoyn.apk can be found in
-                      ./alljoyn_android/alljoyn/bin            
-        
+                      ./alljoyn_android/alljoyn/bin
+
     ./bin
         Executable binaries and prebuilt APK's (bus daemon, C++ samples, test programs)
         ./bin/bbdaemon
@@ -39,7 +39,7 @@ Summary of NDK file and directory structure:
             Bus client example.
         ./bin/bbservice
             Bus service example.
-    
+
     ./docs
         AllJoyn C++ API (HTML documentation)
 
@@ -60,13 +60,13 @@ Summary of NDK file and directory structure:
 
     ./java/jar
         alljoyn.jar, alljoyn_test.jar
-        
+
     ./java/lib
         liballjoyn_java.so
 
     ./java/samples
         Java sample programs for AllJoyn (see README)
-        Each sample contains a bin directory containing the prebuilt apks for 
+        Each sample contains a bin directory containing the prebuilt apks for
         that sample.
 
 

@@ -37,6 +37,12 @@
         "OwnerKey" = "8:_UNDEFINED"
         "MsmSig" = "8:_UNDEFINED"
         }
+        "Entry"
+        {
+        "MsmKey" = "8:_UNDEFINED"
+        "OwnerKey" = "8:_2354C3C591C64D7196A4A955D9005173"
+        "MsmSig" = "8:_UNDEFINED"
+        }
     }
     "Configurations"
     {
@@ -202,9 +208,14 @@
             {
             "AssemblyRegister" = "3:1"
             "AssemblyIsInGAC" = "11:FALSE"
-            "AssemblyAsmDisplayName" = "8:AlljoynService, Version=1.0.0.0, Culture=neutral, processorArchitecture=MSIL"
+            "AssemblyAsmDisplayName" = "8:AlljoynService, Version=2.2.0.0, Culture=neutral, processorArchitecture=MSIL"
                 "ScatterAssemblies"
                 {
+                    "_2354C3C591C64D7196A4A955D9005173"
+                    {
+                    "Name" = "8:AlljoynService.exe"
+                    "Attributes" = "3:512"
+                    }
                 }
             "SourcePath" = "8:..\\AlljoynService\\bin\\x64\\Release\\AlljoynService.exe"
             "TargetName" = "8:"
@@ -347,14 +358,14 @@
         {
         "Name" = "8:Microsoft Visual Studio"
         "ProductName" = "8:Alljoyn Daemon Service (64bit)"
-        "ProductCode" = "8:{E50B27C5-7749-4226-987E-A6D3B2C44EB8}"
-        "PackageCode" = "8:{6F5F5974-5E27-41DF-9B62-8AA6F719B6BD}"
+        "ProductCode" = "8:{1EE2EE9D-E332-4CA6-873F-77DFEBD8B88A}"
+        "PackageCode" = "8:{F68C9C74-834D-4C5D-B805-BB215EC0FC42}"
         "UpgradeCode" = "8:{B0B98F19-0034-4490-BA7E-6EB6AB0AD66B}"
         "RestartWWWService" = "11:FALSE"
         "RemovePreviousVersions" = "11:FALSE"
         "DetectNewerInstalledVersion" = "11:TRUE"
         "InstallAllUsers" = "11:TRUE"
-        "ProductVersion" = "8:2.2.0"
+        "ProductVersion" = "8:2.3.0"
         "Manufacturer" = "8:Alljoyn.org"
         "ARPHELPTELEPHONE" = "8:"
         "ARPHELPLINK" = "8:"
