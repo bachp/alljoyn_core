@@ -390,7 +390,10 @@ int TestDriver::RunTests()
     printf("===============================================================================\n"
            "Overall: %s\n", success ? "PASS" : "FAIL");
 
-    if (opts.keepgoing) {
+    // If TC_DestroyBTAccessor() was already called then btAccessor will be NULL.
+    // But if opts.keepgoing is false and there was a failure then btAccessor needs to be
+    // gracefully shut down and deleted.
+    if (btAccessor) {
         silenceDetails = true;
         btAccessor->StopConnectable();
         btAccessor->Stop();
