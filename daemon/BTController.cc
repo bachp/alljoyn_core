@@ -1374,17 +1374,6 @@ void BTController::HandleSetState(const InterfaceDescription::Member* member, Me
         advertise.dirty = true;
     }
 
-    if (IsMaster()) {
-        ResetExpireNameAlarm();
-
-        QCC_DbgPrintf(("NodeDB after updating handling SetState"));
-        QCC_DEBUG_ONLY(DumpNodeStateTable());
-
-    } else {
-        RemoveExpireNameAlarm();
-        //dispatcher.RemoveAlarm(stopAd);
-    }
-
     status = MsgArg::Set(args, numArgs, SIG_SET_STATE_OUT,
                          bt.IsEIRCapable(),
                          masterUUIDRev,
@@ -1829,15 +1818,6 @@ void BTController::DeferredProcessSetStateReply(Message& reply,
                        (masterUUIDRev < upperBound)) {
                     masterUUIDRev = qcc::Rand32();
                 }
-
-                ResetExpireNameAlarm();
-
-                QCC_DbgPrintf(("NodeDB after updating handling SetState reply"));
-                QCC_DEBUG_ONLY(DumpNodeStateTable());
-
-            } else {
-                RemoveExpireNameAlarm();
-                //dispatcher.RemoveAlarm(stopAd);
             }
         }
     } else {
@@ -2065,10 +2045,15 @@ void BTController::DeferredNameLostHander(const String& name)
 
             QCC_DbgPrintf(("One of our minions left us: %s", minion->ToString().c_str()));
 
+            bool wasAdvertiseMinion = minion == advertise.minion;
+            bool wasFindMinion = minion == find.minion;
+            bool wasDirect = minion->IsDirectMinion();
+            bool wasRotateMinions = RotateMinions();
+
             nodeDB.RemoveNode(minion);
             assert(!devAvailable || (nodeDB.Size() > 0));
 
-            if (!minion->IsDirectMinion() && nodeDB.FindNode(minion->GetConnectNode()->GetBusAddress())->IsValid()) {
+            if (!wasDirect && nodeDB.FindNode(minion->GetConnectNode()->GetBusAddress())->IsValid()) {
                 // An indirect minion is leaving but its connect node is still
                 // connected (maybe).  Set its connect node to itself.  If
                 // we're wrong, we'll figure it out eventually.
@@ -2077,11 +2062,6 @@ void BTController::DeferredNameLostHander(const String& name)
 
             minion->SetSessionState(_BTNodeInfo::NO_SESSION);
             minion->SetRelationship(_BTNodeInfo::UNAFFILIATED);
-
-            bool wasAdvertiseMinion = minion == advertise.minion;
-            bool wasFindMinion = minion == find.minion;
-            bool wasDirect = minion->IsDirectMinion();
-            bool wasRotateMinions = RotateMinions();
 
             find.dirty = true;  // Update ignore addrs
 
@@ -2518,6 +2498,11 @@ QStatus BTController::ImportState(BTNodeInfo& connectingNode,
 
     if (IsMaster()) {
         ResetExpireNameAlarm();
+        ++directMinions;
+
+        QCC_DbgPrintf(("NodeDB after updating importing state information from connecting node"));
+        QCC_DEBUG_ONLY(DumpNodeStateTable());
+
     } else {
         RemoveExpireNameAlarm();
     }
@@ -2526,10 +2511,6 @@ QStatus BTController::ImportState(BTNodeInfo& connectingNode,
     lock.Unlock(MUTEX_CONTEXT);
 
     DistributeAdvertisedNameChanges(&addedDB, &removedDB);
-
-    if (IsMaster()) {
-        ++directMinions;
-    }
 
     return ER_OK;
 }
