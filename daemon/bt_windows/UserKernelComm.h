@@ -75,8 +75,12 @@ typedef enum {
     USRKRNCMD_ACCEPT,
     USRKRNCMD_CONNECT,
     USRKRNCMD_DISCONNECT,
+
+    // ISMASTER and REQUESTROLECHANGE are unsupported but are left here to preserve compatiability
+    // with existing drivers and for possible future use.
     USRKRNCMD_ISMASTER,
-    USRKRNCMD_REQUESTROLECHANGE, // Request a change in the Master/Slave role.
+    USRKRNCMD_REQUESTROLECHANGE,
+
     USRKRNCMD_READ,             // Read the waiting data.
     USRKRNCMD_WRITE,            // Write the given data.
     USRKRNCMD_GET_STATE,        // Get the current status of the kernel.
@@ -150,34 +154,6 @@ struct _USRKRNCMD_DISCONNECT {
 
     // The address of the connection to disconnect.
     BTH_ADDR address;
-};
-
-struct _USRKRNCMD_REQUESTROLECHANGE {
-    // The channel handle of the requested role change.
-    L2CAP_CHANNEL_HANDLE channelHandle;
-
-    // The address of the connection change.
-    BTH_ADDR address;
-
-    // Set to the NT error value for better diagnostics.
-    NTSTATUS ntStatus;
-
-    // True if the new role is to be master. False if the new role is to be slave.
-    BOOLEAN becomeMaster;
-};
-
-struct _USRKRNCMD_ISMASTER {
-    // The channel handle of which the role is desired.
-    L2CAP_CHANNEL_HANDLE channelHandle;
-
-    // The address of which the role is desired.
-    BTH_ADDR address;
-
-    // On return set to the NT error value for better diagnostics.
-    NTSTATUS ntStatus;
-
-    // Return value. True if the current role is master. False if it is not.
-    BOOLEAN isMaster;
 };
 
 struct _USRKRNCMD_READ {
@@ -354,8 +330,6 @@ typedef struct _USER_KERNEL_MESSAGE {
         struct _USRKRNCMD_ACCEPT acceptData;
         struct _USRKRNCMD_CONNECT connectData;
         struct _USRKRNCMD_DISCONNECT disconnectData;
-        struct _USRKRNCMD_REQUESTROLECHANGE requestRoleData;
-        struct _USRKRNCMD_ISMASTER isMasterData;
         struct _USRKRNCMD_READ read;
         struct _USRKRNCMD_WRITE write;
         struct _USRKRNCMD_GET_STATE state;

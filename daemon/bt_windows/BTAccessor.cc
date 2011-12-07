@@ -1722,69 +1722,6 @@ QStatus BTTransport::BTAccessor::GetDeviceInfo(const BDAddress& requestedAddr,
     return status;
 }
 
-QStatus BTTransport::BTAccessor::IsMaster(const BDAddress& addr, bool& master) const
-{
-    QCC_DbgTrace(("BTTransport::BTAccessor::IsMaster()"));
-
-    USER_KERNEL_MESSAGE messageIn = { USRKRNCMD_ISMASTER };
-    USER_KERNEL_MESSAGE messageOut = { USRKRNCMD_ISMASTER };
-    QStatus status = ER_BAD_ARG_1;  // If the endpoint isn't found for this address.
-    BTH_ADDR address = addr.GetRaw();
-    WindowsBTEndpoint* endpoint = EndPointsFindAnyHandle(address);
-
-    if (endpoint) {
-        messageIn.messageData.isMasterData.address = address;
-        messageIn.messageData.isMasterData.channelHandle = endpoint->GetChannelHandle();
-
-        status = DeviceSendMessage(&messageIn, &messageOut);
-
-        if (ER_OK == status) {
-            status = messageOut.commandStatus.status;
-        }
-
-        if (ER_OK == status) {
-            master = messageOut.messageData.isMasterData.isMaster;
-        } else {
-            QCC_LogError(status, ("IsMasterFailed() ntStatus = 0x%08X",
-                                  messageOut.messageData.isMasterData.ntStatus));
-            DebugDumpKernelState();
-        }
-    } else {
-        QCC_DbgPrintf(("IsMaster(address = 0x%012I64X) endPoint not found!", address));
-    }
-
-    return status;
-}
-
-void BTTransport::BTAccessor::RequestBTRole(const BDAddress& addr, ajn::bt::BluetoothRole role)
-{
-    QCC_DbgTrace(("BTTransport::BTAccessor::RequestBTRole()"));
-
-    USER_KERNEL_MESSAGE messageIn = { USRKRNCMD_REQUESTROLECHANGE };
-    USER_KERNEL_MESSAGE messageOut = { USRKRNCMD_REQUESTROLECHANGE };
-    BTH_ADDR address = addr.GetRaw();
-    WindowsBTEndpoint* endpoint = EndPointsFindAnyHandle(address);
-
-    if (endpoint) {
-        messageIn.messageData.requestRoleData.address = address;
-        messageIn.messageData.requestRoleData.channelHandle = endpoint->GetChannelHandle();
-        messageIn.messageData.requestRoleData.becomeMaster = (role == ajn::bt::MASTER);
-
-        QStatus status = DeviceSendMessage(&messageIn, &messageOut);
-
-        if (ER_OK == status) {
-            status = messageOut.commandStatus.status;
-        }
-
-        if (ER_OK != status) {
-            QCC_LogError(status, ("RequestBTRole() failed with ntStatus = 0x%08X",
-                                  messageOut.messageData.requestRoleData.ntStatus));
-        }
-    } else {
-        QCC_DbgPrintf(("RequestBTRole(address = 0x%012I64X) endPoint not found!", address));
-    }
-}
-
 void BTTransport::BTAccessor::AlarmTriggered(const Alarm& alarm, QStatus reason)
 {
     QCC_DbgTrace(("BTTransport::BTAccessor::AlarmTriggered()"));
@@ -2005,30 +1942,6 @@ WindowsBTEndpoint* BTTransport::BTAccessor::EndPointsFind(BTH_ADDR address,
             activeEndPoints[i]->GetRemoteDeviceAddress() == address &&
             activeEndPoints[i]->GetChannelHandle() == handle) {
             returnValue = activeEndPoints[i];
-            break;
-        }
-    } while (--i >= 0);
-
-    deviceLock.Unlock(MUTEX_CONTEXT);
-
-    return returnValue;
-}
-
-WindowsBTEndpoint* BTTransport::BTAccessor::EndPointsFindAnyHandle(BTH_ADDR address) const
-{
-    WindowsBTEndpoint* returnValue = NULL;
-    int i = _countof(activeEndPoints) - 1;
-
-    deviceLock.Lock(MUTEX_CONTEXT);
-
-    // We don't care what the handle is as long as it is non-NULL. Just return any endpoint
-    // with this address.
-    do {
-        WindowsBTEndpoint* point = activeEndPoints[i];
-
-        if (NULL != point && point->GetRemoteDeviceAddress() == address &&
-            NULL != point->GetChannelHandle()) {
-            returnValue = point;
             break;
         }
     } while (--i >= 0);

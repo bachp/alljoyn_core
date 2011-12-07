@@ -198,7 +198,11 @@ class BTTransport::BTAccessor : public MessageReceiver, public qcc::AlarmListene
      * @return  ER_OK if successful; an error will be returned if there is no
      *          connection with the specified device
      */
-    QStatus IsMaster(const BDAddress& addr, bool& master) const;
+    QStatus IsMaster(const BDAddress& addr, bool& master) const
+    {
+        return ER_NOT_IMPLEMENTED;    // Windows doesn't support this.
+    }
+
 
     /**
      * This method forces a role switch in the HCI device so that we become
@@ -207,7 +211,10 @@ class BTTransport::BTAccessor : public MessageReceiver, public qcc::AlarmListene
      * @param addr  Bluetooth device address for the connection of interest
      * @param role  Requested Bluetooth connection role
      */
-    void RequestBTRole(const BDAddress& addr, ajn::bt::BluetoothRole role);
+    void RequestBTRole(const BDAddress& addr, ajn::bt::BluetoothRole role)
+    {
+        // Windows doesn't support this.
+    }
 
     bool IsEIRCapable() const { return false; }
 
@@ -399,16 +406,6 @@ class BTTransport::BTAccessor : public MessageReceiver, public qcc::AlarmListene
      * @return  The endpoint connection to the remote device.
      */
     WindowsBTEndpoint* EndPointsFind(BTH_ADDR address, L2CAP_CHANNEL_HANDLE handle = 0) const;
-
-    /**
-     * This finds a WindowsBTEndpoint associated with the given address. Any endpoint that
-     * matches the address and has a non-NULL handle qualifies as a match.
-     *
-     * @param addr Bluetooth device address for the connection of interest.
-     *
-     * @return  The endpoint connection to the remote device.
-     */
-    WindowsBTEndpoint* EndPointsFindAnyHandle(BTH_ADDR address) const;
 
     /**
      * Initializes the circular queue for incoming connection requests.
