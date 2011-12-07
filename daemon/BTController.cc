@@ -1031,7 +1031,7 @@ QStatus BTController::DoNameOp(const qcc::String& name,
             DispatchOperation(new UpdateDelegationsDispatchInfo());
 
         } else {
-            QCC_DbgPrintf(("Sending %s to our master: %s", signal.name.c_str(), master->GetServiceName().c_str()));
+            QCC_DbgPrintf(("Sending %s to our master: %s (%s)", signal.name.c_str(), master->GetServiceName().c_str(), masterNode->ToString().c_str()));
             MsgArg args[SIG_NAME_OP_SIZE];
             size_t argsSize = ArraySize(args);
             MsgArg::Set(args, argsSize, SIG_NAME_OP,
@@ -1214,18 +1214,24 @@ void BTController::HandleSetState(const InterfaceDescription::Member* member, Me
     vector<MsgArg> nodeStateArgsStorage;
     vector<MsgArg> foundNodeArgsStorage;
 
-
+    foundNodeDB.Lock(MUTEX_CONTEXT);
     // Get the known node if we know it in order to keep things consistent.
     BTNodeInfo connectingNode = foundNodeDB.FindNode(addr);
 
     if (connectingNode->IsValid()) {
         connectingNode->SetUniqueName(sender);
+        if (connectingNode != connectingNode->GetConnectNode()) {
+            foundNodeDB.RemoveNode(connectingNode);
+            connectingNode->SetConnectNode(connectingNode);
+            foundNodeDB.AddNode(connectingNode);
+        }
     } else {
         connectingNode = BTNodeInfo(addr, sender);
     }
     connectingNode->SetUUIDRev(otherUUIDRev);
     connectingNode->SetSessionID(msg->GetSessionId());
     connectingNode->SetEIRCapable(remoteEIRCapable);
+    foundNodeDB.Unlock(MUTEX_CONTEXT);
 
     if (addr == self->GetBusAddress()) {
         // We should never get a connection from a device with the same address as our own.
