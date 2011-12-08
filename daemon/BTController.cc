@@ -2601,7 +2601,7 @@ QStatus BTController::ExtractAdInfo(const MsgArg* entries, size_t size, BTNodeDB
                 BTNodeInfo node(addr, empty, guid);
 
                 QCC_DbgPrintf(("Extracting %u advertise names for %s:",
-                               numNames, addr.ToString().c_str()));
+                               numNames, node->ToString().c_str()));
                 for (size_t j = 0; j < numNames; ++j) {
                     char* name;
                     status = names[j].Get(SIG_NAME, &name);
@@ -2671,8 +2671,8 @@ QStatus BTController::ExtractNodeInfo(const MsgArg* entries, size_t size, BTNode
 
             QCC_DbgPrintf(("    Processing advertised names for device %lu-%lu %s (connectable via %s):",
                            i, j,
-                           nodeAddr.ToString().c_str(),
-                           connNodeAddr.ToString().c_str()));
+                           node->ToString().c_str(),
+                           connNode->ToString().c_str()));
 
             // If the node is in our subnet, then use the real connect address.
             BTNodeInfo n = nodeDB.FindNode(nodeAddr);
@@ -2919,15 +2919,15 @@ void BTController::AlarmTriggered(const Alarm& alarm, QStatus reason)
         QCC_DbgPrintf(("Handling deferred operation:"));
         switch (op->operation) {
         case DispatchInfo::UPDATE_DELEGATIONS:
+            lock.Lock(MUTEX_CONTEXT);
             if (incompleteConnections == 0) {
                 QCC_DbgPrintf(("    Updating delegations"));
-                lock.Lock(MUTEX_CONTEXT);
                 UpdateDelegations(advertise);
                 UpdateDelegations(find);
                 QCC_DbgPrintf(("NodeDB after updating delegations"));
                 QCC_DEBUG_ONLY(DumpNodeStateTable());
-                lock.Unlock(MUTEX_CONTEXT);
             }
+            lock.Unlock(MUTEX_CONTEXT);
             break;
 
         case DispatchInfo::EXPIRE_CACHED_NODES: {
