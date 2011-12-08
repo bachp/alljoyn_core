@@ -2278,6 +2278,8 @@ QStatus BTController::ImportState(BTNodeInfo& connectingNode,
     lock.Lock(MUTEX_CONTEXT);  // Must be acquired before the foundNodeDB lock.
     foundNodeDB.Lock(MUTEX_CONTEXT);
 
+    bool cnKnown = foundNodeDB.FindNode(connectingNode->GetBusAddress())->IsValid();
+
     for (i = 0; i < numNodeStates; ++i) {
         char* bn;
         char* guidStr;
@@ -2306,7 +2308,7 @@ QStatus BTController::ImportState(BTNodeInfo& connectingNode,
         String busName(bn);
         BTBusAddress nodeAddr(BDAddress(rawBdAddr), psm);
         GUID128 guid(guidStr);
-        BTNodeInfo incomingNode(nodeAddr, busName, guid);
+        BTNodeInfo incomingNode;
 
         if (busName.empty()) {
             QCC_LogError(ER_NONE, ("Skipping node with address %s because it has no bus name.", nodeAddr.ToString().c_str()));
@@ -2314,13 +2316,29 @@ QStatus BTController::ImportState(BTNodeInfo& connectingNode,
             continue;
         }
 
+        if (nodeAddr == connectingNode->GetBusAddress()) {
+            // incomingNode needs to refer to the same instance as
+            // connectingNode since other nodes already point to
+            // connectingNode as their connect node and that instance is the
+            // one that needs to make it into incomingDB.
+            if (cnKnown) {
+                incomingNode = connectingNode->Clone();
+            } else {
+                incomingNode = connectingNode;
+            }
+            if (IsMaster()) {
+                incomingNode->SetRelationship(_BTNodeInfo::DIRECT_MINION);
+            }
+        } else {
+            incomingNode = BTNodeInfo(nodeAddr, busName, guid);
+            if (IsMaster()) {
+                incomingNode->SetRelationship(_BTNodeInfo::INDIRECT_MINION);
+            }
+        }
         incomingNode->SetConnectNode(connectingNode);
         incomingNode->SetEIRCapable(eirCapable);
-        if (IsMaster()) {
-            incomingNode->SetRelationship((connectingNode->GetBusAddress() == nodeAddr) ? _BTNodeInfo::DIRECT_MINION : _BTNodeInfo::INDIRECT_MINION);
-            if (eirCapable) {
-                ++eirMinions;
-            }
+        if (IsMaster() && eirCapable) {
+            ++eirMinions;
         }
 
         QCC_DbgPrintf(("Processing names for new minion %s (GUID: %s  uniqueName: %s):",
@@ -2371,7 +2389,11 @@ QStatus BTController::ImportState(BTNodeInfo& connectingNode,
 
         BTNodeInfo foundNode = foundNodeDB.FindNode(nodeAddr);
         if (foundNode->IsValid()) {
-            foundNode->SetConnectNode(connectingNode);  // Just in case connectingNode is unknown to us.
+            if (!cnKnown) {
+                foundNodeDB.RemoveNode(foundNode);
+                foundNode->SetConnectNode(connectingNode);
+                foundNodeDB.AddNode(foundNode);
+            }
 
             // The incoming node is known to us so we need to find any
             // differences in advertise/find name sets from what we think we
@@ -2476,8 +2498,14 @@ QStatus BTController::ImportState(BTNodeInfo& connectingNode,
 
                 foundNode->Update(&added, &removed);
             } else {
-                addedDB.AddNode(*nodeit);
-                foundNodeDB.AddNode(*nodeit);
+                BTNodeInfo n = *nodeit;
+                addedDB.AddNode(n);
+                BTNodeInfo cn = n->GetConnectNode();
+                BTNodeInfo fcn = foundNodeDB.FindNode(cn->GetBusAddress());
+                if ((cn == fcn) && !cn.iden(fcn)) {
+                    n->SetConnectNode(fcn);
+                }
+                foundNodeDB.AddNode(n);
             }
         }
 
