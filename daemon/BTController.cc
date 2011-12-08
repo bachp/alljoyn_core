@@ -2307,6 +2307,13 @@ QStatus BTController::ImportState(BTNodeInfo& connectingNode,
         BTBusAddress nodeAddr(BDAddress(rawBdAddr), psm);
         GUID128 guid(guidStr);
         BTNodeInfo incomingNode(nodeAddr, busName, guid);
+
+        if (busName.empty()) {
+            QCC_LogError(ER_NONE, ("Skipping node with address %s because it has no bus name.", nodeAddr.ToString().c_str()));
+            assert(!busName.empty());
+            continue;
+        }
+
         incomingNode->SetConnectNode(connectingNode);
         incomingNode->SetEIRCapable(eirCapable);
         if (IsMaster()) {
@@ -2387,6 +2394,8 @@ QStatus BTController::ImportState(BTNodeInfo& connectingNode,
             if (IsMaster()) {
                 // Move the node from foundNodeDB to nodeDB since it is now a minion.
                 foundNodeDB.RemoveNode(foundNode);
+                // Make sure node's unique name is up-to-date
+                foundNode->SetUniqueName(incomingNode->GetUniqueName());
                 nodeDB.AddNode(foundNode);
             }
         } else {
