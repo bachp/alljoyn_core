@@ -41,10 +41,49 @@ void ConfigL2capMTU(qcc::SocketFd sockFd);
 
 void ConfigL2capMaster(qcc::SocketFd sockFd);
 
+/**
+ * Find out if a given device is our piconet master
+ *
+ * @param deviceId    The Bluetooth device id
+ * @param addr        The device we are checking
+ * @param master      [out] Returns true of the device identified by addr is the master
+ */
 QStatus IsMaster(uint16_t deviceId, const BDAddress& addr, bool& master);
 
+/**
+ * Request as role (master or slave) for the link to a specific device
+ *
+ * @param deviceId    The Bluetooth device id
+ * @param addr        The device link we are setting the role on
+ * @param role        The role we are requesting
+ */
 QStatus RequestBTRole(uint16_t deviceId, const BDAddress& addr, bt::BluetoothRole role);
 
+/**
+ * Request to enter sniff mode for the link to a specific device. The time values are all specified
+ * in slots (0.625 milliseconds).
+ *
+ * @param deviceId       The Bluetooth device id
+ * @param addr           The device link we are putting into sniff mode
+ * @param minInterval    The minimum sniff interval specified as slots
+ * @param maxInterval    The maximum sniff interval specified as slots
+ * @param attemptTO      The sniff attempt timeou specified as slotst
+ * @param sniffTO        The sniff timeou specified as slotst
+ */
+QStatus RequestEnterSniffMode(uint16_t deviceId,
+                              const BDAddress& addr,
+                              uint16_t minInterval,
+                              uint16_t maxInterval,
+                              uint16_t attemptTO,
+                              uint16_t sniffTO);
+
+/**
+ * Request to exit sniff mode for the link to a specific device
+ *
+ * @param deviceId    The Bluetooth device id
+ * @param addr        The device link we are taking out of sniff mode
+ */
+QStatus RequestExitSniffMode(uint16_t deviceId, const BDAddress& addr);
 
 /**
  * @param deviceId    The Bluetooth device id

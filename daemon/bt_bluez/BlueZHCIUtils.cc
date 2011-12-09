@@ -46,6 +46,10 @@ namespace bluez {
 
 const static uint16_t L2capDefaultMtu = (1 * 1021) + 1011; // 2 x 3DH5
 
+/*
+ * Compose the first two bytes of an HCI command from the OGF and OCF
+ */
+#define HCI_CMD(ogf, ocf)  (ogf), (ocf)
 
 /*
  * Set the L2CAP mtu to something better than the BT 1.0 default value.
@@ -113,15 +117,15 @@ void ConfigL2capMaster(SocketFd sockFd)
 QStatus ConfigureInquiryScan(uint16_t deviceId, uint16_t window, uint16_t interval, bool interlaced, int8_t txPower)
 {
     static const uint8_t hciSetInquiryParams[] = {
-        0x01, 0x1E, 0x0C, 0x04, 0x28, 0x00, 0x14, 0x00
+        HCI_CMD(0x01, 0x1E), 0x0C, 0x04, 0x28, 0x00, 0x14, 0x00
     };
 
     static const uint8_t hciSetInquiryInterlaced[] = {
-        0x01, 0x43, 0x0C, 0x01, 0x01
+        HCI_CMD(0x01, 0x43), 0x0C, 0x01, 0x01
     };
 
     static const uint8_t hciSetInquiryTxPower[] = {
-        0x01, 0x59, 0x0C, 0x01, 0x00
+        HCI_CMD(0x01, 0x59), 0x0C, 0x01, 0x00
     };
 
     QStatus status = ER_OK;
@@ -220,11 +224,11 @@ Exit:
 QStatus ConfigurePeriodicInquiry(uint16_t deviceId, uint16_t minPeriod, uint16_t maxPeriod, uint8_t length, uint8_t maxResponses)
 {
     static const uint8_t hciStartPeriodicInquiry[] = {
-        0x01, 0x03, 0x04, 0x09, 0x00, 0x00, 0x00, 0x00, 0x33, 0x8B, 0x9E, 0x00, 0x00
+        HCI_CMD(0x01, 0x03), 0x04, 0x09, 0x00, 0x00, 0x00, 0x00, 0x33, 0x8B, 0x9E, 0x00, 0x00
     };
 
     static const uint8_t hciExitPeriodicInquiry[] = {
-        0x01, 0x04, 0x04, 0x00
+        HCI_CMD(0x01, 0x04), 0x04, 0x00
     };
 
     QStatus status = ER_OK;
@@ -305,7 +309,7 @@ Exit:
 QStatus ConfigureSimplePairingDebugMode(uint16_t deviceId, bool enable)
 {
     static const uint8_t hciSimplePairingDebugMode[] = {
-        0x01, 0x04, 0x18, 0x01, 0x01
+        HCI_CMD(0x01, 0x04), 0x18, 0x01, 0x01
     };
     QStatus status = ER_OK;
     uint8_t cmd[sizeof(hciSimplePairingDebugMode)];
@@ -346,7 +350,7 @@ Exit:
 QStatus ConfigureClassOfDevice(uint16_t deviceId, uint32_t cod)
 {
     static const uint8_t hciWriteCOD[] = {
-        0x01, 0x24, 0x0c, 0x03, 0x00, 0x00, 0x00
+        HCI_CMD(0x01, 0x24), 0x0c, 0x03, 0x00, 0x00, 0x00
     };
     QStatus status = ER_OK;
     uint8_t cmd[sizeof(hciWriteCOD)];
@@ -432,7 +436,7 @@ QStatus RequestBTRole(uint16_t deviceId, const BDAddress& bdAddr, bt::BluetoothR
 {
     // Template for the role switch command.
     static const uint8_t hciRoleSwitch[] = {
-        0x01, 0x0B, 0x08, 0x07, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00
+        HCI_CMD(0x01, 0x0B), 0x08, 0x07, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00
     };
     QStatus status = ER_OK;
     uint8_t cmd[sizeof(hciRoleSwitch)];
@@ -565,7 +569,137 @@ exit:
     return status;
 }
 
+QStatus RequestEnterSniffMode(uint16_t deviceId,
+                              const BDAddress& bdAddr,
+                              uint16_t minInterval,
+                              uint16_t maxInterval,
+                              uint16_t attemptTO,
+                              uint16_t sniffTO)
+{
+    uint8_t hciEnterSniffMode[14] = { HCI_CMD(0x02, 0x03) };
 
+    QStatus status = ER_OK;
+    uint8_t cmd[sizeof(hciEnterSniffMode)];
+    struct hci_conn_info_req connInfoReq;
+    sockaddr_hci addr;
+    SocketFd hciFd;
+    size_t sent;
+    int ret;
+
+    if (minInterval < 2 || minInterval > 0x7FFF) {
+        return ER_BAD_ARG_3;
+    }
+    if (maxInterval < 2 || maxInterval > 0x7FFF) {
+        return ER_BAD_ARG_4;
+    }
+    if (attemptTO < 1 || attemptTO > 0x7FFF) {
+        return ER_BAD_ARG_5;
+    }
+    if (sniffTO > 0x7FFF) {
+        return ER_BAD_ARG_5;
+    }
+
+    hciFd = (SocketFd)socket(AF_BLUETOOTH, QCC_SOCK_RAW, 1);
+    if (hciFd < 0) {
+        status = ER_OS_ERROR;
+        QCC_LogError(status, ("Failed to create socket (errno %d)", errno));
+        return status;
+    }
+
+    addr.family = AF_BLUETOOTH;
+    addr.dev = deviceId;
+    if (bind(hciFd, (struct sockaddr*)&addr, sizeof(addr)) < 0) {
+        status = ER_OS_ERROR;
+        QCC_LogError(status, ("Failed to bind to BT device id %d socket (errno %d)", deviceId, errno));
+        goto exit;
+    }
+
+    /*
+     * Lookup the link handle for this device
+     */
+    bdAddr.CopyTo(connInfoReq.bdaddr.b, true);
+    connInfoReq.type = HCI_ACL_LINK;
+    ret = ioctl(hciFd, HCIGETCONNINFO, &connInfoReq);
+    if (ret < 0) {
+        status = ER_OS_ERROR;
+        QCC_LogError(status, ("Getting connection information (%d - %s)", errno, strerror(errno)));
+        goto exit;
+    }
+
+    hciEnterSniffMode[2] = connInfoReq.conn_info.handle;
+    hciEnterSniffMode[3] = connInfoReq.conn_info.handle >> 8;
+
+    hciEnterSniffMode[4] = minInterval;
+    hciEnterSniffMode[5] = minInterval >> 8;
+    hciEnterSniffMode[6] = maxInterval;
+    hciEnterSniffMode[7] = maxInterval >> 8;
+    hciEnterSniffMode[8] = attemptTO;
+    hciEnterSniffMode[9] = attemptTO >> 8;
+    hciEnterSniffMode[10] = sniffTO;
+    hciEnterSniffMode[11] = sniffTO >> 8;
+
+    status = Send(hciFd, cmd, sizeof(hciEnterSniffMode), sent);
+    if (status != ER_OK) {
+        QCC_LogError(status, ("Failed to send hciEnterSniffMode HCI command (errno %d)", errno));
+        goto exit;
+    }
+
+exit:
+    close(hciFd);
+    return status;
+}
+
+QStatus RequestExitSniffMode(uint16_t deviceId, const BDAddress& bdAddr)
+{
+    uint8_t hciExitSniffMode[4] = { HCI_CMD(0x02, 0x04) };
+
+    QStatus status = ER_OK;
+    struct hci_conn_info_req connInfoReq;
+    sockaddr_hci addr;
+    SocketFd hciFd;
+    size_t sent;
+    int ret;
+
+    hciFd = (SocketFd)socket(AF_BLUETOOTH, QCC_SOCK_RAW, 1);
+    if (hciFd < 0) {
+        status = ER_OS_ERROR;
+        QCC_LogError(status, ("Failed to create socket (errno %d)", errno));
+        return status;
+    }
+
+    addr.family = AF_BLUETOOTH;
+    addr.dev = deviceId;
+    if (bind(hciFd, (struct sockaddr*)&addr, sizeof(addr)) < 0) {
+        status = ER_OS_ERROR;
+        QCC_LogError(status, ("Failed to bind to BT device id %d socket (errno %d)", deviceId, errno));
+        goto exit;
+    }
+
+    /*
+     * Lookup the link handle for this device
+     */
+    bdAddr.CopyTo(connInfoReq.bdaddr.b, true);
+    connInfoReq.type = HCI_ACL_LINK;
+    ret = ioctl(hciFd, HCIGETCONNINFO, &connInfoReq);
+    if (ret < 0) {
+        status = ER_OS_ERROR;
+        QCC_LogError(status, ("Getting connection information (%d - %s)", errno, strerror(errno)));
+        goto exit;
+    }
+
+    hciExitSniffMode[2] = connInfoReq.conn_info.handle;
+    hciExitSniffMode[3] = connInfoReq.conn_info.handle >> 8;
+
+    status = Send(hciFd, hciExitSniffMode, sizeof(hciExitSniffMode), sent);
+    if (status != ER_OK) {
+        QCC_LogError(status, ("Failed to send hciExitSniffMode HCI command (errno %d)", errno));
+        goto exit;
+    }
+
+exit:
+    close(hciFd);
+    return status;
+}
 
 } // namespace bluez
 } // namespace ajn
