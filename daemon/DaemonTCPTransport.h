@@ -27,6 +27,8 @@
 #error Only include DaemonTCPTransport.h in C++ code.
 #endif
 
+#include <list>
+#include <queue>
 #include <Status.h>
 
 #include <qcc/platform.h>
@@ -298,8 +300,34 @@ class DaemonTCPTransport : public Transport, public RemoteEndpoint::EndpointList
     std::list<DaemonTCPEndpoint*> m_endpointList;                  /**< List of active endpoints */
     qcc::Mutex m_endpointListLock;                                 /**< Mutex that protects the endpoint and auth lists */
 
-    std::list<std::pair<qcc::String, qcc::SocketFd> > m_listenFds; /**< file descriptors the transport is listening on */
+    std::list<std::pair<qcc::String, qcc::SocketFd> > m_listenFds; /**< File descriptors the transport is listening on */
     qcc::Mutex m_listenFdsLock;                                    /**< Mutex that protects m_listenFds */
+
+    std::list<qcc::String> m_listenSpecs;                          /**< Listen specs clients have requested us to listen on */
+    qcc::Mutex m_listenSpecsLock;                                  /**< Mutex that protects m_listenSpecs */
+
+    /**
+     * @internal
+     * @brief Commmand codes sent to the server accept loop thread.
+     */
+    enum Request {
+        START_LISTEN,   /**< A request to start listening on a particular address/port combination */
+        STOP_LISTEN     /**< A request to stop listening on a particular address/port combination */
+    };
+
+    /**
+     * @internal
+     * @brief Request code for communicating StartListen and StopListen requests
+     * to the server accept loop thread.
+     */
+    class ListenRequest {
+      public:
+        Request m_request;
+        qcc::String m_listenSpec;
+    };
+
+    std::queue<ListenRequest> m_listenRequests;                    /**< Queue of StartListen and StopListen requests */
+    qcc::Mutex m_listenRequestsLock;                               /**< Mutex that protects m_listenRequests */
 
     /**
      * @internal
@@ -308,6 +336,96 @@ class DaemonTCPTransport : public Transport, public RemoteEndpoint::EndpointList
      * @param arg  Unused thread entry arg.
      */
     qcc::ThreadReturn STDCALL Run(void* arg);
+
+    /**
+     * @internal
+     * @brief Queue a StartListen request for the server accept loop
+     *
+     * The server accept loop (executing in DaemonTCPTransport::Run() uses the
+     * socket FD resources that are used to listen on the endpoints specified
+     * by the listenSpec parameters.  Creation and deletion of these resources
+     * then happen with the involvement of two threads.
+     *
+     * In order to serialize the creation, deletion and use of these resources
+     * we only change them in one place -- in the server accept loop.  This
+     * means that we need to queue requests to start and stop listening on a
+     * given listen spec to the accept loop thread.
+     *
+     * The sequence of events for StartListen() is then:
+     *
+     *   1.  The client calls StartListen().
+     *   2.  StartListen() calls QueueStartListen() to send a request to the
+     *       server accept loop thread.
+     *   3.  The server accept loop thread picks up the request and calls
+     *       DoStartListen() which allocates the resources.
+     *
+     * A similar sequence happens for StopListen().
+     *
+     * @param listenSpec A String containing the string specifying the address
+     *                   and port to listen on.
+     *
+     * @see QueueStartListen
+     * @see DoStartListen
+     * @see StopListen
+     */
+    void QueueStartListen(qcc::String& listenSpec);
+
+    /**
+     * @internal @brief Perform the work required for a StartListen request
+     * (doing it in the context of the server accept loop thread)
+     *
+     * @param listenSpec A String containing the string specifying the address
+     *                   and port to listen on.
+     *
+     * @see StartListen
+     * @see QueueStartListen
+     */
+    void DoStartListen(qcc::String& listenSpec);
+
+    /**
+     * @internal
+     * @brief Queue a StopListen request for the server accept loop
+     *
+     * The server accept loop (executing in DaemonTCPTransport::Run() uses the
+     * socket FD resources that are used to listen on the endpoints specified
+     * by the listenSpec parameters.  Creation and deletion of these resources
+     * then happen with the involvement of two threads.
+     *
+     * In order to serialize the creation, deletion and use of these resources
+     * we only change them in one place -- the server accept loop.  This means
+     * that we need to queue requests to start and stop listening on a given
+     * listen spec to the accept loop thread.
+     *
+     * The sequence of events for StopListen() is then:
+     *
+     *   1.  The client calls StopListen().
+     *   2.  StopListen() calls QueueStopListen() to send a request to the
+     *       server accept loop thread.
+     *   3.  The server accept loop thread picks up the request and calls
+     *       DoStopListen() which allocates the resources.
+     *
+     * A similar sequence happens for StartListen().
+     *
+     * @param listenSpec A String containing the string specifying the address
+     *                   and port to stop listening on.
+     *
+     * @see QueueStopListen
+     * @see DoStopListen
+     * @see StartListen
+     */
+    void QueueStopListen(qcc::String& listenSpec);
+
+    /**
+     * @internal @brief Perform the work required for a StopListen request
+     * (doing it in the context of the server accept loop thread)
+     *
+     * @param listenSpec A String containing the string specifying the address
+     *                   and port to stop listening on.
+     *
+     * @see StopListen
+     * @see QueueStopListen
+     */
+    void DoStopListen(qcc::String& listenSpec);
 
     /**
      * @internal
