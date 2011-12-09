@@ -418,7 +418,6 @@ class _BTNodeInfo {
             } // connectProxyNode == NULL -- nothing to do
         } else {
             if (connectProxyNode) {
-                fprintf(stderr, "SJK: replacing connect node %s with %s\n", (*connectProxyNode)->ToString().c_str(), node->ToString().c_str());
                 *connectProxyNode = node;
             } else {
                 connectProxyNode = new BTNodeInfo(node);
