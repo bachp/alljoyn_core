@@ -241,7 +241,7 @@ class BTTransport::BTAccessor : public MessageReceiver, public qcc::AlarmListene
                                             Message& msg);
 
     /* support */
-    QStatus FillAdapterAddress(bluez::AdapterObject& adapter);
+    QStatus InitializeAdapterInformation(bluez::AdapterObject& adapter);
     QStatus AddRecord(const char* recordXml,
                       uint32_t& newHandle);
     void RemoveRecord();

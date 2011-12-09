@@ -369,9 +369,13 @@ void BTTransport::BTAccessor::ConnectBlueZ()
      * that when an adapter does become available it can be used. If there is an adapter we
      * can update the service record.
      */
-    if (!bluetoothAvailable && (EnumerateAdapters() == ER_OK)) {
-        bluetoothAvailable = true;
-        transport->BTDeviceAvailable(true);
+    if (!bluetoothAvailable &&
+        (EnumerateAdapters() == ER_OK)) {
+        AdapterObject adapter = GetDefaultAdapterObject();
+        if (adapter->IsValid() && adapter->IsPowered()) {
+            bluetoothAvailable = true;
+            transport->BTDeviceAvailable(true);
+        }
     }
 }
 
@@ -690,13 +694,16 @@ void BTTransport::BTAccessor::StopConnectable()
 }
 
 
-QStatus BTTransport::BTAccessor::FillAdapterAddress(AdapterObject& adapter)
+QStatus BTTransport::BTAccessor::InitializeAdapterInformation(AdapterObject& adapter)
 {
     QStatus status = ER_FAIL;
 
     if (adapter->IsValid()) {
         Message rsp(bzBus);
         const MsgArg* arg;
+        const char* bdAddrStr;
+        bool powered;
+        bool disc;
 
         status = adapter->MethodCall(*org.bluez.Adapter.GetProperties, NULL, 0, rsp, BT_DEFAULT_TO);
         if (status != ER_OK) {
@@ -710,18 +717,66 @@ QStatus BTTransport::BTAccessor::FillAdapterAddress(AdapterObject& adapter)
 
         arg = rsp->GetArg(0);
 
-        if (arg) {
-            const char* bdAddrStr;
+        if (!arg) {
+            status = ER_FAIL;
+            goto exit;
+        }
 
-            status = arg->GetElement("{ss}", "Address", &bdAddrStr);
-            if (status == ER_OK) {
-                status = adapter->SetAddress(bdAddrStr);
+        status = arg->GetElement("{ss}", "Address", &bdAddrStr);
+        if (status != ER_OK) {
+            QCC_LogError(status, ("Failed to get Address"));
+            goto exit;
+        }
+
+        status = arg->GetElement("{su}", "Class", &cod);
+        if (status != ER_OK) {
+            QCC_LogError(status, ("Failed to get Class"));
+            goto exit;
+        }
+
+        status = arg->GetElement("{sb}", "Powered", &powered);
+        if (status != ER_OK) {
+            QCC_LogError(status, ("Failed to get Powered"));
+            goto exit;
+        }
+        status = arg->GetElement("{sb}", "Discovering", &disc);
+        if (status != ER_OK) {
+            QCC_LogError(status, ("Failed to get Discovering"));
+            goto exit;
+        }
+
+        status = adapter->SetAddress(bdAddrStr);
+        if (status != ER_OK) {
+            QCC_LogError(status, ("Failed to set Address"));
+            goto exit;
+        }
+
+        if (powered) {
+            status = adapter->QueryDeviceInfo();
+            if (status != ER_OK) {
+                QCC_LogError(status, ("Failed to get EIR Capability information"));
+                goto exit;
+            }
+        }
+
+        adapter->SetDiscovering(disc);
+        adapter->SetPowered(powered);
+
+        if (adapter == GetDefaultAdapterObject()) {
+            if (powered) {
+                /*
+                 * Configure the inquiry scan parameters the way we want them.
+                 */
+                adapter->ConfigureInquiryScan(11, 1280, true, 8);
+
+#ifdef ENABLE_AIR_SNIFFING
+                adapter->ConfigureSimplePairingDebugMode(true);
+#endif
             }
 
-            status  = arg->GetElement("{su}", "Class", &cod);
-            if (status == ER_OK) {
-                fprintf(stderr, "old cod: %08x   new cod: %08x", cod, cod | 0x00800000);
-                status = adapter->ConfigureClassOfDevice(cod | 0x00800000);
+            if (powered != bluetoothAvailable) {
+                bluetoothAvailable = powered;
+                transport->BTDeviceAvailable(powered);
             }
         }
     }
@@ -994,7 +1049,7 @@ void BTTransport::BTAccessor::AdapterAdded(const char* adapterObjPath)
         newAdapterObj->AddInterface(*org.bluez.Adapter.interface);
     }
 
-    QStatus status = FillAdapterAddress(newAdapterObj);
+    QStatus status = InitializeAdapterInformation(newAdapterObj);
     if (status != ER_OK) {
         return;
     }
@@ -1019,15 +1074,6 @@ void BTTransport::BTAccessor::AdapterAdded(const char* adapterObjPath)
                                 org.bluez.Adapter.PropertyChanged, adapterObjPath);
 
     adapterLock.Unlock(MUTEX_CONTEXT);
-
-    /*
-     * Configure the inquiry scan parameters the way we want them.
-     */
-    newAdapterObj->ConfigureInquiryScan(11, 1280, true, 8);
-
-#ifdef ENABLE_AIR_SNIFFING
-    newAdapterObj->ConfigureSimplePairingDebugMode(true);
-#endif
 }
 
 
@@ -1995,6 +2041,7 @@ void BTTransport::BTAccessor::AdapterPropertyChangedSignalHandler(const Interfac
 
                 adapter->MethodCall(*org.bluez.Adapter.SetProperty, dargs, ArraySize(dargs));
             }
+
         } else if (strcmp(property, "Discovering") == 0) {
             bool disc;
             value->Get("b", &disc);
@@ -2002,6 +2049,33 @@ void BTTransport::BTAccessor::AdapterPropertyChangedSignalHandler(const Interfac
                            disc ? "discovering" : "NOT discovering"));
 
             adapter->SetDiscovering(disc);
+
+        } else if (strcmp(property, "Powered") == 0) {
+            bool powered;
+            value->Get("b", &powered);
+
+            adapter->SetPowered(powered);
+
+            if (powered) {
+                QStatus status = adapter->QueryDeviceInfo();
+                if (status != ER_OK) {
+                    QCC_LogError(status, ("Failed to get EIR Capability information"));
+                }
+
+                /*
+                 * Configure the inquiry scan parameters the way we want them.
+                 */
+                adapter->ConfigureInquiryScan(11, 1280, true, 8);
+
+#ifdef ENABLE_AIR_SNIFFING
+                adapter->ConfigureSimplePairingDebugMode(true);
+#endif
+            }
+
+            if (adapter == GetDefaultAdapterObject()) {
+                bluetoothAvailable = powered;
+                transport->BTDeviceAvailable(powered);
+            }
         }
     }
 }

@@ -54,7 +54,8 @@ _AdapterObject::_AdapterObject(BusAttachment& bus, const qcc::String& path) :
     ProxyBusObject(bus, bzBusName, path.c_str(), 0),
     id(0),
     eirCapable(false),
-    discovering(false)
+    discovering(false),
+    powered(false)
 {
     size_t i = path.size();
     while (i > 0) {
@@ -572,7 +573,7 @@ QStatus _AdapterObject::SendHCIRequest(SocketFd hciFd,
 
             if (opcode == rOpcode) {
                 if (rsp.empty()) {
-                    rsp.assign(rxData.begin() + 2, rxData.end());
+                    rsp.assign(rxData.begin() + 3, rxData.end());
                 }
                 goto exit;
             }

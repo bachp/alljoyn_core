@@ -51,11 +51,12 @@ class _AdapterObject : public ProxyBusObject {
     QStatus QueryDeviceInfo();
 
     bool IsEIRCapable() const { return eirCapable; }
-    QStatus SetAddress(const qcc::String& addrStr) { return address.FromString(addrStr); }
+    QStatus SetAddress(const qcc::String addrStr) { return address.FromString(addrStr); }
     const BDAddress& GetAddress() const { return address; }
     bool IsDiscovering() const { return discovering; }
     void SetDiscovering(bool disc) { discovering = disc; }
-
+    bool IsPowered() const { return powered; }
+    void SetPowered(bool p) { powered = p; }
 
     QStatus ConfigureInquiryScan(uint16_t window, uint16_t interval, bool interlaced, int8_t txPower);
     QStatus ConfigurePeriodicInquiry(uint16_t minPeriod, uint16_t maxPeriod, uint8_t length, uint8_t maxResponses);
@@ -87,6 +88,7 @@ class _AdapterObject : public ProxyBusObject {
     BDAddress address;
     bool eirCapable;
     bool discovering;
+    bool powered;
 };
 
 typedef qcc::ManagedObj<_AdapterObject> AdapterObject;
