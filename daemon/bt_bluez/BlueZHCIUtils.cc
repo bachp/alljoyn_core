@@ -49,7 +49,9 @@ const static uint16_t L2capDefaultMtu = (1 * 1021) + 1011; // 2 x 3DH5
 /*
  * Compose the first two bytes of an HCI command from the OGF and OCF
  */
-#define HCI_CMD(ogf, ocf)  (ogf), (ocf)
+#define HCI_CMD(ogf, ocf, len)  0x1, (uint8_t)(((ogf) << 10) | (ocf)), (uint8_t)((((ogf) << 10) | (ocf)) >> 8), (uint8_t)(len)
+
+#define CMD_LEN  4
 
 /*
  * Set the L2CAP mtu to something better than the BT 1.0 default value.
@@ -116,16 +118,16 @@ void ConfigL2capMaster(SocketFd sockFd)
  */
 QStatus ConfigureInquiryScan(uint16_t deviceId, uint16_t window, uint16_t interval, bool interlaced, int8_t txPower)
 {
-    static const uint8_t hciSetInquiryParams[] = {
-        HCI_CMD(0x01, 0x1E), 0x0C, 0x04, 0x28, 0x00, 0x14, 0x00
+    static const uint8_t hciSetInquiryParams[CMD_LEN + 4] = {
+        HCI_CMD(0x3, 0x1E, 4), 0x28, 0x00, 0x14, 0x00
     };
 
-    static const uint8_t hciSetInquiryInterlaced[] = {
-        HCI_CMD(0x01, 0x43), 0x0C, 0x01, 0x01
+    static const uint8_t hciSetInquiryInterlaced[CMD_LEN + 1] = {
+        HCI_CMD(0x3, 0x43, 1), 0x01
     };
 
-    static const uint8_t hciSetInquiryTxPower[] = {
-        HCI_CMD(0x01, 0x59), 0x0C, 0x01, 0x00
+    static const uint8_t hciSetInquiryTxPower[CMD_LEN + 1] = {
+        HCI_CMD(0x3, 0x59, 1), 0x00
     };
 
     QStatus status = ER_OK;
@@ -223,12 +225,12 @@ Exit:
  */
 QStatus ConfigurePeriodicInquiry(uint16_t deviceId, uint16_t minPeriod, uint16_t maxPeriod, uint8_t length, uint8_t maxResponses)
 {
-    static const uint8_t hciStartPeriodicInquiry[] = {
-        HCI_CMD(0x01, 0x03), 0x04, 0x09, 0x00, 0x00, 0x00, 0x00, 0x33, 0x8B, 0x9E, 0x00, 0x00
+    static const uint8_t hciStartPeriodicInquiry[CMD_LEN + 9] = {
+        HCI_CMD(0x01, 0x03, 9), 0x00, 0x00, 0x00, 0x00, 0x33, 0x8B, 0x9E, 0x00, 0x00
     };
 
-    static const uint8_t hciExitPeriodicInquiry[] = {
-        HCI_CMD(0x01, 0x04), 0x04, 0x00
+    static const uint8_t hciExitPeriodicInquiry[CMD_LEN + 0] = {
+        HCI_CMD(0x01, 0x04, 0)
     };
 
     QStatus status = ER_OK;
@@ -308,9 +310,7 @@ Exit:
 
 QStatus ConfigureSimplePairingDebugMode(uint16_t deviceId, bool enable)
 {
-    static const uint8_t hciSimplePairingDebugMode[] = {
-        HCI_CMD(0x01, 0x04), 0x18, 0x01, 0x01
-    };
+    static const uint8_t hciSimplePairingDebugMode[4 + 1] = { HCI_CMD(0x01, 0x18, 1), 0x01 };
     QStatus status = ER_OK;
     uint8_t cmd[sizeof(hciSimplePairingDebugMode)];
     sockaddr_hci addr;
@@ -349,9 +349,7 @@ Exit:
 
 QStatus ConfigureClassOfDevice(uint16_t deviceId, uint32_t cod)
 {
-    static const uint8_t hciWriteCOD[] = {
-        HCI_CMD(0x01, 0x24), 0x0c, 0x03, 0x00, 0x00, 0x00
-    };
+    static const uint8_t hciWriteCOD[4 + 3] = { HCI_CMD(0x03, 0x24, 3) };
     QStatus status = ER_OK;
     uint8_t cmd[sizeof(hciWriteCOD)];
     sockaddr_hci addr;
@@ -435,9 +433,7 @@ exit:
 QStatus RequestBTRole(uint16_t deviceId, const BDAddress& bdAddr, bt::BluetoothRole role)
 {
     // Template for the role switch command.
-    static const uint8_t hciRoleSwitch[] = {
-        HCI_CMD(0x01, 0x0B), 0x08, 0x07, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00
-    };
+    static const uint8_t hciRoleSwitch[CMD_LEN + 7] = { HCI_CMD(0x02, 0x0B, 7) };
     QStatus status = ER_OK;
     uint8_t cmd[sizeof(hciRoleSwitch)];
     sockaddr_hci addr;
@@ -576,10 +572,10 @@ QStatus RequestEnterSniffMode(uint16_t deviceId,
                               uint16_t attemptTO,
                               uint16_t sniffTO)
 {
-    uint8_t hciEnterSniffMode[14] = { HCI_CMD(0x02, 0x03) };
-
+    QCC_DbgPrintf(("RequestEnterSniffMode"));
+    uint8_t hciEnterSniffMode[CMD_LEN + 12] = { HCI_CMD(0x02, 0x03, 12) };
+    uint8_t* arg = &hciEnterSniffMode[CMD_LEN];
     QStatus status = ER_OK;
-    uint8_t cmd[sizeof(hciEnterSniffMode)];
     struct hci_conn_info_req connInfoReq;
     sockaddr_hci addr;
     SocketFd hciFd;
@@ -589,8 +585,10 @@ QStatus RequestEnterSniffMode(uint16_t deviceId,
     if (minInterval < 2 || minInterval > 0x7FFF) {
         return ER_BAD_ARG_3;
     }
-    if (maxInterval < 2 || maxInterval > 0x7FFF) {
+    if (maxInterval < 2 || maxInterval > 0x7FFF || maxInterval < minInterval) {
         return ER_BAD_ARG_4;
+    }
+    if (minInterval > maxInterval) {
     }
     if (attemptTO < 1 || attemptTO > 0x7FFF) {
         return ER_BAD_ARG_5;
@@ -626,19 +624,19 @@ QStatus RequestEnterSniffMode(uint16_t deviceId,
         goto exit;
     }
 
-    hciEnterSniffMode[2] = connInfoReq.conn_info.handle;
-    hciEnterSniffMode[3] = connInfoReq.conn_info.handle >> 8;
+    *arg++ = connInfoReq.conn_info.handle;
+    *arg++ = connInfoReq.conn_info.handle >> 8;
 
-    hciEnterSniffMode[4] = minInterval;
-    hciEnterSniffMode[5] = minInterval >> 8;
-    hciEnterSniffMode[6] = maxInterval;
-    hciEnterSniffMode[7] = maxInterval >> 8;
-    hciEnterSniffMode[8] = attemptTO;
-    hciEnterSniffMode[9] = attemptTO >> 8;
-    hciEnterSniffMode[10] = sniffTO;
-    hciEnterSniffMode[11] = sniffTO >> 8;
+    *arg++ = maxInterval;
+    *arg++ = maxInterval >> 8;
+    *arg++ = minInterval;
+    *arg++ = minInterval >> 8;
+    *arg++ = attemptTO;
+    *arg++ = attemptTO >> 8;
+    *arg++ = sniffTO;
+    *arg++ = sniffTO >> 8;
 
-    status = Send(hciFd, cmd, sizeof(hciEnterSniffMode), sent);
+    status = Send(hciFd, hciEnterSniffMode, sizeof(hciEnterSniffMode), sent);
     if (status != ER_OK) {
         QCC_LogError(status, ("Failed to send hciEnterSniffMode HCI command (errno %d)", errno));
         goto exit;
@@ -651,8 +649,8 @@ exit:
 
 QStatus RequestExitSniffMode(uint16_t deviceId, const BDAddress& bdAddr)
 {
-    uint8_t hciExitSniffMode[4] = { HCI_CMD(0x02, 0x04) };
-
+    uint8_t hciExitSniffMode[CMD_LEN + 2] = { HCI_CMD(0x02, 0x04, 2) };
+    uint8_t* arg = &hciExitSniffMode[CMD_LEN];
     QStatus status = ER_OK;
     struct hci_conn_info_req connInfoReq;
     sockaddr_hci addr;
@@ -687,8 +685,8 @@ QStatus RequestExitSniffMode(uint16_t deviceId, const BDAddress& bdAddr)
         goto exit;
     }
 
-    hciExitSniffMode[2] = connInfoReq.conn_info.handle;
-    hciExitSniffMode[3] = connInfoReq.conn_info.handle >> 8;
+    *arg++ = connInfoReq.conn_info.handle;
+    *arg++ = connInfoReq.conn_info.handle >> 8;
 
     status = Send(hciFd, hciExitSniffMode, sizeof(hciExitSniffMode), sent);
     if (status != ER_OK) {
