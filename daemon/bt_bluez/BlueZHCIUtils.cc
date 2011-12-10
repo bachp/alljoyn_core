@@ -582,19 +582,19 @@ QStatus RequestEnterSniffMode(uint16_t deviceId,
     size_t sent;
     int ret;
 
-    if (minInterval < 2 || minInterval > 0x7FFF) {
+    // Value must be in range and even
+    if (minInterval < 2 || minInterval > 0x7FFE || (minInterval & 1)) {
         return ER_BAD_ARG_3;
     }
-    if (maxInterval < 2 || maxInterval > 0x7FFF || maxInterval < minInterval) {
+    // Value must be in range not less than minInterval and even
+    if (maxInterval < 2 || maxInterval > 0x7FFE || (maxInterval & 1) || maxInterval < minInterval) {
         return ER_BAD_ARG_4;
-    }
-    if (minInterval > maxInterval) {
     }
     if (attemptTO < 1 || attemptTO > 0x7FFF) {
         return ER_BAD_ARG_5;
     }
     if (sniffTO > 0x7FFF) {
-        return ER_BAD_ARG_5;
+        return ER_BAD_ARG_6;
     }
 
     hciFd = (SocketFd)socket(AF_BLUETOOTH, QCC_SOCK_RAW, 1);
