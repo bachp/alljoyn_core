@@ -72,7 +72,12 @@ env.Install('$DISTDIR/bin/alljoyn_android', progs)
 
 # Release notes and misc. legals
 env.Install('$DISTDIR', 'docs/ReleaseNotes.txt')
-env.InstallAs('$DISTDIR/README.txt', 'docs/README.android')
+if env['OS_CONF'] == 'windows': 
+    env.InstallAs('$DISTDIR/README.txt', 'docs/README.windows')
+if env['OS_CONF'] == 'linux':
+    env.InstallAs('$DISTDIR/README.txt', 'docs/README.linux')
+if env['OS_CONF'] == 'android':
+    env.InstallAs('$DISTDIR/README.txt', 'docs/README.android')
 
 env.Install('$DISTDIR', 'README.md')
 env.Install('$DISTDIR', 'NOTICE')
