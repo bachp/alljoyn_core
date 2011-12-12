@@ -1,0 +1,171 @@
+-------------------------------------------------------------------------------
+This document contains a list of changes to the Java AllJoyn API.
+Each Status, Method, or class will be marked as follows:
+'NEW': API code that was added to the release.
+'CHANGED': API code that has been changed since the last release.  
+'REMOVED': API code that has been deleted from the release and can no longer be 
+           used.
+'DEPRECATED': API code that has been marked as deprecated.   
+
+
+Each addition should contain a short explanation of what added or changed.
+For more information please refer to the API documentation. 
+-------------------------------------------------------------------------------
+AllJoyn API Changes between v2.2.0 and v2.3.0 (Java API)
+NEW STATUS
+WARNING value="0x1D"
+    Generic warning.
+
+NEW STATUS
+ALLJOYN_SETLINKTIMEOUT_REPLY_NOT_SUPPORTED value="0x90a0"
+    Local daemon does not support SetLinkTimeout.
+
+NEW STATUS    
+ALLJOYN_SETLINKTIMEOUT_REPLY_NO_DEST_SUPPORT value="0x90a1"
+    SetLinkTimeout not supported by destination.
+    
+NEW STATUS    
+ALLJOYN_SETLINKTIMEOUT_REPLY_FAILED value="0x90a2"
+    SetLinkTimeout failed.
+    
+NEW STATUS    
+ALLJOYN_ACCESS_PERMISSION_WARNING value="0x90a3"
+    No permission to use Wifi/Bluetooth.
+
+NEW STATUS
+ALLJOYN_ACCESS_PERMISSION_ERROR value="0x90a4"
+    No permission to access peer service.
+
+NEW STATUS
+BUS_DESTINATION_NOT_AUTHENTICATED value="0x90a5"
+    Cannot send a signal to a destination that is not authenticated.
+
+NEW STATUS
+BUS_ENDPOINT_REDIRECTED value="0x90a6"
+    Endpoint was redirected to another address.
+-------------------------------------------------------------------------------
+AllJoyn API Changes between v2.1.0 and v2.2.0 (Java API)
+NEW CLASS
+Class ExpirationRequest added to AuthListener
+    ExpirationRequest.setExpiration(int expiration)
+        Sets an expiration time in seconds relative to the current time for
+        the credentials. This value is optional and can be set on any
+        response to a credentials request. After the specified expiration
+        time has elapsed any secret keys based on the provided credentials
+        are invalidated and a new authentication exchange will be
+        required. If an expiration is not set the default expiration time for
+        the requested authentication mechanism is used.
+        [param] expiration - the expiration time in seconds
+
+CHANGED METHOD
+BusAttachment.joinSession(string, short, SessionOpts, SessionListener, OnJoinSessionListener, context)
+    Asynchronous version of joinSession(string, short, Mutable.IntegerValue, SessionOpts, SessionListener)}.
+    context param added in 2.2 release 
+    [param] context - User-defined context object.  Passed through to OnJoinSessionListener.onJoinSession(Status, int, SessionOpts, Object).
+    
+NEW METHOD
+BusAttachment.setLinkTimeout(int sessionId, Mutable.IntegerValue linkTimeout)
+    Set the link timeout for a session.
+    
+    Link timeout is the maximum number of seconds that an unresponsive
+    daemon-to-daemon connection will be monitored before declaring the
+    session lost (via SessionLost callback). Link timeout defaults to 0 which
+    indicates that AllJoyn link monitoring is disabled.
+    
+    Each transport type defines a lower bound on link timeout to avoid
+    defeating transport specific power management algorithms.
+    
+    [param] sessionId   - Id of session whose link timeout will be modified.
+    [param] linkTimeout - [IN/OUT] Max number of seconds that a link can be
+                          unresponsive before being declared lost. 0 indicates
+                          that AllJoyn link monitoring will be disabled. On
+                          return, this value will be the resulting (possibly
+                          upward) adjusted linkTimeout value that acceptable
+                          to the underlying transport.
+
+ NEW METHOD
+ BusAttachment.release()
+    Release resources immediately.
+    
+    Normally, when all references are removed to a given object, the Java
+    garbage collector notices the fact that the object is no longer required
+    and will destroy it.  This can happen at the garbage collector's leisure
+    an so any resources held by the object will not be released until "some
+    time later" after the object is no longer needed.
+    
+    Often, in test programs, we cycle through many BusAttachments in a very
+    short time, and if we rely on the garbage collector to clean up, we can
+    fairly quickly run out of scarce underlying resources -- especially file
+    descriptors.
+    
+    We provide an explicitly release() method to allow test programs to release
+    the underlying resources immediately.  The garbage collector will still
+    call finalize, but the resources held by the underlying C++ objects will
+    go away immediately.
+    
+    It is a programming error to call another method on the BusAttachment
+    after the release() method has been called.
+    
+NEW METHOD
+BusAttachment.setKeyExpiration(String guid, int timeout)
+    Sets the expiration time on keys associated with a specific remote peer as identified by its
+    peer GUID. The peer GUID associated with a bus name can be obtained by calling
+    getPeerGUID(String, Mutable.StringValue).  If the timeout is 0 this is equivalent to calling
+    clearKeys(String).
+    
+    [param] guid    - the GUID of a remote authenticated peer
+    [param] timeout - the time in seconds relative to the current time to expire the keys
+
+NEW METHOD
+BusAttachment.getKeyExpiration(String guid, Mutable.IntegerValue timeout)
+    Gets the expiration time on keys associated with a specific authenticated remote peer as
+    identified by its peer GUID. The peer GUID associated with a bus name can be obtained by
+    calling getPeerGUID(String, Mutable.StringValue).
+    
+    [param] guid    - the GUID of a remote authenticated peer
+    [param] timeout - the time in seconds relative to the current time when the keys will expire
+
+CHANGED METHOD
+InterfaceDescription.addMember(int type, String name, String inputSig, String outSig, int annotation, String accessPerm)
+    param accessPerm added for 2.2.0 release
+    
+NEW METHOD
+ProxyBusObject.release()
+    Release resources immediately.
+     
+    Normally, when all references are removed to a given object, the Java
+    garbage collector notices the fact that the object is no longer required
+    and will destory it.  This can happen at the garbage collector's leisure
+    an so any resources held by the object will not be released until "some
+    time later" after the object is no longer needed.
+    
+    Often, in test programs, we cycle through many BusAttachments in a very
+    short time, and if we rely on the garbage collector to clean up, we can
+    fairly quickly run out of scarce underlying resources -- especially file
+    descriptors.
+    
+    We provide an explicitly release() method to allow test programs to release
+    the underlying resources immediately.  The garbage collector will still
+    call finalize, but the resources held by the underlying C++ objects will
+    go away immediately.
+    
+    It is a programming error to call another method on the ProxyBusObject
+    after the release() method has been called.
+
+NEW METHOD
+SessionListener.sessionMemberAdded(int sessionId, String uniqueName)
+    Called by the bus for multipoint sessions when another node joins the session.
+    
+    [param] sessionId  - Id of multipoint session whose members have changed.
+    [param] uniqueName - Unique name of member who joined the session.
+
+NEW METHOD
+SessionListener.sessionMemberRemoved(int sessionId, String uniqueName)
+    Called by the bus for multipoint sessions when another node leaves the session.
+    
+    [param] sessionId  - Id of multipoint session whose members have changed.
+    [param] uniqueName - Unique name of member who left the session.
+    
+NEW STATUS 
+ER_ALREADY_REGISTERED value="0xa004" 
+    An AuthListener is already set on this BusAttachment

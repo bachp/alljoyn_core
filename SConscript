@@ -72,6 +72,8 @@ env.Install('$DISTDIR/bin/alljoyn_android', progs)
 
 # Release notes and misc. legals
 env.Install('$DISTDIR', 'docs/ReleaseNotes.txt')
+env.Install('$DISTDIR', 'docs/AllJoyn_API_Changes_cpp.txt')
+env.Install('$DISTDIR', 'docs/AllJoyn_API_Changes_java.txt')
 if env['OS_CONF'] == 'windows': 
     env.InstallAs('$DISTDIR/README.txt', 'docs/README.windows')
 if env['OS_CONF'] == 'linux':
