@@ -573,7 +573,7 @@ QStatus RequestEnterSniffMode(uint16_t deviceId,
                               uint16_t sniffTO)
 {
     QCC_DbgPrintf(("RequestEnterSniffMode"));
-    uint8_t hciEnterSniffMode[CMD_LEN + 12] = { HCI_CMD(0x02, 0x03, 12) };
+    uint8_t hciEnterSniffMode[CMD_LEN + 10] = { HCI_CMD(0x02, 0x03, 10) };
     uint8_t* arg = &hciEnterSniffMode[CMD_LEN];
     QStatus status = ER_OK;
     struct hci_conn_info_req connInfoReq;
