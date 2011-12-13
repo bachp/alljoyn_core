@@ -2131,10 +2131,13 @@ qcc::ThreadReturn STDCALL BTTransport::BTAccessor::AdapterChangeThread::Run(void
 {
     QCC_DbgTrace(("AdapterChangeThread()"));
 
+    bool lastIsStarted = false;
+
     do {
         const uint32_t adapterCheckPeriodInMilliseconds = 2000;
+        bool currentIsStarted = btAccessor.IsStarted();
 
-        if (btAccessor.IsStarted()) {
+        if (currentIsStarted) {
             HANDLE tempRadioHandle = btAccessor.GetRadioHandle();
 
             if (btAccessor.BluetoothIsAvailable()) {
@@ -2171,14 +2174,26 @@ qcc::ThreadReturn STDCALL BTTransport::BTAccessor::AdapterChangeThread::Run(void
                     }
                 }
             }
+        } else {
+            // Handle the case where the Bluetooth system is not in the start state.
+
+            // Were we in the started state and just changed to the stop state?
+            if (lastIsStarted && btAccessor.BluetoothIsAvailable()) {
+                btAccessor.KernelDisconnect();
+            }
         }
 
+        lastIsStarted = currentIsStarted;
         Event::Wait(GetStopEvent(), adapterCheckPeriodInMilliseconds);
     } while (!IsStopping());
 
     // Bluetooth was previously available.
     if (btAccessor.BluetoothIsAvailable()) {
-        btAccessor.KernelDisconnect();
+
+        if (lastIsStarted) {
+            btAccessor.KernelDisconnect();
+        }
+
         ::CloseHandle(btAccessor.radioHandle);
         btAccessor.radioHandle = 0;
     }

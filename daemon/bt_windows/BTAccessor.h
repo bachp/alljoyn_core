@@ -71,11 +71,8 @@ class BTTransport::BTAccessor : public MessageReceiver, public qcc::AlarmListene
     {
         isStarted = true;
 
-        // If Bluetooth becomes available later then transport->BTDeviceAvailable(true)
-        // will be called then.
-        if (BluetoothIsAvailable()) {
-            transport->BTDeviceAvailable(true);
-        }
+        // All start and stop tasks are handled by adapterChangeThread.
+        adapterChangeThread.Alert();
 
         return ER_OK;
     }
@@ -86,7 +83,9 @@ class BTTransport::BTAccessor : public MessageReceiver, public qcc::AlarmListene
     void Stop()
     {
         isStarted = false;
-        transport->BTDeviceAvailable(false);
+
+        // All start and stop tasks are handled by adapterChangeThread.
+        adapterChangeThread.Alert();
     }
 
     /**
