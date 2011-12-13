@@ -1,8 +1,4 @@
-* DRAFT * DRAFT * DRAFT * DRAFT * DRAFT * DRAFT * DRAFT * DRAFT * DRAFT *
-
 AllJoyn Version 2.3.0 Release Notes
-
-* DRAFT * DRAFT * DRAFT * DRAFT * DRAFT * DRAFT * DRAFT * DRAFT * DRAFT *
 -----------------------------------
 
 
@@ -14,29 +10,37 @@ Platform Support
 4) Windows XP (32 bit x86)
 5) Windows 7 (32 and 64 bit x86)
 
+
 Features added in this release
 ------------------------------
 
-1)
+1) Support for dynamic enable/disable of Bluetooth device on Windows.
+   With this release, the AllJoyn daemon does not have to be restarted
+   after enabling or disabling the Bluetooth device under Windows.
+
+2) Alpha support for Android Ice Cream Sandwich
 
 
 Issues Addressed in this Release
 --------------------------------
 
-1) ALLJOYN-557: Signals can be delivered twice when eavesdropping mode is
-   enabled in the AllJoyn daemon.
+1) ALLJOYN-557: Enabling DBus eavesdropping mode no longer causes invalid
+   serial number errors.
+
+2) ALLJOYN-832: Threading/event stability on Windows.
+
+3) ALLJOYN-(various): Improved stability when using Bluetooth on
+   Android and Windows.
 
 
 Known issues and limitations with this release
 ----------------------------------------------
 
-1)
-
-2) ALLJOYN-829: Link timeout changes made via  BusAttachment::SetLinkTimeout()
+1) ALLJOYN-829: Link timeout changes made via  BusAttachment::SetLinkTimeout()
    do not take effect until after the involved endpoints receive one more
    message with the original link timeout values.
 
-3) ALLJOYN-830: SetLinkTimeout cannot be called from within the
+2) ALLJOYN-830: SetLinkTimeout cannot be called from within the
    SessionPortListener::SessionJoined callback.
 
 
@@ -67,12 +71,19 @@ of AllJoyn (ALLJOYN-803).
 
 Change history
 --------------
-2.2.0 - Added "bundled" AllJoyn daemon. Android manifest permissions enforced.
-        Windows-7 "CNG" Cryptography supported.  Multipoint sessions improved.
+2.2.0 - Support for bundled daemon. BT fixes. Minor mods to security API.
+        Support for link timeout. Support for Android manifest enforced
+        security. Support for parallel authentication. Added
+        SessionMemberAdded/SessionMemberRemoved. Added BusAttachment::release()
+        to Java binding. Support for BusAttachment::Set/GetKeyExpiration().
+        Support for Windows CNG.
+
 2.1.0 - Added Java thread safety. Security fixes. Minor mods to security API.
         Added AllJoyn.apk for non-rooted devices (wifi only).
+
 2.0.1 - Bug fixes.
+
 2.0.0 - Added sessions and topology management.
         API's and daemon protocols changed.
-1.8.0 - Initial Open Source Release
 
+1.8.0 - Initial Open Source Release
