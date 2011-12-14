@@ -998,29 +998,6 @@ void NameService::LazyUpdateInterfaces(void)
                 qcc::Close(sockFd);
                 continue;
             }
-
-            //
-            // Arrange an IGMP join via the appropriate socket option (via the
-            // qcc abstraction layer). Android doesn't bother to compile its
-            // kernel with CONFIG_IP_MULTICAST set.  This doesn't mean that
-            // there is no multicast code in the Android kernel, it means there
-            // is no IGMP code in the kernel.  What this means to us is that
-            // even through we are doing an IP_ADD_MEMBERSHIP request, which is
-            // ultimately an IGMP operation, the request will filter through the
-            // IP code before being ignored and will do useful things in the
-            // kernel even though CONFIG_IP_MULTICAST was not set for the
-            // Android build -- i.e., we have to do it anyway.
-            //
-            if (entries[i].m_family == qcc::QCC_AF_INET) {
-                status = qcc::JoinMulticastGroup(sockFd, qcc::QCC_AF_INET, IPV4_MULTICAST_GROUP, entries[i].m_name);
-            } else if (entries[i].m_family == qcc::QCC_AF_INET6) {
-                status = qcc::JoinMulticastGroup(sockFd, qcc::QCC_AF_INET6, IPV6_MULTICAST_GROUP, entries[i].m_name);
-            }
-            if (status != ER_OK) {
-                QCC_LogError(status, ("NameService::LazyUpdateInterfaces(): unable to join multicast group"));
-                qcc::Close(sockFd);
-                continue;
-            }
         }
 
         //
@@ -1040,6 +1017,35 @@ void NameService::LazyUpdateInterfaces(void)
             status = qcc::Bind(sockFd, qcc::IPAddress("::"), MULTICAST_PORT);
             if (status != ER_OK) {
                 QCC_LogError(status, ("NameService::LazyUpdateInterfaces(): bind(::) failed"));
+                qcc::Close(sockFd);
+                continue;
+            }
+        }
+
+        //
+        // The IGMP join must be done after the bind for Windows XP.  Other
+        // OSes are fine with it, but XP balks.
+        //
+        if (entries[i].m_flags & qcc::IfConfigEntry::MULTICAST) {
+            //
+            // Arrange an IGMP join via the appropriate socket option (via the
+            // qcc abstraction layer). Android doesn't bother to compile its
+            // kernel with CONFIG_IP_MULTICAST set.  This doesn't mean that
+            // there is no multicast code in the Android kernel, it means there
+            // is no IGMP code in the kernel.  What this means to us is that
+            // even through we are doing an IP_ADD_MEMBERSHIP request, which is
+            // ultimately an IGMP operation, the request will filter through the
+            // IP code before being ignored and will do useful things in the
+            // kernel even though CONFIG_IP_MULTICAST was not set for the
+            // Android build -- i.e., we have to do it anyway.
+            //
+            if (entries[i].m_family == qcc::QCC_AF_INET) {
+                status = qcc::JoinMulticastGroup(sockFd, qcc::QCC_AF_INET, IPV4_MULTICAST_GROUP, entries[i].m_name);
+            } else if (entries[i].m_family == qcc::QCC_AF_INET6) {
+                status = qcc::JoinMulticastGroup(sockFd, qcc::QCC_AF_INET6, IPV6_MULTICAST_GROUP, entries[i].m_name);
+            }
+            if (status != ER_OK) {
+                QCC_LogError(status, ("NameService::LazyUpdateInterfaces(): unable to join multicast group"));
                 qcc::Close(sockFd);
                 continue;
             }
