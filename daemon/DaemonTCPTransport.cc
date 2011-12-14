@@ -38,293 +38,6 @@
 #include "NameService.h"
 #include "DaemonTCPTransport.h"
 
-/*
- * How the transport fits into the system
- * ======================================
- *
- * AllJoyn provides the concept of a Transport which provides a relatively
- * abstract way for the daemon to use different network mechanisms for getting
- * Messages from place to another.  Conceptually, think of, for example, a Unix
- * transport that moves bits using unix domain sockets, a Bluetooth transport
- * that moves bits over a Bluetooth link and a TCP transport that moves Messages
- * over a TCP connection.
- *
- * In networking 101, one discovers that BSD sockets is oriented toward clients
- * and servers.  There are different sockets calls required for a program
- * implementing a server-side part and a client side part.  The server-side
- * listens for incoming connection requests and the client-side initiates the
- * requests.  AllJoyn clients are bus attachments that our Applications may use
- * and these can only initiate connection requests to AllJoyn daemons.  Although
- * dameons may at first blush appear as the service side of a typical BSD
- * sockets client-server pair, it turns out that while daemons obviously must
- * listen for incoming connections, they also must be able to initiate
- * connection requests to other daemons.  It turns out that there is very little
- * in the way of common code when comparing the client version of a TCP
- * transport and a daemon version.  Therefore you will find a DaemonTCPTransport
- * class in here the dameon directory and a client version, called simply
- * TCPTransport, in the src directory.
- *
- * This file is the DaemonTCPTransport.  It needs to act as both a client and a
- * server explains the presence of both connect-like methods and listen-like
- * methods here.
- *
- * A fundamental idiom in the AllJoyn system is that of a thread.  Active
- * objects in the system that have threads wandering through them will implement
- * Start(), Stop() and Join() methods.  These methods work together to manage
- * the autonomous activities that can happen in a DaemonTCPTransport.  These
- * activities are carried out by so-called hardware threads.  POSIX defines
- * functions used to control hardware threads, which it calls pthreads.  Many
- * threading packages use similar constructs.
- *
- * In a threading package, a start method asks the underlying system to arrange
- * for the start of thread execution.  Threads are not necessarily running when
- * the start method returns, but they are being *started*.  Some time later, a
- * thread of execution appears in a thread run function, at which point the
- * thread is considered *running*.  In the case of the DaemonTCPTransport, the Start() method
- * spins up a thread to run the BSD sockets' server accept loop.  This
- * also means that as soon as Start() is executed, a thread may be using underlying
- * socket file descriptors and one must be very careful about convincing the
- * accept loop thread to exit before deleting the resources.
- *
- * In generic threads packages, executing a stop method asks the underlying
- * system to arrange for a thread to end its execution.  The system typically
- * sends a message to the thread to ask it to stop doing what it is doing.  The
- * thread is running until it responds to the stop message, at which time the
- * run method exits and the thread is considered *stopping*.  The
- * DaemonTCPTransport provides a Stop() method to do exactly that.
- *
- * Note that neither of Start() nor Stop() are synchronous in the sense that one
- * has actually accomplished the desired effect upon the return from a call.  Of
- * particular interest is the fact that after a call to Stop(), threads will
- * still be *running* for some non-deterministic time.
- *
- * In order to wait until all of the threads have actually stopped, a blocking
- * call is required.  In threading packages this is typically called join, and
- * our corresponding method is called Join().  A user of the DaemonTcpTransport
- * must assume that immediately after a call to Start() is begun, and until a
- * call to Join() returns, there may be threads of execution wandering anywhere
- * in the DaemonTcpTransport and in any callback registered by the caller.
- *
- * Internals
- * =========
- *
- * We spend a lot of time on the threading aspects of the transport since they
- * are often the hardest part to get right and are complicated.  This is where
- * the bugs live.
- *
- * As mentioned above, the AllJoyn system uses the concept of a Transport.  You
- * are looking at the DaemonTCPTransport.  Each transport also has the concept
- * of an Endpoint.  The most important function fo an endpoint is to provide
- * non-blocking semantics to higher level code.  This is provided by a transmit
- * thread on the write side which can block without blocking the higher level
- * code, and a receive thread which can similarly block waiting for data without
- * blocking the higher level code.
- *
- * Endpoints are specialized into the LocalEndpoint and the RemoteEndpoint
- * classes.  LocalEndpoint represents a connection from a router to the local
- * bus attachment or daemon (within the "current" process).  A RemoteEndpoint
- * represents a connection from a router to a remote attachment or daemon.  By
- * definition, the DaemonTCPTransport provides RemoteEndpoint functionality.
- *
- * RemoteEndpoints are further specialized according to the flavor of the
- * corresponding transport, and so you will see a DaemonTCPEndpoint class
- * defined below which provides functionality to send messages from the local
- * router to a destination off of the local process using a TCP transport
- * mechanism.
- *
- * RemoteEndpoints use AllJoyn stream objects to actually move bits.  This
- * is a thin layer on top of a Socket (which is another thin layer on top of
- * a BSD socket) that provides PushBytes() adn PullBytes() methods.  Remote
- * endpoints also provide the transmit thread and receive threads mentioned
- * above.
- *
- * The job of the receive thread is to loop waiting for bytes to appear on the
- * input side of the stream and to unmarshal them into AllJoyn Messages.  Once
- * an endpoint has a message, it calls into the Message router (PushMessage) to
- * arrange for delivery.  The job of the transmit thread is to loop waiting for
- * Messages to appear on its transmit queue.  When a Message is put on the queue
- * by a Message router, the transmit thread will pull it off and marshal it,
- * then it will write the bytes to the transport mechanism.
- *
- * The DaemonTCPEndpoint inherits the infrastructure requred to do most of its
- * work from the more generic RemoteEndpoint class.  It needs to do specific
- * TCP-related work and also provide for authenticating the endpoint before it
- * is allowed to start pumping messages.  Authentication means running some
- * mysterious (to us) process that may involve some unknown number of challenge
- * and response messsages being exchanged between the client and server side of
- * the connection.  Since we cannot block a caller waiting for authentication,
- * this must done on another thread; and this must be done before the
- * RemoteEndpoint is Start()ed -- before its transmit and receive threads are
- * started, lest they start pumping messages and interfering with the
- * authentication process.
- *
- * Authentication can, of course, succeed or fail based on timely interaction
- * between the two sides, but it can also be abused in a denial of service
- * attack.  If a client simply starts the process but never responds, it could
- * tie up a daemon's resources, and coordinated action could bring down a
- * daemon.  Because of this, we need to provide a way to reach in and abort
- * authentications that are "taking too long."
- *
- * As described above, a daemon can listen for inbound connections and it can
- * initiate connections to remote daemons.  Authentication must happen in both
- * cases.
- *
- * If you consider all that is happening, we are talking about a complicated
- * system of many threads that are appearing and disappearing in the system at
- * unpredictable times.  These threads have dependencies in the resources
- * associated with them (sockets and events in particular).  These resources may
- * have further dependencies that must be respected.  For example, Events may
- * have references to Sockets.  The Sockets must not be released before the
- * Events are released, because the events would be left with stale handles.  An
- * even scarier case is if an underlying Socket FD is reused at just the wrong
- * time, it would be possible to switch a Socket FD from one connection to
- * another out from under an Event without its knowledge.
- *
- * To summarize, consider the following "big picture' view of the transport.  A
- * single DaemonTCPTransport is constructed if the daemon TransportList
- * indicates that TCP support is required.  The high-level daemon code (see
- * bbdaemon.cc for example) builds a TransportFactoryContainer that is
- * initialized with a factory that knows how to make DaemonTCPTransport objects
- * if they are needed, and associates the factory with the string "tcp".  The
- * daemon also constructs "server args" which may contain the string "tcp" or
- * "bluetooth" or "unix".  If the factory container provides a "tcp" factory and
- * the server args specify a "tcp" transport is needed then a DaemonTCPTransport
- * object is instantiated and entered into the daemon's internal transport list
- * (list of available transports).  Also provided for each transport is an abstract
- * address to listen for incoming connection requests on.
- *
- * When the daemon is brought up, its TransportList is Start()ed.  The transport
- * specs string (e.g., "unix:abstract=alljoyn;tcp:;bluetooth:") is provided to
- * TransportList::Start() as a parameter.  The transport specs string is parsed
- * and in the example above, results in "unix" transports, "tcp" transports and
- * "bluetooth" transports being instantiated and started.  As mentioned
- * previously "tcp" in the daemon translates into DaemonTCPTransport.  Once the
- * desired transports are instantiated, each is Start()ed in turn.  In the case
- * of the DaemonTCPTransport, this will start the server accept loop.  Initially
- * there are no sockets to listen on.
- *
- * The daemon then needs to start listening on some inbound addresses and ports.
- * This is done by the StartListen() command which you can find in bbdaemon, for
- * example.  This alwo takes the same king of server args string shown above but
- * this time the address and port information are used.  For example, one might
- * use the string "tcp:addr=0.0.0.0,port=9955;" to specify which address and
- * port to listen to.  This Bus::StartListen() call is translated into a
- * DaemonTCPTransport::StartListen() call which is provided with the string
- * which we call a "listen spec".  Our StartListen() will create a Socket, bind
- * the socket to the address and port provided and save the new socket on a list
- * of "listenFds." It will then Alert() the already running server accept loop
- * thread -- see DaemonTCPTransport::Run().  Each time through the server accept
- * loop, Run() will examine the list of listenFds and will associate an Event
- * with the corresponding socketFd and wait for connection requests.
- *
- * There is a complementary call to stop listening on addresses.  Since the
- * server accept loop is depending on the associated sockets, StopListen must
- * not close those Sockets, it must ask the server accept loop to do so in a
- * coordinated way.
- *
- * When an inbound connection request is received, the accept loop will wake up
- * and create a DaemonTCPEndpoint for the *proposed* new connection.  Recall
- * that an endpoint is not brought up immediately, but an authentication step
- * must be performed.  The server accept loop starts this process by placing the
- * new DaemonTCPEndpoint on an authList, or list of authenticating endpoints.
- * It then calls the endpoint Authenticate() method which spins up an
- * authentication thread and returns immediately.  This process transfers the
- * responsibility for the connection and its resources to the authentication
- * thread.  Authentication can succeed, fail, or take to long and be aborted.
- *
- * If authentication succeeds, the authentication thread calls back into the
- * DaemonTCPTransport's Authenticated() method.  Along with indicating that
- * authentication has completed successfully, this transfers ownership of the
- * DaemonTCPEndpoint back to the DaemonTCPTransport from the authentication
- * thread.  At this time, the DaemonTCPEndpoint is Start()ed which spins up
- * the transmit and receive threads and enables Message routing across the
- * transport.
- *
- * If the authentication fails, the authentication thread simply sets a the
- * DaemonTCPEndpoint state to FAILED and exits.  The server accept loop looks at
- * authenticating endpoints (those on the authList)each time through its loop.
- * If an endpoint has failed authentication, and its thread has actually gone
- * away (or more precisely is at least going away in such a way that it will
- * never touch the endpoing data structure again).  This means that the endpoint
- * can be deleted.
- *
- * If the authentication takes "too long" we assume that a denial of service
- * attack in in progress.  We call Abort() on such an endpoint which will most
- * likely induce a failure (unless we happen to call abort just as the endpoint
- * actually finishes the authentication which is highly unlikely but okay).
- * This Abort() will cause the endpoint to be scavenged using the above mechanism
- * the next time through the accept loop.
- *
- * A daemon transport can accept incoming connections, and it can make outgoing
- * connections to another daemon.  This case is simpler than the accept case
- * since it is expected that a socket connect can block, so it is possible to do
- * authentication in the context of the thread calling Connect().  Connect() is
- * provided a so-called "connect spec" which provides an IP address ("addr=xxxx"),
- * port ("port=yyyy") and address family ("family=zzzz") in a String.
- *
- * A check is always made to catch an attempt for the daemon to connect to
- * itself which is a system-defined error (it causes the daemon grief, so we
- * avoid it here by looking to see if one of the listenFds is listening on an
- * interface that corresponds to the address in the connect spec).
- *
- * If the connect is allowed, we do the usual BSD sockets thing where we create
- * a socket and connect to the specified remote address.  The DBus spec says that
- * all connections must begin with one uninterpreted byte so we send that.  This
- * byte is only meaningful in Unix domain sockets transports, but we must send it
- * anyway.
- *
- * The next step is to create a DaemonTCPEndpoint and to put it on the endpointList.
- * Note that the endpoint doesn't go on the authList as in the server case, it
- * goes on the list of active endpoints.  This is because a failure to authenticate
- * on the client side results in a call to EndpointExit which is the same code path as
- * a failure when the endpoint is up.  The failing endpoint must be on the endpoint
- * list in order to allow authentication errors to be propagated back to higher-level
- * code in a meaningful context.  Once the endpoint is stored on the list, Connect()
- * starts client-side Authentication with the remote (server) side.  If Authentication
- * succeeds, the endpoint is Start()ed which will spin up the rx and tx threads that
- * start Message routing across the link.  The endpoint is left on the endpoint list
- * in this case.  If authentication fails, the endpoint is removed from the active
- * list.  This is thread-safe since there is no authentication thread running because
- * the authentication was done in the context of the thread calling Connect() which
- * is the one deleting the endpoint; and no rx or tx thread is spun up if the
- * authentication fails.
- *
- * Shutting the DaemonTCPTransport down involves orchestrating the orderly termination
- * of:
- *
- *   1) Threads that may be running in the server accept loop with associated Events
- *      and their dependent socketFds stored in the listenFds list.
- *   2) Threads that may be running authentication with associated endpoint objects,
- *      streams and SocketFds.  These threads are accessible through endpoint objects
- *      stored on the authList.
- *   3) Threads that may be running the rx and tx loops in endpoints which are up and
- *      running, transporting routable Messages through the system.
- *
- * Note that we also have to understand and deal with the fact that threads
- * running in state (2) above, will exit and depend on the server accept loop to
- * scavenge the associated objects off of the authList and delete them.  This
- * means that the server accept loop cannot be Stop()ped until the authList is
- * empty.  We further have to understand that threads running in state (3) above
- * will depend on the hooked EndpointExit function to dispose of associated
- * resources.  This will happen in the context of either the transmit or receive
- * thread (the last to go).  We can't delete the transport until all of its
- * associated endpoint threads are Join()ed.  Also, since the server accept loop
- * is looking at the list of listenFDs, we must be careful about deleting those
- * sockets out from under the server thread.  The system should call
- * StopListen() on all of the listen specs it called StartListen() on; but we
- * need to be prepared to clean up any "unstopped" listen specs in a coordinated
- * way.  This, in turn, means that the server accept loop cannot be Stop()ped
- * until all of the listenFds are cleaned up.
- *
- * There are a lot of dependencies here, so be careful when making changes to
- * the thread and resource management here.  It's quite easy to shoot yourself
- * in multiple feet you never knew you had if you make an unwise modification,
- * and sometimes the results are tiny little time-bombs set to go off in
- * completely unrelated code (if, for example, a socket is deleted and reused
- * by another piece of code while the transport still has an event referencing
- * the socket now used by the other module).
- */
-
 #define QCC_MODULE "ALLJOYN_DAEMON_TCP"
 
 using namespace std;
@@ -347,7 +60,6 @@ class DaemonTCPEndpoint : public RemoteEndpoint {
         INITIALIZED,
         AUTHENTICATING,
         FAILED,
-        AVORTED,
         SUCCEEDED
     };
 
@@ -397,25 +109,15 @@ class DaemonTCPEndpoint : public RemoteEndpoint {
         return status;
     }
 
-    /*
-     * Return true if the auth thread is STARTED, RUNNING or STOPPING.  A true
-     * response means the authentication thread is in a state that indicates
-     * a possibility it might touch the endpoint data structure.  This means
-     * don't delete the endpoing if this method returns true.  This method
-     * indicates nothing about endpoint rx and tx thread state.
-     */
-    bool IsAuthThreadRunning(void)
-    {
-        return m_authThread.IsRunning();
-    }
-
   private:
-    class AuthThread : public qcc::Thread {
+    class AuthThread : public qcc::Thread, public qcc::ThreadListener {
       public:
-        AuthThread(DaemonTCPEndpoint* conn, DaemonTCPTransport* trans) : Thread("auth"), m_transport(trans) { }
+        AuthThread(DaemonTCPEndpoint* conn, DaemonTCPTransport* trans) : Thread("auth"), m_conn(conn), m_transport(trans) { }
       private:
         virtual qcc::ThreadReturn STDCALL Run(void* arg);
+        virtual void ThreadExit(qcc::Thread* thread);
 
+        DaemonTCPEndpoint* m_conn;
         DaemonTCPTransport* m_transport;
     };
 
@@ -433,9 +135,11 @@ QStatus DaemonTCPEndpoint::Authenticate(void)
 {
     QCC_DbgTrace(("DaemonTCPEndpoint::Authenticate()"));
     /*
-     * Start the authentication thread.
+     * Start the authentication thread.  The first parameter is the pointer to
+     * the connection object and the second parameter is the thread listener.
+     * The listener allows the thead exit routine to be hooked.
      */
-    QStatus status = m_authThread.Start(this);
+    QStatus status = m_authThread.Start(this, &m_authThread);
     if (status != ER_OK) {
         m_state = FAILED;
     }
@@ -448,11 +152,61 @@ void DaemonTCPEndpoint::Abort(void)
     m_authThread.Stop();
 }
 
+void DaemonTCPEndpoint::AuthThread::ThreadExit(qcc::Thread* thread)
+{
+    QCC_DbgTrace(("DaemonTCPEndpoint::ThreadExit()"));
+
+    /*
+     * An authentication thread has stopped for some reason.  This can happen
+     * for a number of reasons, as seen in DaemonTCPEndpoint::Auththread::Run(),
+     * or as a result of a thread-related Stop().  If the thread completed
+     * successfully, it will have removed its associated connection from the
+     * m_authList and put it on the m_endpointList.  This transfers the
+     * responsibility for the DaemonTCPEndpoint data structure and its threads
+     * to the endpoint list.  During this transfer, the transport Tx and Rx
+     * threads are spun up and so their ThreadExit functions can take over.  It
+     * is assumed here to be imossible for that transfer of responsibility to
+     * "half-happen."
+     *
+     * An area of concern is in the server accept loop, where it can reach into
+     * the m_authList and abort authentications that are taking too long.  It
+     * does this by calling Stop().  This will wake up the thead and we'll get
+     * called here.  We'll then delete the connection out from under the server,
+     * so it is going to have to be careful about what it does; but that's the
+     * server's problem not ours.
+     *
+     * So, if there has been a failure, or we are stopping because the thread has
+     * been explicitly asked to stop, we will find our m_conn on the m_authList
+     * and so we need to do something here about cleaning up the DaemonTCPEndpoint
+     * data structure.
+     *
+     * So what we have to do is to look for m_conn on the m_authList and if we
+     * find it, remove it and delete it, then fade away.  If it is not there,
+     * then reponsibility has been successfully transferred to the Tx adn Rx
+     * threads and we must not touch our m_conn.
+     */
+    assert(m_conn);
+    m_conn->m_transport->m_endpointListLock.Lock(MUTEX_CONTEXT);
+    list<DaemonTCPEndpoint*>::iterator i = find(m_conn->m_transport->m_authList.begin(), m_conn->m_transport->m_authList.end(), m_conn);
+    if (i != m_conn->m_transport->m_authList.end()) {
+        delete *i;
+        m_conn->m_transport->m_authList.erase(i);
+    }
+    m_conn->m_transport->m_endpointListLock.Unlock(MUTEX_CONTEXT);
+}
+
 void* DaemonTCPEndpoint::AuthThread::Run(void* arg)
 {
     QCC_DbgTrace(("DaemonTCPEndpoint::AuthThread::Run()"));
 
     DaemonTCPEndpoint* conn = reinterpret_cast<DaemonTCPEndpoint*>(arg);
+
+    /*
+     * An m_conn was plumbed into the associated AuthThread to allow for
+     * ThreadExit to do useful work.  Make sure that these two values are
+     * consistent.
+     */
+    assert(conn == m_conn);
 
     conn->m_state = AUTHENTICATING;
 
@@ -488,10 +242,8 @@ void* DaemonTCPEndpoint::AuthThread::Run(void* arg)
      * with an authentication failure.
      *
      * Finally, if the server decides we've spent too much time here and we are
-     * actually a denial of service attack, it can close us down by doing an
-     * Abort() on the endpoing, which will do a thread Stop() which will pop out
-     * of here as an authentication failure as well.  The only ways out of this
-     * method must be with state = FAILED or state = SUCCEEDED.
+     * actually a denial of service attack, it can close us down by doing a
+     * Stop which will pop out of here as an authentication failure as well.
      */
     uint8_t byte;
     size_t nbytes;
@@ -1009,38 +761,49 @@ QStatus DaemonTCPTransport::GetListenAddresses(const SessionOpts& opts, std::vec
                      * the $64,000 questions are, does it have a listener
                      * and what port is that listener listening on.
                      *
-                     * There is one name service associated with the daemon
-                     * TCP transport, and it is advertising at most one port.
-                     * It may be advertising that port over multiple
-                     * interfaces, but there is currently just one port being
-                     * advertised.  If multiple listeners are created, the
-                     * name service only advertises the lastly set port.  In
-                     * the future we may need to add the ability to advertise
-                     * different ports on different interfaces, but the answer
-                     * is simple now.  Ask the name service for the one port
-                     * it is advertising and that must be the answer.
+                     * Currently, however, the daemon can't handle IPv6
+                     * addresses, so we filter them out and only let IPv4
+                     * addresses (address family is AF_INET) escape.
                      */
-                    qcc::String ipv4address;
-                    qcc::String ipv6address;
-                    uint16_t port;
-                    m_ns->GetEndpoints(ipv4address, ipv6address, port);
-                    /*
-                     * If the port is zero, then it hasn't been set and this
-                     * implies that DaemonTCPTransport::StartListen hasn't
-                     * been called and there is no listener for this transport.
-                     * We should only return an address if we have a listener.
-                     */
-                    if (port) {
+                    if (entries[i].m_family == AF_INET) {
+                        QCC_DbgPrintf(("DaemonTCPTransport::GetListenAddresses(): %s is IPv4.  Match found", entries[i].m_name.c_str()));
+
                         /*
+                         * We know we have an interface that speaks IPv4 and
+                         * which has an IPv4 address we can pass back.  We know
+                         * it is capable of receiving incoming connections, but
+                         * the $64,000 questions are, does it have a listener
+                         * and what port is that listener listening on.
+                         *
+                         * There is one name service associated with the daemon
+                         * TCP transport, and it is advertising at most one port.
+                         * It may be advertising that port over multiple
+                         * interfaces, but there is currently just one port being
+                         * advertised.  If multiple listeners are created, the
+                         * name service only advertises the lastly set port.  In
+                         * the future we may need to add the ability to advertise
+                         * different ports on different interfaces, but the answer
+                         * is simple now.  Ask the name service for the one port
+                         * it is advertising and that must be the answer.
+                         */
+                        qcc::String ipv4address, ipv6address;
+                        uint16_t port;
+                        m_ns->GetEndpoints(ipv4address, ipv6address, port);
+
+                        /*
+                         * If the port is zero, then it hasn't been set and this
+                         * implies that DaemonTCPTransport::StartListen hasn't
+                         * been called and there is no listener for this transport.
+                         * We should only return an address if we have a listener.
                          * Now put this information together into a bus address
                          * that the rest of the AllJoyn world can understand.
                          */
-                        if (!ipv4address.empty()) {
-                            qcc::String busAddr = "tcp:addr=" + entries[i].m_addr + ",port=" + U32ToString(port) + ",family=ipv4";
-                            busAddrs.push_back(busAddr);
-                        }
-                        if (!ipv6address.empty()) {
-                            qcc::String busAddr = "tcp:addr=" + entries[i].m_addr + ",port=" + U32ToString(port) + ",family=ipv6";
+                        if (port) {
+                            /*
+                             * Now put this information together into a bus address
+                             * that the rest of the AllJoyn world can understand.
+                             */
+                            qcc::String busAddr = "tcp:addr=" + entries[i].m_addr + ",port=" + U32ToString(port);
                             busAddrs.push_back(busAddr);
                         }
                     }
@@ -1172,23 +935,13 @@ void* DaemonTCPTransport::Run(void* arg)
         }
 
         /*
-         * We're back from our Wait() so one of three things has happened.  Our
-         * thread has been asked to Stop(), our thread has been Alert()ed, or
-         * one of the socketFds we are listening on for connecte events has
-         * becomed signalled.
-         *
-         * If we have been asked to Stop(), or our thread has been Alert()ed,
-         * the stopEvent will be on the list of signalled events.  The
-         * difference can be found by a call to IsStopping() which is found
-         * above.  An alert means that a request to start or stop listening
-         * on a given address and port has been queued up for us.
+         * We're back from our Wait() so something has happened.  Iterate over
+         * the vector of signaled events to find out which event(s) got
+         * bugged
          */
         for (vector<Event*>::iterator i = signaledEvents.begin(); i != signaledEvents.end(); ++i) {
             /*
-             * Reset an existing Alert() or Stop().  If it's an alert, we
-             * will deal with looking for the incoming listen requests at
-             * the bottom of the server loop.  If it's a stop we will
-             * exit the next time through the top of the server loop.
+             * Reset an Alert() (or Stop())
              */
             if (*i == &stopEvent) {
                 stopEvent.ResetEvent();
@@ -1196,10 +949,9 @@ void* DaemonTCPTransport::Run(void* arg)
             }
 
             /*
-             * Since the current event is not the stop event, it must reflect at
-             * least one of the SocketFds we are waiting on for incoming
-             * connections.  Go ahead and Accept() the new connection on the
-             * current SocketFd.
+             * If the current event is not the stop event, it reflects one of
+             * the SocketFds we are waiting on for incoming connections.  Go
+             * ahead and Accept() the new connection on the current SocketFd.
              */
             IPAddress remoteAddr;
             uint16_t remotePort;
@@ -1236,9 +988,9 @@ void* DaemonTCPTransport::Run(void* arg)
 
                 /*
                  * See if there any pending connections on the list that can be
-                 * removed because they timed out or failed.  If the connection is
-                 * on the pending authentication list, we assume that there is an
-                 * authentication thread running which we can abort. If we bug
+                 * removed (timed out).  If the connection is on the pending
+                 * authentication list, we assume that there is an
+                 * authentication thread running which we can abort.  If we bug
                  * Abort(), we are *asking* an in-process authentication to
                  * stop.  When it does, it will delete itself from the
                  * m_authList and go away.
@@ -1259,53 +1011,20 @@ void* DaemonTCPTransport::Run(void* arg)
                 QCC_DbgPrintf(("DaemonTCPTransport::Run(): mAuthList.size() == %d", m_authList.size()));
                 QCC_DbgPrintf(("DaemonTCPTransport::Run(): mEndpointList.size() == %d", m_endpointList.size()));
                 assert(m_authList.size() + m_endpointList.size() <= maxConn);
-
-                /*
-                 * Run through the list of authenticating endpoints and scavenge
-                 * any that are failed or are taking too long (denial of service
-                 * attack assumed).
-                 */
-                list<DaemonTCPEndpoint*>::iterator j = m_authList.begin();
-                while (j != m_authList.end()) {
-                    DaemonTCPEndpoint* ep = *j;
-                    if (ep->IsFailed() && !ep->IsAuthThreadRunning()) {
-                        /*
-                         * The straightforward case is if the endpoint failed
-                         * authentication.  Then the auth thread will exit on
-                         * its own.  We can delete the endpoint as soon as the
-                         * thead is gone.
-                         */
-                        QCC_DbgHLPrintf(("DaemonTCPTransport::Run(): Scavenging failed authenticator"));
-                        j = m_authList.erase(j);
-                        delete ep;
-                        ep = NULL;
-                    } else if (ep->GetStartTime() + tTimeout < tNow) {
-                        /*
-                         * A less straightforward case is if the endpoint is
-                         * taking too long to authenticate.  What we do is abort
-                         * the authentication process.  If the authentication
-                         * thread is in the middle of something, this Abort()
-                         * will cause a blocking operation to fail and will
-                         * cause the authentiction thread to set its status to
-                         * FAILED.  Then the endpoint will be scavenged the next
-                         * time through the loop immediately above.  If we
-                         * happen to be too late to affect the thread via a
-                         * blocking operation it will actually succeed and exit
-                         * through the SUCCEEDED mechanism calling Authenticated()
-                         * which will result in the endpoint being taken off of
-                         * the authList, which is what we want.
-                         */
+                for (list<DaemonTCPEndpoint*>::iterator j = m_authList.begin(); j != m_authList.end(); ++j) {
+                    if ((*j)->GetStartTime() + tTimeout < tNow) {
                         QCC_DbgHLPrintf(("DaemonTCPTransport::Run(): Scavenging slow authenticator"));
-                        ep->Abort();
-                    } else {
-                        ++j;
+                        (*j)->Abort();
                     }
                 }
+                m_endpointListLock.Unlock(MUTEX_CONTEXT);
+                qcc::Sleep(1);
+                m_endpointListLock.Lock(MUTEX_CONTEXT);
 
                 /*
-                 * We've scavenged any slots we can, so the question now is, do
-                 * we have a slot available for a new connection?  If so, use
-                 * it.
+                 * We've scavenged any slots we can, and have yielded the CPU to
+                 * let threads run and exit, so now do we have a slot available
+                 * for a new connection?  If so, use it.
                  */
                 if ((m_authList.size() < maxAuth) && (m_authList.size() + m_endpointList.size() < maxConn)) {
                     DaemonTCPEndpoint* conn = new DaemonTCPEndpoint(this, m_bus, true, "", newSock, remoteAddr, remotePort);
@@ -1355,51 +1074,7 @@ void* DaemonTCPTransport::Run(void* arg)
                 delete *i;
             }
         }
-
-        /*
-         * If we're not stopping, we always check for queued requests to
-         * start and stop listening on address and port combinations (listen
-         * specs).  We do that here since we have just deleted all of the
-         * events that may have references to our socket FD resources which
-         * may be released as a result of a DoStopListen() call.
-         *
-         * When we loop back to the top of the server accept loop, we will
-         * re-evaluate the list of listenFds and create new events based on the
-         * current state of the list (after we remove or add anything here).
-         */
-        while (m_listenRequests.empty() == false) {
-            ListenRequest listenRequest = m_listenRequests.front();
-            m_listenRequests.pop();
-            switch (listenRequest.m_request) {
-            case START_LISTEN:
-                DoStartListen(listenRequest.m_listenSpec);
-                break;
-
-            case STOP_LISTEN:
-                DoStopListen(listenRequest.m_listenSpec);
-                break;
-
-            default:
-                assert(false && "DaemonTCPTransport::Run(): unexpected listen request code");
-            }
-        }
     }
-
-    /*
-     * If we're stopping, it is our responsibility to clean up the list of FDs
-     * we are listening to.  Since we've gotten a Stop() and are exiting the
-     * server loop, and FDs are added in the server loop, this is the place to
-     * get rid of them.  We don't have to take the list lock since a Stop()
-     * request to the DaemonTCPTransport is required to lock out any new
-     * requests that may possibly touch the listen FDs list.
-     */
-    m_listenFdsLock.Lock(MUTEX_CONTEXT);
-    for (list<pair<qcc::String, SocketFd> >::iterator i = m_listenFds.begin(); i != m_listenFds.end(); ++i) {
-        qcc::Shutdown(i->second);
-        qcc::Close(i->second);
-    }
-    m_listenFds.clear();
-    m_listenFdsLock.Unlock(MUTEX_CONTEXT);
 
     QCC_DbgPrintf(("DaemonTCPTransport::Run is exiting status=%s", QCC_StatusText(status)));
     return (void*) status;
@@ -1881,7 +1556,6 @@ QStatus DaemonTCPTransport::Disconnect(const char* connectSpec)
 
 QStatus DaemonTCPTransport::StartListen(const char* listenSpec)
 {
-    QCC_DbgPrintf(("DaemonTCPTransport::StartListen()"));
     /*
      * We only want to allow this call to proceed if we have a running server
      * accept thread that isn't in the process of shutting down.  We use the
@@ -1911,8 +1585,7 @@ QStatus DaemonTCPTransport::StartListen(const char* listenSpec)
 
     /*
      * Normalize the listen spec.  Although this looks like a connectSpec it is
-     * different in that reasonable defaults are possible.  We do the
-     * normalization here so we can report an error back to the caller.
+     * different in that reasonable defaults are possible.
      */
     qcc::String normSpec;
     map<qcc::String, qcc::String> argMap;
@@ -1925,120 +1598,36 @@ QStatus DaemonTCPTransport::StartListen(const char* listenSpec)
     QCC_DbgPrintf(("DaemonTCPTransport::StartListen(): addr = \"%s\", port = \"%s\", family=\"%s\"",
                    argMap["addr"].c_str(), argMap["port"].c_str(), argMap["family"].c_str()));
 
+    m_listenFdsLock.Lock(MUTEX_CONTEXT);
+
     /*
-     * Because we are sending a *request* to start listening on a given
-     * normalized listen spec to another thread, and the server thread starts
-     * and stops listening on given listen specs when it decides to eventually
-     * run, it is be possible for a calling thread to send multiple requests to
-     * start or stop listening on the same listenSpec before the server thread
-     * responds.
-     *
-     * In order to deal with these two timelines, we keep a list of normalized
-     * listenSpecs that we have requested to be started, and not yet requested
-     * to be removed.  This list (the mListenSpecs) must be consistent with
-     * client requests to start and stop listens.  This list is not necessarily
-     * consistent with what is actually being listened on.  That is a separate
-     * list called mListenFds.
-     *
-     * So, check to see if someone has previously requested that the address and
-     * port in question be listened on.  We need to do this here to be able to
-     * report an error back to the caller.
+     * Check to see if the requested address and port is already being listened
+     * on. The normalized listen spec is saved to define the instance of the
+     * listener.
      */
-    m_listenSpecsLock.Lock(MUTEX_CONTEXT);
-    for (list<qcc::String>::iterator i = m_listenSpecs.begin(); i != m_listenSpecs.end(); ++i) {
-        if (*i == normSpec) {
-            m_listenSpecsLock.Unlock(MUTEX_CONTEXT);
+    for (list<pair<qcc::String, SocketFd> >::iterator i = m_listenFds.begin(); i != m_listenFds.end(); ++i) {
+        if (i->first == normSpec) {
+            m_listenFdsLock.Unlock(MUTEX_CONTEXT);
             return ER_BUS_ALREADY_LISTENING;
         }
     }
-    m_listenSpecsLock.Unlock(MUTEX_CONTEXT);
-
-    QueueStartListen(normSpec);
-    return ER_OK;
-}
-
-void DaemonTCPTransport::QueueStartListen(qcc::String& normSpec)
-{
-    QCC_DbgPrintf(("DaemonTCPTransport::QueueStartListen()"));
-
-    /*
-     * In order to start a listen, we send the server accept thread a message
-     * containing the start request code ADD and the normalized listen spec
-     * which specifies the address and port to listen on.
-     */
-    ListenRequest listenRequest;
-    listenRequest.m_request = START_LISTEN;
-    listenRequest.m_listenSpec = normSpec;
-
-    m_listenRequestsLock.Lock(MUTEX_CONTEXT);
-    m_listenRequests.push(listenRequest);
-    m_listenRequestsLock.Unlock(MUTEX_CONTEXT);
-
-    /*
-     * Wake the server accept loop thread up so it will process the request we
-     * just queued.
-     */
-    Alert();
-}
-
-void DaemonTCPTransport::DoStartListen(qcc::String& normSpec)
-{
-    QCC_DbgPrintf(("DaemonTCPTransport::DoStartListen()"));
-
-    /*
-     * Since the name service is created before the server accept thread is spun
-     * up, and deleted after it is joined, we must have a valid name service or
-     * someone isn't playing by the rules; so an assert is appropriate here.
-     */
-    assert(m_ns);
-
-    /*
-     * Parse the normalized listen spec.  The easiest way to do this is to
-     * re-normalize it.  If there's an error at this point, we have done
-     * something wrong since the listen spec was presumably successfully
-     * normalized before sending it in -- so we assert.
-     */
-    qcc::String spec;
-    map<qcc::String, qcc::String> argMap;
-    QStatus status = NormalizeListenSpec(normSpec.c_str(), spec, argMap);
-    assert(status == ER_OK && "DaemonTCPTransport::DoStartListen(): Invalid TCP listen spec");
-
-    QCC_DbgPrintf(("DaemonTCPTransport::DoStartListen(): addr = \"%s\", port = \"%s\", family=\"%s\"",
-                   argMap["addr"].c_str(), argMap["port"].c_str(), argMap["family"].c_str()));
-
-    m_listenFdsLock.Lock(MUTEX_CONTEXT);
-
     /*
      * Figure out what local address and port the listener should use.
      */
     IPAddress listenAddr(argMap["addr"]);
     uint16_t listenPort = StringToU32(argMap["port"]);
     qcc::AddressFamily family = argMap["family"] == "ipv6" ?  QCC_AF_INET6 : QCC_AF_INET;
-
     /*
-     * If we're going to listen on an address, we are going to listen on a
-     * corresponding network interface.  We need to convince the name service to
-     * send advertisements out over that interface, or nobody will know to
-     * connect to the listening daemon.  The expected use case is that the
-     * daemon does exactly one StartListen() which listens to INADDR_ANY
-     * (listens for inbound connections over any interface) and the name service
-     * is controlled by a separate configuration item that selects which
-     * interfaces are used in discovery.  Since IP addresses in a mobile
-     * environment are dynamic, listening on the ANY address is the only option
-     * that really makes sense, and this is the only case in which the current
-     * implementation will really work.
-     *
-     * So, we need to get the configuration item telling us which network
-     * interfaces we should run the name service over.  The item can specify an
-     * IP address, in which case the name service waits until that particular
-     * address comes up and then uses the corresponding net device if it is
-     * multicast-capable.  The item can also specify an interface name.  In this
-     * case the name service waits until it finds the interface IFF_UP and
-     * multicast capable with an assigned IP address and then starts using the
-     * interface.  If the configuration item contains "*" (the wildcard) it is
-     * interpreted as meaning all multicast-capable interfaces.  If the
-     * configuration item is empty (not assigned in the configuration database)
-     * it defaults to "*".
+     * Get the configuration item telling us which network interfaces we
+     * should run the name service over.  The item can specify an IP address,
+     * in which case the name service waits until that particular address comes
+     * up and then uses the corresponding net device if it is multicast-capable.
+     * The item can also specify an interface name.  In this case the name
+     * service waits until it finds the interface IFF_UP and multicast capable
+     * with an assigned IP address and then starts using the interface.  If the
+     * configuration item contains "*" (the wildcard) it is interpreted as
+     * meaning all multicast-capable interfaces.  If the configuration item is
+     * empty (not assigned in the configuration database) it defaults to "*".
      */
     qcc::String interfaces = ConfigDB::GetConfigDB()->GetProperty(NameService::MODULE_NAME, NameService::INTERFACES_PROPERTY);
     if (interfaces.size() == 0) {
@@ -2061,7 +1650,6 @@ void DaemonTCPTransport::DoStartListen(qcc::String& normSpec)
          * to disallow hostnames otherwise SetAddress will attempt to treat
          * the interface name as a host name and start doing DNS lookups.
          */
-        assert(m_ns);
         IPAddress currentAddress;
         if (currentAddress.SetAddress(currentInterface, false) == ER_OK) {
             status = m_ns->OpenInterface(currentAddress);
@@ -2069,21 +1657,20 @@ void DaemonTCPTransport::DoStartListen(qcc::String& normSpec)
             status = m_ns->OpenInterface(currentInterface);
         }
         if (status != ER_OK) {
-            QCC_LogError(status, ("DaemonTCPTransport::DoStartListen(): OpenInterface() failed for %s", currentInterface.c_str()));
+            QCC_LogError(status, ("DaemonTCPTransport::StartListen(): OpenInterface() failed for %s", currentInterface.c_str()));
         }
     }
 
     /*
-     * We have the name service work out of the way, so we can now create the
-     * TCP listener sockets and set SO_REUSEADDR/SO_REUSEPORT so we don't have
+     * Create the TCP listener sockets and set SO_REUSEADDR/SO_REUSEPORT so we don't have
      * to wait for four minutes to relaunch the daemon if it crashes.
      */
     SocketFd listenFd = -1;
     status = Socket(family, QCC_SOCK_STREAM, listenFd);
     if (status != ER_OK) {
         m_listenFdsLock.Unlock(MUTEX_CONTEXT);
-        QCC_LogError(status, ("DaemonTCPTransport::DoStartListen(): Socket() failed"));
-        return;
+        QCC_LogError(status, ("DaemonTCPTransport::StartListen(): Socket() failed"));
+        return status;
     }
 
     /*
@@ -2092,9 +1679,9 @@ void DaemonTCPTransport::DoStartListen(qcc::String& normSpec)
      */
     status = qcc::SetReuseAddress(listenFd, true);
     if (status != ER_OK) {
-        QCC_LogError(status, ("DaemonTCPTransport::DoStartListen(): SetReuseAddress() failed"));
+        QCC_LogError(status, ("DaemonTCPTransport::StartListen(): SetReuseAddress() failed"));
         qcc::Close(listenFd);
-        return;
+        return status;
     }
 
     /*
@@ -2114,14 +1701,15 @@ void DaemonTCPTransport::DoStartListen(qcc::String& normSpec)
 
         status = qcc::Listen(listenFd, SOMAXCONN);
         if (status == ER_OK) {
-            QCC_DbgPrintf(("DaemonTCPTransport::DoStartListen(): Listening on %s/%d", argMap["addr"].c_str(), listenPort));
+            QCC_DbgPrintf(("DaemonTCPTransport::StartListen(): Listening on %s/%d", argMap["addr"].c_str(), listenPort));
             m_listenFds.push_back(pair<qcc::String, SocketFd>(normSpec, listenFd));
         } else {
-            QCC_LogError(status, ("DaemonTCPTransport::DoStartListen(): Listen failed"));
+            QCC_LogError(status, ("DaemonTCPTransport::StartListen(): Listen failed"));
         }
     } else {
-        QCC_LogError(status, ("DaemonTCPTransport::DoStartListen(): Failed to bind to %s/%d", listenAddr.ToString().c_str(), listenPort));
+        QCC_LogError(status, ("DaemonTCPTransport::StartListen(): Failed to bind to %s/%d", listenAddr.ToString().c_str(), listenPort));
     }
+
 
     /*
      * The name service is very flexible about what to advertise.  Empty
@@ -2132,19 +1720,9 @@ void DaemonTCPTransport::DoStartListen(qcc::String& normSpec)
      * this, but we don't use the feature.
      *
      * N.B. This means that if we listen on a specific IP address and advertise
-     * over other interfaces chosen by the name service (which do not have that
-     * specific IP address assigned) we can end up advertising services on IP
-     * addresses that are not present on the network that gets the
-     * advertisements.
-     *
-     * Another thing to understand is that there is one name service per
-     * instance of DaemonTCPTransport, and the name service allows only one
-     * combination of IPv4 address, IPv6 address and port -- it uses the last
-     * one set.  If no addresses are provided, the name service advertises the
-     * IP address of each of the interfaces it chooses using the last provided
-     * port.  Each call to SetEndpoints() below will then overrwite the
-     * advertised daemon listen port.  It is not currently possible to have
-     * a daemon listening on multiple TCP ports.
+     * over other interfaces (which do not have that IP address assigned) by
+     * providing, for example the wildcard interface, we will be advertising
+     * services on addresses do not listen on.
      */
     assert(m_ns);
     m_ns->SetEndpoints("", "", listenPort);
@@ -2157,12 +1735,12 @@ void DaemonTCPTransport::DoStartListen(qcc::String& normSpec)
     if (status == ER_OK) {
         Alert();
     }
+
+    return status;
 }
 
 QStatus DaemonTCPTransport::StopListen(const char* listenSpec)
 {
-    QCC_DbgPrintf(("DaemonTCPTransport::StopListen()"));
-
     /*
      * We only want to allow this call to proceed if we have a running server
      * accept thread that isn't in the process of shutting down.  We use the
@@ -2204,88 +1782,17 @@ QStatus DaemonTCPTransport::StopListen(const char* listenSpec)
     }
 
     /*
-     * Because we are sending a *request* to stop listening on a given
-     * normalized listen spec to another thread, and the server thread starts
-     * and stops listening on given listen specs when it decides to eventually
-     * run, it is be possible for a calling thread to send multiple requests to
-     * start or stop listening on the same listenSpec before the server thread
-     * responds.
-     *
-     * In order to deal with these two timelines, we keep a list of normalized
-     * listenSpecs that we have requested to be started, and not yet requested
-     * to be removed.  This list (the mListenSpecs) must be consistent with
-     * client requests to start and stop listens.  This list is not necessarily
-     * consistent with what is actually being listened on.  That is reflected by
-     * a separate list called mListenFds.
-     *
-     * We consult the list of listen spects for duplicates when starting to
-     * listen, and we make sure that a listen spec is on the list before
-     * queueing a request to stop listening.  Asking to stop listening on a
-     * listen spec we aren't listening on is not an error, since the goal of the
-     * user is to not listen on a given address and port -- and we aren't.
-     */
-    m_listenSpecsLock.Lock(MUTEX_CONTEXT);
-    for (list<qcc::String>::iterator i = m_listenSpecs.begin(); i != m_listenSpecs.end(); ++i) {
-        if (*i == normSpec) {
-            m_listenSpecs.erase(i);
-            QueueStopListen(normSpec);
-            break;
-        }
-    }
-    m_listenSpecsLock.Unlock(MUTEX_CONTEXT);
-
-    return ER_OK;
-}
-
-void DaemonTCPTransport::QueueStopListen(qcc::String& normSpec)
-{
-    QCC_DbgPrintf(("DaemonTCPTransport::QueueStopListen()"));
-
-    /*
-     * In order to start a listen, we send the server accept thread a message
-     * containing the start request code ADD and the normalized listen spec
-     * which specifies the address and port to listen on.
-     */
-    ListenRequest listenRequest;
-    listenRequest.m_request = STOP_LISTEN;
-    listenRequest.m_listenSpec = normSpec;
-
-    m_listenRequestsLock.Lock(MUTEX_CONTEXT);
-    m_listenRequests.push(listenRequest);
-    m_listenRequestsLock.Unlock(MUTEX_CONTEXT);
-
-    /*
-     * Wake the server accept loop thread up so it will process the request we
-     * just queued.
-     */
-    Alert();
-}
-
-void DaemonTCPTransport::DoStopListen(qcc::String& normSpec)
-{
-    QCC_DbgPrintf(("DaemonTCPTransport::DoStopListen()"));
-
-    /*
-     * Since the name service is created before the server accept thread is spun
-     * up, and deleted after it is joined, we must have a valid name service or
-     * someone isn't playing by the rules; so an assert is appropriate here.
-     */
-    assert(m_ns);
-
-    /*
      * Find the (single) listen spec and remove it from the list of active FDs
-     * used by the server accept loop (run thread).  This is okay to do since
-     * we are assuming that, since we should only be called in the context of
-     * the server accept loop, it knows that an FD will be deleted here.
+     * used by the server accept loop (run thread).
      */
     m_listenFdsLock.Lock(MUTEX_CONTEXT);
+    status = ER_BUS_BAD_TRANSPORT_ARGS;
     qcc::SocketFd stopFd = -1;
-    bool found = false;
     for (list<pair<qcc::String, SocketFd> >::iterator i = m_listenFds.begin(); i != m_listenFds.end(); ++i) {
         if (i->first == normSpec) {
             stopFd = i->second;
             m_listenFds.erase(i);
-            found = true;
+            status = ER_OK;
             break;
         }
     }
@@ -2296,10 +1803,14 @@ void DaemonTCPTransport::DoStopListen(qcc::String& normSpec)
      * down and alert the server accept loop that the list of FDs on which it
      * is listening has changed.
      */
-    if (found) {
+    if (status == ER_OK) {
         qcc::Shutdown(stopFd);
         qcc::Close(stopFd);
+
+        Alert();
     }
+
+    return status;
 }
 
 void DaemonTCPTransport::EnableDiscovery(const char* namePrefix)
@@ -2463,8 +1974,36 @@ void DaemonTCPTransport::FoundCallback::Found(const qcc::String& busAddr, const 
      * remote daemons will send keepalive messages that the local daemon will
      * recieve, also via this callback.
      *
-     * Our job here is just to pass the messages on up the stack to the daemon.
+     *
+     * XXX Currently this transport has no clue how to handle an advertised
+     * IPv6 address so we filter them out.  We should support IPv6.
      */
+    String a("addr=");
+    String p(",port=");
+
+    size_t i = busAddr.find(a);
+    if (i == String::npos) {
+        return;
+    }
+    i += a.size();
+
+    size_t j = busAddr.find(p);
+    if (j == String::npos) {
+        return;
+    }
+
+    String s = busAddr.substr(i, j - i);
+
+    IPAddress addr;
+    QStatus status = addr.SetAddress(s);
+    if (status != ER_OK) {
+        return;
+    }
+
+    if (addr.IsIPv4() != true) {
+        return;
+    }
+
     if (m_listener) {
         m_listener->FoundNames(busAddr, guid, TRANSPORT_WLAN, &nameList, timer);
     }

@@ -107,7 +107,6 @@ static const char internalConfig[] =
     "  <listen>launchd:env=DBUS_LAUNCHD_SESSION_BUS_SOCKET</listen>"
     "  <listen>bluetooth:</listen>"
     "  <listen>tcp:addr=0.0.0.0,port=9955,family=ipv4</listen>"
-    "  <listen>tcp:addr=0::0,port=9956,family=ipv6</listen>"
     "  <policy context=\"default\">"
     "    <allow send_interface=\"*\"/>"
     "    <allow receive_interface=\"*\"/>"
