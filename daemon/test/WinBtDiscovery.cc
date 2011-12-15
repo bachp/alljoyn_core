@@ -46,6 +46,8 @@
 #include <bthsdpdef.h>
 #include <BluetoothAPIs.h>
 
+// CHAR is the type used by BTH_DEVICE_INFO.
+CHAR deviceSearchSubString[MAX_PATH + 1];
 
 PSP_DEVICE_INTERFACE_DETAIL_DATA GetDeviceInterfaceDetailData(void)
 {
@@ -579,15 +581,48 @@ BOOL CALLBACK EnumerateSdpRecordCallback(ULONG uAttribId, LPBYTE pValueStream, U
     return TRUE;
 }
 
-bool ReportL2CapServices(SOCKADDR* sockAddress, DWORD addressLength, BTH_DEVICE_INFO* deviceInfo)
+/**
+ * Convert this SOCKET_ADDRESS to a '\0' terminated string and return a static buffer to the result.
+ *
+ * @param address   The address to output.
+ *
+ * @return  Pointer to static buffer than contains the '\0' terminated string or NULL if an error occurred.
+ */
+TCHAR* GetSocketAddressAsString(const SOCKET_ADDRESS* address)
+{
+    static TCHAR addressAsString[256];
+    int err = -1;
+
+    if (address) {
+        DWORD addressStringLength = _countof(addressAsString);
+
+        err = WSAAddressToString(address->lpSockaddr, address->iSockaddrLength, 0, addressAsString,
+                                 &addressStringLength);
+    }
+
+    return 0 == err ? addressAsString : NULL;
+}
+
+bool ReportL2CapServices(const SOCKET_ADDRESS* local, const SOCKET_ADDRESS* remote,
+                         BTH_DEVICE_INFO* deviceInfo)
 {
     bool returnValue = false;
-    TCHAR addressAsString[256];
-    DWORD addressStringLength = _countof(addressAsString);
 
-    WSAAddressToString(sockAddress, addressLength, 0,  addressAsString, &addressStringLength);
+    _tprintf_s(TEXT("Device: %S\n"), deviceInfo->name);
 
-    _tprintf_s(TEXT("Device: %S\n\tAddress: %s\n"), deviceInfo->name, addressAsString);
+    TCHAR* addressAsString = GetSocketAddressAsString(local);
+
+    if (addressAsString) {
+        _tprintf_s(TEXT("\tLocal address: %s\n"), addressAsString);
+    }
+
+    // The remote address must be obtained AFTER the local because
+    // the remote version of addressAsString is later used in querySet.
+    addressAsString = GetSocketAddressAsString(remote);
+
+    if (addressAsString) {
+        _tprintf_s(TEXT("Remote address: %s\n"), addressAsString);
+    }
 
     GUID guidForL2CapService;
 
@@ -629,6 +664,8 @@ bool ReportL2CapServices(SOCKADDR* sockAddress, DWORD addressLength, BTH_DEVICE_
                 // If successful.
                 if (keepLooking) {
                     static TCHAR nameSeparator[] = TEXT("\t-----------\n");
+
+                    returnValue = true;
                     _tprintf_s(TEXT("\n%s"), nameSeparator);
 
                     if (querySetBuffer->lpszServiceInstanceName) {
@@ -647,13 +684,26 @@ bool ReportL2CapServices(SOCKADDR* sockAddress, DWORD addressLength, BTH_DEVICE_
                         _tprintf_s(TEXT("\tProtocol: %d\n"), serviceAddress.iProtocol);
                         _tprintf_s(TEXT("\tSocket Type: %d\n"), serviceAddress.iSocketType);
 
-                        if (querySetBuffer->lpBlob && querySetBuffer->lpBlob->cbSize > 0) {
-                            BOOL status = BluetoothSdpEnumAttributes(querySetBuffer->lpBlob->pBlobData,
-                                                                     querySetBuffer->lpBlob->cbSize,
-                                                                     EnumerateSdpRecordCallback,
-                                                                     querySetBuffer->lpBlob);
-                            returnValue = status != 0;
+                        addressAsString = GetSocketAddressAsString(&querySetBuffer->lpcsaBuffer->RemoteAddr);
+
+                        if (addressAsString) {
+                            _tprintf_s(TEXT("\tRemote address: %s\n"), addressAsString);
                         }
+
+                        addressAsString = GetSocketAddressAsString(&querySetBuffer->lpcsaBuffer->LocalAddr);
+
+                        if (addressAsString) {
+                            _tprintf_s(TEXT("\tLocal address: %s\n"), addressAsString);
+                        }
+
+                        _tprintf_s(TEXT("\n"));
+                    }
+
+                    if (querySetBuffer->lpBlob && querySetBuffer->lpBlob->cbSize > 0) {
+                        BluetoothSdpEnumAttributes(querySetBuffer->lpBlob->pBlobData,
+                                                   querySetBuffer->lpBlob->cbSize,
+                                                   EnumerateSdpRecordCallback,
+                                                   querySetBuffer->lpBlob);
                     }
                 }
             } while (keepLooking);
@@ -705,11 +755,14 @@ void ReportDeviceAndServiceInfo(void)
                     keepLooking = LookupNextRecord(lookupHandle, &bufferLength, &querySetBuffer);
 
                     if (keepLooking && (SOCKADDR_BTH*)querySetBuffer->lpcsaBuffer) {
-                        SOCKADDR sockAddress = *querySetBuffer->lpcsaBuffer->RemoteAddr.lpSockaddr;
-                        DWORD addressLength = querySetBuffer->lpcsaBuffer->RemoteAddr.iSockaddrLength;
                         BTH_DEVICE_INFO* deviceInfo = (BTH_DEVICE_INFO*)querySetBuffer->lpBlob->pBlobData;
 
-                        ReportL2CapServices(&sockAddress, addressLength, deviceInfo);
+                        if (strstr(deviceInfo->name, deviceSearchSubString)) {
+                            const SOCKET_ADDRESS* local = &querySetBuffer->lpcsaBuffer->LocalAddr;
+                            const SOCKET_ADDRESS* remote = &querySetBuffer->lpcsaBuffer->RemoteAddr;
+
+                            ReportL2CapServices(local, remote, deviceInfo);
+                        }
                     }
                 } while (keepLooking);
 
@@ -991,8 +1044,10 @@ void Usage(_TCHAR* arg0)
     _tprintf_s(TEXT("[-d] [-h] [-k]\n\n"));
     _tprintf_s(TEXT("Options:\n"));
     _tprintf_s(TEXT("   -d = Do discovery of all visible Bluetooth devices. Default is true.\n"));
+    _tprintf_s(TEXT("   -d <name> = Do discovery only on device names that contains <name>.\n      <name> must not begin with '-'.\n"));
     _tprintf_s(TEXT("   -h = Display the host information. Default is true.\n"));
     _tprintf_s(TEXT("   -k = Show kernel driver state. Default is true.\n"));
+    _tprintf_s(TEXT("If one or more flags is set then the default for all others is set to false."));
 
     exit(EXIT_FAILURE);
 }
@@ -1019,6 +1074,14 @@ void ParseArgs(int argc, _TCHAR* argv[])
         switch (argv[i][1]) {
         case TEXT('d'):
             doDiscovery = true;
+
+            if (i + 1 < argc && argv[i + 1][0] != TEXT('-')) {
+                i++;
+
+                C_ASSERT(sizeof(**argv) == 2);
+                C_ASSERT(sizeof(deviceSearchSubString[0]) == 1);
+                sprintf_s(deviceSearchSubString, _countof(deviceSearchSubString), "%S", argv[i]);
+            }
             break;
 
         case TEXT('h'):
