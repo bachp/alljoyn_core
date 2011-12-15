@@ -256,7 +256,7 @@ class Transport {
     virtual void DisableDiscovery(const char* namePrefix) = 0;
 
     /**
-     * Start advertising a well-known name with the given quality of service.
+     * Start advertising a well-known name
      *
      * @param advertiseName   Well-known name to add to list of advertised names.
      *
