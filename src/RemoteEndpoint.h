@@ -314,7 +314,7 @@ class RemoteEndpoint : public BusEndpoint, public qcc::ThreadListener {
     void IncrementRef();
 
     /**
-     * Decremeent the reference count for this remote endpoing.
+     * Decrement the reference count for this remote endpoing.
      * RemoteEndpoints are stopped when the number of refereneces reaches zero.
      */
     void DecrementRef();
