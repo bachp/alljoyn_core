@@ -365,16 +365,25 @@ class BTTransport::BTAccessor : public MessageReceiver, public qcc::AlarmListene
     };
 
     /**
+     * Set the Bluetooth radio handle to this new value. The new value may be 0.
+     */
+    void SetRadioHandle(HANDLE newHandle);
+
+    /**
      * This connects to the driver in the kernel and does other initialization when a bluetooth
      * device becomes available.
+     *
+     * @param newRadioHandle The radio handle to use for this connection.
      */
-    QStatus KernelConnect(void);
+    QStatus KernelConnect(HANDLE newRadioHandle);
 
     /**
      * This disconnects from the driver in the kernel and does other cleanup when a bluetooth
      * device becomes unavailable.
+     *
+     * @param radioIsOn True if the bluetooth radio is on and driver should be up and running.
      */
-    void KernelDisconnect(void);
+    void KernelDisconnect(bool radioIsOn);
 
     /**
      * This initializes the array of pointers for the WindowsBTEndpoints to be saved.

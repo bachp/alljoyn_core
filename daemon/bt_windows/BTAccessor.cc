@@ -92,7 +92,6 @@ BTTransport::BTAccessor::BTAccessor(BTTransport* transport,
     EndPointsInit();
     ConnectRequestsInit();
     adapterChangeThread.Start();
-    discoveryThread.Start();
 }
 
 BTTransport::BTAccessor::~BTAccessor()
@@ -346,7 +345,7 @@ exit:
     return deviceInterfaceDetailData;
 }
 
-QStatus BTTransport::BTAccessor::KernelConnect()
+QStatus BTTransport::BTAccessor::KernelConnect(HANDLE newRadioHandle)
 {
     QCC_DbgTrace(("BTTransport::BTAccessor::KernelConnect()"));
 
@@ -354,6 +353,13 @@ QStatus BTTransport::BTAccessor::KernelConnect()
 
     USER_KERNEL_MESSAGE messageIn = { USRKRNCMD_SETMESSAGEEVENT };
     USER_KERNEL_MESSAGE messageOut = { USRKRNCMD_SETMESSAGEEVENT };
+
+    SetRadioHandle(newRadioHandle);
+
+    if (!GetRadioAddress()) {
+        status = ER_INIT_FAILED;
+        goto Error;
+    }
 
     if (!wsaInitialized) {
         WSADATA wsaData;
@@ -429,28 +435,38 @@ QStatus BTTransport::BTAccessor::KernelConnect()
         goto Error;
     }
 
+    if (!discoveryThread.IsRunning()) {
+        status = discoveryThread.Start();
+    }
+
+    if (status != ER_OK) {
+        goto Error;
+    }
+
     transport->BTDeviceAvailable(true);
 
 Error:
-
     if (ER_OK != status) {
-        KernelDisconnect();
+        KernelDisconnect(true);
     }
 
     return status;
 }
 
-void BTTransport::BTAccessor::KernelDisconnect(void)
+void BTTransport::BTAccessor::KernelDisconnect(bool radioIsOn)
 {
     QCC_DbgTrace(("BTTransport::BTAccessor::KernelDisconnect()"));
 
     transport->BTDeviceAvailable(false);
 
-    // Tell the kernel to not send more messages.
-    USER_KERNEL_MESSAGE messageIn = { USRKRNCMD_SETMESSAGEEVENT };
-    USER_KERNEL_MESSAGE messageOut;
-    messageIn.messageData.setMessageEventData.eventHandle = 0;
-    DeviceSendMessage(&messageIn, &messageOut);
+    if (radioIsOn) {
+        // Tell the kernel to not send more messages.
+        USER_KERNEL_MESSAGE messageIn = { USRKRNCMD_SETMESSAGEEVENT };
+        USER_KERNEL_MESSAGE messageOut;
+
+        messageIn.messageData.setMessageEventData.eventHandle = 0;
+        DeviceSendMessage(&messageIn, &messageOut);
+    }
 
     getMessageThread.Stop();
     discoveryThread.Stop();
@@ -472,6 +488,7 @@ void BTTransport::BTAccessor::KernelDisconnect(void)
 
     getMessageThread.Join();
     discoveryThread.Join();
+    SetRadioHandle(0);
 }
 
 /************************
@@ -1221,10 +1238,11 @@ static bool LookupNextRecord(HANDLE lookupHandle, DWORD& bufferLength, WSAQUERYS
 {
     const DWORD controlFlags = LUP_RETURN_ALL;
     bool returnValue = true;
+    DWORD wsaSpecifiedBufferLength = bufferLength;
 
     querySetBuffer->dwSize = sizeof(WSAQUERYSET);
     querySetBuffer->lpBlob = NULL;
-    int err = WSALookupServiceNext(lookupHandle, controlFlags, &bufferLength, querySetBuffer);
+    int err = WSALookupServiceNext(lookupHandle, controlFlags, &wsaSpecifiedBufferLength, querySetBuffer);
 
     if (SOCKET_ERROR == err) {
         err = WSAGetLastError();
@@ -1234,15 +1252,23 @@ static bool LookupNextRecord(HANDLE lookupHandle, DWORD& bufferLength, WSAQUERYS
         if (WSAEFAULT == err) {
             // Yes, the buffer was too small. Allocate one of the suggested size.
             ::free(querySetBuffer);
+            bufferLength = wsaSpecifiedBufferLength;
             querySetBuffer = (WSAQUERYSET*)::malloc(bufferLength);
-            // Try looking up the next record with the larger buffer.
-            querySetBuffer->dwSize = sizeof(WSAQUERYSET);
-            querySetBuffer->lpBlob = NULL;
-            err = WSALookupServiceNext(lookupHandle, controlFlags, &bufferLength, querySetBuffer);
-            if (SOCKET_ERROR != err) {
-                returnValue = true;
+
+            if (querySetBuffer) {
+                // Try looking up the next record with the larger buffer.
+                querySetBuffer->dwSize = sizeof(*querySetBuffer);
+                querySetBuffer->lpBlob = NULL;
+                err = WSALookupServiceNext(lookupHandle, controlFlags, &wsaSpecifiedBufferLength, querySetBuffer);
+
+                if (SOCKET_ERROR != err) {
+                    returnValue = true;
+                } else {
+                    err = WSAGetLastError();
+                }
             } else {
-                err = WSAGetLastError();
+                QCC_LogError(ER_OUT_OF_MEMORY, ("LookupNextRecord(): malloc(%d) failed.", bufferLength));
+                bufferLength = 0;
             }
         }
         if (err && (WSA_E_NO_MORE != err)) {
@@ -2127,6 +2153,18 @@ void BTTransport::BTAccessor::DebugDumpKernelState(void) const
     }
 }
 
+void BTTransport::BTAccessor::SetRadioHandle(HANDLE newHandle)
+{
+    deviceLock.Lock(MUTEX_CONTEXT);
+
+    if (radioHandle) {
+        ::CloseHandle(radioHandle);
+    }
+
+    radioHandle = newHandle;
+    deviceLock.Unlock(MUTEX_CONTEXT);
+}
+
 qcc::ThreadReturn STDCALL BTTransport::BTAccessor::AdapterChangeThread::Run(void* arg)
 {
     QCC_DbgTrace(("AdapterChangeThread()"));
@@ -2147,31 +2185,12 @@ qcc::ThreadReturn STDCALL BTTransport::BTAccessor::AdapterChangeThread::Run(void
                     ::CloseHandle(tempRadioHandle);
                 } else {
                     // Bluetooth was previously available and now it is not.
-                    btAccessor.KernelDisconnect();
-
-                    btAccessor.deviceLock.Lock(MUTEX_CONTEXT);
-
-                    assert(btAccessor.radioHandle);
-                    ::CloseHandle(btAccessor.radioHandle);
-                    btAccessor.radioHandle = 0;
-
-                    btAccessor.deviceLock.Unlock(MUTEX_CONTEXT);
+                    btAccessor.KernelDisconnect(false);
                 }
             } else {
                 // If Bluetooth was not available and now it is then make the change.
                 if (tempRadioHandle) {
-                    btAccessor.deviceLock.Lock(MUTEX_CONTEXT);
-
-                    assert(!btAccessor.radioHandle);
-                    btAccessor.radioHandle = tempRadioHandle;
-
-                    btAccessor.deviceLock.Unlock(MUTEX_CONTEXT);
-
-                    // It could be that a different Bluetooth device was plugged in so we
-                    // have a different address now.
-                    if (btAccessor.GetRadioAddress()) {
-                        btAccessor.KernelConnect();
-                    }
+                    btAccessor.KernelConnect(tempRadioHandle);
                 }
             }
         } else {
@@ -2179,23 +2198,21 @@ qcc::ThreadReturn STDCALL BTTransport::BTAccessor::AdapterChangeThread::Run(void
 
             // Were we in the started state and just changed to the stop state?
             if (lastIsStarted && btAccessor.BluetoothIsAvailable()) {
-                btAccessor.KernelDisconnect();
+                btAccessor.KernelDisconnect(true);
             }
         }
 
         lastIsStarted = currentIsStarted;
-        Event::Wait(GetStopEvent(), adapterCheckPeriodInMilliseconds);
+
+        // Wait. And if we return because of an alert then reset the event.
+        if (ER_ALERTED_THREAD == Event::Wait(GetStopEvent(), adapterCheckPeriodInMilliseconds)) {
+            GetStopEvent().ResetEvent();
+        }
     } while (!IsStopping());
 
-    // Bluetooth was previously available.
-    if (btAccessor.BluetoothIsAvailable()) {
-
-        if (lastIsStarted) {
-            btAccessor.KernelDisconnect();
-        }
-
-        ::CloseHandle(btAccessor.radioHandle);
-        btAccessor.radioHandle = 0;
+    // Bluetooth was previously available and running then shut it down.
+    if (btAccessor.BluetoothIsAvailable() && lastIsStarted) {
+        btAccessor.KernelDisconnect(true);
     }
 
     return 0;
