@@ -122,6 +122,14 @@ struct hci_conn_info {
     uint8_t out;
     uint16_t state;
     uint32_t link_mode;
+#if defined(QCC_OS_ANDROID)
+    /* Android developers broke the kernel ioctl API for hci_conn_info_req, so
+     * we need padding to prevent stack corruption.  This only affects
+     * Android.  More padding than necessary is added in case they break the
+     * API even further.
+     */
+    uint32_t padding[16];
+#endif
 };
 
 struct hci_conn_info_req {
