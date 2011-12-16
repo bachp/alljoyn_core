@@ -1096,6 +1096,7 @@ void BTController::HandleNameSignal(const InterfaceDescription::Member* member,
             }
 
             bool isMaster = IsMaster();
+            bool isDrone = IsDrone();
             lock.Unlock(MUTEX_CONTEXT);
 
             if (isMaster) {
@@ -1128,6 +1129,19 @@ void BTController::HandleNameSignal(const InterfaceDescription::Member* member,
                 size_t numArgs;
                 msg->GetArgs(numArgs, args);
                 Signal(masterNode->GetUniqueName().c_str(), masterNode->GetSessionID(), *member, args, numArgs);
+
+                if (isDrone && !findOp) {
+                    BTNodeDB newAdInfo;
+                    BTNodeDB oldAdInfo;
+                    BTNodeInfo nodeChange = node->Clone();
+                    nodeChange->AddAdvertiseName(name);
+                    if (addName) {
+                        newAdInfo.AddNode(nodeChange);
+                    } else {
+                        oldAdInfo.AddNode(nodeChange);
+                    }
+                    DistributeAdvertisedNameChanges(&newAdInfo, &oldAdInfo);
+                }
             }
         } else {
             QCC_LogError(ER_FAIL, ("Did not find node %s in node DB", addr.ToString().c_str()));
@@ -1523,24 +1537,16 @@ void BTController::HandleFoundNamesChange(const InterfaceDescription::Member* me
     if ((status == ER_OK) && (adInfo.Size() > 0)) {
 
         // Figure out which name changes belong to which DB (nodeDB or foundNodeDB).
-        BTNodeDB minionDB;
         BTNodeDB externalDB;
         nodeDB.NodeDiff(adInfo, &externalDB, NULL);
-        externalDB.NodeDiff(adInfo, &minionDB, NULL);
 
-        const BTNodeDB* newAdInfo = lost ? NULL : &adInfo;
-        const BTNodeDB* oldAdInfo = lost ? &adInfo : NULL;
-        const BTNodeDB* newMinionDB = lost ? NULL : &minionDB;
-        const BTNodeDB* oldMinionDB = lost ? &minionDB : NULL;
         const BTNodeDB* newExternalDB = lost ? NULL : &externalDB;
         const BTNodeDB* oldExternalDB = lost ? &externalDB : NULL;
 
-        nodeDB.UpdateDB(newMinionDB, oldMinionDB, false);
         foundNodeDB.UpdateDB(newExternalDB, oldExternalDB, false);
         foundNodeDB.DumpTable("foundNodeDB - Updated set of found devices");
-        assert(!devAvailable || (nodeDB.Size() > 0));
 
-        DistributeAdvertisedNameChanges(newAdInfo, oldAdInfo);
+        DistributeAdvertisedNameChanges(newExternalDB, oldExternalDB);
     }
 }
 
@@ -2058,10 +2064,6 @@ void BTController::DeferredNameLostHander(const String& name)
         }
 
 
-
-
-        // the entire foundNodeDB will cause their advertised names to expire
-        // as well.  No need to distribute lost names at this time.
         if (!find.Empty()) {
             // We're going to be doing discovery so set the expiration all
             // found nodes to half the normal expiration.
@@ -2382,7 +2384,7 @@ QStatus BTController::ImportState(BTNodeInfo& connectingNode,
         incomingNode->SetConnectNode(connectingNode);
         incomingNode->SetEIRCapable(eirCapable);
 
-        QCC_DbgPrintf(("Processing names for new minion %s (GUID: %s  uniqueName: %s):",
+        QCC_DbgPrintf(("Processing names for newly connected node %s (GUID: %s  uniqueName: %s):",
                        incomingNode->ToString().c_str(),
                        guid.ToString().c_str(),
                        busName.c_str()));
