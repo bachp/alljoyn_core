@@ -336,7 +336,8 @@ bool LookupNextRecord(HANDLE lookupHandle, DWORD* bufferLength, WSAQUERYSET** qu
 {
     const DWORD controlFlags = LUP_RETURN_ALL;
     bool returnValue = true;
-    int err = WSALookupServiceNext(lookupHandle, controlFlags, bufferLength, *querySetBuffer);
+    DWORD wsaSpecifiedBufferLength = *bufferLength;
+    int err = WSALookupServiceNext(lookupHandle, controlFlags, &wsaSpecifiedBufferLength, *querySetBuffer);
 
     if (SOCKET_ERROR == err) {
         err = WSAGetLastError();
@@ -346,12 +347,16 @@ bool LookupNextRecord(HANDLE lookupHandle, DWORD* bufferLength, WSAQUERYSET** qu
         if (WSAEFAULT == err) {
             // Yes, the buffer was too small. Allocate one of the suggested size.
             ::free(*querySetBuffer);
-            *querySetBuffer = (WSAQUERYSET*)::malloc(*bufferLength);
+
+            *bufferLength = wsaSpecifiedBufferLength;
+            *querySetBuffer = (WSAQUERYSET*)::malloc(wsaSpecifiedBufferLength);
 
             // Did we get the buffer we requested?
-            if (querySetBuffer) {
+            if (*querySetBuffer) {
+                (*querySetBuffer)->dwSize = sizeof(**querySetBuffer);
+
                 // Try looking up the next record with the larger buffer.
-                err = WSALookupServiceNext(lookupHandle, controlFlags, bufferLength, *querySetBuffer);
+                err = WSALookupServiceNext(lookupHandle, controlFlags, &wsaSpecifiedBufferLength, *querySetBuffer);
 
                 if (SOCKET_ERROR != err) {
                     returnValue = true;
