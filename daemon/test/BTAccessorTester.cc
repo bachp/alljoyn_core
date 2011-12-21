@@ -48,7 +48,7 @@ static const size_t NUM_SECONDARY_NODES = 100;
 static const size_t EXCHANGE_DATA_LARGE = 256 * 1024;
 static const size_t EXCHANGE_DATA_SMALL = 1;
 
-static const size_t CONNECT_MULTIPLE_MAX_CONNECTIONS = 16;
+static const size_t CONNECT_MULTIPLE_MAX_CONNECTIONS = 19;
 
 static const size_t HASH_SIZE = Crypto_MD5::DIGEST_SIZE;
 
@@ -1199,6 +1199,43 @@ bool ClientTestDriver::TC_ConnectMultiple()
             tcSuccess = false;
             goto exit;
         }
+
+        char sendBuffer[80];
+        size_t sent;
+
+        uint8_t length = snprintf(sendBuffer, ArraySize(sendBuffer), "Endpoint %d.", i) + 1;    // Include the nul.
+        QStatus status = eps[i]->GetSink().PushBytes(&length, sizeof(length), sent);
+
+        if (ER_OK == status && sizeof(length) == sent) {
+            status = eps[i]->GetSink().PushBytes(sendBuffer, length, sent);
+        }
+
+        if (ER_OK != status || length != sent) {
+            String detail = "Failed PushBytes() on endpoint ";
+            detail += U32ToString(i);
+            detail += " to ";
+            detail += connNode->GetBusAddress().ToString();
+            detail += ".";
+            ReportTestDetail(detail);
+            tcSuccess = false;
+            goto exit;
+        }
+
+        size_t received;
+        char receiveBuffer[ArraySize(sendBuffer)];
+
+        status = eps[i]->GetSource().PullBytes(receiveBuffer, length, received, 10000);
+
+        if (ER_OK != status || length != received || memcmp(sendBuffer, receiveBuffer, length)) {
+            String detail = "Failed PullBytes() on endpoint ";
+            detail += U32ToString(i);
+            detail += " to ";
+            detail += connNode->GetBusAddress().ToString();
+            detail += ".";
+            ReportTestDetail(detail);
+            tcSuccess = false;
+            goto exit;
+        }
     }
 
 exit:
@@ -1538,6 +1575,43 @@ bool ServerTestDriver::TC_AcceptMultiple()
 
         if (!eps[i]) {
             String detail = "Failed to accept incoming connection ";
+            detail += U32ToString(i);
+            detail += ".";
+            ReportTestDetail(detail);
+            tcSuccess = false;
+            goto exit;
+        }
+
+        size_t received;
+        uint8_t length;
+        QStatus status = eps[i]->GetSource().PullBytes(&length, sizeof(length), received);
+
+        char receiveBuffer[80];
+
+        if (ER_OK == status && length <= sizeof(receiveBuffer)) {
+            status = eps[i]->GetSource().PullBytes(receiveBuffer, length, received, 10000);
+        }
+
+        if (ER_OK != status || length != received) {
+            String detail = "Failed PullBytes() on endpoint ";
+            detail += U32ToString(i);
+            detail += ".";
+            ReportTestDetail(detail);
+            tcSuccess = false;
+            goto exit;
+        }
+
+        String endpointDescription = "Received buffer '";
+
+        endpointDescription += receiveBuffer;
+        endpointDescription += "'";
+        ReportTestDetail(endpointDescription);
+
+        size_t sent;
+        status = eps[i]->GetSink().PushBytes(receiveBuffer, length, sent);
+
+        if (ER_OK != status || length != sent) {
+            String detail = "Failed PushBytes() on endpoint ";
             detail += U32ToString(i);
             detail += ".";
             ReportTestDetail(detail);
