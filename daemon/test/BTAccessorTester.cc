@@ -223,6 +223,20 @@ class TestDriver : public BTTransport {
     String BuildName(const BTBusAddress& addr, const GUID128& guid, size_t entry);
     void HashName(const BTBusAddress& addr, const GUID128& guid, uint32_t serial, const String& name, String& hash);
 
+    // Don't report the transfer rate unless the number of bytes transferred is >= this many bytes.
+    static const size_t TRANFER_RATE_MIN_BYTES = 10000;
+
+    /**
+     * If bytesTransferred is >= TRANFER_RATE_MIN_BYTES then report to the user the number of
+     * bytes transferred per second.
+     *
+     *  @param t0[in] The start time of the transfer.
+     *  @param t1[in] The end time of the transfer.
+     *  @param bytesTransferred[in] The number of bytes transferred.
+     *  @param sending[in] True if the transfer was a send, false if it was a receive.
+     */
+    void ReportTransferRate(uint64_t t0, uint64_t t1, size_t bytesTransferred, bool sending) const;
+
   private:
     list<TestCaseInfo> tcList;
     uint32_t testcase;
@@ -492,6 +506,9 @@ bool TestDriver::SendBuf(const uint8_t* buf, size_t size)
         return true;
     }
 
+    const size_t totalToSend = size;
+    uint64_t t0 = GetTimestamp64();
+
     while (size > 0) {
         status = ep->GetSink().PushBytes(buf + offset, size, sent);
         if (status != ER_OK) {
@@ -507,6 +524,11 @@ bool TestDriver::SendBuf(const uint8_t* buf, size_t size)
         offset += sent;
         size -= sent;
     }
+
+    uint64_t t1 = GetTimestamp64();
+
+    ReportTransferRate(t0, t1, totalToSend, true);
+
     return true;
 }
 
@@ -520,6 +542,9 @@ bool TestDriver::RecvBuf(uint8_t* buf, size_t size)
         ReportTestDetail("No connection to send data to.  Skipping.");
         return true;
     }
+
+    const size_t totalToReceive = size;
+    uint64_t t0 = GetTimestamp64();
 
     while (size > 0) {
         status = ep->GetSource().PullBytes(buf + offset, size, received, 30000);
@@ -539,6 +564,11 @@ bool TestDriver::RecvBuf(uint8_t* buf, size_t size)
         offset += received;
         size -= received;
     }
+
+    uint64_t t1 = GetTimestamp64();
+
+    ReportTransferRate(t0, t1, totalToReceive, false);
+
     return true;
 }
 
@@ -594,6 +624,25 @@ bool TestDriver::TestCheckIncomingAddress(const BDAddress& addr) const
     ReportTestDetail(detail);
 
     return false;
+}
+
+void TestDriver::ReportTransferRate(uint64_t t0, uint64_t t1, size_t bytesTransferred, bool sending) const
+{
+    uint64_t tDelta = t1 - t0;
+
+    if (bytesTransferred > TRANFER_RATE_MIN_BYTES && tDelta > 0) {
+        uint64_t bytesPerSecond = (bytesTransferred * 1000) / tDelta;
+        String detail = sending ? "Sent " : "Received ";
+
+        detail += U64ToString(bytesTransferred);
+        detail += " bytes in ";
+        detail += U64ToString(tDelta / 1000);
+        detail += " seconds. Or ";
+        detail += U64ToString(bytesPerSecond);
+        detail += " bytes per second.";
+
+        ReportTestDetail(detail);
+    }
 }
 
 bool ClientTestDriver::TestCheckIncomingAddress(const BDAddress& addr) const
