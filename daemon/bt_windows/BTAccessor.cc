@@ -1831,7 +1831,7 @@ void BTTransport::BTAccessor::RemoveRecord()
         BLOB blob;
         WSAQUERYSET registrationInfo;
 
-        QCC_DbgPrintf(("Removing record handle %x (old record)", recordHandle));
+        QCC_DbgPrintf(("Removing record handle 0x%08x (old record)", recordHandle));
 
         InitializeSetService(&registrationInfo, &blob, &service, &recordHandle);
 
@@ -1842,7 +1842,7 @@ void BTTransport::BTAccessor::RemoveRecord()
         if (0 != wsaReturnValue) {
             int err = WSAGetLastError();
 
-            QCC_DbgPrintf(("WSASetService() failed error = 0x%X", err));
+            QCC_DbgPrintf(("WSASetService() failed error = 0x%08X", err));
         }
 
         recordHandle = NULL;
