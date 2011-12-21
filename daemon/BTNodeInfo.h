@@ -596,6 +596,7 @@ class _BTNodeInfo {
     {
         NameSet::const_iterator it;
         if (added) {
+            (*added) = Clone();
             assert((*added)->adNames.empty() && (*added)->findNames.empty());
             for (it = other->adNames.begin(); it != other->adNames.end(); ++it) {
                 if (adNames.find(*it) == adNames.end()) {
@@ -609,9 +610,12 @@ class _BTNodeInfo {
             }
             if (!(*added)->adNames.empty() || !(*added)->findNames.empty()) {
                 (*added)->nodeAddr = nodeAddr;
+            } else {
+                (*added)->nodeAddr = BTBusAddress();
             }
         }
         if (removed) {
+            (*removed) = Clone();
             assert((*removed)->adNames.empty() && (*removed)->findNames.empty());
             for (it = adNames.begin(); it != adNames.end(); ++it) {
                 if (other->adNames.find(*it) == other->adNames.end()) {
@@ -625,6 +629,8 @@ class _BTNodeInfo {
             }
             if (!(*removed)->adNames.empty() || !(*removed)->findNames.empty()) {
                 (*removed)->nodeAddr = nodeAddr;
+            } else {
+                (*removed)->nodeAddr = BTBusAddress();
             }
         }
     }
