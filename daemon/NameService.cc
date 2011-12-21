@@ -723,25 +723,33 @@ void NameService::ClearLiveInterfaces(void)
         }
 
         //
-        // Arrange an IGMP drop via the appropriate socket option (via the qcc
-        // absraction layer). Android doesn't bother to compile its kernel with
-        // CONFIG_IP_MULTICAST set.  This doesn't mean that there is no
-        // multicast code in the Android kernel, it means there is no IGMP code
-        // in the kernel.  What this means to us is that even through we are
-        // doing an IP_DROP_MEMBERSHIP request, which is ultimately an IGMP
+        // If the multicast bit is set, we have done an IGMP join.  In this
+        // case, we must arrange an IGMP drop via the appropriate socket option
+        // (via the qcc absraction layer). Android doesn't bother to compile its
+        // kernel with CONFIG_IP_MULTICAST set.  This doesn't mean that there is
+        // no multicast code in the Android kernel, it means there is no IGMP
+        // code in the kernel.  What this means to us is that even through we
+        // are doing an IP_DROP_MEMBERSHIP request, which is ultimately an IGMP
         // operation, the request will filter through the IP code before being
         // ignored and will do useful things in the kernel even though
         // CONFIG_IP_MULTICAST was not set for the Android build -- i.e., we
         // have to do it anyway.
         //
-        if (m_liveInterfaces[i].m_address.IsIPv4()) {
-            qcc::LeaveMulticastGroup(m_liveInterfaces[i].m_sockFd, qcc::QCC_AF_INET, IPV4_MULTICAST_GROUP, m_liveInterfaces[i].m_interfaceName);
-        } else if (m_liveInterfaces[i].m_address.IsIPv6()) {
-            qcc::LeaveMulticastGroup(m_liveInterfaces[i].m_sockFd, qcc::QCC_AF_INET6, IPV6_MULTICAST_GROUP, m_liveInterfaces[i].m_interfaceName);
+        if (m_liveInterfaces[i].m_flags & qcc::IfConfigEntry::MULTICAST) {
+            if (m_liveInterfaces[i].m_address.IsIPv4()) {
+                qcc::LeaveMulticastGroup(m_liveInterfaces[i].m_sockFd, qcc::QCC_AF_INET, IPV4_MULTICAST_GROUP, m_liveInterfaces[i].m_interfaceName);
+            } else if (m_liveInterfaces[i].m_address.IsIPv6()) {
+                qcc::LeaveMulticastGroup(m_liveInterfaces[i].m_sockFd, qcc::QCC_AF_INET6, IPV6_MULTICAST_GROUP, m_liveInterfaces[i].m_interfaceName);
+            }
         }
 
-        // Delete event before closing the socket because the event
-        // is monitoring the socket state.
+        //
+        // Always delete the event before closing the socket because the event
+        // is monitoring the socket state and therefore has a reference to the
+        // socket.  One the socket is closed the FD can be reused and our event
+        // can end up monitoring the wrong socket and interfere with the correct
+        // operation of other unrelated event/socket pairs.
+        //
         delete m_liveInterfaces[i].m_event;
         m_liveInterfaces[i].m_event = NULL;
 
