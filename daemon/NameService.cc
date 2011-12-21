@@ -911,16 +911,29 @@ void NameService::LazyUpdateInterfaces(void)
         // entry (IPv4 or IPv6) and whether or not multicast is actually supported
         // on the interface.
         //
+        // This next condition may be a bit confusing, so we break it out a bit
+        // for clarity.  We can posibly use an interface if it supports either
+        // multicast or broadcast.  What we want to do is to detect the
+        // condition when we cannot use it, so we invert the logic.  That means
+        // !multicast && !broadcast.  Not being able to support broadcast is
+        // also true if we don't want to (i.e., m_broadcast is false).  This
+        // expression then looks like  !multicast && (!broadcast || !m_broadcast).
+        // broadcast really implies AF_INET since there is no broadcast in IPv6
+        // but we double-check this condition and come up with:
+        //
+        //   !multicast && (!broadcast || !m_broadcast || !AF_INET).
+        //
+        // To avoid a horribly complicated if statement, we make it look like
+        // the above explanation.  The resulting debug print is intimidating,
+        // but it says exactly the right thing for those in the know.
+        //
+        bool multicast = (entries[i].m_flags & qcc::IfConfigEntry::MULTICAST) != 0;
+        bool broadcast = (entries[i].m_flags & qcc::IfConfigEntry::BROADCAST) != 0;
+        bool af_inet = entries[i].m_family == qcc::QCC_AF_INET;
 
-        //
-        // If multicast is not suported, then to be useful we need to be able to
-        // do an IPv4 subnet directed broadcast on this interface.
-        //
-        if ((entries[i].m_flags & qcc::IfConfigEntry::MULTICAST) == 0) {
-            if ((entries[i].m_family != qcc::QCC_AF_INET) || (m_broadcast == false)) {
-                QCC_DbgPrintf(("LazyUpdateInterfaces:  Not MULTICAST, or BROADCAST not enabled and AF_INET.  Ignoring"));
-                continue;
-            }
+        if (!multicast && (!broadcast || !m_broadcast || !af_inet)) {
+            QCC_DbgPrintf(("LazyUpdateInterfaces: !multicast && (!broadcast || !m_broadcast || !af_inet).  Ignoring"));
+            continue;
         }
 
         //
@@ -945,7 +958,7 @@ void NameService::LazyUpdateInterfaces(void)
             // If we're going to send broadcasts, we have to ask for
             // permission.
             //
-            if (m_broadcast) {
+            if (m_broadcast && entries[i].m_flags & qcc::IfConfigEntry::BROADCAST) {
                 status = qcc::SetBroadcast(sockFd, true);
                 if (status != ER_OK) {
                     QCC_LogError(status, ("LazyUpdateInterfaces: enable broadcast failed"));
@@ -1630,51 +1643,56 @@ void NameService::SendProtocolMessage(
         }
 
         //
-        // We always want to send out a subnet directed broadcast over
-        // IPv4, but we need the prefix length to so so.
+        // If the interface is broadcast-capable, We want to send out a subnet
+        // directed broadcast over IPv4.
         //
-        // If there was a problem getting the IP address prefix
-        // length, it will come in as -1.  In this case, we can't form
-        // a proper subnet directed broadcast and so we don't try.  An
-        // error will have been logged when we did the IfConfig, so
-        // don't flood out any more, just silenty ignore the problem.
-        //
-        if (m_broadcast && interfaceAddressPrefixLen != static_cast<uint32_t>(-1)) {
+        if (flags & qcc::IfConfigEntry::BROADCAST) {
             //
-            // In order to ensure that our broadcast goes to the correct
-            // interface and is not just sent out some default way, we
-            // have to form a subnet directed broadcast.  To do this we need
-            // the IP address and netmask.
+            // If there was a problem getting the IP address prefix
+            // length, it will come in as -1.  In this case, we can't form
+            // a proper subnet directed broadcast and so we don't try.  An
+            // error will have been logged when we did the IfConfig, so
+            // don't flood out any more, just silenty ignore the problem.
             //
-            QCC_DbgPrintf(("NameService::SendProtocolMessage():  InterfaceAddress %s, prefix %d",
-                           interfaceAddress.ToString().c_str(), interfaceAddressPrefixLen));
+            if (m_broadcast && interfaceAddressPrefixLen != static_cast<uint32_t>(-1)) {
+                //
+                // In order to ensure that our broadcast goes to the correct
+                // interface and is not just sent out some default way, we
+                // have to form a subnet directed broadcast.  To do this we need
+                // the IP address and netmask.
+                //
+                QCC_DbgPrintf(("NameService::SendProtocolMessage():  InterfaceAddress %s, prefix %d",
+                               interfaceAddress.ToString().c_str(), interfaceAddressPrefixLen));
 
-            //
-            // Create a netmask with a one in the leading bits for each position
-            // implied by the prefix length.
-            //
-            uint32_t mask = 0;
-            for (uint32_t i = 0; i < interfaceAddressPrefixLen; ++i) {
-                mask >>= 1;
-                mask |= 0x80000000;
-            }
+                //
+                // Create a netmask with a one in the leading bits for each position
+                // implied by the prefix length.
+                //
+                uint32_t mask = 0;
+                for (uint32_t i = 0; i < interfaceAddressPrefixLen; ++i) {
+                    mask >>= 1;
+                    mask |= 0x80000000;
+                }
 
-            //
-            // The subnet directed broadcast address is the address part of the
-            // interface address (defined by the mask) with the rest of the bits
-            // set to one.
-            //
-            uint32_t addr = (interfaceAddress.GetIPv4AddressCPUOrder() & mask) | ~mask;
-            qcc::IPAddress ipv4Broadcast(addr);
-            QCC_DbgPrintf(("NameService::SendProtocolMessage():  Sending to subnet directed broadcast address %s",
-                           ipv4Broadcast.ToString().c_str()));
+                //
+                // The subnet directed broadcast address is the address part of the
+                // interface address (defined by the mask) with the rest of the bits
+                // set to one.
+                //
+                uint32_t addr = (interfaceAddress.GetIPv4AddressCPUOrder() & mask) | ~mask;
+                qcc::IPAddress ipv4Broadcast(addr);
+                QCC_DbgPrintf(("NameService::SendProtocolMessage():  Sending to subnet directed broadcast address %s",
+                               ipv4Broadcast.ToString().c_str()));
 
-            QStatus status = qcc::SendTo(sockFd, ipv4Broadcast, BROADCAST_PORT, buffer, size, sent);
-            if (status != ER_OK) {
-                QCC_LogError(ER_FAIL, ("NameService::SendProtocolMessage():  Error sending to IPv4 (broadcast)"));
+                QStatus status = qcc::SendTo(sockFd, ipv4Broadcast, BROADCAST_PORT, buffer, size, sent);
+                if (status != ER_OK) {
+                    QCC_LogError(ER_FAIL, ("NameService::SendProtocolMessage():  Error sending to IPv4 (broadcast)"));
+                }
+            } else {
+                QCC_DbgPrintf(("NameService::SendProtocolMessage():  Subnet directed broadcasts are disabled"));
             }
         } else {
-            QCC_DbgPrintf(("NameService::SendProtocolMessage():  subnet directed broadcasts are disabled"));
+            QCC_DbgPrintf(("NameService::SendProtocolMessage():  Interface does not support broadcast"));
         }
     } else {
         if (flags & qcc::IfConfigEntry::MULTICAST) {
