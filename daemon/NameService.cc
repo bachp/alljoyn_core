@@ -306,15 +306,16 @@ const char* NameService::BROADCAST_PROPERTY = "disable_directed_broadcast";
 const char* NameService::IPV4_MULTICAST_GROUP = "239.255.37.41";
 
 //
-// This is the IANA assigned IPv4 multicast group for AllJoyn.
+// This is the IANA assigned IPv4 multicast group for AllJoyn.  This is
+// a Local Network Control Block address.
+//
+// See www.iana.org/assignments/multicast-addresses
 //
 const char* NameService::IPV4_ALLJOYN_MULTICAST_GROUP = "224.0.0.113";
 
 //
-// This is just a port next to the default daemon TCP listen port.  These are
-// both from an unassigned area in the IANA port range and was a temporary
-// choice while the IANA port reservation was in process, and remains for
-// backward compatibility.
+// This is the IANA assigned UDP port for the AllJoyn Name Service.  See
+// www.iana.org/assignments/service-names-port-numbers
 //
 const uint16_t NameService::MULTICAST_PORT = 9956;
 const uint16_t NameService::BROADCAST_PORT = NameService::MULTICAST_PORT;
@@ -333,7 +334,7 @@ const char* NameService::IPV6_MULTICAST_GROUP = "ff03::efff:2529";
 //
 // This is the IANA assigned IPv6 multicast group for AllJoyn.  The assigned
 // address is a variable scope address (ff0x) but we always use the link local
-// scope (ff02).
+// scope (ff02).  See www.iana.org/assignments/multicast-addresses
 //
 const char* NameService::IPV6_ALLJOYN_MULTICAST_GROUP = "ff02::13a";
 
@@ -1625,20 +1626,49 @@ void NameService::SendProtocolMessage(
     header.Serialize(buffer);
 
     //
-    // Send the packet.
+    // Now it's time to send the packets.  Packets is plural since we will try
+    // to get our name service information across to peers in as many ways as
+    // is reasonably possible since it turns out that discovery is a weak link
+    // in the system.  This means we will try broadcast, and IPv4 and IPv6
+    // multicast whenever possible.
+    //
+    // We also have a legacy situation to deal with.  We started out using
+    // arbitrary multicast groups allocated out of the site-administered block
+    // before we registered with IANA.  We need to send out on those groups
+    // to make sure that old daemons hear us too.  This means that we are
+    // going to try to send as many as five packets for each advertisement:
+    //
+    //     broadcast:MULTICAST_PORT is to the subnet directed broadcast address
+    //     IPV4_MULTICAST_GROUP:MULTICAST_PORT is to the old IPv4 multicast address
+    //     IPV6_MULTICAST_GROUP:MULTICAST_PORT is to the old IPv6 multicaast address
+    //     IPV4_ALLJOYN_MULTICAST_GROUP:MULTICAST_PORT is to the IANA IPv4 multicast address
+    //     IPV6_ALLJOYN_MULTICAST_GROUP:MULTICAST_PORT is to the old IPv6 multicast address
+    //
+    // It may be the case that we eventually reduce this to subnet directed
+    // broadcast and IPv6 multicast since IPv4 broadcast and IPv4 multicast may
+    // simply be redundant in most cases (it is conceivable for APs to block
+    // broadcast but not multicast to allow multicast streaming, for example).
     //
     size_t sent;
     if (sockFdIsIPv4) {
         //
         // If the underlying interface told us that it suported multicast, send
-        // the packet out on our IPv4 multicast group.
+        // the packet out on our IPv4 multicast groups (IANA registered and
+        // legacy).
         //
         if (flags & qcc::IfConfigEntry::MULTICAST) {
-            QCC_DbgPrintf(("NameService::SendProtocolMessage():  Sending to IPv4 multicast group"));
-            qcc::IPAddress ipv4Multicast(IPV4_MULTICAST_GROUP);
-            QStatus status = qcc::SendTo(sockFd, ipv4Multicast, MULTICAST_PORT, buffer, size, sent);
+            QCC_DbgPrintf(("NameService::SendProtocolMessage():  Sending to IPv4 Local Network Control Block multicast group"));
+            qcc::IPAddress ipv4LocalMulticast(IPV4_ALLJOYN_MULTICAST_GROUP);
+            QStatus status = qcc::SendTo(sockFd, ipv4LocalMulticast, MULTICAST_PORT, buffer, size, sent);
             if (status != ER_OK) {
-                QCC_LogError(ER_FAIL, ("NameService::SendProtocolMessage():  Error sending to IPv4 (multicast)"));
+                QCC_LogError(ER_FAIL, ("NameService::SendProtocolMessage():  Error sending to IPv4 Local Network Control Block multicast group"));
+            }
+
+            QCC_DbgPrintf(("NameService::SendProtocolMessage():  Sending to IPv4 site-administered multicast group"));
+            qcc::IPAddress ipv4SiteMulticast(IPV4_MULTICAST_GROUP);
+            status = qcc::SendTo(sockFd, ipv4SiteMulticast, MULTICAST_PORT, buffer, size, sent);
+            if (status != ER_OK) {
+                QCC_LogError(ER_FAIL, ("NameService::SendProtocolMessage():  Error sending to IPv4 site-administered multicast group"));
             }
         }
 
@@ -1696,11 +1726,18 @@ void NameService::SendProtocolMessage(
         }
     } else {
         if (flags & qcc::IfConfigEntry::MULTICAST) {
-            QCC_DbgPrintf(("NameService::SendProtocolMessage():  Sending to IPv6 multicast"));
+            QCC_DbgPrintf(("NameService::SendProtocolMessage():  Sending to IPv6 IPv4-mapped site-administered multicast group"));
             qcc::IPAddress ipv6(IPV6_MULTICAST_GROUP);
             QStatus status = qcc::SendTo(sockFd, ipv6, MULTICAST_PORT, buffer, size, sent);
             if (status != ER_OK) {
-                QCC_LogError(ER_FAIL, ("NameService::SendProtocolMessage():  Error sending to IPv6"));
+                QCC_LogError(ER_FAIL, ("NameService::SendProtocolMessage():  Error sending to IPv6 IPv4-mapped site-administered multicast group "));
+            }
+
+            QCC_DbgPrintf(("NameService::SendProtocolMessage():  Sending to IPv6 Link-Local Scope multicast group"));
+            qcc::IPAddress ipv6AllJoyn(IPV6_ALLJOYN_MULTICAST_GROUP);
+            status = qcc::SendTo(sockFd, ipv6AllJoyn, MULTICAST_PORT, buffer, size, sent);
+            if (status != ER_OK) {
+                QCC_LogError(ER_FAIL, ("NameService::SendProtocolMessage():  Error sending to IPv6 Link-Local Scope multicast group "));
             }
         }
     }
@@ -1816,9 +1853,9 @@ void* NameService::Run(void* arg)
             // are answers (is-at messages) we need to worry about getting
             // the address information right.
             //
-            // The rules are fairly :
+            // The rules are simple:
             //
-            // In the most general case, we have both IPv4 and IPV6 running.
+            // In the most usual case, we have both IPv4 and IPV6 running.
             // When we send an IPv4 mulitcast, we communicate the IPv4 address
             // of the underlying interface through the IP address of the sent
             // packet.  If there is also an IPv6 address assigned to the sending
@@ -2093,6 +2130,8 @@ void NameService::Retransmit(void)
 
     //
     // We need a valid port before we send something out to the local subnet.
+    // Note that this is the daemon contact port, not the name service port
+    // to which we send advertisements.
     //
     if (m_port == 0) {
         QCC_DbgPrintf(("NameService::Retransmit(): Port not set"));
