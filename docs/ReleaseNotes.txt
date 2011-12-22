@@ -1,5 +1,7 @@
-AllJoyn Version 2.3.0 Release Notes
+* DRAFT * INCOMPLETE * DRAFT * INCOMPLETE * DRAFT * INCOMPLETE * DRAFT * INCOMPLETE *
+AllJoyn Version 2.3.1 Release Notes
 -----------------------------------
+* DRAFT * INCOMPLETE * DRAFT * INCOMPLETE * DRAFT * INCOMPLETE * DRAFT * INCOMPLETE *
 
 
 Platform Support
