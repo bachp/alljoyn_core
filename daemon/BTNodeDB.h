@@ -210,12 +210,10 @@ class BTNodeDB {
     void GetNodesFromConnectNode(const BTNodeInfo& connNode, BTNodeDB& subDB) const
     {
         Lock(MUTEX_CONTEXT);
-        ConnAddrMap::const_iterator cmit = connMap.lower_bound(connNode);
-        ConnAddrMap::const_iterator end = connMap.upper_bound(connNode);
-
-        while (cmit != end) {
-            subDB.AddNode(cmit->second);
-            ++cmit;
+        for (std::set<BTNodeInfo>::const_iterator it = nodes.begin(); it != nodes.end(); ++it) {
+            if ((*it)->GetConnectNode() == connNode) {
+                subDB.AddNode(*it);
+            }
         }
         Unlock(MUTEX_CONTEXT);
     }
@@ -225,20 +223,30 @@ class BTNodeDB {
         Lock(MUTEX_CONTEXT);
         qcc::Timespec now;
         qcc::GetTimeNow(&now);
-        while (!expireSet.empty() && ((*expireSet.begin())->GetExpireTime() <= now.GetAbsoluteMillis())) {
-            BTNodeInfo node = *expireSet.begin();
-            RemoveNode(node);
-            expiredDB.AddNode(node);
+        std::set<BTNodeInfo>::iterator it = nodes.begin();
+        while (it != nodes.end()) {
+            BTNodeInfo node = *it;
+            if (node->GetExpireTime() <= now.GetAbsoluteMillis()) {
+                nodes.erase(node);
+                expiredDB.AddNode(node);
+                it = nodes.begin();
+            } else {
+                ++it;
+            }
         }
         Unlock(MUTEX_CONTEXT);
     }
 
     uint64_t NextNodeExpiration()
     {
-        if (!expireSet.empty()) {
-            return (*expireSet.begin())->GetExpireTime();
+        uint64_t next = std::numeric_limits<uint64_t>::max();
+        for (std::set<BTNodeInfo>::iterator it = nodes.begin(); it != nodes.end(); ++it) {
+            BTNodeInfo node = *it;
+            if (node->GetExpireTime() <= next) {
+                next = node->GetExpireTime();
+            }
         }
-        return std::numeric_limits<uint64_t>::max();
+        return next;
     }
 
 
@@ -287,7 +295,7 @@ class BTNodeDB {
     /**
      * Clear out the DB.
      */
-    void Clear() { nodes.clear(); addrMap.clear(); nameMap.clear(); connMap.clear(); expireSet.clear(); }
+    void Clear() { nodes.clear(); }
 
 #ifndef NDEBUG
     void DumpTable(const char* info) const;
@@ -298,36 +306,7 @@ class BTNodeDB {
 
   private:
 
-    class ExpireNodeComp {
-      public:
-        bool operator()(const BTNodeInfo& lhs, const BTNodeInfo& rhs) const
-        {
-            return ((lhs->GetExpireTime() < rhs->GetExpireTime()) ||
-                    ((lhs->GetExpireTime() == rhs->GetExpireTime()) && (lhs < rhs)));
-        }
-    };
-
-    /** Convenience typedef for the lookup table keyed off the bus address. */
-    typedef std::map<BTBusAddress, BTNodeInfo> NodeAddrMap;
-
-    /** Convenience typedef for the lookup table keyed off the bus address. */
-    typedef std::multimap<BTNodeInfo, BTNodeInfo> ConnAddrMap;
-
-    /** Convenience typedef for the lookup table keyed off the unique bus name. */
-    typedef std::map<qcc::String, BTNodeInfo> NodeNameMap;
-
-    /** Convenience typedef for the lookup table sorted by expiration time. */
-    typedef std::set<BTNodeInfo, ExpireNodeComp> NodeExpireSet;
-
-    /** Convenience typedef for the lookup table sorted by Session IDs. */
-    typedef std::map<SessionId, BTNodeInfo> SessionIDMap;
-
     std::set<BTNodeInfo> nodes;     /**< The node DB storage. */
-    NodeAddrMap addrMap;            /**< Lookup table keyed off the bus address. */
-    NodeNameMap nameMap;            /**< Lookup table keyed off the unique bus name. */
-    NodeExpireSet expireSet;        /**< Lookup table sorted by the expiration time. */
-    ConnAddrMap connMap;            /**< Lookup table keyed off the connect node. */
-    SessionIDMap sessionIDMap;
 
     mutable qcc::Mutex lock;        /**< Mutext to protect the DB. */
 

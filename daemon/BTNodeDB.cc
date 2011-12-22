@@ -43,13 +43,49 @@ using namespace qcc;
 namespace ajn {
 
 
+static set<BTNodeInfo>::const_iterator findNode(const set<BTNodeInfo>& nodes, const BTBusAddress& addr)
+{
+    set<BTNodeInfo>::const_iterator it;
+    for (it = nodes.begin(); it != nodes.end(); ++it) {
+        if ((*it)->GetBusAddress() == addr) {
+            break;
+        }
+    }
+    return it;
+}
+
+
+static set<BTNodeInfo>::const_iterator findNode(const set<BTNodeInfo>& nodes, const BDAddress& addr)
+{
+    set<BTNodeInfo>::const_iterator it;
+    for (it = nodes.begin(); it != nodes.end(); ++it) {
+        if ((*it)->GetBusAddress().addr == addr) {
+            break;
+        }
+    }
+    return it;
+}
+
+
+static set<BTNodeInfo>::const_iterator findNode(const set<BTNodeInfo>& nodes, const String& uniqueName)
+{
+    set<BTNodeInfo>::const_iterator it;
+    for (it = nodes.begin(); it != nodes.end(); ++it) {
+        if (!(*it)->GetUniqueName().empty() && ((*it)->GetUniqueName() == uniqueName)) {
+            break;
+        }
+    }
+    return it;
+}
+
+
 const BTNodeInfo BTNodeDB::FindNode(const BTBusAddress& addr) const
 {
     BTNodeInfo node;
     Lock(MUTEX_CONTEXT);
-    NodeAddrMap::const_iterator it = addrMap.find(addr);
-    if (it != addrMap.end()) {
-        node = it->second;
+    set<BTNodeInfo>::const_iterator it = findNode(nodes, addr);
+    if (it != nodes.end()) {
+        node = *it;
     }
     Unlock(MUTEX_CONTEXT);
     return node;
@@ -59,11 +95,10 @@ const BTNodeInfo BTNodeDB::FindNode(const BTBusAddress& addr) const
 const BTNodeInfo BTNodeDB::FindNode(const BDAddress& addr) const
 {
     BTNodeInfo node;
-    BTBusAddress busAddr(addr, bt::INVALID_PSM);
     Lock(MUTEX_CONTEXT);
-    NodeAddrMap::const_iterator it = addrMap.lower_bound(busAddr);
-    if (it != addrMap.end() && (it->second)->GetBusAddress().addr == addr) {
-        node = it->second;
+    set<BTNodeInfo>::const_iterator it = findNode(nodes, addr);
+    if (it != nodes.end()) {
+        node = *it;
     }
     Unlock(MUTEX_CONTEXT);
     return node;
@@ -74,9 +109,9 @@ const BTNodeInfo BTNodeDB::FindNode(const String& uniqueName) const
 {
     BTNodeInfo node;
     Lock(MUTEX_CONTEXT);
-    NodeNameMap::const_iterator it = nameMap.find(uniqueName);
-    if (it != nameMap.end()) {
-        node = it->second;
+    set<BTNodeInfo>::const_iterator it = findNode(nodes, uniqueName);
+    if (it != nodes.end()) {
+        node = *it;
     }
     Unlock(MUTEX_CONTEXT);
     return node;
@@ -127,27 +162,6 @@ void BTNodeDB::AddNode(const BTNodeInfo& node)
     // Add to the master set
     nodes.insert(node);
 
-    // Add to the address map
-    addrMap[node->GetBusAddress()] = node;
-    if (!node->GetUniqueName().empty()) {
-        nameMap[node->GetUniqueName()] = node;
-    }
-
-    if (useExpirations) {
-        // Add to the expiration set
-        expireSet.insert(node);
-    }
-
-    // Add to the connect address multimap
-    connMap.insert(std::pair<BTNodeInfo, BTNodeInfo>(node->GetConnectNode(), node));
-
-    // Add to the session ID map
-    if (node->GetSessionID() != 0) {
-        sessionIDMap[node->GetSessionID()] = node;
-    }
-
-    assert(connMap.size() == nodes.size());
-    assert(!useExpirations || (expireSet.size() == nodes.size()));
     Unlock(MUTEX_CONTEXT);
 }
 
@@ -155,52 +169,15 @@ void BTNodeDB::AddNode(const BTNodeInfo& node)
 void BTNodeDB::RemoveNode(const BTNodeInfo& node)
 {
     Lock(MUTEX_CONTEXT);
-    NodeAddrMap::iterator it = addrMap.find(node->GetBusAddress());
-    if (it != addrMap.end()) {
-        BTNodeInfo lnode = it->second;
+    set<BTNodeInfo>::const_iterator it = findNode(nodes, node->GetBusAddress());
+    if (it != nodes.end()) {
+        BTNodeInfo lnode = *it;
 
         // Remove from the master set
         nodes.erase(lnode);
 
-        // Remove from the address map
-        addrMap.erase(it);
-
-        // Remove from the session ID map
-        if (lnode->GetSessionID() != 0) {
-            sessionIDMap.erase(lnode->GetSessionID());
-        }
-
-        // Remove from the connect address multimap
-        ConnAddrMap::iterator cmit = connMap.lower_bound(lnode->GetConnectNode());
-        ConnAddrMap::iterator end = connMap.upper_bound(lnode->GetConnectNode());
-        while ((cmit != end) && (cmit->second != lnode)) {
-            ++cmit;
-        }
-        assert(cmit != end);
-        if (cmit != end) {
-            connMap.erase(cmit);
-        }
-
-        // Remove from the name map (if it has a name)
-        if (!lnode->GetUniqueName().empty()) {
-            nameMap.erase(lnode->GetUniqueName());
-        }
-
-        if (useExpirations) {
-            // Remove from the exipiration set
-            NodeExpireSet::iterator expit = expireSet.find(lnode);
-            if (expit == expireSet.end()) {
-                // expireSet is out of order
-                expireSet.clear();
-                expireSet.insert(nodes.begin(), nodes.end());
-            } else {
-                expireSet.erase(expit);
-            }
-        }
     }
 
-    assert(connMap.size() == nodes.size());
-    assert(!useExpirations || (expireSet.size() == nodes.size()));
     Unlock(MUTEX_CONTEXT);
 }
 
@@ -217,19 +194,19 @@ void BTNodeDB::Diff(const BTNodeDB& other, BTNodeDB* added, BTNodeDB* removed) c
     }
 
     const_iterator nodeit;
-    NodeAddrMap::const_iterator addrit;
+    set<BTNodeInfo>::const_iterator addrit;
 
     // Find removed names/nodes
     if (removed) {
         for (nodeit = Begin(); nodeit != End(); ++nodeit) {
             const BTNodeInfo& node = *nodeit;
-            addrit = other.addrMap.find(node->GetBusAddress());
-            if (addrit == other.addrMap.end()) {
+            addrit = findNode(other.nodes, node->GetBusAddress());
+            if (addrit == other.nodes.end()) {
                 removed->AddNode(node);
             } else {
                 BTNodeInfo diffNode = node->Clone();
                 bool include = false;
-                const BTNodeInfo& onode = addrit->second;
+                const BTNodeInfo& onode = *addrit;
                 NameSet::const_iterator nameit;
                 NameSet::const_iterator onameit;
                 for (nameit = node->GetAdvertiseNamesBegin(); nameit != node->GetAdvertiseNamesEnd(); ++nameit) {
@@ -251,13 +228,13 @@ void BTNodeDB::Diff(const BTNodeDB& other, BTNodeDB* added, BTNodeDB* removed) c
     if (added) {
         for (nodeit = other.Begin(); nodeit != other.End(); ++nodeit) {
             const BTNodeInfo& onode = *nodeit;
-            addrit = addrMap.find(onode->GetBusAddress());
-            if (addrit == addrMap.end()) {
+            addrit = findNode(nodes, onode->GetBusAddress());
+            if (addrit == nodes.end()) {
                 added->AddNode(onode);
             } else {
                 BTNodeInfo diffNode = onode->Clone();
                 bool include = false;
-                const BTNodeInfo& node = addrit->second;
+                const BTNodeInfo& node = *addrit;
                 NameSet::const_iterator nameit;
                 NameSet::const_iterator onameit;
                 for (onameit = onode->GetAdvertiseNamesBegin(); onameit != onode->GetAdvertiseNamesEnd(); ++onameit) {
@@ -298,14 +275,14 @@ void BTNodeDB::NodeDiff(const BTNodeDB& other, BTNodeDB* added, BTNodeDB* remove
     }
 
     const_iterator nodeit;
-    NodeAddrMap::const_iterator addrit;
+    set<BTNodeInfo>::const_iterator addrit;
 
     // Find removed names/nodes
     if (removed) {
         for (nodeit = Begin(); nodeit != End(); ++nodeit) {
             const BTNodeInfo& node = *nodeit;
-            addrit = other.addrMap.find(node->GetBusAddress());
-            if (addrit == other.addrMap.end()) {
+            addrit = findNode(other.nodes, node->GetBusAddress());
+            if (addrit == other.nodes.end()) {
                 removed->AddNode(node);
             }
         }
@@ -315,8 +292,8 @@ void BTNodeDB::NodeDiff(const BTNodeDB& other, BTNodeDB* added, BTNodeDB* remove
     if (added) {
         for (nodeit = other.Begin(); nodeit != other.End(); ++nodeit) {
             const BTNodeInfo& onode = *nodeit;
-            addrit = addrMap.find(onode->GetBusAddress());
-            if (addrit == addrMap.end()) {
+            addrit = findNode(nodes, onode->GetBusAddress());
+            if (addrit == nodes.end()) {
                 added->AddNode(onode);
             }
         }
@@ -341,10 +318,10 @@ void BTNodeDB::UpdateDB(const BTNodeDB* added, const BTNodeDB* removed, bool rem
         const_iterator rit;
         for (rit = removed->Begin(); rit != removed->End(); ++rit) {
             BTNodeInfo rnode = *rit;
-            NodeAddrMap::iterator it = addrMap.find(rnode->GetBusAddress());
-            if (it != addrMap.end()) {
+            set<BTNodeInfo>::const_iterator it = findNode(nodes, rnode->GetBusAddress());
+            if (it != nodes.end()) {
                 // Remove names from node
-                BTNodeInfo node = it->second;
+                BTNodeInfo node = *it;
                 if (&(*node) == &(*rnode)) {
                     // The exact same instance of node is in the removed DB so
                     // just remove the node so that the names don't get
@@ -373,8 +350,8 @@ void BTNodeDB::UpdateDB(const BTNodeDB* added, const BTNodeDB* removed, bool rem
         const_iterator ait;
         for (ait = added->Begin(); ait != added->End(); ++ait) {
             BTNodeInfo anode = *ait;
-            NodeAddrMap::iterator it = addrMap.find(anode->GetBusAddress());
-            if (it == addrMap.end()) {
+            set<BTNodeInfo>::const_iterator it = findNode(nodes, anode->GetBusAddress());
+            if (it == nodes.end()) {
                 // New node
                 BTNodeInfo connNode = FindNode(anode->GetConnectNode()->GetBusAddress());
                 if (connNode->IsValid()) {
@@ -384,20 +361,11 @@ void BTNodeDB::UpdateDB(const BTNodeDB* added, const BTNodeDB* removed, bool rem
                 AddNode(anode);
             } else {
                 // Add names to existing node
-                BTNodeInfo node = it->second;
+                BTNodeInfo node = *it;
                 NameSet::const_iterator anameit;
                 for (anameit = anode->GetAdvertiseNamesBegin(); anameit != anode->GetAdvertiseNamesEnd(); ++anameit) {
                     const String& aname = *anameit;
                     node->AddAdvertiseName(aname);
-                }
-                // Update the connect node map
-                ConnAddrMap::iterator cmit = connMap.lower_bound(node->GetConnectNode());
-                ConnAddrMap::iterator end = connMap.upper_bound(node->GetConnectNode());
-                while ((cmit != end) && (cmit->second != node)) {
-                    ++cmit;
-                }
-                if (cmit != end) {
-                    connMap.erase(cmit);
                 }
                 BTNodeInfo connNode = FindNode(anode->GetConnectNode()->GetBusAddress());
                 if (!connNode->IsValid()) {
@@ -405,33 +373,19 @@ void BTNodeDB::UpdateDB(const BTNodeDB* added, const BTNodeDB* removed, bool rem
                 }
                 assert(connNode->IsValid());
                 node->SetConnectNode(connNode);
-                connMap.insert(pair<BTNodeInfo, BTNodeInfo>(node->GetConnectNode(), node));
                 // Update the UUIDRev
                 node->SetUUIDRev(anode->GetUUIDRev());
                 if (useExpirations) {
                     // Update the expire time
-                    expireSet.erase(node);
                     node->SetExpireTime(anode->GetExpireTime());
-                    expireSet.insert(node);
                 }
                 if ((node->GetUniqueName() != anode->GetUniqueName()) && !anode->GetUniqueName().empty()) {
-                    if (!node->GetUniqueName().empty()) {
-                        nameMap.erase(node->GetUniqueName());
-                    }
                     node->SetUniqueName(anode->GetUniqueName());
-                    nameMap[node->GetUniqueName()] = node;
                 }
             }
         }
     }
 
-    if (connMap.size() != nodes.size()) {
-        DumpTable("ASSERT FAIL: updated DB");
-        if (added) added->DumpTable("ASSERT FAIL: added DB");
-        if (removed) removed->DumpTable("ASSERT FAIL: removed DB");
-    }
-    assert(connMap.size() == nodes.size());
-    assert(!useExpirations || (expireSet.size() == nodes.size()));
     Unlock(MUTEX_CONTEXT);
 }
 
@@ -441,15 +395,12 @@ void BTNodeDB::RemoveExpiration()
     if (useExpirations) {
         Lock(MUTEX_CONTEXT);
         uint64_t expireTime = numeric_limits<uint64_t>::max();
-        expireSet.clear();
         iterator it = nodes.begin();
         while (it != nodes.end()) {
             BTNodeInfo node = *it;
             node->SetExpireTime(expireTime);
-            expireSet.insert(node);
             ++it;
         }
-        assert(expireSet.size() == nodes.size());
         Unlock(MUTEX_CONTEXT);
     } else {
         QCC_LogError(ER_FAIL, ("Called RemoveExpiration on BTNodeDB instance initialized without expiration support."));
@@ -465,15 +416,12 @@ void BTNodeDB::RefreshExpiration(uint32_t expireDelta)
         Timespec now;
         GetTimeNow(&now);
         uint64_t expireTime = now.GetAbsoluteMillis() + expireDelta;
-        expireSet.clear();
         iterator it = nodes.begin();
         while (it != nodes.end()) {
             BTNodeInfo node = *it;
             node->SetExpireTime(expireTime);
-            expireSet.insert(node);
             ++it;
         }
-        assert(expireSet.size() == nodes.size());
         Unlock(MUTEX_CONTEXT);
     } else {
         QCC_LogError(ER_FAIL, ("Called RefreshExpiration on BTNodeDB instance initialized without expiration support."));
@@ -486,25 +434,19 @@ void BTNodeDB::RefreshExpiration(const BTNodeInfo& connNode, uint32_t expireDelt
 {
     if (useExpirations) {
         Lock(MUTEX_CONTEXT);
-        ConnAddrMap::iterator cmit = connMap.lower_bound(connNode);
-        ConnAddrMap::iterator end = connMap.upper_bound(connNode);
 
         Timespec now;
         GetTimeNow(&now);
         uint64_t expireTime = now.GetAbsoluteMillis() + expireDelta;
 
-        while (cmit != end) {
-            assert(cmit->first == cmit->second->GetConnectNode());
-            expireSet.erase(cmit->second);
-            cmit->second->SetExpireTime(expireTime);
-            cmit->second->SetUUIDRev(connNode->GetUUIDRev());
-            expireSet.insert(cmit->second);
-            ++cmit;
+        for (set<BTNodeInfo>::const_iterator it = nodes.begin(); it != nodes.end(); ++it) {
+            if ((*it)->GetConnectNode() == connNode) {
+                BTNodeInfo node = *it;
+                node->SetExpireTime(expireTime);
+                node->SetUUIDRev(connNode->GetUUIDRev());
+            }
         }
 
-        assert((end == connMap.end()) || (connNode < (end->second->GetConnectNode())));
-        assert(connMap.size() == nodes.size());
-        assert(expireSet.size() == nodes.size());
         Unlock(MUTEX_CONTEXT);
     } else {
         QCC_LogError(ER_FAIL, ("Called RefreshExpiration on BTNodeDB instance initialized without expiration support."));
@@ -516,11 +458,15 @@ void BTNodeDB::RefreshExpiration(const BTNodeInfo& connNode, uint32_t expireDelt
 void BTNodeDB::NodeSessionLost(SessionId sessionID)
 {
     Lock(MUTEX_CONTEXT);
-    SessionIDMap::iterator it = sessionIDMap.find(sessionID);
-    if (it != sessionIDMap.end()) {
-        BTNodeInfo lnode = it->second;
+    set<BTNodeInfo>::const_iterator it;
+    for (it = nodes.begin(); it != nodes.end(); ++it) {
+        if ((*it)->GetSessionID() && ((*it)->GetSessionID() == sessionID)) {
+            break;
+        }
+    }
+    if (it != nodes.end()) {
+        BTNodeInfo lnode = *it;
 
-        sessionIDMap.erase(sessionID);
         lnode->SetSessionID(0);
         lnode->SetSessionState(_BTNodeInfo::NO_SESSION);
     }
@@ -531,19 +477,12 @@ void BTNodeDB::NodeSessionLost(SessionId sessionID)
 void BTNodeDB::UpdateNodeSessionID(SessionId sessionID, const BTNodeInfo& node)
 {
     Lock(MUTEX_CONTEXT);
-    NodeAddrMap::iterator it = addrMap.find(node->GetBusAddress());
-    if (it != addrMap.end()) {
-        BTNodeInfo lnode = it->second;
-
-        SessionIDMap::iterator sit = sessionIDMap.find(lnode->GetSessionID());
-        if (sit != sessionIDMap.end()) {
-            sessionIDMap.erase(sit);
-        }
+    set<BTNodeInfo>::const_iterator it = findNode(nodes, node->GetBusAddress());
+    if (it != nodes.end()) {
+        BTNodeInfo lnode = *it;
 
         lnode->SetSessionID(sessionID);
         lnode->SetSessionState(_BTNodeInfo::SESSION_UP);
-
-        sessionIDMap[sessionID] = lnode;
     }
     Unlock(MUTEX_CONTEXT);
 }
