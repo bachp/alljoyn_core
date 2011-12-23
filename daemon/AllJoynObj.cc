@@ -2530,9 +2530,7 @@ void AllJoynObj::RemoveBusToBusEndpoint(RemoteEndpoint& endpoint)
 
         /* Remove endpoint (b2b) reference from this vep */
         if (it->second->RemoveBusToBusEndpoint(endpoint)) {
-            /* Remove virtual endpoint with no more b2b eps */
             String exitingEpName = it->second->GetUniqueName();
-            RemoveVirtualEndpoint(*(it++->second));
 
             /* Let directly connected daemons know that this virtual endpoint is gone. */
             map<qcc::StringMapKey, RemoteEndpoint*>::iterator it2 = b2bEndpoints.begin();
@@ -2557,7 +2555,7 @@ void AllJoynObj::RemoveBusToBusEndpoint(RemoteEndpoint& endpoint)
                                                        0);
                     if (ER_OK == status) {
                         String key = it->first;
-                        StringMapKey key2 = it2->first;
+                        String key2 = it2->first.c_str();
                         RemoteEndpoint*ep = it2->second;
                         ep->IncrementWaiters();
                         ReleaseLocks();
@@ -2579,6 +2577,12 @@ void AllJoynObj::RemoveBusToBusEndpoint(RemoteEndpoint& endpoint)
                     ++it2;
                 }
             }
+
+            /* Remove virtual endpoint with no more b2b eps */
+            if (it != virtualEndpoints.end()) {
+                RemoveVirtualEndpoint(*(it++->second));
+            }
+
         } else {
             ++it;
         }
