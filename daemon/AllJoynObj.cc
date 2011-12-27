@@ -2577,7 +2577,7 @@ void AllJoynObj::RemoveBusToBusEndpoint(RemoteEndpoint& endpoint)
                     ++it2;
                 }
             }
-            
+
             /* Remove virtual endpoint with no more b2b eps */
             if (it != virtualEndpoints.end()) {
                 RemoveVirtualEndpoint(*(it++->second));
