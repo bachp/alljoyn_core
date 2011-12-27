@@ -1226,7 +1226,50 @@ void BTController::HandleSetState(const InterfaceDescription::Member* member, Me
             foundNodeDB.AddNode(connectingNode);
         }
     } else {
-        connectingNode = BTNodeInfo(addr, sender);
+        /*
+         * We need the remote GUID here, but it's not included in the "header" fields of SetState.
+         * However, it should always be included in the list of node states.
+         *
+         * Putting the GUID in the header fields would be a protocol change, so doing the extra work
+         * to remain backwards compatible here instead of fixing the protocol.
+         */
+        GUID128 guid;
+        size_t i;
+        for (i = 0; i < numNodeStateArgs; ++i) {
+            char* bn;
+            char* guidStr;
+            uint64_t rawBdAddr;
+            uint16_t psm;
+            size_t anSize, fnSize;
+            MsgArg* anList;
+            MsgArg* fnList;
+            bool eirCapable;
+
+            status = nodeStateArgs[i].Get(SIG_NODE_STATE_ENTRY,
+                                          &guidStr,
+                                          &bn,
+                                          &rawBdAddr, &psm,
+                                          &anSize, &anList,
+                                          &fnSize, &fnList,
+                                          &eirCapable);
+            if (status != ER_OK) {
+                QCC_LogError(status, ("Unmarshal node state failed"));
+                lock.Unlock(MUTEX_CONTEXT);
+                bt.Disconnect(sender);
+                return;
+            }
+            if (sender == bn) {
+                guid = GUID128(guidStr);
+                break;
+            }
+        }
+        if (i == numNodeStateArgs) {
+            QCC_LogError(ER_FAIL, ("Didn't find sender in node states"));
+            lock.Unlock(MUTEX_CONTEXT);
+            bt.Disconnect(sender);
+            return;
+        }
+        connectingNode = BTNodeInfo(addr, sender, guid);
     }
     connectingNode->SetUUIDRev(otherUUIDRev);
     connectingNode->SetSessionID(msg->GetSessionId());
@@ -3209,6 +3252,7 @@ void BTController::AdvertiseNameArgInfo::SetArgs()
                                     node->GetBusAddress().addr.GetRaw(),
                                     node->GetBusAddress().psm,
                                     names.size(), &names.front()));
+        adInfoArgs.back().Stabilize();
     }
 
     bto.nodeDB.Unlock(MUTEX_CONTEXT);
