@@ -836,7 +836,7 @@ class BTController :
     bool IsMinion() const { return (master && (NumMinions() == 0)); }
 
     size_t NumMinions() const { return nodeDB.Size() - 1; }
-    size_t NumEIRMinions() const { return eirMinions; }
+    size_t NumEIRMinions() const;
 
     void PickNextDelegate(NameArgInfo& nameOp);
 
@@ -884,7 +884,6 @@ class BTController :
     uint8_t maxConnects;           // Maximum number of direct connections
     uint32_t masterUUIDRev;        // Revision number for AllJoyn Bluetooth UUID
     uint8_t directMinions;         // Number of directly connected minions
-    size_t eirMinions;             // Numver of EIR capable minions
     const uint8_t maxConnections;
     bool listening;
     bool devAvailable;
