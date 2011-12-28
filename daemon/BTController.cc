@@ -180,7 +180,6 @@ BTController::BTController(BusAttachment& bus, BluetoothDeviceInterface& bt) :
     master(NULL),
     masterUUIDRev(bt::INVALID_UUIDREV),
     directMinions(0),
-    eirMinions(0),
     maxConnections(min(StringToU32(Environ::GetAppEnviron()->Find("ALLJOYN_MAX_BT_CONNECTIONS"), 0, DEFAULT_MAX_CONNECTIONS),
                        ABSOLUTE_MAX_CONNECTIONS)),
     listening(false),
@@ -271,7 +270,6 @@ BTController::~BTController()
 void BTController::ObjectRegistered() {
     // Set our unique name now that we know it.
     self->SetUniqueName(bus.GetUniqueName());
-    self->SetEIRCapable(bt.IsEIRCapable());
 }
 
 
@@ -1625,6 +1623,13 @@ void BTController::DeferredBTDeviceAvailable(bool on)
 {
     QCC_DbgTrace(("BTController::DeferredBTDeviceAvailable(<%s>)", on ? "on" : "off"));
     lock.Lock(MUTEX_CONTEXT);
+
+    /*
+     * Update our EIR capability.  This can only be true once a device is available.  When not,
+     * it will default to false, so this is safe to call in any case.
+     */
+    self->SetEIRCapable(bt.IsEIRCapable());
+
     if (on && !devAvailable) {
         BTBusAddress listenAddr;
         devAvailable = true;
@@ -1765,7 +1770,7 @@ void BTController::DeferredProcessSetStateReply(Message& reply,
                   newMaster, joinSessionNode->ToString().c_str()));
 
     lock.Lock(MUTEX_CONTEXT);
-    QStatus status = ER_FAIL;;
+    QStatus status = ER_FAIL;
 
     if (reply->GetType() == MESSAGE_METHOD_RET) {
         size_t numNodeStateArgs;
@@ -2121,10 +2126,6 @@ void BTController::DeferredNameLostHander(const String& name)
             find.count -= minion->FindNamesSize();
             find.dirty = true;
 
-            if (minion->IsEIRCapable()) {
-                --eirMinions;
-            }
-
             if (!RotateMinions() && wasRotateMinions) {
                 advertise.StopAlarm();
                 find.StopAlarm();
@@ -2380,9 +2381,6 @@ QStatus BTController::ImportState(BTNodeInfo& connectingNode,
         }
         incomingNode->SetConnectNode(connectingNode);
         incomingNode->SetEIRCapable(eirCapable);
-        if (IsMaster() && eirCapable) {
-            ++eirMinions;
-        }
 
         QCC_DbgPrintf(("Processing names for new minion %s (GUID: %s  uniqueName: %s):",
                        incomingNode->ToString().c_str(),
@@ -2459,8 +2457,9 @@ QStatus BTController::ImportState(BTNodeInfo& connectingNode,
             if (IsMaster()) {
                 // Move the node from foundNodeDB to nodeDB since it is now a minion.
                 foundNodeDB.RemoveNode(foundNode);
-                // Make sure node's unique name is up-to-date
+                // Make sure node's unique name and EIR capability are up-to-date
                 foundNode->SetUniqueName(incomingNode->GetUniqueName());
+                foundNode->SetEIRCapable(incomingNode->IsEIRCapable());
                 nodeDB.AddNode(foundNode);
             }
         } else {
@@ -2806,6 +2805,7 @@ void BTController::FillNodeStateMsgArgs(vector<MsgArg>& args) const
             QCC_DbgPrintf(("        Find name: %s", nit->c_str()));
             nodeFindNames.push_back(nit->c_str());
         }
+        QCC_DbgPrintf(("        EIR capable: %d", node->IsEIRCapable()));
 
         args.push_back(MsgArg(SIG_NODE_STATE_ENTRY,
                               node->GetGUID().ToString().c_str(),
@@ -3418,6 +3418,24 @@ QStatus BTController::FindNameArgInfo::StopLocal(bool immediate)
     QStatus status = bto.bt.StopFind();
     active = !(status == ER_OK);
     return status;
+}
+
+
+size_t BTController::NumEIRMinions() const 
+{ 
+    if (!IsMaster()) {
+        return 0;
+    }
+
+    size_t eirMinions = 0;
+    nodeDB.Lock(MUTEX_CONTEXT);
+    for (BTNodeDB::const_iterator it = nodeDB.Begin(); it != nodeDB.End(); ++it) {
+        if (((*it) != self) && (*it)->IsEIRCapable()) {
+            ++eirMinions;
+        }
+    }
+    nodeDB.Unlock(MUTEX_CONTEXT);
+    return eirMinions; 
 }
 
 
