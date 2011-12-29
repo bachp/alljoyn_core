@@ -263,116 +263,25 @@ QStatus BusAttachment::TryAlternativeDaemon(RemoteEndpoint** newep)
 {
     QCC_DbgTrace(("BusAttachment::TryAlternativeDaemon()"));
     QStatus status = ER_FAIL;
-    bool shouldWaitReady = false;
-    const uint32_t TRY_PERIOD_IN_MS = 100;
-    const uint32_t MAX_CONNECT_TRIES = 3;
 
     /* Try Android apk daemon*/
     qcc::String apkConnSpec = "unix:abstract=alljoyn-service";
-    QCC_DbgPrintf(("BusAttachment::TryAlternativeDaemon::try apkConnSpec = %s", apkConnSpec.c_str()));
+    QCC_DbgPrintf(("BusAttachment::TryAlternativeDaemon apkConnSpec = %s", apkConnSpec.c_str()));
 
     status = TryConnect(apkConnSpec.c_str(), newep);
-    /* Maybe the APK daemon is installed but not started yet, so try issue an intent to start it*/
-    if (ER_OK != status) {
-        if (system("am startservice -W -a org.alljoyn.bus.START_DAEMON") != -1) {
-            uint32_t numOfTries = 0;
-            /* Try connect to the APK daemon again every 100ms*/
-            while (numOfTries < MAX_CONNECT_TRIES && status != ER_OK) {
-                QCC_DbgPrintf(("Wait %d ms before trying connect", TRY_PERIOD_IN_MS));
-                qcc::Event timerEvent(TRY_PERIOD_IN_MS, 0);
-                qcc::Event::Wait(timerEvent, TRY_PERIOD_IN_MS);
-                status = TryConnect(apkConnSpec.c_str(), newep);
-                numOfTries++;
-            }
-        }
-    }
 
     if (ER_OK == status) {
         this->connectSpec = apkConnSpec; /* Save the connect spec so that Disconnect() will use it*/
         return status;
     }
 
-    /* Next try the daemon bundled with the application. When we issue an intent to start the BundleDaemonService,
-     * the connect spec is saved in the global variable bundleConnectSpec. We should use the saved bundleConnectSpec to connect to the
-     * daemon if daemon is already running.
-     */
+    qcc::String bundleConnectSpec = "unix:abstract=alljoyn-" + qcc::U32ToString(qcc::GetPid());
+    QCC_DbgPrintf(("BusAttachment::TryAlternativeDaemon bundleConnectSpec = %s", bundleConnectSpec.c_str()));
+    status = TryConnect(bundleConnectSpec.c_str(), newep);
 
-    /* If bundle daemon connect spec is not set yet, then generate a unique connect spec using UUID*/
-    if (bundleConnectSpec.empty()) {
-        qcc::GUID128 specGuid;
-        bundleConnectSpec = "unix:abstract=alljoyn-" + specGuid.ToString();
-    }
-
-    if (!isBundleDaemonStarted) {
-        /* To start the BundleDaemonService of the application associated with this process, we should explicitly give the component name of the service.
-         * The component name includes the application package name and the service name.*/
-        qcc::String packageName;
-        /* The application should pass the package name as the first argument when creating the BusAttachment object */
-        if (!busInternal->application.empty()) {
-            packageName = busInternal->application;
-        } else {
-            /* If empty, then fallback to reading the package name from file /proc/${PID}/cmdline; By default Android uses package name as process name.
-               NOTE that when a service is delcared with attribute "android:process=:remote", the service is running in a new process with the name
-               different the package name. */
-            const uint32_t MAX_PID_STR_SIZE = 32;
-            char pidStr [MAX_PID_STR_SIZE];
-            pid_t pid = getpid();
-            snprintf(pidStr, MAX_PID_STR_SIZE, "%d", pid);
-            qcc::String fileName = "/proc/";
-            fileName += pidStr;
-            fileName += "/cmdline";
-            QCC_DbgHLPrintf(("Read fileName %s ", fileName.c_str()));
-            FileSource source(fileName);
-            const uint32_t maxBufferLen = 128;
-            char pkgBuffer[maxBufferLen];
-            uint32_t actualRead = 0;
-            if (source.IsValid()) {
-                source.PullBytes(pkgBuffer, maxBufferLen - 1, actualRead);
-                pkgBuffer[actualRead] = '\0';
-                packageName += pkgBuffer;
-
-                while (actualRead == (maxBufferLen - 1)) {
-                    actualRead = 0;
-                    source.PullBytes(pkgBuffer, maxBufferLen - 1, actualRead);
-                    pkgBuffer[actualRead] = '\0';
-                    packageName += pkgBuffer;
-                }
-            } else {
-                /* It may fail to read from the file /proc/${PID}/cmdline if Android locks the dir /proc*/
-                QCC_LogError(ER_FAIL, ("Fail to %s", fileName.c_str()));
-            }
-        }
-
-        QCC_DbgHLPrintf(("BusAttachment::Try to start bundle daemon: packageName =%s\n", packageName.c_str()));
-        qcc::String intent = "am startservice -W -n "; /* Using "-W" will wait until the launch finishes*/
-        intent += packageName;
-        intent += "/org.alljoyn.bus.alljoyn.BundleDaemonService  -d ";
-        intent += bundleConnectSpec.c_str(); /*We piggyback the connect spec in the Data Uri of the intent*/
-        QCC_DbgHLPrintf(("Send intent = %s to start BundleDaemonService", intent.c_str()));
-        if (system(intent.c_str()) == -1) {
-            QCC_LogError(status, ("BusAttachment::Connect fail to start bundle daemon via system() call"));
-        } else {
-            isBundleDaemonStarted = true;
-            shouldWaitReady = true;
-        }
-    }
-
-    /* Try connect to the bundle daemon*/
-    if (shouldWaitReady) {
-        uint32_t numOfTries = 0;
-        while (numOfTries < MAX_CONNECT_TRIES && status != ER_OK) {
-            QCC_DbgPrintf(("Wait %d ms before trying connect", TRY_PERIOD_IN_MS));
-            qcc::Event timerEvent(TRY_PERIOD_IN_MS, 0);
-            qcc::Event::Wait(timerEvent, TRY_PERIOD_IN_MS);
-            status = TryConnect(bundleConnectSpec.c_str(), newep);
-            numOfTries++;
-        }
-    } else {
-        status = TryConnect(bundleConnectSpec.c_str(), newep);
-    }
-
-    if (status == ER_OK) {
-        this->connectSpec = bundleConnectSpec; /* Save the connect spec so that Disconnect() will use it*/
+    if (ER_OK == status) {
+        this->connectSpec = bundleConnectSpec;
+        return status;
     }
 
     return status;

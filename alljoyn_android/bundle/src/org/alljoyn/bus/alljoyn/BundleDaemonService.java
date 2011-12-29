@@ -18,7 +18,6 @@ package org.alljoyn.bus.alljoyn;
 
 import android.app.Service;
 import android.content.Intent;
-import android.net.Uri;
 import android.net.wifi.WifiManager;
 import android.os.IBinder;
 import android.util.Log;
@@ -54,8 +53,8 @@ public class BundleDaemonService extends Service {
     @Override
     public int onStartCommand(Intent intent, int flags, int startId)
     {
-        Uri uri = intent.getData();
-        Log.i(TAG, "mThread.run() " + uri.toString());
+        String connectSpec = intent.getStringExtra("ConnectSpec");
+        Log.i(TAG, "mThread.run() " + connectSpec);
         mArgv.clear();
         mArgv.add("BundleDaemon");
         mArgv.add("--config-service");
@@ -66,7 +65,7 @@ public class BundleDaemonService extends Service {
                 "<busconfig>" + 
                 "  <type>alljoyn</type>" + 
                 "  <listen> "+
-                uri.toString() +
+                connectSpec +
                 "</listen>" + 
                 "  <listen>tcp:addr=0.0.0.0</listen>" +
                 "  <policy context=\"default\">" +
