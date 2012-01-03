@@ -447,8 +447,14 @@ void AllJoynPeerObj::AuthAdvance(Message& msg)
         if (status == ER_OK) {
             peerAuthListener.AuthenticationComplete(mech.c_str(), sender.c_str(), true /* success */);
         }
-        delete sasl;
     }
+
+    /*
+     * SASLEngine no longer used.
+     */
+    delete sasl;
+    sasl = NULL;
+
     if (status != ER_OK) {
         /*
          * Report the failed authentication to allow application to clear UI etc.
@@ -458,7 +464,6 @@ void AllJoynPeerObj::AuthAdvance(Message& msg)
          * Let remote peer know the authentication failed.
          */
         MethodReply(msg, status);
-        delete sasl;
     } else {
         /*
          * If we are not done put the SASL engine back
