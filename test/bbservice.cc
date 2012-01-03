@@ -767,6 +767,7 @@ int main(int argc, char** argv)
     BusAttachment* deleteMe = g_msgBus;
     g_msgBus = NULL;
     delete deleteMe;
+    delete myBusListener;
 
     printf("%s exiting with status %d (%s)\n", argv[0], status, QCC_StatusText(status));
 
