@@ -283,6 +283,7 @@ class AutoChatThread : public Thread, public ThreadListener {
             buf[len] = 'a' + (len % 26);
             qcc::Sleep(delay);
         }
+        delete[] buf;
         return 0;
     }
 
