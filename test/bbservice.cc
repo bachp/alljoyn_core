@@ -69,6 +69,7 @@ static String g_wellKnownName = ::org::alljoyn::alljoyn_test::DefaultWellKnownNa
 static bool g_echo_signal = false;
 static bool g_compress = false;
 static uint32_t keyExpiration = 0xFFFFFFFF;
+static bool g_cancelAdvertise = false;
 
 static volatile sig_atomic_t g_interrupt = false;
 
@@ -271,12 +272,26 @@ class MyBusListener : public SessionPortListener, public SessionListener {
             QCC_SyncPrintf("Link timeout was successfully set to %d\n", timeout);
         } else {
             QCC_LogError(status, ("SetLinkTimeout failed"));
-            return;
+        }
+
+        /* cancel advertisment */
+        if (g_cancelAdvertise) {
+            status = bus.CancelAdvertiseName(g_wellKnownName.c_str(), opts.transports);
+            if (status != ER_OK) {
+                QCC_LogError(status, ("CancelAdvertiseName(%s) failed", g_wellKnownName.c_str()));
+            }
         }
     }
 
     void SessionLost(SessionId sessionId) {
         QCC_SyncPrintf("SessionLost(%08x) was called\n", sessionId);
+
+        if (g_cancelAdvertise) {
+            QStatus status = bus.AdvertiseName(g_wellKnownName.c_str(), opts.transports);
+            if (status != ER_OK) {
+                QCC_LogError(status, ("AdvertiseName(%s) failed", g_wellKnownName.c_str()));
+            }
+        }
     }
 
   private:
@@ -590,6 +605,7 @@ static void usage(void)
     printf("   -b                    = Advertise over Bluetooth (enables selective advertising)\n");
     printf("   -t                    = Advertise over TCP (enables selective advertising)\n");
     printf("   -l                    = Advertise locally (enables selective advertising)\n");
+    printf("   -a                    = Cancel advertising while servicing a single client (causes rediscovery between iterations)\n");
 }
 
 /** Main entry point */
@@ -665,6 +681,8 @@ int main(int argc, char** argv)
             opts.transports |= TRANSPORT_WLAN;
         } else if (0 == strcmp("-l", argv[i])) {
             opts.transports |= TRANSPORT_LOCAL;
+        } else if (0 == strcmp("-a", argv[i])) {
+            g_cancelAdvertise = true;
         } else {
             status = ER_FAIL;
             printf("Unknown option %s\n", argv[i]);
