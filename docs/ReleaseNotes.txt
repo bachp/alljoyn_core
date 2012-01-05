@@ -1,8 +1,5 @@
-* DRAFT * INCOMPLETE * DRAFT * INCOMPLETE * DRAFT * INCOMPLETE * DRAFT * INCOMPLETE *
 AllJoyn Version 2.3.1 Release Notes
 -----------------------------------
-* DRAFT * INCOMPLETE * DRAFT * INCOMPLETE * DRAFT * INCOMPLETE * DRAFT * INCOMPLETE *
-
 
 Platform Support
 ----------------
@@ -16,22 +13,25 @@ Platform Support
 Features added in this release
 ------------------------------
 
-1) Support for dynamic enable/disable of Bluetooth device on Windows.
-   With this release, the AllJoyn daemon does not have to be restarted
-   after enabling or disabling the Bluetooth device under Windows.
-
-2) Alpha support for Android Ice Cream Sandwich
+None
 
 
 Issues Addressed in this Release
 --------------------------------
 
-1) ALLJOYN-557: Enabling DBus eavesdropping mode no longer causes invalid
-   serial number errors.
+1) ALLJOYN-806: Java version of AllJoyn daemon now takes multicast lock
+    when advertising/discovering.
 
-2) ALLJOYN-832: Threading/event stability on Windows.
+2) ALLJOYN-840: Addressed issue with bundled daemon failing to start when
+   USB debugging is not enabled.
 
-3) ALLJOYN-(various): Improved stability when using Bluetooth on
+3) ALLJOYN-861: Fixed bug in detection of BT on/off when running Android ICS.
+
+4) ALLJOYN-870: Fixed issues related to IP multicast group membership.
+
+5) ALLJOYN-873: Addressed instability in JoinSession caused by IPV6 support.
+
+6) ALLJOYN-(various): Improved stability when using Bluetooth on
    Android and Windows.
 
 
@@ -73,6 +73,9 @@ of AllJoyn (ALLJOYN-803).
 
 Change history
 --------------
+2.3.0 - Added support for dynamic enable/disable of Bluetooth device on 
+        Windows. Alpha support for Android ICS. BT and Windows stability.
+
 2.2.0 - Support for bundled daemon. BT fixes. Minor mods to security API.
         Support for link timeout. Support for Android manifest enforced
         security. Support for parallel authentication. Added
