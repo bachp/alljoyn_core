@@ -430,6 +430,19 @@ QStatus ProxyBusObject::MethodCallAsync(const InterfaceDescription::Member& meth
             } else {
                 status = bus->GetInternal().GetRouter().PushMessage(msg, localEndpoint);
             }
+            if (status != ER_OK) {
+                bool unregistered = localEndpoint.UnregisterReplyHandler(serial);
+                if (!unregistered) {
+                    /*
+                     * Unregister failed, so the reply handler must have already been called.
+                     *
+                     * The contract of this function is that the reply handler will be called iff
+                     * the status is ER_OK, so set the status to ER_OK to indicate that the reply
+                     * handler was called.
+                     */
+                    status = ER_OK;
+                }
+            }
         }
     }
     return status;

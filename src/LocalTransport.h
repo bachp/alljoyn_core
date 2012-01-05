@@ -147,8 +147,10 @@ class LocalEndpoint : public BusEndpoint, public qcc::AlarmListener, public Mess
      * Un-Register a handler for method call reply
      *
      * @param serial       The serial number expected in the reply
+     *
+     * @return true if a handler matching the serial number is found and unregistered
      */
-    void UnregisterReplyHandler(uint32_t serial);
+    bool UnregisterReplyHandler(uint32_t serial);
 
     /**
      * Extend the timeout on the handler for method call reply

@@ -483,7 +483,7 @@ QStatus LocalEndpoint::RegisterReplyHandler(MessageReceiver* receiver,
     return status;
 }
 
-void LocalEndpoint::UnregisterReplyHandler(uint32_t serial)
+bool LocalEndpoint::UnregisterReplyHandler(uint32_t serial)
 {
     replyMapLock.Lock(MUTEX_CONTEXT);
     map<uint32_t, ReplyContext>::iterator iter = replyMap.find(serial);
@@ -493,8 +493,10 @@ void LocalEndpoint::UnregisterReplyHandler(uint32_t serial)
         replyMap.erase(iter);
         replyMapLock.Unlock(MUTEX_CONTEXT);
         bus.GetInternal().GetTimer().RemoveAlarm(rc.alarm);
+        return true;
     } else {
         replyMapLock.Unlock(MUTEX_CONTEXT);
+        return false;
     }
 }
 
