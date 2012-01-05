@@ -25,12 +25,10 @@ import org.alljoyn.bus.BusAttachment;
 import org.alljoyn.bus.Status;
 
 /**
- * The purpose of this class to ensure that AllJoyn Daemon is initialized to be ready for accepting connections from clients.
- * Before invoking Connect() to BusAttachment, an application should call PrepareDaemon/PrepareDaemonAsync if it needs to 
- * use the bundled daemon when the pre-installed daemon is not available. PrepareDaemon() waits until the Daemon initialization
- * finishes. PrepareDaemonAsync() is the async version of PrepareDaemon(). If it is called from the Android UI thread (e.g. 
- * in C++ binding), then PrepareDaemonAsync() is required be used for the logic to work correctly, and a time period between 
- * PrepareDaemonAsync() and BusAttachment.Connect() is expected.
+ * This class is to ensure that AllJoyn daemon is initialized to be ready for accepting connections from clients.
+ * Before invoking Connect() to BusAttachment, the application should call PrepareDaemon()/PrepareDaemonAsync()
+ * if it expects to use the bundled daemon no other daemons are available. PrepareDaemon() waits until the daemon
+ * initialization is done. PrepareDaemonAsync() is the async version of PrepareDaemon().
  *
  */
 public class DaemonInit {
@@ -46,7 +44,21 @@ public class DaemonInit {
     private static InitThread sInitThread;
     private static Context sContext;
     private static boolean sIniting= false;
+    private static boolean sDaemonInited= false;
     
+    /**
+     * Check whether daemon service is already initialized
+     * @return true if already initialized
+     */
+    public static boolean IsDaemonInited() {
+        return sDaemonInited;
+    }
+    /**
+     * Asynchronously initialize daemon service if needed.
+     * If BusAttachment.Connect() is invoked from the android UI thread, then PrepareDaemonAsync() must be used
+     * for the initialization logic to work correctly. In addition there should be a time delay of 200ms ~ 500ms between
+     * PrepareDaemonAsync() and BusAttachment.Connect().
+     */
     public static void PrepareDaemonAsync(Context context) {
         if(sIniting) {
             return;
@@ -57,14 +69,25 @@ public class DaemonInit {
         sIniting = true;
     }
 
+    /**
+     * Initialize daemon service if needed.
+     * First it checks whether any daemon is running; if no daemon is running, then it starts the APK daemon if it is installed;
+     * If no APK daemon is installed, then starts the bundled daemon. This is a blocking call; it blocks until the daemon is ready or
+     * no daemon is found. Thus only non-UI thread is allowed to call PrepareDaemon().
+     * @param context The application context
+     * @return true  if the daemon is ready for connection
+     *         false if no daemon is available
+     */
     public static boolean PrepareDaemon(Context context) {
         int CONNECT_WAIT_PERIOD = 100;
+        int CONNECT_TRY_MAX = 10;
         context = context.getApplicationContext();
         BusAttachment bus =  new BusAttachment(context.getPackageName(), BusAttachment.RemoteMessage.Receive);
         Status status = bus.connect();
-        Log.d(TAG, "BusAttachment.connect() status = " + status);
         bus.release();
         if (Status.OK == status) {
+            Log.d(TAG, "Daemon Service is already Running.");
+            sDaemonInited = true;
             return true;
         }
 
@@ -74,7 +97,7 @@ public class DaemonInit {
         if(null == context.startService(apkDaemonIntent)) {
             serviceExist = false;
         }
-        int count = 3;
+        int count = CONNECT_TRY_MAX;
 
         try {
             while(serviceExist && count > 0) {
@@ -82,9 +105,10 @@ public class DaemonInit {
                 count--;
                 bus =  new BusAttachment(context.getPackageName(), BusAttachment.RemoteMessage.Receive);
                 status = bus.connect();
-                Log.d(TAG, "BusAttachment APK Daemon connect() status = " + status);
                 bus.release();
                 if(Status.OK == status) {
+                    Log.d(TAG, "APK daemon service is running.");
+                    sDaemonInited = true;
                     return true;
                 }
             }
@@ -102,7 +126,7 @@ public class DaemonInit {
             serviceExist = true;
         }
 
-        count = 3;
+        count = CONNECT_TRY_MAX;
 
         try {
             while(serviceExist && count > 0) {
@@ -110,16 +134,19 @@ public class DaemonInit {
                 count--;
                 bus =  new BusAttachment(context.getPackageName(), BusAttachment.RemoteMessage.Receive);
                 status = bus.connect();
-                Log.d(TAG, "BusAttachment Bundle Daemon connect() status = " + status); 
                 bus.release();
                 if(Status.OK == status) {
+                    Log.d(TAG, "Bundled daemon service is running.");
                     bus.disconnect();
+                    sDaemonInited = true;
                     return true;
                 }
             }
         } catch (InterruptedException e) {
             Log.e(TAG, "PrepareDaemon: " + e.getMessage());
         }
+        Log.d(TAG, "No daemon service is available.");
+        sDaemonInited = true;
         return false;
     }
     
