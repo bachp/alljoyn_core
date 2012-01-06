@@ -189,7 +189,7 @@ int main(int argc, char** argv)
     }
 
     SessionId lastSessionId = 0;
-    while ((status == ER_OK) && (!g_msgBus->IsStopping())) {
+    while ((status == ER_OK) && (!g_msgBus->IsStopping()) && !g_interrupt) {
         /* Wait for someone to join our session */
         SessionId id = mySessionPortListener.GetSessionId();
         if (id == lastSessionId) {

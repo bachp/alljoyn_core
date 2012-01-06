@@ -75,6 +75,7 @@ class MyBusListener : public BusListener {
                 QCC_LogError(status, ("JoinSession(%s) failed", name));
             } else {
                 /* Release the main thread */
+                QCC_SyncPrintf("Session Joined with session id = %d\n", sessionId);
                 g_discoverEvent.SetEvent();
             }
         }
