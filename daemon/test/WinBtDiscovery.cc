@@ -718,7 +718,35 @@ bool ReportL2CapServices(const SOCKET_ADDRESS* local, const SOCKET_ADDRESS* remo
 
         WSALookupServiceEnd(lookupHandle);
     } else {
-        _tprintf_s(TEXT("\tService Discovery service not found.\n"));
+        int wsaError = WSAGetLastError();
+
+        _tprintf_s(TEXT("WSALookupServiceBegin() returned an error: "));
+
+        switch (wsaError) {
+        case WSA_NOT_ENOUGH_MEMORY:
+            _tprintf_s(TEXT("WSA_NOT_ENOUGH_MEMORY.\n"));
+            break;
+
+        case WSAEINVAL:
+            _tprintf_s(TEXT("WSAEINVAL.\n"));
+            break;
+
+        case WSANO_DATA:
+            _tprintf_s(TEXT("WSANO_DATA.\n"));
+            break;
+
+        case WSANOTINITIALISED:
+            _tprintf_s(TEXT("WSANOTINITIALISED.\n"));
+            break;
+
+        case WSASERVICE_NOT_FOUND:
+            _tprintf_s(TEXT("WSASERVICE_NOT_FOUND (no such service is known).\n"));
+            break;
+
+        default:
+            _tprintf_s(TEXT("wsaError=%#x.\n"), wsaError);
+            break;
+        }
     }
 
     return returnValue;
