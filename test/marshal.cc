@@ -635,6 +635,14 @@ QStatus MarshalTests()
         delete [] ayay;
     }
     if (fuzzing || (status == ER_OK)) {
+        char* fruits[4] = { "apple", "orange", "pear", "grape" };
+        MsgArg fruitBowl;
+        status = fruitBowl.Set("as", ArraySize(fruits), fruits);
+        if (status == ER_OK) {
+            status = TestMarshal(&fruitBowl, 1);
+        }
+    }
+    if (fuzzing || (status == ER_OK)) {
         static const char* result =
             "<array type_sig=\"as\">"
             "  <string>apple</string>"
