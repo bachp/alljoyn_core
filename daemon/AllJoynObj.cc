@@ -1,6 +1,6 @@
 /**
  * @file
- * * This file implements the org.alljoyn.Bus interfaces
+ * * This file implements the org.alljoyn.Bus and org.alljoyn.Daemon interfaces
  */
 
 /******************************************************************************
@@ -2705,9 +2705,6 @@ void AllJoynObj::ExchangeNamesSignalHandler(const InterfaceDescription::Member* 
                     } else if (0 == ::strncmp(uniqueName.c_str() + 1, shortGuidStr.c_str(), shortGuidStr.size())) {
                         /* Cant accept a request to change a local name */
                         continue;
-                    } else if (uniqueName == msg->GetSender()) {
-                        /* Ignore all bus controller object that we recieved this from since its virtual endpoint is preset (assumed) */
-                        continue;
                     }
 
                     bool madeChange;
@@ -2937,8 +2934,8 @@ void AllJoynObj::NameOwnerChanged(const qcc::String& alias, const qcc::String* o
         QCC_LogError(ER_FAIL, ("Invalid unique name \"%s\"", un->c_str()));
     }
 
-    /* Ignore name changes that involve any bus controller endpoint */
-    if (0 == ::strcmp(un->c_str() + guidLen, ".1")) {
+    /* Ignore well-known name changes that involve any bus controller endpoint */
+    if ((::strcmp(un->c_str() + guidLen, ".1") == 0) && (alias[0] != ':')) {
         return;
     }
 
