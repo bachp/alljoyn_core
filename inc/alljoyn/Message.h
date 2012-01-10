@@ -767,7 +767,7 @@ class _Message {
     /* Internal methods unmarshal side */
 
     void ClearHeader();
-    QStatus ParseValue(MsgArg* arg, const char*& sigPtr);
+    QStatus ParseValue(MsgArg* arg, const char*& sigPtr, bool arrayElem = false);
     QStatus ParseStruct(MsgArg* arg, const char*& sigPtr);
     QStatus ParseDictEntry(MsgArg* arg, const char*& sigPtr);
     QStatus ParseArray(MsgArg* arg, const char*& sigPtr);

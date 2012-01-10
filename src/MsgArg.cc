@@ -1083,7 +1083,12 @@ QStatus MsgArg::VBuildArgs(const char*& signature, size_t sigLen, MsgArg* arg, s
                 if (status != ER_OK) {
                     break;
                 }
-                status = VBuildArgs(memberSig, memSigLen, arg->v_dictEntry.val, 1, &argp);
+                if (SignatureUtils::IsBasicType(arg->v_dictEntry.key->typeId)) {
+                    status = VBuildArgs(memberSig, memSigLen, arg->v_dictEntry.val, 1, &argp);
+                } else {
+                    status = ER_BUS_BAD_SIGNATURE;
+                    QCC_LogError(status, ("Key type for DICTIONARY ENTRY was not a basic type"));
+                }
                 if (status != ER_OK) {
                     break;
                 }

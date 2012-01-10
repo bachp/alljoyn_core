@@ -247,7 +247,7 @@ QStatus _Message::ParseArray(MsgArg* arg,
                     elements = bigger;
                 }
                 const char* esig = elemSig.c_str();
-                status = ParseValue(&elements[numElements++], esig);
+                status = ParseValue(&elements[numElements++], esig, true);
                 if (status != ER_OK) {
                     break;
                 }
@@ -387,7 +387,7 @@ QStatus _Message::ParseSignature(MsgArg* arg)
 }
 
 
-QStatus _Message::ParseValue(MsgArg* arg, const char*& sigPtr)
+QStatus _Message::ParseValue(MsgArg* arg, const char*& sigPtr, bool arrayElem)
 {
     QStatus status = ER_OK;
 
@@ -479,7 +479,12 @@ QStatus _Message::ParseValue(MsgArg* arg, const char*& sigPtr)
         break;
 
     case ALLJOYN_DICT_ENTRY_OPEN:
-        status = ParseDictEntry(arg, sigPtr);
+        if (arrayElem) {
+            status = ParseDictEntry(arg, sigPtr);
+        } else {
+            status = ER_BUS_BAD_SIGNATURE;
+            QCC_LogError(status, ("Message arg parse error naked dicitionary element"));
+        }
         break;
 
     case ALLJOYN_STRUCT_OPEN:

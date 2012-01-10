@@ -635,14 +635,6 @@ QStatus MarshalTests()
         delete [] ayay;
     }
     if (fuzzing || (status == ER_OK)) {
-        char* fruits[4] = { "apple", "orange", "pear", "grape" };
-        MsgArg fruitBowl;
-        status = fruitBowl.Set("as", ArraySize(fruits), fruits);
-        if (status == ER_OK) {
-            status = TestMarshal(&fruitBowl, 1);
-        }
-    }
-    if (fuzzing || (status == ER_OK)) {
         static const char* result =
             "<array type_sig=\"as\">"
             "  <string>apple</string>"
@@ -1175,6 +1167,29 @@ int main(int argc, char** argv)
     if (status == ER_OK) {
         status = TestMsgUnpack();
     }
+    /* Test illegal dictionary element constructions */
+    if (status == ER_OK) {
+        MsgArg arg;
+        status = arg.Set("{sy}", s, y);
+        if (status == ER_OK) {
+            status = TestMarshal(&arg, 1);
+        }
+        if (status == ER_OK) {
+            status = ER_FAIL;
+        } else {
+            status = ER_OK;
+        }
+    }
+    if (status == ER_OK) {
+        MsgArg arg;
+        status = arg.Set("{ays}", ArraySize(ay), ay, s);
+        if (status == ER_OK) {
+            status = ER_FAIL;
+        } else {
+            status = ER_OK;
+        }
+    }
+
     if (status == ER_OK) {
         status = MarshalTests();
     }
