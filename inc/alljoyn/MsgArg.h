@@ -415,7 +415,7 @@ class MsgArg {
      *     @code
      *     char* fruits[3] =  { “apple”, "banana", “orange” };
      *     MsgArg bowl;
-     *     bowl.Set("as", 3, fruits); 
+     *     bowl.Set("as", 3, fruits);
      *     @endcode
      *
      * A struct with a uint and two string elements.
