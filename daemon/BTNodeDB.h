@@ -242,7 +242,7 @@ class BTNodeDB {
         uint64_t next = std::numeric_limits<uint64_t>::max();
         for (std::set<BTNodeInfo>::iterator it = nodes.begin(); it != nodes.end(); ++it) {
             BTNodeInfo node = *it;
-            if (node->GetExpireTime() <= next) {
+            if (node->GetExpireTime() < next) {
                 next = node->GetExpireTime();
             }
         }

@@ -55,6 +55,18 @@ static set<BTNodeInfo>::const_iterator findNode(const set<BTNodeInfo>& nodes, co
 }
 
 
+static set<BTNodeInfo>::iterator findNode(set<BTNodeInfo>& nodes, const BTBusAddress& addr)
+{
+    set<BTNodeInfo>::iterator it;
+    for (it = nodes.begin(); it != nodes.end(); ++it) {
+        if ((*it)->GetBusAddress() == addr) {
+            break;
+        }
+    }
+    return it;
+}
+
+
 static set<BTNodeInfo>::const_iterator findNode(const set<BTNodeInfo>& nodes, const BDAddress& addr)
 {
     set<BTNodeInfo>::const_iterator it;
@@ -169,13 +181,10 @@ void BTNodeDB::AddNode(const BTNodeInfo& node)
 void BTNodeDB::RemoveNode(const BTNodeInfo& node)
 {
     Lock(MUTEX_CONTEXT);
-    set<BTNodeInfo>::const_iterator it = findNode(nodes, node->GetBusAddress());
+    set<BTNodeInfo>::iterator it = findNode(nodes, node->GetBusAddress());
     if (it != nodes.end()) {
-        BTNodeInfo lnode = *it;
-
         // Remove from the master set
-        nodes.erase(lnode);
-
+        nodes.erase(it);
     }
 
     Unlock(MUTEX_CONTEXT);
