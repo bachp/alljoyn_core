@@ -579,10 +579,13 @@ qcc::ThreadReturn STDCALL BTTransport::BTAccessor::DiscoveryThread::Run(void* ar
                 // Report found devices unless duration has gone to zero
                 while (deviceFindHandle && duration) {
                     BDAddress address(deviceInfo.Address.ullLong);
-                    // Filter out devices that don't have the INFORMATION bit set
-                    if (GET_COD_SERVICE(deviceInfo.ulClassofDevice) & COD_SERVICE_INFORMATION) {
-
-                        QCC_DbgHLPrintf(("DiscoveryThread found AllJoyn %s", address.ToString().c_str()));
+                    // Filter out computers (as opposed to phones and other devices) that don't
+                    // have the INFORMATION bit set.
+                    if ((GET_COD_MAJOR(deviceInfo.ulClassofDevice) & COD_MAJOR_COMPUTER) &&
+                        !(GET_COD_SERVICE(deviceInfo.ulClassofDevice) & COD_SERVICE_INFORMATION)) {
+                        QCC_DbgHLPrintf(("DiscoveryThread non-AllJoyn %s", address.ToString().c_str()));
+                    } else {
+                        QCC_DbgHLPrintf(("DiscoveryThread found %s", address.ToString().c_str()));
 
                         btAccessor.deviceLock.Lock(MUTEX_CONTEXT);
                         bool ignoreThisOne = btAccessor.discoveryIgnoreAddrs->count(address) != 0;
@@ -593,8 +596,6 @@ qcc::ThreadReturn STDCALL BTTransport::BTAccessor::DiscoveryThread::Run(void* ar
                         } else {
                             btAccessor.DeviceFound(address);
                         }
-                    } else {
-                        QCC_DbgHLPrintf(("DiscoveryThread non-AllJoyn %s", address.ToString().c_str()));
                     }
                     if (!BluetoothFindNextDevice(deviceFindHandle, &deviceInfo)) {
                         break;
