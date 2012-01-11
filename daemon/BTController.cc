@@ -1298,6 +1298,7 @@ void BTController::HandleSetState(const InterfaceDescription::Member* member, Me
                                           &eirCapable);
             if (status != ER_OK) {
                 QCC_LogError(status, ("Unmarshal node state failed"));
+                foundNodeDB.Unlock(MUTEX_CONTEXT);
                 lock.Unlock(MUTEX_CONTEXT);
                 bt.Disconnect(sender);
                 return;
@@ -1309,6 +1310,7 @@ void BTController::HandleSetState(const InterfaceDescription::Member* member, Me
         }
         if (i == numNodeStateArgs) {
             QCC_LogError(ER_FAIL, ("Didn't find sender in node states"));
+            foundNodeDB.Unlock(MUTEX_CONTEXT);
             lock.Unlock(MUTEX_CONTEXT);
             bt.Disconnect(sender);
             return;
@@ -2436,6 +2438,9 @@ QStatus BTController::ImportState(BTNodeInfo& connectingNode,
             char* n;
             status = anList[j].Get(SIG_NAME, &n);
             if (status != ER_OK) {
+                QCC_LogError(status, ("Get advertise name failed"));
+                foundNodeDB.Unlock(MUTEX_CONTEXT);
+                lock.Unlock(MUTEX_CONTEXT);
                 return status;
             }
             QCC_DbgPrintf(("    Ad Name: %s", n));
@@ -2451,6 +2456,9 @@ QStatus BTController::ImportState(BTNodeInfo& connectingNode,
             char* n;
             status = fnList[j].Get(SIG_NAME, &n);
             if (status != ER_OK) {
+                QCC_LogError(status, ("Get find name failed"));
+                foundNodeDB.Unlock(MUTEX_CONTEXT);
+                lock.Unlock(MUTEX_CONTEXT);
                 return status;
             }
             QCC_DbgPrintf(("    Find Name: %s", n));
