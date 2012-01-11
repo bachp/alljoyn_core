@@ -3421,8 +3421,8 @@ QStatus BTController::FindNameArgInfo::StopLocal(bool immediate)
 }
 
 
-size_t BTController::NumEIRMinions() const 
-{ 
+size_t BTController::NumEIRMinions() const
+{
     if (!IsMaster()) {
         return 0;
     }
@@ -3435,7 +3435,7 @@ size_t BTController::NumEIRMinions() const
         }
     }
     nodeDB.Unlock(MUTEX_CONTEXT);
-    return eirMinions; 
+    return eirMinions;
 }
 
 
