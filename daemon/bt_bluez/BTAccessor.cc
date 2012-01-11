@@ -652,7 +652,6 @@ QStatus BTTransport::BTAccessor::StartConnectable(BDAddress& addr,
         } else {
             QCC_DbgPrintf(("Bound PSM: %#04x", psm));
             ConfigL2capMTU(l2capLFd);
-            ConfigL2capMaster(l2capLFd);
             ret = listen(l2capLFd, 1);
             if (ret == -1) {
                 status = ER_OS_ERROR;
