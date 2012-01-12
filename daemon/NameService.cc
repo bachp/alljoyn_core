@@ -450,7 +450,7 @@ NameService::NameService()
     m_tRetransmit(RETRANSMIT_TIME), m_tQuestion(QUESTION_TIME),
     m_modulus(QUESTION_MODULUS), m_retries(NUMBER_RETRIES),
     m_loopback(false), m_enableIPv4(false), m_enableIPv6(false),
-    m_any(false), m_wakeEvent(), m_forceLazyUpdate(false)
+    m_any(false), m_wakeEvent(), m_forceLazyUpdate(false), m_commsEnabled(false)
 {
     QCC_DbgPrintf(("NameService::NameService()"));
 }
@@ -798,6 +798,18 @@ void NameService::LazyUpdateInterfaces(void)
     // down all of our sockets and restart them every time through.
     //
     ClearLiveInterfaces();
+
+    //
+    // If m_enableComms is false, we need to make sure that no packets are sent
+    // and no sockets are listening for connections.  This is for Android
+    // Compatibility Test Suite (CTS) conformance.  The only way we can talk
+    // to the outside world is via one of the live interfaces, so if we don't
+    // make any new ones, this will accomplish the requirement.
+    //
+    if (m_commsEnabled == false) {
+        QCC_DbgPrintf(("NameService::LazyUpdateInterfaces(): Communication with the outside world is forbidden"));
+        return;
+    }
 
     //
     // Call IfConfig to get the list of interfaces currently configured in the

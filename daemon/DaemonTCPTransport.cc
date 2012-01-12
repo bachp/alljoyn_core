@@ -1813,6 +1813,65 @@ QStatus DaemonTCPTransport::StopListen(const char* listenSpec)
     return status;
 }
 
+void DaemonTCPTransport::NewDiscoveryOp(DiscoveryOp op, qcc::String namePrefix)
+{
+    QCC_DbgPrintf(("DaemonTCPTransport::NewDiscoveryOp()"));
+    m_discoLock.Lock();
+    if (op == ENABLE_DISCOVERY) {
+        QCC_DbgPrintf(("DaemonTCPTransport::NewDiscoveryOp(): Registering discovery of namePrefix \"%s\"", namePrefix.c_str()));
+        m_discovering.push_back(namePrefix);
+    } else {
+        list<qcc::String>::iterator i = find(m_discovering.begin(), m_discovering.end(), namePrefix);
+        if (i == m_discovering.end()) {
+            QCC_DbgPrintf(("DaemonTCPTransport::NewDiscoveryOp(): Cancel of non-existent namePrefix \"%s\"", namePrefix.c_str()));
+        } else {
+            QCC_DbgPrintf(("DaemonTCPTransport::NewDiscoveryOp(): Unregistering discovery of namePrefix \"%s\"", namePrefix.c_str()));
+            m_discovering.erase(i);
+        }
+    }
+    m_discoLock.Unlock();
+
+    CheckEnableNameService();
+}
+
+void DaemonTCPTransport::NewAdvertiseOp(AdvertiseOp op, qcc::String name)
+{
+    QCC_DbgPrintf(("DaemonTCPTransport::NewAdvertiseOp()"));
+    m_discoLock.Lock();
+    if (op == ENABLE_ADVERTISEMENT) {
+        QCC_DbgPrintf(("DaemonTCPTransport::NewAdvertiseOp(): Registering advertisement of namePrefix \"%s\"", name.c_str()));
+        m_advertising.push_back(name);
+    } else {
+        list<qcc::String>::iterator i = find(m_advertising.begin(), m_advertising.end(), name);
+        if (i == m_advertising.end()) {
+            QCC_DbgPrintf(("DaemonTCPTransport::NewAdvertiseOp(): Cancel of non-existent name \"%s\"", name.c_str()));
+        } else {
+            QCC_DbgPrintf(("DaemonTCPTransport::NewAdvertiseOp(): Unregistering advertisement of namePrefix \"%s\"", name.c_str()));
+            m_advertising.erase(i);
+        }
+    }
+    m_discoLock.Unlock();
+
+    CheckEnableNameService();
+}
+
+void DaemonTCPTransport::CheckEnableNameService(void)
+{
+    QCC_DbgPrintf(("DaemonTCPTransport::CheckEnableNameService()"));
+    assert(m_ns);
+    m_discoLock.Lock();
+    bool disableComms = m_advertising.empty() && m_discovering.empty();
+    m_discoLock.Unlock();
+
+    if (disableComms) {
+        QCC_DbgPrintf(("DaemonTCPTransport::CheckEnableNameService(): Disabling name service"));
+        m_ns->DisableComms();
+    } else {
+        QCC_DbgPrintf(("DaemonTCPTransport::CheckEnableNameService(): Enabling name service"));
+        m_ns->EnableComms();
+    }
+}
+
 void DaemonTCPTransport::EnableDiscovery(const char* namePrefix)
 {
     /*
@@ -1870,6 +1929,21 @@ void DaemonTCPTransport::EnableDiscovery(const char* namePrefix)
     if (status != ER_OK) {
         QCC_LogError(status, ("DaemonTCPTransport::EnableDiscovery(): Failure on \"%s\"", namePrefix));
     }
+
+    /*
+     * Keep track of our discovery requests so we can turn off the name service
+     * if there are no active discovery or advertisement operations in progress.
+     */
+    NewDiscoveryOp(ENABLE_DISCOVERY, qcc::String(namePrefix));
+}
+
+void DaemonTCPTransport::DisableDiscovery(const char* namePrefix)
+{
+    /*
+     * Keep track of our discovery requests so we can turn off the name service
+     * if there are no active discovery or advertisement operations in progress.
+     */
+    NewDiscoveryOp(DISABLE_DISCOVERY, qcc::String(namePrefix));
 }
 
 QStatus DaemonTCPTransport::EnableAdvertisement(const qcc::String& advertiseName)
@@ -1910,8 +1984,15 @@ QStatus DaemonTCPTransport::EnableAdvertisement(const qcc::String& advertiseName
     QStatus status = m_ns->Advertise(advertiseName);
     if (status != ER_OK) {
         QCC_LogError(status, ("DaemonTCPTransport::EnableAdvertisment(): Failure on \"%s\"", advertiseName.c_str()));
+        return status;
     }
-    return status;
+
+    /*
+     * Keep track of our advertisements so we can turn off the name service if
+     * there are no active discovery or advertisement operations in progress.
+     */
+    NewAdvertiseOp(ENABLE_ADVERTISEMENT, advertiseName);
+    return ER_OK;
 }
 
 void DaemonTCPTransport::DisableAdvertisement(const qcc::String& advertiseName, bool nameListEmpty)
@@ -1953,6 +2034,12 @@ void DaemonTCPTransport::DisableAdvertisement(const qcc::String& advertiseName, 
     if (status != ER_OK) {
         QCC_LogError(status, ("Failure stop advertising \"%s\" for TCP", advertiseName.c_str()));
     }
+
+    /*
+     * Keep track of our advertisements so we can turn off the name service if
+     * there are no active discovery or advertisement operations in progress.
+     */
+    NewAdvertiseOp(DISABLE_ADVERTISEMENT, advertiseName);
 }
 
 void DaemonTCPTransport::FoundCallback::Found(const qcc::String& busAddr, const qcc::String& guid,
