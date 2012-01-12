@@ -332,6 +332,38 @@ class NameService : public qcc::Thread {
     QStatus CloseInterface(const qcc::IPAddress& address);
 
     /**
+     * @brief Enable communication with the outside world.
+     *
+     * The Android Compatibility Test Suite (CTS) is used by Google to enforce
+     * a common idea of what it means to be Android.  One of their tests is to
+     * make sure there are no TCP or UDP listeners in running processes when the
+     * phone is idle.  Since we want to be able to run our daemon on idle phones
+     * and manufacturers want their Android phones to pass the CTS, we have got
+     * to be able to shut off UDP listeners unless they are actually required.
+     *
+     * To do this, the DaemonTCPTRansport keeps track of whether or not it needs
+     * to advertise or discover something.  If it has something to advetise or
+     * discover it will call EnableComms.
+     */
+    void EnableComms(void) { m_commsEnabled = true; }
+
+    /**
+     * @brief Disable communication with the outside world.
+     *
+     * The Android Compatibility Test Suite (CTS) is used by Google to enforce
+     * a common idea of what it means to be Android.  One of their tests is to
+     * make sure there are no TCP or UDP listeners in running processes when the
+     * phone is idle.  Since we want to be able to run our daemon on idle phones
+     * and manufacturers want their Android phones to pass the CTS, we have got
+     * to be able to shut off UDP listeners unless they are actually required.
+     *
+     * To do this, the DaemonTCPTRansport keeps track of whether or not it needs
+     * to advertise or discover something.  If it has nothing to advetise or
+     * discover it will call DisableComms.
+     */
+    void DisableComms(void) { m_commsEnabled = false; }
+
+    /**
      * Allow a user to select what kind of retry policy should be used when
      * trying to locate names.  There really isn't one obvious policy.  Consider
      * what happens if the question is locate well-known name N from local
@@ -913,6 +945,15 @@ class NameService : public qcc::Thread {
      * of our desired interfaces as possible.
      */
     void LazyUpdateInterfaces(void);
+
+    /**
+     * @internal
+     * @brief If true, allow the name service to communicate with the outside
+     * world.  If false, ensure that no packets are sent and no sockets are
+     * listening for connections.  For Android Compatibility Test Suite (CTS)
+     * conformance.
+     */
+    bool m_commsEnabled;
 };
 
 } // namespace ajn

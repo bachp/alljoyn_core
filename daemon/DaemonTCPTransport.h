@@ -196,10 +196,9 @@ class DaemonTCPTransport : public Transport, public RemoteEndpoint::EndpointList
 
     /**
      * @internal
-     * @brief Stop discovering busses to connect to.  No action needs to be
-     * taken in the IP-based name service we use.
+     * @brief Stop discovering busses.
      */
-    void DisableDiscovery(const char* namePrefix) { }
+    void DisableDiscovery(const char* namePrefix);
 
     /**
      * Start advertising a well-known name with the given quality of service.
@@ -305,6 +304,10 @@ class DaemonTCPTransport : public Transport, public RemoteEndpoint::EndpointList
 
     std::list<qcc::String> m_listenSpecs;                          /**< Listen specs clients have requested us to listen on */
     qcc::Mutex m_listenSpecsLock;                                  /**< Mutex that protects m_listenSpecs */
+
+    std::list<qcc::String> m_discovering;                          /**< Name prefixes the transport is looking for */
+    std::list<qcc::String> m_advertising;                          /**< Names the transport is advertising */
+    qcc::Mutex m_discoLock;                                        /**< Mutex that protects discovery and advertisement lists */
 
     /**
      * @internal
@@ -507,6 +510,78 @@ class DaemonTCPTransport : public Transport, public RemoteEndpoint::EndpointList
      * attacks from "abroad" and trust ourselves implicitly.
      */
     static const uint32_t ALLJOYN_MAX_COMPLETED_CONNECTIONS_TCP_DEFAULT = 50;
+
+    /*
+     * The Android Compatibility Test Suite (CTS) is used by Google to enforce a
+     * common idea of what it means to be Android.  One of their tests is to
+     * make sure there are no TCP or UDP listeners in running processes when the
+     * phone is idle.  Since we want to be able to run our daemon on idle phones
+     * and manufacturers want their Android phones to pass the CTS, we have got
+     * to be able to shut off our listeners unless they are actually required.
+     *
+     * To do this, we need to keep track of whether or not the daemon is
+     * actively advertising or discovering.  To this end, we keep track of the
+     * advertise and discover calls, and if there are any outstanding (not
+     * canceled) we enable the Name Service to talk to the outside world.  If
+     * there are no outstanding operations, we tell the Name Service to shut up.
+     *
+     * There is nothing preventing us from receiving multiple identical
+     * discovery and advertisement requests, so we allow multiple instances of
+     * an identical name on the list.  We could reference count the entries, but
+     * this seems like a relatively rare condition, so we take the
+     * straightforward approach.
+     */
+    enum DiscoveryOp {
+        ENABLE_DISCOVERY,  /**< A request to start a discovery has been received */
+        DISABLE_DISCOVERY  /**< A request to cancel a discovery has been received */
+    };
+
+    enum AdvertiseOp {
+        ENABLE_ADVERTISEMENT,  /**< A request to start advertising has been received */
+        DISABLE_ADVERTISEMENT  /**< A request to cancel advertising has been received */
+    };
+
+    /**
+     * @brief Add or remove a discover indication.
+     *
+     * The transport has received a new discovery operation.  This will either
+     * be an EnableDiscovery() or DisbleDiscovery() discriminated by the
+     * DiscoveryOp enum.
+     *
+     * We want to keep a list of name prefixes that are currently active for
+     * well-known name discovery.  The presence of a non-zero size of this list
+     * indicates discovery is in-process and the Name Service should be kept
+     * alive (it can be listening for inbound packets in particular).
+     */
+    void NewDiscoveryOp(DiscoveryOp op, qcc::String namePrefix);
+
+    /**
+     * @brief Add or remove an advertisement indication.
+     *
+     * Called when the transport has received a new advertisement operation.
+     * This will either be an EnableAdvertisement() or DisbleAdvertisement()
+     * discriminated by the AdvertiseOp enum.
+     *
+     * We want to keep a list of names that are currently being advertised.  The
+     * presence of a non-zero size of this list indicates that at least one
+     * advertisement is in-process and the Name Service should be kept alive to
+     * respond to WHO_HAS queries.
+     */
+    void NewAdvertiseOp(AdvertiseOp op, qcc::String name);
+
+    /**
+     * @brief Check to see if there are any active discovery operations or
+     * active advertisements and enable the name service if so.
+     *
+     * If there are no active discovery or advertisement operations, we need to
+     * disable external communication in the name service.  This is in order to
+     * prevent it from listening on an endpoint when the daemon is quiescent
+     * which would, in turn cause the Android Compatibility Test Suite to fail
+     * since it looks for processes listening on UDP endpoints.  This would be
+     * bad (TM).  This method checks for a reason to keep the name service
+     * listener enabled, and if it does not find one, disables it.
+     */
+    void CheckEnableNameService(void);
 };
 
 } // namespace ajn

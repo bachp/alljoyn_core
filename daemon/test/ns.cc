@@ -265,6 +265,11 @@ int main(int argc, char** argv)
         ERROR_EXIT;
     }
 
+    //
+    // Enable the name service to communicate with the outside world.
+    //
+    ns.EnableComms();
+
     Finder finder;
 
     ns.SetCallback(new CallbackImpl<Finder, void, const qcc::String&, const qcc::String&,
