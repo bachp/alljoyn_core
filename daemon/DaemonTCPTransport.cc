@@ -2127,7 +2127,15 @@ void DaemonTCPTransport::DoStartListen(qcc::String& normSpec)
         qcc::Close(listenFd);
         return;
     }
-
+    /*
+     * We call accept in a loop so we need the listenFd to non-blocking
+     */
+    status = qcc::SetBlocking(listenFd, false);
+    if (status != ER_OK) {
+        QCC_LogError(status, ("DaemonTCPTransport::DoStartListen(): SetBlocking() failed"));
+        qcc::Close(listenFd);
+        return;
+    }
     /*
      * Bind the socket to the listen address and start listening for incoming
      * connections on it.
