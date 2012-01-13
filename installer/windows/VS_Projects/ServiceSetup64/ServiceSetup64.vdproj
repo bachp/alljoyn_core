@@ -358,8 +358,8 @@
         {
         "Name" = "8:Microsoft Visual Studio"
         "ProductName" = "8:Alljoyn Daemon Service (64bit)"
-        "ProductCode" = "8:{6586118B-893B-4aef-AD1B-B19332ED4C71}"
-        "PackageCode" = "8:{7BF0C5F9-C794-4bb2-AA03-E134487E3944}"
+        "ProductCode" = "8:{6586118B-893B-4AEF-AD1B-B19332ED4C71}"
+        "PackageCode" = "8:{7BF0C5F9-C794-4BB2-AA03-E134487E3944}"
         "UpgradeCode" = "8:{B0B98F19-0034-4490-BA7E-6EB6AB0AD66B}"
         "RestartWWWService" = "11:FALSE"
         "RemovePreviousVersions" = "11:FALSE"
