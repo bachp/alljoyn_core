@@ -446,6 +446,7 @@ void DaemonTCPEndpoint::Abort(void)
 {
     QCC_DbgTrace(("DaemonTCPEndpoint::Abort()"));
     m_authThread.Stop();
+    m_authThread.Join();
 }
 
 void* DaemonTCPEndpoint::AuthThread::Run(void* arg)
@@ -1205,8 +1206,11 @@ void* DaemonTCPTransport::Run(void* arg)
             uint16_t remotePort;
             SocketFd newSock;
 
-            status = Accept((*i)->GetFD(), remoteAddr, remotePort, newSock);
-            if (status == ER_OK) {
+            while (true) {
+                status = Accept((*i)->GetFD(), remoteAddr, remotePort, newSock);
+                if (status != ER_OK) {
+                    break;
+                }
                 QCC_DbgHLPrintf(("DaemonTCPTransport::Run(): Accepting connection"));
 
                 /*
@@ -1268,22 +1272,22 @@ void* DaemonTCPTransport::Run(void* arg)
                 list<DaemonTCPEndpoint*>::iterator j = m_authList.begin();
                 while (j != m_authList.end()) {
                     DaemonTCPEndpoint* ep = *j;
-                    if (ep->IsFailed() && !ep->IsAuthThreadRunning()) {
+                    if (ep->IsFailed()) {
                         /*
                          * The straightforward case is if the endpoint failed
-                         * authentication.  Then the auth thread will exit on
-                         * its own.  We can delete the endpoint as soon as the
-                         * thead is gone.
+                         * authentication.  Then stop the thread and delete
+                         * it as soon as the thread is gone.
                          */
                         QCC_DbgHLPrintf(("DaemonTCPTransport::Run(): Scavenging failed authenticator"));
+                        ep->Abort();
                         j = m_authList.erase(j);
                         delete ep;
-                        ep = NULL;
                         continue;
-                    } else if (ep->GetStartTime() + tTimeout < tNow) {
+                    }
+                    if (ep->GetStartTime() + tTimeout < tNow) {
                         /*
                          * A less straightforward case is if the endpoint is
-                         * taking too long to authenticate.  What we do is abort
+                         * taking too long to authenticate.  What we do is halt
                          * the authentication process.  If the authentication
                          * thread is in the middle of something, this Abort()
                          * will cause a blocking operation to fail and will
@@ -1298,6 +1302,9 @@ void* DaemonTCPTransport::Run(void* arg)
                          */
                         QCC_DbgHLPrintf(("DaemonTCPTransport::Run(): Scavenging slow authenticator"));
                         ep->Abort();
+                        j = m_authList.erase(j);
+                        delete ep;
+                        continue;
                     }
                     ++j;
                 }
@@ -1336,11 +1343,14 @@ void* DaemonTCPTransport::Run(void* arg)
                 }
 
                 m_endpointListLock.Unlock(MUTEX_CONTEXT);
-            } else if (ER_WOULDBLOCK == status) {
+            }
+            /*
+             * Accept returns ER_WOULDBLOCK when all of the incoming connections have been handled
+             */
+            if (ER_WOULDBLOCK == status) {
                 status = ER_OK;
             }
-
-            if (ER_OK != status) {
+            if (status != ER_OK) {
                 QCC_LogError(status, ("DaemonTCPTransport::Run(): Error accepting new connection. Ignoring..."));
             }
         }
