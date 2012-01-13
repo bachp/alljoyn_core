@@ -307,26 +307,32 @@ class DaemonTCPTransport : public Transport, public RemoteEndpoint::EndpointList
 
     std::list<qcc::String> m_discovering;                          /**< Name prefixes the transport is looking for */
     std::list<qcc::String> m_advertising;                          /**< Names the transport is advertising */
+    std::list<qcc::String> m_listening;                            /**< ListenSpecs on which the transport is listening */
     qcc::Mutex m_discoLock;                                        /**< Mutex that protects discovery and advertisement lists */
 
     /**
      * @internal
      * @brief Commmand codes sent to the server accept loop thread.
      */
-    enum Request {
-        START_LISTEN,   /**< A request to start listening on a particular address/port combination */
-        STOP_LISTEN     /**< A request to stop listening on a particular address/port combination */
+    enum RequestOp {
+        START_LISTEN_INSTANCE,           /**< A StartListen() has happened */
+        STOP_LISTEN_INSTANCE,            /**< A StopListen() has happened */
+        ENABLE_ADVERTISEMENT_INSTANCE,   /**< An EnableAdvertisement() has happened */
+        DISABLE_ADVERTISEMENT_INSTANCE,  /**< A DisableAdvertisement() has happened */
+        ENABLE_DISCOVERY_INSTANCE,       /**< An EnableDiscovery() has happened */
+        DISABLE_DISCOVERY_INSTANCE,      /**< A DisableDiscovery() has happened */
     };
 
     /**
      * @internal
-     * @brief Request code for communicating StartListen and StopListen requests
-     * to the server accept loop thread.
+     * @brief Request code for communicating StartListen, StopListen requests
+     * and started-advertising and stopped-advertising notifications to the
+     * server accept loop thread.
      */
     class ListenRequest {
       public:
-        Request m_request;
-        qcc::String m_listenSpec;
+        RequestOp m_requestOp;
+        qcc::String m_requestParam;
     };
 
     std::queue<ListenRequest> m_listenRequests;                    /**< Queue of StartListen and StopListen requests */
@@ -541,6 +547,11 @@ class DaemonTCPTransport : public Transport, public RemoteEndpoint::EndpointList
         DISABLE_ADVERTISEMENT  /**< A request to cancel advertising has been received */
     };
 
+    enum ListenOp {
+        START_LISTEN,  /**< A request to start listening has been received */
+        STOP_LISTEN    /**< A request to stop listening has been received */
+    };
+
     /**
      * @brief Add or remove a discover indication.
      *
@@ -552,8 +563,11 @@ class DaemonTCPTransport : public Transport, public RemoteEndpoint::EndpointList
      * well-known name discovery.  The presence of a non-zero size of this list
      * indicates discovery is in-process and the Name Service should be kept
      * alive (it can be listening for inbound packets in particular).
+     *
+     * @return true if the list of discoveries is empty as a result of the
+     *              operation.
      */
-    void NewDiscoveryOp(DiscoveryOp op, qcc::String namePrefix);
+    bool NewDiscoveryOp(DiscoveryOp op, qcc::String namePrefix, bool& isFirst);
 
     /**
      * @brief Add or remove an advertisement indication.
@@ -566,22 +580,50 @@ class DaemonTCPTransport : public Transport, public RemoteEndpoint::EndpointList
      * presence of a non-zero size of this list indicates that at least one
      * advertisement is in-process and the Name Service should be kept alive to
      * respond to WHO_HAS queries.
+     *
+     * @return true if the list of advertisements is empty as a result of the
+     *              operation.
      */
-    void NewAdvertiseOp(AdvertiseOp op, qcc::String name);
+    bool NewAdvertiseOp(AdvertiseOp op, qcc::String name, bool& isFirst);
 
     /**
-     * @brief Check to see if there are any active discovery operations or
-     * active advertisements and enable the name service if so.
+     * @brief Add or remove a listen operation.
      *
-     * If there are no active discovery or advertisement operations, we need to
-     * disable external communication in the name service.  This is in order to
-     * prevent it from listening on an endpoint when the daemon is quiescent
-     * which would, in turn cause the Android Compatibility Test Suite to fail
-     * since it looks for processes listening on UDP endpoints.  This would be
-     * bad (TM).  This method checks for a reason to keep the name service
-     * listener enabled, and if it does not find one, disables it.
+     * Called when the transport has received a new listen operation.
+     * This will either be an StartListen() or StopListen()
+     * discriminated by the ListenOp enum.
+     *
+     * We want to keep a list of listen specs that are currently being listened
+     * on.  This lest is kept so we can tear down the listeners if there are no
+     * advertisements and recreate it if an advertisement is started.
+     *
+     * This is keep TCP from having a listener so that the Android Compatibility
+     * test suite can pass with when the daemon is in the quiescent state.
+     *
+     * @return true if the list of listeners is empty as a result of the
+     *              operation.
      */
-    void CheckEnableNameService(void);
+    bool NewListenOp(ListenOp op, qcc::String name);
+
+    void QueueEnableDiscovery(const char* namePrefix);
+    void QueueDisableDiscovery(const char* namePrefix);
+    void QueueEnableAdvertisement(const qcc::String& advertiseName);
+    void QueueDisableAdvertisement(const qcc::String& advertiseName);
+
+    void RunListenMachine(void);
+
+    void StartListenInstance(ListenRequest& listenRequest);
+    void StopListenInstance(ListenRequest& listenRequest);
+    void EnableAdvertisementInstance(ListenRequest& listenRequest);
+    void DisableAdvertisementInstance(ListenRequest& listenRequest);
+    void EnableDiscoveryInstance(ListenRequest& listenRequest);
+    void DisableDiscoveryInstance(ListenRequest& listenRequest);
+
+    bool m_isAdvertising;
+    bool m_isDiscovering;
+    bool m_isListening;
+    bool m_isNsEnabled;
+
 };
 
 } // namespace ajn

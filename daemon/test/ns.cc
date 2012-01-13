@@ -268,7 +268,7 @@ int main(int argc, char** argv)
     //
     // Enable the name service to communicate with the outside world.
     //
-    ns.EnableComms();
+    ns.Enable();
 
     Finder finder;
 
