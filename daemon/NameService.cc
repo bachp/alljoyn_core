@@ -450,7 +450,7 @@ NameService::NameService()
     m_tRetransmit(RETRANSMIT_TIME), m_tQuestion(QUESTION_TIME),
     m_modulus(QUESTION_MODULUS), m_retries(NUMBER_RETRIES),
     m_loopback(false), m_enableIPv4(false), m_enableIPv6(false),
-    m_any(false), m_wakeEvent(), m_forceLazyUpdate(false), m_commsEnabled(false)
+    m_any(false), m_wakeEvent(), m_forceLazyUpdate(false), m_enabled(false)
 {
     QCC_DbgPrintf(("NameService::NameService()"));
 }
@@ -800,13 +800,13 @@ void NameService::LazyUpdateInterfaces(void)
     ClearLiveInterfaces();
 
     //
-    // If m_enableComms is false, we need to make sure that no packets are sent
+    // If m_enable is false, we need to make sure that no packets are sent
     // and no sockets are listening for connections.  This is for Android
     // Compatibility Test Suite (CTS) conformance.  The only way we can talk
     // to the outside world is via one of the live interfaces, so if we don't
     // make any new ones, this will accomplish the requirement.
     //
-    if (m_commsEnabled == false) {
+    if (m_enabled == false) {
         QCC_DbgPrintf(("NameService::LazyUpdateInterfaces(): Communication with the outside world is forbidden"));
         return;
     }
@@ -1100,6 +1100,20 @@ void NameService::LazyUpdateInterfaces(void)
         live.m_event = new qcc::Event(sockFd, qcc::Event::IO_READ, false);
         m_liveInterfaces.push_back(live);
     }
+}
+
+void NameService::Enable(void)
+{
+    m_enabled = true;
+    m_forceLazyUpdate = true;
+    m_wakeEvent.SetEvent();
+}
+
+void NameService::Disable(void)
+{
+    m_enabled = false;
+    m_forceLazyUpdate = true;
+    m_wakeEvent.SetEvent();
 }
 
 QStatus NameService::Locate(const qcc::String& wkn, LocatePolicy policy)

@@ -325,7 +325,7 @@
  * the socket now used by the other module).
  */
 
-#define QCC_MODULE "ALLJOYN_DAEMON_TCP"
+#define QCC_MODULE "DAEMON_TCP"
 
 using namespace std;
 using namespace qcc;
@@ -536,7 +536,8 @@ void* DaemonTCPEndpoint::AuthThread::Run(void* arg)
 
 
 DaemonTCPTransport::DaemonTCPTransport(BusAttachment& bus)
-    : Thread("DaemonTCPTransport"), m_bus(bus), m_ns(0), m_stopping(false), m_listener(0), m_foundCallback(m_listener)
+    : Thread("DaemonTCPTransport"), m_bus(bus), m_ns(0), m_stopping(false), m_listener(0), m_foundCallback(m_listener),
+    m_isAdvertising(false), m_isDiscovering(false), m_isListening(false), m_isNsEnabled(false)
 {
     QCC_DbgTrace(("DaemonTCPTransport::DaemonTCPTransport()"));
     /*
@@ -1367,32 +1368,22 @@ void* DaemonTCPTransport::Run(void* arg)
         }
 
         /*
-         * If we're not stopping, we always check for queued requests to
-         * start and stop listening on address and port combinations (listen
-         * specs).  We do that here since we have just deleted all of the
-         * events that may have references to our socket FD resources which
-         * may be released as a result of a DoStopListen() call.
+         * If we're not stopping, we always check for queued requests to start
+         * and stop listening on address and port combinations (listen specs).
+         * We need to change the state of the sockets in one place (here) to
+         * ensure that we don't ever end up with Events that contain references
+         * to closed Sockets; and this is the one place were we can be assured
+         * we don't have those Events live.
          *
          * When we loop back to the top of the server accept loop, we will
-         * re-evaluate the list of listenFds and create new events based on the
+         * re-evaluate the list of listenFds and create new Events based on the
          * current state of the list (after we remove or add anything here).
+         *
+         * We also take this opportunity to run the state machine that deals
+         * with whether or not to enable TCP listeners and the name service
+         * UDP listeners.
          */
-        while (m_listenRequests.empty() == false) {
-            ListenRequest listenRequest = m_listenRequests.front();
-            m_listenRequests.pop();
-            switch (listenRequest.m_request) {
-            case START_LISTEN:
-                DoStartListen(listenRequest.m_listenSpec);
-                break;
-
-            case STOP_LISTEN:
-                DoStopListen(listenRequest.m_listenSpec);
-                break;
-
-            default:
-                assert(false && "DaemonTCPTransport::Run(): unexpected listen request code");
-            }
-        }
+        RunListenMachine();
     }
 
     /*
@@ -1413,6 +1404,545 @@ void* DaemonTCPTransport::Run(void* arg)
 
     QCC_DbgPrintf(("DaemonTCPTransport::Run is exiting status=%s", QCC_StatusText(status)));
     return (void*) status;
+}
+
+/*
+ * The purpose of this code is really to ensure that we don't have any listeners
+ * active on Android systems if we have no ongoing advertisements.  This is to
+ * satisfy a requirement driven from the Android Compatibility Test Suite (CTS)
+ * which fails systems that have processes listening for TCP connections when
+ * the test is run.
+ *
+ * Listeners and advertisements are interrelated.  In order to Advertise a
+ * service, the name service must have an endpoint to include in its
+ * advertisements; and there must be at least one listener running and ready to
+ * receive connections before telling the name service to advertise.
+ *
+ * Discovery requests do not require listeners be present per se before being
+ * forwarded to the name service.  A discovery request will ulitmately lead to a
+ * bus-to-bus connection once a remote daemon has been discovered; but the local
+ * side will always start the connection.  Sessions throw a bit of a monkey
+ * wrench in the works, though.  Since a JoinSession request is sent to the
+ * (already connected) remote daemon and it decides what to do, we don't want to
+ * arbitrarily constrain the remote daemon by disallowing it to try and connect
+ * back to the local daemon.  For this reason, we do require listeners to be
+ * present before discovery starts.
+ *
+ * So the goal is to not have active listeners in the system unless there are
+ * outstanding advertisements or discovery requests, but we cannot have
+ * outstanding advertisements or discovery requests until there are active
+ * listeners.  Some care is obviously required here to accomplish this
+ * seemingly inconsistent behavior.
+ *
+ * We call the state of no outstanding advertisements and not outstanding
+ * discovery requests "Name Service Quiescent".  In this case, the name service
+ * must be disabled so that it doesn't interact with the network and cause a CTS
+ * failure.  As soon as a either a discovery request or an advertisement request
+ * is started, we need to enable the name service to recieve and send network
+ * packets, which will cause the daemon process to begin listening on the name
+ * service well-known UDP port.
+ *
+ * Before an advertisement or a discovery request can acutally be sent over the
+ * wire, we must start a listener which will receive connection requests, and
+ * we must provide the name service with endpoint information that it can include
+ * in its advertisement.  So, from the name service and network perspective,
+ * listens must preceed advertisements.
+ *
+ * In order to accomplish the CTS requirements, however, advertisements must
+ * preceed listens.  It turns out that this is how the high-level system wants
+ * to work.  Essentually, the system calls StartListen at the beginning of time
+ * (when the daemon is first brought up) and it calls StopListen at the end of
+ * time (when the daemon is going down).  Advertisements and discovery requests
+ * come and go in between as clients and services come up and go down.
+ *
+ * To deal with this time-inversion, we save a list of all listen requests, a
+ * list of all advertisement requests and a list of all discovery requests.  At
+ * the beginning of time we get one or more StartListen calls and save the
+ * listen specs, but do not actually do the socket operations to start the
+ * corresponding socket-level listens.  When the first advertisement or
+ * discovery request comes in from the higher-level code, we first start all of
+ * the saved listens and then enable the name service and ask it to start
+ * advertising or discovering as appropriate.  Further advertisements and
+ * discovery requests are also saved, but the calls to the name service are
+ * passed through when it is not quiescent.
+ *
+ * We keep track of the disable advertisement and discovery calls as well.  Each
+ * time an advertisement or discover operation is disabled, we remove the
+ * corresponding entry in the associated list.  As soon as all advertisements
+ * and discovery operations are disabled, we disable the name service and remove
+ * our TCP listeners, and therefore remove all listeners from the system.  Since
+ * we have a saved a list of listeners, they can be restarted if another
+ * advertisement or discovery request comes in.
+ *
+ * We need to do all of this in one place (here) to make it easy to keep the
+ * state of the transport (us) and the name service consistent.  We are
+ * basically a state machine handling the following transitions:
+ *
+ *   START_LISTEN_INSTANCE: An instance of a StartListen() has happened so we
+ *     need to add the associated listen spec to our list of listeners and be
+ *     ready for a subsequent advertisement.  We expect these to happen at the
+ *     beginning of time; but there is nothing preventing a StartListen after we
+ *     start advertising.  In this case we need to execute the start listen.
+ *
+ *   STOP_LISTEN_INSTANCE: An instance of a StopListen() has happened so we need
+ *     to remove the listen spec from our list of listeners.  We expect these to
+ *     happen at the end of time; but there is nothing preventing a StopListen
+ *     at any other time.  In this case we need to execute the stop listen and
+ *     remove the specified listener immediately
+ *
+ *   ENABLE_ADVERTISEMENT_INSTANCE: An instance of an EnableAdvertisement() has
+ *     happened.  If there are no other ongoing advertisements, we need to
+ *     enable the stored listeners, pass the endpoint information down to the
+ *     name servcie, enable the name service communication with the outside
+ *     world if it is disabled and finally pass the advertisement down to the
+ *     name service.  If there are other ongoing advertisements we just pass
+ *     down the new advertisement.  It is an AllJoyn system programming error to
+ *     start advertising before starting at least one listen.
+ *
+ *   DISABLE_ADVERTISEMENT_INSTANCE: An instance of a DisableAdvertisement()
+ *     call has happened.  We always want to pass the corresponding Cancel down
+ *     to the name service.  If we decide that this is the last of our ongoing
+ *     advertisements, we need to continue and disable the name service from
+ *     talking to the outside world.  For completeness, we remove endpoint
+ *     information from the name service.  Finally, we shut down our TCP
+ *     transport listeners.
+ *
+ *   ENABLE_DISCOVERY_INSTANCE: An instance of an EnableDiscovery() has
+ *     happened.  This is a fundamentally different request than an enable
+ *     advertisement.  We don't need any listeners to be present in order to do
+ *     discovery, but the name service must be enabled so it can send and
+ *     receive WHO-HAS packets.  If the name service communications are
+ *     disabled, we need to enable them.  In any case we pass the request down
+ *     to the name service.
+ *
+ *   DISABLE_DISCOVERY_INSTANCE: An instance of a DisableDiscovery() call has
+ *     happened.  There is no corresponding disable call in the name service,
+ *     but we do have to decide if we want to disable the name service to keep
+ *     it from listening.  We do so if this is the last discovery instance and
+ *     there are no other advertisements.
+ *
+ * There are four member variables that reflect the state of the transport
+ * and name service with respect to this code:
+ *
+ *   m_isListening:  The list of listeners is reflected by currently listening
+ *     sockets.  We have network infrastructure in place to receive inbound
+ *     connection requests.
+ *
+ *   m_isNsEnabled:  The name service is up and running and listening on its
+ *     sockets for incoming requests.
+ *
+ *   m_isAdvertising: The list of advertisements is reflected by current
+ *     advertisements in the name service.  if we are m_isAdvertising then
+ *     m_isNsEnabled must be true.
+ *
+ *   m_isDiscovering: The list of discovery requests has been sent to the name
+ *     service.  if we are m_isDiscovering then m_isNsEnabled must be true.
+ */
+void DaemonTCPTransport::RunListenMachine(void)
+{
+    QCC_DbgPrintf(("DaemonTCPTransport::RunListenMachine()"));
+
+    while (m_listenRequests.empty() == false) {
+        QCC_DbgPrintf(("DaemonTCPTransport::RunListenMachine(): Do request."));
+        ListenRequest listenRequest = m_listenRequests.front();
+        m_listenRequests.pop();
+
+        /*
+         * Do some consistency checks to make sure we're not confused about what
+         * is going on.
+         *
+         * First, if we are not listening, then we had better not think we're
+         * advertising or discovering.  If we are not listening, then the name
+         * service must not be enabled and sending or responding to external
+         * daemons.
+         */
+        if (m_isListening == false) {
+            assert(m_isAdvertising == false);
+            assert(m_isDiscovering == false);
+            assert(m_isNsEnabled == false);
+        }
+
+        /*
+         * If we think the name service is enabled, it had better think it is
+         * enabled.  It must be enabled either because we are advertising or we
+         * are discovering.  If we are advertising or discovering, then there
+         * must be listeners waiting for connections as a result of those
+         * advertisements or discovery requests.
+         */
+        if (m_isNsEnabled) {
+            assert(m_ns->Enabled());
+            assert(m_isAdvertising || m_isDiscovering);
+            assert(m_isListening);
+        }
+
+        /*
+         * If we think we are advertising, we'd better have an entry in the
+         * advertisements list to make us advertise, and there must be listeners
+         * waiting for inbound connections as a result of those advertisements.
+         * If we are advertising the name service had better be enabled.
+         */
+        if (m_isAdvertising) {
+            assert(!m_advertising.empty());
+            assert(m_isListening);
+            assert(m_isNsEnabled);
+        }
+
+        /*
+         * If we are discovering, we'd better have an entry in the discovering
+         * list to make us discover, and there must be listeners waiting for
+         * inbound connections as a result of session operations driven by those
+         * discoveries.  If we are discovering the name service had better be
+         * enabled.
+         */
+        if (m_isDiscovering) {
+            assert(!m_discovering.empty());
+            assert(m_isListening);
+            assert(m_isNsEnabled);
+        }
+
+        /*
+         * Now that are sure we have a consistent view of the world, let's do
+         * what needs to be done.
+         */
+        switch (listenRequest.m_requestOp) {
+        case START_LISTEN_INSTANCE:
+            StartListenInstance(listenRequest);
+            break;
+
+        case STOP_LISTEN_INSTANCE:
+            StopListenInstance(listenRequest);
+            break;
+
+        case ENABLE_ADVERTISEMENT_INSTANCE:
+            EnableAdvertisementInstance(listenRequest);
+            break;
+
+        case DISABLE_ADVERTISEMENT_INSTANCE:
+            DisableAdvertisementInstance(listenRequest);
+            break;
+
+        case ENABLE_DISCOVERY_INSTANCE:
+            EnableDiscoveryInstance(listenRequest);
+            break;
+
+        case DISABLE_DISCOVERY_INSTANCE:
+            DisableDiscoveryInstance(listenRequest);
+            break;
+        }
+    }
+}
+
+void DaemonTCPTransport::StartListenInstance(ListenRequest& listenRequest)
+{
+    QCC_DbgPrintf(("DaemonTCPTransport::StartListenInstance()"));
+
+    /*
+     * We have a new StartListen request, so save the listen spec so we
+     * can restart the listen if we stop advertising.
+     */
+    NewListenOp(START_LISTEN, listenRequest.m_requestParam);
+
+    /*
+     * If we're running on Windows, we always start listening immediately
+     * since Windows uses TCP as the client to daemon communication link.
+     *
+     * On other operating systems (i.e. Posix) we use unix domain sockets and so
+     * we can delay listening to passify the Android Compatibility Test Suite.
+     * We do this unless we have any outstanding advertisements or discovery
+     * operations in which case we start up the listens immediately.
+     */
+#ifdef QCC_OS_WINDOWS
+    DoStartListen(listenRequest.m_requestParam);
+#else
+    if (m_isAdvertising || m_isDiscovering) {
+        DoStartListen(listenRequest.m_requestParam);
+    }
+#endif
+}
+
+void DaemonTCPTransport::StopListenInstance(ListenRequest& listenRequest)
+{
+    QCC_DbgPrintf(("DaemonTCPTransport::StopListenInstance()"));
+
+    /*
+     * We have a new StopListen request, so we need to remove this
+     * particular listen spec from our lists so it will not be
+     * restarted.
+     */
+    bool empty = NewListenOp(STOP_LISTEN, listenRequest.m_requestParam);
+
+    /*
+     * If we have just removed the last listener, we have a problem if
+     * we have active advertisements.  This is because we will be
+     * advertising soon to be non-existent endpoints.  The question is,
+     * what do we want to do about it.  We could just ignore it since
+     * since clients receiving advertisements may just try to connect to
+     * a non-existent endpoint and fail.  It does seem better to log an
+     * error and then cancel any outstanding advertisements since they
+     * are soon to be meaningless.
+     */
+    if (empty && m_isAdvertising) {
+        QCC_LogError(ER_FAIL, ("DaemonTCPTransport::StopListenInstance(): No listeners with outstanding advertisements."));
+        for (list<qcc::String>::iterator i = m_advertising.begin(); i != m_advertising.end(); ++i) {
+            m_ns->Cancel(*i);
+        }
+    }
+
+    /*
+     * Execute the code that will actually tear down the specified
+     * listening endpoint.  Note that we always stop listening
+     * immediately since that is Good (TM) from a power and CTS point of
+     * view.  We only delay starting to listen.
+     */
+    DoStopListen(listenRequest.m_requestParam);
+}
+
+void DaemonTCPTransport::EnableAdvertisementInstance(ListenRequest& listenRequest)
+{
+    QCC_DbgPrintf(("DaemonTCPTransport::EnableAdvertisementInstance()"));
+
+    /*
+     * We have a new advertisement request to deal with.  The first
+     * order of business is to save the well-known name away for
+     * use later.
+     */
+    bool isFirst;
+    NewAdvertiseOp(ENABLE_ADVERTISEMENT, listenRequest.m_requestParam, isFirst);
+
+    /*
+     * If it turned out that is the first advertisement on our list, we need to
+     * prepare before actually doing the advertisement.
+     */
+    if (isFirst) {
+
+        /*
+         * If we don't have any listeners up and running, we need to get them
+         * up.  If this is a Windows box, the listeners will start running
+         * immediately and will never go down, so they may already be running.
+         */
+        if (!m_isListening) {
+            for (list<qcc::String>::iterator i = m_listening.begin(); i != m_listening.end(); ++i) {
+                DoStartListen(*i);
+                m_isListening = true;
+            }
+        }
+
+        /*
+         * We can only enable the requested advertisement if there is something
+         * listening inbound connections on.  Therefore, we should only enable
+         * the name service if there is a listener.  This catches the case where
+         * there was no StartListen() done before the first advertisement.
+         */
+        if (m_isListening) {
+            if (!m_isNsEnabled) {
+                m_ns->Enable();
+                m_isNsEnabled = true;
+            }
+        } else {
+            QCC_LogError(ER_FAIL, ("DaemonTCPTransport::EnableAdvertisementInstance(): Advertise with no TCP listeners"));
+            return;
+        }
+    }
+
+    /*
+     * We think we're ready to send the advertisement.  Are we really?
+     */
+    assert(m_isListening);
+    assert(m_isNsEnabled);
+    assert(m_ns);
+
+    QStatus status = m_ns->Advertise(listenRequest.m_requestParam);
+    if (status != ER_OK) {
+        QCC_LogError(status, ("DaemonTCPTransport::EnableAdvertisementInstance(): Failed to advertise \"%s\"", listenRequest.m_requestParam.c_str()));
+    }
+
+    m_isAdvertising = true;
+}
+
+void DaemonTCPTransport::DisableAdvertisementInstance(ListenRequest& listenRequest)
+{
+    QCC_DbgPrintf(("DaemonTCPTransport::DisableAdvertisementInstance()"));
+
+    /*
+     * We have a new disable advertisement request to deal with.  The first
+     * order of business is to remove the well-known name from our saved list.
+     */
+    bool isFirst;
+    bool isEmpty = NewAdvertiseOp(DISABLE_ADVERTISEMENT, listenRequest.m_requestParam, isFirst);
+
+    /*
+     * We always cancel any advertisement to allow the name service to
+     * send out its lost advertisement message.
+     */
+    QStatus status = m_ns->Cancel(listenRequest.m_requestParam);
+    if (status != ER_OK) {
+        QCC_LogError(status, ("DaemonTCPTransport::DisableAdvertisementInstance(): Failed to Cancel \"%s\"", listenRequest.m_requestParam.c_str()));
+    }
+
+    /*
+     * If it turns out that this was the last advertisement on our list, we need
+     * to think about disabling our listeners and turning off the name service.
+     * We only to this if there are no discovery instances in progress.
+     */
+    if (isEmpty && !m_isDiscovering) {
+
+        /*
+         * Since the cancel advertised name has been sent, we can disable the
+         * name service.
+         */
+        m_ns->Disable();
+        m_isNsEnabled = false;
+
+        /*
+         * If we had the name service running, we must have had listeners
+         * waiting for connections due to the name service.  We need to stop
+         * them all now, but only if we are not running on a Windows box.
+         * Windows needs the listeners running at all times since it uses
+         * TCP for the client to daemon connections.
+         */
+#ifndef QCC_OS_WINDOWS
+        for (list<qcc::String>::iterator i = m_listening.begin(); i != m_listening.end(); ++i) {
+            DoStopListen(*i);
+        }
+        m_isListening = false;
+#endif
+    }
+
+    if (isEmpty) {
+        m_isAdvertising = false;
+    }
+}
+
+void DaemonTCPTransport::EnableDiscoveryInstance(ListenRequest& listenRequest)
+{
+    QCC_DbgPrintf(("DaemonTCPTransport::EnableDiscoveryInstance()"));
+
+    /*
+     * We have a new discovery request to deal with.  The first
+     * order of business is to save the well-known name away for
+     * use later.
+     */
+    bool isFirst;
+    NewDiscoveryOp(ENABLE_DISCOVERY, listenRequest.m_requestParam, isFirst);
+
+    /*
+     * If it turned out that is the first discovery request on our list, we need
+     * to prepare before actually doing the discovery.
+     */
+    if (isFirst) {
+
+        /*
+         * If we don't have any listeners up and running, we need to get them
+         * up.  If this is a Windows box, the listeners will start running
+         * immediately and will never go down, so they may already be running.
+         */
+        if (!m_isListening) {
+            for (list<qcc::String>::iterator i = m_listening.begin(); i != m_listening.end(); ++i) {
+                DoStartListen(*i);
+                m_isListening = true;
+            }
+        }
+
+        /*
+         * We can only enable the requested advertisement if there is something
+         * listening inbound connections on.  Therefore, we should only enable
+         * the name service if there is a listener.  This catches the case where
+         * there was no StartListen() done before the first discover.
+         */
+        if (m_isListening) {
+            if (!m_isNsEnabled) {
+                m_ns->Enable();
+                m_isNsEnabled = true;
+            }
+        } else {
+            QCC_LogError(ER_FAIL, ("DaemonTCPTransport::EnableDiscoveryInstance(): Discover with no TCP listeners"));
+            return;
+        }
+    }
+
+    /*
+     * We think we're ready to send the locate.  Are we really?
+     */
+    assert(m_isListening);
+    assert(m_isNsEnabled);
+    assert(m_ns);
+
+    /*
+     * When a bus name is advertised, the source may append a string that
+     * identifies a specific instance of advertised name.  For example, one
+     * might advertise something like
+     *
+     *   com.mycompany.myproduct.0123456789ABCDEF
+     *
+     * as a specific instance of the bus name,
+     *
+     *   com.mycompany.myproduct
+     *
+     * Clients of the system will want to be able to discover all specific
+     * instances, so they need to do a wildcard search for bus name strings
+     * that match the non-specific name, for example,
+     *
+     *   com.mycompany.myproduct*
+     *
+     * We automatically append the name service wildcard character to the end
+     * of the provided string (which we call the namePrefix) before sending it
+     * to the name service which forwards the request out over the net.
+     */
+    String starred = listenRequest.m_requestParam;
+    starred.append('*');
+
+    QStatus status = m_ns->Locate(starred);
+    if (status != ER_OK) {
+        QCC_LogError(status, ("DaemonTCPTransport::Run(): Failed to locate \"%s\"", starred.c_str()));
+    }
+
+    m_isDiscovering = true;
+}
+
+void DaemonTCPTransport::DisableDiscoveryInstance(ListenRequest& listenRequest)
+{
+    QCC_DbgPrintf(("DaemonTCPTransport::DisableDiscoveryInstance()"));
+
+    /*
+     * We have a new disable discovery request to deal with.  The first
+     * order of business is to remove the well-known name from our saved list.
+     */
+    bool isFirst;
+    bool isEmpty = NewDiscoveryOp(DISABLE_DISCOVERY, listenRequest.m_requestParam, isFirst);
+
+    /*
+     * There is no state in the name service with respect to ongoing discovery.
+     * A discovery request just causes it to send a WHO-HAS message, so thre
+     * is nothing to cancel down there.
+     *
+     * However, if it turns out that this was the last discovery operation on
+     * our list, we need to think about disabling our listeners and turning off
+     * the name service.  We only to this if there are no advertisements in
+     * progress.
+     */
+    if (isEmpty && !m_isAdvertising) {
+
+        m_ns->Disable();
+        m_isNsEnabled = false;
+
+        /*
+         * If we had the name service running, we must have had listeners
+         * waiting for connections due to the name service.  We need to stop
+         * them all now, but only if we are not running on a Windows box.
+         * Windows needs the listeners running at all times since it uses
+         * TCP for the client to daemon connections.
+         */
+#ifndef QCC_OS_WINDOWS
+        for (list<qcc::String>::iterator i = m_listening.begin(); i != m_listening.end(); ++i) {
+            DoStopListen(*i);
+        }
+        m_isListening = false;
+#endif
+    }
+
+    if (isEmpty) {
+        m_isDiscovering = false;
+    }
 }
 
 /*
@@ -1912,15 +2442,6 @@ QStatus DaemonTCPTransport::StartListen(const char* listenSpec)
     }
 
     /*
-     * If we pass the IsRunning() gate above, we must have a server accept
-     * thread spinning up or shutting down but not yet joined.  Since the name
-     * service is created before the server accept thread is spun up, and
-     * deleted after it is joined, we must have a valid name service or someone
-     * isn't playing by the rules; so an assert is appropriate here.
-     */
-    assert(m_ns);
-
-    /*
      * Normalize the listen spec.  Although this looks like a connectSpec it is
      * different in that reasonable defaults are possible.  We do the
      * normalization here so we can report an error back to the caller.
@@ -1994,12 +2515,12 @@ void DaemonTCPTransport::QueueStartListen(qcc::String& normSpec)
 
     /*
      * In order to start a listen, we send the server accept thread a message
-     * containing the start request code ADD and the normalized listen spec
-     * which specifies the address and port to listen on.
+     * containing the START_LISTEN_INSTANCE request code and the normalized
+     * listen spec which specifies the address and port instance to listen on.
      */
     ListenRequest listenRequest;
-    listenRequest.m_request = START_LISTEN;
-    listenRequest.m_listenSpec = normSpec;
+    listenRequest.m_requestOp = START_LISTEN_INSTANCE;
+    listenRequest.m_requestParam = normSpec;
 
     m_listenRequestsLock.Lock(MUTEX_CONTEXT);
     m_listenRequests.push(listenRequest);
@@ -2221,15 +2742,6 @@ QStatus DaemonTCPTransport::StopListen(const char* listenSpec)
     }
 
     /*
-     * If we pass the IsRunning() gate above, we must have a server accept
-     * thread spinning up or shutting down but not yet joined.  Since the name
-     * service is created before the server accept thread is spun up, and
-     * deleted after it is joined, we must have a valid name service or someone
-     * isn't playing by the rules; so an assert is appropriate here.
-     */
-    assert(m_ns);
-
-    /*
      * Normalize the listen spec.  We are going to use the name string that was
      * put together for the StartListen call to find the listener instance to
      * stop, so we need to do it exactly the same way.
@@ -2281,13 +2793,13 @@ void DaemonTCPTransport::QueueStopListen(qcc::String& normSpec)
     QCC_DbgPrintf(("DaemonTCPTransport::QueueStopListen()"));
 
     /*
-     * In order to start a listen, we send the server accept thread a message
-     * containing the start request code ADD and the normalized listen spec
-     * which specifies the address and port to listen on.
+     * In order to stop a listen, we send the server accept thread a message
+     * containing the STOP_LISTEN_INTANCE request code and the normalized listen
+     * spec which specifies the address and port instance to stop listening on.
      */
     ListenRequest listenRequest;
-    listenRequest.m_request = STOP_LISTEN;
-    listenRequest.m_listenSpec = normSpec;
+    listenRequest.m_requestOp = STOP_LISTEN_INSTANCE;
+    listenRequest.m_requestParam = normSpec;
 
     m_listenRequestsLock.Lock(MUTEX_CONTEXT);
     m_listenRequests.push(listenRequest);
@@ -2341,12 +2853,15 @@ void DaemonTCPTransport::DoStopListen(qcc::String& normSpec)
     }
 }
 
-void DaemonTCPTransport::NewDiscoveryOp(DiscoveryOp op, qcc::String namePrefix)
+bool DaemonTCPTransport::NewDiscoveryOp(DiscoveryOp op, qcc::String namePrefix, bool& isFirst)
 {
     QCC_DbgPrintf(("DaemonTCPTransport::NewDiscoveryOp()"));
-    m_discoLock.Lock();
+
+    bool first = false;
+
     if (op == ENABLE_DISCOVERY) {
         QCC_DbgPrintf(("DaemonTCPTransport::NewDiscoveryOp(): Registering discovery of namePrefix \"%s\"", namePrefix.c_str()));
+        first = m_advertising.empty();
         m_discovering.push_back(namePrefix);
     } else {
         list<qcc::String>::iterator i = find(m_discovering.begin(), m_discovering.end(), namePrefix);
@@ -2357,17 +2872,20 @@ void DaemonTCPTransport::NewDiscoveryOp(DiscoveryOp op, qcc::String namePrefix)
             m_discovering.erase(i);
         }
     }
-    m_discoLock.Unlock();
 
-    CheckEnableNameService();
+    isFirst = first;
+    return m_discovering.empty();
 }
 
-void DaemonTCPTransport::NewAdvertiseOp(AdvertiseOp op, qcc::String name)
+bool DaemonTCPTransport::NewAdvertiseOp(AdvertiseOp op, qcc::String name, bool& isFirst)
 {
     QCC_DbgPrintf(("DaemonTCPTransport::NewAdvertiseOp()"));
-    m_discoLock.Lock();
+
+    bool first = false;
+
     if (op == ENABLE_ADVERTISEMENT) {
         QCC_DbgPrintf(("DaemonTCPTransport::NewAdvertiseOp(): Registering advertisement of namePrefix \"%s\"", name.c_str()));
+        first = m_advertising.empty();
         m_advertising.push_back(name);
     } else {
         list<qcc::String>::iterator i = find(m_advertising.begin(), m_advertising.end(), name);
@@ -2378,30 +2896,36 @@ void DaemonTCPTransport::NewAdvertiseOp(AdvertiseOp op, qcc::String name)
             m_advertising.erase(i);
         }
     }
-    m_discoLock.Unlock();
 
-    CheckEnableNameService();
+    isFirst = first;
+    return m_advertising.empty();
 }
 
-void DaemonTCPTransport::CheckEnableNameService(void)
+bool DaemonTCPTransport::NewListenOp(ListenOp op, qcc::String normSpec)
 {
-    QCC_DbgPrintf(("DaemonTCPTransport::CheckEnableNameService()"));
-    assert(m_ns);
-    m_discoLock.Lock();
-    bool disableComms = m_advertising.empty() && m_discovering.empty();
-    m_discoLock.Unlock();
+    QCC_DbgPrintf(("DaemonTCPTransport::NewListenOp()"));
 
-    if (disableComms) {
-        QCC_DbgPrintf(("DaemonTCPTransport::CheckEnableNameService(): Disabling name service"));
-        m_ns->DisableComms();
+    if (op == START_LISTEN) {
+        QCC_DbgPrintf(("DaemonTCPTransport::NewListenOp(): Registering listen of normSpec \"%s\"", normSpec.c_str()));
+        m_listening.push_back(normSpec);
+
     } else {
-        QCC_DbgPrintf(("DaemonTCPTransport::CheckEnableNameService(): Enabling name service"));
-        m_ns->EnableComms();
+        list<qcc::String>::iterator i = find(m_listening.begin(), m_listening.end(), normSpec);
+        if (i == m_listening.end()) {
+            QCC_DbgPrintf(("DaemonTCPTransport::NewAdvertiseOp(): StopListen of non-existent spec \"%s\"", normSpec.c_str()));
+        } else {
+            QCC_DbgPrintf(("DaemonTCPTransport::NewAdvertiseOp(): StopListen of normSpec \"%s\"", normSpec.c_str()));
+            m_listening.erase(i);
+        }
     }
+
+    return m_listening.empty();
 }
 
 void DaemonTCPTransport::EnableDiscovery(const char* namePrefix)
 {
+    QCC_DbgPrintf(("DaemonTCPTransport::EnableDiscovery()"));
+
     /*
      * We only want to allow this call to proceed if we have a running server
      * accept thread that isn't in the process of shutting down.  We use the
@@ -2420,63 +2944,76 @@ void DaemonTCPTransport::EnableDiscovery(const char* namePrefix)
         return;
     }
 
-    /*
-     * If we pass the IsRunning() gate above, we must have a server accept
-     * thread spinning up or shutting down but not yet joined.  Since the name
-     * service is created before the server accept thread is spun up, and
-     * deleted after it is joined, we must have a valid name service or someone
-     * isn't playing by the rules; so an assert is appropriate here.
-     */
-    assert(m_ns);
+    QueueEnableDiscovery(namePrefix);
+}
+
+void DaemonTCPTransport::QueueEnableDiscovery(const char* namePrefix)
+{
+    QCC_DbgPrintf(("DaemonTCPTransport::QueueEnableDiscovery()"));
+
+    ListenRequest listenRequest;
+    listenRequest.m_requestOp = ENABLE_DISCOVERY_INSTANCE;
+    listenRequest.m_requestParam = namePrefix;
+
+    m_listenRequestsLock.Lock(MUTEX_CONTEXT);
+    m_listenRequests.push(listenRequest);
+    m_listenRequestsLock.Unlock(MUTEX_CONTEXT);
 
     /*
-     * When a bus name is advertised, the source may append a string that
-     * identifies a specific instance of advertised name.  For example, one
-     * might advertise something like
-     *
-     *   com.mycompany.myproduct.0123456789ABCDEF
-     *
-     * as a specific instance of the bus name,
-     *
-     *   com.mycompany.myproduct
-     *
-     * Clients of the system will want to be able to discover all specific
-     * instances, so they need to do a wildcard search for bus name strings
-     * that match the non-specific name, for example,
-     *
-     *   com.mycompany.myproduct*
-     *
-     * We automatically append the name service wildcard character to the end
-     * of the provided string (which we call the namePrefix) before sending it
-     * to the name service which forwards the request out over the net.
+     * Wake the server accept loop thread up so it will process the request we
+     * just queued.
      */
-    String starPrefix = namePrefix;
-    starPrefix.append('*');
-
-    QStatus status = m_ns->Locate(starPrefix);
-    if (status != ER_OK) {
-        QCC_LogError(status, ("DaemonTCPTransport::EnableDiscovery(): Failure on \"%s\"", namePrefix));
-    }
-
-    /*
-     * Keep track of our discovery requests so we can turn off the name service
-     * if there are no active discovery or advertisement operations in progress.
-     */
-    NewDiscoveryOp(ENABLE_DISCOVERY, qcc::String(namePrefix));
+    Alert();
 }
 
 void DaemonTCPTransport::DisableDiscovery(const char* namePrefix)
 {
+    QCC_DbgPrintf(("DaemonTCPTransport::DisableDiscovery()"));
+
     /*
-     * Keep track of our discovery requests so we can turn off the name service
-     * if there are no active discovery or advertisement operations in progress.
+     * We only want to allow this call to proceed if we have a running server
+     * accept thread that isn't in the process of shutting down.  We use the
+     * thread response from IsRunning to give us an idea of what our server
+     * accept (Run) thread is doing.  See the comment in Start() for details
+     * about what IsRunning actually means, which might be subtly different from
+     * your intuitition.
+     *
+     * If we see IsRunning(), the thread might actually have gotten a Stop(),
+     * but has not yet exited its Run routine and become STOPPING.  To plug this
+     * hole, we need to check IsRunning() and also m_stopping, which is set in
+     * our Stop() method.
      */
-    NewDiscoveryOp(DISABLE_DISCOVERY, qcc::String(namePrefix));
+    if (IsRunning() == false || m_stopping == true) {
+        QCC_LogError(ER_BUS_TRANSPORT_NOT_STARTED, ("DaemonTCPTransport::DisbleDiscovery(): Not running or stopping; exiting"));
+        return;
+    }
+
+    QueueDisableDiscovery(namePrefix);
 }
 
+void DaemonTCPTransport::QueueDisableDiscovery(const char* namePrefix)
+{
+    QCC_DbgPrintf(("DaemonTCPTransport::QueueDisableDiscovery()"));
+
+    ListenRequest listenRequest;
+    listenRequest.m_requestOp = DISABLE_DISCOVERY_INSTANCE;
+    listenRequest.m_requestParam = namePrefix;
+
+    m_listenRequestsLock.Lock(MUTEX_CONTEXT);
+    m_listenRequests.push(listenRequest);
+    m_listenRequestsLock.Unlock(MUTEX_CONTEXT);
+
+    /*
+     * Wake the server accept loop thread up so it will process the request we
+     * just queued.
+     */
+    Alert();
+}
 
 QStatus DaemonTCPTransport::EnableAdvertisement(const qcc::String& advertiseName)
 {
+    QCC_DbgPrintf(("DaemonTCPTransport::EnableAdvertisement()"));
+
     /*
      * We only want to allow this call to proceed if we have a running server
      * accept thread that isn't in the process of shutting down.  We use the
@@ -2495,37 +3032,33 @@ QStatus DaemonTCPTransport::EnableAdvertisement(const qcc::String& advertiseName
         return ER_BUS_TRANSPORT_NOT_STARTED;
     }
 
-    /*
-     * If we pass the IsRunning() gate above, we must have a server accept
-     * thread spinning up or shutting down but not yet joined.  Since the name
-     * service is created before the server accept thread is spun up, and
-     * deleted after it is joined, we must have a valid name service or someone
-     * isn't playing by the rules; so an assert is appropriate here.
-     */
-    assert(m_ns);
-
-    /*
-     * Give the provided name to the name service and have it start advertising
-     * the name on the network as reachable through the daemon having this
-     * transport.  The name service handles periodic retransmission of the name
-     * and manages the coming and going of network interfaces for us.
-     */
-    QStatus status = m_ns->Advertise(advertiseName);
-    if (status != ER_OK) {
-        QCC_LogError(status, ("DaemonTCPTransport::EnableAdvertisment(): Failure on \"%s\"", advertiseName.c_str()));
-        return status;
-    }
-
-    /*
-     * Keep track of our advertisements so we can turn off the name service if
-     * there are no active discovery or advertisement operations in progress.
-     */
-    NewAdvertiseOp(ENABLE_ADVERTISEMENT, advertiseName);
+    QueueEnableAdvertisement(advertiseName);
     return ER_OK;
+}
+
+void DaemonTCPTransport::QueueEnableAdvertisement(const qcc::String& advertiseName)
+{
+    QCC_DbgPrintf(("DaemonTCPTransport::QueueEnableAdvertisement()"));
+
+    ListenRequest listenRequest;
+    listenRequest.m_requestOp = ENABLE_ADVERTISEMENT_INSTANCE;
+    listenRequest.m_requestParam = advertiseName;
+
+    m_listenRequestsLock.Lock(MUTEX_CONTEXT);
+    m_listenRequests.push(listenRequest);
+    m_listenRequestsLock.Unlock(MUTEX_CONTEXT);
+
+    /*
+     * Wake the server accept loop thread up so it will process the request we
+     * just queued.
+     */
+    Alert();
 }
 
 void DaemonTCPTransport::DisableAdvertisement(const qcc::String& advertiseName, bool nameListEmpty)
 {
+    QCC_DbgPrintf(("DaemonTCPTransport::DisableAdvertisement()"));
+
     /*
      * We only want to allow this call to proceed if we have a running server
      * accept thread that isn't in the process of shutting down.  We use the
@@ -2544,31 +3077,26 @@ void DaemonTCPTransport::DisableAdvertisement(const qcc::String& advertiseName, 
         return;
     }
 
-    /*
-     * If we pass the IsRunning() gate above, we must have a server accept
-     * thread spinning up or shutting down but not yet joined.  Since the name
-     * service is created before the server accept thread is spun up, and
-     * deleted after it is joined, we must have a valid name service or someone
-     * isn't playing by the rules; so an assert is appropriate here.
-     */
-    assert(m_ns);
+    QueueDisableAdvertisement(advertiseName);
+}
+
+void DaemonTCPTransport::QueueDisableAdvertisement(const qcc::String& advertiseName)
+{
+    QCC_DbgPrintf(("DaemonTCPTransport::QueueDisableAdvertisement()"));
+
+    ListenRequest listenRequest;
+    listenRequest.m_requestOp = DISABLE_ADVERTISEMENT_INSTANCE;
+    listenRequest.m_requestParam = advertiseName;
+
+    m_listenRequestsLock.Lock(MUTEX_CONTEXT);
+    m_listenRequests.push(listenRequest);
+    m_listenRequestsLock.Unlock(MUTEX_CONTEXT);
 
     /*
-     * Tell the name service to stop advertising the provided name on the
-     * network as reachable through the daemon having this transport.  The name
-     * service sends out a no-longer-here message and stops periodic
-     * retransmission of the name as a result of the Cancel() call.
+     * Wake the server accept loop thread up so it will process the request we
+     * just queued.
      */
-    QStatus status = m_ns->Cancel(advertiseName);
-    if (status != ER_OK) {
-        QCC_LogError(status, ("Failure to stop advertising \"%s\" for TCP", advertiseName.c_str()));
-    }
-
-    /*
-     * Keep track of our advertisements so we can turn off the name service if
-     * there are no active discovery or advertisement operations in progress.
-     */
-    NewAdvertiseOp(DISABLE_ADVERTISEMENT, advertiseName);
+    Alert();
 }
 
 void DaemonTCPTransport::FoundCallback::Found(const qcc::String& busAddr, const qcc::String& guid,

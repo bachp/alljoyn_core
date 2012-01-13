@@ -343,9 +343,13 @@ class NameService : public qcc::Thread {
      *
      * To do this, the DaemonTCPTRansport keeps track of whether or not it needs
      * to advertise or discover something.  If it has something to advetise or
-     * discover it will call EnableComms.
+     * discover it will call Enable.
+     *
+     * Enable() will force a lazy update of the required network
+     * interfaces, and since communication with the outside world is allowed
+     * this will result in all specified UDP listeners being created.
      */
-    void EnableComms(void) { m_commsEnabled = true; }
+    void Enable(void);
 
     /**
      * @brief Disable communication with the outside world.
@@ -359,9 +363,13 @@ class NameService : public qcc::Thread {
      *
      * To do this, the DaemonTCPTRansport keeps track of whether or not it needs
      * to advertise or discover something.  If it has nothing to advetise or
-     * discover it will call DisableComms.
+     * discover it will call Disable.
+     *
+     * Disable() will force a lazy update of the required network
+     * interfaces, and since communication with the outside world is disallowed
+     * this will result in all UDP listeners being destroyed.
      */
-    void DisableComms(void) { m_commsEnabled = false; }
+    void Disable(void);
 
     /**
      * Allow a user to select what kind of retry policy should be used when
@@ -633,6 +641,13 @@ class NameService : public qcc::Thread {
      * @return  Returns the number of names currently being advertised
      */
     size_t NumAdvertisements() { return m_advertised.size(); }
+
+    /**
+     * @brief Returns whether or not external network communication is enabled.
+     *
+     * @return Returns true if external communication is enabled, otherwise false.
+     */
+    bool Enabled(void) { return m_enabled; }
 
   private:
     /**
@@ -953,7 +968,7 @@ class NameService : public qcc::Thread {
      * listening for connections.  For Android Compatibility Test Suite (CTS)
      * conformance.
      */
-    bool m_commsEnabled;
+    bool m_enabled;
 };
 
 } // namespace ajn
