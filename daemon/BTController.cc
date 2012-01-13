@@ -363,18 +363,7 @@ QStatus BTController::RemoveAdvertiseName(const qcc::String& name)
 
 QStatus BTController::RemoveFindName(const qcc::String& name)
 {
-    QStatus status = DoNameOp(name, *org.alljoyn.Bus.BTController.CancelFindName, false, find);
-
-    if (self->FindNamesEmpty() && !IsMaster()) {
-        // We're not looking for any names so our master will stop sending us
-        // updates and assume that our set of found names is empty if we do
-        // start finding names again so we need tell AlljoynObj that the BT
-        // names we know about are expired.  Set an expiration timer for the
-        // names we currently know about.
-        foundNodeDB.RefreshExpiration(LOST_DEVICE_TIMEOUT);
-        ResetExpireNameAlarm();
-    }
-    return status;
+    return DoNameOp(name, *org.alljoyn.Bus.BTController.CancelFindName, false, find);
 }
 
 
