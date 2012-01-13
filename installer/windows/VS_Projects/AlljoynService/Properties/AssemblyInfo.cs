@@ -10,7 +10,7 @@ using System.Runtime.InteropServices;
 [assembly: AssemblyConfiguration("")]
 [assembly: AssemblyCompany("QuicInc")]
 [assembly: AssemblyProduct("AlljoynService")]
-[assembly: AssemblyCopyright("Copyright © Qualcomm Innovation Center, Inc. 2010-2011")]
+[assembly: AssemblyCopyright("Copyright © Qualcomm Innovation Center, Inc. 2010-2012")]
 [assembly: AssemblyTrademark("")]
 [assembly: AssemblyCulture("")]
 

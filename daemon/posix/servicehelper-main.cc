@@ -4,7 +4,7 @@
  */
 
 /******************************************************************************
- * Copyright 2010-2011, Qualcomm Innovation Center, Inc.
+ * Copyright 2010-2012, Qualcomm Innovation Center, Inc.
  *
  *    Licensed under the Apache License, Version 2.0 (the "License");
  *    you may not use this file except in compliance with the License.
@@ -113,7 +113,7 @@ OptParse::ParseResultCode OptParse::ParseResult()
 
         if (arg.compare("--version") == 0) {
             printf("AllJoyn Message Bus Daemon service launcher helper version: %s\n"
-                   "Copyright (c) 2009-2011 Qualcomm Innovation Center, Inc.\n"
+                   "Copyright (c) 2009-2012 Qualcomm Innovation Center, Inc.\n"
                    "Licensed under Apache2.0: http://www.apache.org/licenses/LICENSE-2.0.html\n"
                    "\n"
                    "Build: %s\n", GetVersion(), GetBuildInfo());
