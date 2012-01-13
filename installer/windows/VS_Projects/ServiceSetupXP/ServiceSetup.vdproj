@@ -376,8 +376,8 @@
         {
         "Name" = "8:Microsoft Visual Studio"
         "ProductName" = "8:Alljoyn Daemon Service for XP"
-        "ProductCode" = "8:{EA164FD8-9F49-4c70-9614-0332BA5063AB}"
-        "PackageCode" = "8:{2EDDC94C-2BF6-40bb-9C74-47F3B3618AC0}"
+        "ProductCode" = "8:{EA164FD8-9F49-4C70-9614-0332BA5063AB}"
+        "PackageCode" = "8:{2EDDC94C-2BF6-40BB-9C74-47F3B3618AC0}"
         "UpgradeCode" = "8:{5F3CB03F-DD62-426E-9126-E5476468BCF3}"
         "RestartWWWService" = "11:FALSE"
         "RemovePreviousVersions" = "11:TRUE"
