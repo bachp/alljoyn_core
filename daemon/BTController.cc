@@ -628,29 +628,48 @@ BTNodeInfo BTController::PrepConnect(const BTBusAddress& addr, const String& red
                     newDevice = node->IsValid() && (node != joinSessionNode);
                 } else {
                     foundNodeDB.Lock();
+
+                    /*
+                     * We need a redirect node to be in one of the node DBs.  Since we may not have
+                     * found it before we got redirected, put it in.
+                     */
                     BTBusAddress redirAddr(redirection);
-                    BTNodeInfo destNode = foundNodeDB.FindNode(addr)->GetConnectNode();
-                    // Make sure we haven't lost the advertisement for the
-                    // destination node and that the redirextion is at least
-                    // sensible.
-                    if (destNode->IsValid() &&
-                        redirAddr.IsValid() &&
-                        !nodeDB.FindNode(redirAddr)->IsValid()) {
-                        // Need a node to connect to.
-                        node = foundNodeDB.FindNode(redirAddr);
-                        if (!node->IsValid()) {
-                            // Connect node isn't found so trust the redirect
-                            // spec and assume the node we're told about
-                            // exists.
-                            node = BTNodeInfo(redirAddr);
-                            node->SetExpireTime(destNode->GetExpireTime());
-                            foundNodeDB.RemoveNode(destNode); // Make sure connect node indexing gets refreshed
-                            destNode->SetConnectNode(node);
-                            foundNodeDB.AddNode(node);
-                            foundNodeDB.Unlock();
-                        }
+                    BTNodeInfo redirNode = nodeDB.FindNode(redirAddr);
+                    if (!redirNode->IsValid()) {
+                        redirNode = foundNodeDB.FindNode(redirAddr);
                     }
-                    foundNodeDB.AddNode(destNode);
+                    if (!redirNode->IsValid()) {
+                        redirNode = BTNodeInfo(redirAddr);
+                        Timespec now;
+                        GetTimeNow(&now);
+                        redirNode->SetExpireTime(now.GetAbsoluteMillis() + 5000);
+                        /*
+                         * The GUID of the redirection node is invalid.  However as soon as we do
+                         * the SetState handshake we will get the correct GUID (or it is found via
+                         * SDP query).
+                         */
+                        foundNodeDB.AddNode(redirNode);
+                    }
+
+                    node = foundNodeDB.FindNode(addr);
+                    if (node->IsValid()) {
+                        /*
+                         * A redirection is essentially telling us that our connect node information
+                         * is stale.  Update that info now.
+                         */
+                        BTNodeInfo connNode = node->GetConnectNode();
+                        connNode->SetConnectNode(redirNode);
+                    } else {
+                        /*
+                         * It's possible that our target node is gone due to the name expiring
+                         * between the original connect attempt and the redirected connect attempt.
+                         * So just go straight to the redirection node and the name will be found
+                         * again during the SetState handshake if it's still being advertised.
+                         */
+                        node = redirNode;
+                    }
+                    newDevice = node->IsValid() && (node != joinSessionNode);
+                    foundNodeDB.Unlock();
                 }
             }
         }
@@ -1259,52 +1278,7 @@ void BTController::HandleSetState(const InterfaceDescription::Member* member, Me
             foundNodeDB.AddNode(connectingNode);
         }
     } else {
-        /*
-         * We need the remote GUID here, but it's not included in the "header" fields of SetState.
-         * However, it should always be included in the list of node states.
-         *
-         * Putting the GUID in the header fields would be a protocol change, so doing the extra work
-         * to remain backwards compatible here instead of fixing the protocol.
-         */
-        GUID128 guid;
-        size_t i;
-        for (i = 0; i < numNodeStateArgs; ++i) {
-            char* bn;
-            char* guidStr;
-            uint64_t rawBdAddr;
-            uint16_t psm;
-            size_t anSize, fnSize;
-            MsgArg* anList;
-            MsgArg* fnList;
-            bool eirCapable;
-
-            status = nodeStateArgs[i].Get(SIG_NODE_STATE_ENTRY,
-                                          &guidStr,
-                                          &bn,
-                                          &rawBdAddr, &psm,
-                                          &anSize, &anList,
-                                          &fnSize, &fnList,
-                                          &eirCapable);
-            if (status != ER_OK) {
-                QCC_LogError(status, ("Unmarshal node state failed"));
-                foundNodeDB.Unlock(MUTEX_CONTEXT);
-                lock.Unlock(MUTEX_CONTEXT);
-                bt.Disconnect(sender);
-                return;
-            }
-            if (sender == bn) {
-                guid = GUID128(guidStr);
-                break;
-            }
-        }
-        if (i == numNodeStateArgs) {
-            QCC_LogError(ER_FAIL, ("Didn't find sender in node states"));
-            foundNodeDB.Unlock(MUTEX_CONTEXT);
-            lock.Unlock(MUTEX_CONTEXT);
-            bt.Disconnect(sender);
-            return;
-        }
-        connectingNode = BTNodeInfo(addr, sender, guid);
+        connectingNode = BTNodeInfo(addr, sender);
     }
     connectingNode->SetUUIDRev(otherUUIDRev);
     connectingNode->SetSessionID(msg->GetSessionId());
@@ -2386,6 +2360,14 @@ QStatus BTController::ImportState(BTNodeInfo& connectingNode,
         }
 
         if (nodeAddr == connectingNode->GetBusAddress()) {
+            /*
+             * We need the remote GUID of the connectingNode, but it's not included in the "header"
+             * fields of SetState.  However, it should always be included in the list of node
+             * states.  Putting the GUID in the header fields would be a protocol change, so set it
+             * here instead of changing the protocol.
+             */
+            connectingNode->SetGUID(guid);
+
             // incomingNode needs to refer to the same instance as
             // connectingNode since other nodes already point to
             // connectingNode as their connect node and that instance is the
