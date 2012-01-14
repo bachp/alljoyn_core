@@ -607,25 +607,6 @@ bool TestDriver::TestCheckIncomingAddress(const BDAddress& addr, BTBusAddress& r
     return false;
 }
 
-void TestDriver::ReportTransferRate(uint64_t t0, uint64_t t1, size_t bytesTransferred, bool sending) const
-{
-    uint64_t tDelta = t1 - t0;
-
-    if (bytesTransferred > TRANFER_RATE_MIN_BYTES && tDelta > 0) {
-        uint64_t bytesPerSecond = (bytesTransferred * 1000) / tDelta;
-        String detail = sending ? "Sent " : "Received ";
-
-        detail += U64ToString(bytesTransferred);
-        detail += " bytes in ";
-        detail += U64ToString(tDelta / 1000);
-        detail += " seconds. Or ";
-        detail += U64ToString(bytesPerSecond);
-        detail += " bytes per second.";
-
-        ReportTestDetail(detail);
-    }
-}
-
 bool ClientTestDriver::TestCheckIncomingAddress(const BDAddress& addr, BTBusAddress& redirectAddr) const
 {
     String detail = "BTAccessor needs BD Address ";
