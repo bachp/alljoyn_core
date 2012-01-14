@@ -169,6 +169,14 @@ class VirtualEndpoint : public BusEndpoint {
     bool CanUseRoute(const RemoteEndpoint& b2bEndpoint) const;
 
     /**
+     * Return true iff any of the B2B eps named in the set can be used to route messages for this virtual endpoint.
+     *
+     * @param b2bNames   Set of unique-names of b2b endpoints to be tested.
+     * @return true iff any of the B2B endpoints can be used to route messages for this virtual endpoint.
+     */
+    bool CanUseRoutes(const std::multiset<qcc::String>& b2bNames) const;
+
+    /**
      * Return true iff the virtual endpoint can route to destination without the aid of the
      * daemon identified by guid.
      *

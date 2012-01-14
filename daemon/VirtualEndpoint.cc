@@ -282,6 +282,30 @@ bool VirtualEndpoint::CanUseRoute(const RemoteEndpoint& b2bEndpoint) const
     return isFound;
 }
 
+bool VirtualEndpoint::CanUseRoutes(const multiset<String>& b2bNameSet) const
+{
+    bool isFound = false;
+    m_b2bEndpointsLock.Lock(MUTEX_CONTEXT);
+    multiset<String>::const_iterator nit = b2bNameSet.begin();
+    while (nit != b2bNameSet.end()) {
+        multimap<SessionId, RemoteEndpoint*>::const_iterator eit = m_b2bEndpoints.begin();
+        while (eit != m_b2bEndpoints.end()) {
+            String n = eit->second->GetUniqueName();
+            if (*nit == n) {
+                isFound = true;
+                break;
+            }
+            ++eit;
+        }
+        if (isFound) {
+            break;
+        }
+        ++nit;
+    }
+    m_b2bEndpointsLock.Unlock(MUTEX_CONTEXT);
+    return isFound;
+}
+
 bool VirtualEndpoint::CanRouteWithout(const qcc::GUID128& guid) const
 {
     bool canRoute = false;

@@ -186,8 +186,10 @@ QStatus DaemonRouter::PushMessage(Message& msg, BusEndpoint& origSender)
                         msg->ErrorMsg(msg, "org.alljoyn.Bus.Blocked", "Method reply would be blocked because caller does not allow remote messages");
                         PushMessage(msg, *localEndpoint);
                     } else {
+                        destEndpoint->IncrementWaiters();
                         nameTable.Unlock();
                         status = SendThroughEndpoint(msg, *destEndpoint, sessionId);
+                        destEndpoint->DecrementWaiters();
                         nameTable.Lock();
                     }
                 } else {
@@ -284,10 +286,12 @@ QStatus DaemonRouter::PushMessage(Message& msg, BusEndpoint& origSender)
                     // Broadcast status must not trump directed message
                     // status, especially for eavesdropped messages.
                     if (!alreadysent && (policydb->EavesdropEnabled() || !((sender->GetEndpointType() == BusEndpoint::ENDPOINT_TYPE_BUS2BUS) && !dest->AllowRemoteMessages()))) {
+                        dest->IncrementWaiters();
                         ruleTable.Unlock();
                         nameTable.Unlock();
                         QStatus tStatus = SendThroughEndpoint(msg, *dest, sessionId);
                         status = (status == ER_OK) ? tStatus : status;
+                        dest->DecrementWaiters();
                         nameTable.Lock();
                         ruleTable.Lock();
                     }
@@ -308,9 +312,11 @@ QStatus DaemonRouter::PushMessage(Message& msg, BusEndpoint& origSender)
         while (it != m_b2bEndpoints.end()) {
             if ((*it) != &origSender) {
                 RemoteEndpoint* ep = *it;
+                ep->IncrementWaiters();
                 m_b2bEndpointsLock.Unlock(MUTEX_CONTEXT);
                 QStatus tStatus = SendThroughEndpoint(msg, *ep, sessionId);
                 status = (status == ER_OK) ? tStatus : status;
+                ep->DecrementWaiters();
                 m_b2bEndpointsLock.Lock(MUTEX_CONTEXT);
                 it = m_b2bEndpoints.lower_bound(ep);
             }
@@ -331,9 +337,11 @@ QStatus DaemonRouter::PushMessage(Message& msg, BusEndpoint& origSender)
             if (!sit->b2bEp || (sit->b2bEp != lastB2b)) {
                 lastB2b = sit->b2bEp;
                 SessionCastEntry entry = *sit;
+                sit->destEp->IncrementWaiters();
                 sessionCastSetLock.Unlock(MUTEX_CONTEXT);
                 QStatus tStatus = SendThroughEndpoint(msg, *sit->destEp, sessionId);
                 status = (status == ER_OK) ? tStatus : status;
+                sit->destEp->DecrementWaiters();
                 sessionCastSetLock.Lock(MUTEX_CONTEXT);
                 sit = sessionCastSet.lower_bound(entry);
             }
