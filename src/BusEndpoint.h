@@ -131,6 +131,23 @@ class BusEndpoint : public MessageSink {
      */
     bool SurpriseDisconnect() { return disconnectStatus != ER_OK; }
 
+    /**
+     * Increment the number of "waiters" that are dependent on this endpoint's existence.
+     * Some types of endpoints (RemoteEndpoints) can be destroyed due to async comm failures/closings, etc.
+     * Calling this method ensures that such endpoints are not destroyed until after the number of waiters
+     * reaches zero.
+     */
+    virtual void IncrementWaiters() { };
+
+    /**
+     * Decrement the number of "waiters" that are dependent on this endpoint's existence.
+     * Some types of endpoints (RemoteEndpoints) can be destroyed due to async comm failures/closings, etc.
+     * Calling this method reduces the number of waiters by one. It should only be called after calling
+     * IncrementWaiters().
+     */
+    virtual void DecrementWaiters() { };
+
+
   protected:
 
     EndpointType endpointType;   /**< Type of endpoint */
