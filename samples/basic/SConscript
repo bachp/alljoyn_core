@@ -1,4 +1,4 @@
-# Copyright 2010 - 2011, Qualcomm Innovation Center, Inc.
+# Copyright 2010 - 2012, Qualcomm Innovation Center, Inc.
 # 
 #    Licensed under the Apache License, Version 2.0 (the "License");
 #    you may not use this file except in compliance with the License.
@@ -29,7 +29,8 @@ if 'linux' == env['OS'] or 'darwin' == env['OS']:
     env.Install('$DISTDIR/bin/samples', progs )
     env.Install(clientDistDir, env.Glob('*.cc'))
     env.Install(clientDistDir, env.Glob('Make*'))
-    env.Install(clientDistDir, env.Glob('README*'))
+    env.Install(clientDistDir, 'README.txt')
 elif env['OS_GROUP'] == 'windows':
     env.Install('$DISTDIR/bin/samples', progs )
     env.Install(clientDistDir, env.Glob('*.cc'))
+    env.InstallAs(clientDistDir + '/README.txt', 'README.windows.txt')
