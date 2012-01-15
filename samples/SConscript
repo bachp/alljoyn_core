@@ -28,8 +28,10 @@ env.SConscript('secure/SConscript')
 env.SConscript('chat/SConscript')
 
 # Install readme
-if env['OS'] == 'android':
+if env['OS_CONF'] == 'windows':
+    env.InstallAs('$DISTDIR/samples/README.txt', 'README.windows.txt')
+elif env['OS_CONF'] == 'android':
     env.InstallAs('$DISTDIR/samples/README.txt', 'README.android.txt')
-elif env['OS'] == 'linux':
+elif env['OS_CONF'] == 'linux':
     env.InstallAs('$DISTDIR/samples/README.txt', 'README.linux.txt')
 
