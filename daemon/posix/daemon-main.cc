@@ -648,6 +648,7 @@ int main(int argc, char** argv, char** env)
     } else {
         config->SetConfigFile(opts.GetConfigFile());
         if (!config->LoadConfigFile()) {
+            fprintf(stderr, "Invalid or malformed file specified\n");
             delete config;
             return DAEMON_EXIT_CONFIG_ERROR;
         }
