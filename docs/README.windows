@@ -40,6 +40,12 @@ Summary of file and directory structure:
     ./inc
         AllJoyn C++ header files
 
+    ./installers
+        Windows installer(s) for running AllJoyn Daemon as a Windows Service:
+            ServiceSetup.msi (32-bit Windows 7) 
+            ServiceSetup64.msi (64-bit Windows 7)
+            ServiceSetupXP.msi (32-bit Windows XP)
+
     ./lib/alljoyn.lib
         Static library used to build AllJoyn capable applications.
 
