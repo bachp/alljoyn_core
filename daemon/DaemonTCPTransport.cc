@@ -586,24 +586,28 @@ void DaemonTCPTransport::Authenticated(DaemonTCPEndpoint* conn)
      */
     m_authList.erase(i);
     m_endpointList.push_back(conn);
+    m_endpointListLock.Unlock(MUTEX_CONTEXT);
 
     /*
      * The responsibility for the connection data structure has been transferred
-     * to the m_endpointList.  Before leaving we have to spin up the connection
-     * threads which will actually assume the responsibility.  If the Start()
-     * succeeds, those threads have it, but if Start() fails, we still do; and
-     * there's not much we can do but give up.
+     * to the m_endpointList now.  Before leaving we have to spin up the connection's
+     * RX and TC threads which will actually assume the responsibility for the endpoint
+     * via the EndpointExit callback.  So, if the Start() succeeds, those threads have
+     * responsibility for the endpoint, but if Start() fails, we still do.  The only
+     * way that EndpointExit can be called is if conn->Start() succeeds, so we must
+     * deal with the endpoing if Start() fails.
      */
     conn->SetListener(this);
     QStatus status = conn->Start();
     if (status != ER_OK) {
+        m_endpointListLock.Lock(MUTEX_CONTEXT);
         i = find(m_endpointList.begin(), m_endpointList.end(), conn);
         assert(i != m_endpointList.end() && "DaemonTCPTransport::Authenticated(): Can't find connection");
         m_endpointList.erase(i);
+        m_endpointListLock.Unlock(MUTEX_CONTEXT);
         delete conn;
         QCC_LogError(status, ("DaemonTCPTransport::Authenticated(): Failed to start TCP endpoint"));
     }
-    m_endpointListLock.Unlock(MUTEX_CONTEXT);
 }
 
 QStatus DaemonTCPTransport::Start()
@@ -812,8 +816,9 @@ QStatus DaemonTCPTransport::Join(void)
     m_endpointListLock.Lock(MUTEX_CONTEXT);
 
     /*
-     * Any authenticating endpoints have been asked to shut down and exit their threads
-     * in a previously required Stop().  We need to Join() all of thesse threads here.
+     * Any authenticating endpoints have been asked to shut down and exit their
+     * authentication threads in a previously required Stop().  We need to
+     * Join() all of these auth threads here.
      */
     for (list<DaemonTCPEndpoint*>::iterator i = m_authList.begin(); i != m_authList.end(); ++i) {
         (*i)->AuthJoin();
@@ -822,8 +827,10 @@ QStatus DaemonTCPTransport::Join(void)
     m_authList.clear();
 
     /*
-     * Any running endpoints have been asked to shut down and exit their threads
-     * in a previously required Stop().  We need to Join() all of thesse threads here.
+     * Any running endpoints have been asked it their threads in a previously
+     * required Stop().  We need to Join() all of thesse threads here.  This
+     * Join() will wait on the endpoint rx and tx threads to exit as opposed to
+     * the joining of the auth thread we did above.
      */
     for (list<DaemonTCPEndpoint*>::iterator i = m_endpointList.begin(); i != m_endpointList.end(); ++i) {
         (*i)->Join();
@@ -1063,7 +1070,13 @@ void DaemonTCPTransport::EndpointExit(RemoteEndpoint* ep)
      * This is a callback driven from the remote endpoint thread exit function.
      * Our DaemonTCPEndpoint inherits from class RemoteEndpoint and so when
      * either of the threads (transmit or receive) of one of our endpoints exits
-     * for some reason, we get called back here.
+     * for some reason, we get called back here.  We only get called if either
+     * the tx or rx thread exits, which implies that they have been run.  It
+     * turns out that in the case of an endpoint receiving a connection, it
+     * means that authentication has succeeded.  In the case of an endpoint
+     * doing the connect, the EndpointExit may have resulted from an
+     * authentication error since authentication is done in the context of the
+     * Connect()ing thread and may be reported through EndpointExit.
      */
     QCC_DbgTrace(("DaemonTCPTransport::EndpointExit()"));
 
@@ -1276,11 +1289,12 @@ void* DaemonTCPTransport::Run(void* arg)
                          * authentication.  If it has failed, it must have
                          * marked its state as FAILED and the next thing the
                          * thread is going to do is exit.  So if we see it
-                         * failed, it will exit immediately afterward and it is
-                         * safe to do a Join().
+                         * failed, we know that the will exit immediately
+                         * afterward and it is safe to do a Join() since we
+                         * will theoretically block for very little time.
                          */
                         QCC_DbgHLPrintf(("DaemonTCPTransport::Run(): Scavenging failed authenticator"));
-                        ep->Join();
+                        ep->AuthJoin();
                         j = m_authList.erase(j);
                         delete ep;
                         continue;
@@ -1302,7 +1316,7 @@ void* DaemonTCPTransport::Run(void* arg)
                          * the authList, which is what we want.
                          */
                         QCC_DbgHLPrintf(("DaemonTCPTransport::Run(): Scavenging slow authenticator"));
-                        ep->Stop();
+                        ep->AuthStop();
                     }
                     ++j;
                 }
