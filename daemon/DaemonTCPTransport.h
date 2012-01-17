@@ -340,6 +340,12 @@ class DaemonTCPTransport : public Transport, public RemoteEndpoint::EndpointList
 
     /**
      * @internal
+     * @brief Manage the list of endpoints for the transport.
+     */
+    void ManageEndpoints(qcc::Timespec tTimeout);
+
+    /**
+     * @internal
      * @brief Thread entry point.
      *
      * @param arg  Unused thread entry arg.
