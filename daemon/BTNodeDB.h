@@ -306,6 +306,9 @@ class BTNodeDB {
 
   private:
 
+    BTNodeDB(const BTNodeDB& other): useExpirations(false) { }
+    BTNodeDB& operator=(const BTNodeDB& other) { return *this; }
+
     std::set<BTNodeInfo> nodes;     /**< The node DB storage. */
 
     mutable qcc::Mutex lock;        /**< Mutext to protect the DB. */

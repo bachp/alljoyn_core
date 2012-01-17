@@ -2838,20 +2838,32 @@ void BTController::FillNodeStateMsgArgs(vector<MsgArg>& args) const
 void BTController::FillFoundNodesMsgArgs(vector<MsgArg>& args, const BTNodeDB& adInfo)
 {
     BTNodeDB::const_iterator it;
-    map<BTBusAddress, BTNodeDB> xformMap;
+    map<BTBusAddress, BTNodeDB*>::iterator xmit;
+    map<BTBusAddress, BTNodeDB*> xformMap;
+
     adInfo.Lock(MUTEX_CONTEXT);
     for (it = adInfo.Begin(); it != adInfo.End(); ++it) {
-        xformMap[(&adInfo == &nodeDB) ? self->GetBusAddress() : (*it)->GetConnectNode()->GetBusAddress()].AddNode(*it);
+        BTBusAddress key = (&adInfo == &nodeDB) ? self->GetBusAddress() : (*it)->GetConnectNode()->GetBusAddress();
+        BTNodeDB* xdb;
+        xmit = xformMap.find(key);
+
+        if (xmit == xformMap.end()) {
+            xdb = new BTNodeDB();
+            xformMap.insert(pair<BTBusAddress, BTNodeDB*>(key, xdb));
+        } else {
+            xdb = xmit->second;
+        }
+        xdb->AddNode(*it);
     }
     adInfo.Unlock(MUTEX_CONTEXT);
 
     args.reserve(args.size() + xformMap.size());
-    map<BTBusAddress, BTNodeDB>::const_iterator xmit;
-    for (xmit = xformMap.begin(); xmit != xformMap.end(); ++xmit) {
+    xmit = xformMap.begin();
+    while (xmit != xformMap.end()) {
         vector<MsgArg> adNamesArgs;
 
-        const BTNodeDB& db = xmit->second;
-        BTNodeInfo connNode = xmit->second.FindNode(xmit->first);
+        const BTNodeDB& db = *(xmit->second);
+        BTNodeInfo connNode = db.FindNode(xmit->first);
 
         if (!connNode->IsValid()) {
             connNode = foundNodeDB.FindNode(xmit->first);
@@ -2861,43 +2873,47 @@ void BTController::FillFoundNodesMsgArgs(vector<MsgArg>& args, const BTNodeDB& a
             connNode = nodeDB.FindNode(xmit->first);
         }
 
-        if (!connNode->IsValid()) {
+        if (connNode->IsValid()) {
+            adNamesArgs.reserve(adInfo.Size());
+            for (it = db.Begin(); it != db.End(); ++it) {
+                const BTNodeInfo& node = *it;
+                NameSet::const_iterator nit;
+
+                vector<const char*> nodeAdNames;
+                nodeAdNames.reserve(node->AdvertiseNamesSize());
+                for (nit = node->GetAdvertiseNamesBegin(); nit != node->GetAdvertiseNamesEnd(); ++nit) {
+                    nodeAdNames.push_back(nit->c_str());
+                }
+
+                adNamesArgs.push_back(MsgArg(SIG_AD_NAME_MAP_ENTRY,
+                                             node->GetGUID().ToString().c_str(),
+                                             node->GetBusAddress().addr.GetRaw(),
+                                             node->GetBusAddress().psm,
+                                             nodeAdNames.size(), &nodeAdNames.front()));
+                adNamesArgs.back().Stabilize();
+            }
+
+            BTBusAddress connAddr = nodeDB.FindNode(xmit->first)->IsValid() ? self->GetBusAddress() : xmit->first;
+
+            args.push_back(MsgArg(SIG_FOUND_NODE_ENTRY,
+                                  connAddr.addr.GetRaw(),
+                                  connAddr.psm,
+                                  connNode->GetUUIDRev(),
+                                  adNamesArgs.size(), &adNamesArgs.front()));
+            args.back().Stabilize();
+
+        } else {
             // Should never happen, since it is an internal bug (hence assert
             // check below), but gracefully handle it in case it does in
             // release mode.
             QCC_LogError(ER_NONE, ("Failed to find address %s in DB that should contain it!", xmit->first.ToString().c_str()));
             db.DumpTable("db: Corrupt DB?");
             assert(connNode->IsValid());
-            continue;
         }
 
-        adNamesArgs.reserve(adInfo.Size());
-        for (it = db.Begin(); it != db.End(); ++it) {
-            const BTNodeInfo& node = *it;
-            NameSet::const_iterator nit;
-
-            vector<const char*> nodeAdNames;
-            nodeAdNames.reserve(node->AdvertiseNamesSize());
-            for (nit = node->GetAdvertiseNamesBegin(); nit != node->GetAdvertiseNamesEnd(); ++nit) {
-                nodeAdNames.push_back(nit->c_str());
-            }
-
-            adNamesArgs.push_back(MsgArg(SIG_AD_NAME_MAP_ENTRY,
-                                         node->GetGUID().ToString().c_str(),
-                                         node->GetBusAddress().addr.GetRaw(),
-                                         node->GetBusAddress().psm,
-                                         nodeAdNames.size(), &nodeAdNames.front()));
-            adNamesArgs.back().Stabilize();
-        }
-
-        BTBusAddress connAddr = nodeDB.FindNode(xmit->first)->IsValid() ? self->GetBusAddress() : xmit->first;
-
-        args.push_back(MsgArg(SIG_FOUND_NODE_ENTRY,
-                              connAddr.addr.GetRaw(),
-                              connAddr.psm,
-                              connNode->GetUUIDRev(),
-                              adNamesArgs.size(), &adNamesArgs.front()));
-        args.back().Stabilize();
+        delete xmit->second;
+        xformMap.erase(xmit);
+        xmit = xformMap.begin();
     }
 }
 
