@@ -682,13 +682,13 @@ void BTTransport::BTAccessor::StopConnectable()
     QCC_DbgTrace(("BTTransport::BTAccessor::StopConnectable()"));
     if (l2capLFd != -1) {
         QCC_DbgPrintf(("Closing l2capLFd: %d", l2capLFd));
-        shutdown(l2capLFd, SHUT_RDWR);
-        close(l2capLFd);
-        l2capLFd = -1;
         if (l2capEvent) {
             delete l2capEvent;
             l2capEvent = NULL;
         }
+        shutdown(l2capLFd, SHUT_RDWR);
+        close(l2capLFd);
+        l2capLFd = -1;
     }
 }
 
