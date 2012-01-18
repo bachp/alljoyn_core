@@ -183,7 +183,7 @@ class BTTransport::BTAccessor : public MessageReceiver, public qcc::AlarmListene
      *
      * @return pointer to the L2CAP connect event object.
      */
-    qcc::Event* GetL2CAPConnectEvent() { return this->l2capEvent; }
+    qcc::Event* GetL2CAPConnectEvent() { return &this->l2capEvent; }
 
     /**
      * This looks up the low level Bluetooth connection information for the
@@ -333,7 +333,7 @@ class BTTransport::BTAccessor : public MessageReceiver, public qcc::AlarmListene
     bool wsaInitialized;                // Set to true if WSAStartup() was called successfully.
 
     BDAddressSet discoveryIgnoreAddrs;  // BT addresses to ignore during discovery.
-    qcc::Event* l2capEvent;             // Signaled when a connection request is made.
+    qcc::Event l2capEvent;              // Signaled when a connection request is made.
     BusAttachment winBus;
     BTTransport* transport;
     const qcc::String busGuid;

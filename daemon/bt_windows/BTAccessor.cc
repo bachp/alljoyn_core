@@ -84,8 +84,7 @@ BTTransport::BTAccessor::BTAccessor(BTTransport* transport,
     getMessageThread(*this),
     adapterChangeThread(*this),
     wsaInitialized(false),
-    radioHandle(0),
-    l2capEvent(NULL)
+    radioHandle(0)
 {
     QCC_DbgTrace(("BTTransport::BTAccessor::BTAccessor()"));
 
@@ -114,13 +113,7 @@ void BTTransport::BTAccessor::HandleL2CapEvent(const USER_KERNEL_MESSAGE* messag
 {
     QCC_DbgTrace(("BTTransport::BTAccessor::HandleL2CapEvent()"));
 
-    // If this assert fires it means we received a connection messages when we thought
-    // we were not connectable.
-    assert(l2capEvent);
-
-    if (l2capEvent) {
-        ConnectRequestsPut(&message->messageData.l2capeventData);
-    }
+    ConnectRequestsPut(&message->messageData.l2capeventData);
 }
 
 void BTTransport::BTAccessor::HandleAcceptComplete(const USER_KERNEL_MESSAGE* message)
@@ -997,10 +990,6 @@ QStatus BTTransport::BTAccessor::StartConnectable(BDAddress& addr, uint16_t& psm
 
     deviceLock.Unlock(MUTEX_CONTEXT);
 
-    if (ER_OK == status && NULL == l2capEvent) {
-        l2capEvent = new qcc::Event;
-    }
-
     return status;
 }
 
@@ -1023,19 +1012,12 @@ void BTTransport::BTAccessor::StopConnectable()
     }
 
     deviceLock.Unlock(MUTEX_CONTEXT);
-
-    if (l2capEvent) {
-        delete l2capEvent;
-        l2capEvent = NULL;
-    }
 }
 
 RemoteEndpoint* BTTransport::BTAccessor::Accept(BusAttachment& alljoyn, Event* connectEvent)
 {
     struct _KRNUSRCMD_L2CAP_EVENT connectRequest;
     WindowsBTEndpoint* conn(NULL);
-
-    assert(connectEvent == l2capEvent);
 
     QStatus status = ConnectRequestsGet(&connectRequest);
 
@@ -2015,9 +1997,9 @@ QStatus BTTransport::BTAccessor::ConnectRequestsGet(struct _KRNUSRCMD_L2CAP_EVEN
         connectRequestsHead = 0;
     }
 
-    if (l2capEvent && ConnectRequestsIsEmpty()) {
+    if (ConnectRequestsIsEmpty()) {
         QCC_DbgPrintf(("BTTransport::BTAccessor::ConnectRequestsGet() reset l2capEvent"));
-        l2capEvent->ResetEvent();
+        l2capEvent.ResetEvent();
     }
 
     deviceLock.Unlock(MUTEX_CONTEXT);
@@ -2054,10 +2036,8 @@ QStatus BTTransport::BTAccessor::ConnectRequestsPut(const struct _KRNUSRCMD_L2CA
         }
     }
 
-    if (l2capEvent) {
-        QCC_DbgPrintf(("BTTransport::BTAccessor::ConnectRequestsPut() set l2capEvent"));
-        l2capEvent->SetEvent();
-    }
+    QCC_DbgPrintf(("BTTransport::BTAccessor::ConnectRequestsPut() set l2capEvent"));
+    l2capEvent.SetEvent();
 
     deviceLock.Unlock(MUTEX_CONTEXT);
 
