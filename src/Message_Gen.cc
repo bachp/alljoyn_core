@@ -83,8 +83,8 @@ namespace ajn {
 
 #define MarshalReversed(data, len) \
     do { \
-        uint8_t* p = ((uint8_t*)data) + len; \
-        while (p-- != (uint8_t*)data) { \
+        uint8_t* p = ((uint8_t*)(void*)data) + len; \
+        while (p-- != (uint8_t*)(void*)data) { \
             *bufPos++ = *p; \
         } \
     } while (0)
@@ -232,7 +232,7 @@ QStatus _Message::MarshalArgs(const MsgArg* arg, size_t numArgs)
             for (size_t i = 0; i < arg->v_scalarArray.numElements; i++) {
                 uint32_t b = arg->v_scalarArray.v_bool[i] ? 1 : 0;
                 if (endianSwap) {
-                    MarshalReversed(b, 4);
+                    MarshalReversed(&b, 4);
                 } else {
                     Marshal4(b);
                 }
@@ -253,7 +253,7 @@ QStatus _Message::MarshalArgs(const MsgArg* arg, size_t numArgs)
             if (endianSwap) {
                 MarshalReversed(&len, 4);
                 for (size_t i = 0; i < arg->v_scalarArray.numElements; i++) {
-                    MarshalReversed(arg->v_scalarArray.v_uint32[i], 4);
+                    MarshalReversed(&arg->v_scalarArray.v_uint32[i], 4);
                 }
             } else {
                 Marshal4(len);
@@ -278,7 +278,7 @@ QStatus _Message::MarshalArgs(const MsgArg* arg, size_t numArgs)
                     MarshalReversed(&len, 4);
                     MarshalPad8();
                     for (size_t i = 0; i < arg->v_scalarArray.numElements; i++) {
-                        MarshalReversed(arg->v_scalarArray.v_uint64[i], 8);
+                        MarshalReversed(&arg->v_scalarArray.v_uint64[i], 8);
                     }
                 } else {
                     Marshal4(len);
@@ -306,7 +306,7 @@ QStatus _Message::MarshalArgs(const MsgArg* arg, size_t numArgs)
             if (endianSwap) {
                 MarshalReversed(&len, 4);
                 for (size_t i = 0; i < arg->v_scalarArray.numElements; i++) {
-                    MarshalReversed(arg->v_scalarArray.v_uint16[i], 2);
+                    MarshalReversed(&arg->v_scalarArray.v_uint16[i], 2);
                 }
             } else {
                 Marshal4(len);
