@@ -117,6 +117,7 @@ public partial class AlljoynDaemon : ServiceBase {
 
     protected override void OnStop()
     {
+        ServiceDLL.UnloadDaemon();
     }
 
 
@@ -174,5 +175,7 @@ internal class ServiceDLL {
     internal extern static void SetLogFile(String path);
     [DllImport("DaemonLib.dll", EntryPoint = "DaemonMain", CharSet = CharSet.Unicode)]
     internal extern static void DaemonMain(String cmd);
+    [DllImport("DaemonLib.dll", EntryPoint = "UnloadDaemon", CharSet = CharSet.Unicode)]
+    internal extern static void UnloadDaemon();
 }
 }

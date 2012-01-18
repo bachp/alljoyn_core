@@ -387,3 +387,8 @@ DAEMONLIBRARY_API int LoadDaemon(int argc, char** argv)
 
     return daemon(opts);
 }
+
+DAEMONLIBRARY_API void UnloadDaemon() {
+    g_interrupt = true;
+    return;
+}
