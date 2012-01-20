@@ -1054,6 +1054,7 @@ QStatus BTController::DoNameOp(const qcc::String& name,
 
     bool devAvail = devAvailable;
     bool isMaster = IsMaster();
+    bool isDrone = IsDrone();
     lock.Unlock(MUTEX_CONTEXT);
 
     if (devAvail) {
@@ -1079,6 +1080,33 @@ QStatus BTController::DoNameOp(const qcc::String& name,
             status = Signal(masterNode->GetUniqueName().c_str(), masterNode->GetSessionID(), signal, args, argsSize);
             if (status != ER_OK) {
                 QCC_LogError(status, ("Failed to send %s signal to %s (%s)", signal.name.c_str(), masterNode->ToString().c_str(), masterNode->GetUniqueName().c_str()));
+            }
+            /*
+             * Drone is responsible for telling its direct minions about changes in advertised
+             * names.  The signal to the master will take care of the rest.
+             */
+            if (isDrone) {
+                /*
+                 * Make an empty node DB and put the name in it to tell
+                 * DistributeAdvertisedNameChanges about the name change.
+                 */
+                BTNodeDB db;
+                BTNodeInfo node = self->Clone();
+                if (&nameArgInfo == static_cast<NameArgInfo*>(&advertise)) {
+                    node->AddAdvertiseName(name);
+                    db.AddNode(node);
+                    if (add) {
+                        DistributeAdvertisedNameChanges(&db, NULL);
+                    } else {
+                        DistributeAdvertisedNameChanges(NULL, &db);
+                    }
+                } else {
+                    /*
+                     * DoNameOp is also called for FindName and CancelFindName, but the only thing
+                     * the drone needs to do for those ops is to inform the master (which is already
+                     * done above).
+                     */
+                }
             }
         }
     }
