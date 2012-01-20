@@ -395,6 +395,7 @@ class BTController :
           private:
             _NameArgs() : argsSize(0) { }
             _NameArgs(const _NameArgs& other) : argsSize(0) { }
+            _NameArgs& operator=(const _NameArgs& other) { return *this; }
         };
         typedef qcc::ManagedObj<_NameArgs> NameArgs;
 
