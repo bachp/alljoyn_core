@@ -252,7 +252,16 @@ void OptParse::PrintUsage()
             "the user specified in the config file.\n\n"
 #endif
             "    --verbosity=LEVEL\n"
-            "        Set the logging level to LEVEL.\n\n"
+            "        Set the logging level to LEVEL.\n"
+            "	LEVEL can take one of the following values\n"
+            "	0       LOG_EMERG       system is unusable\n"
+            "	1       LOG_ALERT       action must be taken immediately\n"
+            "	2       LOG_CRIT        critical conditions\n"
+            "	3       LOG_ERR         error conditions\n"
+            "	4       LOG_WARNING     warning conditions\n"
+            "	5       LOG_NOTICE      normal but significant condition\n"
+            "	6       LOG_INFO        informational\n"
+            "	7       LOG_DEBUG       debug-level messages\n\n"
             "    --version\n"
             "        Print the version and copyright string, and exit.\n",
             cmd.c_str(),
