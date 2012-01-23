@@ -63,7 +63,7 @@ progs = env.SConscript('$OBJDIR/test/SConscript')
 env.Install('$DISTDIR/bin', progs)
 
 # Build unit Tests
-env.SConscript('unit_test/SConscript', variant_dir='$OBJDIR/unittest_aj', duplicate=0)
+env.SConscript('unit_test/SConscript', variant_dir='$OBJDIR/unittest', duplicate=0)
 
 # Sample programs
 progs = env.SConscript('$OBJDIR/samples/SConscript')
