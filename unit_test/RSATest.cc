@@ -367,7 +367,7 @@ TEST(RSATest, RSA_authentication_mechanism) {
     /*
      * Now test the RSA authentication mechanism
      */
-    QStatus status;
+    QStatus status = ER_OK;
     BusAttachment bus("srp");
     MyAuthListener myListener;
     bus.EnablePeerSecurity("ALLJOYN_RSA_KEYX", &myListener);
