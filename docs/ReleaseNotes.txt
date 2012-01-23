@@ -1,4 +1,4 @@
-AllJoyn Version 2.3.1 Release Notes
+AllJoyn Version 2.3.2 Release Notes
 -----------------------------------
 
 Platform Support
@@ -6,6 +6,7 @@ Platform Support
 1) Linux Ubuntu 10.10 64-bit (x86-64)
 2) Android Froyo 2.2 (ARM7)
 3) Android Gingerbread 2.3.4 (ARM7)
+4) Android Ice Cream Sandwich 4.0 (ARM7)
 4) Windows XP (32 bit x86)
 5) Windows 7 (32 and 64 bit x86)
 
@@ -19,20 +20,31 @@ None
 Issues Addressed in this Release
 --------------------------------
 
-1) ALLJOYN-806: Java version of AllJoyn daemon now takes multicast lock
-    when advertising/discovering.
-
-2) ALLJOYN-840: Addressed issue with bundled daemon failing to start when
-   USB debugging is not enabled.
-
-3) ALLJOYN-861: Fixed bug in detection of BT on/off when running Android ICS.
-
-4) ALLJOYN-870: Fixed issues related to IP multicast group membership.
-
-5) ALLJOYN-873: Addressed instability in JoinSession caused by IPV6 support.
-
-6) ALLJOYN-(various): Improved stability when using Bluetooth on
+1) ALLJOYN-(various): Improved stability when using Bluetooth on
    Android and Windows.
+
+2) ALLJOYN-879: NameOwnerChanged notifications did not always propagate across
+   multiple network hops.
+
+3) ALLJOYN-881: Bundled daemon could not be used on devices where USB debugging 
+   was disabled.
+
+4) ALLJOYN-884: Java binding BusAttachment.unregisterBusListener() and
+   BusAttachment.release() could cause crashes due to invalid object reference.
+
+5) ALLJOYN-882: Added Android's ACCESS_WIFI_STATE to set of sample permissions
+   to allow operation with Honeycomb.
+
+6) ALLJOYN-889: AllJoyn now uses IANA assigned multicast addresses.
+
+7) ALLJOYN-892: Fixed bug in Windows TCP accept loop that was causing the daemon
+   to ignore incoming connection attempts in some instances.
+
+8) ALLJOYN-897: AllJoyn daemon was changed to not listen on any network ports
+   unless there is at least one advertising or discovering AllJoyn client.
+
+9) ALLJOYN-912: Fixed issue that prevented AllJoyn daemon from stopping when
+   Windows service is stopped.
 
 
 Known issues and limitations with this release
@@ -44,6 +56,11 @@ Known issues and limitations with this release
 
 2) ALLJOYN-830: SetLinkTimeout cannot be called from within the
    SessionPortListener::SessionJoined callback.
+
+3) ALLJOYN-907: LostAdvertisedName indication may be delayed (up to 2 minutes) 
+   when only a single serivce/client pair is running on two devices and the 
+   client disconnects prior to the service disconnecting or canceling the
+   advertisement.
 
 
 Compatibility
@@ -73,6 +90,8 @@ of AllJoyn (ALLJOYN-803).
 
 Change history
 --------------
+2.3.1 - Bug fixes.
+
 2.3.0 - Added support for dynamic enable/disable of Bluetooth device on 
         Windows. Alpha support for Android ICS. BT and Windows stability.
 
