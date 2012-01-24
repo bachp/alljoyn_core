@@ -803,9 +803,11 @@ void BTController::PostConnect(QStatus status, BTNodeInfo& node, const String& r
             foundNodeDB.UpdateDB(NULL, &reapDB);
             foundNodeDB.Unlock(MUTEX_CONTEXT);
 
+            QCC_LogError(status , ("Connection failed to %s, removing found names", node->ToString().c_str()));
             DistributeAdvertisedNameChanges(NULL, &reapDB);
         } else {
             foundNodeDB.Unlock(MUTEX_CONTEXT);
+            QCC_LogError(status , ("Connection failed to %s", node->ToString().c_str()));
         }
     }
 }
@@ -2800,11 +2802,6 @@ QStatus BTController::ExtractNodeInfo(const MsgArg* entries, size_t size, BTNode
             BTBusAddress nodeAddr(BDAddress(rawBdAddr), psm);
             BTNodeInfo node = (nodeAddr == connNode->GetBusAddress()) ? connNode : BTNodeInfo(nodeAddr);
 
-            QCC_DbgPrintf(("    Processing advertised names for device %lu-%lu %s (connectable via %s):",
-                           i, j,
-                           node->ToString().c_str(),
-                           connNode->ToString().c_str()));
-
             // If the node is in our subnet, then use the real connect address.
             BTNodeInfo n = nodeDB.FindNode(nodeAddr);
             assert((n->IsValid() ? n->GetConnectNode() : connNode)->IsValid());
@@ -2815,6 +2812,10 @@ QStatus BTController::ExtractNodeInfo(const MsgArg* entries, size_t size, BTNode
             node->SetGUID(guid);
             node->SetUUIDRev(uuidRev);
             node->SetExpireTime(expireTime);
+            QCC_DbgPrintf(("    Processing advertised names for device %lu-%lu %s (connectable via %s):",
+                           i, j,
+                           node->ToString().c_str(),
+                           node->GetConnectNode()->ToString().c_str()));
             for (k = 0; k < anSize; ++k) {
                 char* n;
                 status = anList[k].Get(SIG_NAME, &n);

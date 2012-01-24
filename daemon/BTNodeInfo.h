@@ -523,11 +523,11 @@ class _BTNodeInfo {
      * Create in a human readable form for the node (includes the memory
      * address of the managed object instance.
      *
-     * @return  a string representation of node: "XX:XX:XX:XX:XX:XX-XXXX (0xXXXXXXX)"
+     * @return  a string representation of node: "XX:XX:XX:XX:XX:XX-XXXX XXXXXXXX-XXXX-XXXX-XXXX-XXXXXXXXXXXX (0xXXXXXXX)"
      */
     qcc::String ToString() const
     {
-        return nodeAddr.ToString() + " (0x" + qcc::U64ToString(reinterpret_cast<uint64_t>(this), 16) + ")";
+        return nodeAddr.ToString() + " " + guid.ToString() + " (0x" + qcc::U64ToString(reinterpret_cast<uint64_t>(&(*this)), 16) + ")";
     }
 
     /**
