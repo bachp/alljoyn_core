@@ -803,11 +803,11 @@ void BTController::PostConnect(QStatus status, BTNodeInfo& node, const String& r
             foundNodeDB.UpdateDB(NULL, &reapDB);
             foundNodeDB.Unlock(MUTEX_CONTEXT);
 
-            QCC_LogError(status , ("Connection failed to %s, removing found names", node->ToString().c_str()));
+            QCC_LogError(status, ("Connection failed to %s, removing found names", node->ToString().c_str()));
             DistributeAdvertisedNameChanges(NULL, &reapDB);
         } else {
             foundNodeDB.Unlock(MUTEX_CONTEXT);
-            QCC_LogError(status , ("Connection failed to %s", node->ToString().c_str()));
+            QCC_LogError(status, ("Connection failed to %s", node->ToString().c_str()));
         }
     }
 }
