@@ -2390,9 +2390,9 @@ QStatus BTController::ImportState(BTNodeInfo& connectingNode,
         if (nodeAddr == connectingNode->GetBusAddress()) {
             /*
              * We need the remote GUID of the connectingNode, but it's not included in the "header"
-             * fields of SetState.  However, it should always be included in the list of node
-             * states.  Putting the GUID in the header fields would be a protocol change, so set it
-             * here instead of changing the protocol.
+             * fields of SetState.  However, it should always be included in the list of node states
+             * if we remain the topology master.  Putting the GUID in the header fields would be a
+             * protocol change, so set it here instead of changing the protocol.
              */
             connectingNode->SetGUID(guid);
 
@@ -2565,6 +2565,17 @@ QStatus BTController::ImportState(BTNodeInfo& connectingNode,
         for (nodeit = peerDB.Begin(); nodeit != peerDB.End(); ++nodeit) {
             BTNodeInfo foundNode = foundNodeDB.FindNode((*nodeit)->GetBusAddress());
             if (foundNode->IsValid()) {
+                /*
+                 * The remote GUID of foundNode may not be correct if it is a node we were
+                 * redirected too (see PrepConnect).  But nodeit does include the GUID, so update
+                 * the GUID of foundNode with the correct information here.
+                 *
+                 * This is important to do before adding entries to addedDB or removedDB since
+                 * the name found/lost machinery relies on the GUID being correct.
+                 */
+                if (foundNode->GetBusAddress() == connectingNode->GetBusAddress()) {
+                    foundNode->SetGUID((*nodeit)->GetGUID());
+                }
                 BTNodeInfo added, removed;
                 foundNode->Diff(*nodeit, &added, &removed);
 
