@@ -1,11 +1,11 @@
-AllJoyn version 2.3.2 README.TXT
+AllJoyn version 2.3.3 README.TXT
 --------------------------------
 
 What's inside:
 -------------
 
- * alljoyn_2_3_2_dbg : AllJoyn SDK for Android (debug), version 2.3.2
- * alljoyn_2_3_2_rel : AllJoyn SDK for Android (release), version 2.3.2
+ * alljoyn_2_3_3_dbg : AllJoyn SDK for Android (debug), version 2.3.3
+ * alljoyn_2_3_3_rel : AllJoyn SDK for Android (release), version 2.3.3
     The above directorys are identical, except for compilation options.
     The file and directory structure inside them is described below.
 
