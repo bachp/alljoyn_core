@@ -792,7 +792,7 @@ void BTController::PostConnect(QStatus status, BTNodeInfo& node, const String& r
         }
 
         foundNodeDB.Lock(MUTEX_CONTEXT);
-        if (foundNodeDB.FindNode(node->GetBusAddress())->IsValid()) {
+        if (foundNodeDB.FindNode(node->GetBusAddress())->IsValid() && IsMaster()) {
             // Failed to connect to the device.  Send out a lost advertised
             // name for all names in all nodes connectable via this node so
             // that if we find the name of interest again, we will send out a
