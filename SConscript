@@ -16,6 +16,7 @@
 Import('env')
 
 # Indicate that this SConscript file has been loaded already
+#
 env['_ALLJOYNCORE_'] = True
 
 # Dependent Projects

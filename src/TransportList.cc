@@ -24,13 +24,7 @@
 #include "Transport.h"
 #include "TransportList.h"
 #include "LocalTransport.h"
-#include "TCPTransport.h"
-#ifndef QCC_OS_WINDOWS
-#include "UnixTransport.h"
-#endif
-#ifdef QCC_OS_DARWIN
-#include "LaunchdTransport.h"
-#endif
+#include "ClientTransport.h"
 
 #define QCC_MODULE "ALLJOYN"
 

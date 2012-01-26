@@ -18,11 +18,13 @@ Import('common_objs')
 
 # AllJoyn Sources
 srcs = [ f for f in env.Glob('*.cc') + env.Glob('*.c')
-         if not (str(f).endswith('version.cc') or
-                 (env['OS_GROUP'] == 'windows' and str(f).endswith('UnixTransport.cc')) or
-                 (env['OS_GROUP'] == 'windows' and str(f).endswith('LaunchdTransport.cc')) ) ]
+         if not (str(f).endswith('version.cc')) ]
 
-objs = common_objs + env.Object(srcs)
+
+os_srcs = [ f for f in env.Glob(env['OS_GROUP'] + '/*.cc') ]
+
+alljoyn_core_objs = env.Object(srcs) + env.Object(os_srcs)
+objs = common_objs + alljoyn_core_objs 
 
 version_cc = env.GenVersion('version')
 env.Depends(version_cc, objs)

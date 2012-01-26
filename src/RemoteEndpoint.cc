@@ -570,17 +570,6 @@ void RemoteEndpoint::DecrementRef()
     }
 }
 
-SocketFd RemoteEndpoint::GetSocketFd()
-{
-    if (isSocket) {
-        SocketStream& ss = static_cast<SocketStream&>(stream);
-        ss.DetachSocketFd();
-        return ss.GetSocketFd();
-    } else {
-        return -1;
-    }
-}
-
 bool RemoteEndpoint::IsProbeMsg(const Message& msg, bool& isAck)
 {
     bool ret = false;

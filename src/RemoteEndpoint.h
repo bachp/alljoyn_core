@@ -275,21 +275,21 @@ class RemoteEndpoint : public BusEndpoint, public qcc::ThreadListener {
      *
      * @return  The data source for this endpoint.
      */
-    qcc::Source& GetSource() { return stream; };
+    qcc::Source& GetSource() { return stream; }
 
     /**
      * Get the data sink for this endpoint
      *
      * @return  The data sink for this endpoint.
      */
-    qcc::Sink& GetSink() { return stream; };
+    qcc::Sink& GetSink() { return stream; }
 
     /**
-     * Get the SocketFd from this endpoint and detach it from the endpoint.
+     * Get the Stream from this endpoint
      *
-     * @return Underlying socket file descriptor for this endpoint.
+     * @return The stream for this endpoint.
      */
-    qcc::SocketFd GetSocketFd();
+    qcc::Stream& GetStream() { return stream; }
 
     /**
      * Set link timeout

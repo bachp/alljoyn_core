@@ -46,9 +46,7 @@
 #include "SessionInternal.h"
 #include "Transport.h"
 #include "TransportList.h"
-#include "TCPTransport.h"
 #include "BusUtil.h"
-#include "UnixTransport.h"
 #include "BusEndpoint.h"
 #include "LocalTransport.h"
 #include "PeerState.h"
@@ -56,7 +54,7 @@
 #include "BusInternal.h"
 #include "AllJoynPeerObj.h"
 #include "XmlHelper.h"
-#include "LaunchdTransport.h"
+#include "ClientTransport.h"
 
 #define QCC_MODULE "ALLJOYN"
 
@@ -123,13 +121,7 @@ class LocalTransportFactoryContainer : public TransportFactoryContainer {
   public:
     LocalTransportFactoryContainer()
     {
-#if defined(QCC_OS_WINDOWS)
-        Add(new TransportFactory<TCPTransport>("tcp", true));
-#elif defined(QCC_OS_DARWIN)
-        Add(new TransportFactory<LaunchdTransport>("launchd", true));
-#else
-        Add(new TransportFactory<UnixTransport>("unix", true));
-#endif
+        Add(new TransportFactory<ClientTransport>(ClientTransport::TransportName, true));
     }
 } localTransportsContainer;
 

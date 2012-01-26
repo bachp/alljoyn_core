@@ -1906,8 +1906,13 @@ QStatus AllJoynObj::SendGetSessionInfo(const char* creatorName,
 
 QStatus AllJoynObj::ShutdownEndpoint(RemoteEndpoint& b2bEp, SocketFd& sockFd)
 {
+    SocketStream& ss = static_cast<SocketStream&>(b2bEp.GetStream());
     /* Grab the file descriptor for the B2B endpoint and close the endpoint */
-    SocketFd epSockFd = b2bEp.GetSocketFd();
+    ss.DetachSocketFd();
+    SocketFd epSockFd = ss.GetSocketFd();
+    if (!epSockFd) {
+        return ER_BUS_NOT_CONNECTED;
+    }
     QStatus status = SocketDup(epSockFd, sockFd);
     if (status == ER_OK) {
         status = b2bEp.StopAfterTxEmpty();
