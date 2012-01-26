@@ -5,7 +5,7 @@
  */
 
 /******************************************************************************
- * Copyright 2009-2011, Qualcomm Innovation Center, Inc.
+ * Copyright 2009-2012, Qualcomm Innovation Center, Inc.
  *
  *    Licensed under the Apache License, Version 2.0 (the "License");
  *    you may not use this file except in compliance with the License.
@@ -20,11 +20,11 @@
  *    limitations under the License.
  ******************************************************************************/
 
-#ifndef _ALLJOYN_DAEMONTCPTRANSPORT_H
-#define _ALLJOYN_DAEMONTCPTRANSPORT_H
+#ifndef _ALLJOYN_TCPTRANSPORT_H
+#define _ALLJOYN_TCPTRANSPORT_H
 
 #ifndef __cplusplus
-#error Only include DaemonTCPTransport.h in C++ code.
+#error Only include TCPTransport.h in C++ code.
 #endif
 
 #include <list>
@@ -46,7 +46,7 @@
 
 namespace ajn {
 
-class DaemonTCPEndpoint;
+class TCPEndpoint;
 
 /**
  * @brief A class for TCP Transports used in daemons.
@@ -57,8 +57,8 @@ class DaemonTCPEndpoint;
  * versions revolves around routing and discovery. This class provides a
  * specialization of class Transport for use by daemons.
  */
-class DaemonTCPTransport : public Transport, public RemoteEndpoint::EndpointListener, public qcc::Thread {
-    friend class DaemonTCPEndpoint;
+class TCPTransport : public Transport, public RemoteEndpoint::EndpointListener, public qcc::Thread {
+    friend class TCPEndpoint;
 
   public:
     /**
@@ -66,12 +66,12 @@ class DaemonTCPTransport : public Transport, public RemoteEndpoint::EndpointList
      *
      * @param bus The BusAttachment associated with this endpoint
      */
-    DaemonTCPTransport(BusAttachment& bus);
+    TCPTransport(BusAttachment& bus);
 
     /**
      * Destructor
      */
-    virtual ~DaemonTCPTransport();
+    virtual ~TCPTransport();
 
     /**
      * Start the transport and associate it with a router.
@@ -221,7 +221,7 @@ class DaemonTCPTransport : public Transport, public RemoteEndpoint::EndpointList
     /**
      * Returns the name of this transport
      */
-    const char* GetTransportName() const { return TransportName(); }
+    const char* GetTransportName() const { return TransportName; }
 
     /**
      * Get the transport mask for this transport
@@ -261,27 +261,11 @@ class DaemonTCPTransport : public Transport, public RemoteEndpoint::EndpointList
     QStatus GetListenAddresses(const SessionOpts& opts, std::vector<qcc::String>& busAddrs) const;
 
     /**
-     * Indicates whether this transport may be used for a connection between
-     * an application and the daemon on the same machine or not.
+     * Indicates whether this transport is used for client-to-bus or bus-to-bus connections.
      *
-     * @return  true indicates this transport may be used for local connections.
+     * @return  Always returns true, TCP is a bus-to-bus transport.
      */
-    bool LocallyConnectable() const { return true; }
-
-    /**
-     * Indicates whether this transport may be used for a connection between
-     * an application and the daemon on a different machine or not.
-     *
-     * @return  true indicates this transport may be used for external connections.
-     */
-    bool ExternallyConnectable() const { return true; }
-
-    /**
-     * Name of transport used in transport specs.
-     *
-     * @return name of transport: @c "tcp".
-     */
-    static const char* TransportName() { return "tcp"; }
+    bool IsBusToBus() const { return true; }
 
     /**
      * Callback for TCPEndpoint exit.
@@ -290,13 +274,18 @@ class DaemonTCPTransport : public Transport, public RemoteEndpoint::EndpointList
      */
     void EndpointExit(RemoteEndpoint* endpoint);
 
+    /**
+     * Name of transport used in transport specs.
+     */
+    static const char* TransportName;
+
   private:
     BusAttachment& m_bus;                                          /**< The message bus for this transport */
     NameService* m_ns;                                             /**< The name service used for bus name discovery */
     bool m_stopping;                                               /**< True if Stop() has been called but endpoints still exist */
     TransportListener* m_listener;                                 /**< Registered TransportListener */
-    std::list<DaemonTCPEndpoint*> m_authList;                      /**< List of authenticating endpoints */
-    std::list<DaemonTCPEndpoint*> m_endpointList;                  /**< List of active endpoints */
+    std::list<TCPEndpoint*> m_authList;                            /**< List of authenticating endpoints */
+    std::list<TCPEndpoint*> m_endpointList;                        /**< List of active endpoints */
     qcc::Mutex m_endpointListLock;                                 /**< Mutex that protects the endpoint and auth lists */
 
     std::list<std::pair<qcc::String, qcc::SocketFd> > m_listenFds; /**< File descriptors the transport is listening on */
@@ -356,7 +345,7 @@ class DaemonTCPTransport : public Transport, public RemoteEndpoint::EndpointList
      * @internal
      * @brief Queue a StartListen request for the server accept loop
      *
-     * The server accept loop (executing in DaemonTCPTransport::Run() uses the
+     * The server accept loop (executing in TCPTransport::Run() uses the
      * socket FD resources that are used to listen on the endpoints specified
      * by the listenSpec parameters.  Creation and deletion of these resources
      * then happen with the involvement of two threads.
@@ -401,7 +390,7 @@ class DaemonTCPTransport : public Transport, public RemoteEndpoint::EndpointList
      * @internal
      * @brief Queue a StopListen request for the server accept loop
      *
-     * The server accept loop (executing in DaemonTCPTransport::Run() uses the
+     * The server accept loop (executing in TCPTransport::Run() uses the
      * socket FD resources that are used to listen on the endpoints specified
      * by the listenSpec parameters.  Creation and deletion of these resources
      * then happen with the involvement of two threads.
@@ -446,9 +435,9 @@ class DaemonTCPTransport : public Transport, public RemoteEndpoint::EndpointList
      * @internal
      * @brief Authentication complete notificiation.
      *
-     * @param conn Pointer to the DaemonTCPEndpoint that completed authentication.
+     * @param conn Pointer to the TCPEndpoint that completed authentication.
      */
-    void Authenticated(DaemonTCPEndpoint* conn);
+    void Authenticated(TCPEndpoint* conn);
 
     /**
      * @internal
@@ -634,4 +623,4 @@ class DaemonTCPTransport : public Transport, public RemoteEndpoint::EndpointList
 
 } // namespace ajn
 
-#endif // _ALLJOYN_DAEMONTCPTRANSPORT_H
+#endif // _ALLJOYN_TCPTRANSPORT_H

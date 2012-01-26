@@ -42,12 +42,9 @@
 #include <Status.h>
 
 #include "Transport.h"
-#include "DaemonTCPTransport.h"
-#if defined(QCC_OS_DARWIN)
-#warning BT Support on Darwin needs to be implemented
-#else
+#include "TCPTransport.h"
+#include "DaemonTransport.h"
 #include "BTTransport.h"
-#endif
 
 #include "Bus.h"
 #include "BusController.h"
@@ -73,7 +70,8 @@ using namespace std;
 static const char defaultConfig[] =
     "<busconfig>"
     "  <type>alljoyn</type>"
-    "  <listen>tcp:addr=0.0.0.0,port=9955,family=ipv4</listen>"
+    "  <listen>tcp:addr=0.0.0.0,port=9956,family=ipv4</listen>"
+    "  <listen>localhost:port=9955</listen>"
     "  <listen>bluetooth:</listen>"
     "  <policy context=\"default\">"
     "    <!-- Allow everything to be sent -->"
@@ -254,6 +252,8 @@ int daemon(OptParse& opts)
         qcc::String addrStr(*it);
         if (it->compare(0, sizeof("tcp:") - 1, "tcp:") == 0) {
             // No special processing needed for TCP.
+        } else if (it->compare(0, sizeof("localhost:") - 1, "localhost:") == 0) {
+            // No special processing needed for localhost.
         } else if (it->compare("bluetooth:") == 0) {
             skip = opts.GetNoBT();
         } else {
@@ -287,7 +287,8 @@ int daemon(OptParse& opts)
     // specified in the listen spec, they will be instantiated.
     //
     TransportFactoryContainer cntr;
-    cntr.Add(new TransportFactory<DaemonTCPTransport>("tcp", false));
+    cntr.Add(new TransportFactory<DaemonTransport>(DaemonTransport::TransportName, false));
+    cntr.Add(new TransportFactory<TCPTransport>(TCPTransport::TransportName, false));
     if (!opts.GetNoBT()) {
         cntr.Add(new TransportFactory<BTTransport>("bluetooth", false));
     }

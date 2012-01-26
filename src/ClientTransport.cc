@@ -69,6 +69,7 @@ QStatus ClientTransport::Start()
 
 QStatus ClientTransport::Stop(void)
 {
+    m_epLock.Lock();
     m_running = false;
 
     if (!m_stopping) {
@@ -77,6 +78,7 @@ QStatus ClientTransport::Stop(void)
             m_endpoint->Stop();
         }
     }
+    m_epLock.Unlock();
     return ER_OK;
 }
 
@@ -107,8 +109,13 @@ void ClientTransport::EndpointExit(RemoteEndpoint* ep)
      */
     QCC_DbgTrace(("ClientTransport::EndpointExit()"));
 
+    /*
+     * Grab the lock so we don't delete the endpoint while someone is calling Stop or Disconnect
+     */
+    m_epLock.Lock();
     m_endpoint = NULL;
     delete ep;
+    m_epLock.Unlock();
 }
 
 QStatus ClientTransport::Disconnect(const char* connectSpec)
@@ -133,9 +140,11 @@ QStatus ClientTransport::Disconnect(const char* connectSpec)
     /*
      * Stop the endpoint if it is not already being stopped
      */
-    if (!m_stopping) {
+    m_epLock.Lock();
+    if (!m_stopping && m_endpoint) {
         m_endpoint->Stop();
     }
+    m_epLock.Unlock();
     return status;
 }
 

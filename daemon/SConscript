@@ -16,7 +16,12 @@
 Import('env')
 from os.path import basename
 
-srcs = [ f for f in env.Glob('*.cc') + env.Glob('*.c') ]
+if env['OS'] == "darwin":
+    # Darwin has its own version of the daemon transport
+    srcs = [ f for f in env.Glob('*.cc') + env.Glob('*.c') + env.Glob(env['OS'] + '/DaemonTransport.cc')]
+else:
+    srcs = [ f for f in env.Glob('*.cc') + env.Glob('*.c') + env.Glob(env['OS_GROUP'] + '/DaemonTransport.cc')]
+
 bt_srcs = [ 'BTController.cc', 'BTTransport.cc', 'BTNodeDB.cc' ]
 
 if env['OS_GROUP'] == "windows":
@@ -33,9 +38,6 @@ config_objs = env.Object(['ConfigDB.cc',
 # Select BlueZ or BM3 for bluetooth support
 if env['OS'] == 'android_donut' or env['OS'] =="darwin":
     # Skip bluetooth
-    #env.Append(CPPPATH=['bt_bm3'])
-    #bm3_srcs, bm3_objs = env.SConscript('bt_bm3/SConscript')
-    #daemon_objs.extend(env.Object(bm3_srcs) + bm3_objs)
     pass
 elif env['OS_GROUP'] == "windows":
     win_srcs = env.SConscript('bt_windows/SConscript')

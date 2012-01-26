@@ -1,10 +1,10 @@
 /**
  * @file
- * DaemonTCPTransport is an implementation of TCPTransportBase for daemons.
+ * TCPTransport is an implementation of TCPTransportBase for daemons.
  */
 
 /******************************************************************************
- * Copyright 2009-2011, Qualcomm Innovation Center, Inc.
+ * Copyright 2009-2012, Qualcomm Innovation Center, Inc.
  *
  *    Licensed under the Apache License, Version 2.0 (the "License");
  *    you may not use this file except in compliance with the License.
@@ -36,7 +36,7 @@
 #include "Router.h"
 #include "ConfigDB.h"
 #include "NameService.h"
-#include "DaemonTCPTransport.h"
+#include "TCPTransport.h"
 
 /*
  * How the transport fits into the system
@@ -60,18 +60,18 @@
  * listen for incoming connections, they also must be able to initiate
  * connection requests to other daemons.  It turns out that there is very little
  * in the way of common code when comparing the client version of a TCP
- * transport and a daemon version.  Therefore you will find a DaemonTCPTransport
+ * transport and a daemon version.  Therefore you will find a TCPTransport
  * class in here the dameon directory and a client version, called simply
  * TCPTransport, in the src directory.
  *
- * This file is the DaemonTCPTransport.  It needs to act as both a client and a
+ * This file is the TCPTransport.  It needs to act as both a client and a
  * server explains the presence of both connect-like methods and listen-like
  * methods here.
  *
  * A fundamental idiom in the AllJoyn system is that of a thread.  Active
  * objects in the system that have threads wandering through them will implement
  * Start(), Stop() and Join() methods.  These methods work together to manage
- * the autonomous activities that can happen in a DaemonTCPTransport.  These
+ * the autonomous activities that can happen in a TCPTransport.  These
  * activities are carried out by so-called hardware threads.  POSIX defines
  * functions used to control hardware threads, which it calls pthreads.  Many
  * threading packages use similar constructs.
@@ -80,7 +80,7 @@
  * for the start of thread execution.  Threads are not necessarily running when
  * the start method returns, but they are being *started*.  Some time later, a
  * thread of execution appears in a thread run function, at which point the
- * thread is considered *running*.  In the case of the DaemonTCPTransport, the Start() method
+ * thread is considered *running*.  In the case of the TCPTransport, the Start() method
  * spins up a thread to run the BSD sockets' server accept loop.  This
  * also means that as soon as Start() is executed, a thread may be using underlying
  * socket file descriptors and one must be very careful about convincing the
@@ -91,7 +91,7 @@
  * sends a message to the thread to ask it to stop doing what it is doing.  The
  * thread is running until it responds to the stop message, at which time the
  * run method exits and the thread is considered *stopping*.  The
- * DaemonTCPTransport provides a Stop() method to do exactly that.
+ * TCPTransport provides a Stop() method to do exactly that.
  *
  * Note that neither of Start() nor Stop() are synchronous in the sense that one
  * has actually accomplished the desired effect upon the return from a call.  Of
@@ -113,7 +113,7 @@
  * the bugs live.
  *
  * As mentioned above, the AllJoyn system uses the concept of a Transport.  You
- * are looking at the DaemonTCPTransport.  Each transport also has the concept
+ * are looking at the TCPTransport.  Each transport also has the concept
  * of an Endpoint.  The most important function fo an endpoint is to provide
  * non-blocking semantics to higher level code.  This is provided by a transmit
  * thread on the write side which can block without blocking the higher level
@@ -124,10 +124,10 @@
  * classes.  LocalEndpoint represents a connection from a router to the local
  * bus attachment or daemon (within the "current" process).  A RemoteEndpoint
  * represents a connection from a router to a remote attachment or daemon.  By
- * definition, the DaemonTCPTransport provides RemoteEndpoint functionality.
+ * definition, the TCPTransport provides RemoteEndpoint functionality.
  *
  * RemoteEndpoints are further specialized according to the flavor of the
- * corresponding transport, and so you will see a DaemonTCPEndpoint class
+ * corresponding transport, and so you will see a TCPEndpoint class
  * defined below which provides functionality to send messages from the local
  * router to a destination off of the local process using a TCP transport
  * mechanism.
@@ -146,7 +146,7 @@
  * by a Message router, the transmit thread will pull it off and marshal it,
  * then it will write the bytes to the transport mechanism.
  *
- * The DaemonTCPEndpoint inherits the infrastructure requred to do most of its
+ * The TCPEndpoint inherits the infrastructure requred to do most of its
  * work from the more generic RemoteEndpoint class.  It needs to do specific
  * TCP-related work and also provide for authenticating the endpoint before it
  * is allowed to start pumping messages.  Authentication means running some
@@ -181,14 +181,14 @@
  * another out from under an Event without its knowledge.
  *
  * To summarize, consider the following "big picture' view of the transport.  A
- * single DaemonTCPTransport is constructed if the daemon TransportList
+ * single TCPTransport is constructed if the daemon TransportList
  * indicates that TCP support is required.  The high-level daemon code (see
  * bbdaemon.cc for example) builds a TransportFactoryContainer that is
- * initialized with a factory that knows how to make DaemonTCPTransport objects
+ * initialized with a factory that knows how to make TCPTransport objects
  * if they are needed, and associates the factory with the string "tcp".  The
  * daemon also constructs "server args" which may contain the string "tcp" or
  * "bluetooth" or "unix".  If the factory container provides a "tcp" factory and
- * the server args specify a "tcp" transport is needed then a DaemonTCPTransport
+ * the server args specify a "tcp" transport is needed then a TCPTransport
  * object is instantiated and entered into the daemon's internal transport list
  * (list of available transports).  Also provided for each transport is an abstract
  * address to listen for incoming connection requests on.
@@ -198,9 +198,9 @@
  * TransportList::Start() as a parameter.  The transport specs string is parsed
  * and in the example above, results in "unix" transports, "tcp" transports and
  * "bluetooth" transports being instantiated and started.  As mentioned
- * previously "tcp" in the daemon translates into DaemonTCPTransport.  Once the
+ * previously "tcp" in the daemon translates into TCPTransport.  Once the
  * desired transports are instantiated, each is Start()ed in turn.  In the case
- * of the DaemonTCPTransport, this will start the server accept loop.  Initially
+ * of the TCPTransport, this will start the server accept loop.  Initially
  * there are no sockets to listen on.
  *
  * The daemon then needs to start listening on some inbound addresses and ports.
@@ -209,11 +209,11 @@
  * this time the address and port information are used.  For example, one might
  * use the string "tcp:addr=0.0.0.0,port=9955;" to specify which address and
  * port to listen to.  This Bus::StartListen() call is translated into a
- * DaemonTCPTransport::StartListen() call which is provided with the string
+ * TCPTransport::StartListen() call which is provided with the string
  * which we call a "listen spec".  Our StartListen() will create a Socket, bind
  * the socket to the address and port provided and save the new socket on a list
  * of "listenFds." It will then Alert() the already running server accept loop
- * thread -- see DaemonTCPTransport::Run().  Each time through the server accept
+ * thread -- see TCPTransport::Run().  Each time through the server accept
  * loop, Run() will examine the list of listenFds and will associate an Event
  * with the corresponding socketFd and wait for connection requests.
  *
@@ -223,25 +223,25 @@
  * coordinated way.
  *
  * When an inbound connection request is received, the accept loop will wake up
- * and create a DaemonTCPEndpoint for the *proposed* new connection.  Recall
+ * and create a TCPEndpoint for the *proposed* new connection.  Recall
  * that an endpoint is not brought up immediately, but an authentication step
  * must be performed.  The server accept loop starts this process by placing the
- * new DaemonTCPEndpoint on an authList, or list of authenticating endpoints.
+ * new TCPEndpoint on an authList, or list of authenticating endpoints.
  * It then calls the endpoint Authenticate() method which spins up an
  * authentication thread and returns immediately.  This process transfers the
  * responsibility for the connection and its resources to the authentication
  * thread.  Authentication can succeed, fail, or take to long and be aborted.
  *
  * If authentication succeeds, the authentication thread calls back into the
- * DaemonTCPTransport's Authenticated() method.  Along with indicating that
+ * TCPTransport's Authenticated() method.  Along with indicating that
  * authentication has completed successfully, this transfers ownership of the
- * DaemonTCPEndpoint back to the DaemonTCPTransport from the authentication
- * thread.  At this time, the DaemonTCPEndpoint is Start()ed which spins up
+ * TCPEndpoint back to the TCPTransport from the authentication
+ * thread.  At this time, the TCPEndpoint is Start()ed which spins up
  * the transmit and receive threads and enables Message routing across the
  * transport.
  *
  * If the authentication fails, the authentication thread simply sets a the
- * DaemonTCPEndpoint state to FAILED and exits.  The server accept loop looks at
+ * TCPEndpoint state to FAILED and exits.  The server accept loop looks at
  * authenticating endpoints (those on the authList)each time through its loop.
  * If an endpoint has failed authentication, and its thread has actually gone
  * away (or more precisely is at least going away in such a way that it will
@@ -273,7 +273,7 @@
  * byte is only meaningful in Unix domain sockets transports, but we must send it
  * anyway.
  *
- * The next step is to create a DaemonTCPEndpoint and to put it on the endpointList.
+ * The next step is to create a TCPEndpoint and to put it on the endpointList.
  * Note that the endpoint doesn't go on the authList as in the server case, it
  * goes on the list of active endpoints.  This is because a failure to authenticate
  * on the client side results in a call to EndpointExit which is the same code path as
@@ -289,7 +289,7 @@
  * is the one deleting the endpoint; and no rx or tx thread is spun up if the
  * authentication fails.
  *
- * Shutting the DaemonTCPTransport down involves orchestrating the orderly termination
+ * Shutting the TCPTransport down involves orchestrating the orderly termination
  * of:
  *
  *   1) Threads that may be running in the server accept loop with associated Events
@@ -325,7 +325,7 @@
  * the socket now used by the other module).
  */
 
-#define QCC_MODULE "DAEMON_TCP"
+#define QCC_MODULE "TCP"
 
 using namespace std;
 using namespace qcc;
@@ -336,11 +336,16 @@ const uint32_t TCP_LINK_TIMEOUT_MIN_LINK_TIMEOUT     = 40;
 
 namespace ajn {
 
+/**
+ * Name of transport used in transport specs.
+ */
+const char* TCPTransport::TransportName = "tcp";
+
 /*
  * An endpoint class to handle the details of authenticating a connection in a
  * way that avoids denial of service attacks.
  */
-class DaemonTCPEndpoint : public RemoteEndpoint {
+class TCPEndpoint : public RemoteEndpoint {
   public:
     /**
      * There are three threads that can be running around in this data
@@ -393,13 +398,13 @@ class DaemonTCPEndpoint : public RemoteEndpoint {
         SIDE_PASSIVE         /**< This endpoint is the passive side of a connection */
     };
 
-    DaemonTCPEndpoint(DaemonTCPTransport* transport,
-                      BusAttachment& bus,
-                      bool incoming,
-                      const qcc::String connectSpec,
-                      qcc::SocketFd sock,
-                      const qcc::IPAddress& ipAddr,
-                      uint16_t port)
+    TCPEndpoint(TCPTransport* transport,
+                BusAttachment& bus,
+                bool incoming,
+                const qcc::String connectSpec,
+                qcc::SocketFd sock,
+                const qcc::IPAddress& ipAddr,
+                uint16_t port)
         : RemoteEndpoint(bus, incoming, connectSpec, m_stream, "tcp"),
         m_transport(transport),
         m_sideState(SIDE_INITIALIZED),
@@ -412,7 +417,7 @@ class DaemonTCPEndpoint : public RemoteEndpoint {
         m_port(port),
         m_wasSuddenDisconnect(!incoming) { }
 
-    virtual ~DaemonTCPEndpoint() { }
+    virtual ~TCPEndpoint() { }
 
     void SetStartTime(qcc::Timespec tStart) { m_tStart = tStart; }
     qcc::Timespec GetStartTime(void) { return m_tStart; }
@@ -506,14 +511,14 @@ class DaemonTCPEndpoint : public RemoteEndpoint {
   private:
     class AuthThread : public qcc::Thread {
       public:
-        AuthThread(DaemonTCPEndpoint* conn, DaemonTCPTransport* trans) : Thread("auth"), m_transport(trans) { }
+        AuthThread(TCPEndpoint* conn, TCPTransport* trans) : Thread("auth"), m_transport(trans) { }
       private:
         virtual qcc::ThreadReturn STDCALL Run(void* arg);
 
-        DaemonTCPTransport* m_transport;
+        TCPTransport* m_transport;
     };
 
-    DaemonTCPTransport* m_transport;  /**< The server holding the connection */
+    TCPTransport* m_transport;  /**< The server holding the connection */
     volatile SideState m_sideState;   /**< Is this an active or passive connection */
     volatile AuthState m_authState;   /**< The state of the endpoint authentication process */
     volatile EndpointState m_epState; /**< The state of the endpoint authentication process */
@@ -525,9 +530,9 @@ class DaemonTCPEndpoint : public RemoteEndpoint {
     bool m_wasSuddenDisconnect;       /**< If true, assumption is that any disconnect is unexpected due to lower level error */
 };
 
-QStatus DaemonTCPEndpoint::Authenticate(void)
+QStatus TCPEndpoint::Authenticate(void)
 {
-    QCC_DbgTrace(("DaemonTCPEndpoint::Authenticate()"));
+    QCC_DbgTrace(("TCPEndpoint::Authenticate()"));
     /*
      * Start the authentication thread.
      */
@@ -538,9 +543,9 @@ QStatus DaemonTCPEndpoint::Authenticate(void)
     return status;
 }
 
-void DaemonTCPEndpoint::AuthStop(void)
+void TCPEndpoint::AuthStop(void)
 {
-    QCC_DbgTrace(("DaemonTCPEndpoint::AuthStop()"));
+    QCC_DbgTrace(("TCPEndpoint::AuthStop()"));
 
     /*
      * Ask the auth thread to stop executing.  The only ways out of the thread
@@ -555,9 +560,9 @@ void DaemonTCPEndpoint::AuthStop(void)
     m_authThread.Stop();
 }
 
-void DaemonTCPEndpoint::AuthJoin(void)
+void TCPEndpoint::AuthJoin(void)
 {
-    QCC_DbgTrace(("DaemonTCPEndpoint::AuthJoin()"));
+    QCC_DbgTrace(("TCPEndpoint::AuthJoin()"));
 
     /*
      * Join the auth thread to stop executing.  All threads must be joined in
@@ -568,11 +573,11 @@ void DaemonTCPEndpoint::AuthJoin(void)
     m_authThread.Join();
 }
 
-void* DaemonTCPEndpoint::AuthThread::Run(void* arg)
+void* TCPEndpoint::AuthThread::Run(void* arg)
 {
-    QCC_DbgTrace(("DaemonTCPEndpoint::AuthThread::Run()"));
+    QCC_DbgTrace(("TCPEndpoint::AuthThread::Run()"));
 
-    DaemonTCPEndpoint* conn = reinterpret_cast<DaemonTCPEndpoint*>(arg);
+    TCPEndpoint* conn = reinterpret_cast<TCPEndpoint*>(arg);
 
     conn->m_authState = AUTH_AUTHENTICATING;
 
@@ -686,7 +691,7 @@ void* DaemonTCPEndpoint::AuthThread::Run(void* arg)
      */
     conn->m_transport->Authenticated(conn);
 
-    QCC_DbgTrace(("DaemonTCPEndpoint::AuthThread::Run(): Returning"));
+    QCC_DbgTrace(("TCPEndpoint::AuthThread::Run(): Returning"));
 
     /*
      * We are now done with the authentication process.  We have succeeded doing
@@ -708,11 +713,11 @@ void* DaemonTCPEndpoint::AuthThread::Run(void* arg)
     return (void*)status;
 }
 
-DaemonTCPTransport::DaemonTCPTransport(BusAttachment& bus)
-    : Thread("DaemonTCPTransport"), m_bus(bus), m_ns(0), m_stopping(false), m_listener(0), m_foundCallback(m_listener),
+TCPTransport::TCPTransport(BusAttachment& bus)
+    : Thread("TCPTransport"), m_bus(bus), m_ns(0), m_stopping(false), m_listener(0), m_foundCallback(m_listener),
     m_isAdvertising(false), m_isDiscovering(false), m_isListening(false), m_isNsEnabled(false)
 {
-    QCC_DbgTrace(("DaemonTCPTransport::DaemonTCPTransport()"));
+    QCC_DbgTrace(("TCPTransport::TCPTransport()"));
     /*
      * We know we are daemon code, so we'd better be running with a daemon
      * router.  This is assumed elsewhere.
@@ -720,18 +725,18 @@ DaemonTCPTransport::DaemonTCPTransport(BusAttachment& bus)
     assert(m_bus.GetInternal().GetRouter().IsDaemon());
 }
 
-DaemonTCPTransport::~DaemonTCPTransport()
+TCPTransport::~TCPTransport()
 {
-    QCC_DbgTrace(("DaemonTCPTransport::~DaemonTCPTransport()"));
+    QCC_DbgTrace(("TCPTransport::~TCPTransport()"));
     Stop();
     Join();
     delete m_ns;
     m_ns = 0;
 }
 
-void DaemonTCPTransport::Authenticated(DaemonTCPEndpoint* conn)
+void TCPTransport::Authenticated(TCPEndpoint* conn)
 {
-    QCC_DbgTrace(("DaemonTCPTransport::Authenticated()"));
+    QCC_DbgTrace(("TCPTransport::Authenticated()"));
 
     /*
      * If Authenticated() is being called, it is as a result of the
@@ -746,8 +751,8 @@ void DaemonTCPTransport::Authenticated(DaemonTCPEndpoint* conn)
      */
     m_endpointListLock.Lock(MUTEX_CONTEXT);
 
-    list<DaemonTCPEndpoint*>::iterator i = find(m_authList.begin(), m_authList.end(), conn);
-    assert(i != m_authList.end() && "DaemonTCPTransport::Authenticated(): Conn not on m_authList");
+    list<TCPEndpoint*>::iterator i = find(m_authList.begin(), m_authList.end(), conn);
+    assert(i != m_authList.end() && "TCPTransport::Authenticated(): Conn not on m_authList");
 
     /*
      * Note here that we have not yet marked the authState as AUTH_SUCCEEDED so
@@ -762,7 +767,7 @@ void DaemonTCPTransport::Authenticated(DaemonTCPEndpoint* conn)
     conn->SetListener(this);
     QStatus status = conn->Start();
     if (status != ER_OK) {
-        QCC_LogError(status, ("DaemonTCPTransport::Authenticated(): Failed to start TCP endpoint"));
+        QCC_LogError(status, ("TCPTransport::Authenticated(): Failed to start TCP endpoint"));
         /*
          * We were unable to start up the endpoint for some reason.  As soon as
          * we set this state to EP_FAILED, we are telling the server accept loop
@@ -787,13 +792,13 @@ void DaemonTCPTransport::Authenticated(DaemonTCPEndpoint* conn)
     }
 }
 
-QStatus DaemonTCPTransport::Start()
+QStatus TCPTransport::Start()
 {
     /* TODO - need to read these values from the configuration file */
     const bool enableIPv4 = true;
     const bool enableIPv6 = true;
 
-    QCC_DbgTrace(("DaemonTCPTransport::Start() ipv4=%s ipv6=%s", enableIPv4 ? "true" : "false", enableIPv6 ? "true" : "false"));
+    QCC_DbgTrace(("TCPTransport::Start() ipv4=%s ipv6=%s", enableIPv4 ? "true" : "false", enableIPv6 ? "true" : "false"));
 
     /*
      * We rely on the status of the server accept thead as the primary
@@ -817,7 +822,7 @@ QStatus DaemonTCPTransport::Start()
      * start requests.
      */
     if (IsRunning()) {
-        QCC_LogError(ER_BUS_BUS_ALREADY_STARTED, ("DaemonTCPTransport::Start(): Already started"));
+        QCC_LogError(ER_BUS_BUS_ALREADY_STARTED, ("TCPTransport::Start(): Already started"));
         return ER_BUS_BUS_ALREADY_STARTED;
     }
 
@@ -836,7 +841,7 @@ QStatus DaemonTCPTransport::Start()
      * can safely proceed.
      */
     if (m_ns != NULL) {
-        QCC_LogError(ER_BUS_BUS_ALREADY_STARTED, ("DaemonTCPTransport::Start(): Name service already started"));
+        QCC_LogError(ER_BUS_BUS_ALREADY_STARTED, ("TCPTransport::Start(): Name service already started"));
         return ER_BUS_BUS_ALREADY_STARTED;
     }
 
@@ -863,7 +868,7 @@ QStatus DaemonTCPTransport::Start()
 
     QStatus status = m_ns->Init(guidStr, enableIPv4, enableIPv6, disable);
     if (status != ER_OK) {
-        QCC_LogError(status, ("DaemonTCPTransport::Start(): Error starting name service"));
+        QCC_LogError(status, ("TCPTransport::Start(): Error starting name service"));
         return status;
     }
 
@@ -883,9 +888,9 @@ QStatus DaemonTCPTransport::Start()
     return Thread::Start();
 }
 
-QStatus DaemonTCPTransport::Stop(void)
+QStatus TCPTransport::Stop(void)
 {
-    QCC_DbgTrace(("DaemonTCPTransport::Stop()"));
+    QCC_DbgTrace(("TCPTransport::Stop()"));
 
     /*
      * It is legal to call Stop() more than once, so it must be possible to
@@ -908,7 +913,7 @@ QStatus DaemonTCPTransport::Stop(void)
      */
     QStatus status = Thread::Stop();
     if (status != ER_OK) {
-        QCC_LogError(status, ("DaemonTCPTransport::Stop(): Failed to Stop() server thread"));
+        QCC_LogError(status, ("TCPTransport::Stop(): Failed to Stop() server thread"));
         return status;
     }
 
@@ -921,7 +926,7 @@ QStatus DaemonTCPTransport::Stop(void)
      * data structure.  We call Stop() to stop that thread from running.  The
      * endpoint Rx and Tx threads will not be running yet.
      */
-    for (list<DaemonTCPEndpoint*>::iterator i = m_authList.begin(); i != m_authList.end(); ++i) {
+    for (list<TCPEndpoint*>::iterator i = m_authList.begin(); i != m_authList.end(); ++i) {
         (*i)->AuthStop();
     }
 
@@ -933,14 +938,14 @@ QStatus DaemonTCPTransport::Stop(void)
      * the connnection is on the m_endpointList, we know that the authentication
      * thread has handed off responsibility.
      */
-    for (list<DaemonTCPEndpoint*>::iterator i = m_endpointList.begin(); i != m_endpointList.end(); ++i) {
+    for (list<TCPEndpoint*>::iterator i = m_endpointList.begin(); i != m_endpointList.end(); ++i) {
         (*i)->Stop();
     }
 
     m_endpointListLock.Unlock(MUTEX_CONTEXT);
 
     /*
-     * The use model for DaemonTCPTransport is that it works like a thread.
+     * The use model for TCPTransport is that it works like a thread.
      * There is a call to Start() that spins up the server accept loop in order
      * to get it running.  When someone wants to tear down the transport, they
      * call Stop() which requests the transport to stop.  This is followed by
@@ -949,7 +954,7 @@ QStatus DaemonTCPTransport::Stop(void)
      * The name service should play by those rules as well.  We allocate and
      * initialize it in Start(), which will spin up the main thread there.
      * We need to Stop() the name service here and Join its thread in
-     * DaemonTCPTransport::Join().  If someone just deletes the transport
+     * TCPTransport::Join().  If someone just deletes the transport
      * there is an implied Stop() and Join() so it behaves correctly.
      */
     if (m_ns) {
@@ -959,9 +964,9 @@ QStatus DaemonTCPTransport::Stop(void)
     return ER_OK;
 }
 
-QStatus DaemonTCPTransport::Join(void)
+QStatus TCPTransport::Join(void)
 {
-    QCC_DbgTrace(("DaemonTCPTransport::Join()"));
+    QCC_DbgTrace(("TCPTransport::Join()"));
 
     /*
      * It is legal to call Join() more than once, so it must be possible to
@@ -971,7 +976,7 @@ QStatus DaemonTCPTransport::Join(void)
      */
     QStatus status = Thread::Join();
     if (status != ER_OK) {
-        QCC_LogError(status, ("DaemonTCPTransport::Join(): Failed to Join() server thread"));
+        QCC_LogError(status, ("TCPTransport::Join(): Failed to Join() server thread"));
         return status;
     }
 
@@ -997,7 +1002,7 @@ QStatus DaemonTCPTransport::Join(void)
      * authentication threads in a previously required Stop().  We need to
      * Join() all of these auth threads here.
      */
-    for (list<DaemonTCPEndpoint*>::iterator i = m_authList.begin(); i != m_authList.end(); ++i) {
+    for (list<TCPEndpoint*>::iterator i = m_authList.begin(); i != m_authList.end(); ++i) {
         (*i)->AuthJoin();
         delete *i;
     }
@@ -1009,7 +1014,7 @@ QStatus DaemonTCPTransport::Join(void)
      * Join() will wait on the endpoint rx and tx threads to exit as opposed to
      * the joining of the auth thread we did above.
      */
-    for (list<DaemonTCPEndpoint*>::iterator i = m_endpointList.begin(); i != m_endpointList.end(); ++i) {
+    for (list<TCPEndpoint*>::iterator i = m_endpointList.begin(); i != m_endpointList.end(); ++i) {
         (*i)->Join();
         delete *i;
     }
@@ -1018,7 +1023,7 @@ QStatus DaemonTCPTransport::Join(void)
     m_endpointListLock.Unlock(MUTEX_CONTEXT);
 
     /*
-     * The use model for DaemonTCPTransport is that it works like a thread.
+     * The use model for TCPTransport is that it works like a thread.
      * There is a call to Start() that spins up the server accept loop in order
      * to get it running.  When someone wants to tear down the transport, they
      * call Stop() which requests the transport to stop.  This is followed by
@@ -1045,9 +1050,9 @@ QStatus DaemonTCPTransport::Join(void)
  */
 static const char* INTERFACES_DEFAULT = "*";
 
-QStatus DaemonTCPTransport::GetListenAddresses(const SessionOpts& opts, std::vector<qcc::String>& busAddrs) const
+QStatus TCPTransport::GetListenAddresses(const SessionOpts& opts, std::vector<qcc::String>& busAddrs) const
 {
-    QCC_DbgTrace(("DaemonTCPTransport::GetListenAddresses()"));
+    QCC_DbgTrace(("TCPTransport::GetListenAddresses()"));
 
     /*
      * We are given a session options structure that defines the kind of
@@ -1057,7 +1062,7 @@ QStatus DaemonTCPTransport::GetListenAddresses(const SessionOpts& opts, std::vec
      * not an error if we don't match, we just don't have anything to offer.
      */
     if (opts.traffic != SessionOpts::TRAFFIC_MESSAGES && opts.traffic != SessionOpts::TRAFFIC_RAW_RELIABLE) {
-        QCC_DbgPrintf(("DaemonTCPTransport::GetListenAddresses(): traffic mismatch"));
+        QCC_DbgPrintf(("TCPTransport::GetListenAddresses(): traffic mismatch"));
         return ER_OK;
     }
 
@@ -1069,7 +1074,7 @@ QStatus DaemonTCPTransport::GetListenAddresses(const SessionOpts& opts, std::vec
      * those: cogito ergo some.
      */
     if (!(opts.transports & (TRANSPORT_WLAN | TRANSPORT_WWAN | TRANSPORT_LAN))) {
-        QCC_DbgPrintf(("DaemonTCPTransport::GetListenAddresses(): transport mismatch"));
+        QCC_DbgPrintf(("TCPTransport::GetListenAddresses(): transport mismatch"));
         return ER_OK;
     }
 
@@ -1083,7 +1088,7 @@ QStatus DaemonTCPTransport::GetListenAddresses(const SessionOpts& opts, std::vec
      * we really don't care about anything but the name service in this method.
      */
     if (m_ns == NULL) {
-        QCC_LogError(ER_BUS_TRANSPORT_NOT_STARTED, ("DaemonTCPTransport::GetListenAddresses(): NameService not initialized"));
+        QCC_LogError(ER_BUS_TRANSPORT_NOT_STARTED, ("TCPTransport::GetListenAddresses(): NameService not initialized"));
         return ER_BUS_TRANSPORT_NOT_STARTED;
     }
 
@@ -1098,12 +1103,12 @@ QStatus DaemonTCPTransport::GetListenAddresses(const SessionOpts& opts, std::vec
      * and out of range of this and that and the underlying IP addresses change
      * as DHCP doles out whatever it feels like at any moment.
      */
-    QCC_DbgPrintf(("DaemonTCPTransport::GetListenAddresses(): IfConfig()"));
+    QCC_DbgPrintf(("TCPTransport::GetListenAddresses(): IfConfig()"));
 
     std::vector<qcc::IfConfigEntry> entries;
     QStatus status = qcc::IfConfig(entries);
     if (status != ER_OK) {
-        QCC_LogError(status, ("DaemonTCPTransport::GetListenAddresses(): ns.IfConfig() failed"));
+        QCC_LogError(status, ("TCPTransport::GetListenAddresses(): ns.IfConfig() failed"));
         return status;
     }
 
@@ -1113,7 +1118,7 @@ QStatus DaemonTCPTransport::GetListenAddresses(const SessionOpts& opts, std::vec
      * with '*' being a wildcard indicating that we want to match any interface.
      * If there is no configuration item, we default to something rational.
      */
-    QCC_DbgPrintf(("DaemonTCPTransport::GetListenAddresses(): GetProperty()"));
+    QCC_DbgPrintf(("TCPTransport::GetListenAddresses(): GetProperty()"));
     qcc::String interfaces = ConfigDB::GetConfigDB()->GetProperty(NameService::MODULE_NAME, NameService::INTERFACES_PROPERTY);
     if (interfaces.size() == 0) {
         interfaces = INTERFACES_DEFAULT;
@@ -1128,7 +1133,7 @@ QStatus DaemonTCPTransport::GetListenAddresses(const SessionOpts& opts, std::vec
     const char*wildcard = "*";
     size_t i = interfaces.find(wildcard);
     if (i != qcc::String::npos) {
-        QCC_DbgPrintf(("DaemonTCPTransport::GetListenAddresses(): wildcard search"));
+        QCC_DbgPrintf(("TCPTransport::GetListenAddresses(): wildcard search"));
         haveWildcard = true;
         interfaces = wildcard;
     }
@@ -1153,14 +1158,14 @@ QStatus DaemonTCPTransport::GetListenAddresses(const SessionOpts& opts, std::vec
             interfaces.clear();
         }
 
-        QCC_DbgPrintf(("DaemonTCPTransport::GetListenAddresses(): looking for interface %s", currentInterface.c_str()));
+        QCC_DbgPrintf(("TCPTransport::GetListenAddresses(): looking for interface %s", currentInterface.c_str()));
 
         /*
          * Walk the list of interfaces that we got from the system and see if
          * we find a match.
          */
         for (uint32_t i = 0; i < entries.size(); ++i) {
-            QCC_DbgPrintf(("DaemonTCPTransport::GetListenAddresses(): matching %s", entries[i].m_name.c_str()));
+            QCC_DbgPrintf(("TCPTransport::GetListenAddresses(): matching %s", entries[i].m_name.c_str()));
             /*
              * To match a configuration entry, the name of the interface must:
              *
@@ -1174,9 +1179,9 @@ QStatus DaemonTCPTransport::GetListenAddresses(const SessionOpts& opts, std::vec
             uint32_t state = qcc::IfConfigEntry::UP;
 
             if ((entries[i].m_flags & mask) == state) {
-                QCC_DbgPrintf(("DaemonTCPTransport::GetListenAddresses(): %s has correct state", entries[i].m_name.c_str()));
+                QCC_DbgPrintf(("TCPTransport::GetListenAddresses(): %s has correct state", entries[i].m_name.c_str()));
                 if (haveWildcard || entries[i].m_name == currentInterface) {
-                    QCC_DbgPrintf(("DaemonTCPTransport::GetListenAddresses(): %s has correct name", entries[i].m_name.c_str()));
+                    QCC_DbgPrintf(("TCPTransport::GetListenAddresses(): %s has correct name", entries[i].m_name.c_str()));
                     /*
                      * This entry matches our search criteria, so we need to
                      * turn the IP address that we found into a busAddr.  We
@@ -1184,7 +1189,7 @@ QStatus DaemonTCPTransport::GetListenAddresses(const SessionOpts& opts, std::vec
                      * already in a string, so we can easily put together the
                      * desired busAddr.
                      */
-                    QCC_DbgTrace(("DaemonTCPTransport::GetListenAddresses(): %s match found", entries[i].m_name.c_str()));
+                    QCC_DbgTrace(("TCPTransport::GetListenAddresses(): %s match found", entries[i].m_name.c_str()));
                     /*
                      * We know we have an interface that speaks IP and
                      * which has an IP address we can pass back. We know
@@ -1209,7 +1214,7 @@ QStatus DaemonTCPTransport::GetListenAddresses(const SessionOpts& opts, std::vec
                     m_ns->GetEndpoints(ipv4address, ipv6address, port);
                     /*
                      * If the port is zero, then it hasn't been set and this
-                     * implies that DaemonTCPTransport::StartListen hasn't
+                     * implies that TCPTransport::StartListen hasn't
                      * been called and there is no listener for this transport.
                      * We should only return an address if we have a listener.
                      */
@@ -1237,15 +1242,15 @@ QStatus DaemonTCPTransport::GetListenAddresses(const SessionOpts& opts, std::vec
      * error to have no available interfaces.  In fact, it is quite expected
      * in a phone if it is not associated with an access point over wi-fi.
      */
-    QCC_DbgPrintf(("DaemonTCPTransport::GetListenAddresses(): done"));
+    QCC_DbgPrintf(("TCPTransport::GetListenAddresses(): done"));
     return ER_OK;
 }
 
-void DaemonTCPTransport::EndpointExit(RemoteEndpoint* ep)
+void TCPTransport::EndpointExit(RemoteEndpoint* ep)
 {
     /*
      * This is a callback driven from the remote endpoint thread exit function.
-     * Our DaemonTCPEndpoint inherits from class RemoteEndpoint and so when
+     * Our TCPEndpoint inherits from class RemoteEndpoint and so when
      * either of the threads (transmit or receive) of one of our endpoints exits
      * for some reason, we get called back here.  We only get called if either
      * the tx or rx thread exits, which implies that they have been run.  It
@@ -1255,9 +1260,9 @@ void DaemonTCPTransport::EndpointExit(RemoteEndpoint* ep)
      * authentication error since authentication is done in the context of the
      * Connect()ing thread and may be reported through EndpointExit.
      */
-    QCC_DbgTrace(("DaemonTCPTransport::EndpointExit()"));
+    QCC_DbgTrace(("TCPTransport::EndpointExit()"));
 
-    DaemonTCPEndpoint* tep = static_cast<DaemonTCPEndpoint*>(ep);
+    TCPEndpoint* tep = static_cast<TCPEndpoint*>(ep);
     assert(tep);
 
     /*
@@ -1293,7 +1298,7 @@ void DaemonTCPTransport::EndpointExit(RemoteEndpoint* ep)
     Alert();
 }
 
-void DaemonTCPTransport::ManageEndpoints(Timespec tTimeout)
+void TCPTransport::ManageEndpoints(Timespec tTimeout)
 {
     m_endpointListLock.Lock(MUTEX_CONTEXT);
 
@@ -1302,19 +1307,19 @@ void DaemonTCPTransport::ManageEndpoints(Timespec tTimeout)
      * any that are no longer running or are taking too long to authenticate
      * (we assume a denial of service attack in this case).
      */
-    list<DaemonTCPEndpoint*>::iterator i = m_authList.begin();
+    list<TCPEndpoint*>::iterator i = m_authList.begin();
     while (i != m_authList.end()) {
-        DaemonTCPEndpoint* ep = *i;
-        DaemonTCPEndpoint::AuthState authState = ep->GetAuthState();
+        TCPEndpoint* ep = *i;
+        TCPEndpoint::AuthState authState = ep->GetAuthState();
 
-        if (authState == DaemonTCPEndpoint::AUTH_FAILED) {
+        if (authState == TCPEndpoint::AUTH_FAILED) {
             /*
              * The endpoint has failed authentication and the auth thread is
              * gone or is going away.  Since it has failed there is no way this
              * endpoint is going to be started so we can get rid of it as soon
              * as we Join() the (failed) authentication thread.
              */
-            QCC_DbgHLPrintf(("DaemonTCPTransport::ManageEndpoints(): Scavenging failed authenticator"));
+            QCC_DbgHLPrintf(("TCPTransport::ManageEndpoints(): Scavenging failed authenticator"));
             ep->AuthJoin();
             i = m_authList.erase(i);
             delete ep;
@@ -1335,7 +1340,7 @@ void DaemonTCPTransport::ManageEndpoints(Timespec tTimeout)
              * here and now, we take our thread off the OS ready list (Sleep)
              * and let the other thread run before looping back.
              */
-            QCC_DbgHLPrintf(("DaemonTCPTransport::ManageEndpoints(): Scavenging slow authenticator"));
+            QCC_DbgHLPrintf(("TCPTransport::ManageEndpoints(): Scavenging slow authenticator"));
             ep->AuthStop();
             qcc::Sleep(1);
         }
@@ -1349,22 +1354,22 @@ void DaemonTCPTransport::ManageEndpoints(Timespec tTimeout)
      */
     i = m_endpointList.begin();
     while (i != m_endpointList.end()) {
-        DaemonTCPEndpoint* ep = *i;
+        TCPEndpoint* ep = *i;
 
         /*
          * We are only managing passive connections here, or active connections
          * that are done and are explicitly ready to be cleaned up.
          */
-        DaemonTCPEndpoint::SideState sideState = ep->GetSideState();
-        if (sideState == DaemonTCPEndpoint::SIDE_ACTIVE) {
+        TCPEndpoint::SideState sideState = ep->GetSideState();
+        if (sideState == TCPEndpoint::SIDE_ACTIVE) {
             ++i;
             continue;
         }
 
-        DaemonTCPEndpoint::AuthState authState = ep->GetAuthState();
-        DaemonTCPEndpoint::EndpointState endpointState = ep->GetEpState();
+        TCPEndpoint::AuthState authState = ep->GetAuthState();
+        TCPEndpoint::EndpointState endpointState = ep->GetEpState();
 
-        if (authState == DaemonTCPEndpoint::AUTH_SUCCEEDED) {
+        if (authState == TCPEndpoint::AUTH_SUCCEEDED) {
             /*
              * The endpoint has succeeded authentication and the auth thread is
              * gone or is going away.  Take this opportunity to join the auth
@@ -1374,7 +1379,7 @@ void DaemonTCPTransport::ManageEndpoints(Timespec tTimeout)
              * to enable this single special case where we are allowed to set
              * the state.
              */
-            QCC_DbgHLPrintf(("DaemonTCPTransport::ManageEndpoints(): Scavenging failed authenticator"));
+            QCC_DbgHLPrintf(("TCPTransport::ManageEndpoints(): Scavenging failed authenticator"));
             ep->AuthJoin();
             ep->SetAuthDone();
             continue;
@@ -1388,7 +1393,7 @@ void DaemonTCPTransport::ManageEndpoints(Timespec tTimeout)
          * it.  Since the threads were never started, they must not be
          * joined.
          */
-        if (endpointState == DaemonTCPEndpoint::EP_FAILED) {
+        if (endpointState == TCPEndpoint::EP_FAILED) {
             i = m_endpointList.erase(i);
             delete ep;
             continue;
@@ -1406,7 +1411,7 @@ void DaemonTCPTransport::ManageEndpoints(Timespec tTimeout)
          * the endpoint Join() to join the TX and RX threads and not
          * the endpoint AuthJoin() to join the auth thread.
          */
-        if (endpointState == DaemonTCPEndpoint::EP_STOPPING) {
+        if (endpointState == TCPEndpoint::EP_STOPPING) {
             ep->Join();
             i = m_endpointList.erase(i);
             delete ep;
@@ -1417,9 +1422,9 @@ void DaemonTCPTransport::ManageEndpoints(Timespec tTimeout)
     m_endpointListLock.Unlock(MUTEX_CONTEXT);
 }
 
-void* DaemonTCPTransport::Run(void* arg)
+void* TCPTransport::Run(void* arg)
 {
-    QCC_DbgTrace(("DaemonTCPTransport::Run()"));
+    QCC_DbgTrace(("TCPTransport::Run()"));
     /*
      * This is the Thread Run function for our server accept loop.  We require
      * that the name service be started before the Thread that will call us
@@ -1543,12 +1548,12 @@ void* DaemonTCPTransport::Run(void* arg)
                     break;
                 }
 
-                QCC_DbgHLPrintf(("DaemonTCPTransport::Run(): Accepting connection"));
+                QCC_DbgHLPrintf(("TCPTransport::Run(): Accepting connection newSock=%d", newSock));
 
-                QCC_DbgPrintf(("DaemonTCPTransport::Run(): maxAuth == %d", maxAuth));
-                QCC_DbgPrintf(("DaemonTCPTransport::Run(): maxConn == %d", maxConn));
-                QCC_DbgPrintf(("DaemonTCPTransport::Run(): mAuthList.size() == %d", m_authList.size()));
-                QCC_DbgPrintf(("DaemonTCPTransport::Run(): mEndpointList.size() == %d", m_endpointList.size()));
+                QCC_DbgPrintf(("TCPTransport::Run(): maxAuth == %d", maxAuth));
+                QCC_DbgPrintf(("TCPTransport::Run(): maxConn == %d", maxConn));
+                QCC_DbgPrintf(("TCPTransport::Run(): mAuthList.size() == %d", m_authList.size()));
+                QCC_DbgPrintf(("TCPTransport::Run(): mEndpointList.size() == %d", m_endpointList.size()));
                 assert(m_authList.size() + m_endpointList.size() <= maxConn);
 
                 /*
@@ -1557,7 +1562,7 @@ void* DaemonTCPTransport::Run(void* arg)
                  */
                 m_endpointListLock.Lock(MUTEX_CONTEXT);
                 if ((m_authList.size() < maxAuth) && (m_authList.size() + m_endpointList.size() < maxConn)) {
-                    DaemonTCPEndpoint* conn = new DaemonTCPEndpoint(this, m_bus, true, "", newSock, remoteAddr, remotePort);
+                    TCPEndpoint* conn = new TCPEndpoint(this, m_bus, true, "", newSock, remoteAddr, remotePort);
                     conn->SetPassive();
                     Timespec tNow;
                     GetTimeNow(&tNow);
@@ -1584,7 +1589,7 @@ void* DaemonTCPTransport::Run(void* arg)
                     qcc::Shutdown(newSock);
                     qcc::Close(newSock);
                     status = ER_AUTH_FAIL;
-                    QCC_LogError(status, ("DaemonTCPTransport::Run(): No slot for new connection"));
+                    QCC_LogError(status, ("TCPTransport::Run(): No slot for new connection"));
                 }
             }
 
@@ -1596,7 +1601,7 @@ void* DaemonTCPTransport::Run(void* arg)
             }
 
             if (status != ER_OK) {
-                QCC_LogError(status, ("DaemonTCPTransport::Run(): Error accepting new connection. Ignoring..."));
+                QCC_LogError(status, ("TCPTransport::Run(): Error accepting new connection. Ignoring..."));
             }
         }
 
@@ -1635,7 +1640,7 @@ void* DaemonTCPTransport::Run(void* arg)
      * we are listening to.  Since we've gotten a Stop() and are exiting the
      * server loop, and FDs are added in the server loop, this is the place to
      * get rid of them.  We don't have to take the list lock since a Stop()
-     * request to the DaemonTCPTransport is required to lock out any new
+     * request to the TCPTransport is required to lock out any new
      * requests that may possibly touch the listen FDs list.
      */
     m_listenFdsLock.Lock(MUTEX_CONTEXT);
@@ -1646,7 +1651,7 @@ void* DaemonTCPTransport::Run(void* arg)
     m_listenFds.clear();
     m_listenFdsLock.Unlock(MUTEX_CONTEXT);
 
-    QCC_DbgPrintf(("DaemonTCPTransport::Run is exiting status=%s", QCC_StatusText(status)));
+    QCC_DbgPrintf(("TCPTransport::Run is exiting status=%s", QCC_StatusText(status)));
     return (void*) status;
 }
 
@@ -1782,12 +1787,12 @@ void* DaemonTCPTransport::Run(void* arg)
  *   m_isDiscovering: The list of discovery requests has been sent to the name
  *     service.  if we are m_isDiscovering then m_isNsEnabled must be true.
  */
-void DaemonTCPTransport::RunListenMachine(void)
+void TCPTransport::RunListenMachine(void)
 {
-    QCC_DbgPrintf(("DaemonTCPTransport::RunListenMachine()"));
+    QCC_DbgPrintf(("TCPTransport::RunListenMachine()"));
 
     while (m_listenRequests.empty() == false) {
-        QCC_DbgPrintf(("DaemonTCPTransport::RunListenMachine(): Do request."));
+        QCC_DbgPrintf(("TCPTransport::RunListenMachine(): Do request."));
         ListenRequest listenRequest = m_listenRequests.front();
         m_listenRequests.pop();
 
@@ -1876,9 +1881,9 @@ void DaemonTCPTransport::RunListenMachine(void)
     }
 }
 
-void DaemonTCPTransport::StartListenInstance(ListenRequest& listenRequest)
+void TCPTransport::StartListenInstance(ListenRequest& listenRequest)
 {
-    QCC_DbgPrintf(("DaemonTCPTransport::StartListenInstance()"));
+    QCC_DbgPrintf(("TCPTransport::StartListenInstance()"));
 
     /*
      * We have a new StartListen request, so save the listen spec so we
@@ -1895,18 +1900,14 @@ void DaemonTCPTransport::StartListenInstance(ListenRequest& listenRequest)
      * We do this unless we have any outstanding advertisements or discovery
      * operations in which case we start up the listens immediately.
      */
-#ifdef QCC_OS_WINDOWS
-    DoStartListen(listenRequest.m_requestParam);
-#else
     if (m_isAdvertising || m_isDiscovering) {
         DoStartListen(listenRequest.m_requestParam);
     }
-#endif
 }
 
-void DaemonTCPTransport::StopListenInstance(ListenRequest& listenRequest)
+void TCPTransport::StopListenInstance(ListenRequest& listenRequest)
 {
-    QCC_DbgPrintf(("DaemonTCPTransport::StopListenInstance()"));
+    QCC_DbgPrintf(("TCPTransport::StopListenInstance()"));
 
     /*
      * We have a new StopListen request, so we need to remove this
@@ -1926,7 +1927,7 @@ void DaemonTCPTransport::StopListenInstance(ListenRequest& listenRequest)
      * are soon to be meaningless.
      */
     if (empty && m_isAdvertising) {
-        QCC_LogError(ER_FAIL, ("DaemonTCPTransport::StopListenInstance(): No listeners with outstanding advertisements."));
+        QCC_LogError(ER_FAIL, ("TCPTransport::StopListenInstance(): No listeners with outstanding advertisements."));
         for (list<qcc::String>::iterator i = m_advertising.begin(); i != m_advertising.end(); ++i) {
             m_ns->Cancel(*i);
         }
@@ -1941,9 +1942,9 @@ void DaemonTCPTransport::StopListenInstance(ListenRequest& listenRequest)
     DoStopListen(listenRequest.m_requestParam);
 }
 
-void DaemonTCPTransport::EnableAdvertisementInstance(ListenRequest& listenRequest)
+void TCPTransport::EnableAdvertisementInstance(ListenRequest& listenRequest)
 {
-    QCC_DbgPrintf(("DaemonTCPTransport::EnableAdvertisementInstance()"));
+    QCC_DbgPrintf(("TCPTransport::EnableAdvertisementInstance()"));
 
     /*
      * We have a new advertisement request to deal with.  The first
@@ -1983,7 +1984,7 @@ void DaemonTCPTransport::EnableAdvertisementInstance(ListenRequest& listenReques
                 m_isNsEnabled = true;
             }
         } else {
-            QCC_LogError(ER_FAIL, ("DaemonTCPTransport::EnableAdvertisementInstance(): Advertise with no TCP listeners"));
+            QCC_LogError(ER_FAIL, ("TCPTransport::EnableAdvertisementInstance(): Advertise with no TCP listeners"));
             return;
         }
     }
@@ -1997,15 +1998,15 @@ void DaemonTCPTransport::EnableAdvertisementInstance(ListenRequest& listenReques
 
     QStatus status = m_ns->Advertise(listenRequest.m_requestParam);
     if (status != ER_OK) {
-        QCC_LogError(status, ("DaemonTCPTransport::EnableAdvertisementInstance(): Failed to advertise \"%s\"", listenRequest.m_requestParam.c_str()));
+        QCC_LogError(status, ("TCPTransport::EnableAdvertisementInstance(): Failed to advertise \"%s\"", listenRequest.m_requestParam.c_str()));
     }
 
     m_isAdvertising = true;
 }
 
-void DaemonTCPTransport::DisableAdvertisementInstance(ListenRequest& listenRequest)
+void TCPTransport::DisableAdvertisementInstance(ListenRequest& listenRequest)
 {
-    QCC_DbgPrintf(("DaemonTCPTransport::DisableAdvertisementInstance()"));
+    QCC_DbgPrintf(("TCPTransport::DisableAdvertisementInstance()"));
 
     /*
      * We have a new disable advertisement request to deal with.  The first
@@ -2020,7 +2021,7 @@ void DaemonTCPTransport::DisableAdvertisementInstance(ListenRequest& listenReque
      */
     QStatus status = m_ns->Cancel(listenRequest.m_requestParam);
     if (status != ER_OK) {
-        QCC_LogError(status, ("DaemonTCPTransport::DisableAdvertisementInstance(): Failed to Cancel \"%s\"", listenRequest.m_requestParam.c_str()));
+        QCC_LogError(status, ("TCPTransport::DisableAdvertisementInstance(): Failed to Cancel \"%s\"", listenRequest.m_requestParam.c_str()));
     }
 
     /*
@@ -2044,12 +2045,10 @@ void DaemonTCPTransport::DisableAdvertisementInstance(ListenRequest& listenReque
          * Windows needs the listeners running at all times since it uses
          * TCP for the client to daemon connections.
          */
-#ifndef QCC_OS_WINDOWS
         for (list<qcc::String>::iterator i = m_listening.begin(); i != m_listening.end(); ++i) {
             DoStopListen(*i);
         }
         m_isListening = false;
-#endif
     }
 
     if (isEmpty) {
@@ -2057,9 +2056,9 @@ void DaemonTCPTransport::DisableAdvertisementInstance(ListenRequest& listenReque
     }
 }
 
-void DaemonTCPTransport::EnableDiscoveryInstance(ListenRequest& listenRequest)
+void TCPTransport::EnableDiscoveryInstance(ListenRequest& listenRequest)
 {
-    QCC_DbgPrintf(("DaemonTCPTransport::EnableDiscoveryInstance()"));
+    QCC_DbgPrintf(("TCPTransport::EnableDiscoveryInstance()"));
 
     /*
      * We have a new discovery request to deal with.  The first
@@ -2099,7 +2098,7 @@ void DaemonTCPTransport::EnableDiscoveryInstance(ListenRequest& listenRequest)
                 m_isNsEnabled = true;
             }
         } else {
-            QCC_LogError(ER_FAIL, ("DaemonTCPTransport::EnableDiscoveryInstance(): Discover with no TCP listeners"));
+            QCC_LogError(ER_FAIL, ("TCPTransport::EnableDiscoveryInstance(): Discover with no TCP listeners"));
             return;
         }
     }
@@ -2137,15 +2136,15 @@ void DaemonTCPTransport::EnableDiscoveryInstance(ListenRequest& listenRequest)
 
     QStatus status = m_ns->Locate(starred);
     if (status != ER_OK) {
-        QCC_LogError(status, ("DaemonTCPTransport::Run(): Failed to locate \"%s\"", starred.c_str()));
+        QCC_LogError(status, ("TCPTransport::Run(): Failed to locate \"%s\"", starred.c_str()));
     }
 
     m_isDiscovering = true;
 }
 
-void DaemonTCPTransport::DisableDiscoveryInstance(ListenRequest& listenRequest)
+void TCPTransport::DisableDiscoveryInstance(ListenRequest& listenRequest)
 {
-    QCC_DbgPrintf(("DaemonTCPTransport::DisableDiscoveryInstance()"));
+    QCC_DbgPrintf(("TCPTransport::DisableDiscoveryInstance()"));
 
     /*
      * We have a new disable discovery request to deal with.  The first
@@ -2176,12 +2175,10 @@ void DaemonTCPTransport::DisableDiscoveryInstance(ListenRequest& listenRequest)
          * Windows needs the listeners running at all times since it uses
          * TCP for the client to daemon connections.
          */
-#ifndef QCC_OS_WINDOWS
         for (list<qcc::String>::iterator i = m_listening.begin(); i != m_listening.end(); ++i) {
             DoStopListen(*i);
         }
         m_isListening = false;
-#endif
     }
 
     if (isEmpty) {
@@ -2207,7 +2204,7 @@ static const uint16_t PORT_DEFAULT = 0;
 static const uint16_t PORT_DEFAULT = 9955;
 #endif
 
-QStatus DaemonTCPTransport::NormalizeListenSpec(const char* inSpec, qcc::String& outSpec, map<qcc::String, qcc::String>& argMap) const
+QStatus TCPTransport::NormalizeListenSpec(const char* inSpec, qcc::String& outSpec, map<qcc::String, qcc::String>& argMap) const
 {
     qcc::String family;
 
@@ -2285,7 +2282,7 @@ QStatus DaemonTCPTransport::NormalizeListenSpec(const char* inSpec, qcc::String&
     return ER_OK;
 }
 
-QStatus DaemonTCPTransport::NormalizeTransportSpec(const char* inSpec, qcc::String& outSpec, map<qcc::String, qcc::String>& argMap) const
+QStatus TCPTransport::NormalizeTransportSpec(const char* inSpec, qcc::String& outSpec, map<qcc::String, qcc::String>& argMap) const
 {
     /*
      * We don't make any calls that require us to be in any particular state
@@ -2313,9 +2310,9 @@ QStatus DaemonTCPTransport::NormalizeTransportSpec(const char* inSpec, qcc::Stri
     return ER_OK;
 }
 
-QStatus DaemonTCPTransport::Connect(const char* connectSpec, const SessionOpts& opts, RemoteEndpoint** newep)
+QStatus TCPTransport::Connect(const char* connectSpec, const SessionOpts& opts, RemoteEndpoint** newep)
 {
-    QCC_DbgHLPrintf(("DaemonTCPTransport::Connect(): %s", connectSpec));
+    QCC_DbgHLPrintf(("TCPTransport::Connect(): %s", connectSpec));
 
     QStatus status;
     bool isConnected = false;
@@ -2334,7 +2331,7 @@ QStatus DaemonTCPTransport::Connect(const char* connectSpec, const SessionOpts& 
      * our Stop() method.
      */
     if (IsRunning() == false || m_stopping == true) {
-        QCC_LogError(ER_BUS_TRANSPORT_NOT_STARTED, ("DaemonTCPTransport::Connect(): Not running or stopping; exiting"));
+        QCC_LogError(ER_BUS_TRANSPORT_NOT_STARTED, ("TCPTransport::Connect(): Not running or stopping; exiting"));
         return ER_BUS_TRANSPORT_NOT_STARTED;
     }
 
@@ -2415,11 +2412,11 @@ QStatus DaemonTCPTransport::Connect(const char* connectSpec, const SessionOpts& 
      * Look to see if we are already listening on the provided connectSpec
      * either explicitly or via the INADDR_ANY address.
      */
-    QCC_DbgHLPrintf(("DaemonTCPTransport::Connect(): Checking for connection to self"));
+    QCC_DbgHLPrintf(("TCPTransport::Connect(): Checking for connection to self"));
     m_listenFdsLock.Lock(MUTEX_CONTEXT);
     bool anyEncountered = false;
     for (list<pair<qcc::String, SocketFd> >::iterator i = m_listenFds.begin(); i != m_listenFds.end(); ++i) {
-        QCC_DbgHLPrintf(("DaemonTCPTransport::Connect(): Checking listenSpec %s", i->first.c_str()));
+        QCC_DbgHLPrintf(("TCPTransport::Connect(): Checking listenSpec %s", i->first.c_str()));
 
         /*
          * If the provided connectSpec is already explicitly listened to, it is
@@ -2427,7 +2424,7 @@ QStatus DaemonTCPTransport::Connect(const char* connectSpec, const SessionOpts& 
          */
         if (i->first == normSpec) {
             m_listenFdsLock.Unlock(MUTEX_CONTEXT);
-            QCC_DbgHLPrintf(("DaemonTCPTransport::Connect(): Explicit connection to self"));
+            QCC_DbgHLPrintf(("TCPTransport::Connect(): Explicit connection to self"));
             return ER_BUS_ALREADY_LISTENING;
         }
 
@@ -2437,7 +2434,7 @@ QStatus DaemonTCPTransport::Connect(const char* connectSpec, const SessionOpts& 
          * or not.  Set a flag to remind us.
          */
         if (i->first == normAnySpec) {
-            QCC_DbgHLPrintf(("DaemonTCPTransport::Connect(): Possible implicit connection to self detected"));
+            QCC_DbgHLPrintf(("TCPTransport::Connect(): Possible implicit connection to self detected"));
             anyEncountered = true;
         }
     }
@@ -2449,7 +2446,7 @@ QStatus DaemonTCPTransport::Connect(const char* connectSpec, const SessionOpts& 
      * addr.
      */
     if (anyEncountered) {
-        QCC_DbgHLPrintf(("DaemonTCPTransport::Connect(): Checking for implicit connection to self"));
+        QCC_DbgHLPrintf(("TCPTransport::Connect(): Checking for implicit connection to self"));
         std::vector<qcc::IfConfigEntry> entries;
         QStatus status = qcc::IfConfig(entries);
 
@@ -2470,12 +2467,12 @@ QStatus DaemonTCPTransport::Connect(const char* connectSpec, const SessionOpts& 
              * is a hit.
              */
             for (uint32_t i = 0; i < entries.size(); ++i) {
-                QCC_DbgHLPrintf(("DaemonTCPTransport::Connect(): Checking interface %s", entries[i].m_name.c_str()));
+                QCC_DbgHLPrintf(("TCPTransport::Connect(): Checking interface %s", entries[i].m_name.c_str()));
                 if (entries[i].m_flags & qcc::IfConfigEntry::UP) {
-                    QCC_DbgHLPrintf(("DaemonTCPTransport::Connect(): Interface UP with addresss %s", entries[i].m_addr.c_str()));
+                    QCC_DbgHLPrintf(("TCPTransport::Connect(): Interface UP with addresss %s", entries[i].m_addr.c_str()));
                     IPAddress foundAddr(entries[i].m_addr);
                     if (foundAddr == ipAddr) {
-                        QCC_DbgHLPrintf(("DaemonTCPTransport::Connect(): Attempted connection to self; exiting"));
+                        QCC_DbgHLPrintf(("TCPTransport::Connect(): Attempted connection to self; exiting"));
                         return ER_BUS_ALREADY_LISTENING;
                     }
                 }
@@ -2528,9 +2525,9 @@ QStatus DaemonTCPTransport::Connect(const char* connectSpec, const SessionOpts& 
      * TCPEndpoint object that will orchestrate the movement of data across the
      * transport.
      */
-    DaemonTCPEndpoint* conn = NULL;
+    TCPEndpoint* conn = NULL;
     if (status == ER_OK) {
-        conn = new DaemonTCPEndpoint(this, m_bus, false, normSpec, sockFd, ipAddr, port);
+        conn = new TCPEndpoint(this, m_bus, false, normSpec, sockFd, ipAddr, port);
         /*
          * On the active side of a connection, we don't need an authentication
          * thread to run since we have the caller thread.  We do have to put the
@@ -2579,10 +2576,10 @@ QStatus DaemonTCPTransport::Connect(const char* connectSpec, const SessionOpts& 
          * we've asked to keep responsibility by doing a SetActive().
          */
         if (status != ER_OK && conn) {
-            QCC_LogError(status, ("DaemonTCPTransport::Connect(): Start TCPEndpoint failed"));
+            QCC_LogError(status, ("TCPTransport::Connect(): Start TCPEndpoint failed"));
 
             m_endpointListLock.Lock(MUTEX_CONTEXT);
-            list<DaemonTCPEndpoint*>::iterator i = find(m_endpointList.begin(), m_endpointList.end(), conn);
+            list<TCPEndpoint*>::iterator i = find(m_endpointList.begin(), m_endpointList.end(), conn);
             if (i != m_endpointList.end()) {
                 m_endpointList.erase(i);
             }
@@ -2618,9 +2615,9 @@ QStatus DaemonTCPTransport::Connect(const char* connectSpec, const SessionOpts& 
     return status;
 }
 
-QStatus DaemonTCPTransport::Disconnect(const char* connectSpec)
+QStatus TCPTransport::Disconnect(const char* connectSpec)
 {
-    QCC_DbgHLPrintf(("DaemonTCPTransport::Disconnect(): %s", connectSpec));
+    QCC_DbgHLPrintf(("TCPTransport::Disconnect(): %s", connectSpec));
 
     /*
      * We only want to allow this call to proceed if we have a running server
@@ -2637,7 +2634,7 @@ QStatus DaemonTCPTransport::Disconnect(const char* connectSpec)
      * our Stop() method.
      */
     if (IsRunning() == false || m_stopping == true) {
-        QCC_LogError(ER_BUS_TRANSPORT_NOT_STARTED, ("DaemonTCPTransport::Disconnect(): Not running or stopping; exiting"));
+        QCC_LogError(ER_BUS_TRANSPORT_NOT_STARTED, ("TCPTransport::Disconnect(): Not running or stopping; exiting"));
         return ER_BUS_TRANSPORT_NOT_STARTED;
     }
 
@@ -2659,7 +2656,7 @@ QStatus DaemonTCPTransport::Disconnect(const char* connectSpec)
     map<qcc::String, qcc::String> argMap;
     QStatus status = NormalizeTransportSpec(connectSpec, normSpec, argMap);
     if (ER_OK != status) {
-        QCC_LogError(status, ("DaemonTCPTransport::Disconnect(): Invalid TCP connect spec \"%s\"", connectSpec));
+        QCC_LogError(status, ("TCPTransport::Disconnect(): Invalid TCP connect spec \"%s\"", connectSpec));
         return status;
     }
 
@@ -2676,9 +2673,9 @@ QStatus DaemonTCPTransport::Disconnect(const char* connectSpec)
      */
     status = ER_BUS_BAD_TRANSPORT_ARGS;
     m_endpointListLock.Lock(MUTEX_CONTEXT);
-    for (list<DaemonTCPEndpoint*>::iterator i = m_endpointList.begin(); i != m_endpointList.end(); ++i) {
+    for (list<TCPEndpoint*>::iterator i = m_endpointList.begin(); i != m_endpointList.end(); ++i) {
         if ((*i)->GetPort() == port && (*i)->GetIPAddress() == ipAddr) {
-            DaemonTCPEndpoint* ep = *i;
+            TCPEndpoint* ep = *i;
             ep->SetSuddenDisconnect(false);
             m_endpointListLock.Unlock(MUTEX_CONTEXT);
             return ep->Stop();
@@ -2688,9 +2685,9 @@ QStatus DaemonTCPTransport::Disconnect(const char* connectSpec)
     return status;
 }
 
-QStatus DaemonTCPTransport::StartListen(const char* listenSpec)
+QStatus TCPTransport::StartListen(const char* listenSpec)
 {
-    QCC_DbgPrintf(("DaemonTCPTransport::StartListen()"));
+    QCC_DbgPrintf(("TCPTransport::StartListen()"));
 
     /*
      * We only want to allow this call to proceed if we have a running server
@@ -2706,7 +2703,7 @@ QStatus DaemonTCPTransport::StartListen(const char* listenSpec)
      * our Stop() method.
      */
     if (IsRunning() == false || m_stopping == true) {
-        QCC_LogError(ER_BUS_TRANSPORT_NOT_STARTED, ("DaemonTCPTransport::StartListen(): Not running or stopping; exiting"));
+        QCC_LogError(ER_BUS_TRANSPORT_NOT_STARTED, ("TCPTransport::StartListen(): Not running or stopping; exiting"));
         return ER_BUS_TRANSPORT_NOT_STARTED;
     }
 
@@ -2719,11 +2716,11 @@ QStatus DaemonTCPTransport::StartListen(const char* listenSpec)
     map<qcc::String, qcc::String> argMap;
     QStatus status = NormalizeListenSpec(listenSpec, normSpec, argMap);
     if (status != ER_OK) {
-        QCC_LogError(status, ("DaemonTCPTransport::StartListen(): Invalid TCP listen spec \"%s\"", listenSpec));
+        QCC_LogError(status, ("TCPTransport::StartListen(): Invalid TCP listen spec \"%s\"", listenSpec));
         return status;
     }
 
-    QCC_DbgPrintf(("DaemonTCPTransport::StartListen(): addr = \"%s\", port = \"%s\", family=\"%s\"",
+    QCC_DbgPrintf(("TCPTransport::StartListen(): addr = \"%s\", port = \"%s\", family=\"%s\"",
                    argMap["addr"].c_str(), argMap["port"].c_str(), argMap["family"].c_str()));
 
     /*
@@ -2736,13 +2733,13 @@ QStatus DaemonTCPTransport::StartListen(const char* listenSpec)
     IPAddress ipAddress;
     status = ipAddress.SetAddress(argMap["addr"].c_str());
     if (status != ER_OK) {
-        QCC_LogError(status, ("DaemonTCPTransport::StartListen(): Unable to SetAddress(\"%s\")", argMap["addr"].c_str()));
+        QCC_LogError(status, ("TCPTransport::StartListen(): Unable to SetAddress(\"%s\")", argMap["addr"].c_str()));
         return status;
     }
 
     if (ipAddress.IsIPv6()) {
         status = ER_INVALID_ADDRESS;
-        QCC_LogError(status, ("DaemonTCPTransport::StartListen(): IPv6 addresses (\"%s\") not allowed", argMap["addr"].c_str()));
+        QCC_LogError(status, ("TCPTransport::StartListen(): IPv6 addresses (\"%s\") not allowed", argMap["addr"].c_str()));
         return status;
     }
 
@@ -2778,9 +2775,9 @@ QStatus DaemonTCPTransport::StartListen(const char* listenSpec)
     return ER_OK;
 }
 
-void DaemonTCPTransport::QueueStartListen(qcc::String& normSpec)
+void TCPTransport::QueueStartListen(qcc::String& normSpec)
 {
-    QCC_DbgPrintf(("DaemonTCPTransport::QueueStartListen()"));
+    QCC_DbgPrintf(("TCPTransport::QueueStartListen()"));
 
     /*
      * In order to start a listen, we send the server accept thread a message
@@ -2802,9 +2799,9 @@ void DaemonTCPTransport::QueueStartListen(qcc::String& normSpec)
     Alert();
 }
 
-void DaemonTCPTransport::DoStartListen(qcc::String& normSpec)
+void TCPTransport::DoStartListen(qcc::String& normSpec)
 {
-    QCC_DbgPrintf(("DaemonTCPTransport::DoStartListen()"));
+    QCC_DbgPrintf(("TCPTransport::DoStartListen()"));
 
     /*
      * Since the name service is created before the server accept thread is spun
@@ -2822,9 +2819,9 @@ void DaemonTCPTransport::DoStartListen(qcc::String& normSpec)
     qcc::String spec;
     map<qcc::String, qcc::String> argMap;
     QStatus status = NormalizeListenSpec(normSpec.c_str(), spec, argMap);
-    assert(status == ER_OK && "DaemonTCPTransport::DoStartListen(): Invalid TCP listen spec");
+    assert(status == ER_OK && "TCPTransport::DoStartListen(): Invalid TCP listen spec");
 
-    QCC_DbgPrintf(("DaemonTCPTransport::DoStartListen(): addr = \"%s\", port = \"%s\", family=\"%s\"",
+    QCC_DbgPrintf(("TCPTransport::DoStartListen(): addr = \"%s\", port = \"%s\", family=\"%s\"",
                    argMap["addr"].c_str(), argMap["port"].c_str(), argMap["family"].c_str()));
 
     m_listenFdsLock.Lock(MUTEX_CONTEXT);
@@ -2890,7 +2887,7 @@ void DaemonTCPTransport::DoStartListen(qcc::String& normSpec)
             status = m_ns->OpenInterface(currentInterface);
         }
         if (status != ER_OK) {
-            QCC_LogError(status, ("DaemonTCPTransport::DoStartListen(): OpenInterface() failed for %s", currentInterface.c_str()));
+            QCC_LogError(status, ("TCPTransport::DoStartListen(): OpenInterface() failed for %s", currentInterface.c_str()));
         }
     }
 
@@ -2903,7 +2900,7 @@ void DaemonTCPTransport::DoStartListen(qcc::String& normSpec)
     status = Socket(family, QCC_SOCK_STREAM, listenFd);
     if (status != ER_OK) {
         m_listenFdsLock.Unlock(MUTEX_CONTEXT);
-        QCC_LogError(status, ("DaemonTCPTransport::DoStartListen(): Socket() failed"));
+        QCC_LogError(status, ("TCPTransport::DoStartListen(): Socket() failed"));
         return;
     }
 
@@ -2914,7 +2911,7 @@ void DaemonTCPTransport::DoStartListen(qcc::String& normSpec)
     status = qcc::SetReuseAddress(listenFd, true);
     if (status != ER_OK) {
         m_listenFdsLock.Unlock(MUTEX_CONTEXT);
-        QCC_LogError(status, ("DaemonTCPTransport::DoStartListen(): SetReuseAddress() failed"));
+        QCC_LogError(status, ("TCPTransport::DoStartListen(): SetReuseAddress() failed"));
         qcc::Close(listenFd);
         return;
     }
@@ -2924,7 +2921,7 @@ void DaemonTCPTransport::DoStartListen(qcc::String& normSpec)
     status = qcc::SetBlocking(listenFd, false);
     if (status != ER_OK) {
         m_listenFdsLock.Unlock(MUTEX_CONTEXT);
-        QCC_LogError(status, ("DaemonTCPTransport::DoStartListen(): SetBlocking() failed"));
+        QCC_LogError(status, ("TCPTransport::DoStartListen(): SetBlocking() failed"));
         qcc::Close(listenFd);
         return;
     }
@@ -2945,13 +2942,13 @@ void DaemonTCPTransport::DoStartListen(qcc::String& normSpec)
 
         status = qcc::Listen(listenFd, SOMAXCONN);
         if (status == ER_OK) {
-            QCC_DbgPrintf(("DaemonTCPTransport::DoStartListen(): Listening on %s/%d", argMap["addr"].c_str(), listenPort));
+            QCC_DbgPrintf(("TCPTransport::DoStartListen(): Listening on %s/%d", argMap["addr"].c_str(), listenPort));
             m_listenFds.push_back(pair<qcc::String, SocketFd>(normSpec, listenFd));
         } else {
-            QCC_LogError(status, ("DaemonTCPTransport::DoStartListen(): Listen failed"));
+            QCC_LogError(status, ("TCPTransport::DoStartListen(): Listen failed"));
         }
     } else {
-        QCC_LogError(status, ("DaemonTCPTransport::DoStartListen(): Failed to bind to %s/%d", listenAddr.ToString().c_str(), listenPort));
+        QCC_LogError(status, ("TCPTransport::DoStartListen(): Failed to bind to %s/%d", listenAddr.ToString().c_str(), listenPort));
     }
 
     /*
@@ -2969,7 +2966,7 @@ void DaemonTCPTransport::DoStartListen(qcc::String& normSpec)
      * advertisements.
      *
      * Another thing to understand is that there is one name service per
-     * instance of DaemonTCPTransport, and the name service allows only one
+     * instance of TCPTransport, and the name service allows only one
      * combination of IPv4 address, IPv6 address and port -- it uses the last
      * one set.  If no addresses are provided, the name service advertises the
      * IP address of each of the interfaces it chooses using the last provided
@@ -2990,9 +2987,9 @@ void DaemonTCPTransport::DoStartListen(qcc::String& normSpec)
     }
 }
 
-QStatus DaemonTCPTransport::StopListen(const char* listenSpec)
+QStatus TCPTransport::StopListen(const char* listenSpec)
 {
-    QCC_DbgPrintf(("DaemonTCPTransport::StopListen()"));
+    QCC_DbgPrintf(("TCPTransport::StopListen()"));
 
     /*
      * We only want to allow this call to proceed if we have a running server
@@ -3008,7 +3005,7 @@ QStatus DaemonTCPTransport::StopListen(const char* listenSpec)
      * our Stop() method.
      */
     if (IsRunning() == false || m_stopping == true) {
-        QCC_LogError(ER_BUS_TRANSPORT_NOT_STARTED, ("DaemonTCPTransport::StopListen(): Not running or stopping; exiting"));
+        QCC_LogError(ER_BUS_TRANSPORT_NOT_STARTED, ("TCPTransport::StopListen(): Not running or stopping; exiting"));
         return ER_BUS_TRANSPORT_NOT_STARTED;
     }
 
@@ -3021,7 +3018,7 @@ QStatus DaemonTCPTransport::StopListen(const char* listenSpec)
     map<qcc::String, qcc::String> argMap;
     QStatus status = NormalizeListenSpec(listenSpec, normSpec, argMap);
     if (status != ER_OK) {
-        QCC_LogError(status, ("DaemonTCPTransport::StopListen(): Invalid TCP listen spec \"%s\"", listenSpec));
+        QCC_LogError(status, ("TCPTransport::StopListen(): Invalid TCP listen spec \"%s\"", listenSpec));
         return status;
     }
 
@@ -3059,9 +3056,9 @@ QStatus DaemonTCPTransport::StopListen(const char* listenSpec)
     return ER_OK;
 }
 
-void DaemonTCPTransport::QueueStopListen(qcc::String& normSpec)
+void TCPTransport::QueueStopListen(qcc::String& normSpec)
 {
-    QCC_DbgPrintf(("DaemonTCPTransport::QueueStopListen()"));
+    QCC_DbgPrintf(("TCPTransport::QueueStopListen()"));
 
     /*
      * In order to stop a listen, we send the server accept thread a message
@@ -3083,9 +3080,9 @@ void DaemonTCPTransport::QueueStopListen(qcc::String& normSpec)
     Alert();
 }
 
-void DaemonTCPTransport::DoStopListen(qcc::String& normSpec)
+void TCPTransport::DoStopListen(qcc::String& normSpec)
 {
-    QCC_DbgPrintf(("DaemonTCPTransport::DoStopListen()"));
+    QCC_DbgPrintf(("TCPTransport::DoStopListen()"));
 
     /*
      * Since the name service is created before the server accept thread is spun
@@ -3124,22 +3121,22 @@ void DaemonTCPTransport::DoStopListen(qcc::String& normSpec)
     }
 }
 
-bool DaemonTCPTransport::NewDiscoveryOp(DiscoveryOp op, qcc::String namePrefix, bool& isFirst)
+bool TCPTransport::NewDiscoveryOp(DiscoveryOp op, qcc::String namePrefix, bool& isFirst)
 {
-    QCC_DbgPrintf(("DaemonTCPTransport::NewDiscoveryOp()"));
+    QCC_DbgPrintf(("TCPTransport::NewDiscoveryOp()"));
 
     bool first = false;
 
     if (op == ENABLE_DISCOVERY) {
-        QCC_DbgPrintf(("DaemonTCPTransport::NewDiscoveryOp(): Registering discovery of namePrefix \"%s\"", namePrefix.c_str()));
+        QCC_DbgPrintf(("TCPTransport::NewDiscoveryOp(): Registering discovery of namePrefix \"%s\"", namePrefix.c_str()));
         first = m_advertising.empty();
         m_discovering.push_back(namePrefix);
     } else {
         list<qcc::String>::iterator i = find(m_discovering.begin(), m_discovering.end(), namePrefix);
         if (i == m_discovering.end()) {
-            QCC_DbgPrintf(("DaemonTCPTransport::NewDiscoveryOp(): Cancel of non-existent namePrefix \"%s\"", namePrefix.c_str()));
+            QCC_DbgPrintf(("TCPTransport::NewDiscoveryOp(): Cancel of non-existent namePrefix \"%s\"", namePrefix.c_str()));
         } else {
-            QCC_DbgPrintf(("DaemonTCPTransport::NewDiscoveryOp(): Unregistering discovery of namePrefix \"%s\"", namePrefix.c_str()));
+            QCC_DbgPrintf(("TCPTransport::NewDiscoveryOp(): Unregistering discovery of namePrefix \"%s\"", namePrefix.c_str()));
             m_discovering.erase(i);
         }
     }
@@ -3148,22 +3145,22 @@ bool DaemonTCPTransport::NewDiscoveryOp(DiscoveryOp op, qcc::String namePrefix, 
     return m_discovering.empty();
 }
 
-bool DaemonTCPTransport::NewAdvertiseOp(AdvertiseOp op, qcc::String name, bool& isFirst)
+bool TCPTransport::NewAdvertiseOp(AdvertiseOp op, qcc::String name, bool& isFirst)
 {
-    QCC_DbgPrintf(("DaemonTCPTransport::NewAdvertiseOp()"));
+    QCC_DbgPrintf(("TCPTransport::NewAdvertiseOp()"));
 
     bool first = false;
 
     if (op == ENABLE_ADVERTISEMENT) {
-        QCC_DbgPrintf(("DaemonTCPTransport::NewAdvertiseOp(): Registering advertisement of namePrefix \"%s\"", name.c_str()));
+        QCC_DbgPrintf(("TCPTransport::NewAdvertiseOp(): Registering advertisement of namePrefix \"%s\"", name.c_str()));
         first = m_advertising.empty();
         m_advertising.push_back(name);
     } else {
         list<qcc::String>::iterator i = find(m_advertising.begin(), m_advertising.end(), name);
         if (i == m_advertising.end()) {
-            QCC_DbgPrintf(("DaemonTCPTransport::NewAdvertiseOp(): Cancel of non-existent name \"%s\"", name.c_str()));
+            QCC_DbgPrintf(("TCPTransport::NewAdvertiseOp(): Cancel of non-existent name \"%s\"", name.c_str()));
         } else {
-            QCC_DbgPrintf(("DaemonTCPTransport::NewAdvertiseOp(): Unregistering advertisement of namePrefix \"%s\"", name.c_str()));
+            QCC_DbgPrintf(("TCPTransport::NewAdvertiseOp(): Unregistering advertisement of namePrefix \"%s\"", name.c_str()));
             m_advertising.erase(i);
         }
     }
@@ -3172,20 +3169,20 @@ bool DaemonTCPTransport::NewAdvertiseOp(AdvertiseOp op, qcc::String name, bool& 
     return m_advertising.empty();
 }
 
-bool DaemonTCPTransport::NewListenOp(ListenOp op, qcc::String normSpec)
+bool TCPTransport::NewListenOp(ListenOp op, qcc::String normSpec)
 {
-    QCC_DbgPrintf(("DaemonTCPTransport::NewListenOp()"));
+    QCC_DbgPrintf(("TCPTransport::NewListenOp()"));
 
     if (op == START_LISTEN) {
-        QCC_DbgPrintf(("DaemonTCPTransport::NewListenOp(): Registering listen of normSpec \"%s\"", normSpec.c_str()));
+        QCC_DbgPrintf(("TCPTransport::NewListenOp(): Registering listen of normSpec \"%s\"", normSpec.c_str()));
         m_listening.push_back(normSpec);
 
     } else {
         list<qcc::String>::iterator i = find(m_listening.begin(), m_listening.end(), normSpec);
         if (i == m_listening.end()) {
-            QCC_DbgPrintf(("DaemonTCPTransport::NewAdvertiseOp(): StopListen of non-existent spec \"%s\"", normSpec.c_str()));
+            QCC_DbgPrintf(("TCPTransport::NewAdvertiseOp(): StopListen of non-existent spec \"%s\"", normSpec.c_str()));
         } else {
-            QCC_DbgPrintf(("DaemonTCPTransport::NewAdvertiseOp(): StopListen of normSpec \"%s\"", normSpec.c_str()));
+            QCC_DbgPrintf(("TCPTransport::NewAdvertiseOp(): StopListen of normSpec \"%s\"", normSpec.c_str()));
             m_listening.erase(i);
         }
     }
@@ -3193,9 +3190,9 @@ bool DaemonTCPTransport::NewListenOp(ListenOp op, qcc::String normSpec)
     return m_listening.empty();
 }
 
-void DaemonTCPTransport::EnableDiscovery(const char* namePrefix)
+void TCPTransport::EnableDiscovery(const char* namePrefix)
 {
-    QCC_DbgPrintf(("DaemonTCPTransport::EnableDiscovery()"));
+    QCC_DbgPrintf(("TCPTransport::EnableDiscovery()"));
 
     /*
      * We only want to allow this call to proceed if we have a running server
@@ -3211,16 +3208,16 @@ void DaemonTCPTransport::EnableDiscovery(const char* namePrefix)
      * our Stop() method.
      */
     if (IsRunning() == false || m_stopping == true) {
-        QCC_LogError(ER_BUS_TRANSPORT_NOT_STARTED, ("DaemonTCPTransport::EnableDiscovery(): Not running or stopping; exiting"));
+        QCC_LogError(ER_BUS_TRANSPORT_NOT_STARTED, ("TCPTransport::EnableDiscovery(): Not running or stopping; exiting"));
         return;
     }
 
     QueueEnableDiscovery(namePrefix);
 }
 
-void DaemonTCPTransport::QueueEnableDiscovery(const char* namePrefix)
+void TCPTransport::QueueEnableDiscovery(const char* namePrefix)
 {
-    QCC_DbgPrintf(("DaemonTCPTransport::QueueEnableDiscovery()"));
+    QCC_DbgPrintf(("TCPTransport::QueueEnableDiscovery()"));
 
     ListenRequest listenRequest;
     listenRequest.m_requestOp = ENABLE_DISCOVERY_INSTANCE;
@@ -3237,9 +3234,9 @@ void DaemonTCPTransport::QueueEnableDiscovery(const char* namePrefix)
     Alert();
 }
 
-void DaemonTCPTransport::DisableDiscovery(const char* namePrefix)
+void TCPTransport::DisableDiscovery(const char* namePrefix)
 {
-    QCC_DbgPrintf(("DaemonTCPTransport::DisableDiscovery()"));
+    QCC_DbgPrintf(("TCPTransport::DisableDiscovery()"));
 
     /*
      * We only want to allow this call to proceed if we have a running server
@@ -3255,16 +3252,16 @@ void DaemonTCPTransport::DisableDiscovery(const char* namePrefix)
      * our Stop() method.
      */
     if (IsRunning() == false || m_stopping == true) {
-        QCC_LogError(ER_BUS_TRANSPORT_NOT_STARTED, ("DaemonTCPTransport::DisbleDiscovery(): Not running or stopping; exiting"));
+        QCC_LogError(ER_BUS_TRANSPORT_NOT_STARTED, ("TCPTransport::DisbleDiscovery(): Not running or stopping; exiting"));
         return;
     }
 
     QueueDisableDiscovery(namePrefix);
 }
 
-void DaemonTCPTransport::QueueDisableDiscovery(const char* namePrefix)
+void TCPTransport::QueueDisableDiscovery(const char* namePrefix)
 {
-    QCC_DbgPrintf(("DaemonTCPTransport::QueueDisableDiscovery()"));
+    QCC_DbgPrintf(("TCPTransport::QueueDisableDiscovery()"));
 
     ListenRequest listenRequest;
     listenRequest.m_requestOp = DISABLE_DISCOVERY_INSTANCE;
@@ -3281,9 +3278,9 @@ void DaemonTCPTransport::QueueDisableDiscovery(const char* namePrefix)
     Alert();
 }
 
-QStatus DaemonTCPTransport::EnableAdvertisement(const qcc::String& advertiseName)
+QStatus TCPTransport::EnableAdvertisement(const qcc::String& advertiseName)
 {
-    QCC_DbgPrintf(("DaemonTCPTransport::EnableAdvertisement()"));
+    QCC_DbgPrintf(("TCPTransport::EnableAdvertisement()"));
 
     /*
      * We only want to allow this call to proceed if we have a running server
@@ -3299,7 +3296,7 @@ QStatus DaemonTCPTransport::EnableAdvertisement(const qcc::String& advertiseName
      * our Stop() method.
      */
     if (IsRunning() == false || m_stopping == true) {
-        QCC_LogError(ER_BUS_TRANSPORT_NOT_STARTED, ("DaemonTCPTransport::EnableAdvertisement(): Not running or stopping; exiting"));
+        QCC_LogError(ER_BUS_TRANSPORT_NOT_STARTED, ("TCPTransport::EnableAdvertisement(): Not running or stopping; exiting"));
         return ER_BUS_TRANSPORT_NOT_STARTED;
     }
 
@@ -3307,9 +3304,9 @@ QStatus DaemonTCPTransport::EnableAdvertisement(const qcc::String& advertiseName
     return ER_OK;
 }
 
-void DaemonTCPTransport::QueueEnableAdvertisement(const qcc::String& advertiseName)
+void TCPTransport::QueueEnableAdvertisement(const qcc::String& advertiseName)
 {
-    QCC_DbgPrintf(("DaemonTCPTransport::QueueEnableAdvertisement()"));
+    QCC_DbgPrintf(("TCPTransport::QueueEnableAdvertisement()"));
 
     ListenRequest listenRequest;
     listenRequest.m_requestOp = ENABLE_ADVERTISEMENT_INSTANCE;
@@ -3326,9 +3323,9 @@ void DaemonTCPTransport::QueueEnableAdvertisement(const qcc::String& advertiseNa
     Alert();
 }
 
-void DaemonTCPTransport::DisableAdvertisement(const qcc::String& advertiseName, bool nameListEmpty)
+void TCPTransport::DisableAdvertisement(const qcc::String& advertiseName, bool nameListEmpty)
 {
-    QCC_DbgPrintf(("DaemonTCPTransport::DisableAdvertisement()"));
+    QCC_DbgPrintf(("TCPTransport::DisableAdvertisement()"));
 
     /*
      * We only want to allow this call to proceed if we have a running server
@@ -3344,16 +3341,16 @@ void DaemonTCPTransport::DisableAdvertisement(const qcc::String& advertiseName, 
      * our Stop() method.
      */
     if (IsRunning() == false || m_stopping == true) {
-        QCC_LogError(ER_BUS_TRANSPORT_NOT_STARTED, ("DaemonTCPTransport::DisableAdvertisement(): Not running or stopping; exiting"));
+        QCC_LogError(ER_BUS_TRANSPORT_NOT_STARTED, ("TCPTransport::DisableAdvertisement(): Not running or stopping; exiting"));
         return;
     }
 
     QueueDisableAdvertisement(advertiseName);
 }
 
-void DaemonTCPTransport::QueueDisableAdvertisement(const qcc::String& advertiseName)
+void TCPTransport::QueueDisableAdvertisement(const qcc::String& advertiseName)
 {
-    QCC_DbgPrintf(("DaemonTCPTransport::QueueDisableAdvertisement()"));
+    QCC_DbgPrintf(("TCPTransport::QueueDisableAdvertisement()"));
 
     ListenRequest listenRequest;
     listenRequest.m_requestOp = DISABLE_ADVERTISEMENT_INSTANCE;
@@ -3370,8 +3367,8 @@ void DaemonTCPTransport::QueueDisableAdvertisement(const qcc::String& advertiseN
     Alert();
 }
 
-void DaemonTCPTransport::FoundCallback::Found(const qcc::String& busAddr, const qcc::String& guid,
-                                              std::vector<qcc::String>& nameList, uint8_t timer)
+void TCPTransport::FoundCallback::Found(const qcc::String& busAddr, const qcc::String& guid,
+                                        std::vector<qcc::String>& nameList, uint8_t timer)
 {
     /*
      * Whenever the name service receives a message indicating that a bus-name

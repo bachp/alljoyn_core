@@ -4,7 +4,7 @@
  */
 
 /******************************************************************************
- * Copyright 2009-2011, Qualcomm Innovation Center, Inc.
+ * Copyright 2009-2012, Qualcomm Innovation Center, Inc.
  *
  *    Licensed under the Apache License, Version 2.0 (the "License");
  *    you may not use this file except in compliance with the License.
@@ -36,11 +36,8 @@
 
 #include <Status.h>
 
-#include "DaemonTCPTransport.h"
-
-#if !defined(QCC_OS_WINDOWS)
-#include "DaemonUnixTransport.h"
-#endif
+#include "TCPTransport.h"
+#include "DaemonTransport.h"
 
 #if defined(QCC_OS_DARWIN)
 #warning "Bluetooth transport not implemented on DarwinQ"
@@ -411,8 +408,8 @@ int main(int argc, char** argv)
     /* Get env vars */
     Environ* env = Environ::GetAppEnviron();
 
-#ifdef QCC_OS_WINDOWS
-    serverArgs = env->Find("BUS_SERVER_ADDRESSES", "tcp:addr=0.0.0.0,port=9955,family=ipv4;bluetooth:");
+#ifdef QCC_OS_GROUP_WINDOWS
+    serverArgs = env->Find("BUS_SERVER_ADDRESSES", "localhost:port=9955;tcp:addr=0.0.0.0,port=9956,family=ipv4;bluetooth:");
 #else
 
 #if defined(DAEMON_LIB)
@@ -433,20 +430,17 @@ int main(int argc, char** argv)
     }
 #endif /* DAEMON_LIB */
 
-#endif /* !QCC_OS_WINDOWS */
+#endif /* !QCC_OS_GROUP_WINDOWS */
 
     /*
      * Teach the transport list how to make transports it may see referred to
-     * in the serverArgs above.  None of these are created by default (the
-     * false indicates this) but will be instantiated if the environment
-     * string tells it to.
+     * in the serverArgs above.  The daemon transport is created by default because
+     * it is always required. The other transports are only created if specified in
+     * the environment.
      */
     TransportFactoryContainer cntr;
-    cntr.Add(new TransportFactory<DaemonTCPTransport>("tcp", false));
-
-#if !defined(QCC_OS_WINDOWS)
-    cntr.Add(new TransportFactory<DaemonUnixTransport>("unix", false));
-#endif
+    cntr.Add(new TransportFactory<DaemonTransport>(DaemonTransport::TransportName, true));
+    cntr.Add(new TransportFactory<TCPTransport>("tcp", false));
 
 #if !defined(QCC_OS_DARWIN)
     if (!noBT) {

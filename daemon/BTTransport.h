@@ -4,7 +4,7 @@
  */
 
 /******************************************************************************
- * Copyright 2009-2011, Qualcomm Innovation Center, Inc.
+ * Copyright 2009-2012, Qualcomm Innovation Center, Inc.
  *
  *    Licensed under the Apache License, Version 2.0 (the "License");
  *    you may not use this file except in compliance with the License.
@@ -318,20 +318,11 @@ class BTTransport :
     const char* GetTransportName() const { return TransportName(); };
 
     /**
-     * Indicates whether this transport may be used for a connection between
-     * an application and the daemon on the same machine or not.
+     * Indicates whether this transport is used for client-to-bus or bus-to-bus connections.
      *
-     * @return  true indicates this transport may be used for local connections.
+     * @return  Always returns true, Bluetooth is a bus-to-bus transport.
      */
-    bool LocallyConnectable() const { return false; }
-
-    /**
-     * Indicates whether this transport may be used for a connection between
-     * an application and the daemon on a different machine or not.
-     *
-     * @return  true indicates this transport may be used for external connections.
-     */
-    bool ExternallyConnectable() const { return true; }
+    bool IsBusToBus() const { return true; }
 
     /**
      * Incomplete class for BT stack specific state.

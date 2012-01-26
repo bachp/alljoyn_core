@@ -52,17 +52,16 @@ QStatus Bus::StartListen(const qcc::String& listenSpec, bool& listening)
     if (trans) {
         status = trans->StartListen(listenSpec.c_str());
         if (ER_OK == status) {
-            if (trans->LocallyConnectable()) {
-                if (!localAddrs.empty()) {
-                    localAddrs += ';';
-                }
-                localAddrs += listenSpec + ",guid=" + GetInternal().GetGlobalGUID().ToString();
-            }
-            if (trans->ExternallyConnectable()) {
+            if (trans->IsBusToBus()) {
                 if (!externalAddrs.empty()) {
                     externalAddrs += ';';
                 }
                 externalAddrs += listenSpec + ",guid=" + GetInternal().GetGlobalGUID().ToString();
+            } else {
+                if (!localAddrs.empty()) {
+                    localAddrs += ';';
+                }
+                localAddrs += listenSpec + ",guid=" + GetInternal().GetGlobalGUID().ToString();
             }
             listening = true;
         }

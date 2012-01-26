@@ -4,7 +4,7 @@
  */
 
 /******************************************************************************
- * Copyright 2009-2011, Qualcomm Innovation Center, Inc.
+ * Copyright 2009-2012, Qualcomm Innovation Center, Inc.
  *
  *    Licensed under the Apache License, Version 2.0 (the "License");
  *    you may not use this file except in compliance with the License.
@@ -133,22 +133,16 @@ class ClientTransport : public Transport, public RemoteEndpoint::EndpointListene
     QStatus Disconnect(const char* connectSpec);
 
     /**
-     * @brief Provide an empty implementation of a daemon function not used
-     * by clients or services.
+     * This transport is only used for outbound connection so StartListen always returns an error status.
      *
-     * @param listenSpec Unused parameter.
-     *
-     * @return ER_FAIL.
+     * @return Always returns ER_FAIL.
      */
     QStatus StartListen(const char* listenSpec) { return ER_FAIL; }
 
     /**
-     * @brief Provide an empty implementation of a daemon function not used
-     * by clients or services.
+     * This transport is only used for outbound connection so StopListen always returns an error status.
      *
-     * @param listenSpec Unused parameter.
-     *
-     * @return ER_FAIL.
+     * @return Always returns ER_FAIL.
      */
     QStatus StopListen(const char* listenSpec) { return ER_FAIL; }
 
@@ -220,20 +214,11 @@ class ClientTransport : public Transport, public RemoteEndpoint::EndpointListene
     QStatus GetListenAddresses(const SessionOpts& opts, std::vector<qcc::String>& busAddrs) const { return ER_OK; }
 
     /**
-     * Indicates whether this transport may be used for a connection between
-     * an application and the daemon on the same machine or not.
+     * Indicates whether this transport is used for client-to-bus or bus-to-bus connections.
      *
-     * @return  true indicates this transport may be used for local connections.
+     * @return  Always returns false, ClientTransports are only used to connect to a local daemon.
      */
-    bool LocallyConnectable() const { return true; }
-
-    /**
-     * Indicates whether this transport may be used for a connection between
-     * an application and the daemon on a different machine or not.
-     *
-     * @return  true indicates this transport may be used for external connections.
-     */
-    bool ExternallyConnectable() const { return true; }
+    bool IsBusToBus() const { return false; }
 
     /**
      * Name of transport used in transport specs.
@@ -253,6 +238,7 @@ class ClientTransport : public Transport, public RemoteEndpoint::EndpointListene
     bool m_stopping;                /**< True if Stop() has been called but endpoints still exist */
     TransportListener* m_listener;  /**< Registered TransportListener */
     RemoteEndpoint* m_endpoint;     /**< The active endpoint */
+    qcc::Mutex m_epLock;            /**< Lock to prevent the endpoint from being destroyed while it is being stopped */
 };
 
 } // namespace ajn

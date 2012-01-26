@@ -280,20 +280,12 @@ class Transport {
     virtual const char* GetTransportName() const = 0;
 
     /**
-     * Indicates whether this transport may be used for a connection between
-     * an application and the daemon on the same machine or not.
+     * Indicates whether this transport is used for client-to-bus or bus-to-bus connections.
      *
-     * @return  true indicates this transport may be used for local connections.
+     * @return  true indicates this transport may be only for bus-to-bus connections
+     *          false indicates this transport may only be used for client-to-bus connections.
      */
-    virtual bool LocallyConnectable() const = 0;
-
-    /**
-     * Indicates whether this transport may be used for a connection between
-     * an application and the daemon on a different machine or not.
-     *
-     * @return  true indicates this transport may be used for external connections.
-     */
-    virtual bool ExternallyConnectable() const = 0;
+    virtual bool IsBusToBus() const = 0;
 
     /**
      * Helper used to parse client/server arg strings
