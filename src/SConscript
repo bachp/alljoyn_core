@@ -20,8 +20,11 @@ Import('common_objs')
 srcs = [ f for f in env.Glob('*.cc') + env.Glob('*.c')
          if not (str(f).endswith('version.cc')) ]
 
-
-os_srcs = [ f for f in env.Glob(env['OS_GROUP'] + '/*.cc') ]
+# Platform specific sources
+if env['OS'] == 'darwin':
+    os_srcs = [ f for f in env.Glob(env['OS'] + '/*.cc') ]
+else:
+    os_srcs = [ f for f in env.Glob(env['OS_GROUP'] + '/*.cc') ]
 
 alljoyn_core_objs = env.Object(srcs) + env.Object(os_srcs)
 objs = common_objs + alljoyn_core_objs 
