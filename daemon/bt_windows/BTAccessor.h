@@ -202,7 +202,6 @@ class BTTransport::BTAccessor : public MessageReceiver, public qcc::AlarmListene
         return ER_NOT_IMPLEMENTED;    // Windows doesn't support this.
     }
 
-
     /**
      * This method forces a role switch in the HCI device so that we become
      * master of the connection with the specified device.
@@ -215,9 +214,12 @@ class BTTransport::BTAccessor : public MessageReceiver, public qcc::AlarmListene
         // Windows doesn't support this.
     }
 
+    /**
+     * Always returns false. This device is not EIR capable.
+     *
+     * @return false.
+     */
     bool IsEIRCapable() const { return false; }
-
-    HANDLE GetDeviceHandle() const { return deviceHandle; }
 
     /**
      * This method removes the endpoint from the collection of active WindowsBTEndpoints
