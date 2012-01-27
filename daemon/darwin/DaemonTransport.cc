@@ -20,7 +20,7 @@
  *    limitations under the License.
  ******************************************************************************/
 
-#include "DaemonTransport.h"
+#include "../DaemonTransport.h"
 
 #include <errno.h>
 #include <launch.h>
@@ -88,7 +88,7 @@ exit:
     return status;
 }
 
-const char* DaemonTransport::TransportName = "unix";
+const char* DaemonTransport::TransportName = "launchd";
 
 /*
  * An endpoint class to handle the details of authenticating a connection in
@@ -240,7 +240,7 @@ void* DaemonTransport::Run(void* arg)
 
 QStatus DaemonTransport::NormalizeTransportSpec(const char* inSpec, qcc::String& outSpec, map<qcc::String, qcc::String>& argMap) const
 {
-    QStatus status = ParseArguments("launchd", inSpec, argMap);
+    QStatus status = ParseArguments(DaemonTransport::TransportName, inSpec, argMap);
     qcc::String env = Trim(argMap["env"]);
     if (ER_OK == status) {
         outSpec = "launchd:";
