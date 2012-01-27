@@ -252,28 +252,12 @@ QStatus BusAttachment::Start()
 static qcc::String bundleConnectSpec;
 static bool isBundleDaemonStarted = false;
 
-/* We only try to load alternate daemons on Android platform with steps:
- * 1) Try to connect to the preinstalled (BT capable daemon) whose connect path is unix:abstract=alljoyn
- * 2) If #1 fails, issue an Intent to start the daemon APK, wait for it to launch and then try to connect
- *    to this daemon. The connect path is unix:abstract=alljoyn-service.
- * 3) If #2 fails, look for a daemon that may have been bundled with the application itself and launch/connect to it if found.
- *    The connect path is unix:abstract=alljoyn-{UUID}
+/* Only try connecting to alternate daemons on Android platform
  */
 QStatus BusAttachment::TryAlternativeDaemon(RemoteEndpoint** newep)
 {
     QCC_DbgTrace(("BusAttachment::TryAlternativeDaemon()"));
     QStatus status = ER_FAIL;
-
-    /* Try Android apk daemon*/
-    qcc::String apkConnSpec = "unix:abstract=alljoyn-service";
-    QCC_DbgPrintf(("BusAttachment::TryAlternativeDaemon apkConnSpec = %s", apkConnSpec.c_str()));
-
-    status = TryConnect(apkConnSpec.c_str(), newep);
-
-    if (ER_OK == status) {
-        this->connectSpec = apkConnSpec; /* Save the connect spec so that Disconnect() will use it*/
-        return status;
-    }
 
     qcc::String bundleConnectSpec = "unix:abstract=alljoyn-" + qcc::U32ToString(qcc::GetPid());
     QCC_DbgPrintf(("BusAttachment::TryAlternativeDaemon bundleConnectSpec = %s", bundleConnectSpec.c_str()));
@@ -329,8 +313,7 @@ QStatus BusAttachment::Connect(const char* connectSpec, RemoteEndpoint** newep)
         status = TryConnect(connectSpec, newep);
 
 #if defined(QCC_OS_ANDROID)
-        /* If the connect sepc is "unix:abstract=alljoyn", then try other daemon options with the precedence of preinstalled daemon > APK daemon > bundle daemon */
-        if (status != ER_OK && !isDaemon && (strcmp(connectSpec, "unix:abstract=alljoyn") == 0)) {
+        if (status != ER_OK && !isDaemon) {
             status = TryAlternativeDaemon(newep);
         }
 #endif

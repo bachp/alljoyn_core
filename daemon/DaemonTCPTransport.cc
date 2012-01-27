@@ -2201,11 +2201,7 @@ static const char* ADDR6_DEFAULT = "0::0";
  * The default port for use in listen specs.  This port is used by the TCP
  * listener to listen for incoming connection requests.
  */
-#ifdef QCC_OS_ANDROID
-static const uint16_t PORT_DEFAULT = 0;
-#else
 static const uint16_t PORT_DEFAULT = 9955;
-#endif
 
 QStatus DaemonTCPTransport::NormalizeListenSpec(const char* inSpec, qcc::String& outSpec, map<qcc::String, qcc::String>& argMap) const
 {
@@ -2274,7 +2270,7 @@ QStatus DaemonTCPTransport::NormalizeListenSpec(const char* inSpec, qcc::String&
          * a conversion function to make sure it's a valid value.
          */
         uint32_t port = StringToU32(iter->second);
-        if (port > 0 && port <= 0xffff) {
+        if (port <= 0xffff) {
             iter->second = U32ToString(port);
             outSpec += ",port=" + iter->second;
         } else {
