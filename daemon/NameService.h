@@ -651,6 +651,16 @@ class NameService : public qcc::Thread {
 
   private:
     /**
+     * @brief Copying a NameService object is forbidden.
+     */
+    NameService(const NameService& other);
+
+    /**
+     * @brief Assigning a NameService object is forbidden.
+     */
+    NameService& operator =(const NameService& other);
+
+    /**
      * @brief The temporary IPv4 multicast address for the multicast name
      * service.
      */
