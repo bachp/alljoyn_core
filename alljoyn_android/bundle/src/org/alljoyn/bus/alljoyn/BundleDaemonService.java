@@ -67,7 +67,7 @@ public class BundleDaemonService extends Service {
                 "  <listen> "+
                 connectSpec +
                 "</listen>" + 
-                "  <listen>tcp:addr=0.0.0.0</listen>" +
+                "  <listen>tcp:addr=0.0.0.0,port=0</listen>" +
                 "  <policy context=\"default\">" +
                 "    <allow send_interface=\"*\"/>" +
                 "    <allow receive_interface=\"*\"/>" +
