@@ -5,7 +5,7 @@
  */
 
 /******************************************************************************
- * Copyright 2010-2011, Qualcomm Innovation Center, Inc.
+ * Copyright 2010-2012, Qualcomm Innovation Center, Inc.
  *
  *    Licensed under the Apache License, Version 2.0 (the "License");
  *    you may not use this file except in compliance with the License.
@@ -93,13 +93,9 @@ qcc::String AuthMechLogon::ComputeVerifier(const char* label)
     uint8_t digest[Crypto_SHA1::DIGEST_SIZE];
     uint8_t verifier[12];
     /*
-     * Snapshot msg hash and get the digest.
+     * Snapshot msg hash and compute the verifier string.
      */
-    Crypto_SHA1 sha1(msgHash);
-    sha1.GetDigest(digest);
-    /*
-     * Compute the verifier string.
-     */
+    msgHash.GetDigest(digest, true);
     qcc::String seed((const char*)digest, sizeof(digest));
     Crypto_PseudorandomFunction(masterSecret, label, seed, verifier, sizeof(verifier));
     QCC_DbgHLPrintf(("Verifier:  %s", BytesToHexString(verifier, sizeof(verifier)).c_str()));

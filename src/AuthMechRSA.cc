@@ -5,7 +5,7 @@
  */
 
 /******************************************************************************
- * Copyright 2010-2011, Qualcomm Innovation Center, Inc.
+ * Copyright 2010-2012, Qualcomm Innovation Center, Inc.
  *
  *    Licensed under the Apache License, Version 2.0 (the "License");
  *    you may not use this file except in compliance with the License.
@@ -238,13 +238,9 @@ qcc::String AuthMechRSA::ComputeVerifier(const char* label)
     uint8_t digest[Crypto_SHA1::DIGEST_SIZE];
     uint8_t verifier[12];
     /*
-     * Snapshot msg hash and get the digest.
+     * Snapshot msg hash and compute the verifier string.
      */
-    Crypto_SHA1 sha1(msgHash);
-    sha1.GetDigest(digest);
-    /*
-     * Compute the verifier string.
-     */
+    msgHash.GetDigest(digest, true);
     qcc::String seed((const char*)digest, sizeof(digest));
     Crypto_PseudorandomFunction(masterSecret, label, seed, verifier, sizeof(verifier));
     return BytesToHexString(verifier, sizeof(verifier));
@@ -342,10 +338,9 @@ qcc::String AuthMechRSA::Response(const qcc::String& challenge,
             uint8_t* outBytes = new uint8_t[outLen];
             uint8_t digest[Crypto_SHA1::DIGEST_SIZE];
             /*
-             * Snapshot msg hash and get the digest.
+             * Snapshot msg hash and compute the verifier string.
              */
-            Crypto_SHA1 sha1(msgHash);
-            sha1.GetDigest(digest);
+            msgHash.GetDigest(digest, true);
             /*
              * Sign msg hash with the client's private key.
              */
@@ -485,10 +480,9 @@ qcc::String AuthMechRSA::Challenge(const qcc::String& response,
         } else {
             uint8_t digest[Crypto_SHA1::DIGEST_SIZE];
             /*
-             * Snapshot msg hash and get the digest.
+             * Snapshot msg hash and compute the verifier string.
              */
-            Crypto_SHA1 sha1(msgHash);
-            sha1.GetDigest(digest);
+            msgHash.GetDigest(digest, true);
             status = remote.rsa.VerifyDigest(digest, sizeof(digest), inBytes, inLen);
         }
         if (status == ER_OK) {
