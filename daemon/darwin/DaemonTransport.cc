@@ -20,6 +20,20 @@
  *    limitations under the License.
  ******************************************************************************/
 
+#include <errno.h>
+
+#include <qcc/platform.h>
+#include <qcc/Socket.h>
+#include <qcc/SocketStream.h>
+#include <qcc/String.h>
+#include <qcc/StringUtil.h>
+#include <qcc/Util.h>
+
+#include <alljoyn/BusAttachment.h>
+
+#include "BusInternal.h"
+#include "RemoteEndpoint.h"
+#include "Router.h"
 #include "../DaemonTransport.h"
 
 #include <errno.h>
@@ -32,61 +46,6 @@ using namespace std;
 using namespace qcc;
 
 namespace ajn {
-
-QStatus DaemonLaunchdTransport::ListenFd(std::map<qcc::String, qcc::String>& serverArgs, qcc::SocketFd& listenFd)
-{
-    launch_data_t request, response = NULL;
-    launch_data_t sockets, fdArray;
-    QStatus status;
-
-    request = launch_data_new_string(LAUNCH_KEY_CHECKIN);
-    if (request == NULL) {
-        status = ER_OS_ERROR;
-        QCC_LogError(status, ("Unable to create checkin request"));
-        goto exit;
-    }
-    response = launch_msg(request);
-    if (response == NULL) {
-        status = ER_OS_ERROR;
-        QCC_LogError(status, ("Checkin request failed"));
-        goto exit;
-    }
-    if (launch_data_get_type(response) == LAUNCH_DATA_ERRNO) {
-        errno = launch_data_get_errno(response);
-        status = ER_OS_ERROR;
-        QCC_LogError(status, ("Checkin request failed %s", strerror(errno)));
-        goto exit;
-    }
-
-    sockets = launch_data_dict_lookup(response, LAUNCH_JOBKEY_SOCKETS);
-    if (sockets == NULL) {
-        status = ER_OS_ERROR;
-        QCC_LogError(status, ("Lookup sockets failed"));
-        goto exit;
-    }
-    if (launch_data_dict_get_count(sockets) > 1) {
-        QCC_DbgHLPrintf(("Ignoring additional sockets in launchd plist"));
-    }
-    fdArray = launch_data_dict_lookup(sockets, "unix_domain_listener");
-    if (fdArray == NULL) {
-        status = ER_OS_ERROR;
-        QCC_LogError(status, ("No listen sockets found"));
-        goto exit;
-    }
-    if (launch_data_array_get_count(fdArray) != 1) {
-        status = ER_FAIL;
-        QCC_LogError(status, ("Socket 'unix_domain_listener' must have exactly one FD"));
-        goto exit;
-    }
-    listenFd = launch_data_get_fd(launch_data_array_get_index(fdArray, 0));
-    status = ER_OK;
-
-exit:
-    if (response) {
-        launch_data_free(response);
-    }
-    return status;
-}
 
 const char* DaemonTransport::TransportName = "launchd";
 

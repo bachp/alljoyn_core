@@ -19,6 +19,25 @@
  *    See the License for the specific language governing permissions and
  *    limitations under the License.
  ******************************************************************************/
+
+#include <qcc/platform.h>
+
+#include <list>
+
+#include <errno.h>
+#include <qcc/Socket.h>
+#include <qcc/SocketStream.h>
+#include <qcc/String.h>
+#include <qcc/StringUtil.h>
+#include <qcc/Util.h>
+#include <sys/un.h>
+#include <sys/ucred.h>
+
+#include <alljoyn/BusAttachment.h>
+
+#include "BusInternal.h"
+#include "RemoteEndpoint.h"
+#include "Router.h"
 #include "ClientTransport.h"
 #include <qcc/StringUtil.h>
 
@@ -30,6 +49,78 @@ using namespace qcc;
 namespace ajn {
 
 const char* ClientTransport::TransportName = "launchd";
+
+class ClientEndpoint : public RemoteEndpoint {
+  public:
+    /* Unix endpoint constructor */
+    ClientEndpoint(BusAttachment& bus, bool incoming, const qcc::String connectSpec, SocketFd sock) :
+        RemoteEndpoint(bus, incoming, connectSpec, stream, ClientTransport::TransportName),
+        userId(-1),
+        groupId(-1),
+        processId(-1),
+        stream(sock)
+    {
+    }
+
+    /* Destructor */
+    virtual ~ClientEndpoint() { }
+
+    /**
+     * Set the user id of the endpoint.
+     *
+     * @param   userId      User ID number.
+     */
+    void SetUserId(uint32_t userId) { this->userId = userId; }
+
+    /**
+     * Set the group id of the endpoint.
+     *
+     * @param   groupId     Group ID number.
+     */
+    void SetGroupId(uint32_t groupId) { this->groupId = groupId; }
+
+    /**
+     * Set the process id of the endpoint.
+     *
+     * @param   processId   Process ID number.
+     */
+    void SetProcessId(uint32_t processId) { this->processId = processId; }
+
+    /**
+     * Return the user id of the endpoint.
+     *
+     * @return  User ID number.
+     */
+    uint32_t GetUserId() const { return userId; }
+
+    /**
+     * Return the group id of the endpoint.
+     *
+     * @return  Group ID number.
+     */
+    uint32_t GetGroupId() const { return groupId; }
+
+    /**
+     * Return the process id of the endpoint.
+     *
+     * @return  Process ID number.
+     */
+    uint32_t GetProcessId() const { return processId; }
+
+    /**
+     * Indicates if the endpoint supports reporting UNIX style user, group, and process IDs.
+     *
+     * @return  'true' if UNIX IDs supported, 'false' if not supported.
+     */
+    bool SupportsUnixIDs() const { return true; }
+
+
+  private:
+    uint32_t userId;
+    uint32_t groupId;
+    uint32_t processId;
+    SocketStream stream;
+};
 
 QStatus ClientTransport::NormalizeTransportSpec(const char* inSpec, qcc::String& outSpec, map<qcc::String, qcc::String>& argMap) const
 {
