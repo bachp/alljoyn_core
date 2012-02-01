@@ -843,6 +843,9 @@ HTML_FILE_EXTENSION    = .html
 # each generated HTML page. If it is left blank doxygen will generate a
 # standard header.
 
+# 20120131: header.html should no longer be used in production builds [MBUS-463]
+#   doxygen 1.7.4 and later will generate buggy html if header.html is included
+
 HTML_HEADER            = header.html
 
 # The HTML_FOOTER tag can be used to specify a personal HTML footer for
