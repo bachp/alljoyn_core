@@ -1044,7 +1044,7 @@ class BusAttachment : public MessageReceiver {
       private:
         JoinObj(const JoinObj& other);
         JoinObj& operator =(const JoinObj& other);
-    
+
         BusAttachment* bus;
     };
 
