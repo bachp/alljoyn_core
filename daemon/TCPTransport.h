@@ -280,6 +280,9 @@ class TCPTransport : public Transport, public RemoteEndpoint::EndpointListener, 
     static const char* TransportName;
 
   private:
+    TCPTransport(const TCPTransport& other);
+    TCPTransport& operator =(const TCPTransport& other);
+
     BusAttachment& m_bus;                                          /**< The message bus for this transport */
     NameService* m_ns;                                             /**< The name service used for bus name discovery */
     bool m_stopping;                                               /**< True if Stop() has been called but endpoints still exist */
