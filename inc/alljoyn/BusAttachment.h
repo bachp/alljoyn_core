@@ -1042,6 +1042,9 @@ class BusAttachment : public MessageReceiver {
             bus->WaitStopInternal();
         }
       private:
+        JoinObj(const JoinObj& other);
+        JoinObj& operator =(const JoinObj& other);
+    
         BusAttachment* bus;
     };
 
