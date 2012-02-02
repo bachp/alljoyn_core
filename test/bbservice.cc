@@ -366,7 +366,6 @@ class LocalTestObject : public BusObject {
                     size_t argCount = it->second->argCount;
                     delete it->second;
                     delayedResponses.erase(it);
-                    it = delayedResponses.begin();
                     delayedResponseLock.Unlock(MUTEX_CONTEXT);
                     QStatus status = lto.WrappedReply(msg, args, argCount);
                     if (ER_OK != status) {
@@ -374,6 +373,7 @@ class LocalTestObject : public BusObject {
                     }
                     delete [] args;
                     delayedResponseLock.Lock(MUTEX_CONTEXT);
+                    it = delayedResponses.begin();
                 }
                 if (it == delayedResponses.end()) {
                     done = true;
