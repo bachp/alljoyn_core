@@ -283,7 +283,15 @@ static TEST_CASE testVector[] = {
         "36 EC BF 5C DC F7 36 D6 08 0F 6B 4F 54 B0 30 78 C1 D1 9C B2 E0 B1 8A 3C 38 83 AA 48 B3 AB EE 5A 79 53 00 F8 77 8A 19 BD 45 BC 34",
         10
     },
-
+    {
+        /* =============== 16 byte authentication field ================== */
+        "C0 C1 C2 C3 C4 C5 C6 C7 C8 C9 CA CB CC CD CE CF",
+        "00 00 00 03 02 01 00 A0 A1 A2 A3 A4 A5",
+        8,
+        "00 01 02 03 04 05 06 07 08 09 0A 0B 0C 0D 0E 0F 10 11 12 13 14 15 16 17 18 19 1A 1B 1C 1D 1E",
+        "00 01 02 03 04 05 06 07 58 8C 97 9A 61 C6 63 D2 F0 66 D0 C2 C0 F9 89 80 6D 5F 6B 61 DA C3 84 50 9D A6 54 E3 2D EA C3 69 C2 DA E7 13 3C B0 8D",
+        16
+    }
 };
 
 
