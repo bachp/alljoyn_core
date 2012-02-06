@@ -696,7 +696,7 @@ QStatus _Message::EncryptMessage()
     KeyBlob key;
     status = peerStateTable->GetPeerState(GetDestination())->GetKey(key, PEER_SESSION_KEY);
     if (status == ER_OK) {
-        size_t argsLen = msgHeader.bodyLen - ajn::Crypto::ExpansionBytes;
+        size_t argsLen = msgHeader.bodyLen - ajn::Crypto::MACLength;
         size_t hdrLen = ROUNDUP8(sizeof(msgHeader) + msgHeader.headerLen);
         status = ajn::Crypto::Encrypt(*this, key, (uint8_t*)msgBuf, hdrLen, argsLen);
         if (status == ER_OK) {
@@ -744,7 +744,7 @@ QStatus _Message::MarshalMessage(const qcc::String& expectedSignature,
      */
     if (encrypt) {
         QCC_DbgHLPrintf(("Encrypting messge to %s", destination.empty() ? "broadcast listeners" : destination.c_str()));
-        msgHeader.bodyLen = static_cast<uint32_t>(argsLen + ajn::Crypto::ExpansionBytes);
+        msgHeader.bodyLen = static_cast<uint32_t>(argsLen + ajn::Crypto::MACLength);
     } else {
         msgHeader.bodyLen = static_cast<uint32_t>(argsLen);
     }

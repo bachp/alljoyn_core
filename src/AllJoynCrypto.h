@@ -88,9 +88,9 @@ class Crypto {
     static QStatus HashHeaderFields(const HeaderFields& hdrFields, qcc::KeyBlob& keyBlob);
 
     /**
-     * The number of bytes that encryption adds to the length of the message.
+     * The length of the message authentication field that will be appended to the encrypted data.
      */
-    static const size_t ExpansionBytes;
+    static const size_t MACLength;
 
 };
 

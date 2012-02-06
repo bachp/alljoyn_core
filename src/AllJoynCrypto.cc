@@ -39,7 +39,7 @@ using namespace qcc;
 
 namespace ajn {
 
-const size_t Crypto::ExpansionBytes = 8;
+const size_t Crypto::MACLength = 8;
 
 static qcc::String ConcatenateCompressedFields(uint8_t* hdr, size_t hdrLen, const HeaderFields& hdrFields)
 {
@@ -109,9 +109,9 @@ QStatus Crypto::Encrypt(const _Message& message, const KeyBlob& keyBlob, uint8_t
              * authenticate the compressed headers even though we won't be sending them.
              */
             qcc::String extHdr = ConcatenateCompressedFields(msgBuf, hdrLen, message.GetHeaderFields());
-            status = aes.Encrypt_CCM(body, body, bodyLen, nonce, extHdr.data(), extHdr.size());
+            status = aes.Encrypt_CCM(body, body, bodyLen, nonce, extHdr.data(), extHdr.size(), MACLength);
         } else {
-            status = aes.Encrypt_CCM(body, body, bodyLen, nonce, msgBuf, hdrLen);
+            status = aes.Encrypt_CCM(body, body, bodyLen, nonce, msgBuf, hdrLen, MACLength);
         }
     }
     break;
@@ -151,9 +151,9 @@ QStatus Crypto::Decrypt(const _Message& message, const KeyBlob& keyBlob, uint8_t
              * authenticate the compressed headers even though we won't be sending them.
              */
             qcc::String extHdr = ConcatenateCompressedFields(msgBuf, hdrLen, message.GetHeaderFields());
-            status = aes.Decrypt_CCM(body, body, bodyLen, nonce, extHdr.data(), extHdr.size());
+            status = aes.Decrypt_CCM(body, body, bodyLen, nonce, extHdr.data(), extHdr.size(), MACLength);
         } else {
-            status = aes.Decrypt_CCM(body, body, bodyLen, nonce, msgBuf, hdrLen);
+            status = aes.Decrypt_CCM(body, body, bodyLen, nonce, msgBuf, hdrLen, MACLength);
         }
     }
     break;
