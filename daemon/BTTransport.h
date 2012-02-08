@@ -339,7 +339,7 @@ class BTTransport :
 
   private:
 
-    BTTransport(const BTTransport& other): bus(other.bus) { }
+    BTTransport(const BTTransport& other) : bus(other.bus) { }
     BTTransport& operator=(const BTTransport& other) { return *this; }
 
     /**
