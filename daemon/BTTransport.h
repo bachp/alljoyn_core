@@ -339,6 +339,9 @@ class BTTransport :
 
   private:
 
+    BTTransport(const BTTransport& other): bus(other.bus) { }
+    BTTransport& operator=(const BTTransport& other) { return *this; }
+
     /**
      * Internal connect method to establish a bus connection to a given BD Address.
      *
