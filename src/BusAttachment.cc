@@ -46,9 +46,7 @@
 #include "SessionInternal.h"
 #include "Transport.h"
 #include "TransportList.h"
-#include "TCPTransport.h"
 #include "BusUtil.h"
-#include "UnixTransport.h"
 #include "BusEndpoint.h"
 #include "LocalTransport.h"
 #include "PeerState.h"
@@ -56,7 +54,7 @@
 #include "BusInternal.h"
 #include "AllJoynPeerObj.h"
 #include "XmlHelper.h"
-#include "LaunchdTransport.h"
+#include "ClientTransport.h"
 
 #define QCC_MODULE "ALLJOYN"
 
@@ -123,13 +121,7 @@ class LocalTransportFactoryContainer : public TransportFactoryContainer {
   public:
     LocalTransportFactoryContainer()
     {
-#if defined(QCC_OS_WINDOWS)
-        Add(new TransportFactory<TCPTransport>("tcp", true));
-#elif defined(QCC_OS_DARWIN)
-        Add(new TransportFactory<LaunchdTransport>("launchd", true));
-#else
-        Add(new TransportFactory<UnixTransport>("unix", true));
-#endif
+        Add(new TransportFactory<ClientTransport>(ClientTransport::TransportName, true));
     }
 } localTransportsContainer;
 
@@ -248,47 +240,6 @@ QStatus BusAttachment::Start()
     return status;
 }
 
-#if defined(QCC_OS_ANDROID)
-static qcc::String bundleConnectSpec;
-static bool isBundleDaemonStarted = false;
-
-/* We only try to load alternate daemons on Android platform with steps:
- * 1) Try to connect to the preinstalled (BT capable daemon) whose connect path is unix:abstract=alljoyn
- * 2) If #1 fails, issue an Intent to start the daemon APK, wait for it to launch and then try to connect
- *    to this daemon. The connect path is unix:abstract=alljoyn-service.
- * 3) If #2 fails, look for a daemon that may have been bundled with the application itself and launch/connect to it if found.
- *    The connect path is unix:abstract=alljoyn-{UUID}
- */
-QStatus BusAttachment::TryAlternativeDaemon(RemoteEndpoint** newep)
-{
-    QCC_DbgTrace(("BusAttachment::TryAlternativeDaemon()"));
-    QStatus status = ER_FAIL;
-
-    /* Try Android apk daemon*/
-    qcc::String apkConnSpec = "unix:abstract=alljoyn-service";
-    QCC_DbgPrintf(("BusAttachment::TryAlternativeDaemon apkConnSpec = %s", apkConnSpec.c_str()));
-
-    status = TryConnect(apkConnSpec.c_str(), newep);
-
-    if (ER_OK == status) {
-        this->connectSpec = apkConnSpec; /* Save the connect spec so that Disconnect() will use it*/
-        return status;
-    }
-
-    qcc::String bundleConnectSpec = "unix:abstract=alljoyn-" + qcc::U32ToString(qcc::GetPid());
-    QCC_DbgPrintf(("BusAttachment::TryAlternativeDaemon bundleConnectSpec = %s", bundleConnectSpec.c_str()));
-    status = TryConnect(bundleConnectSpec.c_str(), newep);
-
-    if (ER_OK == status) {
-        this->connectSpec = bundleConnectSpec;
-        return status;
-    }
-
-    return status;
-}
-
-#endif
-
 QStatus BusAttachment::TryConnect(const char* connectSpec, RemoteEndpoint** newep)
 {
     QCC_DbgTrace(("BusAttachment::TryConnect to %s", connectSpec));
@@ -329,9 +280,15 @@ QStatus BusAttachment::Connect(const char* connectSpec, RemoteEndpoint** newep)
         status = TryConnect(connectSpec, newep);
 
 #if defined(QCC_OS_ANDROID)
-        /* If the connect sepc is "unix:abstract=alljoyn", then try other daemon options with the precedence of preinstalled daemon > APK daemon > bundle daemon */
-        if (status != ER_OK && !isDaemon && (strcmp(connectSpec, "unix:abstract=alljoyn") == 0)) {
-            status = TryAlternativeDaemon(newep);
+        if (status != ER_OK && !isDaemon) {
+            qcc::String bundleConnectSpec = "unix:abstract=alljoyn-" + qcc::U32ToString(qcc::GetPid());
+            if (bundleConnectSpec != connectSpec) {
+                QCC_DbgPrintf(("BusAttachment::TryAlternativeDaemon bundleConnectSpec = %s", bundleConnectSpec.c_str()));
+                status = TryConnect(bundleConnectSpec.c_str(), newep);
+                if (ER_OK == status) {
+                    this->connectSpec = bundleConnectSpec;
+                }
+            }
         }
 #endif
         /* If this is a client (non-daemon) bus attachment, then register signal handlers for BusListener */
