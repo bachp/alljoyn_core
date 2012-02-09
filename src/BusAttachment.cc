@@ -1141,9 +1141,9 @@ QStatus BusAttachment::BindSessionPort(SessionPort& sessionPort, const SessionOp
             }
         }
         if (status == ER_OK) {
-            busInternal->listenersLock.Lock(MUTEX_CONTEXT);
+            busInternal->sessionListenersLock.Lock(MUTEX_CONTEXT);
             busInternal->sessionPortListeners[sessionPort] = &listener;
-            busInternal->listenersLock.Unlock(MUTEX_CONTEXT);
+            busInternal->sessionListenersLock.Unlock(MUTEX_CONTEXT);
         }
     }
     return status;
@@ -1306,9 +1306,9 @@ void BusAttachment::Internal::DoJoinSessionMethodCB(Message& reply, void* contex
                               errMsg.c_str()));
     }
     if (ctx->sessionListener && (status == ER_OK)) {
-        listenersLock.Lock(MUTEX_CONTEXT);
+        sessionListenersLock.Lock(MUTEX_CONTEXT);
         sessionListeners[sessionId] = ctx->sessionListener;
-        listenersLock.Unlock(MUTEX_CONTEXT);
+        sessionListenersLock.Unlock(MUTEX_CONTEXT);
     }
 
     /* Call the callback */
@@ -1392,9 +1392,9 @@ QStatus BusAttachment::JoinSession(const char* sessionHost, SessionPort sessionP
                               errMsg.c_str()));
     }
     if (listener && (status == ER_OK)) {
-        busInternal->listenersLock.Lock(MUTEX_CONTEXT);
+        busInternal->sessionListenersLock.Lock(MUTEX_CONTEXT);
         busInternal->sessionListeners[sessionId] = listener;
-        busInternal->listenersLock.Unlock(MUTEX_CONTEXT);
+        busInternal->sessionListenersLock.Unlock(MUTEX_CONTEXT);
     }
     return status;
 }
@@ -1676,14 +1676,14 @@ bool BusAttachment::Internal::CallAcceptListeners(SessionPort sessionPort, const
     bool isAccepted = false;
 
     /* Call sessionPortListener */
-    listenersLock.Lock(MUTEX_CONTEXT);
+    sessionListenersLock.Lock(MUTEX_CONTEXT);
     map<SessionPort, SessionPortListener*>::iterator it = sessionPortListeners.find(sessionPort);
     if (it != sessionPortListeners.end()) {
         isAccepted = it->second->AcceptSessionJoiner(sessionPort, joiner, opts);
     } else {
         QCC_LogError(ER_FAIL, ("Unable to find sessionPortListener for port=%d", sessionPort));
     }
-    listenersLock.Unlock(MUTEX_CONTEXT);
+    sessionListenersLock.Unlock(MUTEX_CONTEXT);
 
     return isAccepted;
 }
@@ -1691,7 +1691,7 @@ bool BusAttachment::Internal::CallAcceptListeners(SessionPort sessionPort, const
 void BusAttachment::Internal::CallJoinedListeners(SessionPort sessionPort, SessionId sessionId, const char* joiner)
 {
     /* Call sessionListener */
-    listenersLock.Lock(MUTEX_CONTEXT);
+    sessionListenersLock.Lock(MUTEX_CONTEXT);
     map<SessionPort, SessionPortListener*>::iterator it = sessionPortListeners.find(sessionPort);
     if (it != sessionPortListeners.end()) {
         /* Add entry to sessionListeners */
@@ -1703,19 +1703,19 @@ void BusAttachment::Internal::CallJoinedListeners(SessionPort sessionPort, Sessi
     } else {
         QCC_LogError(ER_FAIL, ("Unable to find sessionPortListener for port=%d", sessionPort));
     }
-    listenersLock.Unlock(MUTEX_CONTEXT);
+    sessionListenersLock.Unlock(MUTEX_CONTEXT);
 }
 
 QStatus BusAttachment::Internal::SetSessionListener(SessionId id, SessionListener* listener)
 {
     QStatus status = ER_BUS_NO_SESSION;
-    listenersLock.Lock(MUTEX_CONTEXT);
+    sessionListenersLock.Lock(MUTEX_CONTEXT);
     map<SessionId, SessionListener*>::iterator it = sessionListeners.find(id);
     if (it != sessionListeners.end()) {
         sessionListeners[id] = listener;
         status = ER_OK;
     }
-    listenersLock.Unlock(MUTEX_CONTEXT);
+    sessionListenersLock.Unlock(MUTEX_CONTEXT);
     return status;
 }
 
