@@ -44,7 +44,7 @@ class BTEndpoint : public RemoteEndpoint {
                qcc::Stream& stream,
                const BTNodeInfo& node,
                const BTBusAddress& redirect) :
-        RemoteEndpoint(bus, incoming, node->GetBusAddress().ToSpec(), stream, "bluetooth"),
+        RemoteEndpoint(bus, incoming, node->GetBusAddress().ToSpec(), &stream, "bluetooth"),
         node(node),
         redirect(redirect)
     { }

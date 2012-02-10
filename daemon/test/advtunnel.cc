@@ -269,7 +269,7 @@ QStatus AdvTunnel::RelayAdv()
         return status;
     }
 
-    uint32_t count;
+    uint32_t count = 0;
     status = PullInt(count);
     std::vector<qcc::String> nameList;
     for (size_t i = 0; (status == ER_OK) && (i < count); ++i) {

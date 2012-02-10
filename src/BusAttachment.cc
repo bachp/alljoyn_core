@@ -4,7 +4,7 @@
  */
 
 /******************************************************************************
- * Copyright 2009-2011, Qualcomm Innovation Center, Inc.
+ * Copyright 2009-2012, Qualcomm Innovation Center, Inc.
  *
  *    Licensed under the Apache License, Version 2.0 (the "License");
  *    you may not use this file except in compliance with the License.
@@ -56,6 +56,7 @@
 #include "XmlHelper.h"
 #include "ClientTransport.h"
 #include "NullTransport.h"
+#include "PersistGUID.h"
 
 #define QCC_MODULE "ALLJOYN"
 
@@ -77,7 +78,6 @@ BusAttachment::Internal::Internal(const char* appName,
     transportList(bus, factories),
     keyStore(application),
     authManager(keyStore),
-    globalGuid(qcc::GUID128()),
     msgSerial(1),
     router(router ? router : new ClientRouter),
     localEndpoint(transportList.GetLocalTransport()->GetLocalEndpoint()),
@@ -88,6 +88,18 @@ BusAttachment::Internal::Internal(const char* appName,
     stopLock(),
     stopCount(0)
 {
+    /* Retrieve the Persistent GUID if it exists */
+    QStatus status = ER_OK;
+
+    status = GetPersistentGUID(globalGuid);
+
+    if (status != ER_OK) {
+        globalGuid = qcc::GUID128();
+
+        /* Store the GUID to persist it */
+        status = SetPersistentGUID(globalGuid);
+    }
+
     /*
      * Bus needs a pointer to this internal object.
      */
@@ -96,7 +108,7 @@ BusAttachment::Internal::Internal(const char* appName,
     /*
      * Create the standard interfaces
      */
-    QStatus status = org::freedesktop::DBus::CreateInterfaces(bus);
+    status = org::freedesktop::DBus::CreateInterfaces(bus);
     if (ER_OK != status) {
         QCC_LogError(status, ("Cannot create %s interface", org::freedesktop::DBus::InterfaceName));
     }
@@ -1340,9 +1352,11 @@ QStatus BusAttachment::JoinSession(const char* sessionHost, SessionPort sessionP
     size_t numArgs = 2;
 
     MsgArg::Set(args, numArgs, "sq", sessionHost, sessionPort);
+
     SetSessionOpts(opts, args[2]);
 
     const ProxyBusObject& alljoynObj = this->GetAllJoynProxyObj();
+
     QStatus status = alljoynObj.MethodCall(org::alljoyn::Bus::InterfaceName, "JoinSession", args, ArraySize(args), reply);
     if (ER_OK == status) {
         const MsgArg* replyArgs;

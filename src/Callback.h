@@ -4,7 +4,7 @@
  */
 
 /******************************************************************************
- * Copyright 2010-2011, Qualcomm Innovation Center, Inc.
+ * Copyright 2010-2012, Qualcomm Innovation Center, Inc.
  *
  *    Licensed under the Apache License, Version 2.0 (the "License");
  *    you may not use this file except in compliance with the License.
@@ -116,7 +116,7 @@ class empty { };
 // lists.
 //
 // For example, if you want to call a function that returns void and takes no
-// arguments, you would delcare Callback<void>.  Since the template has eight
+// arguments, you would declare Callback<void>.  Since the template has eight
 // default arguments, what you are really asking for is:
 //
 //     Callback<void, empty, empty, empty, empty, empty, empty, empty, empty>

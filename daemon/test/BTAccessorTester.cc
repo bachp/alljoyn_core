@@ -272,6 +272,7 @@ class TestDriver : public BTTransport {
     {
         // Not implemented so make sure we don't do anything with it.
         assert(0);
+        return *this;
     }
 
     // Should never be called so making it private.
@@ -989,7 +990,7 @@ bool ClientTestDriver::TC_StartDiscovery()
             }
         }
 
-        ::Sleep(5000);
+        qcc::Sleep(5000);
 
         devChangeLock.Lock(MUTEX_CONTEXT);
         devChangeQueue.clear();
@@ -1043,7 +1044,7 @@ bool ClientTestDriver::TC_StopDiscovery()
     }
 
     if (!opts.fastDiscovery) {
-        ::Sleep(5000);
+        qcc::Sleep(5000);
 
         devChangeLock.Lock(MUTEX_CONTEXT);
         count = devChangeQueue.size();
@@ -1426,7 +1427,7 @@ bool ClientTestDriver::TC_ConnectMultiple()
         char sendBuffer[80];
         size_t sent;
 
-        uint8_t length = snprintf(sendBuffer, ArraySize(sendBuffer), "Endpoint %d.", i) + 1;    // Include the nul.
+        uint8_t length = snprintf(sendBuffer, ArraySize(sendBuffer), "Endpoint %d.", (int) i) + 1;    // Include the nul.
         QStatus status = eps[i]->GetSink().PushBytes(&length, sizeof(length), sent);
 
         if (ER_OK == status && sizeof(length) == sent) {

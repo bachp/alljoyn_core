@@ -104,7 +104,7 @@ static QStatus TestRemarshal(const MsgArg* argList, size_t numArgs, const char* 
 {
     QStatus status;
     Pipe stream;
-    RemoteEndpoint ep(*gBus, false, "", stream, "dummy");
+    RemoteEndpoint ep(*gBus, false, "", &stream, "dummy");
     MyMessage msg;
     uint32_t serial;
 

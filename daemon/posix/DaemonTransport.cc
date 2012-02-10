@@ -54,7 +54,7 @@ class DaemonEndpoint : public RemoteEndpoint {
   public:
 
     DaemonEndpoint(BusAttachment& bus, bool incoming, const qcc::String connectSpec, SocketFd sock) :
-        RemoteEndpoint(bus, incoming, connectSpec, stream, DaemonTransport::TransportName),
+        RemoteEndpoint(bus, incoming, connectSpec, &stream, DaemonTransport::TransportName),
         userId(-1),
         groupId(-1),
         processId(-1),
@@ -204,7 +204,9 @@ void* DaemonTransport::Run(void* arg)
     while (!IsStopping()) {
         status = Event::Wait(listenEvent);
         if (status != ER_OK) {
-            QCC_LogError(status, ("Event::Wait failed"));
+            if (status != ER_STOPPING_THREAD) {
+                QCC_LogError(status, ("Event::Wait failed"));
+            }
             break;
         }
         SocketFd newSock;

@@ -51,6 +51,10 @@ else:
 
 # Daemon library
 lib = env.StaticLibrary('ajdaemon', base_objs);
+    
+# JSON Sources
+json_srcs = env.SConscript('JSON/SConscript')
+daemon_objs.extend(env.Object(json_srcs))    
 
 # AllJoyn Daemon
 progs = env.SConscript('${OS_GROUP}/SConscript', exports=['daemon_objs', 'config_objs'])

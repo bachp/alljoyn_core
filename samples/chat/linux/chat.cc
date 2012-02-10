@@ -14,6 +14,8 @@
  *    limitations under the License.
  */
 
+#include <qcc/Thread.h>
+
 #include <alljoyn/BusAttachment.h>
 #include <alljoyn/ProxyBusObject.h>
 #include <alljoyn/BusObject.h>
@@ -299,11 +301,7 @@ int main(int argc, char** argv)
 
         /* Wait for join session to complete */
         while (!s_joinComplete) {
-#ifdef _WIN32
-            Sleep(10);
-#else
-            sleep(1);
-#endif
+            qcc::Sleep(10);
         }
     }
 

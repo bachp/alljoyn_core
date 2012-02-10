@@ -405,7 +405,7 @@ class TCPEndpoint : public RemoteEndpoint {
                 qcc::SocketFd sock,
                 const qcc::IPAddress& ipAddr,
                 uint16_t port)
-        : RemoteEndpoint(bus, incoming, connectSpec, m_stream, "tcp"),
+        : RemoteEndpoint(bus, incoming, connectSpec, &m_stream, "tcp"),
         m_transport(transport),
         m_sideState(SIDE_INITIALIZED),
         m_authState(AUTH_INITIALIZED),

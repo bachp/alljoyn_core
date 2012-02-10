@@ -5,7 +5,7 @@
  */
 
 /******************************************************************************
- * Copyright 2009-2011, Qualcomm Innovation Center, Inc.
+ * Copyright 2009-2012, Qualcomm Innovation Center, Inc.
  *
  *    Licensed under the Apache License, Version 2.0 (the "License");
  *    you may not use this file except in compliance with the License.
@@ -143,7 +143,7 @@ QStatus _Message::MarshalArgs(const MsgArg* arg, size_t numArgs)
             status = ER_BUS_BAD_VALUE;
             break;
         }
-        // QCC_DbgPrintf(("MarshalArgs @%ld %s", bufPos - bodyPtr, arg->ToString().c_str()));
+        //QCC_DbgPrintf(("MarshalArgs @%ld %s", bufPos - bodyPtr, arg->ToString().c_str()));
         switch (arg->typeId) {
         case ALLJOYN_DICT_ENTRY:
             MarshalPad8();
@@ -500,7 +500,7 @@ QStatus _Message::Deliver(RemoteEndpoint& endpoint)
         return status;
     }
     /*
-     * If the mssage has a TTL check if it has expired
+     * If the message has a TTL, check if it has expired
      */
     if (ttl && IsExpired()) {
         QCC_DbgHLPrintf(("TTL has expired - discarding message %s", Description().c_str()));

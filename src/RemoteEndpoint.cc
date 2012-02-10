@@ -57,7 +57,7 @@ static uint32_t threadCount = 0;
 RemoteEndpoint::RemoteEndpoint(BusAttachment& bus,
                                bool incoming,
                                const qcc::String& connectSpec,
-                               Stream& stream,
+                               Stream* stream,
                                const char* threadName,
                                bool isSocket) :
     BusEndpoint(BusEndpoint::ENDPOINT_TYPE_REMOTE),
@@ -118,12 +118,14 @@ QStatus RemoteEndpoint::Start()
     bool isTxStarted = false;
     bool isRxStarted = false;
 
+    assert(stream);
+
     if (features.isBusToBus) {
         endpointType = BusEndpoint::ENDPOINT_TYPE_BUS2BUS;
     }
 
     /* Set the send timeout for this endpoint */
-    stream.SetSendTimeout(120000);
+    stream->SetSendTimeout(120000);
 
     /* Start the TX thread */
     status = txThread.Start(this, this);

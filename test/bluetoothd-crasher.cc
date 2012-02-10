@@ -386,7 +386,7 @@ void* Crasher::Run(void* arg)
             pthread_mutex_lock(&discMutex);
         }
         pthread_mutex_unlock(&discMutex);
-        Sleep(500 + Rand32() % 500);
+        qcc::Sleep(500 + Rand32() % 500);
     }
 
     bzAdapterObj.MethodCall(*test::org.bluez.Adapter.StopDiscovery, NULL, 0);

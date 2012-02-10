@@ -915,7 +915,7 @@ void BTController::NameOwnerChanged(const qcc::String& alias,
                   alias.c_str(),
                   oldOwner ? oldOwner->c_str() : "<null>",
                   newOwner ? newOwner->c_str() : "<null>"));
-    if (oldOwner && (alias == *oldOwner)) {
+    if (oldOwner && (alias == *oldOwner) && (alias != bus.GetUniqueName())) {
         DispatchOperation(new NameLostDispatchInfo(alias));
     } else if (!oldOwner && newOwner && (alias == org::alljoyn::Daemon::WellKnownName)) {
         /*

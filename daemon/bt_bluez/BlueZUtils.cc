@@ -121,7 +121,7 @@ QStatus BTSocketStream::PushBytes(const void* buf, size_t numBytes, size_t& numS
                                         (errno == ENOMEM) ||
                                         (errno == EFAULT))) {
             // BlueZ reports ENOMEM and EFAULT when it should report EBUSY or EAGAIN, just wait and try again.
-            Sleep(50);
+            qcc::Sleep(50);
             --retry;
         } else {
             // Don't retry on success or errors not listed above.

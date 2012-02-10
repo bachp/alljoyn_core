@@ -6,7 +6,7 @@
 /******************************************************************************
  *
  *
- * Copyright 2009-2011, Qualcomm Innovation Center, Inc.
+ * Copyright 2009-2012, Qualcomm Innovation Center, Inc.
  *
  *    Licensed under the Apache License, Version 2.0 (the "License");
  *    you may not use this file except in compliance with the License.
@@ -28,6 +28,7 @@
 #include <vector>
 
 #include <qcc/String.h>
+#include <qcc/Thread.h>
 
 #include <alljoyn/BusAttachment.h>
 #include <alljoyn/version.h>
@@ -42,9 +43,10 @@ using namespace ajn;
 static BusAttachment* g_msgBus = NULL;
 
 /*constants*/
-static const char* INTERFACE_NAME = "org.alljoyn.Bus.method_sample";
-static const char* SERVICE_NAME = "org.alljoyn.Bus.method_sample";
-static const char* SERVICE_PATH = "/method_sample";
+//PPN
+static const char* INTERFACE_NAME = "org.alljoyn.Bus.sample";
+static const char* SERVICE_NAME = "org.alljoyn.Bus.sample";
+static const char* SERVICE_PATH = "/sample";
 static const SessionPort SERVICE_PORT = 25;
 
 static bool s_joinComplete = false;
@@ -64,7 +66,7 @@ class MyBusListener : public BusListener, public SessionListener {
     {
         printf("FoundAdvertisedName(name=%s, prefix=%s)\n", name, namePrefix);
         if (0 == strcmp(name, SERVICE_NAME)) {
-            /* We found a remote bus that is advertising basic sercice's  well-known name so connect to it */
+            // We found a remote bus that is advertising basic service's  well-known name so connect to it
             SessionOpts opts(SessionOpts::TRAFFIC_MESSAGES, false, SessionOpts::PROXIMITY_ANY, TRANSPORT_ANY);
             QStatus status = g_msgBus->JoinSession(name, SERVICE_PORT, this, s_sessionId, opts);
             if (ER_OK != status) {
@@ -162,14 +164,13 @@ int main(int argc, char** argv, char** envArg)
 
     /* Wait for join session to complete */
     while (!s_joinComplete && !g_interrupt) {
-#ifdef _WIN32
-        Sleep(100);
-#else
-        usleep(100 * 1000);
-#endif
+        qcc::Sleep(100);
+
+
     }
 
     if (status == ER_OK && g_interrupt == false) {
+
         ProxyBusObject remoteObj(*g_msgBus, SERVICE_NAME, SERVICE_PATH, s_sessionId);
         const InterfaceDescription* alljoynTestIntf = g_msgBus->GetInterface(INTERFACE_NAME);
         assert(alljoynTestIntf);
@@ -186,6 +187,10 @@ int main(int argc, char** argv, char** envArg)
         } else {
             printf("MethodCall on %s.%s failed", SERVICE_NAME, "cat");
         }
+    }
+
+    while (1) {
+
     }
 
     /* Deallocate bus */

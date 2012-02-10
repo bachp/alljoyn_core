@@ -304,6 +304,13 @@ QStatus AllJoynObj::CheckTransportsPermission(qcc::String& sender, TransportMask
                 QCC_LogError(ER_ALLJOYN_ACCESS_PERMISSION_WARNING, ("AllJoynObj::%s() WARNING: No permission to use Wifi", ((callerName == NULL) ? "" : callerName)));
             }
         }
+        if (transports & TRANSPORT_ICE) {
+            bool allowed = router.GetPermissionDB().IsWifiAllowed(*srcEp);
+            if (!allowed) {
+                transports ^= TRANSPORT_ICE;
+                QCC_LogError(ER_ALLJOYN_ACCESS_PERMISSION_WARNING, ("AllJoynObj::%s() WARNING: No permission to use Wifi for ICE", ((callerName == NULL) ? "" : callerName)));
+            }
+        }
         if (transports == 0) {
             status = ER_BUS_NO_TRANSPORTS;
         }
@@ -680,12 +687,22 @@ ThreadReturn STDCALL AllJoynObj::JoinSessionThread::RunJoin()
 
             String busAddr;
             if (!b2bEp) {
-                /* Step 1: If there is a busAddr from advertsement use it to (possibly) create a physical connection */
+                /* Step 1: If there is a busAddr from advertisement use it to (possibly) create a physical connection */
                 vector<String> busAddrs;
                 multimap<String, NameMapEntry>::iterator nmit = ajObj.nameMap.lower_bound(sessionHost);
                 while (nmit != ajObj.nameMap.end() && (nmit->first == sessionHost)) {
                     if (nmit->second.transport & optsIn.transports) {
-                        busAddrs.push_back(nmit->second.busAddr);
+                        String tempbusAddr = nmit->second.busAddr;
+                        TransportList& transList = ajObj.bus.GetInternal().GetTransportList();
+                        Transport* trans = transList.GetTransport(tempbusAddr);
+                        if (trans != NULL) {
+                            status = trans->ComposeBusAddrForConnect(tempbusAddr, sender, nmit->first);
+
+                            if (status == ER_OK) {
+                                busAddrs.push_back(tempbusAddr);
+                                QCC_DbgPrintf(("AllJoynObj::JoinSessionThread::RunJoin(): tempbusAddr(%s)", tempbusAddr.c_str()));
+                            }
+                        }
                         break;
                     }
                     ++nmit;
@@ -693,7 +710,7 @@ ThreadReturn STDCALL AllJoynObj::JoinSessionThread::RunJoin()
                 ajObj.ReleaseLocks();
 
                 /*
-                 * Step 1b: If no advertisment (busAddr) and we are connected to the sesionHost, then ask it directly
+                 * Step 1b: If no advertisement (busAddr) and we are connected to the sesionHost, then ask it directly
                  * for the busAddr
                  */
                 if (vSessionEp && busAddrs.empty()) {
@@ -715,6 +732,7 @@ ThreadReturn STDCALL AllJoynObj::JoinSessionThread::RunJoin()
                                 QCC_DbgPrintf(("AllJoynObj:JoinSessionThread() skip unpermitted transport(%s)", trans->GetTransportName()));
                                 continue;
                             }
+
                             BusEndpoint* ep;
                             status = trans->Connect(busAddrs[i].c_str(), optsIn, &ep);
                             if (status == ER_OK) {
@@ -2184,7 +2202,7 @@ void AllJoynObj::AdvertiseName(const InterfaceDescription::Member* member, Messa
                 Transport* trans = transList.GetTransport(i);
                 if (trans && (trans->GetTransportMask() & transports)) {
                     status = trans->EnableAdvertisement(advertiseNameStr);
-                    if (status != ER_OK) {
+                    if ((status != ER_OK) && (status != ER_NOT_IMPLEMENTED)) {
                         QCC_LogError(status, ("EnableAdvertisment failed for transport %s - mask=0x%x", trans->GetTransportName(), transports));
                     }
                 } else if (!trans) {
@@ -3223,7 +3241,7 @@ void AllJoynObj::FoundNames(const qcc::String& busAddr,
                                         forbitIt->second.second.compare(dit->second) == 0 &&
                                         (forbitIt->second.first & transport) != 0) {
                                         forbidden = true;
-                                        QCC_DbgPrintf(("FoundNames: Forbit to send advertised name %s over transport %d to %s due to lack of permission", (*nit).c_str(), transport, forbitIt->second.second.c_str()));
+                                        QCC_DbgPrintf(("FoundNames: Forbid to send advertised name %s over transport %d to %s due to lack of permission", (*nit).c_str(), transport, forbitIt->second.second.c_str()));
                                         break;
                                     }
                                     ++forbitIt;
@@ -3237,8 +3255,8 @@ void AllJoynObj::FoundNames(const qcc::String& busAddr,
                     }
                 } else {
                     /*
-                     * If the busAddr doesn't match, then this is actually a new but redundant advertsement.
-                     * Don't track it. Don't updated the TTL for the existing advertisment with the same name
+                     * If the busAddr doesn't match, then this is actually a new but redundant advertisement.
+                     * Don't track it. Don't updated the TTL for the existing advertisement with the same name
                      * and don't tell clients about this alternate way to connect to the name
                      * since it will look like a duplicate to the client (that doesn't receive busAddr).
                      */

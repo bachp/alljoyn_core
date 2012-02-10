@@ -1962,7 +1962,7 @@ QStatus BTTransport::BTAccessor::DiscoveryControl(const InterfaceDescription::Me
             uint64_t stopTime = GetTimestamp64() + 10000;  // give up after 10 seconds
             while ((GetTimestamp64() < stopTime) && adapter->IsValid() && (adapter->IsDiscovering() != start)) {
                 QCC_DbgPrintf(("Waiting 100 ms for discovery to %s.", start ? "start" : "stop"));
-                Sleep(100);
+                qcc::Sleep(100);
                 adapter = GetDefaultAdapterObject();  // In case adapter goes away
             }
         }

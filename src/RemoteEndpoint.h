@@ -60,7 +60,7 @@ class RemoteEndpoint : public BusEndpoint, public qcc::ThreadListener {
         { }
 
         bool isBusToBus;       /**< When initiating connection this is an input value indicating if this is a bus-to-bus connection.
-                                    When accepting a connection this is an output value indicicating if this is bus-to-bus connection. */
+                                    When accepting a connection this is an output value indicating if this is bus-to-bus connection. */
 
         bool allowRemote;      /**< When initiating a connection this input value tells the local daemon whether it wants to receive
                                     messages from remote busses. When accepting a connection, this output indicates whether the connected
@@ -102,7 +102,7 @@ class RemoteEndpoint : public BusEndpoint, public qcc::ThreadListener {
     RemoteEndpoint(BusAttachment& bus,
                    bool incoming,
                    const qcc::String& connectSpec,
-                   qcc::Stream& stream,
+                   qcc::Stream* stream,
                    const char* type = "endpoint",
                    bool isSocket = true);
 
@@ -156,6 +156,12 @@ class RemoteEndpoint : public BusEndpoint, public qcc::ThreadListener {
      *     - ER_OK if successful.
      */
     QStatus PauseAfterRxReply();
+
+    /**
+     * Set the underlying stream for this RemoteEndpoint.
+     * This call can be used to override the Stream set in RemoteEndpoint's constructor
+     */
+    void SetStream(Stream* s) { stream = s; }
 
     /**
      * Join the endpoint.
@@ -275,21 +281,21 @@ class RemoteEndpoint : public BusEndpoint, public qcc::ThreadListener {
      *
      * @return  The data source for this endpoint.
      */
-    qcc::Source& GetSource() { return stream; }
+    qcc::Source& GetSource() { return *stream; }
 
     /**
      * Get the data sink for this endpoint
      *
      * @return  The data sink for this endpoint.
      */
-    qcc::Sink& GetSink() { return stream; }
+    qcc::Sink& GetSink() { return *stream; }
 
     /**
      * Get the Stream from this endpoint
      *
      * @return The stream for this endpoint.
      */
-    qcc::Stream& GetStream() { return stream; }
+    qcc::Stream& GetStream() { return *stream; }
 
     /**
      * Set link timeout
@@ -425,7 +431,7 @@ class RemoteEndpoint : public BusEndpoint, public qcc::ThreadListener {
     void ThreadExit(qcc::Thread* thread);
 
     BusAttachment& bus;                      /**< Message bus associated with this endpoint */
-    qcc::Stream& stream;                     /**< Stream for this endpoint */
+    qcc::Stream* stream;                     /**< Stream for this endpoint or NULL if uninitialized */
     EndpointAuth auth;                       /**< Endpoint AllJoynAuthentication */
 
     std::deque<Message> txQueue;             /**< Transmit message queue */

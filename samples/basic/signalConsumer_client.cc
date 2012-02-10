@@ -32,6 +32,7 @@
 #include <vector>
 
 #include <qcc/String.h>
+#include <qcc/Thread.h>
 
 #include <alljoyn/BusAttachment.h>
 #include <alljoyn/BusObject.h>
@@ -220,11 +221,7 @@ int main(int argc, char** argv, char** envArg)
 
     /* Wait for join session to complete */
     while (!s_joinComplete && !g_interrupt) {
-#ifdef _WIN32
-        Sleep(100);
-#else
-        usleep(100 * 1000);
-#endif
+        qcc::Sleep(100);
     }
 
     if (status == ER_OK && g_interrupt == false) {
@@ -238,11 +235,7 @@ int main(int argc, char** argv, char** envArg)
 
     if (status == ER_OK) {
         while (g_interrupt == false) {
-#ifdef _WIN32
-            Sleep(100);
-#else
-            usleep(100 * 1000);
-#endif
+            qcc::Sleep(100);
         }
     } else {
         printf("BusAttachment::Start failed\n");

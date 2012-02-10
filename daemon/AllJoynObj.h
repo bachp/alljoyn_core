@@ -5,7 +5,7 @@
  */
 
 /******************************************************************************
- * Copyright 2010-2011, Qualcomm Innovation Center, Inc.
+ * Copyright 2010-2012, Qualcomm Innovation Center, Inc.
  *
  *    Licensed under the Apache License, Version 2.0 (the "License");
  *    you may not use this file except in compliance with the License.
@@ -337,10 +337,10 @@ class AllJoynObj : public BusObject, public NameListener, public TransportListen
      * Internal use only.
      *
      * @param   busAddr   Address of discovered bus.
-     * @param   guid      GUID of daemon that sent the advertisment.
-     * @param   transport Transport that received the advertisment.
+     * @param   guid      GUID of daemon that sent the advertisement.
+     * @param   transport Transport that received the advertisement.
      * @param   names     Vector of bus names advertised by the discovered bus.
-     * @param   ttl       Number of seconds before this advertisment expires
+     * @param   ttl       Number of seconds before this advertisement expires
      *                    (0 means expire immediately, numeric_limits<uint8_t>::max() means never expire)
      */
     void FoundNames(const qcc::String& busAddr, const qcc::String& guid, TransportMask transport, const std::vector<qcc::String>* names, uint8_t ttl);
@@ -521,11 +521,11 @@ class AllJoynObj : public BusObject, public NameListener, public TransportListen
      * @param remoteControllerName  Unique name of bus controller at next hop.
      * @param outgoingSessionId     SessionId to use for outgoing AttachSession message. Should
      *                              be 0 for newly created (non-multipoint) sessions.
-     * @param busAddr          Destination bus address from advertisment or GetSessionInfo.
+     * @param busAddr          Destination bus address from advertisement or GetSessionInfo.
      * @param optsIn           Session options requested by joiner.
      * @param replyCode        [OUT] SessionAttach response code
      * @param sessionId        [OUT] session id if reply code indicates success.
-     * @param optsOut          [OUT] Acutal (final) session options.
+     * @param optsOut          [OUT] Actual (final) session options.
      * @param members          [OUT] Array or session members (strings) formatted as MsgArg.
      */
     QStatus SendAttachSession(SessionPort sessionPort,

@@ -58,7 +58,7 @@ class ClientEndpoint : public RemoteEndpoint {
   public:
     /* Unix endpoint constructor */
     ClientEndpoint(BusAttachment& bus, bool incoming, const qcc::String connectSpec, SocketFd sock) :
-        RemoteEndpoint(bus, incoming, connectSpec, stream, ClientTransport::TransportName),
+        RemoteEndpoint(bus, incoming, connectSpec, &stream, ClientTransport::TransportName),
         userId(-1),
         groupId(-1),
         processId(-1),

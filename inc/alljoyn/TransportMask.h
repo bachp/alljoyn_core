@@ -6,7 +6,7 @@
  */
 
 /******************************************************************************
- * Copyright 2009-2010, Qualcomm Innovation Center, Inc.
+ * Copyright 2009-2010,2012 Qualcomm Innovation Center, Inc.
  *
  *    Licensed under the Apache License, Version 2.0 (the "License");
  *    you may not use this file except in compliance with the License.
@@ -35,6 +35,7 @@ const TransportMask TRANSPORT_BLUETOOTH = 0x0002;   /**< Bluetooth transport */
 const TransportMask TRANSPORT_WLAN      = 0x0004;   /**< Wireless local-area network transport */
 const TransportMask TRANSPORT_WWAN      = 0x0008;   /**< Wireless wide-area network transport */
 const TransportMask TRANSPORT_LAN       = 0x0010;   /**< Wired local-area network transport */
+const TransportMask TRANSPORT_ICE       = 0x0020;   /**< Transport using ICE protocol */
 
 }
 

@@ -4,7 +4,7 @@
  */
 
 /******************************************************************************
- * Copyright 2009-2011, Qualcomm Innovation Center, Inc.
+ * Copyright 2009-2012, Qualcomm Innovation Center, Inc.
  *
  *    Licensed under the Apache License, Version 2.0 (the "License");
  *    you may not use this file except in compliance with the License.
@@ -75,7 +75,7 @@ class TransportList : public TransportListener {
      *   @c \<transportName\>:\<param1\>=\<value1\>,\<param2\>=\<value2\>[;]
      *
      * @param transportSpec  Either a connectSpec or a listenSpec. Must be a string that starts with one
-     *                       of the known transport types: @c tcp, @c unix or @c bluetooth.
+     *                       of the known transport types: @c tcp, @c unix or @c bluetooth or @c ice.
      * @return  A transport instance or NULL if no such transport exists
      */
     Transport* GetTransport(const qcc::String& transportSpec);

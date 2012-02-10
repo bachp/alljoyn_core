@@ -73,6 +73,7 @@ static const char defaultConfig[] =
     "  <listen>tcp:addr=0.0.0.0,port=9955,family=ipv4</listen>"
     "  <listen>localhost:port=9956</listen>"
     "  <listen>bluetooth:</listen>"
+    "  <listen>ice:</listen>"
     "  <policy context=\"default\">"
     "    <!-- Allow everything to be sent -->"
     "    <allow send_destination=\"*\" eavesdrop=\"false\"/>"
@@ -86,6 +87,14 @@ static const char defaultConfig[] =
     "  <limit name=\"max_completed_connections_tcp\">64</limit>"
     "  <alljoyn module=\"ipns\">"
     "    <property interfaces=\"*\"/>"
+    "  </alljoyn>"
+    "  <alljoyn module=\"icedm\">"
+    "    <property interfaces=\"*\"/>"
+    "    <property server=\"rdvs-test.qualcomm.com\"/>"
+    "    <property EthernetPrefix=\"eth\"/>"
+    "    <property WiFiPrefix=\"wlan\"/>"
+    "    <property MobileNwPrefix=\"ppp\"/>"
+    "    <property Protocol=\"HTTPS\"/>"
     "  </alljoyn>"
     "</busconfig>";
 

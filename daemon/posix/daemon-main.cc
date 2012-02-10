@@ -50,6 +50,7 @@
 #include "Transport.h"
 #include "TCPTransport.h"
 #include "DaemonTransport.h"
+#include "DaemonICETransport.h"
 
 #if defined(QCC_OS_DARWIN)
 #warning BT Support on Darwin needs to be implemented
@@ -76,7 +77,6 @@ extern int capset(cap_user_header_t hdrp, const cap_user_data_t datap);
 #endif
 #endif
 
-
 #define DAEMON_EXIT_OK            0
 #define DAEMON_EXIT_OPTION_ERROR  1
 #define DAEMON_EXIT_CONFIG_ERROR  2
@@ -85,12 +85,9 @@ extern int capset(cap_user_header_t hdrp, const cap_user_data_t datap);
 #define DAEMON_EXIT_IO_ERROR      5
 #define DAEMON_EXIT_SESSION_ERROR 6
 
-
-
 using namespace ajn;
 using namespace qcc;
 using namespace std;
-
 
 static volatile sig_atomic_t reload;
 static volatile sig_atomic_t quit;
@@ -99,13 +96,18 @@ static volatile sig_atomic_t quit;
  * Simple config to allow all messages with PolicyDB tied into DaemonRouter and
  * to provide some non-default limits for the daemon tcp transport.
  */
-static const char internalConfig[] =
+
+/* Replace all stdout to stderr */
+
+static const char
+    internalConfig[] =
     "<busconfig>"
     "  <type>alljoyn</type>"
     "  <listen>unix:abstract=alljoyn</listen>"
     "  <listen>launchd:env=DBUS_LAUNCHD_SESSION_BUS_SOCKET</listen>"
     "  <listen>bluetooth:</listen>"
     "  <listen>tcp:addr=0.0.0.0,port=9955,family=ipv4</listen>"
+    "  <listen>ice:</listen>"
     "  <policy context=\"default\">"
     "    <allow send_interface=\"*\"/>"
     "    <allow receive_interface=\"*\"/>"
@@ -120,6 +122,14 @@ static const char internalConfig[] =
     "  <alljoyn module=\"ipns\">"
     "    <property interfaces=\"*\"/>"
     "  </alljoyn>"
+    "  <alljoyn module=\"icedm\">"
+    "    <property interfaces=\"*\"/>"
+    "    <property server=\"rdvs-test.qualcomm.com\"/>"
+    "    <property EthernetPrefix=\"eth\"/>"
+    "    <property WiFiPrefix=\"wlan\"/>"
+    "    <property MobileNwPrefix=\"ppp\"/>"
+    "    <property Protocol=\"HTTP\"/>"
+    "  </alljoyn>"
     "</busconfig>";
 
 
@@ -129,9 +139,7 @@ static const char versionPreamble[] =
     "Licensed under Apache2.0: http://www.apache.org/licenses/LICENSE-2.0.html\n"
     "Build: %s\n";
 
-
-void SignalHandler(int sig)
-{
+void SignalHandler(int sig) {
     switch (sig) {
     case SIGHUP:
         if (!reload) {
@@ -146,8 +154,6 @@ void SignalHandler(int sig)
     }
 }
 
-
-
 class OptParse {
   public:
     enum ParseResultCode {
@@ -159,25 +165,54 @@ class OptParse {
     };
 
     OptParse(int argc, char** argv) :
-        argc(argc), argv(argv), fork(false), noFork(false), noBT(false), noTCP(false), noLaunchd(false), noSwitchUser(false),
-        printAddressFd(-1), printPidFd(-1),
-        session(false), system(false), internal(false), configService(false), verbosity(LOG_WARNING)
-    { }
+        argc(argc), argv(argv), fork(false), noFork(false), noBT(false), noTCP(
+            false), noICE(false), noLaunchd(false), noSwitchUser(false),
+        printAddressFd(-1), printPidFd(-1), session(false), system(
+            false), internal(false), configService(false),
+        verbosity(LOG_WARNING) {
+    }
 
     ParseResultCode ParseResult();
 
-    qcc::String GetConfigFile() const { return configFile; }
-    bool GetFork() const { return fork; }
-    bool GetNoFork() const { return noFork; }
-    bool GetNoBT() const { return noBT; }
-    bool GetNoTCP() const { return noTCP; }
-    bool GetNoLaunchd() const { return noLaunchd; }
-    bool GetNoSwitchUser() const { return noSwitchUser; }
-    int GetPrintAddressFd() const { return printAddressFd; }
-    int GetPrintPidFd() const { return printPidFd; }
-    int GetVerbosity() const { return verbosity; }
-    bool GetInternalConfig() const { return internal; }
-    bool GetServiceConfig() const { return configService; }
+    qcc::String GetConfigFile() const {
+        return configFile;
+    }
+    bool GetFork() const {
+        return fork;
+    }
+    bool GetNoFork() const {
+        return noFork;
+    }
+    bool GetNoBT() const {
+        return noBT;
+    }
+    bool GetNoTCP() const {
+        return noTCP;
+    }
+    bool GetNoICE() const {
+        return noICE;
+    }
+    bool GetNoLaunchd() const {
+        return noLaunchd;
+    }
+    bool GetNoSwitchUser() const {
+        return noSwitchUser;
+    }
+    int GetPrintAddressFd() const {
+        return printAddressFd;
+    }
+    int GetPrintPidFd() const {
+        return printPidFd;
+    }
+    int GetVerbosity() const {
+        return verbosity;
+    }
+    bool GetInternalConfig() const {
+        return internal;
+    }
+    bool GetServiceConfig() const {
+        return configService;
+    }
 
   private:
     int argc;
@@ -188,6 +223,7 @@ class OptParse {
     bool noFork;
     bool noBT;
     bool noTCP;
+    bool noICE;
     bool noLaunchd;
     bool noSwitchUser;
     int printAddressFd;
@@ -201,68 +237,66 @@ class OptParse {
     void PrintUsage();
 };
 
-
-void OptParse::PrintUsage()
-{
+void OptParse::PrintUsage() {
     qcc::String cmd = argv[0];
     cmd = cmd.substr(cmd.find_last_of('/') + 1);
 
-    fprintf(stderr,
-            "%s [--session | --system | --internal | --config-file=FILE"
+    fprintf(
+        stderr,
+        "%s [--session | --system | --internal | --config-file=FILE"
 #if defined(QCC_OS_ANDROID) && defined(DAEMON_LIB)
-            " | --config-service"
+        " | --config-service"
 #endif
-            "]\n"
-            "%*s [--print-address[=DESCRIPTOR]] [--print-pid[=DESCRIPTOR]]\n"
-            "%*s [--fork | --nofork] [--no-bt] [--no-tcp] [--no-launchd]\n"
-            "%*s  [--no-switch-user] [--verbosity=LEVEL] [--version]\n\n"
-            "    --session\n"
-            "        Use the standard configuration for the per-login-session message bus.\n\n"
-            "    --system\n"
-            "        Use the standard configuration for the system message bus.\n\n"
-            "    --internal\n"
-            "        Use a basic internally defined message bus for AllJoyn.\n\n"
+        "]\n"
+        "%*s [--print-address[=DESCRIPTOR]] [--print-pid[=DESCRIPTOR]]\n"
+        "%*s [--fork | --nofork] [--no-bt] [--no-tcp] [--no-ice] [--no-launchd]\n"
+        "%*s  [--no-switch-user] [--verbosity=LEVEL] [--version]\n\n"
+        "    --session\n"
+        "        Use the standard configuration for the per-login-session message bus.\n\n"
+        "    --system\n"
+        "        Use the standard configuration for the system message bus.\n\n"
+        "    --internal\n"
+        "        Use a basic internally defined message bus for AllJoyn.\n\n"
 #if defined(QCC_OS_ANDROID) && defined(DAEMON_LIB)
-            "    --config-service\n"
-            "        Use a configuration passed from the calling service.\n\n"
+        "    --config-service\n"
+        "        Use a configuration passed from the calling service.\n\n"
 #endif
-            "    --config-file=FILE\n"
-            "        Use the specified configuration file.\n\n"
-            "    --print-address[=DESCRIPTOR]\n"
-            "        Print the socket address to STDOUT or the specified descriptor\n\n"
-            "    --print-pid[=DESCRIPTOR]\n"
-            "        Print the process ID to STDOUT or the specified descriptor\n\n"
-            "    --fork\n"
-            "        Force the daemon to fork and run in the background.\n\n"
-            "    --nofork\n"
-            "        Force the daemon to only run in the foreground (override config file\n"
-            "        setting).\n\n"
-            "    --no-bt\n"
-            "        Disable the Bluetooth transport (override config file setting).\n\n"
-            "    --no-tcp\n"
-            "        Disable the TCP transport (override config file setting).\n\n"
-            "    --no-launchd\n"
-            "        Disable the Launchd transport (override config file setting).\n\n"
-            "    --no-switch-user\n"
-            "        Don't switch from root to "
+        "    --config-file=FILE\n"
+        "        Use the specified configuration file.\n\n"
+        "    --print-address[=DESCRIPTOR]\n"
+        "        Print the socket address to stdout or the specified descriptor\n\n"
+        "    --print-pid[=DESCRIPTOR]\n"
+        "        Print the process ID to stdout or the specified descriptor\n\n"
+        "    --fork\n"
+        "        Force the daemon to fork and run in the background.\n\n"
+        "    --nofork\n"
+        "        Force the daemon to only run in the foreground (override config file\n"
+        "        setting).\n\n"
+        "    --no-bt\n"
+        "        Disable the Bluetooth transport (override config file setting).\n\n"
+        "    --no-tcp\n"
+        "        Disable the TCP transport (override config file setting).\n\n"
+        "    --no-ice\n"
+        "        Disable the ICE transport (override config file setting).\n\n"
+        "    --no-launchd\n"
+        "        Disable the Launchd transport (override config file setting).\n\n"
+        "    --no-switch-user\n"
+        "        Don't switch from root to "
 #if defined(QCC_OS_ANDROID)
-            "bluetooth.\n\n"
+        "bluetooth.\n\n"
 #else
-            "the user specified in the config file.\n\n"
+        "the user specified in the config file.\n\n"
 #endif
-            "    --verbosity=LEVEL\n"
-            "        Set the logging level to LEVEL.\n\n"
-            "    --version\n"
-            "        Print the version and copyright string, and exit.\n",
-            cmd.c_str(),
-            static_cast<int>(cmd.size()), "",
-            static_cast<int>(cmd.size()), "",
-            static_cast<int>(cmd.size()), "");
+        "    --verbosity=LEVEL\n"
+        "        Set the logging level to LEVEL.\n\n"
+        "    --version\n"
+        "        Print the version and copyright string, and exit.\n",
+        cmd.c_str(), static_cast<int> (cmd.size()), "",
+        static_cast<int> (cmd.size()), "", static_cast<int> (cmd.size()),
+        "");
 }
 
-
-OptParse::ParseResultCode OptParse::ParseResult()
-{
+OptParse::ParseResultCode OptParse::ParseResult() {
     ParseResultCode result(PR_OK);
     int i;
 
@@ -307,7 +341,8 @@ OptParse::ParseResultCode OptParse::ParseResult()
                 goto exit;
             }
             configFile = argv[i];
-        } else if (arg.compare(0, sizeof("--config-file") - 1, "--config-file") == 0) {
+        } else if (arg.compare(0, sizeof("--config-file") - 1, "--config-file")
+                   == 0) {
             if (!configFile.empty() || internal) {
                 result = PR_OPTION_CONFLICT;
                 goto exit;
@@ -321,12 +356,15 @@ OptParse::ParseResultCode OptParse::ParseResult()
             }
             configService = true;
 #endif
-        } else if (arg.compare(0, sizeof("--print-address") - 1, "--print-address") == 0) {
+        } else if (arg.compare(0, sizeof("--print-address") - 1,
+                               "--print-address") == 0) {
             if (arg[sizeof("--print-address") - 1] == '=') {
-                printAddressFd = StringToI32(arg.substr(sizeof("--print-address")), 10, -2);
+                printAddressFd = StringToI32(arg.substr(
+                                                 sizeof("--print-address")), 10, -2);
             } else {
-                if (((i + 1) == argc) || ((argv[i + 1][0] == '-') && (argv[i + 1][1] == '-'))) {
-                    printAddressFd = STDOUT_FILENO;
+                if (((i + 1) == argc) || ((argv[i + 1][0] == '-') && (argv[i
+                                                                           + 1][1] == '-'))) {
+                    printAddressFd = STDERR_FILENO;
                 } else {
                     ++i;
                     printAddressFd = StringToI32(argv[i], 10, -2);
@@ -336,12 +374,15 @@ OptParse::ParseResultCode OptParse::ParseResult()
                 result = PR_INVALID_OPTION;
                 goto exit;
             }
-        } else if (arg.substr(0, sizeof("--print-pid") - 1).compare("--print-pid") == 0) {
+        } else if (arg.substr(0, sizeof("--print-pid") - 1).compare(
+                       "--print-pid") == 0) {
             if (arg[sizeof("--print-pid") - 1] == '=') {
-                printPidFd = StringToI32(arg.substr(sizeof("--print-pid")), 10, -2);
+                printPidFd = StringToI32(arg.substr(sizeof("--print-pid")), 10,
+                                         -2);
             } else {
-                if (((i + 1) == argc) || ((argv[i + 1][0] == '-') && (argv[i + 1][1] == '-'))) {
-                    printPidFd = STDOUT_FILENO;
+                if (((i + 1) == argc) || ((argv[i + 1][0] == '-') && (argv[i
+                                                                           + 1][1] == '-'))) {
+                    printPidFd = STDERR_FILENO;
                 } else {
                     ++i;
                     printPidFd = StringToI32(argv[i], 10, -2);
@@ -367,11 +408,14 @@ OptParse::ParseResultCode OptParse::ParseResult()
             noBT = true;
         } else if (arg.compare("--no-tcp") == 0) {
             noTCP = true;
+        } else if (arg.compare("--no-ice") == 0) {
+            noICE = true;
         } else if (arg.compare("--no-launchd") == 0) {
             noLaunchd = true;
         } else if (arg.compare("--no-switch-user") == 0) {
             noSwitchUser = true;
-        } else if (arg.substr(0, sizeof("--verbosity") - 1).compare("--verbosity") == 0) {
+        } else if (arg.substr(0, sizeof("--verbosity") - 1).compare(
+                       "--verbosity") == 0) {
             verbosity = StringToI32(arg.substr(sizeof("--verbosity")));
         } else if ((arg.compare("--help") == 0) || (arg.compare("-h") == 0)) {
             PrintUsage();
@@ -383,10 +427,11 @@ OptParse::ParseResultCode OptParse::ParseResult()
         }
     }
 
-exit:
-    switch (result) {
+exit: switch (result) {
     case PR_OPTION_CONFLICT:
-        fprintf(stderr, "Option \"%s\" is in conflict with a previous option.\n", argv[i]);
+        fprintf(stderr,
+                "Option \"%s\" is in conflict with a previous option.\n",
+                argv[i]);
         break;
 
     case PR_INVALID_OPTION:
@@ -404,9 +449,7 @@ exit:
     return result;
 }
 
-
-int daemon(OptParse& opts)
-{
+int daemon(OptParse& opts) {
     struct sigaction act, oldact;
     sigset_t sigmask, waitmask;
     uint32_t pid(GetPid());
@@ -433,9 +476,11 @@ int daemon(OptParse& opts)
         qcc::String addrStr(*it);
         bool skip = false;
         if (it->compare(0, sizeof("unix:") - 1, "unix:") == 0) {
-            if (it->compare(sizeof("unix:") - 1, sizeof("tmpdir=") - 1, "tmpdir=") == 0) {
+            if (it->compare(sizeof("unix:") - 1, sizeof("tmpdir=") - 1,
+                            "tmpdir=") == 0) {
                 // Process tmpdir specially.
-                qcc::String randStr = it->substr(sizeof("unix:tmpdir=") - 1) + "/alljoyn-";
+                qcc::String randStr = it->substr(sizeof("unix:tmpdir=") - 1)
+                                      + "/alljoyn-";
                 addrStr = ("unix:abstract=" + RandomString(randStr.c_str()));
             }
             if (config->GetType() == "system") {
@@ -453,19 +498,25 @@ int daemon(OptParse& opts)
         } else if (it->compare(0, sizeof("tcp:") - 1, "tcp:") == 0) {
             skip = opts.GetNoTCP();
 
+        } else if (it->compare(0, sizeof("ice:") - 1, "ice:") == 0) {
+            skip = opts.GetNoICE();
+
         } else if (it->compare("bluetooth:") == 0) {
             skip = opts.GetNoBT();
 
         } else {
-            Log(LOG_ERR, "Unsupported listen address: %s (ignoring)\n", it->c_str());
+            Log(LOG_ERR, "Unsupported listen address: %s (ignoring)\n",
+                it->c_str());
             ++it;
             continue;
         }
 
         if (skip) {
-            Log(LOG_INFO, "Skipping transport for address: %s\n", addrStr.c_str());
+            Log(LOG_INFO, "Skipping transport for address: %s\n",
+                addrStr.c_str());
         } else {
-            Log(LOG_INFO, "Setting up transport for address: %s\n", addrStr.c_str());
+            Log(LOG_INFO, "Setting up transport for address: %s\n",
+                addrStr.c_str());
             if (!listenSpecs.empty()) {
                 listenSpecs.append(';');
             }
@@ -488,10 +539,16 @@ int daemon(OptParse& opts)
 #if defined(QCC_OS_DARWIN)
 #warning BT transport factory needs to be implemented for Darwin
 #else
-    cntr.Add(new TransportFactory<BTTransport>("bluetooth", false));
+    cntr.Add(new TransportFactory<BTTransport> ("bluetooth", false));
+#endif
+#if defined(QCC_OS_LINUX) || defined(QCC_OS_ANDROID)
+    cntr.Add(new TransportFactory<DaemonICETransport> ("ice", false));
+#else
+#warning ICE transport factory is not operational yet for Windows and Darwin
 #endif
 
     Bus ajBus("alljoyn-daemon", cntr, listenSpecs.c_str());
+
     /*
      * Check we have at least one authentication mechanism registered.
      */
@@ -520,7 +577,8 @@ int daemon(OptParse& opts)
         localAddrs += "\n";
         int ret = write(fd, localAddrs.c_str(), localAddrs.size());
         if (ret == -1) {
-            Log(LOG_ERR, "Failed to print address string: %s\n", strerror(errno));
+            Log(LOG_ERR, "Failed to print address string: %s\n",
+                strerror(errno));
         }
     }
     fd = opts.GetPrintPidFd();
@@ -558,8 +616,10 @@ int daemon(OptParse& opts)
 
             config->LoadConfigFile();
 
-            std::vector<std::pair<qcc::String, std::vector<qcc::String> > > nameList;
-            std::vector<std::pair<qcc::String, std::vector<qcc::String> > >::const_iterator nit;
+            std::vector<std::pair<qcc::String, std::vector<qcc::String> > >
+            nameList;
+            std::vector<std::pair<qcc::String, std::vector<qcc::String> > >::const_iterator
+                nit;
 
             ajBus.GetUniqueNamesAndAliases(nameList);
 
@@ -584,7 +644,6 @@ int daemon(OptParse& opts)
 
     return DAEMON_EXIT_OK;
 }
-
 
 //
 // This code can be run as a native executable, in which case the linker arranges to
@@ -647,7 +706,8 @@ int main(int argc, char** argv, char** env)
     }
 
     loggerSettings->SetSyslog(config->GetSyslog());
-    loggerSettings->SetFile((opts.GetFork() || (config->GetFork() && !opts.GetNoFork())) ? NULL : stderr);
+    loggerSettings->SetFile((opts.GetFork() || (config->GetFork()
+                                                && !opts.GetNoFork())) ? NULL : stderr);
 
     Log(LOG_NOTICE, versionPreamble, GetVersion(), GetBuildInfo());
 
@@ -669,14 +729,17 @@ int main(int argc, char** argv, char** env)
             setpwent();
             while ((pwent = getpwent())) {
                 if (user.compare(pwent->pw_name) == 0) {
-                    Log(LOG_INFO, "Dropping root privileges (running as %s)\n", pwent->pw_name);
+                    Log(LOG_INFO, "Dropping root privileges (running as %s)\n",
+                        pwent->pw_name);
                     setuid(pwent->pw_uid);
                     break;
                 }
             }
             endpwent();
             if (!pwent) {
-                Log(LOG_ERR, "Failed to drop root privileges - userid does not exist: %s\n",
+                Log(
+                    LOG_ERR,
+                    "Failed to drop root privileges - userid does not exist: %s\n",
                     user.c_str());
                 delete config;
                 return DAEMON_EXIT_CONFIG_ERROR;
