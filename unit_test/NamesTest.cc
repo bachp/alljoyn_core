@@ -24,6 +24,7 @@
 
 
 #include <BusUtil.h>
+#include <stdio.h>
 
 #include <gtest/gtest.h>
 
@@ -103,7 +104,9 @@ TEST(NamesTest, Beyond_Maximum_length) {
 }
 
 TEST(NamesTest, name_list) {
-    char* str = "foo";
+    const int STR_BUF_SIZE = 128;
+    char str[STR_BUF_SIZE];
+    snprintf(str, STR_BUF_SIZE, "foo");
     EXPECT_FALSE(IsLegalUniqueName(str));
     EXPECT_FALSE(IsLegalBusName(str));
     EXPECT_FALSE(IsLegalObjectPath(str));
@@ -111,7 +114,7 @@ TEST(NamesTest, name_list) {
     EXPECT_FALSE(IsLegalErrorName(str));
     EXPECT_TRUE(IsLegalMemberName(str));
 
-    str = ":foo";
+    snprintf(str, STR_BUF_SIZE, ":foo");
     EXPECT_FALSE(IsLegalUniqueName(str));
     EXPECT_FALSE(IsLegalBusName(str));
     EXPECT_FALSE(IsLegalObjectPath(str));
@@ -119,7 +122,7 @@ TEST(NamesTest, name_list) {
     EXPECT_FALSE(IsLegalErrorName(str));
     EXPECT_FALSE(IsLegalMemberName(str));
 
-    str = ":foo.2";
+    snprintf(str, STR_BUF_SIZE, ":foo.2");
     EXPECT_TRUE(IsLegalUniqueName(str));
     EXPECT_TRUE(IsLegalBusName(str));
     EXPECT_FALSE(IsLegalObjectPath(str));
@@ -127,7 +130,7 @@ TEST(NamesTest, name_list) {
     EXPECT_FALSE(IsLegalErrorName(str));
     EXPECT_FALSE(IsLegalMemberName(str));
 
-    str = "/foo/bar";
+    snprintf(str, STR_BUF_SIZE, "/foo/bar");
     EXPECT_FALSE(IsLegalUniqueName(str));
     EXPECT_FALSE(IsLegalBusName(str));
     EXPECT_TRUE(IsLegalObjectPath(str));
@@ -135,7 +138,7 @@ TEST(NamesTest, name_list) {
     EXPECT_FALSE(IsLegalErrorName(str));
     EXPECT_FALSE(IsLegalMemberName(str));
 
-    str = "/foo//bar/";
+    snprintf(str, STR_BUF_SIZE, "/foo//bar");
     EXPECT_FALSE(IsLegalUniqueName(str));
     EXPECT_FALSE(IsLegalBusName(str));
     EXPECT_FALSE(IsLegalObjectPath(str));
@@ -143,7 +146,7 @@ TEST(NamesTest, name_list) {
     EXPECT_FALSE(IsLegalErrorName(str));
     EXPECT_FALSE(IsLegalMemberName(str));
 
-    str = "/foo/bar/";
+    snprintf(str, STR_BUF_SIZE, "/foo/bar/");
     EXPECT_FALSE(IsLegalUniqueName(str));
     EXPECT_FALSE(IsLegalBusName(str));
     EXPECT_FALSE(IsLegalObjectPath(str));
@@ -151,7 +154,7 @@ TEST(NamesTest, name_list) {
     EXPECT_FALSE(IsLegalErrorName(str));
     EXPECT_FALSE(IsLegalMemberName(str));
 
-    str = "foo/bar/";
+    snprintf(str, STR_BUF_SIZE, "foo/bar/");
     EXPECT_FALSE(IsLegalUniqueName(str));
     EXPECT_FALSE(IsLegalBusName(str));
     EXPECT_FALSE(IsLegalObjectPath(str));
@@ -159,7 +162,7 @@ TEST(NamesTest, name_list) {
     EXPECT_FALSE(IsLegalErrorName(str));
     EXPECT_FALSE(IsLegalMemberName(str));
 
-    str = "/";
+    snprintf(str, STR_BUF_SIZE, "/");
     EXPECT_FALSE(IsLegalUniqueName(str));
     EXPECT_FALSE(IsLegalBusName(str));
     EXPECT_TRUE(IsLegalObjectPath(str));
@@ -167,7 +170,7 @@ TEST(NamesTest, name_list) {
     EXPECT_FALSE(IsLegalErrorName(str));
     EXPECT_FALSE(IsLegalMemberName(str));
 
-    str = "foo.bar";
+    snprintf(str, STR_BUF_SIZE, "foo.bar");
     EXPECT_FALSE(IsLegalUniqueName(str));
     EXPECT_TRUE(IsLegalBusName(str));
     EXPECT_FALSE(IsLegalObjectPath(str));
@@ -175,7 +178,7 @@ TEST(NamesTest, name_list) {
     EXPECT_TRUE(IsLegalErrorName(str));
     EXPECT_FALSE(IsLegalMemberName(str));
 
-    str = ".foo.bar";
+    snprintf(str, STR_BUF_SIZE, ".foo.bar");
     EXPECT_FALSE(IsLegalUniqueName(str));
     EXPECT_FALSE(IsLegalBusName(str));
     EXPECT_FALSE(IsLegalObjectPath(str));
@@ -183,7 +186,7 @@ TEST(NamesTest, name_list) {
     EXPECT_FALSE(IsLegalErrorName(str));
     EXPECT_FALSE(IsLegalMemberName(str));
 
-    str = "foo.bar.";
+    snprintf(str, STR_BUF_SIZE, "foo.bar.");
     EXPECT_FALSE(IsLegalUniqueName(str));
     EXPECT_FALSE(IsLegalBusName(str));
     EXPECT_FALSE(IsLegalObjectPath(str));
@@ -191,7 +194,7 @@ TEST(NamesTest, name_list) {
     EXPECT_FALSE(IsLegalErrorName(str));
     EXPECT_FALSE(IsLegalMemberName(str));
 
-    str = "foo..bar";
+    snprintf(str, STR_BUF_SIZE, "foo..bar");
     EXPECT_FALSE(IsLegalUniqueName(str));
     EXPECT_FALSE(IsLegalBusName(str));
     EXPECT_FALSE(IsLegalObjectPath(str));
@@ -199,7 +202,7 @@ TEST(NamesTest, name_list) {
     EXPECT_FALSE(IsLegalErrorName(str));
     EXPECT_FALSE(IsLegalMemberName(str));
 
-    str = "_._._";
+    snprintf(str, STR_BUF_SIZE, "_._._");
     EXPECT_FALSE(IsLegalUniqueName(str));
     EXPECT_TRUE(IsLegalBusName(str));
     EXPECT_FALSE(IsLegalObjectPath(str));
@@ -207,7 +210,7 @@ TEST(NamesTest, name_list) {
     EXPECT_TRUE(IsLegalErrorName(str));
     EXPECT_FALSE(IsLegalMemberName(str));
 
-    str = "-.-.-";
+    snprintf(str, STR_BUF_SIZE, "-.-.-");
     EXPECT_FALSE(IsLegalUniqueName(str));
     EXPECT_TRUE(IsLegalBusName(str));
     EXPECT_FALSE(IsLegalObjectPath(str));
@@ -215,7 +218,7 @@ TEST(NamesTest, name_list) {
     EXPECT_FALSE(IsLegalErrorName(str));
     EXPECT_FALSE(IsLegalMemberName(str));
 
-    str = "8.8.8";
+    snprintf(str, STR_BUF_SIZE, "8.8.8");
     EXPECT_FALSE(IsLegalUniqueName(str));
     EXPECT_FALSE(IsLegalBusName(str));
     EXPECT_FALSE(IsLegalObjectPath(str));
@@ -223,7 +226,7 @@ TEST(NamesTest, name_list) {
     EXPECT_FALSE(IsLegalErrorName(str));
     EXPECT_FALSE(IsLegalMemberName(str));
 
-    str = "999";
+    snprintf(str, STR_BUF_SIZE, "999");
     EXPECT_FALSE(IsLegalUniqueName(str));
     EXPECT_FALSE(IsLegalBusName(str));
     EXPECT_FALSE(IsLegalObjectPath(str));
@@ -231,7 +234,7 @@ TEST(NamesTest, name_list) {
     EXPECT_FALSE(IsLegalErrorName(str));
     EXPECT_FALSE(IsLegalMemberName(str));
 
-    str = "_999";
+    snprintf(str, STR_BUF_SIZE, "_999");
     EXPECT_FALSE(IsLegalUniqueName(str));
     EXPECT_FALSE(IsLegalBusName(str));
     EXPECT_FALSE(IsLegalObjectPath(str));
@@ -239,7 +242,7 @@ TEST(NamesTest, name_list) {
     EXPECT_FALSE(IsLegalErrorName(str));
     EXPECT_TRUE(IsLegalMemberName(str));
 
-    str = ":1.0";
+    snprintf(str, STR_BUF_SIZE, ":1.0");
     EXPECT_TRUE(IsLegalUniqueName(str));
     EXPECT_TRUE(IsLegalBusName(str));
     EXPECT_FALSE(IsLegalObjectPath(str));
@@ -247,7 +250,7 @@ TEST(NamesTest, name_list) {
     EXPECT_FALSE(IsLegalErrorName(str));
     EXPECT_FALSE(IsLegalMemberName(str));
 
-    str = ":1.0.2.3.4";
+    snprintf(str, STR_BUF_SIZE, ":1.0.2.3.4");
     EXPECT_TRUE(IsLegalUniqueName(str));
     EXPECT_TRUE(IsLegalBusName(str));
     EXPECT_FALSE(IsLegalObjectPath(str));
@@ -255,7 +258,7 @@ TEST(NamesTest, name_list) {
     EXPECT_FALSE(IsLegalErrorName(str));
     EXPECT_FALSE(IsLegalMemberName(str));
 
-    str = ":1.0.2.3..4";
+    snprintf(str, STR_BUF_SIZE, ":1.0.2.3..4");
     EXPECT_FALSE(IsLegalUniqueName(str));
     EXPECT_FALSE(IsLegalBusName(str));
     EXPECT_FALSE(IsLegalObjectPath(str));
@@ -263,7 +266,7 @@ TEST(NamesTest, name_list) {
     EXPECT_FALSE(IsLegalErrorName(str));
     EXPECT_FALSE(IsLegalMemberName(str));
 
-    str = ":1.0.2.3.4.";
+    snprintf(str, STR_BUF_SIZE, ":1.0.2.3.4.");
     EXPECT_FALSE(IsLegalUniqueName(str));
     EXPECT_FALSE(IsLegalBusName(str));
     EXPECT_FALSE(IsLegalObjectPath(str));
@@ -271,7 +274,7 @@ TEST(NamesTest, name_list) {
     EXPECT_FALSE(IsLegalErrorName(str));
     EXPECT_FALSE(IsLegalMemberName(str));
 
-    str = ":.1.0";
+    snprintf(str, STR_BUF_SIZE, ":.1.0");
     EXPECT_FALSE(IsLegalUniqueName(str));
     EXPECT_FALSE(IsLegalBusName(str));
     EXPECT_FALSE(IsLegalObjectPath(str));
