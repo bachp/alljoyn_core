@@ -156,8 +156,8 @@ QStatus ClientTransport::Connect(const char* connectSpec, const SessionOpts& opt
         return status;
     }
 
-    IPAddress ipAddr(argMap.find("addr")->second); // Guaranteed to be there.
-    uint16_t port = StringToU32(argMap["port"]);   // Guaranteed to be there.
+    IPAddress ipAddr(argMap["addr"]);            // Guaranteed to be there.
+    uint16_t port = StringToU32(argMap["port"]); // Guaranteed to be there.
 
     /*
      * Attempt to connect to the remote TCP address and port specified in the connectSpec.
