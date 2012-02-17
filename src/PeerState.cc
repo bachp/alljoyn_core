@@ -73,7 +73,7 @@ bool _PeerState::IsValidSerial(uint32_t serial, bool secure, bool unreliable)
     if (serial != 0) {
         const size_t winSize = sizeof(window) / sizeof(window[0]);
         uint32_t* entry = window + (serial % winSize);
-        if (*entry != serial) {
+        if ((*entry != serial) && (serial > window[0])) {
             *entry = serial;
             ret = true;
         }
