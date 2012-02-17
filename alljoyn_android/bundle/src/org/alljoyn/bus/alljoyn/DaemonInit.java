@@ -45,7 +45,6 @@ public class DaemonInit {
     private static Context sContext;
     private static boolean sIniting= false;
     private static boolean sDaemonInited= false;
-    public static String sConnectSpec = null;
     
     /**
      * Check whether daemon service is already initialized
@@ -120,7 +119,6 @@ public class DaemonInit {
         Intent bundleDaemonIntent = new Intent(context, org.alljoyn.bus.alljoyn.BundleDaemonService.class);
         int pid = Process.myPid();
         String spec = "unix:abstract=alljoyn-" + pid;
-        sConnectSpec = spec;
         bundleDaemonIntent.putExtra("ConnectSpec", spec);
         if (null == context.startService(bundleDaemonIntent)) {
             serviceExist = false;
@@ -149,7 +147,6 @@ public class DaemonInit {
         }
         Log.d(TAG, "No daemon service is available.");
         sDaemonInited = true;
-        sConnectSpec = null;
         return false;
     }
     

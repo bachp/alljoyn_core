@@ -248,6 +248,31 @@ QStatus BusAttachment::Start()
     return status;
 }
 
+#if defined(QCC_OS_ANDROID)
+static qcc::String bundleConnectSpec;
+static bool isBundleDaemonStarted = false;
+
+/* Only try connecting to alternate daemons on Android platform
+ */
+QStatus BusAttachment::TryAlternativeDaemon(RemoteEndpoint** newep)
+{
+    QCC_DbgTrace(("BusAttachment::TryAlternativeDaemon()"));
+    QStatus status = ER_FAIL;
+
+    qcc::String bundleConnectSpec = "unix:abstract=alljoyn-" + qcc::U32ToString(qcc::GetPid());
+    QCC_DbgPrintf(("BusAttachment::TryAlternativeDaemon bundleConnectSpec = %s", bundleConnectSpec.c_str()));
+    status = TryConnect(bundleConnectSpec.c_str(), newep);
+
+    if (ER_OK == status) {
+        this->connectSpec = bundleConnectSpec;
+        return status;
+    }
+
+    return status;
+}
+
+#endif
+
 QStatus BusAttachment::TryConnect(const char* connectSpec, RemoteEndpoint** newep)
 {
     QCC_DbgTrace(("BusAttachment::TryConnect to %s", connectSpec));
@@ -289,14 +314,7 @@ QStatus BusAttachment::Connect(const char* connectSpec, RemoteEndpoint** newep)
 
 #if defined(QCC_OS_ANDROID)
         if (status != ER_OK && !isDaemon) {
-            qcc::String bundleConnectSpec = "unix:abstract=alljoyn-" + qcc::U32ToString(qcc::GetPid());
-            if (bundleConnectSpec != connectSpec) {
-                QCC_DbgPrintf(("BusAttachment::TryAlternativeDaemon bundleConnectSpec = %s", bundleConnectSpec.c_str()));
-                status = TryConnect(bundleConnectSpec.c_str(), newep);
-                if (ER_OK == status) {
-                    this->connectSpec = bundleConnectSpec;
-                }
-            }
+            status = TryAlternativeDaemon(newep);
         }
 #endif
         /* If this is a client (non-daemon) bus attachment, then register signal handlers for BusListener */

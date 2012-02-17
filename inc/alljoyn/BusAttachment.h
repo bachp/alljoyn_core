@@ -1017,6 +1017,13 @@ class BusAttachment : public MessageReceiver {
      */
     void WaitStopInternal();
 
+#if defined(QCC_OS_ANDROID)
+    /**
+     * For Android, try different daemon options with the precedence of pre-installed Daemon > APK daemon > Bundled Daemon.
+     */
+    QStatus TryAlternativeDaemon(RemoteEndpoint** newep);
+#endif
+
     /**
      * Try connect to the daemon with the spec.
      */
