@@ -264,6 +264,38 @@ class TestDriver : public BTTransport {
 
     void RunTest(TestCaseInfo& test);
     void OutputLine(String line, size_t indent = 0, bool bullet = false) const;
+
+    // Should never be called so making it private.
+    // This is created to stop code analysis tools from complaining about the possibilty of
+    // double freeing of memory.
+    TestDriver& operator=(const TestDriver& source)
+    {
+        // Not implemented so make sure we don't do anything with it.
+        assert(0);
+    }
+
+    // Should never be called so making it private.
+    // This is created to stop code analysis tools from complaining about the possibilty of
+    // double freeing of memory.
+    TestDriver(const TestDriver& source) :
+        btAccessor(NULL),
+        bus("BTAccessorTester", cntr, ""),
+        opts(opts),
+        ep(NULL),
+        testcase(0),
+        success(true),
+        maxWidth(80),
+        tcNumWidth(2),
+        detailIndent(tcWidth + tcNumWidth + 1),
+        detailWidth(maxWidth - (detailIndent + dashWidth)),
+        lastLineRepeat(0),
+        lastIndent(0),
+        lastBullet(false),
+        silenceDetails(false)
+    {
+        // Not implemented so make sure we don't do anything with it.
+        assert(0);
+    }
 };
 
 
