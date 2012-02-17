@@ -6,7 +6,7 @@
  */
 
 /******************************************************************************
- * Copyright 2009-2011, Qualcomm Innovation Center, Inc.
+ * Copyright 2009-2012, Qualcomm Innovation Center, Inc.
  *
  *    Licensed under the Apache License, Version 2.0 (the "License");
  *    you may not use this file except in compliance with the License.
@@ -61,17 +61,19 @@ class MethodTable {
          */
         Entry(BusObject* object,
               MessageReceiver::MethodHandler handler,
-              const InterfaceDescription::Member* member)
-            : object(object), handler(handler), member(member), ifaceStr(member->iface->GetName()), methodStr(member->name) { }
+              const InterfaceDescription::Member* member,
+              void* context)
+            : object(object), handler(handler), member(member), context(context), ifaceStr(member->iface->GetName()), methodStr(member->name) { }
 
         /**
          * Construct an empty Entry.
          */
         Entry(void) : object(NULL), handler(), ifaceStr(), methodStr() { }
 
-        BusObject* object;                        /**<  BusObject instance*/
+        BusObject* object;                             /**<  BusObject instance*/
         MessageReceiver::MethodHandler handler;        /**<  Handler for method */
         const InterfaceDescription::Member* member;    /**<  Member that handler implements  */
+        void* context;                                 /**<  Optional context provided when handler was registered */
         qcc::String ifaceStr;                          /**<  Interface string */
         qcc::String methodStr;                         /**<  Method string */
     };
@@ -90,7 +92,8 @@ class MethodTable {
      */
     void Add(BusObject* object,
              MessageReceiver::MethodHandler func,
-             const InterfaceDescription::Member* member);
+             const InterfaceDescription::Member* member,
+             void* context = NULL);
 
     /**
      * Find an Entry based on set of criteria.

@@ -6,7 +6,7 @@
  */
 
 /******************************************************************************
- * Copyright 2009-2011, Qualcomm Innovation Center, Inc.
+ * Copyright 2009-2012, Qualcomm Innovation Center, Inc.
  *
  *    Licensed under the Apache License, Version 2.0 (the "License");
  *    you may not use this file except in compliance with the License.
@@ -659,7 +659,7 @@ QStatus LocalEndpoint::HandleMethodCall(Message& message)
         /* Call the method handler */
         if (entry) {
             if (bus.GetInternal().GetRouter().IsDaemon() || entry->member->accessPerms.size() == 0) {
-                (entry->object->*entry->handler)(entry->member, message);
+                entry->object->CallMethodHandler(entry->handler, entry->member, message, entry->context);
             } else {
                 QCC_DbgPrintf(("Method(%s::%s) requires permission %s", message->GetInterface(), message->GetMemberName(), entry->member->accessPerms.c_str()));
                 chkMsgListLock.Lock(MUTEX_CONTEXT);
@@ -667,7 +667,7 @@ QStatus LocalEndpoint::HandleMethodCall(Message& message)
                 std::map<PermCheckedEntry, bool>::const_iterator it = permCheckedCallMap.find(permChkEntry);
                 if (it != permCheckedCallMap.end()) {
                     if (permCheckedCallMap[permChkEntry]) {
-                        (entry->object->*entry->handler)(entry->member, message);
+                        entry->object->CallMethodHandler(entry->handler, entry->member, message, entry->context);
                     } else {
                         QCC_LogError(ER_ALLJOYN_ACCESS_PERMISSION_ERROR, ("Endpoint(%s) has no permission to call method (%s::%s)",
                                                                           message->GetSender(), message->GetInterface(), message->GetMemberName()));
@@ -950,7 +950,7 @@ void*  LocalEndpoint::PermVerifyThread::Run(void* arg)
                 if (msgType == MESSAGE_METHOD_CALL) {
                     if (allowed) {
                         const MethodTable::Entry* entry = msgInfo.methodEntry;
-                        (entry->object->*entry->handler)(entry->member, msgInfo.msg);
+                        entry->object->CallMethodHandler(entry->handler, entry->member, msgInfo.msg, entry->context);
                     } else {
                         QCC_LogError(ER_ALLJOYN_ACCESS_PERMISSION_ERROR, ("Endpoint(%s) has no permission to call method (%s::%s)",
                                                                           message->GetSender(), message->GetInterface(), message->GetMemberName()));

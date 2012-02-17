@@ -5,7 +5,7 @@
  */
 
 /******************************************************************************
- * Copyright 2009-2011, Qualcomm Innovation Center, Inc.
+ * Copyright 2009-2012, Qualcomm Innovation Center, Inc.
  *
  *    Licensed under the Apache License, Version 2.0 (the "License");
  *    you may not use this file except in compliance with the License.
@@ -55,6 +55,7 @@ namespace ajn {
 typedef struct {
     const InterfaceDescription::Member* member;   /**< Pointer to method's member */
     MessageReceiver::MethodHandler handler;       /**< Method implementation */
+    void* context;
 } MethodContext;
 
 struct BusObject::Components {
@@ -293,7 +294,7 @@ void BusObject::Introspect(const InterfaceDescription::Member* member, Message& 
     }
 }
 
-QStatus BusObject::AddMethodHandler(const InterfaceDescription::Member* member, MessageReceiver::MethodHandler handler)
+QStatus BusObject::AddMethodHandler(const InterfaceDescription::Member* member, MessageReceiver::MethodHandler handler, void* handlerContext)
 {
     if (!member) {
         return ER_BAD_ARG_1;
@@ -306,7 +307,7 @@ QStatus BusObject::AddMethodHandler(const InterfaceDescription::Member* member, 
         status = ER_BUS_CANNOT_ADD_HANDLER;
         QCC_LogError(status, ("Cannot add method handler to an object that is already registered"));
     } else if (ImplementsInterface(member->iface->GetName())) {
-        MethodContext ctx = { member, handler };
+        MethodContext ctx = { member, handler, handlerContext };
         components->methodContexts.push_back(ctx);
     } else {
         status = ER_BUS_NO_SUCH_INTERFACE;
