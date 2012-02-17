@@ -9,7 +9,7 @@
  */
 
 /******************************************************************************
- * Copyright 2009-2011, Qualcomm Innovation Center, Inc.
+ * Copyright 2009-2012, Qualcomm Innovation Center, Inc.
  *
  *    Licensed under the Apache License, Version 2.0 (the "License");
  *    you may not use this file except in compliance with the License.
@@ -183,12 +183,14 @@ class BusObject : public MessageReceiver {
      *
      * @param member   Interface member implemented by handler.
      * @param handler  Method handler.
+     * @param context  An optional context. This is mainly intended for implementing language
+     *                 bindings and should normally be NULL.
      *
      * @return
      *      - #ER_OK if the method handler was added.
      *      - An error status otherwise
      */
-    QStatus AddMethodHandler(const InterfaceDescription::Member* member, MessageReceiver::MethodHandler handler);
+    QStatus AddMethodHandler(const InterfaceDescription::Member* member, MessageReceiver::MethodHandler handler, void* context = NULL);
 
     /**
      * Convenience method used to add a set of method handers at once.
@@ -368,6 +370,18 @@ class BusObject : public MessageReceiver {
      *      - #ER_BUS_NO_SUCH_OBJECT otherwise.
      */
     QStatus RemoveChild(BusObject& obj);
+
+    /**
+     * This method can be overridden to provide access to the context registered in the AddMethodHandler() call.
+     *
+     * @param member  The method being called.
+     * @param handler The handler to call.
+     * @param message The message containing the method call arguments.
+     * @param context NULL or a private context passed in when the method handler was registered.
+     */
+    virtual void CallMethodHandler(MessageReceiver::MethodHandler handler, const InterfaceDescription::Member* member, Message& message, void*context) {
+        (this->*handler)(member, message);
+    }
 
     /**
      * Indicate that this BusObject is being used by an alternate thread.
