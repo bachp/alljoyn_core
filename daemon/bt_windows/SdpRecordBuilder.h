@@ -50,6 +50,26 @@ class SdpRecordBuilder {
     }
 
     /**
+     * Copy constructor.
+     * There probably isn't any need for this but it does prevent a default copy constructor
+     * from being used and double freeing memory.
+     *
+     * @param builder The existing SdpRecordBuilder to copy.
+     */
+    SdpRecordBuilder(const SdpRecordBuilder& source)
+    {
+        *this = source;
+    }
+
+    /**
+     * There probably isn't any need for the = operator but it does prevent a default copy
+     * constructor from being used and double freeing memory.
+     *
+     * @param builder The existing SdpRecordBuilder to copy.
+     */
+    SdpRecordBuilder& operator=(const SdpRecordBuilder& source);
+
+    /**
      * Return the SDP record or NULL if an error.
      * An error can result from the sequence depth being non-zero (there must be the
      * same number of begin EndSequence() calls as BeginSequence() calls.

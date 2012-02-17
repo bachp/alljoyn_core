@@ -474,4 +474,28 @@ DWORD SdpRecordBuilder::GetDword(size_t offset)
     return returnValue;
 }
 
+SdpRecordBuilder& SdpRecordBuilder::operator=(const SdpRecordBuilder& source)
+{
+    this->recordHead = 0;
+    this->recordSize = 0;
+    this->bufferLength = 0;
+    this->sequenceDepth = 0;
+
+    if (source.recordHead) {
+        const size_t size = source.recordSize;
+
+        this->recordHead = malloc(size);
+
+        if (this->recordHead) {
+            memcpy_s(this->recordHead, size, source.recordHead, size);
+
+            this->recordSize = source.recordSize;
+            this->bufferLength = source.bufferLength;
+            this->sequenceDepth = source.sequenceDepth;
+        }
+    }
+
+    return *this;
+}
+
 } // namespace ajn
