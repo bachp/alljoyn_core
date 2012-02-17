@@ -301,6 +301,18 @@ class BusObject : public MessageReceiver {
      */
     virtual void Introspect(const InterfaceDescription::Member* member, Message& msg);
 
+    /**
+     * This method can be overridden to provide access to the context registered in the AddMethodHandler() call.
+     *
+     * @param member  The method being called.
+     * @param handler The handler to call.
+     * @param message The message containing the method call arguments.
+     * @param context NULL or a private context passed in when the method handler was registered.
+     */
+    virtual void CallMethodHandler(MessageReceiver::MethodHandler handler, const InterfaceDescription::Member* member, Message& message, void* context) {
+        (this->*handler)(member, message);
+    }
+
   private:
 
     /**
@@ -370,18 +382,6 @@ class BusObject : public MessageReceiver {
      *      - #ER_BUS_NO_SUCH_OBJECT otherwise.
      */
     QStatus RemoveChild(BusObject& obj);
-
-    /**
-     * This method can be overridden to provide access to the context registered in the AddMethodHandler() call.
-     *
-     * @param member  The method being called.
-     * @param handler The handler to call.
-     * @param message The message containing the method call arguments.
-     * @param context NULL or a private context passed in when the method handler was registered.
-     */
-    virtual void CallMethodHandler(MessageReceiver::MethodHandler handler, const InterfaceDescription::Member* member, Message& message, void*context) {
-        (this->*handler)(member, message);
-    }
 
     /**
      * Indicate that this BusObject is being used by an alternate thread.
