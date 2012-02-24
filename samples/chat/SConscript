@@ -34,4 +34,7 @@ elif env['OS_GROUP'] == 'windows':
     env.Program('chat', ['linux/chat.cc'])
     env.Install('$DISTDIR/bin/samples', ['chat.exe'])
     env.Install(clientDistDir, env.Glob('linux/*.cc'))
+    #install Visual Studio solution files
+    env.Install(clientDistDir+'/VC2008Win7', 'linux/VC2008Win7/VC2008Win7.sln')
+    env.Install(clientDistDir+'/VC2008Win7/chatsample', 'linux/VC2008Win7/chatsample/chatsample.vcproj')
 
