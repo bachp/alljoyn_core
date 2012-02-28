@@ -1,4 +1,4 @@
-AllJoyn Version 2.3.2 Release Notes
+AllJoyn Version 2.3.3 Release Notes
 -----------------------------------
 
 Platform Support
@@ -20,31 +20,18 @@ None
 Issues Addressed in this Release
 --------------------------------
 
-1) ALLJOYN-(various): Improved stability when using Bluetooth on
-   Android and Windows.
+1) ALLJOYN-850: AllJoyn client library's use of libcrypto could conflict
+   with Android Framework's use of libcrypto within an AllJoyn enabled app
+   that uses encryption/authentication.
 
-2) ALLJOYN-879: NameOwnerChanged notifications did not always propagate across
-   multiple network hops.
+2) ALLJOYN-934: The debug variant of the bundled AllJoyn daemon could 
+   exit due to incorrect assertion failure.
 
-3) ALLJOYN-881: Bundled daemon could not be used on devices where USB debugging 
-   was disabled.
+3) ALLJOYN-946: Message serial number validation can fail to reject repeated
+   messages if their are many other messages between repeats.
 
-4) ALLJOYN-884: Java binding BusAttachment.unregisterBusListener() and
-   BusAttachment.release() could cause crashes due to invalid object reference.
-
-5) ALLJOYN-882: Added Android's ACCESS_WIFI_STATE to set of sample permissions
-   to allow operation with Honeycomb.
-
-6) ALLJOYN-889: AllJoyn now uses IANA assigned multicast addresses.
-
-7) ALLJOYN-892: Fixed bug in Windows TCP accept loop that was causing the daemon
-   to ignore incoming connection attempts in some instances.
-
-8) ALLJOYN-897: AllJoyn daemon was changed to not listen on any network ports
-   unless there is at least one advertising or discovering AllJoyn client.
-
-9) ALLJOYN-912: Fixed issue that prevented AllJoyn daemon from stopping when
-   Windows service is stopped.
+4) ALLJOYN-958: Java binding's BusAttachment.unregisterBusListener() could
+   cause jni crash on Android ICS.
 
 
 Known issues and limitations with this release
@@ -90,6 +77,8 @@ of AllJoyn (ALLJOYN-803).
 
 Change history
 --------------
+2.3.2 - Bug fixes.
+
 2.3.1 - Bug fixes.
 
 2.3.0 - Added support for dynamic enable/disable of Bluetooth device on 
