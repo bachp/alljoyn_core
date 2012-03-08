@@ -15,13 +15,14 @@
  *    See the License for the specific language governing permissions and
  *    limitations under the License.
  ******************************************************************************/
-
 #include <gtest/gtest.h>
 
 /** Main entry point */
 int main(int argc, char**argv, char**envArg)
 {
     int status = 0;
+    setvbuf(stdout,NULL,_IONBF,0);
+    setvbuf(stderr,NULL,_IONBF,0);
 
     printf("\n Running alljoyn_core unit test\n");
     testing::InitGoogleTest(&argc, argv);
