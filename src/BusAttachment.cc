@@ -360,7 +360,7 @@ QStatus BusAttachment::Disconnect(const char* connectSpec)
         status = ER_BUS_BUS_NOT_STARTED;
     } else if (isStopping) {
         status = ER_BUS_STOPPING;
-        QCC_LogError(status, ("BusAttachment::Diconnect cannot disconnect while bus is stopping"));
+        QCC_LogError(status, ("BusAttachment::Disconnect cannot disconnect while bus is stopping"));
     } else if (!isDaemon && !IsConnected()) {
         status = ER_BUS_NOT_CONNECTED;
     } else {
