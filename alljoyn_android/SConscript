@@ -33,3 +33,19 @@ if env['OS'] == 'android':
     env.Install(distDir, env.Glob('bundle/.project'))
     env.Install(distDir, env.Glob('bundle/default.properties'))
     env.Install(distDir, Dir('bundle/src').srcnode())
+
+    distDir = '$DISTDIR/alljoyn_android/bundle_test/BundledClient'
+    env.Install(distDir, env.Glob('bundle_test/BundledClient/AndroidManifest.xml'))
+    env.Install(distDir, env.Glob('bundle_test/BundledClient/.classpath'))
+    env.Install(distDir, env.Glob('bundle_test/BundledClient/.project'))
+    env.Install(distDir, env.Glob('bundle_test/BundledClient/default.properties'))
+    env.Install(distDir, Dir('bundle_test/BundledClient/src').srcnode())
+    env.Install(distDir, Dir('bundle_test/BundledClient/res').srcnode())
+
+    distDir = '$DISTDIR/alljoyn_android/bundle_test/BundledService'
+    env.Install(distDir, env.Glob('bundle_test/BundledService/AndroidManifest.xml'))
+    env.Install(distDir, env.Glob('bundle_test/BundledService/.classpath'))
+    env.Install(distDir, env.Glob('bundle_test/BundledService/.project'))
+    env.Install(distDir, env.Glob('bundle_test/BundledService/default.properties'))
+    env.Install(distDir, Dir('bundle_test/BundledService/src').srcnode())
+    env.Install(distDir, Dir('bundle_test/BundledService/res').srcnode())

@@ -1,19 +1,19 @@
 /*
  * Copyright 2010-2012, Qualcomm Innovation Center, Inc.
- * 
+ *
  *    Licensed under the Apache License, Version 2.0 (the "License");
  *    you may not use this file except in compliance with the License.
  *    You may obtain a copy of the License at
- * 
+ *
  *        http://www.apache.org/licenses/LICENSE-2.0
- * 
+ *
  *    Unless required by applicable law or agreed to in writing, software
  *    distributed under the License is distributed on an "AS IS" BASIS,
  *    WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
  *    See the License for the specific language governing permissions and
  *    limitations under the License.
  */
-package org.alljoyn.bus.tests.bundledservice;
+package org.alljoyn.bus.bundle.tests.bundledservice;
 
 import org.alljoyn.bus.BusAttachment;
 import org.alljoyn.bus.BusListener;
@@ -50,31 +50,31 @@ public class Service extends Activity {
     static {
         System.loadLibrary("alljoyn_java");
     }
-    
+
     private static final int PASS_COLOR = Color.GREEN;
     private static final int FAIL_COLOR = Color.RED;
     private static final int WARN_COLOR = Color.YELLOW;
-    
+
     private static final String TAG = "BundledService";
     private static final CharSequence SERVICE_PASS_CS="Service OK";
     private static final CharSequence CONNECT_FAIL_CS="Connection Fail";
     private static final CharSequence REGISTER_FAIL_CS="Register Fail";
     private static final CharSequence BIND_FAIL_CS="BIND Fail";
     private static final CharSequence ADVERTISE_FAIL_CS="BIND Fail";
-    
+
     private static final int SERVICE_OK = 1;
     private static final int CONNECT_FAIL = 2;
     private static final int REGISTER_FAIL = 3;
     private static final int BIND_FAIL = 4;
     private static final int ADVERTISE_FAIL = 5;
     private static final int DISCONNECT_OK = 6;
-    
+
     private TextView mTextView;
     private Button mButton;
     private Menu menu;
-    
+
     /* UI handler */
-    private Handler mHandler = new Handler() 
+    private Handler mHandler = new Handler()
     {
         @Override
         public void handleMessage(Message msg) {
@@ -83,33 +83,33 @@ public class Service extends Activity {
             case SERVICE_OK:
                 mTextView.setText(SERVICE_PASS_CS);
                 mTextView.setTextColor(PASS_COLOR);
-                
+
                 if (isClientBundleInstalled())
                 {
                 	mButton.setEnabled(true);
                 };
-                
+
                 break;
             case CONNECT_FAIL:
                 mTextView.setText(CONNECT_FAIL_CS);
                 mTextView.setTextColor(FAIL_COLOR);
                 break;
-                
+
             case REGISTER_FAIL:
                 mTextView.setText(REGISTER_FAIL_CS);
                 mTextView.setTextColor(WARN_COLOR);
                 break;
-                
+
             case BIND_FAIL:
                 mTextView.setText(BIND_FAIL_CS);
                 mTextView.setTextColor(WARN_COLOR);
                 break;
-            
+
             case ADVERTISE_FAIL:
                 mTextView.setText(ADVERTISE_FAIL_CS);
                 mTextView.setTextColor(WARN_COLOR);
                 break;
-                
+
             case DISCONNECT_OK:
             	finish();
             	break;
@@ -118,7 +118,7 @@ public class Service extends Activity {
             }
         }
     };
-    
+
     /* The AllJoyn object that is our service. */
     private BundledService mBundledService;
 
@@ -132,17 +132,17 @@ public class Service extends Activity {
 
         mTextView = (TextView) findViewById(R.id.textConnect);
         mButton = (Button) findViewById(R.id.button);
-        
-        mButton.setOnClickListener(new View.OnClickListener() 
+
+        mButton.setOnClickListener(new View.OnClickListener()
         {
-            public void onClick(View v) 
+            public void onClick(View v)
             {
                 // Launch client bundle app if installed
             	launchClientBundle();
             }
         });
         mButton.setEnabled(false);
-        
+
         /* Make all AllJoyn calls through a separate handler thread to prevent blocking the UI. */
         HandlerThread busThread = new HandlerThread("BusHandler");
         busThread.start();
@@ -152,35 +152,35 @@ public class Service extends Activity {
         mBundledService = new BundledService();
         mBusHandler.sendEmptyMessage(BusHandler.CONNECT);
     }
-    
+
     private boolean isClientBundleInstalled()
     {
     	boolean clientExist = false;
-    	
+
     	try{
     	     ApplicationInfo info = getPackageManager()
-    	                             .getApplicationInfo("org.alljoyn.bus.tests.clientbundle", 0 );
+    	                             .getApplicationInfo("org.alljoyn.bus.bundle.tests.clientbundle", 0 );
     	     clientExist = true;
     	     //-- application exists
     	    } catch( PackageManager.NameNotFoundException e ){
     	     //-- application doesn't exist
     	    	logInfo("Client bundle app not installed!");
     	}
-    	    
+
     	return clientExist;
-    	    
+
     }
     private void launchClientBundle()
     {
     	{
     		// Launch client bundle app
     		Intent i = new Intent("android.intent.action.MAIN");
-    		i.setComponent(new ComponentName("org.alljoyn.bus.tests.clientbundle", "org.alljoyn.bus.tests.clientbundle.Client"));
-    		
+    		i.setComponent(new ComponentName("org.alljoyn.bus.bundle.tests.clientbundle", "org.alljoyn.bus.bundle.tests.clientbundle.Client"));
+
     		this.startActivity(i);
     	}
     }
-    
+
     @Override
     public boolean onCreateOptionsMenu(Menu menu) {
         MenuInflater inflater = getMenuInflater();
@@ -188,26 +188,26 @@ public class Service extends Activity {
         this.menu = menu;
         return true;
     }
-    
+
     @Override
 	public boolean onOptionsItemSelected(MenuItem item) {
 	    // Handle item selection
 	    switch (item.getItemId()) {
 	    case R.id.quit:
 	    	mBusHandler.sendEmptyMessage(BusHandler.DISCONNECT);
-	    	
+
 	        return true;
 	    default:
 	        return super.onOptionsItemSelected(item);
 	    }
 	}
-    
+
     @Override
     protected void onDestroy() {
         super.onDestroy();
-        
+
     }
-    
+
     /* The class that is our AllJoyn service.  It implements the ServiceInterface. */
     class BundledService implements ServiceInterface, BusObject {
 
@@ -216,9 +216,9 @@ public class Service extends Activity {
          * SimpleInterface.  This implementation just returns the received String to the caller.
          */
         public String Ping(String inStr) {
-  
+
             return inStr;
-        }        
+        }
 
     }
 
@@ -228,9 +228,9 @@ public class Service extends Activity {
          * Name used as the well-known name and the advertised name.  This name must be a unique name
          * both to the bus and to the network as a whole.  The name uses reverse URL style of naming.
          */
-        private static final String SERVICE_NAME = "org.alljoyn.bus.tests.ping";
+        private static final String SERVICE_NAME = "org.alljoyn.bus.bundle.tests.ping";
         private static final short CONTACT_PORT=42;
-        
+
         private BusAttachment mBus;
 
         /* These are the messages sent to the BusHandler from the UI. */
@@ -245,20 +245,20 @@ public class Service extends Activity {
         public void handleMessage(Message msg) {
             switch (msg.what) {
             /* Connect to the bus and start our service. */
-            case CONNECT: { 
+            case CONNECT: {
                 /*
                  * Bundled daemon
-                 */ 
- 
+                 */
+
                 org.alljoyn.bus.alljoyn.DaemonInit.PrepareDaemon(getApplicationContext());
                 mBus = new BusAttachment(getApplicationContext().getPackageName(),
                 			BusAttachment.RemoteMessage.Receive);
                 /*
-                 * Create a bus listener class  
+                 * Create a bus listener class
                  */
                 mBus.registerBusListener(new BusListener());
-                
-                /* 
+
+                /*
                  * To make a service available to other AllJoyn peers, first register a BusObject with
                  * the BusAttachment at a specific path.
                  *
@@ -270,28 +270,28 @@ public class Service extends Activity {
                 	mHandler.sendEmptyMessage(REGISTER_FAIL);
                     return;
                 }
-                          
-                
+
+
                 /*
                  * The next step in making a service available to other AllJoyn peers is to connect the
-                 * BusAttachment to the bus with a well-known name.  
+                 * BusAttachment to the bus with a well-known name.
                  */
                 /*
                  * connect the BusAttachement to the bus
                  */
                 status = mBus.connect();
                 logStatus("BusAttachment.connect()", status);
-                if (status != Status.OK) 
+                if (status != Status.OK)
                 {
                 	mHandler.sendEmptyMessage(CONNECT_FAIL);
                     return;
                 }
-                
+
                 /*
                  * Create a new session listening on the contact port of the chat service.
                  */
                 Mutable.ShortValue contactPort = new Mutable.ShortValue(CONTACT_PORT);
-                
+
                 SessionOpts sessionOpts = new SessionOpts();
                 sessionOpts.traffic = SessionOpts.TRAFFIC_MESSAGES;
                 sessionOpts.isMultipoint = false;
@@ -314,17 +314,17 @@ public class Service extends Activity {
                 	mHandler.sendEmptyMessage(BIND_FAIL);
                     return;
                 }
-                
+
                 /*
                  * request a well-known name from the bus
                  */
                 int flag = BusAttachment.ALLJOYN_REQUESTNAME_FLAG_REPLACE_EXISTING | BusAttachment.ALLJOYN_REQUESTNAME_FLAG_DO_NOT_QUEUE;
-                
+
                 status = mBus.requestName(SERVICE_NAME, flag);
                 logStatus(String.format("BusAttachment.requestName(%s, 0x%08x)", SERVICE_NAME, flag), status);
                 if (status == Status.OK) {
                 	/*
-                	 * If we successfully obtain a well-known name from the bus 
+                	 * If we successfully obtain a well-known name from the bus
                 	 * advertise the same well-known name
                 	 */
                 	status = mBus.advertiseName(SERVICE_NAME, SessionOpts.TRANSPORT_ANY);
@@ -344,23 +344,23 @@ public class Service extends Activity {
                     	mHandler.sendEmptyMessage(SERVICE_OK);
                     }
                 }
-                
+
                 break;
             }
-            
+
             /* Release all resources acquired in connect. */
             case DISCONNECT: {
-                /* 
+                /*
                  * It is important to unregister the BusObject before disconnecting from the bus.
                  * Failing to do so could result in a resource leak.
                  */
                 mBus.unregisterBusObject(mBundledService);
                 mBus.disconnect();
                 mBusHandler.getLooper().quit();
-                
+
                 mHandler.sendEmptyMessage(DISCONNECT_OK);
-                
-                break;   
+
+                break;
             }
 
             default:
@@ -368,8 +368,8 @@ public class Service extends Activity {
             }
         }
     }
-    
-    private void logStatus(String msg, Status status) 
+
+    private void logStatus(String msg, Status status)
     {
         String log = String.format("%s: %s", msg, status);
         if (status == Status.OK) {
@@ -378,8 +378,8 @@ public class Service extends Activity {
             Log.e(TAG, log);
         }
     }
-    
-    private void logInfo(String msg) 
+
+    private void logInfo(String msg)
     {
         Log.i(TAG, msg);
     }

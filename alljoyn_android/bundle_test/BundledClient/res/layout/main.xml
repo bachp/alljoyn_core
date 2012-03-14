@@ -13,7 +13,7 @@
         android:textSize="18sp"
         android:lineSpacingExtra="10dp"
         android:text="@string/hello" />
-    
+
     <Button android:id="@+id/dbgButton"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"

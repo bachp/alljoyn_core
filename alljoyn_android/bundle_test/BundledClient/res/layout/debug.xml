@@ -4,12 +4,12 @@
     android:gravity="center"
     android:layout_width="250dp"
     android:layout_height="match_parent">
-    
+
     <View
         android:layout_width="match_parent"
     	android:layout_height="5dip">
     </View>
-    
+
     <TextView
         android:id="@+id/failReason"
         android:layout_width="fill_parent"
@@ -18,7 +18,7 @@
         android:editable="true"
         android:text="Check wifi is ON and service app is UP"
     />
-    
+
     <Button
         android:id="@+id/clientCancel"
         android:layout_width="120dp"
@@ -26,5 +26,5 @@
         android:layout_marginTop="50dp"
         android:text="Cancel"
     />
-        
+
 </LinearLayout>

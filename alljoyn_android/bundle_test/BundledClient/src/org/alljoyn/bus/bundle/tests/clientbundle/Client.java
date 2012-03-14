@@ -1,19 +1,19 @@
 /*
  * Copyright 2010-2012, Qualcomm Innovation Center, Inc.
- * 
+ *
  *    Licensed under the Apache License, Version 2.0 (the "License");
  *    you may not use this file except in compliance with the License.
  *    You may obtain a copy of the License at
- * 
+ *
  *        http://www.apache.org/licenses/LICENSE-2.0
- * 
+ *
  *    Unless required by applicable law or agreed to in writing, software
  *    distributed under the License is distributed on an "AS IS" BASIS,
  *    WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
  *    See the License for the specific language governing permissions and
  *    limitations under the License.
  */
-package org.alljoyn.bus.tests.clientbundle;
+package org.alljoyn.bus.bundle.tests.clientbundle;
 
 import java.util.UUID;
 
@@ -49,33 +49,33 @@ public class Client extends Activity {
     static {
         System.loadLibrary("alljoyn_java");
     }
-    
+
     public static final int DIALOG_DEBUG_ID = 0;
-    
+
     private static final String TAG = "BundledClient";
-    
+
     private static final int PASS_COLOR = Color.GREEN;
     private static final int FAIL_COLOR = Color.RED;
     private static final int WARN_COLOR = Color.YELLOW;
-    
+
     private static final String TEST_COMPLETE = "Test complete";
     private static final String RESULT_PASS = "Result:Pass";
     private static final String RESULT_FAIL="Result:Fail";
     private static final String RESULT_BLOCK="Result:Block";
     private static final String INFO = "Info:";
-    
-    
+
+
     private static final String CONNECT_FAIL_CS = "Connection Fail";
     private static final String FIND_FAIL_CS = "Discover Fail";
     private static final String JOIN_FAIL_CS = "JoinSession Fail";
     private static final String CALL_FAIL_CS = "MethodCalls Fail";
     private static final String FINDING_CS = "Discovering...";
     private static final String FIND_TIMEOUT_CS ="Discover timeout";
-    
+
     private static final String WIFI_OFF = "Wifi disabled!";
     private static final String AP_OFF = "No access point connected!";
     private static final String SERVICE_OFF = "Service app not launched or quit!";
-    
+
     private static final int CLIENT_OK = 1;
     private static final int CONNECT_FAIL = 2;
     private static final int FIND_FAIL = 3;
@@ -84,56 +84,56 @@ public class Client extends Activity {
     private static final int DISCONNECT_OK = 6;
     private static final int FINDING = 7;
     private static final int DISCOVERY_TIMEOUT = 8;
-    
+
     private TextView mTextView;
     private Button mDbgButton;
     private Menu menu;
-    
+
     private boolean mIsWifiEnabled = true;
     private String mActiveApMac = null;
-    
+
     /* Create Pass text */
     private String setPassText()
     {
         StringBuilder sb = new StringBuilder();
-     
+
         sb.append(TEST_COMPLETE);
-        sb.append("\n"); 
+        sb.append("\n");
         sb.append(RESULT_PASS);
-        
+
         return sb.toString();
     }
-    
+
     /* Create failure text */
     private String setFailText(String info)
     {
         StringBuilder sb = new StringBuilder();
-     
+
         sb.append(TEST_COMPLETE);
         sb.append("\n");
         sb.append(RESULT_FAIL);
         sb.append("\n");
         sb.append(INFO).append(info);
-        
+
         return sb.toString();
     }
-    
+
     /* Create blocked text */
     private String setBlockText(String info)
     {
         StringBuilder sb = new StringBuilder();
-     
+
         sb.append(TEST_COMPLETE);
         sb.append("\n");
         sb.append(RESULT_BLOCK);
         sb.append("\n");
         sb.append(INFO).append(info);
-        
+
         return sb.toString();
     }
-    
+
     /* UI handler */
-    private Handler mHandler = new Handler() 
+    private Handler mHandler = new Handler()
     {
         @Override
         public void handleMessage(Message msg) {
@@ -143,56 +143,56 @@ public class Client extends Activity {
                 mTextView.setText(setPassText());
                 mTextView.setTextColor(PASS_COLOR);
                 mDbgButton.setEnabled(false);
-                
+
                 break;
-                
+
             /* Failure in red: bundled daemon cause connect fail */
             case CONNECT_FAIL:
                 mTextView.setText(setFailText(CONNECT_FAIL_CS));
                 mTextView.setTextColor(FAIL_COLOR);
                 mDbgButton.setEnabled(false);
                 break;
-                
+
             case FINDING:
                 mTextView.setText(FINDING_CS);
                 break;
-            
+
             /* Warning in yellow */
             case FIND_FAIL:
                 mTextView.setText(setBlockText(FIND_FAIL_CS));
                 mTextView.setTextColor(WARN_COLOR);
                 mDbgButton.setEnabled(false);
                 break;
-                
-            /* Warning in yellow */   
+
+            /* Warning in yellow */
             case JOIN_FAIL:
                 mTextView.setText(setBlockText(JOIN_FAIL_CS));
                 mTextView.setTextColor(WARN_COLOR);
                 /* Display debug dialog */
                 mDbgButton.setEnabled(true);
                 break;
-                
+
             /* Warning in yellow */
             case CALL_FAIL:
                 mTextView.setText(setBlockText(CALL_FAIL_CS));
                 mTextView.setTextColor(WARN_COLOR);
                 mDbgButton.setEnabled(false);
                 break;
-            /* Warning in yellow */    
+            /* Warning in yellow */
             case DISCOVERY_TIMEOUT:
             	/* Stop discover */
             	mBusHandler.sendEmptyMessage(BusHandler.CANCEL_DISCOVER);
-            	
+
                 mTextView.setText(setBlockText(FIND_TIMEOUT_CS));
                 mTextView.setTextColor(WARN_COLOR);
                 /* Display debug dialog */
                 mDbgButton.setEnabled(true);
                 break;
-                
+
             case DISCONNECT_OK:
             	finish();
             	break;
-            	
+
             default:
                 break;
             }
@@ -208,7 +208,7 @@ public class Client extends Activity {
         setContentView(R.layout.main);
 
         mTextView = (TextView) findViewById(R.id.textClient);
-        
+
         mDbgButton = (Button)findViewById(R.id.dbgButton);
         mDbgButton.setOnClickListener(new View.OnClickListener() {
             public void onClick(View v) {
@@ -216,28 +216,28 @@ public class Client extends Activity {
         	}
         });
         mDbgButton.setEnabled(false);
-        
+
         /* Get wifi ap mac address for debug purpose */
         mActiveApMac = getWifiMacAddress();
-        
+
         /* Make all AllJoyn calls through a separate handler thread to prevent blocking the UI. */
         HandlerThread busThread = new HandlerThread("BusHandler");
         busThread.start();
         mBusHandler = new BusHandler(busThread.getLooper());
-        
+
         mBusHandler.sendEmptyMessage(BusHandler.CONNECT);
     }
-    
+
 
     protected Dialog onCreateDialog(int id) {
     	Log.i(TAG, "onCreateDialog()");
         Dialog result = null;
         switch(id) {
         case DIALOG_DEBUG_ID:
-	        { 
+	        {
 	        	DialogBuilder builder = new DialogBuilder();
 	        	result = builder.createDebugDialog(this, getBlockReason());
-	        }        	
+	        }
         	break;
         default:
             result = null;
@@ -252,31 +252,31 @@ public class Client extends Activity {
         this.menu = menu;
         return true;
     }
-    
+
     @Override
 	public boolean onOptionsItemSelected(MenuItem item) {
 	    // Handle item selection
 	    switch (item.getItemId()) {
 	    case R.id.quit:
 	    	mBusHandler.sendEmptyMessage(BusHandler.DISCONNECT);
-	    	
+
 	        return true;
 	    default:
 	        return super.onOptionsItemSelected(item);
 	    }
 	}
-    
+
     @Override
     protected void onDestroy() {
         super.onDestroy();
-        
+
     }
 
     /* Analyze possible block reason */
     private String getBlockReason()
     {
     	String blockReason = null;
-    	
+
     	if (mIsWifiEnabled)
     	{
     		if (null == mActiveApMac)
@@ -295,32 +295,32 @@ public class Client extends Activity {
     		/* Wifi disabled */
     		blockReason = WIFI_OFF;
     	}
-    	
+
     	return blockReason;
     }
-    
+
     /* Get wifi active access point mac address */
     private String getWifiMacAddress()
     {
     	String apMac = null;
-    	
+
     	WifiManager mWifiManager = (WifiManager) getSystemService(getApplicationContext().WIFI_SERVICE);
-    	
+
     	mIsWifiEnabled = mWifiManager.isWifiEnabled();
-    	
+
     	if (mIsWifiEnabled)
     	{
     		WifiInfo wifiInfo = mWifiManager.getConnectionInfo();
-    		
+
     		apMac = wifiInfo.getBSSID();
-    		
+
     		logInfo("Active access point mac address: " + apMac);
     	}
     	else
     	{
     		logInfo("Wifi disabled!");
     	}
-    	
+
     	return apMac;
     }
 
@@ -330,46 +330,46 @@ public class Client extends Activity {
          * Name used as the well-known name and the advertised name.  This name must be a unique name
          * both to the bus and to the network as a whole.  The name uses reverse URL style of naming.
          */
-        private static final String SERVICE_NAME = "org.alljoyn.bus.tests.ping";
+        private static final String SERVICE_NAME = "org.alljoyn.bus.bundle.tests.ping";
         private static final short CONTACT_PORT=42;
-        
+
         private ProxyBusObject mProxyObj;
         private ServiceInterface mServiceInterface;
-        
+
         private BusAttachment mBus;
-        
+
         private int 	mSessionId;
         private boolean mIsConnected;
         private boolean mIsStoppingDiscovery;
-        
+
         /* These are the messages sent to the BusHandler from the UI. */
         public static final int CONNECT = 1;
         public static final int DISCONNECT = 2;
         public static final int JOIN_SESSION = 3;
         public static final int CANCEL_DISCOVER = 4;
-        
+
         public static final int CALLS = 20;
         public static final int TIMEOUT_SEC=20;
-        
+
         private Runnable mTimeoutTask = new Runnable() {
      	   public void run() {
      		   logInfo("Discovery timeout " + TIMEOUT_SEC +" seconds!");
      	       mHandler.sendEmptyMessage(DISCOVERY_TIMEOUT);
      	   }
      	};
-     	
+
         public BusHandler(Looper looper) {
             super(looper);
             mIsConnected = false;
         }
 
         private void startDiscoverTimer()
-        {                
+        {
         	// Start a 20 seconds timer
             //removeCallbacks(mTimeoutTask);
         	logInfo("Start discovery timer in bus handler");
             mHandler.postDelayed(mTimeoutTask, TIMEOUT_SEC*1000);
-        	
+
         }
         private void stopDiscoverTimer()
         {
@@ -377,20 +377,20 @@ public class Client extends Activity {
         	logInfo("Stop discovery timer because name found");
         	mHandler.removeCallbacks(mTimeoutTask);
         }
-        
+
         @Override
         public void handleMessage(Message msg) {
         	Status status = Status.OK;
-        	
+
             switch (msg.what) {
             /* Connect to the bus and start our service. */
-            case CONNECT: { 
+            case CONNECT: {
                 /*
                  * Bundled daemon
-                 */ 
- 
+                 */
+
                 org.alljoyn.bus.alljoyn.DaemonInit.PrepareDaemonAsync(getApplicationContext());
-                
+
                 /* Wait till daemon is initialized */
                 while (!org.alljoyn.bus.alljoyn.DaemonInit.IsDaemonInited())
                 {
@@ -404,7 +404,7 @@ public class Client extends Activity {
                 mBus = new BusAttachment(getApplicationContext().getPackageName(),
                 			BusAttachment.RemoteMessage.Receive);
                 /*
-                 * Create a bus listener class  
+                 * Create a bus listener class
                  */
                 /*
                  * Create a bus listener class
@@ -413,16 +413,16 @@ public class Client extends Activity {
                     @Override
                     public void foundAdvertisedName(String name, short transport, String namePrefix) {
                     	logInfo(String.format("MyBusListener.foundAdvertisedName(%s, 0x%04x, %s)", name, transport, namePrefix));
-                    	
+
                     	stopDiscoverTimer();
-                    	
+
                     	/*
                     	 * This client will only join the first service that it sees advertising
-                    	 * the indicated well-known name.  If the program is already a member of 
-                    	 * a session (i.e. connected to a service) we will not attempt to join 
+                    	 * the indicated well-known name.  If the program is already a member of
+                    	 * a session (i.e. connected to a service) we will not attempt to join
                     	 * another session.
-                    	 * It is possible to join multiple session however joining multiple 
-                    	 * sessions is not shown in this sample. 
+                    	 * It is possible to join multiple session however joining multiple
+                    	 * sessions is not shown in this sample.
                     	 */
                     	if(!mIsConnected) {
                     	    Message msg = obtainMessage(JOIN_SESSION, name);
@@ -430,22 +430,22 @@ public class Client extends Activity {
                     	}
                     }
                 });
-                
+
                 /*
                  * The next step in making a service available to other AllJoyn peers is to connect the
-                 * BusAttachment to the bus with a well-known name.  
+                 * BusAttachment to the bus with a well-known name.
                  */
                 /*
                  * connect the BusAttachement to the bus
                  */
                 status = mBus.connect();
                 logStatus("BusAttachment.connect()", status);
-                if (status != Status.OK) 
+                if (status != Status.OK)
                 {
                 	mHandler.sendEmptyMessage(CONNECT_FAIL);
                     return;
                 }
-                
+
                 /*
                  * Now find an instance of the AllJoyn object we want to call.  We start by looking for
                  * a name, then connecting to the device that is advertising that name.
@@ -458,15 +458,15 @@ public class Client extends Activity {
                 	mHandler.sendEmptyMessage(FIND_FAIL);
                 	return;
                 }
-                
+
                 mHandler.sendEmptyMessage(FINDING);
-                
+
                 // Start a 20 seconds timer
                 startDiscoverTimer();
-                
+
                 break;
-                
-  
+
+
             }
             case (JOIN_SESSION): {
             	/*
@@ -475,12 +475,12 @@ public class Client extends Activity {
                 if (mIsStoppingDiscovery) {
                     break;
                 }
- 
+
                 short contactPort = CONTACT_PORT;
                 SessionOpts sessionOpts = new SessionOpts();
                 sessionOpts.transports = SessionOpts.TRANSPORT_WLAN;
                 Mutable.IntegerValue sessionId = new Mutable.IntegerValue();
-                
+
                 status = mBus.joinSession((String) msg.obj, contactPort, sessionId, sessionOpts, new SessionListener() {
                     @Override
                     public void sessionLost(int sessionId) {
@@ -489,37 +489,37 @@ public class Client extends Activity {
 
                     }
                 });
-                
+
                 logStatus("BusAttachment.joinSession() - sessionId: " + sessionId.value, status);
-                    
-                if (status != Status.OK) 
+
+                if (status != Status.OK)
                 {
                 	mHandler.sendEmptyMessage(JOIN_FAIL);
                 	return;
                 }
-                
-                mProxyObj =  mBus.getProxyBusObject(SERVICE_NAME, 
+
+                mProxyObj =  mBus.getProxyBusObject(SERVICE_NAME,
                 									"/BundledService",
                 									sessionId.value,
                 									new Class<?>[] { ServiceInterface.class });
 
                 /* We make calls to the methods of the AllJoyn object through one of its interfaces. */
                 mServiceInterface =  mProxyObj.getInterface(ServiceInterface.class);
-                	
+
                 mSessionId = sessionId.value;
                 mIsConnected = true;
-                	
+
                 String input="";
                 String reply="";
                 int passedCalls=0;
-                	
+
                 try {
                 	for(int i = 0; i < CALLS; i++)
                 	{
                 		// Create 20 random strings and check the return
                 		input="bundle" + UUID.randomUUID().toString().substring(0, 5);
                 		reply = mServiceInterface.Ping(input);
-                			
+
                 		// Reply should be same as input
                 		if (input.equals(reply))
                 		{
@@ -531,12 +531,12 @@ public class Client extends Activity {
                				logInfo("Reply:" + reply + " mismatch input: " + input);
                			}
                		}
-                							
+
 				} catch (BusException ex) {
 	                logException("SimpleInterface.Ping()", ex);
 
 	            }
-                	
+
 				if (passedCalls == CALLS)
 				{
 					mHandler.sendEmptyMessage(CLIENT_OK);
@@ -548,17 +548,17 @@ public class Client extends Activity {
 
                 break;
             }
-            
+
             /* Cancel find advertised name */
             case CANCEL_DISCOVER:
             	mIsStoppingDiscovery = true;
             	status = mBus.cancelFindAdvertisedName(SERVICE_NAME);
             	logStatus("BusAttachment.cancelFindAdvertisedName()", status);
             	break;
-            	
+
             /* Release all resources acquired in connect. */
             case DISCONNECT: {
-                
+
             	mIsStoppingDiscovery = true;
             	if (mIsConnected) {
                 	status = mBus.leaveSession(mSessionId);
@@ -566,9 +566,9 @@ public class Client extends Activity {
             	}
                 mBus.disconnect();
                 getLooper().quit();
-                
+
                 mHandler.sendEmptyMessage(DISCONNECT_OK);
-                
+
                 break;
             }
 
@@ -577,7 +577,7 @@ public class Client extends Activity {
             }
         }
     }
-    
+
     private void logStatus(String msg, Status status) {
         String log = String.format("%s: %s", msg, status);
         if (status == Status.OK) {
@@ -586,16 +586,16 @@ public class Client extends Activity {
             Log.e(TAG, log);
         }
     }
-    
+
     /*
      * print the status or result to the Android log. If the result is the expected
      * result only print it to the log.  Otherwise print it to the error log and
-     * Sent a Toast to the users screen. 
+     * Sent a Toast to the users screen.
      */
     private void logInfo(String msg) {
             Log.i(TAG, msg);
     }
-    
+
     private void logException(String msg, BusException ex) {
         String log = String.format("%s: %s", msg, ex);
 
