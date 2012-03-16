@@ -26,7 +26,7 @@ using namespace std;
 TEST(MsgArgTest, Basic) {
     QStatus status = ER_OK;
     MsgArg arg("i", -9999);
-    uint32_t i;
+    int32_t i;
     status = arg.Get("i", &i);
     ASSERT_EQ(status, ER_OK);
     ASSERT_EQ(i, -9999);
@@ -95,8 +95,6 @@ TEST(MsgArgTest, Basic) {
     size_t p64len;
     status = arg.Get("((iuiu)(yd)at)", &i, &u, &i, &u, &y, &d, &p64len, &p64);
     ASSERT_STREQ(QCC_StatusText(status), "ER_OK");
-
-
 }
 
 
@@ -135,9 +133,6 @@ TEST(MsgArgTest, Variants)
     ASSERT_STREQ(QCC_StatusText(status), "ER_BUS_SIGNATURE_MISMATCH");
     status = arg.Get("s", &str);
     ASSERT_STREQ(QCC_StatusText(status), "ER_OK");
-
-
-
 }
 
 TEST(MsgArgTest, Scalars)
@@ -213,6 +208,104 @@ TEST(MsgArgTest, Scalars)
     ASSERT_EQ(pat[1], 988);
 
 
+}
+
+TEST(MsgArgTest, arrays_of_scalars) {
+    QStatus status = ER_OK;
+    /* Array of BYTE */
+    uint8_t ay[] = { 9, 19, 29, 39, 49 };
+    /* Array of INT16 */
+    static int16_t an[] = { -9, -99, 999, 9999 };
+    /* Array of INT32 */
+    static int32_t ai[] = { -8, -88, 888, 8888 };
+    /* Array of INT64 */
+    static int64_t ax[] = { -8, -88, 888, 8888 };
+    /* Array of UINT64 */
+    static int64_t at[] = { -8, -88, 888, 8888 };
+    /* Array of DOUBLE */
+    static double ad[] = { 0.001, 0.01, 0.1, 1.0, 10.0, 100.0 };
+
+    /*
+     * Arrays of scalars
+     */
+    {
+        MsgArg arg;
+        status = arg.Set("ay", sizeof(ay) / sizeof(ay[0]), ay);
+        EXPECT_EQ(ER_OK, status) << "  Actual Status: " << QCC_StatusText(status);
+        uint8_t* pay;
+        size_t lay;
+        status = arg.Get("ay", &lay, &pay);
+        EXPECT_EQ(ER_OK, status) << "  Actual Status: " << QCC_StatusText(status);
+        EXPECT_EQ(sizeof(ay) / sizeof(ay[0]), lay);
+        for (size_t i = 0; i < lay; ++i) {
+            EXPECT_EQ(ay[i], pay[i]);
+        }
+    }
+    {
+        MsgArg arg;
+        status = arg.Set("an", sizeof(an) / sizeof(an[0]), an);
+        EXPECT_EQ(ER_OK, status) << "  Actual Status: " << QCC_StatusText(status);
+        int16_t* pan;
+        size_t lan;
+        status = arg.Get("an", &lan, &pan);
+        EXPECT_EQ(ER_OK, status) << "  Actual Status: " << QCC_StatusText(status);
+        EXPECT_EQ(sizeof(an) / sizeof(an[0]), lan);
+        for (size_t i = 0; i < lan; ++i) {
+            EXPECT_EQ(an[i], pan[i]);
+        }
+    }
+    {
+        MsgArg arg;
+        status = arg.Set("ai", sizeof(ai) / sizeof(ai[0]), ai);
+        EXPECT_EQ(ER_OK, status) << "  Actual Status: " << QCC_StatusText(status);
+        int32_t* pai;
+        size_t lai;
+        status = arg.Get("ai", &lai, &pai);
+        EXPECT_EQ(ER_OK, status) << "  Actual Status: " << QCC_StatusText(status);
+        EXPECT_EQ(sizeof(ai) / sizeof(ai[0]), lai);
+        for (size_t i = 0; i < lai; ++i) {
+            EXPECT_EQ(ai[i], pai[i]);
+        }
+    }
+    {
+        MsgArg arg;
+        status = arg.Set("ax", sizeof(ax) / sizeof(ax[0]), ax);
+        EXPECT_EQ(ER_OK, status) << "  Actual Status: " << QCC_StatusText(status);
+        int64_t* pax;
+        size_t lax;
+        status = arg.Get("ax", &lax, &pax);
+        EXPECT_EQ(ER_OK, status) << "  Actual Status: " << QCC_StatusText(status);
+        EXPECT_EQ(sizeof(ax) / sizeof(ax[0]), lax);
+        for (size_t i = 0; i < lax; ++i) {
+            EXPECT_EQ(ax[i], pax[i]);
+        }
+    }
+    {
+        MsgArg arg;
+        status = arg.Set("at", sizeof(at) / sizeof(at[0]), at);
+        EXPECT_EQ(ER_OK, status) << "  Actual Status: " << QCC_StatusText(status);
+        int64_t* pat;
+        size_t lat;
+        status = arg.Get("at", &lat, &pat);
+        EXPECT_EQ(ER_OK, status) << "  Actual Status: " << QCC_StatusText(status);
+        EXPECT_EQ(sizeof(at) / sizeof(at[0]), lat);
+        for (size_t i = 0; i < lat; ++i) {
+            EXPECT_EQ(at[i], pat[i]);
+        }
+    }
+    {
+        MsgArg arg;
+        status = arg.Set("ad", sizeof(ad) / sizeof(ad[0]), ad);
+        EXPECT_EQ(ER_OK, status) << "  Actual Status: " << QCC_StatusText(status);
+        double* pad;
+        size_t lad;
+        status = arg.Get("ad", &lad, &pad);
+        EXPECT_EQ(ER_OK, status) << "  Actual Status: " << QCC_StatusText(status);
+        EXPECT_EQ(sizeof(ad) / sizeof(ad[0]), lad);
+        for (size_t i = 0; i < lad; ++i) {
+            EXPECT_EQ(ad[i], pad[i]);
+        }
+    }
 }
 
 TEST(MsgArgTest, DiffStrings)
