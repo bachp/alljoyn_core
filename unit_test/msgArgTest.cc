@@ -25,18 +25,6 @@ using namespace std;
 
 TEST(MsgArgTest, Basic) {
     QStatus status = ER_OK;
-    MsgArg arg("i", -9999);
-    int32_t i;
-    status = arg.Get("i", &i);
-    ASSERT_EQ(status, ER_OK);
-    ASSERT_EQ(i, -9999);
-
-    status = arg.Set("s", "hello");
-    ASSERT_EQ(status, ER_OK);
-    char*str;
-    status = arg.Get("s", &str);
-    ASSERT_EQ(status, ER_OK);
-    ASSERT_STREQ("hello", str);
 
     /* BYTE */
     static uint8_t y = 0;
@@ -49,6 +37,8 @@ TEST(MsgArgTest, Basic) {
     /* DOUBLE */
     static double d = 3.14159265L;
     /* INT32 */
+    static int32_t i = -9999;
+    /* UINT32 */
     static uint32_t u = 0x32323232;
     /* INT64 */
     static int64_t x = -1LL;
@@ -62,6 +52,18 @@ TEST(MsgArgTest, Basic) {
     static const char*g = "a{is}d(siiux)";
     /* Array of UINT64 */
     static int64_t at[] = { -8, -88, 888, 8888 };
+
+    MsgArg arg("i", -9999);
+    status = arg.Get("i", &i);
+    ASSERT_EQ(status, ER_OK);
+    ASSERT_EQ(i, -9999);
+
+    status = arg.Set("s", "hello");
+    ASSERT_EQ(status, ER_OK);
+    char*str;
+    status = arg.Get("s", &str);
+    ASSERT_EQ(status, ER_OK);
+    ASSERT_STREQ("hello", str);
 
     MsgArg argList;
     status = argList.Set("(ybnqdiuxtsoqg)", y, b, n, q, d, i, u, x, t, s, o, q, g);
@@ -84,10 +86,15 @@ TEST(MsgArgTest, Basic) {
 
     /*  Structs */
     ASSERT_EQ(status, ER_OK);
-    status = argList.Set("((ydx)(its))", y, &d, &x, i, &t, s);
+    status = argList.Set("((ydx)(its))", y, d, x, i, t, s);
     ASSERT_EQ(status, ER_OK);
     status = argList.Get("((ydx)(its))", &y, &d, &x, &i, &t, &s);
     ASSERT_EQ(status, ER_OK);
+    EXPECT_EQ(y, 0);
+    EXPECT_EQ(x, -1LL);
+    EXPECT_EQ(i, -9999);
+    EXPECT_EQ(t, 0x6464646464646464ULL);
+    EXPECT_STREQ(s, "this is a string");
 
     status = arg.Set("((iuiu)(yd)at)", i, u, i, u, y, d, sizeof(at) / sizeof(at[0]), at);
     ASSERT_EQ(status, ER_OK);
@@ -95,6 +102,14 @@ TEST(MsgArgTest, Basic) {
     size_t p64len;
     status = arg.Get("((iuiu)(yd)at)", &i, &u, &i, &u, &y, &d, &p64len, &p64);
     ASSERT_STREQ(QCC_StatusText(status), "ER_OK");
+    EXPECT_EQ(ER_OK, status) << "  Actual Status: " << QCC_StatusText(status);
+    EXPECT_EQ(i, -9999);
+    EXPECT_EQ(u, 0x32323232u);
+    EXPECT_EQ(y, 0);
+    EXPECT_EQ(p64len, sizeof(at) / sizeof(at[0]));
+    for (size_t k = 0; k < p64len; ++k) {
+        EXPECT_EQ(at[k], p64[k]) << "index " << k;
+    }
 }
 
 
