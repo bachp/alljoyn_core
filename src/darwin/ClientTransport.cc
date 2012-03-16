@@ -136,7 +136,7 @@ QStatus ClientTransport::NormalizeTransportSpec(const char* inSpec, qcc::String&
     }
 
     qcc::String env = Trim(argMap["env"]);
-    outSpec = "launchd:";
+    normSpec = "launchd:";
     if (env.empty()) {
         env = "DBUS_LAUNCHD_SESSION_BUS_SOCKET";
     }
@@ -168,8 +168,31 @@ QStatus ClientTransport::NormalizeTransportSpec(const char* inSpec, qcc::String&
         QCC_LogError(status, ("launchctl failed"));
     }
     pclose(launchctl);
-    return status;
 
+    status = ParseArguments("unix", outSpec.c_str(), argMap);
+    if (status != ER_OK) {
+        return status;
+    }
+
+    qcc::String path = Trim(argMap["path"]);
+    qcc::String abstract = Trim(argMap["abstract"]);
+    if (ER_OK == status) {
+        // @@ TODO: Path normalization?
+        outSpec = "unix:";
+        if (!path.empty()) {
+            outSpec.append("path=");
+            outSpec.append(path);
+            argMap["_spec"] = path;
+        } else if (!abstract.empty()) {
+            outSpec.append("abstract=");
+            outSpec.append(abstract);
+            argMap["_spec"] = qcc::String("@") + abstract;
+        } else {
+            status = ER_BUS_BAD_TRANSPORT_ARGS;
+        }
+    }
+
+    return status;
 }
 
 QStatus ClientTransport::Connect(const char* connectArgs, const SessionOpts& opts, RemoteEndpoint** newep)
@@ -213,21 +236,6 @@ QStatus ClientTransport::Connect(const char* connectArgs, const SessionOpts& opt
     status = qcc::Connect(sockFd, spec.c_str());
     if (status != ER_OK) {
         QCC_LogError(status, ("ClientTransport(): socket Connect(%d, %s) failed", sockFd, spec.c_str()));
-        qcc::Close(sockFd);
-        return status;
-    }
-
-    /*
-     * We have a connection established, but DBus wire protocol required that every connection,
-     * irrespective of transport, start with a single zero byte. This is so that the Unix-domain
-     * socket transport used by DBus can pass SCM_RIGHTS out-of-band when that byte is sent.
-     */
-    uint8_t nul = 0;
-    size_t sent;
-
-    status = Send(sockFd, &nul, 1, sent);
-    if (status != ER_OK) {
-        QCC_LogError(status, ("ClientTransport::Connect(): Failed to send initial NUL byte"));
         qcc::Close(sockFd);
         return status;
     }
