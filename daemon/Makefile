@@ -95,6 +95,6 @@ ns : $(DAEMON_OBJS) $(TESTDIR)/ns.o
 	cp ns $(INSTALLDIR)/dist/bin
 
 clean:
-	-rm *.o *.~ $(OS_GROUP)/*.o $(TESTDIR)/*.o bt_bluez/*.o alljoyn-daemon advtunnel bbdaemon DaemonTest mcmd ns
+	-rm *.o *~ $(OS_GROUP)/*.o $(TESTDIR)/*.o bt_bluez/*.o alljoyn-daemon advtunnel bbdaemon DaemonTest mcmd ns
 
 
