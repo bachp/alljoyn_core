@@ -46,6 +46,6 @@ progs : $(PROG_BINS)
 	cp $@ $(INSTALLDIR)/dist/bin
 
 clean:
-	-rm $(PROG_BINS) *.~
+	-rm $(PROG_BINS) *~
 
 

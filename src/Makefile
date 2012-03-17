@@ -23,19 +23,26 @@ else
    OS_SRC_DIR = $(OS_GROUP)
 endif
 
-ALLJOYN_SRC_SRCS = $(wildcard *.cc) 
-ALLJOYN_SRC_SRCS += $(wildcard $(OS_SRC_DIR)/*.cc)
-ALLJOYN_SRC_OBJS = $(patsubst %.cc,%.o,$(ALLJOYN_SRC_SRCS))
+ALLJOYN_CC_SRCS = $(wildcard *.cc)
+ALLJOYN_CC_SRCS += $(wildcard $(OS_SRC_DIR)/*.cc)
+ALLJOYN_CC_OBJS = $(patsubst %.cc,%.o,$(ALLJOYN_CC_SRCS))
 
-$(ALLJOYN_SRC_OBJS) : $(ALLJOYN_SRC_SRCS)
+$(ALLJOYN_CC_OBJS) : $(ALLJOYN_CC_SRCS)
 	$(CC) $(CXXFLAGS) $(CPPDEFINES) $(INCLUDE) -c -o $@ $(patsubst %.o,%.cc,$@)
+
+ALLJOYN_C_SRCS = $(wildcard *.c)
+ALLJOYN_C_OBJS = $(patsubst %.c,%.o,$(ALLJOYN_C_SRCS))
+
+$(ALLJOYN_C_OBJS) : $(ALLJOYN_C_SRCS)
+	$(CC) $(CFLAGS) $(CPPDEFINES) $(INCLUDE) -c -o $@ $(patsubst %.o,%.c,$@)
 
 %.o:%.cc
 	$(CC) $(CXXFLAGS) $(CPPDEFINES) $(INCLUDE) -c -o $@ $<
     
-corelib: $(ALLJOYN_SRC_OBJS) $(ALLJOYN_OS_OBJS) version.o
-	$(AR) r $(TARGET) $(ALLJOYN_SRC_OBJS) $(VERSION_OBJ) $(wildcard $(COMMONDIR)/src/*.o) $(wildcard $(COMMONDIR)/os/$(OS_GROUP)/*.o) $(wildcard $(COMMONDIR)/crypto/$(CRYPTO)/*.o)
+corelib: $(ALLJOYN_CC_OBJS) $(ALLJOYN_C_OBJS)
+	$(AR) r $(TARGET) $(ALLJOYN_CC_OBJS) $(ALLJOYN_C_OBJS) $(wildcard $(COMMONDIR)/src/*.o) $(wildcard $(COMMONDIR)/os/$(OS_GROUP)/*.o) $(wildcard $(COMMONDIR)/crypto/$(CRYPTO)/*.o)
 	cp $(TARGET) $(INSTALLDIR)/dist/lib
 
 clean:
-	-rm *.o *.~ $(TARGET) $(OS_SRC_DIR)/*.o
+	-rm *.o *~ $(TARGET) $(OS_SRC_DIR)/*.o
+

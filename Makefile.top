@@ -13,12 +13,16 @@
 #    limitations under the License.
 # 
 
+#
+# Example command: make OS=linux CPU=x86 VARIANT=debug
+#              or: make
+
 all: alljoyn
 
 CC=gcc
 AR=ar
 
-# Default build config
+# Default build configuration
 ifeq "$(CPU)" ""
     CPU=x86
 endif
@@ -32,9 +36,10 @@ endif
 ifeq "$(OS)" "linux"
     # Linux specific flags
     CPPDEFINES+=-DQCC_OS_LINUX
-    CPPDEFINES+=-DQCC_CPU_X86
     CPPDEFINES+=-DQCC_OS_GROUP_POSIX
     OS_GROUP=posix
+else
+    $(error $(OS) build is not supported yet.)
 endif
 
 CFLAGS=-Wall \
@@ -54,6 +59,19 @@ CXXFLAGS=-Wall \
         -Wno-long-long \
         -Wno-deprecated 
 
+ifeq "$(CPU)" "x86"
+# Force 32-bit builds
+    CXXFLAGS+=-m32
+    CFLAGS+=-m32
+    LINKFLAGS+=-m32
+else
+    ifeq "$(CPU)" "x86-64"
+        CXXFLAGS+=-m64 -fPIC
+        CFLAGS+=-m64 -fPIC
+        LINKFLAGS+=-m64
+    endif
+endif
+
 # Debug/Release Variants
 ifeq "$(VARIANT)" "debug"
    CFLAGS+=-g
@@ -65,21 +83,6 @@ else
    LINKFLAGS=-s
    CPPDEFINES+=-DNDEBUG
    JAVACFLAGS=-Xlint -Xlint:-serial
-endif
-
-ifeq "$(CPU)" "x86"
-# Force 32-bit builds
-    CXXFLAGS+=-m32
-    CFLAGS+=-m32
-    LINKFLAGS+=-m32
-else
-    ifeq "$(CPU)" "x86-64"
-        CPPDEFINES+=-DQCC_CPU_X86
-        CPPDEFINES+=-DQCC_CPU_IA64
-        CXXFLAGS+=-m64 -fPIC
-        CFLAGS+=-m64 -fPIC
-        LINKFLAGS+=-m64
-    endif
 endif
 
 # Header/lib path include
@@ -136,8 +139,6 @@ endif
 INSTALLDIR = $(PWD)/build/$(OS)/$(CPU)/$(VARIANT)
 ALLJOYNLIB = $(INSTALLDIR)/dist/lib/liballjoyn.a
 COMMONDIR = $(PWD)/common
-BUILDDIR=.
-# build/${OS}/${CPU}/${VARIANT}
 
 INCLUDE += -L$(INSTALLDIR)/dist/lib
 LIBS += -lalljoyn 
@@ -157,10 +158,4 @@ clean:
 	-rm -rf $(JUNK)
 	cd common; make clean;
 	cd alljoyn_core; make clean;
-
-clobber:
-	-rm -rf $(JUNK) $(ALL)
-
-install:
-
 
