@@ -1,0 +1,166 @@
+# Copyright 2012, Qualcomm Innovation Center, Inc.
+# 
+#    Licensed under the Apache License, Version 2.0 (the "License");
+#    you may not use this file except in compliance with the License.
+#    You may obtain a copy of the License at
+# 
+#        http://www.apache.org/licenses/LICENSE-2.0
+# 
+#    Unless required by applicable law or agreed to in writing, software
+#    distributed under the License is distributed on an "AS IS" BASIS,
+#    WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+#    See the License for the specific language governing permissions and
+#    limitations under the License.
+# 
+
+all: alljoyn
+
+CC=gcc
+AR=ar
+
+# Default build config
+ifeq "$(CPU)" ""
+    CPU=x86
+endif
+ifeq "$(OS)" ""
+    OS=linux
+endif
+ifeq "$(VARIANT)" ""
+    VARIANT=debug
+endif
+
+ifeq "$(OS)" "linux"
+    # Linux specific flags
+    CPPDEFINES+=-DQCC_OS_LINUX
+    CPPDEFINES+=-DQCC_CPU_X86
+    CPPDEFINES+=-DQCC_OS_GROUP_POSIX
+    OS_GROUP=posix
+endif
+
+CFLAGS=-Wall \
+       -Werror=non-virtual-dtor \
+       -pipe \
+       -std=c99 \
+       -fno-strict-aliasing \
+       -Wno-long-long
+
+CXXFLAGS=-Wall \
+        -Werror=non-virtual-dtor \
+        -pipe \
+        -std=c++98 \
+        -fno-rtti \
+        -fno-exceptions \
+        -fno-strict-aliasing \
+        -Wno-long-long \
+        -Wno-deprecated 
+
+# Debug/Release Variants
+ifeq "$(VARIANT)" "debug"
+   CFLAGS+=-g
+   CXXFLAGS+=-g
+   JAVACFLAGS+=-g -Xlint -Xlint:-serial
+else
+   CFLAGS+=-O3
+   CXXFLAGS+=-O3
+   LINKFLAGS=-s
+   CPPDEFINES+=-DNDEBUG
+   JAVACFLAGS=-Xlint -Xlint:-serial
+endif
+
+ifeq "$(CPU)" "x86"
+# Force 32-bit builds
+    CXXFLAGS+=-m32
+    CFLAGS+=-m32
+    LINKFLAGS+=-m32
+else
+    ifeq "$(CPU)" "x86-64"
+        CPPDEFINES+=-DQCC_CPU_X86
+        CPPDEFINES+=-DQCC_CPU_IA64
+        CXXFLAGS+=-m64 -fPIC
+        CFLAGS+=-m64 -fPIC
+        LINKFLAGS+=-m64
+    endif
+endif
+
+# Header/lib path include
+INCLUDE = -I$(PWD)/common/inc -I$(PWD)/alljoyn_core/inc -I$(PWD)/alljoyn_core/src -I$(PWD)/alljoyn_core/daemon
+
+# Platform specifics libs for common
+ifeq "$(OS_GROUP)" "windows"
+    LIBS += setupapi user32 winmm ws2_32 iphlpapi secur32 Advapi32
+    # Key of presence of OPENSSL_BASE to decide if to use openssl or window CNG crypto
+    ifeq "" "$(OPENSSL_BASE)"
+        ifeq "$(OS)" "winxp"
+            # Must specify OPENSSL_BASE for winXP
+            $(error 'Must specify OPENSSL_BASE when building for WindowsXP')
+        else
+            LIBS += -lbcrypt -lncrypt -lcrypt32
+        endif
+    else
+        INCLUDE += -I $(OPENSSL_BASE)/include
+        INCLUDE += -L $(OPENSSL_BASE)/lib
+        LIBS += -llibeay32 -lssleay32
+        $(warning 'Using OPENSSL crypto libraries')
+    endif
+else 
+    ifeq "$(OS)" "linux"
+        LIBS += -lrt -lstdc++ -lpthread -lcrypto
+    else
+        ifeq "$(OS)" "darwin"
+            LIBS += -lstdc++ -lpthread -lcrypto
+        else       
+            ifeq "$(OS)" "android"
+                LIBS += -lm -lc -lstdc++ -lcrypto -llog -lgcc
+            else
+                ifeq "$(OS)" "android_donut"
+                    LIBS += -lm -lc -lstdc++ -lcrypto -llog
+                else 
+                    ifeq "$(OS)" "maemo"
+                    else
+                        $(error 'Unrecognized OS : ' $(OS))
+                    endif
+                endif
+            endif
+        endif        
+    endif
+ endif
+
+CRYPTO = openssl
+ifeq "$(OS_GROUP)" "windows"
+	ifneq "$(OS)" "winxp"
+        CRYPTO = cng
+        $(warning 'Using CNG crypto libraries')
+    endif
+endif
+
+INSTALLDIR = $(PWD)/build/$(OS)/$(CPU)/$(VARIANT)
+ALLJOYNLIB = $(INSTALLDIR)/dist/lib/liballjoyn.a
+COMMONDIR = $(PWD)/common
+BUILDDIR=.
+# build/${OS}/${CPU}/${VARIANT}
+
+INCLUDE += -L$(INSTALLDIR)/dist/lib
+LIBS += -lalljoyn 
+JUNK=*.o *~ 
+export
+
+alljoyn:
+	@mkdir -p $(INSTALLDIR)/dist/lib
+	@mkdir -p $(INSTALLDIR)/dist/bin
+	@mkdir -p $(INSTALLDIR)/dist/bin/samples
+	@mkdir -p $(INSTALLDIR)/dist/inc
+	@mkdir -p $(INSTALLDIR)/dist/samples
+	cd common; make;
+	cd alljoyn_core; make;
+
+clean:
+	-rm -rf $(JUNK)
+	cd common; make clean;
+	cd alljoyn_core; make clean;
+
+clobber:
+	-rm -rf $(JUNK) $(ALL)
+
+install:
+
+
