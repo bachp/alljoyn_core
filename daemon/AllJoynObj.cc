@@ -390,7 +390,6 @@ void AllJoynObj::BindSessionPort(const InterfaceDescription::Member* member, Mes
             entry.opts = opts;
             entry.id = 0;
             sessionMap.insert(pair<pair<String, SessionId>, SessionMapEntry>(pair<String, SessionId>(entry.endpointName, 0), entry));
-            QCC_DbgPrintf(("SJK: Inserted %s, %u into session map", entry.endpointName.c_str(), sessionPort));
         }
         ReleaseLocks();
     }
