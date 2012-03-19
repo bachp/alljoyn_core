@@ -21,13 +21,6 @@ BT_SRCS = BTController.cc BTTransport.cc BTNodeDB.cc
 DAEMON_SRCS = $(wildcard *.cc)
 DAEMON_SRCS += $(wildcard *.c)
 
-ifeq "$(OS)" "darwin"
-    # Darwin has its own version of the daemon transport
-    DAEMON_SRCS += $(OS)/DaemonTransport.cc
-else
-    DAEMON_SRCS += $(OS_GROUP)/DaemonTransport.cc
-endif
-
 # Select BlueZ or BM3 for bluetooth support
 ifeq "$(OS)" "android_donut"
     # Skip bluetooth
