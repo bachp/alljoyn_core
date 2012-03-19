@@ -323,7 +323,7 @@ void AllJoynObj::BindSessionPort(const InterfaceDescription::Member* member, Mes
     SessionOpts opts;
 
     msg->GetArgs(numArgs, args);
-    SessionPort sessionPort = args[0].v_uint32;
+    SessionPort sessionPort = args[0].v_uint16;
     QStatus status = GetSessionOpts(args[1], opts);
 
     /* Get the sender */
@@ -390,6 +390,7 @@ void AllJoynObj::BindSessionPort(const InterfaceDescription::Member* member, Mes
             entry.opts = opts;
             entry.id = 0;
             sessionMap.insert(pair<pair<String, SessionId>, SessionMapEntry>(pair<String, SessionId>(entry.endpointName, 0), entry));
+            QCC_DbgPrintf(("SJK: Inserted %s, %u into session map", entry.endpointName.c_str(), sessionPort));
         }
         ReleaseLocks();
     }
@@ -415,7 +416,7 @@ void AllJoynObj::UnbindSessionPort(const InterfaceDescription::Member* member, M
     SessionOpts opts;
 
     msg->GetArgs(numArgs, args);
-    SessionPort sessionPort = args[0].v_uint32;
+    SessionPort sessionPort = args[0].v_uint16;
 
     QCC_DbgTrace(("AllJoynObj::UnbindSession(%d)", sessionPort));
 
