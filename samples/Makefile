@@ -13,13 +13,14 @@
 #    limitations under the License.
 # 
 
-all : basic chat
+.PHONY: all clean
+
+all: basic chat
 	cp README.$(OS).txt $(INSTALLDIR)/dist/samples/README.txt
 
 BASIC_SRCS = $(wildcard basic/*.cc)
 BASIC_BINS = $(patsubst %.cc,%,$(BASIC_SRCS))
 
-$(warning $(BASIC_SRCS))
 basic : $(BASIC_BINS)
 
 $(BASIC_BINS) : $(BASIC_SRCS)
@@ -42,6 +43,5 @@ chat_linux: chat/linux/chat.cc
 	cp $(wildcard chat/linux/Make*) $(INSTALLDIR)/dist/samples/chat/
 
 clean:
-	-rm $(BASIC_BINS)
-	-rm chat/linux/chat
+	@rm -f $(BASIC_BINS) chat/linux/chat
 

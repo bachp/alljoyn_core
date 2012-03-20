@@ -15,7 +15,9 @@
 
 TARGET = liballjoyn.a
 
-all:corelib
+.PHONY: all clean
+
+all: corelib
 
 ifeq "$(OS)" "darwin"
    OS_SRC_DIR = $(OS)
@@ -44,5 +46,5 @@ corelib: $(ALLJOYN_CC_OBJS) $(ALLJOYN_C_OBJS)
 	cp $(TARGET) $(INSTALLDIR)/dist/lib
 
 clean:
-	-rm *.o *~ $(TARGET) $(OS_SRC_DIR)/*.o
+	@rm -f *.o *~ $(TARGET) $(OS_SRC_DIR)/*.o
 

@@ -17,6 +17,8 @@
 # Example command: make OS=linux CPU=x86 VARIANT=debug
 #              or: make
 
+.PHONY: all clean
+
 all: alljoyn
 
 CC=gcc
@@ -74,74 +76,34 @@ endif
 
 # Debug/Release Variants
 ifeq "$(VARIANT)" "debug"
-   CFLAGS+=-g
-   CXXFLAGS+=-g
-   JAVACFLAGS+=-g -Xlint -Xlint:-serial
+    CFLAGS+=-g
+    CXXFLAGS+=-g
+    JAVACFLAGS+=-g -Xlint -Xlint:-serial
 else
-   CFLAGS+=-O3
-   CXXFLAGS+=-O3
-   LINKFLAGS=-s
-   CPPDEFINES+=-DNDEBUG
-   JAVACFLAGS=-Xlint -Xlint:-serial
+    CFLAGS+=-O3
+    CXXFLAGS+=-O3
+    LINKFLAGS=-s
+    CPPDEFINES+=-DNDEBUG
+    JAVACFLAGS=-Xlint -Xlint:-serial
 endif
 
 # Header/lib path include
 INCLUDE = -I$(PWD)/common/inc -I$(PWD)/alljoyn_core/inc -I$(PWD)/alljoyn_core/src -I$(PWD)/alljoyn_core/daemon
 
-# Platform specifics libs for common
-ifeq "$(OS_GROUP)" "windows"
-    LIBS += setupapi user32 winmm ws2_32 iphlpapi secur32 Advapi32
-    # Key of presence of OPENSSL_BASE to decide if to use openssl or window CNG crypto
-    ifeq "" "$(OPENSSL_BASE)"
-        ifeq "$(OS)" "winxp"
-            # Must specify OPENSSL_BASE for winXP
-            $(error 'Must specify OPENSSL_BASE when building for WindowsXP')
-        else
-            LIBS += -lbcrypt -lncrypt -lcrypt32
-        endif
-    else
-        INCLUDE += -I $(OPENSSL_BASE)/include
-        INCLUDE += -L $(OPENSSL_BASE)/lib
-        LIBS += -llibeay32 -lssleay32
-        $(warning 'Using OPENSSL crypto libraries')
-    endif
-else 
-    ifeq "$(OS)" "linux"
-        LIBS += -lalljoyn -lrt -lstdc++ -lpthread -lcrypto
-    else
-        ifeq "$(OS)" "darwin"
-            LIBS += -lstdc++ -lpthread -lcrypto
-        else       
-            ifeq "$(OS)" "android"
-                LIBS += -lm -lc -lstdc++ -lcrypto -llog -lgcc
-            else
-                ifeq "$(OS)" "android_donut"
-                    LIBS += -lm -lc -lstdc++ -lcrypto -llog
-                else 
-                    ifeq "$(OS)" "maemo"
-                    else
-                        $(error 'Unrecognized OS : ' $(OS))
-                    endif
-                endif
-            endif
-        endif        
-    endif
- endif
+LIBS = -lalljoyn
+# Platform specifics system libs
+ifeq "$(OS)" "linux"
+    LIBS += -lrt -lstdc++ -lpthread -lcrypto
+endif
 
 CRYPTO = openssl
-ifeq "$(OS_GROUP)" "windows"
-	ifneq "$(OS)" "winxp"
-        CRYPTO = cng
-        $(warning 'Using CNG crypto libraries')
-    endif
-endif
 
 INSTALLDIR = $(PWD)/build/$(OS)/$(CPU)/$(VARIANT)
 ALLJOYNLIB = $(INSTALLDIR)/dist/lib/liballjoyn.a
 COMMONDIR = $(PWD)/common
 
 INCLUDE += -L$(INSTALLDIR)/dist/lib
-LIBS += -lalljoyn 
+
 JUNK=*.o *~ 
 export
 
@@ -155,7 +117,7 @@ alljoyn:
 	cd alljoyn_core; make;
 
 clean:
-	-rm -rf $(JUNK)
+	@rm -f $(JUNK)
 	cd common; make clean;
 	cd alljoyn_core; make clean;
 
