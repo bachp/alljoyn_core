@@ -107,7 +107,7 @@ ifeq "$(OS_GROUP)" "windows"
     endif
 else 
     ifeq "$(OS)" "linux"
-        LIBS += -lrt -lstdc++ -lpthread -lcrypto
+        LIBS += -lalljoyn -lrt -lstdc++ -lpthread -lcrypto
     else
         ifeq "$(OS)" "darwin"
             LIBS += -lstdc++ -lpthread -lcrypto
