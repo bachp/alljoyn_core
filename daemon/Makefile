@@ -13,7 +13,7 @@
 #    limitations under the License.
 # 
 
-TARGET = daemonlib.a
+.PHONY: all clean
 
 all: daemon test_progs
 
@@ -28,21 +28,13 @@ else
     DAEMON_SRCS += $(OS_GROUP)/DaemonTransport.cc
 endif
 
-# Select BlueZ or BM3 for bluetooth support
+# Select BlueZ for bluetooth support or not
 ifeq "$(OS)" "android_donut"
     # Skip bluetooth
 else
-    ifeq "$(OS)" "darwin"
-        # Skip bluetooth 
-    else
-        ifeq "$(OS_GROUP)" "windows"
-            # TODO
-        else
-            # Use BlueZ
-			INCLUDE += -I$(PWD)/bt_bluez
-            DAEMON_SRCS += $(wildcard bt_bluez/*.cc) 
-        endif
-    endif
+    # Use BlueZ
+    INCLUDE += -I$(PWD)/bt_bluez
+    DAEMON_SRCS += $(wildcard bt_bluez/*.cc)
 endif
 
 
@@ -95,6 +87,6 @@ ns : $(DAEMON_OBJS) $(TESTDIR)/ns.o
 	cp ns $(INSTALLDIR)/dist/bin
 
 clean:
-	-rm *.o *~ $(OS_GROUP)/*.o $(TESTDIR)/*.o bt_bluez/*.o alljoyn-daemon advtunnel bbdaemon DaemonTest mcmd ns
+	@rm -f *.o *~ $(OS_GROUP)/*.o $(TESTDIR)/*.o bt_bluez/*.o alljoyn-daemon advtunnel bbdaemon DaemonTest mcmd ns
 
 

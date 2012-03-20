@@ -13,6 +13,8 @@
 #    limitations under the License.
 # 
 
+.PHONY: all clean
+
 all: progs
 
 PROG_BINS =  \
@@ -46,6 +48,6 @@ progs : $(PROG_BINS)
 	cp $@ $(INSTALLDIR)/dist/bin
 
 clean:
-	-rm $(PROG_BINS) *~
+	@rm -f $(PROG_BINS) *~
 
 
