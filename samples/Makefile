@@ -24,7 +24,7 @@ BASIC_BINS = $(patsubst %.cc,%,$(BASIC_SRCS))
 basic : $(BASIC_BINS)
 
 $(BASIC_BINS) : $(BASIC_SRCS)
-	$(CC) $(CXXFLAGS) $(CPPDEFINES) $(INCLUDE) $(LINKAGE) -o $@ $< $(LIBS)
+	$(CC) $(CXXFLAGS) $(CPPDEFINES) $(INCLUDE) $(LINKFLAGS) -o $@ $< $(LIBS)
 	cp $@ $(INSTALLDIR)/dist/bin/samples/
 	@mkdir -p $(INSTALLDIR)/dist/samples/basic
 	cp $(wildcard basic/*.cc) $(INSTALLDIR)/dist/samples/basic/
@@ -35,7 +35,7 @@ $(BASIC_BINS) : $(BASIC_SRCS)
 chat : chat_$(OS)
 
 chat_linux: chat/linux/chat.cc
-	$(CC) $(CXXFLAGS) $(CPPDEFINES) $(INCLUDE) $(LINKAGE) -o chat/linux/chat $< $(LIBS)
+	$(CC) $(CXXFLAGS) $(CPPDEFINES) $(INCLUDE) $(LINKFLAGS) -o chat/linux/chat $< $(LIBS)
 	cp chat/linux/chat $(INSTALLDIR)/dist/bin/samples/
 	@mkdir -p $(INSTALLDIR)/dist/samples/chat
 
