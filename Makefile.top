@@ -15,11 +15,10 @@
 
 #
 # Example command: make OS=linux CPU=x86 VARIANT=debug
-#              or: make
 
-.PHONY: all clean
+.PHONY: all partial clean distclean
 
-all: alljoyn
+all: distclean alljoyn
 
 CC=gcc
 AR=ar
@@ -59,7 +58,7 @@ CXXFLAGS=-Wall \
         -fno-exceptions \
         -fno-strict-aliasing \
         -Wno-long-long \
-        -Wno-deprecated 
+        -Wno-deprecated
 
 ifeq "$(CPU)" "x86"
 # Force 32-bit builds
@@ -102,7 +101,7 @@ COMMONDIR = $(PWD)/common
 
 INCLUDE += -L$(INSTALLDIR)/dist/lib
 
-JUNK=*.o *~ 
+JUNK=*.o *~
 export
 
 alljoyn:
@@ -118,4 +117,12 @@ clean:
 	@rm -f $(JUNK)
 	cd common; make clean;
 	cd alljoyn_core; make clean;
+
+distclean: clean
+	@rm -rf $(INSTALLDIR)/dist/lib
+	@rm -rf $(INSTALLDIR)/dist/bin
+	@rm -rf $(INSTALLDIR)/dist/inc
+	@rm -rf $(INSTALLDIR)/dist/samples
+
+partial: alljoyn
 
