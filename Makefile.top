@@ -65,12 +65,10 @@ ifeq "$(CPU)" "x86"
 # Force 32-bit builds
     CXXFLAGS+=-m32
     CFLAGS+=-m32
-    LINKFLAGS+=-m32
 else
     ifeq "$(CPU)" "x86-64"
         CXXFLAGS+=-m64 -fPIC
         CFLAGS+=-m64 -fPIC
-        LINKFLAGS+=-m64
     endif
 endif
 

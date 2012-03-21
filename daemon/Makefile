@@ -61,29 +61,29 @@ $(TESTDIR)/ns.o : $(TESTDIR)/ns.cc
 	$(CC) $(CXXFLAGS) $(CPPDEFINES) $(INCLUDE) -c -o $@ $<
 
 daemon : $(DAEMON_OBJS) $(DAEMON_MAIN_OBJ)
-	$(CC) $(CXXFLAGS) $(CPPDEFINES) $(INCLUDE) -o alljoyn-daemon $(DAEMON_OBJS) $(DAEMON_MAIN_OBJ) $(LIBS)
+	$(CC) $(CXXFLAGS) $(CPPDEFINES) $(INCLUDE) $(LINKFLAGS) -o alljoyn-daemon $(DAEMON_OBJS) $(DAEMON_MAIN_OBJ) $(LIBS)
 	cp alljoyn-daemon $(INSTALLDIR)/dist/bin
  
 test_progs: advtunnel bbdaemon DaemonTest mcmd ns
 
 advtunnel : $(DAEMON_OBJS) $(TESTDIR)/advtunnel.o
-	$(CC) $(CXXFLAGS) $(CPPDEFINES) $(INCLUDE) -o advtunnel $(DAEMON_OBJS) $(TESTDIR)/advtunnel.o $(LIBS)
+	$(CC) $(CXXFLAGS) $(CPPDEFINES) $(INCLUDE) $(LINKFLAGS) -o advtunnel $(DAEMON_OBJS) $(TESTDIR)/advtunnel.o $(LIBS)
 	cp advtunnel $(INSTALLDIR)/dist/bin
 
 bbdaemon : $(DAEMON_OBJS) $(TESTDIR)/bbdaemon.o
-	$(CC) $(CXXFLAGS) $(CPPDEFINES) $(INCLUDE) -o bbdaemon $(DAEMON_OBJS) $(TESTDIR)/bbdaemon.o $(LIBS) 
+	$(CC) $(CXXFLAGS) $(CPPDEFINES) $(INCLUDE) $(LINKFLAGS) -o bbdaemon $(DAEMON_OBJS) $(TESTDIR)/bbdaemon.o $(LIBS)
 	cp bbdaemon $(INSTALLDIR)/dist/bin
 
 DaemonTest : $(DAEMON_OBJS) $(TESTDIR)/DaemonTest.o
-	$(CC) $(CXXFLAGS) $(CPPDEFINES) $(INCLUDE) -o DaemonTest $(DAEMON_OBJS) $(TESTDIR)/DaemonTest.o $(LIBS)
+	$(CC) $(CXXFLAGS) $(CPPDEFINES) $(INCLUDE) $(LINKFLAGS) -o DaemonTest $(DAEMON_OBJS) $(TESTDIR)/DaemonTest.o $(LIBS)
 	cp DaemonTest $(INSTALLDIR)/dist/bin
 
 mcmd : $(DAEMON_OBJS) $(TESTDIR)/mcmd.o
-	$(CC) $(CXXFLAGS) $(CPPDEFINES) $(INCLUDE) -o mcmd $(DAEMON_OBJS) $(TESTDIR)/mcmd.o $(LIBS)
+	$(CC) $(CXXFLAGS) $(CPPDEFINES) $(INCLUDE) $(LINKFLAGS) -o mcmd $(DAEMON_OBJS) $(TESTDIR)/mcmd.o $(LIBS)
 	cp mcmd $(INSTALLDIR)/dist/bin
 
 ns : $(DAEMON_OBJS) $(TESTDIR)/ns.o
-	$(CC) $(CXXFLAGS) $(CPPDEFINES) $(INCLUDE) -o ns $(DAEMON_OBJS) $(TESTDIR)/ns.o $(LIBS)
+	$(CC) $(CXXFLAGS) $(CPPDEFINES) $(INCLUDE) $(LINKFLAGS) -o ns $(DAEMON_OBJS) $(TESTDIR)/ns.o $(LIBS)
 	cp ns $(INSTALLDIR)/dist/bin
 
 clean:

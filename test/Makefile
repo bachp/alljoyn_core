@@ -44,7 +44,7 @@ PROG_BINS =  \
 progs : $(PROG_BINS)
 
 %:%.cc
-	$(CC) $(CXXFLAGS) $(CPPDEFINES) $(INCLUDE) $(LINKAGE) -o $@ $< $(LIBS)
+	$(CC) $(CXXFLAGS) $(CPPDEFINES) $(INCLUDE) $(LINKFLAGS) -o $@ $< $(LIBS)
 	cp $@ $(INSTALLDIR)/dist/bin
 
 clean:
