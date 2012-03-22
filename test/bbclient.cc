@@ -4,7 +4,7 @@
  */
 
 /******************************************************************************
- * Copyright 2009-2011, Qualcomm Innovation Center, Inc.
+ * Copyright 2009-2012, Qualcomm Innovation Center, Inc.
  *
  *    Licensed under the Apache License, Version 2.0 (the "License");
  *    you may not use this file except in compliance with the License.
@@ -171,6 +171,8 @@ static void usage(void)
     printf("   -rt [run time]        = Round trip timer (optional run time in ms)\n");
     printf("   -w                    = Don't wait for service\n");
     printf("   -s                    = Wait for SIGINT (Control-C) at the end of the tests\n");
+    printf("   -be                   = Send messages as big endian\n");
+    printf("   -le                   = Send messages as little endian\n");
     printf("\n");
 }
 
@@ -367,6 +369,10 @@ int main(int argc, char** argv)
     for (int i = 1; i < argc; ++i) {
         if (0 == strcmp("-i", argv[i])) {
             useIntrospection = true;
+        } else if (0 == strcmp("-le", argv[i])) {
+            _Message::SetEndianess(ALLJOYN_LITTLE_ENDIAN);
+        } else if (0 == strcmp("-be", argv[i])) {
+            _Message::SetEndianess(ALLJOYN_BIG_ENDIAN);
         } else if ((0 == strcmp("-e", argv[i])) || (0 == strcmp("-ek", argv[i]))) {
             if (!authMechs.empty()) {
                 authMechs += " ";

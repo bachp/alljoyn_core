@@ -5,7 +5,7 @@
  */
 
 /******************************************************************************
- * Copyright 2009-2011, Qualcomm Innovation Center, Inc.
+ * Copyright 2009-2012, Qualcomm Innovation Center, Inc.
  *
  *    Licensed under the Apache License, Version 2.0 (the "License");
  *    you may not use this file except in compliance with the License.
@@ -50,6 +50,8 @@ using namespace qcc;
 using namespace std;
 
 namespace ajn {
+
+char _Message::outEndian = _Message::myEndian;
 
 static const char* HdrId[] = {
     "INVALID",

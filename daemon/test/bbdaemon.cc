@@ -354,6 +354,8 @@ static void usage(void)
     printf("   -h   = Print this help message\n");
     printf("   -b   = Disable Bluetooth transport\n");
     printf("   -m   = Mimic behavior of bbservice within daemon\n");
+    printf("   -be  = Send messages as big endian\n");
+    printf("   -le  = Send messages as little endian\n");
 }
 
 //
@@ -397,6 +399,10 @@ int main(int argc, char** argv)
             mimicBbservice = true;
         } else if (0 == strcmp("-b", argv[i])) {
             noBT = true;
+        } else if (0 == strcmp("-le", argv[i])) {
+            _Message::SetEndianess(ALLJOYN_LITTLE_ENDIAN);
+        } else if (0 == strcmp("-be", argv[i])) {
+            _Message::SetEndianess(ALLJOYN_BIG_ENDIAN);
         } else {
             status = ER_FAIL;
             printf("Unknown option %s\n", argv[i]);

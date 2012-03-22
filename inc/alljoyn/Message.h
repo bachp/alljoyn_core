@@ -6,7 +6,7 @@
  */
 
 /******************************************************************************
- * Copyright 2009-2011, Qualcomm Innovation Center, Inc.
+ * Copyright 2009-2012, Qualcomm Innovation Center, Inc.
  *
  *    Licensed under the Apache License, Version 2.0 (the "License");
  *    you may not use this file except in compliance with the License.
@@ -483,6 +483,22 @@ class _Message {
      */
     bool operator==(const _Message& other) { return this == &other; }
 
+    /**
+     * Set the endianess for outgoing messages. This is mainly for testing purposes.
+     *
+     * @param endian  Either ALLJOYN_LITTLE_ENDIAN or ALLJOYN_BIG_ENDIAN. Any other value
+     *                sets the endianess to the native endianess for this platform.
+     *
+     *
+     */
+    static void SetEndianess(const char endian) {
+        if ((endian == ALLJOYN_LITTLE_ENDIAN) || (endian == ALLJOYN_BIG_ENDIAN)) {
+            outEndian = endian;
+        } else {
+            outEndian = myEndian;
+        }
+    }
+
   protected:
 
     /*
@@ -729,6 +745,8 @@ class _Message {
 #else
     static const char myEndian = ALLJOYN_BIG_ENDIAN;    ///< Native endianness of host system we are running on: big endian.
 #endif
+
+    static char outEndian;       ///< Endianess for outgoing messages
 
     BusAttachment& bus;          ///< The bus this message was received or will be sent on.
 

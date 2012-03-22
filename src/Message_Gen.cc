@@ -725,6 +725,10 @@ QStatus _Message::MarshalMessage(const qcc::String& expectedSignature,
         return ER_BUS_BUS_NOT_STARTED;
     }
     /*
+     * Check if endianess needs to be swapped.
+     */
+    endianSwap = outEndian != myEndian;
+    /*
      * Toggle the autostart flag bit which is a 0 over the air but we prefer as a 1.
      */
     flags ^= ALLJOYN_FLAG_AUTO_START;
@@ -732,15 +736,14 @@ QStatus _Message::MarshalMessage(const qcc::String& expectedSignature,
      * We marshal new messages in native endianess
      */
     encrypt = (flags & ALLJOYN_FLAG_ENCRYPTED) ? true : false;
-    endianSwap = false;
-    msgHeader.endian = this->myEndian;
+    msgHeader.endian = outEndian;
     msgHeader.msgType = (uint8_t)msgType;
     msgHeader.flags = flags;
     msgHeader.majorVersion = ALLJOYN_MAJOR_PROTOCOL_VERSION;
     msgHeader.serialNum = bus.GetInternal().NextSerial();
     /*
      * Encryption will typically make the body length slightly larger because the encryption
-     * algorithm adds appends a MAC block to the end of the encrypted data.
+     * algorithm appends a MAC block to the end of the encrypted data.
      */
     if (encrypt) {
         QCC_DbgHLPrintf(("Encrypting messge to %s", destination.empty() ? "broadcast listeners" : destination.c_str()));
@@ -848,13 +851,13 @@ QStatus _Message::MarshalMessage(const qcc::String& expectedSignature,
     memcpy(bufPos, &msgHeader, sizeof(msgHeader));
     bufPos += sizeof(msgHeader);
     /*
-     * Perfom endian-swap on the buffer so the header member remains in native endianess.
+     * Perfom endian-swap on the buffer so the header member is in message endianess.
      */
     if (endianSwap) {
         MessageHeader* hdr = (MessageHeader*)msgBuf;
-        EndianSwap32(hdr->bodyLen);
-        EndianSwap32(hdr->serialNum);
-        EndianSwap32(hdr->headerLen);
+        hdr->bodyLen = EndianSwap32(hdr->bodyLen);
+        hdr->serialNum = EndianSwap32(hdr->serialNum);
+        hdr->headerLen = EndianSwap32(hdr->headerLen);
     }
     /*
      * Marshal the header fields
