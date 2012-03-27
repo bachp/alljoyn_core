@@ -102,20 +102,6 @@ class DaemonTransport : public Transport, public RemoteEndpoint::EndpointListene
     QStatus NormalizeTransportSpec(const char* inSpec, qcc::String& outSpec, std::map<qcc::String, qcc::String>& argMap) const;
 
     /**
-     * This transport is only used for incoming connections so Connect always returns an error status.
-     *
-     * @return Always returns ER_FAIL
-     */
-    QStatus Connect(const char* connectSpec, const SessionOpts& opts, RemoteEndpoint** newep) { return ER_FAIL; }
-
-    /**
-     * This transport is only used for incoming connections so Disconnect always returns an error status.
-     *
-     * @return Always returns ER_FAIL
-     */
-    QStatus Disconnect(const char* connectSpec) { return ER_FAIL; }
-
-    /**
      * Start listening for incoming connections on a specified bus address.
      *
      * @param listenSpec  Transport specific key/value arguments that specify the physical interface to listen on.
@@ -139,47 +125,9 @@ class DaemonTransport : public Transport, public RemoteEndpoint::EndpointListene
     QStatus StopListen(const char* listenSpec);
 
     /**
-     * This method is not used for incoming connections.
-     */
-    void SetListener(TransportListener* listener) { };
-
-    /**
-     * This method is not used for client/daemon connections.
-     */
-    void EnableDiscovery(const char* namePrefix) { }
-
-    /**
-     * This method is not used for client/daemon connections.
-     */
-    void DisableDiscovery(const char* namePrefix) { }
-
-    /**
-     * This method is not used for client/daemon connections.
-     */
-    QStatus EnableAdvertisement(const qcc::String& advertiseName) { return ER_FAIL; }
-
-    /**
-     * This method is not used for client/daemon connections.
-     */
-    void DisableAdvertisement(const qcc::String& advertiseName, bool nameListEmpty) { }
-
-    /**
-     * Get the transport mask for this transport. Transport masks are only used for bus-to-bus
-     * connections so this function returns a default value.
-     *
-     * @return Always returns TRANSPORT_NONE
-     */
-    TransportMask GetTransportMask() const { return TRANSPORT_NONE; }
-
-    /**
      * Returns the name of this transport
      */
     const char* GetTransportName() const { return TransportName; }
-
-    /**
-     * No implementation for client/daemon transports.
-     */
-    QStatus GetListenAddresses(const SessionOpts& opts, std::vector<qcc::String>& busAddrs) const { return ER_OK; }
 
     /**
      * Name of transport used in transport specs.
@@ -199,7 +147,6 @@ class DaemonTransport : public Transport, public RemoteEndpoint::EndpointListene
      * @param endpoint   Daemon RemoteEndpoint instance that has exited.
      */
     void EndpointExit(RemoteEndpoint* endpoint);
-
 
   private:
     BusAttachment& bus;                       /**< The message bus for this transport */

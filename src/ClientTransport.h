@@ -133,20 +133,6 @@ class ClientTransport : public Transport, public RemoteEndpoint::EndpointListene
     QStatus Disconnect(const char* connectSpec);
 
     /**
-     * This transport is only used for outbound connection so StartListen always returns an error status.
-     *
-     * @return Always returns ER_FAIL.
-     */
-    QStatus StartListen(const char* listenSpec) { return ER_FAIL; }
-
-    /**
-     * This transport is only used for outbound connection so StopListen always returns an error status.
-     *
-     * @return Always returns ER_FAIL.
-     */
-    QStatus StopListen(const char* listenSpec) { return ER_FAIL; }
-
-    /**
      * Set a listener for transport related events.  There can only be one
      * listener set at a time. Setting a listener implicitly removes any
      * previously set listener.
@@ -156,62 +142,9 @@ class ClientTransport : public Transport, public RemoteEndpoint::EndpointListene
     void SetListener(TransportListener* listener) { m_listener = listener; }
 
     /**
-     * @internal
-     * @brief Provide an empty implementation of a discovery function not used
-     * by clients or services.
-     *
-     * @param namePrefix unused parameter.
-     */
-    void EnableDiscovery(const char* namePrefix) { }
-
-    /**
-     * @internal
-     * @brief Provide an empty implementation of a discovery function not used
-     * by clients or services.
-     *
-     * @param namePrefix unused parameter.
-     */
-    void DisableDiscovery(const char* namePrefix) { }
-
-    /**
-     * @internal
-     * @brief Provide an empty implementation of a discovery function not used
-     * by clients or services.
-     *
-     * @param advertiseName unused parameter.
-     * @return ER_OK if successful
-     */
-    QStatus EnableAdvertisement(const qcc::String& advertiseName) { return ER_NOT_IMPLEMENTED; }
-
-    /**
-     * @internal
-     * @brief Provide an empty implementation of a discovery function not used
-     * by clients or services.
-     *
-     * @param advertiseName unused parameter.
-     * @param nameListEmpty unused parameter.
-     */
-    void DisableAdvertisement(const qcc::String& advertiseName, bool nameListEmpty) { }
-
-    /**
      * Returns the name of this transport
      */
     const char* GetTransportName() const { return TransportName; }
-
-    /**
-     * Get the transport mask for this transport
-     *
-     * @return the TransportMask for this transport.
-     */
-    TransportMask GetTransportMask() const { return TRANSPORT_WLAN; }
-
-    /**
-     * Get a list of the possible listen specs for a given set of session options.
-     * @param[IN]    opts      Session options.
-     * @param[OUT]   busAddrs  Set of listen addresses. Always empty for this transport.
-     * @return ER_OK if successful.
-     */
-    QStatus GetListenAddresses(const SessionOpts& opts, std::vector<qcc::String>& busAddrs) const { return ER_OK; }
 
     /**
      * Indicates whether this transport is used for client-to-bus or bus-to-bus connections.

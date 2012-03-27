@@ -5,7 +5,7 @@
  */
 
 /******************************************************************************
- * Copyright 2009-2011, Qualcomm Innovation Center, Inc.
+ * Copyright 2009-2012, Qualcomm Innovation Center, Inc.
  *
  *    Licensed under the Apache License, Version 2.0 (the "License");
  *    you may not use this file except in compliance with the License.
@@ -135,7 +135,7 @@ class Transport {
      *
      * @return the TransportMask for this transport.
      */
-    virtual TransportMask GetTransportMask() const = 0;
+    TransportMask GetTransportMask() const { return TRANSPORT_WLAN; }
 
     /**
      * Get a list of the possible listen specs of the current Transport for a
@@ -165,7 +165,7 @@ class Transport {
      *      - ER_OK if successful.
      *      - an error status otherwise.
      */
-    virtual QStatus GetListenAddresses(const SessionOpts& opts, std::vector<qcc::String>& busAddrs) const = 0;
+    virtual QStatus GetListenAddresses(const SessionOpts& opts, std::vector<qcc::String>& busAddrs) { return ER_FAIL; }
 
     /**
      * Normalize a transport specification.
@@ -192,7 +192,7 @@ class Transport {
      *      - ER_OK if successful.
      *      - an error status otherwise.
      */
-    virtual QStatus Connect(const char* connectSpec, const SessionOpts& opts, RemoteEndpoint** newep) = 0;
+    virtual QStatus Connect(const char* connectSpec, const SessionOpts& opts, RemoteEndpoint** newep) { return ER_FAIL; }
 
     /**
      * Disconnect from a specified AllJoyn/DBus address.
@@ -203,7 +203,7 @@ class Transport {
      *      - ER_OK if successful.
      *      - an error status otherwise.
      */
-    virtual QStatus Disconnect(const char* connectSpec) = 0;
+    virtual QStatus Disconnect(const char* connectSpec) { return ER_FAIL; }
 
     /**
      * Start listening for incomming connections on a specified bus address.
@@ -213,7 +213,7 @@ class Transport {
      *
      * @return ER_OK if successful.
      */
-    virtual QStatus StartListen(const char* listenSpec) = 0;
+    virtual QStatus StartListen(const char* listenSpec) { return ER_FAIL; }
 
     /**
      * Stop listening for incomming connections on a specified bus address.
@@ -225,7 +225,7 @@ class Transport {
      *      - ER_OK if successful.
      *      - an error status otherwise.
      */
-    virtual QStatus StopListen(const char* listenSpec) = 0;
+    virtual QStatus StopListen(const char* listenSpec) { return ER_FAIL; }
 
     /**
      * Set a listener for transport related events.
@@ -234,18 +234,14 @@ class Transport {
      *
      * @param listener  Listener for transport related events.
      */
-    virtual void SetListener(TransportListener* listener) = 0;
+    virtual void SetListener(TransportListener* listener) { }
 
     /**
      * Start discovering remotely advertised names that match prefix.
      *
      * @param namePrefix    Well-known name prefix.
-     *
-     * @return
-     *      - ER_OK if successful.
-     *      - an error status otherwise (returns ER_BUS_NO_LISTENER by default).
      */
-    virtual void EnableDiscovery(const char* namePrefix) = 0;
+    virtual void EnableDiscovery(const char* namePrefix) { }
 
     /**
      * Stop discovering remotely advertised names that match prefix.
@@ -253,18 +249,16 @@ class Transport {
      * @param namePrefix    Well-known name prefix.
      *
      */
-    virtual void DisableDiscovery(const char* namePrefix) = 0;
+    virtual void DisableDiscovery(const char* namePrefix) { }
 
     /**
      * Start advertising a well-known name
      *
      * @param advertiseName   Well-known name to add to list of advertised names.
      *
-     * @return
-     *      - ER_OK if successful.
-     *      - an error status otherwise.
+     * @return  ER_NOT_IMPLEMENTED unless overridden by a derived class.
      */
-    virtual QStatus EnableAdvertisement(const qcc::String& advertiseName) = 0;
+    virtual QStatus EnableAdvertisement(const qcc::String& advertiseName) { return ER_NOT_IMPLEMENTED; }
 
     /**
      * Stop advertising a well-known name with a given quality of service.
@@ -272,7 +266,7 @@ class Transport {
      * @param advertiseName   Well-known name to remove from list of advertised names.
      * @param nameListEmpty   Indicates whether advertise name list is completely empty (safe to disable OTA advertising).
      */
-    virtual void DisableAdvertisement(const qcc::String& advertiseName, bool nameListEmpty) = 0;
+    virtual void DisableAdvertisement(const qcc::String& advertiseName, bool nameListEmpty) { }
 
     /**
      * Returns the name of the transport
