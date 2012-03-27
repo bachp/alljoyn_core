@@ -3325,20 +3325,27 @@ ThreadReturn STDCALL AllJoynObj::NameMapReaperThread::Run(void* arg)
     Event evt(waitTime);
     while (!IsStopping()) {
         ajnObj->AcquireLocks();
-        set<qcc::String> expiredBuses;
         multimap<String, NameMapEntry>::iterator it = ajnObj->nameMap.begin();
         uint32_t now = GetTimestamp();
         waitTime = Event::WAIT_FOREVER;
         while (it != ajnObj->nameMap.end()) {
-            if ((now - it->second.timestamp) >= it->second.ttl) {
+            // it->second.timestamp is an absolute time value
+            // it->second.ttl is a relative time value relative to it->second.timestamp
+            // now is an absolute time value for "right now" - may have rolled over relative to it->second.timestamp
+
+            uint32_t timeSinceTimestamp = now - it->second.timestamp; // relative time value - 2's compliment math solves rollover
+
+            if (timeSinceTimestamp >= it->second.ttl) {
                 QCC_DbgPrintf(("Expiring discovered name %s for guid %s", it->first.c_str(), it->second.guid.c_str()));
-                expiredBuses.insert(it->second.busAddr);
                 ajnObj->SendLostAdvertisedName(it->first, it->second.transport);
                 ajnObj->nameMap.erase(it++);
             } else {
                 if (it->second.ttl != numeric_limits<uint32_t>::max()) {
-                    uint32_t nextTime(it->second.ttl - (now - it->second.timestamp));
+                    // The TTL for this name map entry is less than infinte so we need to consider it
+
+                    uint32_t nextTime = it->second.ttl - timeSinceTimestamp; // relative time when name map entry expires
                     if (nextTime < waitTime) {
+                        // This name map entry expires before the time in waitTime so update waitTime.
                         waitTime = nextTime;
                     }
                 }
@@ -3346,10 +3353,6 @@ ThreadReturn STDCALL AllJoynObj::NameMapReaperThread::Run(void* arg)
             }
         }
         ajnObj->ReleaseLocks();
-
-        while (expiredBuses.begin() != expiredBuses.end()) {
-            expiredBuses.erase(expiredBuses.begin());
-        }
 
         evt.ResetTime(waitTime, 0);
         QStatus status = Event::Wait(evt);
