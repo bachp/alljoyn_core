@@ -13,7 +13,8 @@
 #    limitations under the License.
 # 
 
-TARGET = liballjoyn.a
+STATIC_LIB = liballjoyn.a
+DYNAMIC_LIB = liballjoyn.so
 
 .PHONY: all clean
 
@@ -28,6 +29,8 @@ endif
 ALLJOYN_CC_SRCS = $(wildcard *.cc)
 ALLJOYN_CC_SRCS += $(wildcard $(OS_SRC_DIR)/*.cc)
 ALLJOYN_CC_OBJS = $(patsubst %.cc,%.o,$(ALLJOYN_CC_SRCS))
+COMMON_OBJS = $(wildcard $(COMMONDIR)/src/*.o) $(wildcard $(COMMONDIR)/os/$(OS_GROUP)/*.o) $(wildcard $(COMMONDIR)/crypto/$(CRYPTO)/*.o)
+LINKFLAGS += -shared -fPIC
 
 $(ALLJOYN_CC_OBJS) : $(ALLJOYN_CC_SRCS)
 	$(CC) $(CXXFLAGS) $(CPPDEFINES) $(INCLUDE) -c -o $@ $(patsubst %.o,%.cc,$@)
@@ -42,9 +45,11 @@ $(ALLJOYN_C_OBJS) : $(ALLJOYN_C_SRCS)
 	$(CC) $(CXXFLAGS) $(CPPDEFINES) $(INCLUDE) -c -o $@ $<
     
 corelib: $(ALLJOYN_CC_OBJS) $(ALLJOYN_C_OBJS)
-	$(AR) r $(TARGET) $(ALLJOYN_CC_OBJS) $(ALLJOYN_C_OBJS) $(wildcard $(COMMONDIR)/src/*.o) $(wildcard $(COMMONDIR)/os/$(OS_GROUP)/*.o) $(wildcard $(COMMONDIR)/crypto/$(CRYPTO)/*.o)
-	cp $(TARGET) $(INSTALLDIR)/dist/lib
+	$(AR) r $(STATIC_LIB) $(ALLJOYN_CC_OBJS) $(ALLJOYN_C_OBJS) $(COMMON_OBJS)
+	cp $(STATIC_LIB) $(INSTALLDIR)/dist/lib
+	$(CC) -o $(DYNAMIC_LIB) $(CXXFLAGS) $(CPPDEFINES) $(LINKFLAGS) $(INCLUDE)  $(ALLJOYN_CC_OBJS) $(ALLJOYN_C_OBJS) $(COMMON_OBJS) $(LIBS)
+	cp $(DYNAMIC_LIB) $(INSTALLDIR)/dist/lib
 
 clean:
-	@rm -f *.o *~ $(TARGET) $(OS_SRC_DIR)/*.o
+	@rm -f *.o *~ $(STATIC_LIB) $(DYNAMIC_LIB) $(OS_SRC_DIR)/*.o
 
