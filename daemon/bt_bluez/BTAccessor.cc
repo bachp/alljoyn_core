@@ -1950,16 +1950,6 @@ QStatus BTTransport::BTAccessor::DiscoveryControl(const InterfaceDescription::Me
         status = adapter->MethodCall(*method, NULL, 0, rsp, BT_DEFAULT_TO);
         if (status == ER_OK) {
             QCC_DbgHLPrintf(("%s discovery", start ? "Started" : "Stopped"));
-#if 0
-            if (start) {
-                static const uint16_t MIN_PERIOD = 6;
-                static const uint16_t MAX_PERIOD = 10;
-                static const uint8_t LENGTH = 2;
-                static const uint8_t NUM_RESPONSES = 8;
-
-                adapter->ConfigurePeriodicInquiry(MIN_PERIOD, MAX_PERIOD, LENGTH, NUM_RESPONSES);
-            }
-#endif
         } else {
             qcc::String errMsg;
             const char* errName = rsp->GetErrorName(&errMsg);

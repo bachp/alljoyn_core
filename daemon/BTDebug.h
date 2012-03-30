@@ -47,10 +47,6 @@ class BTDebugObjAccess {
 
   private:
     virtual void FlushCachedNames() = 0;
-    //void SetInquiryParams() = 0;
-    //void SetInquiryScanParams(uint16_t window, uint16_t interval, bool interlaced, int8 txPower) = 0;
-    //void SetPageParams() = 0;
-    //void SetPageScanParams() = 0;
 };
 
 
@@ -190,8 +186,6 @@ class BTDebugObj : public AllJoynDebugObjAddon {
               _MethodHandler(&BTDebugObj::FlushTimesHandler) },
             { "FlushCachedNames",     NULL,   NULL, NULL,
               _MethodHandler(&BTDebugObj::FlushCachedNamesHandler) },
-            //{ "SetInquiryScanParams", "qqbn", NULL, "window,interval,interlaced,txPower",
-            //  _MethodHandler(&BTDebugObj::InquiryScanParamsHandler) },
         };
 #undef _MethodHandler
 
@@ -231,18 +225,6 @@ class BTDebugObj : public AllJoynDebugObjAddon {
         return ER_OK;
     }
 
-
-#if 0
-    void InquiryScanParamsHandler(const InterfaceDescription::Member* member, Message& msg)
-    {
-        uint16_t window;
-        uint16_t interval;
-        bool interlaced;
-        int16_t txPower;
-        msg->Get("qqbn", &window, &interval, &interlaced, &txPower);
-        btc->SetInquiryScanParams(window, interval, interlaced, txPower);
-    }
-#endif
 
     BTDebugObjAccess* btc;
     BTDebugProperties properties;
