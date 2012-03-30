@@ -261,15 +261,7 @@ QStatus BusAttachment::Connect(const char* connectSpec, RemoteEndpoint** newep)
     bool isDaemon = busInternal->GetRouter().IsDaemon();
 
     if (!isStarted) {
-#if OPTIONAL_START
-        /*
-         * Optional implies it may not already be called.
-         */
-        QCC_DbgTrace(("BusAttachment::Connect(): Exercising optional Start()"));
-        status = Start();
-#else
         status = ER_BUS_BUS_NOT_STARTED;
-#endif
     } else if (isStopping) {
         status = ER_BUS_STOPPING;
         QCC_LogError(status, ("BusAttachment::Connect cannot connect while bus is stopping"));
