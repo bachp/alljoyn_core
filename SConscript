@@ -1,4 +1,4 @@
-# Copyright 2010 - 2011, Qualcomm Innovation Center, Inc.
+# Copyright 2010 - 2012, Qualcomm Innovation Center, Inc.
 # 
 #    Licensed under the Apache License, Version 2.0 (the "License");
 #    you may not use this file except in compliance with the License.
@@ -16,6 +16,7 @@
 Import('env')
 
 # Indicate that this SConscript file has been loaded already
+#
 env['_ALLJOYNCORE_'] = True
 
 # Dependent Projects
@@ -61,6 +62,9 @@ env.Install('$DISTDIR/bin', daemon_progs)
 # Test programs
 progs = env.SConscript('$OBJDIR/test/SConscript')
 env.Install('$DISTDIR/bin', progs)
+
+# Build unit Tests
+env.SConscript('unit_test/SConscript', variant_dir='$OBJDIR/unittest', duplicate=0)
 
 # Sample programs
 progs = env.SConscript('$OBJDIR/samples/SConscript')
