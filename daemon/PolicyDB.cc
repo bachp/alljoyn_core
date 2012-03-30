@@ -177,14 +177,8 @@ bool _PolicyDB::AddRule(PolicyRuleList& ownList,
             policyGroup |= SEND;
             rule.path = GetStringIDMapUpdate(attr->second);
         } else if (attr->first.compare("send_requested_reply") == 0) {
-#if 0  // Not ready yet
-            success = !(policyGroup & (RECEIVE | OWN | CONNECT));
-            policyGroup |= SEND;
-            success = TrueFalseStrToBool(attr->second, rule.requested_reply);
-#else
             policyGroup = 1 << (8 * sizeof(policyGroup) - 1);
             break;
-#endif
 
         } else if (attr->first.compare("receive_interface") == 0) {
             success = !(policyGroup & (SEND | OWN | CONNECT));
@@ -212,14 +206,8 @@ bool _PolicyDB::AddRule(PolicyRuleList& ownList,
             policyGroup |= RECEIVE;
             rule.path = GetStringIDMapUpdate(attr->second);
         } else if (attr->first.compare("receive_requested_reply") == 0) {
-#if 0  // Not ready yet
-            success = !(policyGroup & (SEND | OWN | CONNECT));
-            policyGroup |= RECEIVE;
-            success = TrueFalseStrToBool(attr->second, rule.requested_reply);
-#else
             policyGroup = 1 << (8 * sizeof(policyGroup) - 1);
             break;
-#endif
 
         } else if (attr->first.compare("own") == 0) {
             success = !(policyGroup & (SEND | RECEIVE | CONNECT)) && !rule.eavesdrop;
