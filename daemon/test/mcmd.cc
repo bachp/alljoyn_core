@@ -78,7 +78,6 @@ class Token {
 
 enum Actions {
     NONE,
-    FIND_BUSES,
     LIST,
     LIST_ALL,
     LIST_OBJECTS,
@@ -145,18 +144,6 @@ QStatus AutoConnect::Wait(uint32_t timeout)
     }
     return s;
 }
-
-
-
-#if 0
-class BusLister : public TransportListener {
-  public:
-    void FoundBus(const qcc::String& busAddr, const vector<qcc::String>& names)
-    {
-        printf("%s\n", busAddr.c_str());
-    }
-};
-#endif
 
 
 struct BNComp {
@@ -785,33 +772,6 @@ exit:
 }
 
 
-static QStatus FindBuses(BusAttachment& bus)
-{
-    QStatus status = ER_OK;
-#if 0
-    BusLister busLister;
-
-    // RegisterTransportListener is no longer part of the external API
-    status = bus.RegisterTransportListener(&busLister);
-    if (status != ER_OK) {
-        QCC_LogError(status, ("Failed to register bus listing mechanism"));
-        goto exit;
-    }
-#endif
-
-#if !defined(QCC_OS_GROUP_WINDOWS) && !defined(QCC_OS_DARWIN)
-    btTrans->EnableDiscovery(NULL);
-    qcc::Sleep(30000);
-    btTrans->DisableDiscovery(NULL);
-#endif
-
-#if 0
-exit:
-#endif
-    return status;
-}
-
-
 static QStatus List(BusAttachment& bus)
 {
     BusNameMap names;
@@ -935,7 +895,6 @@ static void Usage(void)
            "\n"
            "    -h        Print this help message\n"
            "    -v        Print version information\n"
-           "    -f        Find discoverable buses (bluetooth: transport only for now)\n"
            "    -b <bus>  Use specified bus address\n"
            "    -d <dest> Specify bus destination (i.e. well known name)\n"
            "    -o <obj>  Specify object path\n"
@@ -979,13 +938,6 @@ static void ParseCmdLine(int argc, char** argv)
         } else if (strcmp(argv[i], "-v") == 0) {
             VersionInfo();
             exit(0);
-        } else if (strcmp(argv[i], "-f") == 0) {
-            if (action != NONE) {
-                printf("Only one of \"-f\", \"-l\", \"-lo\", \"-a\", \"-i\", \"-c\" may be used.\n");
-                exit(1);
-            }
-            busAddr = "bluetooth:";
-            action = FIND_BUSES;
         } else if (strcmp(argv[i], "-b") == 0) {
             ++i;
             if (i == argc) {
@@ -1078,21 +1030,6 @@ static void ParseCmdLine(int argc, char** argv)
     }
 }
 
-#if 0
-static Transport* BTTransportFactory(BusAttachment& bus, const char* transType)
-{
-    if (0 == strcmp(BTTransport::TransportName(), transType)) {
-        // Here's an example of what you shouldn't do (but is necessary for
-        // this tool).  Normally, the transport would be created here (this
-        // tool creates in in main() prior to starting the Bus object which is
-        // normally a "no-no").
-        btTrans = new BTTransport(bus);
-        return btTrans;
-    } else {
-        return NULL;
-    }
-}
-#endif
 
 /** Main entry point */
 int main(int argc, char** argv)
@@ -1129,41 +1066,14 @@ int main(int argc, char** argv)
     if (!busAddr.empty()) {
         /* Create the client-side endpoint */
         status = bus.Connect(busAddr.c_str());
-        /* Ignore connect failures if we're going to search for a remote bus;
-         * the Connect is just to get the transport started. */
-        if ((status != ER_OK) && (action != FIND_BUSES) && (busAddr.compare("bluetooth:") != 0)) {
-            QCC_LogError(status, ("Failed to connect"));
-            goto cleanup;
-        }
-    }
-
-#if 0
-    if ((busAddr.compare("bluetooth:") == 0) && (action != FIND_BUSES)) {
-        /* Connect to the first Bluetooth AllJoyn address found. */
-        AutoConnect autoConnect(bus, *btTrans);
-#if 0
-        // RegisterTransportListener is no longer part of the external API
-        bus.RegisterTransportListener(&autoConnect);
-#endif
-        status = btTrans->EnablePeerDiscovery();
-        if (status != ER_OK) {
-            QCC_LogError(status, ("Failed to enable peer discovery"));
-            goto cleanup;
-        }
-        status = autoConnect.Wait();
         if (status != ER_OK) {
             QCC_LogError(status, ("Failed to connect"));
             goto cleanup;
         }
     }
-#endif
 
     switch (action) {
     case NONE:
-        break;
-
-    case FIND_BUSES:
-        status = FindBuses(bus);
         break;
 
     case LIST:
