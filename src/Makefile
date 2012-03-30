@@ -30,7 +30,7 @@ ALLJOYN_CC_SRCS = $(wildcard *.cc)
 ALLJOYN_CC_SRCS += $(wildcard $(OS_SRC_DIR)/*.cc)
 ALLJOYN_CC_OBJS = $(patsubst %.cc,%.o,$(ALLJOYN_CC_SRCS))
 COMMON_OBJS = $(wildcard $(COMMONDIR)/src/*.o) $(wildcard $(COMMONDIR)/os/$(OS_GROUP)/*.o) $(wildcard $(COMMONDIR)/crypto/$(CRYPTO)/*.o)
-LINKFLAGS += -shared -fPIC
+LINKFLAGS += -shared
 
 $(ALLJOYN_CC_OBJS) : $(ALLJOYN_CC_SRCS)
 	$(CC) $(CXXFLAGS) $(CPPDEFINES) $(INCLUDE) -c -o $@ $(patsubst %.o,%.cc,$@)
