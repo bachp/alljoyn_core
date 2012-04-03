@@ -20,3 +20,4 @@ libs
 /daemon/bt_windowsKernel/objchk_win7_amd64/
 /daemon/bt_windowsKernel/objchk_win7_x86/
 
+*.o

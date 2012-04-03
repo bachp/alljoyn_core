@@ -21,6 +21,7 @@
 all: distclean alljoyn
 
 CC=gcc
+CXX=g++
 AR=ar
 
 # Default build configuration
@@ -112,11 +113,13 @@ alljoyn:
 	@mkdir -p $(INSTALLDIR)/dist/samples
 	cd common; make;
 	cd alljoyn_core; make;
+	cd alljoyn_js; make;
 
 clean:
 	@rm -f $(JUNK)
 	cd common; make clean;
 	cd alljoyn_core; make clean;
+	cd alljoyn_js; make clean;
 
 distclean: clean
 	@rm -rf $(INSTALLDIR)/dist/lib
