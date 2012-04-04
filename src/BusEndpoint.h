@@ -43,6 +43,7 @@ class BusEndpoint : public MessageSink {
      * BusEndpoint type.
      */
     typedef enum {
+        ENDPOINT_TYPE_NULL,
         ENDPOINT_TYPE_LOCAL,
         ENDPOINT_TYPE_REMOTE,
         ENDPOINT_TYPE_BUS2BUS,

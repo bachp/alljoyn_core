@@ -73,6 +73,13 @@ class BusController {
      */
     void ObjectRegistered(BusObject* obj);
 
+    /**
+     * Return the bus associated with this bus controller
+     *
+     * @return Return the bus
+     */
+    Bus& GetBus() { return bus; }
+
   private:
     Bus& bus;
 

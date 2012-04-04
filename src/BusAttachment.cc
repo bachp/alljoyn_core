@@ -55,6 +55,7 @@
 #include "AllJoynPeerObj.h"
 #include "XmlHelper.h"
 #include "ClientTransport.h"
+#include "NullTransport.h"
 
 #define QCC_MODULE "ALLJOYN"
 
@@ -122,6 +123,7 @@ class LocalTransportFactoryContainer : public TransportFactoryContainer {
     LocalTransportFactoryContainer()
     {
         Add(new TransportFactory<ClientTransport>(ClientTransport::TransportName, true));
+        Add(new TransportFactory<NullTransport>(NullTransport::TransportName, true));
     }
 } localTransportsContainer;
 
@@ -240,7 +242,7 @@ QStatus BusAttachment::Start()
     return status;
 }
 
-QStatus BusAttachment::TryConnect(const char* connectSpec, RemoteEndpoint** newep)
+QStatus BusAttachment::TryConnect(const char* connectSpec, BusEndpoint** newep)
 {
     QCC_DbgTrace(("BusAttachment::TryConnect to %s", connectSpec));
     QStatus status = ER_OK;
@@ -255,7 +257,7 @@ QStatus BusAttachment::TryConnect(const char* connectSpec, RemoteEndpoint** newe
     return status;
 }
 
-QStatus BusAttachment::Connect(const char* connectSpec, RemoteEndpoint** newep)
+QStatus BusAttachment::Connect(const char* connectSpec, BusEndpoint** newep)
 {
     QStatus status;
     bool isDaemon = busInternal->GetRouter().IsDaemon();
@@ -270,19 +272,18 @@ QStatus BusAttachment::Connect(const char* connectSpec, RemoteEndpoint** newep)
     } else {
         this->connectSpec = connectSpec;
         status = TryConnect(connectSpec, newep);
-
-#if defined(QCC_OS_ANDROID)
+        /*
+         * Try using the null transport to connect to a bundled daemon if there is one
+         */
         if (status != ER_OK && !isDaemon) {
-            qcc::String bundleConnectSpec = "unix:abstract=alljoyn-" + qcc::U32ToString(qcc::GetPid());
+            qcc::String bundleConnectSpec = "null:";
             if (bundleConnectSpec != connectSpec) {
-                QCC_DbgPrintf(("BusAttachment::TryAlternativeDaemon bundleConnectSpec = %s", bundleConnectSpec.c_str()));
                 status = TryConnect(bundleConnectSpec.c_str(), newep);
                 if (ER_OK == status) {
                     this->connectSpec = bundleConnectSpec;
                 }
             }
         }
-#endif
         /* If this is a client (non-daemon) bus attachment, then register signal handlers for BusListener */
         if ((ER_OK == status) && !isDaemon) {
             const InterfaceDescription* iface = GetInterface(org::freedesktop::DBus::InterfaceName);

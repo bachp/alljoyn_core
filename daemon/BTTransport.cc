@@ -6,7 +6,7 @@
  */
 
 /******************************************************************************
- * Copyright 2009-2011, Qualcomm Innovation Center, Inc.
+ * Copyright 2009-2012, Qualcomm Innovation Center, Inc.
  *
  *    Licensed under the Apache License, Version 2.0 (the "License");
  *    you may not use this file except in compliance with the License.
@@ -332,7 +332,7 @@ void BTTransport::DisableAdvertisement(const qcc::String& advertiseName, bool na
 }
 
 
-QStatus BTTransport::Connect(const char* connectSpec, const SessionOpts& opts, RemoteEndpoint** newep)
+QStatus BTTransport::Connect(const char* connectSpec, const SessionOpts& opts, BusEndpoint** newep)
 {
     QCC_DbgTrace(("BTTransport::Connect(connectSpec = \"%s\")", connectSpec));
     if (!btmActive) {
@@ -341,8 +341,15 @@ QStatus BTTransport::Connect(const char* connectSpec, const SessionOpts& opts, R
 
     qcc::String spec = connectSpec;
     BTBusAddress addr = spec;
+    RemoteEndpoint* ep;
 
-    return Connect(addr, newep);
+    QStatus status = Connect(addr, &ep);
+    if (status == ER_OK) {
+        *newep = ep;
+    } else {
+        *newep = NULL;
+    }
+    return status;
 }
 
 QStatus BTTransport::Disconnect(const char* connectSpec)

@@ -195,7 +195,7 @@ QStatus ClientTransport::NormalizeTransportSpec(const char* inSpec, qcc::String&
     return status;
 }
 
-QStatus ClientTransport::Connect(const char* connectArgs, const SessionOpts& opts, RemoteEndpoint** newep)
+QStatus ClientTransport::Connect(const char* connectArgs, const SessionOpts& opts, BusEndpoint** newep)
 {
     /*
      * Don't bother trying to create a new endpoint if the state precludes them.

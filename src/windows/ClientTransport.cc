@@ -128,7 +128,7 @@ QStatus ClientTransport::NormalizeTransportSpec(const char* inSpec, qcc::String&
     return ER_OK;
 }
 
-QStatus ClientTransport::Connect(const char* connectSpec, const SessionOpts& opts, RemoteEndpoint** newep)
+QStatus ClientTransport::Connect(const char* connectSpec, const SessionOpts& opts, BusEndpoint** newep)
 {
     QCC_DbgHLPrintf(("ClientTransport::Connect(): %s", connectSpec));
 

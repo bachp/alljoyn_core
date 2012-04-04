@@ -33,11 +33,10 @@
 #include <alljoyn/Message.h>
 #include <alljoyn/TransportMask.h>
 #include <alljoyn/Session.h>
+#include "BusEndpoint.h"
 #include <Status.h>
 
 namespace ajn {
-
-class RemoteEndpoint;
 
 
 /**
@@ -192,7 +191,7 @@ class Transport {
      *      - ER_OK if successful.
      *      - an error status otherwise.
      */
-    virtual QStatus Connect(const char* connectSpec, const SessionOpts& opts, RemoteEndpoint** newep) { return ER_FAIL; }
+    virtual QStatus Connect(const char* connectSpec, const SessionOpts& opts, BusEndpoint** newep) { return ER_FAIL; }
 
     /**
      * Disconnect from a specified AllJoyn/DBus address.

@@ -41,7 +41,7 @@
 
 namespace ajn {
 
-class RemoteEndpoint;
+class BusEndpoint;
 
 /**
  * %BusAttachment is the top-level object responsible for connecting to and optionally managing a message bus.
@@ -344,7 +344,7 @@ class BusAttachment : public MessageReceiver {
      *      - #ER_OK if successful.
      *      - An error status otherwise
      */
-    QStatus Connect(const char* connectSpec, RemoteEndpoint** newep = NULL);
+    QStatus Connect(const char* connectSpec, BusEndpoint** newep = NULL);
 
     /**
      * Disconnect a remote bus address connection.
@@ -1020,7 +1020,7 @@ class BusAttachment : public MessageReceiver {
     /**
      * Try connect to the daemon with the spec.
      */
-    QStatus TryConnect(const char* connectSpec, RemoteEndpoint** newep);
+    QStatus TryConnect(const char* connectSpec, BusEndpoint** newep);
 
     qcc::String connectSpec;  /**< The connect spec used to connect to the bus */
     bool hasStarted;          /**< Indicates if the bus has ever been started */

@@ -1,10 +1,10 @@
 /**
  * @file
- * ClientTransport is the transport mechanism between a client and the daemon
+ * NullTransport is the transport mechanism for bundled daemons.
  */
 
 /******************************************************************************
- * Copyright 2009-2012, Qualcomm Innovation Center, Inc.
+ * Copyright 2012, Qualcomm Innovation Center, Inc.
  *
  *    Licensed under the Apache License, Version 2.0 (the "License");
  *    you may not use this file except in compliance with the License.
@@ -19,11 +19,11 @@
  *    limitations under the License.
  ******************************************************************************/
 
-#ifndef _ALLJOYN_CLIENTTRANSPORT_H
-#define _ALLJOYN_CLIENTTRANSPORT_H
+#ifndef _ALLJOYN_NULLTRANSPORT_H
+#define _ALLJOYN_NULLTRANSPORT_H
 
 #ifndef __cplusplus
-#error Only include ClientTransport.h in C++ code.
+#error Only include NullTransport.h in C++ code.
 #endif
 
 #include <Status.h>
@@ -36,30 +36,42 @@
 #include <qcc/SocketStream.h>
 #include <qcc/time.h>
 
+#include <alljoyn/BusAttachment.h>
+
 #include "Transport.h"
-#include "RemoteEndpoint.h"
+#include "BusEndpoint.h"
 
 namespace ajn {
 
+
 /**
- * @brief A class for Client Transports used in AllJoyn clients and services.
- *
- * The ClientTransport class has different incarnations depending on the platform.
+ * Class for launching a bundled daemon.
  */
-class ClientTransport : public Transport, public RemoteEndpoint::EndpointListener {
+struct DaemonLauncher {
+    virtual QStatus StartDaemon(BusAttachment*& busAttachment) = 0;
+
+    virtual ~DaemonLauncher() { }
+};
+
+/**
+ * @brief A class for communicating from a client to a bundled daemon
+ *
+ * The NullTransport class has different incarnations depending on the platform.
+ */
+class NullTransport : public Transport {
 
   public:
     /**
-     * Create a Client based transport for use by clients and services.
+     * Create a NullTransport
      *
      * @param bus The BusAttachment associated with this endpoint
      */
-    ClientTransport(BusAttachment& bus);
+    NullTransport(BusAttachment& bus);
 
     /**
      * Destructor
      */
-    virtual ~ClientTransport();
+    virtual ~NullTransport();
 
     /**
      * Start the transport and associate it with a router.
@@ -93,7 +105,7 @@ class ClientTransport : public Transport, public RemoteEndpoint::EndpointListene
      *
      * @return  Returns true if the transport is running.
      */
-    bool IsRunning() { return m_running; }
+    bool IsRunning() { return running; }
 
     /**
      * Normalize a transport specification.
@@ -109,7 +121,7 @@ class ClientTransport : public Transport, public RemoteEndpoint::EndpointListene
     QStatus NormalizeTransportSpec(const char* inSpec, qcc::String& outSpec, std::map<qcc::String, qcc::String>& argMap) const;
 
     /**
-     * Connect to a specified remote AllJoyn/DBus address.
+     * Connect to the bundled daemon
      *
      * @param connectSpec    Transport specific key/value args used to configure the client-side endpoint.
      *                       The form of this string is @c "<transport>:<key1>=<val1>,<key2>=<val2>..."
@@ -122,7 +134,7 @@ class ClientTransport : public Transport, public RemoteEndpoint::EndpointListene
     QStatus Connect(const char* connectSpec, const SessionOpts& opts, BusEndpoint** newep);
 
     /**
-     * Disconnect from a specified AllJoyn/DBus address.
+     * Disconnect from the bundled daemon.
      *
      * @param connectSpec    The connectSpec used in Connect.
      *
@@ -133,13 +145,11 @@ class ClientTransport : public Transport, public RemoteEndpoint::EndpointListene
     QStatus Disconnect(const char* connectSpec);
 
     /**
-     * Set a listener for transport related events.  There can only be one
-     * listener set at a time. Setting a listener implicitly removes any
-     * previously set listener.
+     * The null transport emits so no events so this is a no-op.
      *
      * @param listener  Listener for transport related events.
      */
-    void SetListener(TransportListener* listener) { m_listener = listener; }
+    void SetListener(TransportListener* listener) { }
 
     /**
      * Returns the name of this transport
@@ -147,33 +157,40 @@ class ClientTransport : public Transport, public RemoteEndpoint::EndpointListene
     const char* GetTransportName() const { return TransportName; }
 
     /**
+     * Get the transport mask for this transport
+     *
+     * @return the TransportMask for this transport.
+     */
+    TransportMask GetTransportMask() const { return TRANSPORT_WLAN; }
+
+    /**
      * Indicates whether this transport is used for client-to-bus or bus-to-bus connections.
      *
-     * @return  Always returns false, ClientTransports are only used to connect to a local daemon.
+     * @return  Always returns false, NullTransports are only used to connect to a local daemon.
      */
     bool IsBusToBus() const { return false; }
+
+    /**
+     * If there is a bundled daemon it will call in to register a launcher with the
+     * null transport. The bundled daemon is launched the first time a null transport
+     * is connected.
+     */
+    static void RegisterDaemonLauncher(DaemonLauncher* launcher);
 
     /**
      * Name of transport used in transport specs.
      */
     static const char* TransportName;
 
-    /**
-     * Callback for ClientEndpoint exit.
-     *
-     * @param endpoint   ClientEndpoint instance that has exited.
-     */
-    void EndpointExit(RemoteEndpoint* endpoint);
-
   private:
-    BusAttachment& m_bus;           /**< The message bus for this transport */
-    bool m_running;                 /**< True after Start() has been called, before Stop() */
-    bool m_stopping;                /**< True if Stop() has been called but endpoints still exist */
-    TransportListener* m_listener;  /**< Registered TransportListener */
-    RemoteEndpoint* m_endpoint;     /**< The active endpoint */
-    qcc::Mutex m_epLock;            /**< Lock to prevent the endpoint from being destroyed while it is being stopped */
+    BusAttachment& bus;           /**< The message bus for this transport */
+    bool running;                 /**< True after Start() has been called, before Stop() */
+    BusEndpoint* endpoint;        /**< The active endpoint */
+
+    static DaemonLauncher* daemonLauncher; /**< The daemon launcher if there is bundled daemon present */
+    static BusAttachment* daemonBus;       /**< The daemon bus attachment if the a bundled daemon was launched */
 };
 
 } // namespace ajn
 
-#endif // _ALLJOYN_CLIENTTRANSPORT_H
+#endif // _ALLJOYN_NULLTRANSPORT_H

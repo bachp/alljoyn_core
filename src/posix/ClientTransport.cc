@@ -217,7 +217,7 @@ static QStatus SendSocketCreds(SocketFd sockFd, uid_t uid, gid_t gid, pid_t pid)
     return ER_OK;
 }
 
-QStatus ClientTransport::Connect(const char* connectArgs, const SessionOpts& opts, RemoteEndpoint** newep)
+QStatus ClientTransport::Connect(const char* connectArgs, const SessionOpts& opts, BusEndpoint** newep)
 {
     /*
      * Don't bother trying to create a new endpoint if the state precludes them.

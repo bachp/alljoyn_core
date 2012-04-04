@@ -729,18 +729,17 @@ QStatus _Message::MarshalMessage(const qcc::String& expectedSignature,
      */
     endianSwap = outEndian != myEndian;
     /*
-     * Toggle the autostart flag bit which is a 0 over the air but we prefer as a 1.
-     */
-    flags ^= ALLJOYN_FLAG_AUTO_START;
-    /*
      * We marshal new messages in native endianess
      */
     encrypt = (flags & ALLJOYN_FLAG_ENCRYPTED) ? true : false;
     msgHeader.endian = outEndian;
     msgHeader.msgType = (uint8_t)msgType;
-    msgHeader.flags = flags;
     msgHeader.majorVersion = ALLJOYN_MAJOR_PROTOCOL_VERSION;
     msgHeader.serialNum = bus.GetInternal().NextSerial();
+    /*
+     * Toggle the autostart flag bit which is a 0 over the air but we prefer as a 1.
+     */
+    msgHeader.flags = flags ^ ALLJOYN_FLAG_AUTO_START;
     /*
      * Encryption will typically make the body length slightly larger because the encryption
      * algorithm appends a MAC block to the end of the encrypted data.
@@ -848,7 +847,12 @@ QStatus _Message::MarshalMessage(const qcc::String& expectedSignature,
      * Initialize the buffer and copy in the message header
      */
     bufPos = (uint8_t*)msgBuf;
+    /*
+     * Toggle the autostart flag bit which is a 0 over the air but internally we prefer as a 1.
+     */
+    msgHeader.flags ^= ALLJOYN_FLAG_AUTO_START;
     memcpy(bufPos, &msgHeader, sizeof(msgHeader));
+    msgHeader.flags ^= ALLJOYN_FLAG_AUTO_START;
     bufPos += sizeof(msgHeader);
     /*
      * Perfom endian-swap on the buffer so the header member is in message endianess.
@@ -859,6 +863,10 @@ QStatus _Message::MarshalMessage(const qcc::String& expectedSignature,
         hdr->serialNum = EndianSwap32(hdr->serialNum);
         hdr->headerLen = EndianSwap32(hdr->headerLen);
     }
+    /*
+     *
+     */
+    msgHeader.flags = flags;
     /*
      * Marshal the header fields
      */

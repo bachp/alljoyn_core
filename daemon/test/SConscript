@@ -42,14 +42,4 @@ if env['OS_GROUP'] == 'windows':
 if env['OS'] == 'win7':
    progs.append(env.Program('WinBtDiscovery.exe', ['WinBtDiscovery.cc']))
 
-#
-# On Android, build a static library that can be linked into a JNI dynamic 
-# library to implement the daemon as a Service
-#
-if env['OS'] == 'android':
-   libenv = env.Clone(CCFLAGS = '-DDAEMON_LIB')
-   libenv.Object(target = 'bbdaemon-lib', source = 'bbdaemon.cc')
-   libbbdaemon = env.StaticLibrary(['bbdaemon-lib'] + daemon_objs)
-   dlibs = env.Install('$DISTDIR/lib', libbbdaemon)
-
 Return('progs')

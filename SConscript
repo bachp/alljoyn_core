@@ -51,15 +51,19 @@ env.Append(CPPPATH = [env.Dir('src')])
 
 # AllJoyn Libraries
 libs = env.SConscript('$OBJDIR/SConscript', exports = ['common_objs'])
-dlibs = env.Install('$DISTDIR/lib', libs)
+ajlib = env.Install('$DISTDIR/lib', libs)
 env.Append(LIBPATH = [env.Dir('$DISTDIR/lib')])
-env.Prepend(LIBS = dlibs)
 
-# AllJoyn Daemon
-daemon_progs = env.SConscript('$OBJDIR/daemon/SConscript')
+# Set the alljoyn library 
+env.Prepend(LIBS = ajlib)
+
+# AllJoyn Daemon, daemon library, and bundled daemon object file
+daemon_progs, bdlib, bdobj = env.SConscript('$OBJDIR/daemon/SConscript')
+daemon_lib = env.Install('$DISTDIR/lib', bdlib)
+daemon_obj = env.Install('$DISTDIR/lib', bdobj)
 env.Install('$DISTDIR/bin', daemon_progs)
 
-# Test programs
+# Test programs 
 progs = env.SConscript('$OBJDIR/test/SConscript')
 env.Install('$DISTDIR/bin', progs)
 
@@ -73,6 +77,14 @@ env.Install('$DISTDIR/bin/samples', progs)
 # Android daemon runner
 progs = env.SConscript('$OBJDIR/alljoyn_android/SConscript')
 env.Install('$DISTDIR/bin/alljoyn_android', progs)
+
+# Test programs built with bundled daemon
+bdenv = env.Clone()
+bdenv.Prepend(LIBS = daemon_lib)
+bdenv.Prepend(LIBS = daemon_obj)
+bdenv.VariantDir('$OBJDIR/bundled', 'test', duplicate = 0)
+bdprogs = bdenv.SConscript('$OBJDIR/bundled/SConscript', exports={'env':bdenv})
+bdenv.Install('$DISTDIR/bin/bundled', bdprogs)
 
 # Release notes and misc. legals
 env.Install('$DISTDIR', 'docs/ReleaseNotes.txt')

@@ -492,7 +492,9 @@ ThreadReturn STDCALL AllJoynObj::JoinSessionThread::RunJoin()
         RemoteEndpoint* b2bEp = NULL;
         BusEndpoint* ep = sessionHost ? ajObj.router.FindEndpoint(sessionHost) : NULL;
         VirtualEndpoint* vSessionEp = (ep && (ep->GetEndpointType() == BusEndpoint::ENDPOINT_TYPE_VIRTUAL)) ? static_cast<VirtualEndpoint*>(ep) : NULL;
-        RemoteEndpoint* rSessionEp = (ep && (ep->GetEndpointType() == BusEndpoint::ENDPOINT_TYPE_REMOTE)) ? static_cast<RemoteEndpoint*>(ep) : NULL;
+        //RemoteEndpoint* rSessionEp = (ep && (ep->GetEndpointType() == BusEndpoint::ENDPOINT_TYPE_REMOTE)) ? static_cast<RemoteEndpoint*>(ep) : NULL;
+        BusEndpoint* rSessionEp = (ep && ((ep->GetEndpointType() == BusEndpoint::ENDPOINT_TYPE_REMOTE) ||
+                                          (ep->GetEndpointType() == BusEndpoint::ENDPOINT_TYPE_NULL))) ? ep : NULL;
 
         if (rSessionEp) {
             /* Session is with another locally connected attachment */
@@ -714,8 +716,10 @@ ThreadReturn STDCALL AllJoynObj::JoinSessionThread::RunJoin()
                                 QCC_DbgPrintf(("AllJoynObj:JoinSessionThread() skip unpermitted transport(%s)", trans->GetTransportName()));
                                 continue;
                             }
-                            status = trans->Connect(busAddrs[i].c_str(), optsIn, &b2bEp);
+                            BusEndpoint* ep;
+                            status = trans->Connect(busAddrs[i].c_str(), optsIn, &ep);
                             if (status == ER_OK) {
+                                b2bEp = static_cast<RemoteEndpoint*>(ep);
                                 b2bEp->IncrementRef();
                                 b2bEpName = b2bEp->GetUniqueName();
                                 busAddr = busAddrs[i];
@@ -1159,13 +1163,16 @@ qcc::ThreadReturn STDCALL AllJoynObj::JoinSessionThread::RunAttach()
          * If there is an outstanding join involving (sessionHost,port), then destEp may not be valid yet.
          * Essentially, someone else might know we are a multipoint session member before we do.
          */
-        if (!destEp || ((destEp->GetEndpointType() != BusEndpoint::ENDPOINT_TYPE_REMOTE) && (destEp->GetEndpointType() != BusEndpoint::ENDPOINT_TYPE_LOCAL))) {
+        if (!destEp || ((destEp->GetEndpointType() != BusEndpoint::ENDPOINT_TYPE_REMOTE) &&
+                        (destEp->GetEndpointType() != BusEndpoint::ENDPOINT_TYPE_NULL) &&
+                        (destEp->GetEndpointType() != BusEndpoint::ENDPOINT_TYPE_LOCAL))) {
             qcc::Sleep(500);
             destEp = ajObj.router.FindEndpoint(destStr);
         }
 
         /* Determine if the dest is local to this daemon */
         if (destEp && ((destEp->GetEndpointType() == BusEndpoint::ENDPOINT_TYPE_REMOTE) ||
+                       (destEp->GetEndpointType() == BusEndpoint::ENDPOINT_TYPE_NULL) ||
                        (destEp->GetEndpointType() == BusEndpoint::ENDPOINT_TYPE_LOCAL))) {
             /* This daemon serves dest directly */
             /* Check for a session in the session map */
@@ -1329,9 +1336,11 @@ qcc::ThreadReturn STDCALL AllJoynObj::JoinSessionThread::RunAttach()
                     replyCode = ALLJOYN_JOINSESSION_REPLY_UNREACHABLE;
                 } else {
                     ajObj.ReleaseLocks();
-                    status = trans->Connect(busAddr, optsIn, &b2bEp);
+                    BusEndpoint* ep;
+                    status = trans->Connect(busAddr, optsIn, &ep);
                     ajObj.AcquireLocks();
                     if (status == ER_OK) {
+                        b2bEp = static_cast<RemoteEndpoint*>(ep);
                         b2bEp->IncrementRef();
                         b2bEpName = b2bEp->GetUniqueName();
                     } else {
@@ -2041,7 +2050,8 @@ void AllJoynObj::SetLinkTimeout(const InterfaceDescription::Member* member, Mess
                         actLinkTimeout = ((tTimeout == 0) || (actLinkTimeout == 0)) ? 0 : max(actLinkTimeout, tTimeout);
                         foundEp = true;
                     }
-                } else if (memberEp && (memberEp->GetEndpointType() == BusEndpoint::ENDPOINT_TYPE_REMOTE)) {
+                } else if (memberEp && ((memberEp->GetEndpointType() == BusEndpoint::ENDPOINT_TYPE_REMOTE) ||
+                                        (memberEp->GetEndpointType() == BusEndpoint::ENDPOINT_TYPE_NULL))) {
                     /*
                      * This is a locally connected client. These clients do not have per-session connecions
                      * therefore we silently allow this as if we had granted the user's request

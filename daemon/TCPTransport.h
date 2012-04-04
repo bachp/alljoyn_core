@@ -133,7 +133,7 @@ class TCPTransport : public Transport, public RemoteEndpoint::EndpointListener, 
      *      - ER_OK if successful.
      *      - an error status otherwise.
      */
-    QStatus Connect(const char* connectSpec, const SessionOpts& opts, RemoteEndpoint** newep);
+    QStatus Connect(const char* connectSpec, const SessionOpts& opts, BusEndpoint** newep);
 
     /**
      * Disconnect from a specified AllJoyn/DBus address.

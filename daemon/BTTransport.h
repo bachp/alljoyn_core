@@ -195,7 +195,7 @@ class BTTransport :
      *      - ER_BUS_BAD_TRANSPORT_ARGS if unable to parse the @c connectSpec param
      *      - An error status otherwise
      */
-    QStatus Connect(const char* connectSpec, const SessionOpts& opts, RemoteEndpoint** newep);
+    QStatus Connect(const char* connectSpec, const SessionOpts& opts, BusEndpoint** newep);
 
     /**
      * Disconnect a bluetooth endpoint
@@ -349,8 +349,7 @@ class BTTransport :
      * @param newep Pointer to newly created endpoint (if non-NULL).
      *
      */
-    QStatus Connect(const BTBusAddress& addr,
-                    RemoteEndpoint** newep);
+    QStatus Connect(const BTBusAddress& addr, RemoteEndpoint** newep);
 
     QStatus Connect(const BTBusAddress& addr) { return Connect(addr, NULL); }
 

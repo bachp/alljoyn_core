@@ -221,12 +221,16 @@ QStatus DaemonRouter::PushMessage(Message& msg, BusEndpoint& origSender)
             nameTable.Unlock();
         } else {
             nameTable.Unlock();
-            if ((msg->GetFlags() & ALLJOYN_FLAG_AUTO_START) && (sender->GetEndpointType() != BusEndpoint::ENDPOINT_TYPE_BUS2BUS)) {
+            if ((msg->GetFlags() & ALLJOYN_FLAG_AUTO_START) &&
+                (sender->GetEndpointType() != BusEndpoint::ENDPOINT_TYPE_BUS2BUS) &&
+                (sender->GetEndpointType() != BusEndpoint::ENDPOINT_TYPE_NULL)) {
                 /* Need to auto start the service targeted by the message and postpone delivery of the message. */
-                Bus& bus(reinterpret_cast<Bus&>(msg->bus));
-                DeferredMsg* dm(new DeferredMsg(msg, sender->GetUniqueName(), *this));
+                DeferredMsg* dm = new DeferredMsg(msg, sender->GetUniqueName(), *this);
                 ServiceDB serviceDB(configDB->GetServiceDB());
-                status = serviceDB->BusStartService(destination, dm, &bus);
+                status = serviceDB->BusStartService(destination, dm, &busController->GetBus());
+                if (status != ER_OK) {
+                    delete dm;
+                }
 
             } else if (replyExpected) {
                 QCC_LogError(ER_BUS_NO_ROUTE, ("Returning error %s no route to %s", msg->Description().c_str(), destination));
@@ -528,8 +532,10 @@ QStatus DaemonRouter::AddSessionRoute(SessionId id, BusEndpoint& srcEp, RemoteEn
     }
 
     if ((status == ER_OK) && srcB2bEp) {
+        assert(srcEp.GetEndpointType() == BusEndpoint::ENDPOINT_TYPE_VIRTUAL);
         status = static_cast<VirtualEndpoint&>(srcEp).AddSessionRef(id, *srcB2bEp);
         if (status != ER_OK) {
+            assert(destEp.GetEndpointType() == BusEndpoint::ENDPOINT_TYPE_VIRTUAL);
             QCC_LogError(status, ("AddSessionRef(this=%s, %u, %s) failed", srcEp.GetUniqueName().c_str(), id, srcB2bEp->GetUniqueName().c_str()));
             static_cast<VirtualEndpoint&>(destEp).RemoveSessionRef(id);
         }
