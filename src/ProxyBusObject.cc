@@ -728,14 +728,17 @@ QStatus ProxyBusObject::IntrospectRemoteObjectAsync(ProxyBusObject::Listener* li
     /* Attempt to retrieve introspection from the remote object using async call */
     const InterfaceDescription::Member* introMember = introIntf->GetMember("Introspect");
     assert(introMember);
+    _IntrospectMethodCBContext* ctx = new _IntrospectMethodCBContext(this, listener, callback, context);
     QStatus status = MethodCallAsync(*introMember,
                                      this,
                                      static_cast<MessageReceiver::ReplyHandler>(&ProxyBusObject::IntrospectMethodCB),
                                      NULL,
                                      0,
-                                     reinterpret_cast<void*>(new _IntrospectMethodCBContext(this, listener, callback, context)),
+                                     reinterpret_cast<void*>(ctx),
                                      5000);
-
+    if (ER_OK != status) {
+        delete ctx;
+    }
     return status;
 }
 
