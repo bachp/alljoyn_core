@@ -137,5 +137,4 @@ distclean: clean
 	@rm -rf $(INSTALLDIR)/dist/bin
 	@rm -rf $(INSTALLDIR)/dist/inc
 	@rm -rf $(INSTALLDIR)/dist/samples
-	cd alljoyn_js; make distclean;
 
