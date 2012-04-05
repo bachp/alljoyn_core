@@ -16,23 +16,39 @@
 #
 # Example command: make OS=linux CPU=x86 VARIANT=debug
 
-.PHONY: all partial clean distclean
+.PHONY: all dist clean distclean
 
-all: distclean alljoyn
+all: distclean dist
 
 CC=gcc
 CXX=g++
 AR=ar
 
-# Default build configuration
-ifeq "$(CPU)" ""
-    CPU=x86
+# build configuration
+ifeq "$(CPU)" "x86"
+    CPU	= x86
+else
+ifeq "$(CPU)" "x86-64"
+    CPU	= x86-64
+else
+    $(error CPU=$(CPU) is not supported.)
 endif
-ifeq "$(OS)" ""
-    OS=linux
 endif
-ifeq "$(VARIANT)" ""
-    VARIANT=debug
+
+ifeq "$(OS)" "linux"
+    OS	= linux
+else
+    $(error OS=$(OS) is not supported.)
+endif
+
+ifeq "$(VARIANT)" "debug"
+    VARIANT	= debug
+else
+ifeq "$(VARIANT)" "release"
+    VARIANT	= release
+else
+    $(error VARIANT=$(VARIANT) is not supported.)
+endif
 endif
 
 ifeq "$(OS)" "linux"
@@ -40,8 +56,6 @@ ifeq "$(OS)" "linux"
     CPPDEFINES+=-DQCC_OS_LINUX
     CPPDEFINES+=-DQCC_OS_GROUP_POSIX
     OS_GROUP=posix
-else
-    $(error $(OS) build is not supported yet.)
 endif
 
 CFLAGS=-Wall \
@@ -105,7 +119,7 @@ INCLUDE += -L$(INSTALLDIR)/dist/lib
 JUNK=*.o *~
 export
 
-alljoyn:
+dist:
 	@mkdir -p $(INSTALLDIR)/dist/lib
 	@mkdir -p $(INSTALLDIR)/dist/bin
 	@mkdir -p $(INSTALLDIR)/dist/bin/samples
@@ -126,6 +140,5 @@ distclean: clean
 	@rm -rf $(INSTALLDIR)/dist/bin
 	@rm -rf $(INSTALLDIR)/dist/inc
 	@rm -rf $(INSTALLDIR)/dist/samples
-
-partial: alljoyn
+	cd alljoyn_js; make distclean;
 
