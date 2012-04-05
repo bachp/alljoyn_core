@@ -143,11 +143,17 @@ QStatus NullTransport::Start()
 QStatus NullTransport::Stop(void)
 {
     running = false;
+    if (daemonLauncher) {
+        daemonLauncher->Stop();
+    }
     return ER_OK;
 }
 
 QStatus NullTransport::Join(void)
 {
+    if (daemonLauncher) {
+        daemonLauncher->Join();
+    }
     return ER_OK;
 }
 
@@ -168,7 +174,7 @@ QStatus NullTransport::Connect(const char* connectSpec, const SessionOpts& opts,
         return ER_BUS_TRANSPORT_NOT_AVAILABLE;
     }
     if (!daemonBus) {
-        status = daemonLauncher->StartDaemon(daemonBus);
+        status = daemonLauncher->Start(daemonBus);
     }
     if (status == ER_OK) {
         endpoint = new NullEndpoint(bus.GetInternal().GetRouter(), daemonBus->GetInternal().GetRouter());

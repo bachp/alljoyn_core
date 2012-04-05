@@ -23,8 +23,7 @@
 
 #include <qcc/platform.h>
 #include <qcc/Debug.h>
-
-#include <vector>
+#include <qcc/Logger.h>
 
 #include <qcc/String.h>
 #include <qcc/StringSource.h>
@@ -76,15 +75,21 @@ class BundledDaemon : public DaemonLauncher {
     /**
      * Launch the bundled daemon
      */
-    QStatus StartDaemon(BusAttachment*& busAttachment);
+    QStatus Start(BusAttachment*& busAttachment);
 
     /**
      * Terminate the bundled daemon
      */
-    QStatus StopDaemon();
+    QStatus Stop();
+
+    /**
+     * Wait for bundled daemon to exit
+     */
+    void Join();
 
   private:
 
+    int32_t refCount;
     Bus* ajBus;
     BusController* ajBusController;
 
@@ -95,77 +100,93 @@ class BundledDaemon : public DaemonLauncher {
  */
 static BundledDaemon bundledDaemon;
 
-BundledDaemon::BundledDaemon() : ajBus(NULL), ajBusController(NULL)
+BundledDaemon::BundledDaemon() : refCount(0), ajBus(NULL), ajBusController(NULL)
 {
     printf("Registering bundled daemon\n");
     NullTransport::RegisterDaemonLauncher(this);
 }
 
-QStatus BundledDaemon::StartDaemon(BusAttachment*& busAttachment)
+QStatus BundledDaemon::Start(BusAttachment*& busAttachment)
 {
-    QStatus status;
-    ConfigDB* config(ConfigDB::GetConfigDB());
-    /*
-     * Set the configuration
-     */
-    StringSource src(bundledConfig);
-    config->LoadSource(src);
-    /*
-     * Extract the listen specs
-     */
-    const ConfigDB::ListenList& listenList = config->GetListen();
-    ConfigDB::ListenList::const_iterator it = listenList.begin();
-    String listenSpecs;
-    while (it != listenList.end()) {
-        qcc::String addrStr(*it);
-        if (!listenSpecs.empty()) {
-            listenSpecs.append(';');
+    QStatus status = ER_OK;
+
+    if (IncrementAndFetch(&refCount) == 1) {
+        LoggerSetting::GetLoggerSetting("bundled-daemon", LOG_DEBUG, false, stdout);
+        ConfigDB* config = ConfigDB::GetConfigDB();
+        /*
+         * Set the configuration
+         */
+        StringSource src(bundledConfig);
+        config->LoadSource(src);
+        /*
+         * Extract the listen specs
+         */
+        const ConfigDB::ListenList& listenList = config->GetListen();
+        ConfigDB::ListenList::const_iterator it = listenList.begin();
+        String listenSpecs;
+        while (it != listenList.end()) {
+            qcc::String addrStr(*it);
+            if (!listenSpecs.empty()) {
+                listenSpecs.append(';');
+            }
+            listenSpecs.append(addrStr);
+            ++it;
         }
-        listenSpecs.append(addrStr);
-        ++it;
-    }
-    /*
-     * Add the transports
-     */
-    TransportFactoryContainer cntr;
-    cntr.Add(new TransportFactory<TCPTransport>(TCPTransport::TransportName, false));
+        /*
+         * Add the transports
+         */
+        TransportFactoryContainer cntr;
+        cntr.Add(new TransportFactory<TCPTransport>(TCPTransport::TransportName, false));
 
-    ajBus = new Bus("bundled-daemon", cntr, listenSpecs.c_str());
-    ajBusController = new BusController(*ajBus, status);
-    if (ER_OK != status) {
-        goto ErrorExit;
+        ajBus = new Bus("bundled-daemon", cntr, listenSpecs.c_str());
+        ajBusController = new BusController(*ajBus, status);
+        if (ER_OK != status) {
+            goto ErrorExit;
+        }
+        status = ajBus->Start();
+        if (status != ER_OK) {
+            goto ErrorExit;
+        }
+        status = ajBus->StartListen(listenSpecs.c_str());
+        if (ER_OK != status) {
+            goto ErrorExit;
+        }
     }
-    status = ajBus->Start();
-    if (status != ER_OK) {
-        goto ErrorExit;
-    }
-    status = ajBus->StartListen(listenSpecs.c_str());
-    if (ER_OK != status) {
-        goto ErrorExit;
-    }
-
     busAttachment = ajBus;
     return ER_OK;
 
 ErrorExit:
 
-    delete ajBusController;
-    ajBusController = NULL;
-    delete ajBus;
-    ajBusController = NULL;
+    if (DecrementAndFetch(&refCount) == 0) {
+        delete ajBusController;
+        ajBusController = NULL;
+        delete ajBus;
+        ajBusController = NULL;
+    }
+    busAttachment = NULL;
     return status;
 }
 
-
-QStatus BundledDaemon::StopDaemon()
+void BundledDaemon::Join()
 {
-    if (ajBus) {
-        ajBus->Stop();
-        ajBus->Join();
+    if (refCount == 0) {
+        if (ajBus) {
+            ajBus->Join();
+        }
+        delete ajBusController;
+        ajBusController = NULL;
+        delete ajBus;
+        ajBus = NULL;
     }
-    delete ajBusController;
-    ajBusController = NULL;
-    delete ajBus;
-    ajBusController = NULL;
-    return ER_OK;
+}
+
+QStatus BundledDaemon::Stop()
+{
+    if (DecrementAndFetch(&refCount) == 0) {
+        if (ajBus) {
+            return ajBus->Stop();
+        } else {
+            return ER_OK;
+        }
+    }
 }

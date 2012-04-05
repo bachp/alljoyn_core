@@ -48,7 +48,12 @@ namespace ajn {
  * Class for launching a bundled daemon.
  */
 struct DaemonLauncher {
-    virtual QStatus StartDaemon(BusAttachment*& busAttachment) = 0;
+
+    virtual QStatus Start(BusAttachment*& busAttachment) = 0;
+
+    virtual QStatus Stop() = 0;
+
+    virtual void Join() = 0;
 
     virtual ~DaemonLauncher() { }
 };
