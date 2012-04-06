@@ -8,7 +8,7 @@
 /******************************************************************************
  *
  *
- * Copyright 2009-2011, Qualcomm Innovation Center, Inc.
+ * Copyright 2009-2012, Qualcomm Innovation Center, Inc.
  *
  *    Licensed under the Apache License, Version 2.0 (the "License");
  *    you may not use this file except in compliance with the License.
@@ -33,9 +33,7 @@
 #include "Bus.h"
 #include "DBusObj.h"
 #include "AllJoynObj.h"
-#ifndef NDEBUG
 #include "AllJoynDebugObj.h"
-#endif
 
 namespace ajn {
 
@@ -50,14 +48,22 @@ class BusController {
      * Constructor
      *
      * @param bus        Bus to associate with this controller.
-     * @param status     ER_OK if controller was successfully initialized
      */
-    BusController(Bus& bus, QStatus& status);
+    BusController(Bus& bus);
 
     /**
      * Destructor
      */
     virtual ~BusController();
+
+    /**
+     * Initialize the bus controller and start the bus
+     *
+     * @param listeSpecs  The listen specs for the bus.
+     *
+     * @return  Returns ER_OK if controller was successfully initialized.
+     */
+    QStatus Init(const qcc::String& listenSpecs);
 
     /**
      * Return the daemon bus object responsible for org.alljoyn.Bus.
@@ -67,20 +73,21 @@ class BusController {
     AllJoynObj& GetAllJoynObj() { return alljoynObj; }
 
     /**
-     * ObjectRegistered callback.
-     *
-     * @param obj   BusObject that has been registered
-     */
-    void ObjectRegistered(BusObject* obj);
-
-    /**
      * Return the bus associated with this bus controller
      *
      * @return Return the bus
      */
     Bus& GetBus() { return bus; }
 
+    /**
+     * ObjectRegistered callback.
+     *
+     * @param obj   BusObject that has been registered
+     */
+    void ObjectRegistered(BusObject* obj);
+
   private:
+
     Bus& bus;
 
 #ifndef NDEBUG
@@ -93,6 +100,9 @@ class BusController {
 
     /** BusObject responsible for org.alljoyn.Bus */
     AllJoynObj alljoynObj;
+
+    /** Event to wait on while initialization completes */
+    qcc::Event* initComplete;
 };
 
 }

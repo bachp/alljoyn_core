@@ -111,7 +111,7 @@ class AllJoynDebugObj : public BusObject {
     }
 
     /**
-     * Initialize and register this DBusObj instance.
+     * Initialize and register this AllJoynDebugObj instance.
      *
      * @return ER_OK if successful.
      */
@@ -119,7 +119,7 @@ class AllJoynDebugObj : public BusObject {
     {
         QStatus status;
 
-        /* Make this object implement org.alljoyn.Bus */
+        /* Make this object implement org.alljoyn.Debug */
         const InterfaceDescription* alljoynDbgIntf = bus.GetInterface(org::alljoyn::Daemon::Debug::InterfaceName);
         if (!alljoynDbgIntf) {
             status = ER_BUS_NO_SUCH_INTERFACE;

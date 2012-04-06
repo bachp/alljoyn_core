@@ -492,28 +492,22 @@ int daemon(OptParse& opts)
 #endif
 
     Bus ajBus("alljoyn-daemon", cntr, listenSpecs.c_str());
-    BusController ajBusController(ajBus, status);
-    if (ER_OK != status) {
-        Log(LOG_ERR, "Failed to create BusController: %s\n", QCC_StatusText(status));
-        return DAEMON_EXIT_STARTUP_ERROR;
-    }
-
-    status = ajBus.Start();
-    if (status != ER_OK) {
-        Log(LOG_ERR, "Failed to start AllJoyn system: %s\n", QCC_StatusText(status));
-        return DAEMON_EXIT_STARTUP_ERROR;
-    }
-
+    /*
+     * Check we have at least one authentication mechanism registered.
+     */
     if (!config->GetAuth().empty()) {
         if (ajBus.GetInternal().FilterAuthMechanisms(config->GetAuth()) == 0) {
             Log(LOG_ERR, "No supported authentication mechanisms.  Aborting...\n");
             return DAEMON_EXIT_STARTUP_ERROR;
         }
     }
-
-    status = ajBus.StartListen(listenSpecs.c_str());
+    /*
+     * Create the bus controller use it to initialize and start the bus.
+     */
+    BusController ajBusController(ajBus);
+    status = ajBusController.Init(listenSpecs);
     if (ER_OK != status) {
-        Log(LOG_ERR, "Failed to start listening on specified addresses\n");
+        Log(LOG_ERR, "Failed to initialize BusController: %s\n", QCC_StatusText(status));
         return DAEMON_EXIT_STARTUP_ERROR;
     }
 

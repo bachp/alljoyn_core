@@ -63,12 +63,16 @@ const char* InterfaceName = "org.alljoyn.alljoyn_test.values";
 }
 }
 
-/** Static top level message bus object */
+/* Forward declaration */
+class MyBusListener;
+
+/* Static top level globals */
 static BusAttachment* g_msgBus = NULL;
+static MyBusListener* g_myBusListener = NULL;
 static String g_wellKnownName = ::org::alljoyn::alljoyn_test::DefaultWellKnownName;
 static bool g_echo_signal = false;
 static bool g_compress = false;
-static uint32_t keyExpiration = 0xFFFFFFFF;
+static uint32_t g_keyExpiration = 0xFFFFFFFF;
 static bool g_cancelAdvertise = false;
 
 static volatile sig_atomic_t g_interrupt = false;
@@ -150,8 +154,8 @@ class MyAuthListener : public AuthListener {
         g_msgBus->GetPeerGUID(authPeer, guid);
         printf("Peer guid %s\n", guid.c_str());
 
-        if (keyExpiration != 0xFFFFFFFF) {
-            creds.SetExpiration(keyExpiration);
+        if (g_keyExpiration != 0xFFFFFFFF) {
+            creds.SetExpiration(g_keyExpiration);
         }
 
         if (strcmp(authMechanism, "ALLJOYN_SRP_KEYX") == 0) {
@@ -439,26 +443,35 @@ class LocalTestObject : public BusObject {
 
     void ObjectRegistered(void)
     {
+        QStatus status;
         Message reply(bus);
 
+        /*
+         * Bind a well-known session port for incoming client connections. This must be done before
+         * we request or start advertising a well known name because a client can try to connect
+         * immediately and with a bundled daemon this can happen very quickly.
+         */
+        SessionPort sessionPort = ::org::alljoyn::alljoyn_test::SessionPort;
+        status = g_msgBus->BindSessionPort(sessionPort, opts, *g_myBusListener);
+        if (status != ER_OK) {
+            QCC_LogError(status, ("BindSessionPort failed"));
+        }
+        /* Add rule for receiving test signals */
+        status = bus.AddMatch("type='signal',interface='org.alljoyn.alljoyn_test',member='my_signal'");
+        if (status != ER_OK) {
+            QCC_LogError(status, ("Failed to register Match rule for 'org.alljoyn.alljoyn_test.my_signal'"));
+        }
         /* Request a well-known name */
-        QStatus status = bus.RequestName(g_wellKnownName.c_str(), DBUS_NAME_FLAG_REPLACE_EXISTING | DBUS_NAME_FLAG_DO_NOT_QUEUE);
+        status = bus.RequestName(g_wellKnownName.c_str(), DBUS_NAME_FLAG_REPLACE_EXISTING | DBUS_NAME_FLAG_DO_NOT_QUEUE);
         if (status != ER_OK) {
             QCC_LogError(status, ("RequestName(%s) failed.", g_wellKnownName.c_str()));
             return;
         }
-
         /* Begin Advertising the well-known name */
         status = g_msgBus->AdvertiseName(g_wellKnownName.c_str(), opts.transports);
         if (ER_OK != status) {
             QCC_LogError(status, ("Sending org.alljoyn.Bus.Advertise failed"));
             return;
-        }
-
-        /* Add rule for receiving test signals */
-        status = bus.AddMatch("type='signal',interface='org.alljoyn.alljoyn_test',member='my_signal'");
-        if (status != ER_OK) {
-            QCC_LogError(status, ("Failed to register Match rule for 'org.alljoyn.alljoyn_test.my_signal'"));
         }
     }
 
@@ -671,7 +684,7 @@ int main(int argc, char** argv)
                 usage();
                 exit(1);
             } else {
-                keyExpiration = strtoul(argv[i], NULL, 10);
+                g_keyExpiration = strtoul(argv[i], NULL, 10);
             }
         } else if (0 == strcmp("-m", argv[i])) {
             opts.isMultipoint = true;
@@ -747,7 +760,7 @@ int main(int argc, char** argv)
     }
 
     /* Create a bus listener to be used to accept incoming session requests */
-    MyBusListener* myBusListener = new MyBusListener(*g_msgBus, opts);
+    g_myBusListener = new MyBusListener(*g_msgBus, opts);
 
     /* Register local objects and connect to the daemon */
     LocalTestObject testObj(*g_msgBus, ::org::alljoyn::alljoyn_test::ObjectPath, reportInterval, opts);
@@ -762,14 +775,7 @@ int main(int argc, char** argv)
 
     /* Connect to the daemon */
     status = g_msgBus->Connect(clientArgs.c_str());
-    if (ER_OK == status) {
-        /* Bind a well-known session port for incoming client connections */
-        SessionPort sessionPort = ::org::alljoyn::alljoyn_test::SessionPort;
-        status = g_msgBus->BindSessionPort(sessionPort, opts, *myBusListener);
-        if (status != ER_OK) {
-            QCC_LogError(status, ("BindSessionPort failed"));
-        }
-    } else {
+    if (ER_OK != status) {
         QCC_LogError(status, ("Failed to connect to \"%s\"", clientArgs.c_str()));
     }
 
@@ -786,7 +792,7 @@ int main(int argc, char** argv)
     BusAttachment* deleteMe = g_msgBus;
     g_msgBus = NULL;
     delete deleteMe;
-    delete myBusListener;
+    delete g_myBusListener;
 
     printf("%s exiting with status %d (%s)\n", argv[0], status, QCC_StatusText(status));
 

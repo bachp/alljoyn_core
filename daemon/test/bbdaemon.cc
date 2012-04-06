@@ -456,7 +456,7 @@ int main(int argc, char** argv)
 
     /* Create message bus with support for alternate transports */
     Bus bus("bbdaemon", cntr, serverArgs.c_str());
-    BusController controller(bus, status);
+    BusController controller(bus);
 
     if (mimicBbservice) {
         /* Add org.alljoyn.alljoyn_test interface */
@@ -486,8 +486,8 @@ int main(int argc, char** argv)
     }
 
     if (ER_OK == status) {
-        /* Start the msg bus */
-        status = bus.Start();
+        /* Start the bus controller */
+        status = controller.Init(serverArgs);
         if (ER_OK == status) {
             LocalTestObject* testObj = NULL;
 
@@ -495,12 +495,6 @@ int main(int argc, char** argv)
                 bus.EnablePeerSecurity("ALLJOYN_RSA_KEYX ALLJOYN_SRP_KEYX ALLJOYN_SRP_LOGON", new MyAuthListener());
                 testObj = new LocalTestObject(bus, ::org::alljoyn::alljoyn_test::ObjectPath, 10);
                 bus.RegisterBusObject(*testObj);
-            }
-
-            /* Listen on BUS_SERVER_ADDRESSES */
-            status = bus.StartListen(serverArgs.c_str());
-            if (ER_OK != status) {
-                QCC_LogError(status, ("Bus::StartListen failed"));
             }
 
             printf("AllJoyn Daemon PID = %d\n", GetPid());

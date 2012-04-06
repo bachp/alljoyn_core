@@ -139,15 +139,8 @@ QStatus BundledDaemon::Start(BusAttachment*& busAttachment)
         cntr.Add(new TransportFactory<TCPTransport>(TCPTransport::TransportName, false));
 
         ajBus = new Bus("bundled-daemon", cntr, listenSpecs.c_str());
-        ajBusController = new BusController(*ajBus, status);
-        if (ER_OK != status) {
-            goto ErrorExit;
-        }
-        status = ajBus->Start();
-        if (status != ER_OK) {
-            goto ErrorExit;
-        }
-        status = ajBus->StartListen(listenSpecs.c_str());
+        ajBusController = new BusController(*ajBus);
+        status = ajBusController->Init(listenSpecs);
         if (ER_OK != status) {
             goto ErrorExit;
         }
@@ -189,4 +182,5 @@ QStatus BundledDaemon::Stop()
             return ER_OK;
         }
     }
+    return ER_OK;
 }
