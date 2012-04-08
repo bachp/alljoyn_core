@@ -2825,6 +2825,7 @@ void TCPTransport::DoStartListen(qcc::String& normSpec)
     IPAddress listenAddr(argMap["addr"]);
     uint16_t listenPort = StringToU32(argMap["port"]);
     qcc::AddressFamily family = argMap["family"] == "ipv6" ?  QCC_AF_INET6 : QCC_AF_INET;
+    bool ephemeralPort = (listenPort == 0);
 
     /*
      * If we're going to listen on an address, we are going to listen on a
@@ -2883,7 +2884,6 @@ void TCPTransport::DoStartListen(qcc::String& normSpec)
             QCC_LogError(status, ("TCPTransport::DoStartListen(): OpenInterface() failed for %s", currentInterface.c_str()));
         }
     }
-
     /*
      * We have the name service work out of the way, so we can now create the
      * TCP listener sockets and set SO_REUSEADDR/SO_REUSEPORT so we don't have
@@ -2896,7 +2896,6 @@ void TCPTransport::DoStartListen(qcc::String& normSpec)
         QCC_LogError(status, ("TCPTransport::DoStartListen(): Socket() failed"));
         return;
     }
-
     /*
      * Set the SO_REUSEADDR socket option so we don't have to wait for four
      * minutes while the endponit is in TIME_WAIT if we crash (or control-C).
@@ -2925,14 +2924,13 @@ void TCPTransport::DoStartListen(qcc::String& normSpec)
     status = Bind(listenFd, listenAddr, listenPort);
     if (status == ER_OK) {
         /*
-         * On Android, the bundled daemon will not set the TCP port in the listen
-         * spec so as to let the kernel to find an unused port for the TCP
-         * transport; thus call GetLocalAddress() to get the actual TCP port
-         * used after Bind() and update the connect spec here.
+         * If the port was not set (or set to zero) then we will have bound an ephemeral port. If
+         * so call GetLocalAddress() to update the connect spec with the port allocated by bind.
          */
-        qcc::GetLocalAddress(listenFd, listenAddr, listenPort);
-        normSpec = "tcp:addr=" + argMap["addr"] + ",port=" + U32ToString(listenPort);
-
+        if (ephemeralPort) {
+            qcc::GetLocalAddress(listenFd, listenAddr, listenPort);
+            normSpec = "tcp:addr=" + argMap["addr"] + "," + argMap["family"] + ",port=" + U32ToString(listenPort);
+        }
         status = qcc::Listen(listenFd, SOMAXCONN);
         if (status == ER_OK) {
             QCC_DbgPrintf(("TCPTransport::DoStartListen(): Listening on %s/%d", argMap["addr"].c_str(), listenPort));
