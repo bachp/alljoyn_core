@@ -90,16 +90,16 @@ class BusController {
 
     Bus& bus;
 
-#ifndef NDEBUG
-    /** BusObject responsible for org.alljoyn.Debug */
-    debug::AllJoynDebugObj alljoynDebugObj;
-#endif
-
     /** Bus object responsible for org.freedesktop.DBus */
     DBusObj dbusObj;
 
-    /** BusObject responsible for org.alljoyn.Bus */
+    /** Bus object responsible for org.alljoyn.Bus */
     AllJoynObj alljoynObj;
+
+#ifndef NDEBUG
+    /** Bus object responsible for org.alljoyn.Debug */
+    debug::AllJoynDebugObj alljoynDebugObj;
+#endif
 
     /** Event to wait on while initialization completes */
     qcc::Event* initComplete;

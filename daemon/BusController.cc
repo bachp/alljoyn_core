@@ -8,7 +8,7 @@
 /******************************************************************************
  *
  *
- * Copyright 2009-2011, Qualcomm Innovation Center, Inc.
+ * Copyright 2009-2012, Qualcomm Innovation Center, Inc.
  *
  *    Licensed under the Apache License, Version 2.0 (the "License");
  *    you may not use this file except in compliance with the License.
@@ -35,18 +35,13 @@ using namespace std;
 using namespace qcc;
 using namespace ajn;
 
-#ifndef NDEBUG
-debug::AllJoynDebugObj* debug::AllJoynDebugObj::self = NULL;
-#endif
-
-
 BusController::BusController(Bus& alljoynBus) :
     bus(alljoynBus),
-#ifndef NDEBUG
-    alljoynDebugObj(bus),
-#endif
     dbusObj(bus, this),
     alljoynObj(bus, this),
+#ifndef NDEBUG
+    alljoynDebugObj(bus, this),
+#endif
     initComplete(NULL)
 
 {
@@ -116,6 +111,9 @@ void BusController::ObjectRegistered(BusObject* obj)
 #ifndef NDEBUG
     if (obj == &alljoynObj) {
         status = alljoynDebugObj.Init();
+        if (status == ER_OK) {
+            return;
+        }
         QCC_LogError(status, ("alljoynDebugObj::Init failed"));
     }
 #endif
