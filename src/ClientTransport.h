@@ -159,6 +159,13 @@ class ClientTransport : public Transport, public RemoteEndpoint::EndpointListene
     static const char* TransportName;
 
     /**
+     * Returns true if a client transport is available on this platform. Some platforms only support
+     * a bundled daemon so don't have a client transport. Transports must have names so if the
+     * transport has no name it is not available.
+     */
+    static bool IsAvailable() { return TransportName != NULL; }
+
+    /**
      * Callback for ClientEndpoint exit.
      *
      * @param endpoint   ClientEndpoint instance that has exited.

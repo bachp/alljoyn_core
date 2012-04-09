@@ -122,8 +122,12 @@ class LocalTransportFactoryContainer : public TransportFactoryContainer {
   public:
     LocalTransportFactoryContainer()
     {
-        Add(new TransportFactory<ClientTransport>(ClientTransport::TransportName, true));
-        Add(new TransportFactory<NullTransport>(NullTransport::TransportName, true));
+        if (ClientTransport::IsAvailable()) {
+            Add(new TransportFactory<ClientTransport>(ClientTransport::TransportName, true));
+        }
+        if (NullTransport::IsAvailable()) {
+            Add(new TransportFactory<NullTransport>(NullTransport::TransportName, true));
+        }
     }
 } localTransportsContainer;
 
@@ -276,11 +280,11 @@ QStatus BusAttachment::Connect(const char* connectSpec, BusEndpoint** newep)
          * Try using the null transport to connect to a bundled daemon if there is one
          */
         if (status != ER_OK && !isDaemon) {
-            qcc::String bundleConnectSpec = "null:";
-            if (bundleConnectSpec != connectSpec) {
-                status = TryConnect(bundleConnectSpec.c_str(), newep);
+            qcc::String bundledConnectSpec = "null:";
+            if (bundledConnectSpec != connectSpec) {
+                status = TryConnect(bundledConnectSpec.c_str(), newep);
                 if (ER_OK == status) {
-                    this->connectSpec = bundleConnectSpec;
+                    this->connectSpec = bundledConnectSpec;
                 }
             }
         }
