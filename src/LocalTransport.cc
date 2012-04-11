@@ -467,7 +467,7 @@ QStatus LocalEndpoint::RegisterReplyHandler(MessageReceiver* receiver,
             &method,
             secure,
             context,
-            Alarm(timeout, this, 0, (void*)serial)
+            Alarm(timeout, this, 0, (void*)(size_t)serial)
         };
         QCC_DbgPrintf(("LocalEndpoint::RegisterReplyHandler - Adding serial=%u", serial));
         replyMapLock.Lock(MUTEX_CONTEXT);
@@ -507,7 +507,7 @@ QStatus LocalEndpoint::ExtendReplyHandlerTimeout(uint32_t serial, uint32_t exten
     map<uint32_t, ReplyContext>::iterator iter = replyMap.find(serial);
     if (iter != replyMap.end()) {
         QCC_DbgPrintf(("LocalEndpoint::ExtendReplyHandlerTimeout - extending timeout for serial=%u", serial));
-        Alarm newAlarm(Timespec(iter->second.alarm.GetAlarmTime() + extension), this, 0, (void*)serial);
+        Alarm newAlarm(Timespec(iter->second.alarm.GetAlarmTime() + extension), this, 0, (void*)(size_t)serial);
         status = bus.GetInternal().GetTimer().ReplaceAlarm(iter->second.alarm, newAlarm, false);
         if (status == ER_OK) {
             iter->second.alarm = newAlarm;
