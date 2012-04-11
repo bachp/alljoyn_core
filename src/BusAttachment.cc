@@ -1142,7 +1142,8 @@ QStatus BusAttachment::BindSessionPort(SessionPort& sessionPort, const SessionOp
         }
         if (status == ER_OK) {
             busInternal->sessionListenersLock.Lock(MUTEX_CONTEXT);
-            busInternal->sessionPortListeners[sessionPort] = &listener;
+            pair<SessionPort, Internal::ProtectedSessionPortListener> elem(sessionPort, &listener);
+            busInternal->sessionPortListeners.insert(elem);
             busInternal->sessionListenersLock.Unlock(MUTEX_CONTEXT);
         }
     }
@@ -1190,6 +1191,14 @@ QStatus BusAttachment::UnbindSessionPort(SessionPort sessionPort)
         }
         if (status == ER_OK) {
             busInternal->sessionListenersLock.Lock(MUTEX_CONTEXT);
+            map<SessionPort, Internal::ProtectedSessionPortListener>::iterator it =
+                busInternal->sessionPortListeners.find(sessionPort);
+            while ((it != busInternal->sessionPortListeners.end()) && it->second.refCount) {
+                busInternal->sessionListenersLock.Unlock(MUTEX_CONTEXT);
+                Sleep(10);
+                busInternal->sessionListenersLock.Lock(MUTEX_CONTEXT);
+                it = busInternal->sessionPortListeners.find(sessionPort);
+            }
             busInternal->sessionPortListeners.erase(sessionPort);
             busInternal->sessionListenersLock.Unlock(MUTEX_CONTEXT);
         }
@@ -1677,11 +1686,21 @@ bool BusAttachment::Internal::CallAcceptListeners(SessionPort sessionPort, const
 
     /* Call sessionPortListener */
     sessionListenersLock.Lock(MUTEX_CONTEXT);
-    map<SessionPort, SessionPortListener*>::iterator it = sessionPortListeners.find(sessionPort);
-    if (it != sessionPortListeners.end()) {
-        isAccepted = it->second->AcceptSessionJoiner(sessionPort, joiner, opts);
+    map<SessionPort, ProtectedSessionPortListener>::iterator it = sessionPortListeners.find(sessionPort);
+    SessionPortListener* listener = (it != sessionPortListeners.end()) ? it->second.listener : NULL;
+    ++it->second.refCount;
+    sessionListenersLock.Unlock(MUTEX_CONTEXT);
+
+    if (listener) {
+        isAccepted = listener->AcceptSessionJoiner(sessionPort, joiner, opts);
     } else {
         QCC_LogError(ER_FAIL, ("Unable to find sessionPortListener for port=%d", sessionPort));
+    }
+
+    sessionListenersLock.Lock(MUTEX_CONTEXT);
+    it = sessionPortListeners.find(sessionPort);
+    if (it != sessionPortListeners.end()) {
+        --it->second.refCount;
     }
     sessionListenersLock.Unlock(MUTEX_CONTEXT);
 
@@ -1692,14 +1711,14 @@ void BusAttachment::Internal::CallJoinedListeners(SessionPort sessionPort, Sessi
 {
     /* Call sessionListener */
     sessionListenersLock.Lock(MUTEX_CONTEXT);
-    map<SessionPort, SessionPortListener*>::iterator it = sessionPortListeners.find(sessionPort);
+    map<SessionPort, ProtectedSessionPortListener>::iterator it = sessionPortListeners.find(sessionPort);
     if (it != sessionPortListeners.end()) {
         /* Add entry to sessionListeners */
         if (sessionListeners.find(sessionId) == sessionListeners.end()) {
             sessionListeners[sessionId] = NULL;
         }
         /* Notify user */
-        it->second->SessionJoined(sessionPort, sessionId, joiner);
+        it->second.listener->SessionJoined(sessionPort, sessionId, joiner);
     } else {
         QCC_LogError(ER_FAIL, ("Unable to find sessionPortListener for port=%d", sessionPort));
     }

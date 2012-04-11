@@ -293,7 +293,12 @@ class BusAttachment::Internal : public MessageReceiver, public qcc::AlarmListene
     qcc::Mutex stopLock;                  /* Protects BusAttachement::Stop from being reentered */
     int32_t stopCount;                    /* Number of caller's blocked in BusAttachment::Stop() */
 
-    std::map<SessionPort, SessionPortListener*> sessionPortListeners;  /* Lookup SessionPortListener by session port */
+    struct ProtectedSessionPortListener {
+        SessionPortListener* listener;
+        int32_t refCount;
+        ProtectedSessionPortListener(SessionPortListener* listener) : listener(listener), refCount(0) { }
+    };
+    std::map<SessionPort, ProtectedSessionPortListener> sessionPortListeners;  /* Lookup SessionPortListener by session port */
     std::map<SessionId, SessionListener*> sessionListeners;            /* Lookup SessionListener by session id */
     qcc::Mutex sessionListenersLock;                                   /* Lock protecting sessionListners maps */
 };
