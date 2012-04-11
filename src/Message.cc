@@ -280,7 +280,7 @@ QStatus _Message::GetArgs(const char* signature, ...)
 }
 
 _Message::_Message(BusAttachment& bus) :
-    bus(bus),
+    bus(&bus),
     endianSwap(false),
     msgBuf(NULL),
     msgArgs(NULL),
@@ -294,8 +294,8 @@ _Message::_Message(BusAttachment& bus) :
     msgHeader.endian = myEndian;
 }
 
-_Message::_Message(const _Message& other)
-    : bus(other.bus),
+_Message::_Message(const _Message& other) :
+    bus(other.bus),
     endianSwap(other.endianSwap),
     msgHeader(other.msgHeader),
     msgBuf(other.msgBuf ? new uint64_t[other.bufSize / 8] : NULL),
@@ -352,7 +352,7 @@ QStatus _Message::ReMarshal(const char* senderName, bool newSerial)
     }
 
     if (newSerial) {
-        msgHeader.serialNum = bus.GetInternal().NextSerial();
+        msgHeader.serialNum = bus->GetInternal().NextSerial();
     }
 
     /*

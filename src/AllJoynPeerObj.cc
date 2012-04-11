@@ -5,7 +5,7 @@
  */
 
 /******************************************************************************
- * Copyright 2010-2011, Qualcomm Innovation Center, Inc.
+ * Copyright 2010-2012, Qualcomm Innovation Center, Inc.
  *
  *    Licensed under the Apache License, Version 2.0 (the "License");
  *    you may not use this file except in compliance with the License.
@@ -156,9 +156,9 @@ QStatus AllJoynPeerObj::RequestHeaderExpansion(Message& msg, RemoteEndpoint* sen
     return DispatchRequest(msg, EXPAND_HEADER, sender->GetRemoteName());
 }
 
-QStatus AllJoynPeerObj::RequestAuthentication(Message& msg, RemoteEndpoint* endpoint)
+QStatus AllJoynPeerObj::RequestAuthentication(Message& msg)
 {
-    return DispatchRequest(msg, AUTHENTICATE_PEER, endpoint->GetUniqueName());
+    return DispatchRequest(msg, AUTHENTICATE_PEER);
 }
 
 /**

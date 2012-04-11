@@ -94,12 +94,11 @@ class AllJoynPeerObj : public BusObject, public BusListener, public qcc::AlarmLi
      * This function is called when an encrypted message requires authentication.
      *
      * @param msg     The message to be encrypted.
-     * @param sender  The remote endpoint that the encrypted message will be sent to
      * @return
      *      - ER_OK if successful
      *      - An error status otherwise
      */
-    QStatus RequestAuthentication(Message& msg, RemoteEndpoint* sender);
+    QStatus RequestAuthentication(Message& msg);
 
     /**
      * Setup for peer-to-peer authentication. The authentication mechanisms listed can only be used

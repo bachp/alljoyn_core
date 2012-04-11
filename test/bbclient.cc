@@ -238,11 +238,19 @@ class MyAuthListener : public AuthListener {
 
         if (strcmp(authMechanism, "ALLJOYN_SRP_KEYX") == 0) {
             if (credMask & AuthListener::CRED_PASSWORD) {
+#if 0
                 if (authCount == 3) {
                     creds.SetPassword("123456");
                 } else {
                     creds.SetPassword("xxxxxx");
                 }
+#else
+                if (authCount == 1) {
+                    creds.SetPassword("123456");
+                } else {
+                    return false;
+                }
+#endif
                 printf("AuthListener returning fixed pin \"%s\" for %s\n", creds.GetPassword().c_str(), authMechanism);
             }
             return true;

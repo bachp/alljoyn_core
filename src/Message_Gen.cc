@@ -512,18 +512,10 @@ QStatus _Message::Deliver(RemoteEndpoint& endpoint)
     if (encrypt) {
         status = EncryptMessage();
         /*
-         * Need to authenticate if we don't have a key
+         * Delivery is retried when the authentication completes
          */
-        if (status == ER_BUS_KEY_UNAVAILABLE) {
-            QCC_DbgHLPrintf(("Deliver: Key not available requesting authentication", Description().c_str()));
-            Message msg(this);
-            status = bus.GetInternal().GetLocalEndpoint().GetPeerObj()->RequestAuthentication(msg, &endpoint);
-            /*
-             * Delivery is retried when the authentication completes
-             */
-            if (status == ER_OK) {
-                return ER_OK;
-            }
+        if (status == ER_BUS_AUTHENTICATION_PENDING) {
+            return ER_OK;
         }
     }
     /*
@@ -692,7 +684,7 @@ size_t _Message::ComputeHeaderLen()
 QStatus _Message::EncryptMessage()
 {
     QStatus status;
-    PeerStateTable* peerStateTable = bus.GetInternal().GetPeerStateTable();
+    PeerStateTable* peerStateTable = bus->GetInternal().GetPeerStateTable();
     KeyBlob key;
     status = peerStateTable->GetPeerState(GetDestination())->GetKey(key, PEER_SESSION_KEY);
     if (status == ER_OK) {
@@ -703,6 +695,17 @@ QStatus _Message::EncryptMessage()
             authMechanism = key.GetTag();
             assert(msgHeader.bodyLen == argsLen);
             encrypt = false;
+        }
+    }
+    /*
+     * Need to request an authentication if we don't have a key.
+     */
+    if (status == ER_BUS_KEY_UNAVAILABLE) {
+        QCC_DbgHLPrintf(("Deliver: Key not available requesting authentication", Description().c_str()));
+        Message msg(this);
+        status = bus->GetInternal().GetLocalEndpoint().GetPeerObj()->RequestAuthentication(msg);
+        if (status == ER_OK) {
+            status = ER_BUS_AUTHENTICATION_PENDING;
         }
     }
     return status;
@@ -721,7 +724,7 @@ QStatus _Message::MarshalMessage(const qcc::String& expectedSignature,
     size_t argsLen = (numArgs == 0) ? 0 : SignatureUtils::GetSize(args, numArgs);
     size_t hdrLen = 0;
 
-    if (!bus.IsStarted()) {
+    if (!bus->IsStarted()) {
         return ER_BUS_BUS_NOT_STARTED;
     }
     /*
@@ -733,13 +736,10 @@ QStatus _Message::MarshalMessage(const qcc::String& expectedSignature,
      */
     encrypt = (flags & ALLJOYN_FLAG_ENCRYPTED) ? true : false;
     msgHeader.endian = outEndian;
+    msgHeader.flags = flags;
     msgHeader.msgType = (uint8_t)msgType;
     msgHeader.majorVersion = ALLJOYN_MAJOR_PROTOCOL_VERSION;
-    msgHeader.serialNum = bus.GetInternal().NextSerial();
-    /*
-     * Toggle the autostart flag bit which is a 0 over the air but we prefer as a 1.
-     */
-    msgHeader.flags = flags ^ ALLJOYN_FLAG_AUTO_START;
+    msgHeader.serialNum = bus->GetInternal().NextSerial();
     /*
      * Encryption will typically make the body length slightly larger because the encryption
      * algorithm appends a MAC block to the end of the encrypted data.
@@ -778,7 +778,7 @@ QStatus _Message::MarshalMessage(const qcc::String& expectedSignature,
     /*
      * Sender is obtained from the bus
      */
-    const qcc::String& sender = bus.GetInternal().GetLocalEndpoint().GetUniqueName();
+    const qcc::String& sender = bus->GetInternal().GetLocalEndpoint().GetUniqueName();
     hdrFields.field[ALLJOYN_HDR_FIELD_SENDER].Clear();
     if (!sender.empty()) {
         hdrFields.field[ALLJOYN_HDR_FIELD_SENDER].typeId = ALLJOYN_STRING;
@@ -823,7 +823,7 @@ QStatus _Message::MarshalMessage(const qcc::String& expectedSignature,
      */
     hdrFields.field[ALLJOYN_HDR_FIELD_COMPRESSION_TOKEN].Clear();
     if ((msgHeader.flags & ALLJOYN_FLAG_COMPRESSED)) {
-        hdrFields.field[ALLJOYN_HDR_FIELD_COMPRESSION_TOKEN].v_uint32 = bus.GetInternal().GetCompressionRules().GetToken(hdrFields);
+        hdrFields.field[ALLJOYN_HDR_FIELD_COMPRESSION_TOKEN].v_uint32 = bus->GetInternal().GetCompressionRules().GetToken(hdrFields);
         hdrFields.field[ALLJOYN_HDR_FIELD_COMPRESSION_TOKEN].typeId = ALLJOYN_UINT32;
     }
     /*
@@ -942,7 +942,7 @@ QStatus _Message::HelloMessage(bool isBusToBus, bool allowRemote, uint32_t& seri
         hdrFields.field[ALLJOYN_HDR_FIELD_INTERFACE].Set("s", org::alljoyn::Bus::InterfaceName);
         hdrFields.field[ALLJOYN_HDR_FIELD_MEMBER].Set("s", "BusHello");
 
-        qcc::String guid = bus.GetInternal().GetGlobalGUID().ToString();
+        qcc::String guid = bus->GetInternal().GetGlobalGUID().ToString();
         MsgArg args[2];
         args[0].Set("s", guid.c_str());
         args[1].Set("u", ALLJOYN_PROTOCOL_VERSION);
@@ -993,7 +993,7 @@ QStatus _Message::HelloReply(bool isBusToBus, const qcc::String& uniqueName)
     hdrFields.field[ALLJOYN_HDR_FIELD_REPLY_SERIAL].Set("u", msgHeader.serialNum);
 
     if (isBusToBus) {
-        guidStr = bus.GetInternal().GetGlobalGUID().ToString();
+        guidStr = bus->GetInternal().GetGlobalGUID().ToString();
         MsgArg args[3];
         args[0].Set("s", uniqueName.c_str());
         args[1].Set("s", guidStr.c_str());
@@ -1306,7 +1306,7 @@ void _Message::ErrorMsg(QStatus status,
 QStatus _Message::GetExpansion(uint32_t token, MsgArg& replyArg)
 {
     QStatus status = ER_OK;
-    const HeaderFields* expFields = bus.GetInternal().GetCompressionRules().GetExpansion(token);
+    const HeaderFields* expFields = bus->GetInternal().GetCompressionRules().GetExpansion(token);
     if (expFields) {
         MsgArg* hdrArray = new MsgArg[ALLJOYN_HDR_FIELD_UNKNOWN];
         size_t numElements = 0;

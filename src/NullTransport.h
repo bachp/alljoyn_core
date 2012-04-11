@@ -184,7 +184,7 @@ class NullTransport : public Transport {
 
     /**
      * The null transport is only available if the application has been linked with bundled daemon
-     * support. Check if the null transport is available. 
+     * support. Check if the null transport is available.
      *
      * @return  Returns true if the null transport is available.
      */

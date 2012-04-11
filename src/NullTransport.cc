@@ -48,21 +48,50 @@ DaemonLauncher* NullTransport::daemonLauncher;
 
 BusAttachment* NullTransport::daemonBus;
 
-class RouterEndpoint;
-
+/*
+ * The null endpoint simply moves messages between the daemon router to the client router and lets
+ * the routers handle it from there. The only wrinkle is that messages forwarded to the daemon may
+ * need to be encrypted because in the non-bundled case encryption is done in _Message::Deliver()
+ * and that method does not get called in this case.
+ */
 class NullEndpoint : public BusEndpoint {
 
   public:
 
-    NullEndpoint(Router& clientRouter, Router& daemonRouter);
+    NullEndpoint(BusAttachment& clientBus, BusAttachment& daemonBus);
 
     ~NullEndpoint();
 
-    QStatus PushMessage(Message& msg) {
+    QStatus PushMessage(Message& msg)
+    {
+        QStatus status = ER_OK;
         /*
-         * TODO - need to handle encryption
+         * In the un-bundled daemon case messages store the name of the endpoint they were received
+         * on. As far as the client and daemon routers are concerned the message was received from
+         * this endpoint so we must set the received name to the unique name of this endpoint.
          */
-        return daemonRouter.PushMessage(msg, *this);
+        msg->rcvEndpointName = uniqueName;
+        /*
+         * If the message came from the daemon forward it to the client and visa versa.
+         */
+        if (msg->bus == &daemonBus) {
+            msg->bus = &clientBus;
+            status = clientBus.GetInternal().GetRouter().PushMessage(msg, *this);
+        } else {
+            /*
+             * Messages we are sending to the daemon may need to be encrypted.
+             */
+            if (msg->encrypt) {
+                status = msg->EncryptMessage();
+            }
+            if (status == ER_OK) {
+                msg->bus = &daemonBus;
+                status = daemonBus.GetInternal().GetRouter().PushMessage(msg, *this);
+            } else if (status == ER_BUS_AUTHENTICATION_PENDING) {
+                status = ER_OK;
+            }
+        }
+        return status;
     }
 
     const qcc::String& GetUniqueName() const { return uniqueName; }
@@ -73,57 +102,32 @@ class NullEndpoint : public BusEndpoint {
     bool SupportsUnixIDs() const { return false; }
     bool AllowRemoteMessages() { return true; }
 
+    BusAttachment& clientBus;
+    BusAttachment& daemonBus;
+
     qcc::String uniqueName;
-    Router& clientRouter;
-    Router& daemonRouter;
-    RouterEndpoint* routerEndpoint;
 };
 
-class RouterEndpoint : public BusEndpoint {
-
-  public:
-
-    RouterEndpoint(NullEndpoint& nullEndpoint) :
-        BusEndpoint(ENDPOINT_TYPE_NULL),
-        nullEndpoint(nullEndpoint)
-    {
-        nullEndpoint.daemonRouter.RegisterEndpoint(*this, false);
-    }
-
-    ~RouterEndpoint() {
-        nullEndpoint.daemonRouter.UnregisterEndpoint(*this);
-    }
-
-    QStatus PushMessage(Message& msg) {
-        return nullEndpoint.clientRouter.PushMessage(msg, *this);
-    }
-
-    const qcc::String& GetUniqueName() const { return nullEndpoint.uniqueName; }
-
-    uint32_t GetUserId() const { return -1; }
-    uint32_t GetGroupId() const { return -1; }
-    uint32_t GetProcessId() const { return -1; }
-    bool SupportsUnixIDs() const { return false; }
-    bool AllowRemoteMessages() { return true; }
-
-    NullEndpoint& nullEndpoint;
-};
-
-NullEndpoint::NullEndpoint(Router& clientRouter, Router& daemonRouter) :
+NullEndpoint::NullEndpoint(BusAttachment& clientBus, BusAttachment& daemonBus) :
     BusEndpoint(ENDPOINT_TYPE_NULL),
-    uniqueName(daemonRouter.GenerateUniqueName()),
-    clientRouter(clientRouter),
-    daemonRouter(daemonRouter),
-    routerEndpoint(NULL)
+    clientBus(clientBus),
+    daemonBus(daemonBus)
 {
-    clientRouter.RegisterEndpoint(*this, false);
-    routerEndpoint = new RouterEndpoint(*this);
+    /*
+     * We get a unique name for this endpoint the usual way.
+     */
+    uniqueName = daemonBus.GetInternal().GetRouter().GenerateUniqueName();
+    /*
+     * Register the null endpont with both routers.
+     */
+    clientBus.GetInternal().GetRouter().RegisterEndpoint(*this, false);
+    daemonBus.GetInternal().GetRouter().RegisterEndpoint(*this, false);
 }
 
 NullEndpoint::~NullEndpoint()
 {
-    delete routerEndpoint;
-    clientRouter.UnregisterEndpoint(*this);
+    clientBus.GetInternal().GetRouter().UnregisterEndpoint(*this);
+    daemonBus.GetInternal().GetRouter().UnregisterEndpoint(*this);
 }
 
 NullTransport::NullTransport(BusAttachment& bus) : bus(bus), running(false), endpoint(NULL)
@@ -177,7 +181,8 @@ QStatus NullTransport::Connect(const char* connectSpec, const SessionOpts& opts,
         status = daemonLauncher->Start(daemonBus);
     }
     if (status == ER_OK) {
-        endpoint = new NullEndpoint(bus.GetInternal().GetRouter(), daemonBus->GetInternal().GetRouter());
+        assert(daemonBus);
+        endpoint = new NullEndpoint(bus, *daemonBus);
         if (newep) {
             *newep = endpoint;
         }

@@ -170,8 +170,8 @@ class _Message {
     friend class RemoteEndpoint;
     friend class EndpointAuth;
     friend class LocalEndpoint;
+    friend class NullEndpoint;
     friend class DaemonRouter;
-    friend class DBusObj;
     friend class AllJoynObj;
     friend class DeferredMsg;
     friend class AllJoynPeerObj;
@@ -507,7 +507,7 @@ class _Message {
     /// @cond ALLJOYN_DEV
     /**
      * @internal
-     * Generate an method reply message from a method call.
+     * Generate a method reply message from a method call.
      *
      * @param call        The call message - can be this message.
      * @param args        The arguments for the reply (can be NULL)
@@ -748,7 +748,7 @@ class _Message {
 
     static char outEndian;       ///< Endianess for outgoing messages
 
-    BusAttachment& bus;          ///< The bus this message was received or will be sent on.
+    BusAttachment* bus;          ///< The bus this message was received or will be sent on.
 
     bool endianSwap;             ///< true if endianness will be swapped.
 

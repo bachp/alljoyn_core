@@ -559,7 +559,7 @@ QStatus _Message::UnmarshalArgs(const qcc::String& expectedSignature, const char
     const char* sig = GetSignature();
     QStatus status = ER_OK;
 
-    if (!bus.IsStarted()) {
+    if (!bus->IsStarted()) {
         return ER_BUS_BUS_NOT_STARTED;
     }
     if (msgHeader.msgType == MESSAGE_INVALID) {
@@ -580,7 +580,7 @@ QStatus _Message::UnmarshalArgs(const qcc::String& expectedSignature, const char
     if (msgHeader.flags & ALLJOYN_FLAG_ENCRYPTED) {
         bool broadcast = (hdrFields.field[ALLJOYN_HDR_FIELD_DESTINATION].typeId == ALLJOYN_INVALID);
         size_t hdrLen = bodyPtr - (uint8_t*)msgBuf;
-        PeerState peerState = bus.GetInternal().GetPeerStateTable()->GetPeerState(GetSender());
+        PeerState peerState = bus->GetInternal().GetPeerStateTable()->GetPeerState(GetSender());
         KeyBlob key;
         status = peerState->GetKey(key, broadcast ? PEER_GROUP_KEY : PEER_SESSION_KEY);
         if (status != ER_OK) {
@@ -858,13 +858,12 @@ QStatus _Message::Unmarshal(RemoteEndpoint& endpoint, bool checkSender, bool ped
     size_t maxFds = endpoint.GetFeatures().handlePassing ? ArraySize(fdList) : 0;
     MsgArg* senderField = &hdrFields.field[ALLJOYN_HDR_FIELD_SENDER];
     Source& source = endpoint.GetSource();
-    const qcc::String& endpointName = endpoint.GetUniqueName();
 
-    if (!bus.IsStarted()) {
+    if (!bus->IsStarted()) {
         return ER_BUS_BUS_NOT_STARTED;
     }
 
-    rcvEndpointName = endpointName;
+    rcvEndpointName = endpoint.GetUniqueName();
 
     /*
      * Clear out any stale message state
@@ -1036,7 +1035,7 @@ QStatus _Message::Unmarshal(RemoteEndpoint& endpoint, bool checkSender, bool ped
             status = ER_BUS_MISSING_COMPRESSION_TOKEN;
             goto ExitUnmarshal;
         }
-        const HeaderFields* expFields = bus.GetInternal().GetCompressionRules().GetExpansion(token);
+        const HeaderFields* expFields = bus->GetInternal().GetCompressionRules().GetExpansion(token);
         if (!expFields) {
             QCC_DbgPrintf(("No expansion for token %u", token));
             status = ER_BUS_CANNOT_EXPAND_MESSAGE;
@@ -1085,13 +1084,13 @@ QStatus _Message::Unmarshal(RemoteEndpoint& endpoint, bool checkSender, bool ped
          * If the message didn't specify a sender (unusual but unfortunately the spec allows it) or the
          * sender field is not the expected unique name we set the sender field.
          */
-        if ((senderField->typeId == ALLJOYN_INVALID) || (endpointName != senderField->v_string.str)) {
-            QCC_DbgHLPrintf(("Replacing missing or bad sender field %s by %s", senderField->ToString().c_str(), endpointName.c_str()));
-            status = ReMarshal(endpointName.c_str());
+        if ((senderField->typeId == ALLJOYN_INVALID) || (rcvEndpointName != senderField->v_string.str)) {
+            QCC_DbgHLPrintf(("Replacing missing or bad sender field %s by %s", senderField->ToString().c_str(), rcvEndpointName.c_str()));
+            status = ReMarshal(rcvEndpointName.c_str());
         }
     }
     if (senderField->typeId != ALLJOYN_INVALID) {
-        PeerState peerState = bus.GetInternal().GetPeerStateTable()->GetPeerState(senderField->v_string.str);
+        PeerState peerState = bus->GetInternal().GetPeerStateTable()->GetPeerState(senderField->v_string.str);
         bool unreliable = hdrFields.field[ALLJOYN_HDR_FIELD_TIME_TO_LIVE].typeId != ALLJOYN_INVALID;
         bool secure = (msgHeader.flags & ALLJOYN_FLAG_ENCRYPTED) != 0;
         /*
@@ -1145,7 +1144,7 @@ ExitUnmarshal:
     }
     switch (status) {
     case ER_OK:
-        QCC_DbgHLPrintf(("Received %s from %s", Description().c_str(), endpointName.c_str()));
+        QCC_DbgHLPrintf(("Received %s via endpoint %s", Description().c_str(), rcvEndpointName.c_str()));
         QCC_DbgPrintf(("\n%s", ToString().c_str()));
         break;
 
@@ -1155,7 +1154,7 @@ ExitUnmarshal:
          * up to the upper-layer code to decide what to do. In most cases the upper-layer will queue
          * the message while it calls to the sender to get the needed expansion information.
          */
-        QCC_DbgHLPrintf(("Received compressed message of len %d (endpoint %s)\n%s", pktSize, endpointName.c_str(), ToString().c_str()));
+        QCC_DbgHLPrintf(("Received compressed message of len %d (via endpoint %s)\n%s", pktSize, rcvEndpointName.c_str(), ToString().c_str()));
         break;
 
     case ER_BUS_TIME_TO_LIVE_EXPIRED:
@@ -1163,7 +1162,7 @@ ExitUnmarshal:
          * The message was succesfully unmarshalled but was stale so let the upper-layer decide
          * whether the error is recoverable or not.
          */
-        QCC_DbgHLPrintf(("Time to live expired for (endpoint %s) message:\n%s", endpointName.c_str(), ToString().c_str()));
+        QCC_DbgHLPrintf(("Time to live expired for (via endpoint %s) message:\n%s", rcvEndpointName.c_str(), ToString().c_str()));
         break;
 
     case ER_BUS_INVALID_HEADER_SERIAL:
@@ -1171,7 +1170,7 @@ ExitUnmarshal:
          * The message was succesfully unmarshalled but was out-of-order so let the upper-layer
          * decide whether the error is recoverable or not.
          */
-        QCC_DbgHLPrintf(("Serial number was invalid for (endpoint %s) message:\n%s", endpointName.c_str(), ToString().c_str()));
+        QCC_DbgHLPrintf(("Serial number was invalid for (via endpoint %s) message:\n%s", rcvEndpointName.c_str(), ToString().c_str()));
         break;
 
     default:
@@ -1190,7 +1189,7 @@ ExitUnmarshal:
 
 QStatus _Message::AddExpansionRule(uint32_t token, const MsgArg* expansionArg)
 {
-    CompressionRules& compressionRules = bus.GetInternal().GetCompressionRules();
+    CompressionRules& compressionRules = bus->GetInternal().GetCompressionRules();
     /*
      * Validate the expansion response.
      */
