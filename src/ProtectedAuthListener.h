@@ -27,8 +27,8 @@
 #endif
 
 #include <qcc/platform.h>
+#include <qcc/Mutex.h>
 #include <qcc/String.h>
-#include <qcc/atomic.h>
 #include <qcc/Thread.h>
 
 #include <alljoyn/AuthListener.h>
@@ -53,21 +53,24 @@ class ProtectedAuthListener : public AuthListener {
      * function will block until the callout returns.
      */
     void Set(AuthListener* listener) {
+        lock.Lock(MUTEX_CONTEXT);
         /*
          * Clear the current listener to prevent any more calls to this listener.
          */
         this->listener = NULL;
         /*
-         * Poll and sleep until the current listener is no longer in use. We do this rather than
-         * using a mutex to avoid the possibility of introducing a deadlock.
+         * Poll and sleep until the current listener is no longer in use.
          */
         while (refCount) {
+            lock.Unlock(MUTEX_CONTEXT);
             qcc::Sleep(10);
+            lock.Lock(MUTEX_CONTEXT);
         }
         /*
          * Now set the new listener
          */
         this->listener = listener;
+        lock.Unlock(MUTEX_CONTEXT);
     }
 
     /**
@@ -76,11 +79,16 @@ class ProtectedAuthListener : public AuthListener {
     bool RequestCredentials(const char* authMechanism, const char* peerName, uint16_t authCount, const char* userName, uint16_t credMask, Credentials& credentials)
     {
         bool ok = false;
-        qcc::IncrementAndFetch(&refCount);
+        lock.Lock(MUTEX_CONTEXT);
+        AuthListener* listener = this->listener;
+        ++refCount;
+        lock.Unlock(MUTEX_CONTEXT);
         if (listener) {
             ok = listener->RequestCredentials(authMechanism, peerName, authCount, userName, credMask, credentials);
         }
-        qcc::DecrementAndFetch(&refCount);
+        lock.Lock(MUTEX_CONTEXT);
+        --refCount;
+        lock.Unlock(MUTEX_CONTEXT);
         return ok;
     }
 
@@ -90,11 +98,16 @@ class ProtectedAuthListener : public AuthListener {
     bool VerifyCredentials(const char* authMechanism, const char* peerName, const Credentials& credentials)
     {
         bool ok = false;
-        qcc::IncrementAndFetch(&refCount);
+        lock.Lock(MUTEX_CONTEXT);
+        AuthListener* listener = this->listener;
+        ++refCount;
+        lock.Unlock(MUTEX_CONTEXT);
         if (listener) {
             ok = listener->VerifyCredentials(authMechanism, peerName, credentials);
         }
-        qcc::DecrementAndFetch(&refCount);
+        lock.Lock(MUTEX_CONTEXT);
+        --refCount;
+        lock.Unlock(MUTEX_CONTEXT);
         return ok;
     }
 
@@ -103,11 +116,16 @@ class ProtectedAuthListener : public AuthListener {
      */
     void SecurityViolation(QStatus status, const Message& msg)
     {
-        qcc::IncrementAndFetch(&refCount);
+        lock.Lock(MUTEX_CONTEXT);
+        AuthListener* listener = this->listener;
+        ++refCount;
+        lock.Unlock(MUTEX_CONTEXT);
         if (listener) {
             listener->SecurityViolation(status, msg);
         }
-        qcc::DecrementAndFetch(&refCount);
+        lock.Lock(MUTEX_CONTEXT);
+        --refCount;
+        lock.Unlock(MUTEX_CONTEXT);
     }
 
     /**
@@ -115,11 +133,16 @@ class ProtectedAuthListener : public AuthListener {
      */
     void AuthenticationComplete(const char* authMechanism, const char* peerName, bool success)
     {
-        qcc::IncrementAndFetch(&refCount);
+        lock.Lock(MUTEX_CONTEXT);
+        AuthListener* listener = this->listener;
+        ++refCount;
+        lock.Unlock(MUTEX_CONTEXT);
         if (listener) {
             listener->AuthenticationComplete(authMechanism, peerName, success);
         }
-        qcc::DecrementAndFetch(&refCount);
+        lock.Lock(MUTEX_CONTEXT);
+        --refCount;
+        lock.Unlock(MUTEX_CONTEXT);
     }
 
   private:
@@ -132,6 +155,7 @@ class ProtectedAuthListener : public AuthListener {
     /*
      * Reference count so we know when the inner listener is no longer in use.
      */
+    qcc::Mutex lock;
     int32_t refCount;
 
 };
