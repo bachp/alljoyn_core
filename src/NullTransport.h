@@ -166,7 +166,7 @@ class NullTransport : public Transport {
      *
      * @return the TransportMask for this transport.
      */
-    TransportMask GetTransportMask() const { return TRANSPORT_WLAN; }
+    TransportMask GetTransportMask() const { return 0; }
 
     /**
      * Indicates whether this transport is used for client-to-bus or bus-to-bus connections.

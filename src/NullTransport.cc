@@ -28,6 +28,7 @@
 #include <qcc/String.h>
 #include <qcc/StringUtil.h>
 #include <qcc/Util.h>
+#include <qcc/Debug.h>
 
 #include <alljoyn/BusAttachment.h>
 
@@ -75,6 +76,14 @@ class NullEndpoint : public BusEndpoint {
          * If the message came from the daemon forward it to the client and visa versa.
          */
         if (msg->bus == &daemonBus) {
+            /*
+             * Register the endpoint with the client on receiving the first message from the daemon.
+             */
+            if (!clientReady) {
+                QCC_DbgHLPrintf(("Registering null endpoint with client"));
+                clientBus.GetInternal().GetRouter().RegisterEndpoint(*this, false);
+                clientReady = true;
+            }
             msg->bus = &clientBus;
             status = clientBus.GetInternal().GetRouter().PushMessage(msg, *this);
         } else {
@@ -102,26 +111,26 @@ class NullEndpoint : public BusEndpoint {
     bool SupportsUnixIDs() const { return false; }
     bool AllowRemoteMessages() { return true; }
 
+    bool clientReady;
     BusAttachment& clientBus;
     BusAttachment& daemonBus;
 
     qcc::String uniqueName;
+
 };
 
 NullEndpoint::NullEndpoint(BusAttachment& clientBus, BusAttachment& daemonBus) :
     BusEndpoint(ENDPOINT_TYPE_NULL),
+    clientReady(false),
     clientBus(clientBus),
     daemonBus(daemonBus)
 {
     /*
-     * We get a unique name for this endpoint the usual way.
+     * We short-circuit all of the normal authentication and hello handshakes and
+     * simply get a unique name for the null endpoint directly from the daemon.
      */
     uniqueName = daemonBus.GetInternal().GetRouter().GenerateUniqueName();
-    /*
-     * Register the null endpont with both routers.
-     */
-    clientBus.GetInternal().GetRouter().RegisterEndpoint(*this, false);
-    daemonBus.GetInternal().GetRouter().RegisterEndpoint(*this, false);
+    QCC_DbgHLPrintf(("Creating null endpoint %s", uniqueName.c_str()));
 }
 
 NullEndpoint::~NullEndpoint()
@@ -186,6 +195,13 @@ QStatus NullTransport::Connect(const char* connectSpec, const SessionOpts& opts,
         if (newep) {
             *newep = endpoint;
         }
+        /*
+         * Register the null endpoint with the daemon router. The client is registered as soon as we
+         * receive a message from the daemon. This will happen as soon as the daemon has completed
+         * the registration.
+         */
+        QCC_DbgHLPrintf(("Registering null endpoint with daemon"));
+        daemonBus->GetInternal().GetRouter().RegisterEndpoint(*endpoint, false);
     }
     return status;
 }
