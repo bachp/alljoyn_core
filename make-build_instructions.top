@@ -62,7 +62,7 @@ For example,
     make  OS=linux  CPU=x86  VARIANT=release  distclean
 
 
-#   UPDATE, 2012-03-29:
+#   UPDATE, 2012-04-12:
 #   ------------------
 #   The Make build now generates both liballjoyn.a and liballjoyn.so,
 #       both in build/$(OS)/$(CPU)/$(VARIANT)/dist/lib
@@ -72,10 +72,20 @@ For example,
 #
 #   Usage change:
 #
-#   Before running alljoyn daemon or the samples, liballjoyn.so should be
-#       copied to system lib. For example, it should be copied to
-#       "/usr/lib64" on ubuntu 64-bit machine and to "/usr/lib32" on Ubuntu
-#       32-bit
+#   The AllJoyn daemon and/or other AllJoyn executables may now refer to
+#       liballjoyn.so at run time. You may need to copy liballjoyn.so to
+#       the system where AllJoyn executables are run, and/or add the path
+#       to the directory containing liballjoyn.so to environment variable
+#       LD_LIBRARY_PATH.
+#
+#       For example:
+#           mkdir /opt/alljoyn/lib
+#           cp build/linux/x86/release/dist/lib/liballjoyn.so /opt/alljoyn/lib
+#           export LD_LIBRARY_PATH=/opt/alljoyn/lib:$LD_LIBRARY_PATH
+#
+#       Alternatively, you may simply add liballjoyn.so to the system libs.
+#       For example, copy liballjoyn.so to "/usr/lib64" on Ubuntu 64-bit
+#       systems, and to "/usr/lib32" on Ubuntu 32-bit system.
 
 
 3. Run a simple test of these build products
