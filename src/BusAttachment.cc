@@ -1188,7 +1188,7 @@ QStatus BusAttachment::UnbindSessionPort(SessionPort sessionPort)
                 busInternal->sessionPortListeners.find(sessionPort);
             while ((it != busInternal->sessionPortListeners.end()) && it->second.refCount) {
                 busInternal->sessionListenersLock.Unlock(MUTEX_CONTEXT);
-                Sleep(10);
+                qcc::Sleep(10);
                 busInternal->sessionListenersLock.Lock(MUTEX_CONTEXT);
                 it = busInternal->sessionPortListeners.find(sessionPort);
             }
