@@ -173,7 +173,7 @@ QStatus ClientTransport::Connect(const char* connectSpec, const SessionOpts& opt
      */
     status = qcc::Connect(sockFd, ipAddr, port);
     if (status != ER_OK) {
-        QCC_LogError(status, ("ClientTransport(): socket Connect() failed"));
+        QCC_DbgHLPrintf(("ClientTransport(): socket Connect() failed %s", QCC_StatusText(status)));
         qcc::Close(sockFd);
         return status;
     }
