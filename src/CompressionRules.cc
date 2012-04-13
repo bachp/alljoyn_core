@@ -4,7 +4,7 @@
  */
 
 /******************************************************************************
- * Copyright 2010-2011, Qualcomm Innovation Center, Inc.
+ * Copyright 2010-2012, Qualcomm Innovation Center, Inc.
  *
  *    Licensed under the Apache License, Version 2.0 (the "License");
  *    you may not use this file except in compliance with the License.
@@ -39,7 +39,7 @@ using namespace std;
 
 namespace ajn {
 
-void CompressionRules::Add(const HeaderFields& hdrFields, uint32_t token)
+void _CompressionRules::Add(const HeaderFields& hdrFields, uint32_t token)
 {
     HeaderFields* expFields = new HeaderFields;
     /*
@@ -58,21 +58,18 @@ void CompressionRules::Add(const HeaderFields& hdrFields, uint32_t token)
     QCC_DbgHLPrintf(("Added compression/expansion rule %u <-->\n%s", token, expFields->ToString().c_str()));
 }
 
-void CompressionRules::AddExpansion(const HeaderFields& hdrFields, uint32_t token)
+void _CompressionRules::AddExpansion(const HeaderFields& hdrFields, uint32_t token)
 {
     if (token) {
         lock.Lock(MUTEX_CONTEXT);
         if (fieldMap.count(&hdrFields) == 0) {
             Add(hdrFields, token);
-        } else {
-            QCC_LogError(ER_FAIL, ("Compression token collision %u", token));
         }
-        pending.erase(token);
         lock.Unlock(MUTEX_CONTEXT);
     }
 }
 
-uint32_t CompressionRules::GetToken(const HeaderFields& hdrFields)
+uint32_t _CompressionRules::GetToken(const HeaderFields& hdrFields)
 {
     uint32_t token;
     lock.Lock(MUTEX_CONTEXT);
@@ -90,7 +87,7 @@ uint32_t CompressionRules::GetToken(const HeaderFields& hdrFields)
     return token;
 }
 
-const HeaderFields* CompressionRules::GetExpansion(uint32_t token)
+const HeaderFields* _CompressionRules::GetExpansion(uint32_t token)
 {
     const HeaderFields* expansion = NULL;
     if (token) {
@@ -102,13 +99,73 @@ const HeaderFields* CompressionRules::GetExpansion(uint32_t token)
     return expansion;
 }
 
-CompressionRules::~CompressionRules()
+_CompressionRules::~_CompressionRules()
 {
     map<uint32_t, const ajn::HeaderFields*>::iterator iter = tokenMap.begin();
     while (iter != tokenMap.end()) {
         delete iter->second;
         iter++;
     }
+}
+
+bool _CompressionRules::HdrFieldsEq::operator()(const HeaderFields* k1, const HeaderFields* k2) const
+{
+    const MsgArg* f1 = k1->field;
+    const MsgArg* f2 = k2->field;
+    for (int i = 0; i < ALLJOYN_HDR_FIELD_UNKNOWN; i++, f1++, f2++) {
+        if (HeaderFields::Compressible[i]) {
+            if (f1->typeId != f2->typeId) {
+                return false;
+            }
+            switch (f1->typeId) {
+            case ALLJOYN_INVALID:
+                break;
+
+            case ALLJOYN_STRING:
+            case ALLJOYN_OBJECT_PATH:
+                if (strcmp(f1->v_string.str, f2->v_string.str) != 0) {
+                    return false;
+                }
+                break;
+
+            case ALLJOYN_SIGNATURE:
+                if (strcmp(f1->v_signature.sig, f2->v_signature.sig) != 0) {
+                    return false;
+                }
+                break;
+
+            case ALLJOYN_UINT16:
+                if (f1->v_uint16 != f2->v_uint16) {
+                    return false;
+                }
+                break;
+
+            case ALLJOYN_UINT32:
+                if (f1->v_uint32 != f2->v_uint32) {
+                    return false;
+                }
+                break;
+
+            default:
+                assert(!"invalid header field type");
+            }
+        }
+    }
+    return true;
+}
+
+size_t _CompressionRules::HdrFieldHash::operator()(const HeaderFields* k) const
+{
+    Adler32 adler;
+    size_t hash = 0;
+    if (k->field[ALLJOYN_HDR_FIELD_MEMBER].typeId == ALLJOYN_STRING) {
+        hash = adler.Update((uint8_t*)k->field[ALLJOYN_HDR_FIELD_MEMBER].v_string.str, k->field[ALLJOYN_HDR_FIELD_MEMBER].v_string.len);
+    }
+    if (k->field[ALLJOYN_HDR_FIELD_INTERFACE].typeId == ALLJOYN_STRING) {
+        hash = adler.Update((uint8_t*)k->field[ALLJOYN_HDR_FIELD_INTERFACE].v_string.str, k->field[ALLJOYN_HDR_FIELD_INTERFACE].v_string.len);
+    }
+    return hash;
+
 }
 
 }

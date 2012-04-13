@@ -170,7 +170,7 @@ void AllJoynPeerObj::ExpandHeader(Message& msg, const qcc::String& receivedFrom)
 {
     QStatus status = ER_OK;
     uint32_t token = msg->GetCompressionToken();
-    const HeaderFields* expFields = bus.GetInternal().GetCompressionRules().GetExpansion(token);
+    const HeaderFields* expFields = bus.GetInternal().GetCompressionRules()->GetExpansion(token);
     if (!expFields) {
         Message replyMsg(bus);
         MsgArg arg("u", token);
@@ -189,7 +189,7 @@ void AllJoynPeerObj::ExpandHeader(Message& msg, const qcc::String& receivedFrom)
         if (status == ER_OK) {
             status = replyMsg->AddExpansionRule(token, replyMsg->GetArg(0));
             if (status == ER_OK) {
-                expFields = bus.GetInternal().GetCompressionRules().GetExpansion(token);
+                expFields = bus.GetInternal().GetCompressionRules()->GetExpansion(token);
                 if (!expFields) {
                     status = ER_BUS_HDR_EXPANSION_INVALID;
                 }

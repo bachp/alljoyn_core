@@ -4,7 +4,7 @@
  */
 
 /******************************************************************************
- * Copyright 2010-2011, Qualcomm Innovation Center, Inc.
+ * Copyright 2010-2012, Qualcomm Innovation Center, Inc.
  *
  *    Licensed under the Apache License, Version 2.0 (the "License");
  *    you may not use this file except in compliance with the License.
@@ -35,7 +35,6 @@
 #include <Status.h>
 
 #include <map>
-#include <set>
 
 #if defined(__GNUC__) && !defined(ANDROID)
 #include <ext/hash_map>
@@ -46,17 +45,25 @@ using namespace __gnu_cxx;
 #include <hash_map>
 #endif
 
-#include "Adler32.h"
-
-
 namespace ajn {
+
+/**
+ * Forward declaration
+ */
+class _CompressionRules;
+
+/**
+ * CompressionRules is a reference counted (managed) class to allow it to be shared between multiple
+ * bus attachments.
+ */
+typedef qcc::ManagedObj<_CompressionRules> CompressionRules;
 
 /**
  * This class maintains a list of header compression rules for header field compression and provides
  * methods that map from a expanded header to a compression token and back. This class is used by
  * the marshaling code to compress a header before sending it.
  */
-class CompressionRules {
+class _CompressionRules {
 
   public:
 
@@ -93,7 +100,7 @@ class CompressionRules {
     /**
      * Destructor
      */
-    ~CompressionRules();
+    ~_CompressionRules();
 
   private:
 
@@ -103,7 +110,7 @@ class CompressionRules {
     void Add(const HeaderFields& hdrFields, uint32_t token);
 
     /**
-     * Mutex to protect compression rules
+     * Mutex to protect compression rules maps
      */
     qcc::Mutex lock;
 
@@ -112,67 +119,14 @@ class CompressionRules {
      * on the reasonable assumption that there will only be one compression for a specific message.
      */
     struct HdrFieldHash {
-        inline size_t operator()(const HeaderFields* k) const {
-            Adler32 adler;
-            size_t hash = 0;
-            if (k->field[ALLJOYN_HDR_FIELD_MEMBER].typeId == ALLJOYN_STRING) {
-                hash = adler.Update((uint8_t*)k->field[ALLJOYN_HDR_FIELD_MEMBER].v_string.str, k->field[ALLJOYN_HDR_FIELD_MEMBER].v_string.len);
-            }
-            if (k->field[ALLJOYN_HDR_FIELD_INTERFACE].typeId == ALLJOYN_STRING) {
-                hash = adler.Update((uint8_t*)k->field[ALLJOYN_HDR_FIELD_INTERFACE].v_string.str, k->field[ALLJOYN_HDR_FIELD_INTERFACE].v_string.len);
-            }
-            return hash;
-        }
+        size_t operator()(const HeaderFields* k) const;
     };
 
     /**
      * Function for testing compressible message header fields for equality.
      */
     struct HdrFieldsEq {
-        inline bool operator()(const HeaderFields* k1, const HeaderFields* k2) const {
-            const MsgArg* f1 = k1->field;
-            const MsgArg* f2 = k2->field;
-            for (int i = 0; i < ALLJOYN_HDR_FIELD_UNKNOWN; i++, f1++, f2++) {
-                if (HeaderFields::Compressible[i]) {
-                    if (f1->typeId != f2->typeId) {
-                        return false;
-                    }
-                    switch (f1->typeId) {
-                    case ALLJOYN_INVALID:
-                        break;
-
-                    case ALLJOYN_STRING:
-                    case ALLJOYN_OBJECT_PATH:
-                        if (strcmp(f1->v_string.str, f2->v_string.str) != 0) {
-                            return false;
-                        }
-                        break;
-
-                    case ALLJOYN_SIGNATURE:
-                        if (strcmp(f1->v_signature.sig, f2->v_signature.sig) != 0) {
-                            return false;
-                        }
-                        break;
-
-                    case ALLJOYN_UINT16:
-                        if (f1->v_uint16 != f2->v_uint16) {
-                            return false;
-                        }
-                        break;
-
-                    case ALLJOYN_UINT32:
-                        if (f1->v_uint32 != f2->v_uint32) {
-                            return false;
-                        }
-                        break;
-
-                    default:
-                        assert(!"invalid header field type");
-                    }
-                }
-            }
-            return true;
-        }
+        bool operator()(const HeaderFields* k1, const HeaderFields* k2) const;
     };
 
     /**
@@ -184,11 +138,6 @@ class CompressionRules {
      * The header expansion mapping from compression token to header fields
      */
     std::map<uint32_t, const ajn::HeaderFields*> tokenMap;
-
-    /**
-     * Set to track when a token expansion has been requested.
-     */
-    std::set<uint32_t> pending;
 
 };
 

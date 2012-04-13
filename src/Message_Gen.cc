@@ -823,7 +823,7 @@ QStatus _Message::MarshalMessage(const qcc::String& expectedSignature,
      */
     hdrFields.field[ALLJOYN_HDR_FIELD_COMPRESSION_TOKEN].Clear();
     if ((msgHeader.flags & ALLJOYN_FLAG_COMPRESSED)) {
-        hdrFields.field[ALLJOYN_HDR_FIELD_COMPRESSION_TOKEN].v_uint32 = bus->GetInternal().GetCompressionRules().GetToken(hdrFields);
+        hdrFields.field[ALLJOYN_HDR_FIELD_COMPRESSION_TOKEN].v_uint32 = bus->GetInternal().GetCompressionRules()->GetToken(hdrFields);
         hdrFields.field[ALLJOYN_HDR_FIELD_COMPRESSION_TOKEN].typeId = ALLJOYN_UINT32;
     }
     /*
@@ -1306,7 +1306,7 @@ void _Message::ErrorMsg(QStatus status,
 QStatus _Message::GetExpansion(uint32_t token, MsgArg& replyArg)
 {
     QStatus status = ER_OK;
-    const HeaderFields* expFields = bus->GetInternal().GetCompressionRules().GetExpansion(token);
+    const HeaderFields* expFields = bus->GetInternal().GetCompressionRules()->GetExpansion(token);
     if (expFields) {
         MsgArg* hdrArray = new MsgArg[ALLJOYN_HDR_FIELD_UNKNOWN];
         size_t numElements = 0;

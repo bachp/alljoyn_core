@@ -41,7 +41,6 @@
 #include "Router.h"
 #include "MethodTable.h"
 #include "SignalTable.h"
-#include "CompressionRules.h"
 #include "AllJoynPeerObj.h"
 #include "BusUtil.h"
 #include "BusInternal.h"

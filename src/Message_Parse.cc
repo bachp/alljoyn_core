@@ -1035,7 +1035,7 @@ QStatus _Message::Unmarshal(RemoteEndpoint& endpoint, bool checkSender, bool ped
             status = ER_BUS_MISSING_COMPRESSION_TOKEN;
             goto ExitUnmarshal;
         }
-        const HeaderFields* expFields = bus->GetInternal().GetCompressionRules().GetExpansion(token);
+        const HeaderFields* expFields = bus->GetInternal().GetCompressionRules()->GetExpansion(token);
         if (!expFields) {
             QCC_DbgPrintf(("No expansion for token %u", token));
             status = ER_BUS_CANNOT_EXPAND_MESSAGE;
@@ -1189,7 +1189,6 @@ ExitUnmarshal:
 
 QStatus _Message::AddExpansionRule(uint32_t token, const MsgArg* expansionArg)
 {
-    CompressionRules& compressionRules = bus->GetInternal().GetCompressionRules();
     /*
      * Validate the expansion response.
      */
@@ -1257,7 +1256,7 @@ QStatus _Message::AddExpansionRule(uint32_t token, const MsgArg* expansionArg)
     /*
      * Add the expansion to the compression engine.
      */
-    compressionRules.AddExpansion(expFields, token);
+    bus->GetInternal().GetCompressionRules()->AddExpansion(expFields, token);
     return ER_OK;
 
 ExitAddExpansion:

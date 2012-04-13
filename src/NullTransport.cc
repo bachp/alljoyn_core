@@ -73,20 +73,12 @@ class NullEndpoint : public BusEndpoint {
          */
         msg->rcvEndpointName = uniqueName;
         /*
-         * If the message came from the daemon forward it to the client and visa versa.
+         * If the message came from the client forward it to the daemon and visa versa. Note that
+         * if the message didn't come from the client it must be assumed that it came from the
+         * daemon to handle to the (rare) case of a broadcast signal being sent to multiple bus
+         * attachments in a single application.
          */
-        if (msg->bus == &daemonBus) {
-            /*
-             * Register the endpoint with the client on receiving the first message from the daemon.
-             */
-            if (!clientReady) {
-                QCC_DbgHLPrintf(("Registering null endpoint with client"));
-                clientBus.GetInternal().GetRouter().RegisterEndpoint(*this, false);
-                clientReady = true;
-            }
-            msg->bus = &clientBus;
-            status = clientBus.GetInternal().GetRouter().PushMessage(msg, *this);
-        } else {
+        if (msg->bus == &clientBus) {
             /*
              * Messages we are sending to the daemon may need to be encrypted.
              */
@@ -99,6 +91,17 @@ class NullEndpoint : public BusEndpoint {
             } else if (status == ER_BUS_AUTHENTICATION_PENDING) {
                 status = ER_OK;
             }
+        } else {
+            /*
+             * Register the endpoint with the client on receiving the first message from the daemon.
+             */
+            if (!clientReady) {
+                QCC_DbgHLPrintf(("Registering null endpoint with client"));
+                clientBus.GetInternal().GetRouter().RegisterEndpoint(*this, false);
+                clientReady = true;
+            }
+            msg->bus = &clientBus;
+            status = clientBus.GetInternal().GetRouter().PushMessage(msg, *this);
         }
         return status;
     }
@@ -195,6 +198,10 @@ QStatus NullTransport::Connect(const char* connectSpec, const SessionOpts& opts,
         if (newep) {
             *newep = endpoint;
         }
+        /*
+         * The compression rules are shared between the client bus and the daemon bus
+         */
+        bus.GetInternal().OverrideCompressionRules(daemonBus->GetInternal().GetCompressionRules());
         /*
          * Register the null endpoint with the daemon router. The client is registered as soon as we
          * receive a message from the daemon. This will happen as soon as the daemon has completed
