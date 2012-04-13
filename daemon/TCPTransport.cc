@@ -1222,13 +1222,10 @@ QStatus TCPTransport::GetListenAddresses(const SessionOpts& opts, std::vector<qc
                         /*
                          * Now put this information together into a bus address
                          * that the rest of the AllJoyn world can understand.
+                         * (Note: only IPv4 addresses are supported at the moment.)
                          */
-                        if (!ipv4address.empty()) {
-                            qcc::String busAddr = "tcp:addr=" + entries[i].m_addr + ",port=" + U32ToString(port) + ",family=ipv4";
-                            busAddrs.push_back(busAddr);
-                        }
-                        if (!ipv6address.empty()) {
-                            qcc::String busAddr = "tcp:addr=" + entries[i].m_addr + ",port=" + U32ToString(port) + ",family=ipv6";
+                        if (!entries[i].m_addr.empty() && (entries[i].m_family == QCC_AF_INET)) {
+                            qcc::String busAddr = "tcp:addr=" + entries[i].m_addr + ",port=" + U32ToString(port)+ ",family=ipv4";
                             busAddrs.push_back(busAddr);
                         }
                     }
