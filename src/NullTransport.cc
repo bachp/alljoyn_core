@@ -47,8 +47,6 @@ const char* NullTransport::TransportName = "null";
 
 DaemonLauncher* NullTransport::daemonLauncher;
 
-BusAttachment* NullTransport::daemonBus;
-
 /*
  * The null endpoint simply moves messages between the daemon router to the client router and lets
  * the routers handle it from there. The only wrinkle is that messages forwarded to the daemon may
@@ -142,7 +140,7 @@ NullEndpoint::~NullEndpoint()
     daemonBus.GetInternal().GetRouter().UnregisterEndpoint(*this);
 }
 
-NullTransport::NullTransport(BusAttachment& bus) : bus(bus), running(false), endpoint(NULL)
+NullTransport::NullTransport(BusAttachment& bus) : bus(bus), running(false), endpoint(NULL), daemonBus(NULL)
 {
 }
 
@@ -158,9 +156,12 @@ QStatus NullTransport::Start()
 
 QStatus NullTransport::Stop(void)
 {
-    running = false;
-    if (daemonLauncher) {
-        daemonLauncher->Stop();
+    if (running) {
+        running = false;
+        if (daemonLauncher) {
+            daemonLauncher->Stop();
+            daemonBus = NULL;
+        }
     }
     return ER_OK;
 }

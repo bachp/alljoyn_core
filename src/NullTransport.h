@@ -199,9 +199,9 @@ class NullTransport : public Transport {
     BusAttachment& bus;           /**< The message bus for this transport */
     bool running;                 /**< True after Start() has been called, before Stop() */
     BusEndpoint* endpoint;        /**< The active endpoint */
+    BusAttachment* daemonBus;     /**< The daemon bus attachment if the a bundled daemon was launched */
 
     static DaemonLauncher* daemonLauncher; /**< The daemon launcher if there is bundled daemon present */
-    static BusAttachment* daemonBus;       /**< The daemon bus attachment if the a bundled daemon was launched */
 };
 
 } // namespace ajn
