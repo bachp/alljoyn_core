@@ -236,4 +236,4 @@ void AllJoynDebugObj::GenericMethodHandler(const InterfaceDescription::Member* m
     }
 }
 
-#endif NDEBUG
+#endif //NDEBUG
