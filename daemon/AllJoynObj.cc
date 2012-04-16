@@ -492,7 +492,6 @@ ThreadReturn STDCALL AllJoynObj::JoinSessionThread::RunJoin()
         RemoteEndpoint* b2bEp = NULL;
         BusEndpoint* ep = sessionHost ? ajObj.router.FindEndpoint(sessionHost) : NULL;
         VirtualEndpoint* vSessionEp = (ep && (ep->GetEndpointType() == BusEndpoint::ENDPOINT_TYPE_VIRTUAL)) ? static_cast<VirtualEndpoint*>(ep) : NULL;
-        //RemoteEndpoint* rSessionEp = (ep && (ep->GetEndpointType() == BusEndpoint::ENDPOINT_TYPE_REMOTE)) ? static_cast<RemoteEndpoint*>(ep) : NULL;
         BusEndpoint* rSessionEp = (ep && ((ep->GetEndpointType() == BusEndpoint::ENDPOINT_TYPE_REMOTE) ||
                                           (ep->GetEndpointType() == BusEndpoint::ENDPOINT_TYPE_NULL))) ? ep : NULL;
 
