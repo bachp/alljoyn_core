@@ -385,9 +385,9 @@ QStatus _Message::ReMarshal(const char* senderName, bool newSerial)
      */
     if (endianSwap) {
         MessageHeader* hdr = (MessageHeader*)msgBuf;
-        EndianSwap32(hdr->bodyLen);
-        EndianSwap32(hdr->serialNum);
-        EndianSwap32(hdr->headerLen);
+        hdr->bodyLen = EndianSwap32(hdr->bodyLen);
+        hdr->serialNum = EndianSwap32(hdr->serialNum);
+        hdr->headerLen = EndianSwap32(hdr->headerLen);
     }
     /*
      * Marshal the header fields
