@@ -1225,7 +1225,7 @@ QStatus TCPTransport::GetListenAddresses(const SessionOpts& opts, std::vector<qc
                          * (Note: only IPv4 addresses are supported at the moment.)
                          */
                         if (!entries[i].m_addr.empty() && (entries[i].m_family == QCC_AF_INET)) {
-                            qcc::String busAddr = "tcp:addr=" + entries[i].m_addr + ",port=" + U32ToString(port)+ ",family=ipv4";
+                            qcc::String busAddr = "tcp:addr=" + entries[i].m_addr + ",port=" + U32ToString(port) + ",family=ipv4";
                             busAddrs.push_back(busAddr);
                         }
                     }
