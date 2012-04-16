@@ -633,7 +633,7 @@ void _Message::MarshalHeaderFields()
                     Marshal4(field->v_string.len);
                 }
                 tPos = (char*)bufPos;
-                tLen = field->v_signature.len;
+                tLen = field->v_string.len;
                 MarshalBytes((void*)field->v_string.str, field->v_string.len + 1);
                 field->Clear();
                 field->typeId = id;
