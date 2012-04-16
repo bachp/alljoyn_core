@@ -164,7 +164,7 @@ class Transport {
      *      - ER_OK if successful.
      *      - an error status otherwise.
      */
-    virtual QStatus GetListenAddresses(const SessionOpts& opts, std::vector<qcc::String>& busAddrs) { return ER_FAIL; }
+    virtual QStatus GetListenAddresses(const SessionOpts& opts, std::vector<qcc::String>& busAddrs) const { return ER_FAIL; }
 
     /**
      * Normalize a transport specification.

@@ -2185,7 +2185,7 @@ void AllJoynObj::AdvertiseName(const InterfaceDescription::Member* member, Messa
                 if (trans && (trans->GetTransportMask() & transports)) {
                     status = trans->EnableAdvertisement(advertiseNameStr);
                     if (status != ER_OK) {
-                        QCC_LogError(status, ("EnableAdvertisment failed for mask=0x%x", transports));
+                        QCC_LogError(status, ("EnableAdvertisment failed for transport %s - mask=0x%x", trans->GetTransportName(), transports));
                     }
                 } else if (!trans) {
                     QCC_LogError(ER_BUS_TRANSPORT_NOT_AVAILABLE, ("NULL transport pointer found in transportList"));
