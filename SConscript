@@ -63,6 +63,9 @@ daemon_lib = env.Install('$DISTDIR/lib', bdlib)
 daemon_obj = env.Install('$DISTDIR/lib', bdobj)
 env.Install('$DISTDIR/bin', daemon_progs)
 
+env['bdlib'] = daemon_lib
+env['bdobj'] = daemon_obj
+
 # Test programs 
 progs = env.SConscript('$OBJDIR/test/SConscript')
 env.Install('$DISTDIR/bin', progs)
