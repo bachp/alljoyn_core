@@ -430,9 +430,9 @@ int main(int argc, char** argv)
     serverArgs = env->Find("BUS_SERVER_ADDRESSES", "unix:abstract=alljoyn;tcp:family=ipv4");
 #else
     if (noBT) {
-        serverArgs = env->Find("BUS_SERVER_ADDRESSES", "unix:abstract=alljoyn;tcp:addr=0.0.0.0,port=9454,family=ipv4");
+        serverArgs = env->Find("BUS_SERVER_ADDRESSES", "unix:abstract=alljoyn;tcp:addr=0.0.0.0,port=9955,family=ipv4");
     } else {
-        serverArgs = env->Find("BUS_SERVER_ADDRESSES", "unix:abstract=alljoyn;tcp:addr=0.0.0.0,port=9454,family=ipv4;bluetooth:");
+        serverArgs = env->Find("BUS_SERVER_ADDRESSES", "unix:abstract=alljoyn;tcp:addr=0.0.0.0,port=9955,family=ipv4;bluetooth:");
     }
 #endif /* DAEMON_LIB */
 
