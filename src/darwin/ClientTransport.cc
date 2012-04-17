@@ -24,7 +24,7 @@
 
 #include <map>
 
-#include <alljoyn/SessionOpts.h>
+#include <alljoyn/Session.h>
 #include "ClientTransport.h"
 
 #define QCC_MODULE "ALLJOYN"
