@@ -120,7 +120,7 @@ BusAttachment::Internal::~Internal()
 
 class LocalTransportFactoryContainer : public TransportFactoryContainer {
   public:
-    LocalTransportFactoryContainer()
+    void Init()
     {
         if (ClientTransport::IsAvailable()) {
             Add(new TransportFactory<ClientTransport>(ClientTransport::TransportName, true));
@@ -130,6 +130,7 @@ class LocalTransportFactoryContainer : public TransportFactoryContainer {
         }
     }
 } localTransportsContainer;
+volatile int32_t transportContainerInit = 0;
 
 BusAttachment::BusAttachment(const char* applicationName, bool allowRemoteMessages) :
     hasStarted(false),
@@ -138,6 +139,11 @@ BusAttachment::BusAttachment(const char* applicationName, bool allowRemoteMessag
     busInternal(new Internal(applicationName, *this, localTransportsContainer, NULL, allowRemoteMessages, NULL)),
     joinObj(this)
 {
+    if (IncrementAndFetch(&transportContainerInit) == 1) {
+        localTransportsContainer.Init();
+    } else {
+        DecrementAndFetch(&transportContainerInit);         // adjust the count
+    }
     QCC_DbgTrace(("BusAttachment client constructor (%p)", this));
 }
 
@@ -148,6 +154,11 @@ BusAttachment::BusAttachment(Internal* busInternal) :
     busInternal(busInternal),
     joinObj(this)
 {
+    if (IncrementAndFetch(&transportContainerInit) == 1) {
+        localTransportsContainer.Init();
+    } else {
+        DecrementAndFetch(&transportContainerInit);         // adjust the count
+    }
     QCC_DbgTrace(("BusAttachment daemon constructor"));
 }
 
