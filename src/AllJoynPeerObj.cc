@@ -54,6 +54,37 @@ namespace ajn {
 
 static const uint32_t PEER_AUTH_VERSION = 0x00010000;
 
+static void SetRights(PeerState& peerState, bool mutual, bool challenger)
+{
+    if (mutual) {
+        peerState->SetAuthorization(MESSAGE_METHOD_CALL, _PeerState::ALLOW_SECURE_TX | _PeerState::ALLOW_SECURE_RX);
+        peerState->SetAuthorization(MESSAGE_METHOD_RET,  _PeerState::ALLOW_SECURE_TX | _PeerState::ALLOW_SECURE_RX);
+        peerState->SetAuthorization(MESSAGE_ERROR,       _PeerState::ALLOW_SECURE_TX | _PeerState::ALLOW_SECURE_RX);
+        peerState->SetAuthorization(MESSAGE_SIGNAL,      _PeerState::ALLOW_SECURE_TX | _PeerState::ALLOW_SECURE_RX);
+    } else {
+        if (challenger) {
+            /*
+             * We are the challenger in the auth conversation. The authentication was one-side so we
+             * will accept encrypted calls from the remote peer but will not send them.
+             */
+            peerState->SetAuthorization(MESSAGE_METHOD_CALL, _PeerState::ALLOW_SECURE_RX);
+            peerState->SetAuthorization(MESSAGE_METHOD_RET,  _PeerState::ALLOW_SECURE_TX);
+            peerState->SetAuthorization(MESSAGE_ERROR,       _PeerState::ALLOW_SECURE_TX);
+            peerState->SetAuthorization(MESSAGE_SIGNAL,      _PeerState::ALLOW_SECURE_TX | _PeerState::ALLOW_SECURE_RX);
+        } else {
+            /*
+             * We initiated the authentication and responded to challenges from the remote peer. The
+             * authentication was not mutual so we are not going to allow encrypted method calls
+             * from the remote peer.
+             */
+            peerState->SetAuthorization(MESSAGE_METHOD_CALL, _PeerState::ALLOW_SECURE_TX);
+            peerState->SetAuthorization(MESSAGE_METHOD_RET,  _PeerState::ALLOW_SECURE_RX);
+            peerState->SetAuthorization(MESSAGE_ERROR,       _PeerState::ALLOW_SECURE_RX);
+            peerState->SetAuthorization(MESSAGE_SIGNAL,      _PeerState::ALLOW_SECURE_TX | _PeerState::ALLOW_SECURE_RX);
+        }
+    }
+}
+
 AllJoynPeerObj::AllJoynPeerObj(BusAttachment& bus) :
     BusObject(bus, org::alljoyn::Bus::Peer::ObjectPath, false),
     AlarmListener(),
@@ -331,7 +362,7 @@ QStatus AllJoynPeerObj::KeyGen(PeerState& peerState, String seed, qcc::String& v
     static const char* label = "session key";
     KeyBlob masterSecret;
 
-    status = keyStore.GetKey(peerState->GetGuid(), masterSecret);
+    status = keyStore.GetKey(peerState->GetGuid(), masterSecret, peerState->authorizations);
     if ((status == ER_OK) && masterSecret.HasExpired()) {
         status = ER_BUS_KEY_EXPIRED;
     }
@@ -431,6 +462,8 @@ void AllJoynPeerObj::AuthAdvance(Message& msg)
      * If auth conversation was sucessful store the master secret in the key store.
      */
     if ((status == ER_OK) && (authState == SASLEngine::ALLJOYN_AUTH_SUCCESS)) {
+        PeerState peerState = bus.GetInternal().GetPeerStateTable()->GetPeerState(sender);
+        SetRights(peerState, sasl->AuthenticationIsMutual(), true /*challenger*/);
         KeyBlob masterSecret;
         KeyStore& keyStore = bus.GetInternal().GetKeyStore();
         status = sasl->GetMasterSecret(masterSecret);
@@ -439,7 +472,7 @@ void AllJoynPeerObj::AuthAdvance(Message& msg)
             qcc::GUID128 remotePeerGuid(sasl->GetRemoteId());
             /* Tag the master secret with the auth mechanism used to generate it */
             masterSecret.SetTag(mech, KeyBlob::RESPONDER);
-            status = keyStore.AddKey(remotePeerGuid, masterSecret);
+            status = keyStore.AddKey(remotePeerGuid, masterSecret, peerState->authorizations);
         }
         /*
          * Report the succesful authentication to allow application to clear UI etc.
@@ -729,6 +762,7 @@ QStatus AllJoynPeerObj::AuthenticatePeer(AllJoynMessageType msgType, const qcc::
             status = remotePeerObj.MethodCall(*(ifc->GetMember("AuthChallenge")), &arg, 1, replyMsg, AUTH_TIMEOUT);
             if (status == ER_OK) {
                 if (authState == SASLEngine::ALLJOYN_AUTH_SUCCESS) {
+                    SetRights(peerState, sasl.AuthenticationIsMutual(), false /*responder*/);
                     break;
                 }
                 inStr = qcc::String(replyMsg->GetArg(0)->v_string.str);
@@ -738,9 +772,10 @@ QStatus AllJoynPeerObj::AuthenticatePeer(AllJoynMessageType msgType, const qcc::
                     mech = sasl.GetMechanism();
                     status = sasl.GetMasterSecret(masterSecret);
                     if (status == ER_OK) {
+                        SetRights(peerState, sasl.AuthenticationIsMutual(), false /*responder*/);
                         /* Tag the master secret with the auth mechanism used to generate it */
                         masterSecret.SetTag(mech, KeyBlob::INITIATOR);
-                        status = keyStore.AddKey(remotePeerGuid, masterSecret);
+                        status = keyStore.AddKey(remotePeerGuid, masterSecret, peerState->authorizations);
                     }
                 }
             } else {

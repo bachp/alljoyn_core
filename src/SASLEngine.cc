@@ -628,6 +628,14 @@ QStatus SASLEngine::Advance(qcc::String authIn, qcc::String& authOut, AuthState&
     }
     if (status == ER_OK) {
         state = authState;
+        if (state == ALLJOYN_AUTH_SUCCESS) {
+            /*
+             * Depending on the authentication mechanism used the responder may or may not have
+             * been authenticated to the challenger. Save this information so it can be reported
+             * to the upper layer.
+             */
+            authIsMutual = authMechanism->IsMutual();
+        }
     } else {
         SetState(ALLJOYN_AUTH_FAILED);
     }
@@ -643,7 +651,8 @@ SASLEngine::SASLEngine(BusAttachment& bus, AuthMechanism::AuthRole authRole, con
     authCount(0),
     authMechanism(NULL),
     authState((authRole == AuthMechanism::RESPONDER) ? ALLJOYN_SEND_AUTH_REQ : ALLJOYN_WAIT_FOR_AUTH),
-    extHandler(extHandler)
+    extHandler(extHandler),
+    authIsMutual(false)
 {
     ParseAuthNames(authSet, mechanisms);
     QCC_DbgPrintf(("SASL %s mechanisms %s", (authRole == AuthMechanism::RESPONDER) ? "Responder" : "Challenger", mechanisms.c_str()));

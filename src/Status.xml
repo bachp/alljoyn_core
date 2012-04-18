@@ -172,5 +172,6 @@ Copyright 2010 - 2011, Qualcomm Innovation Center, Inc.
   <status name="ER_BUS_DESTINATION_NOT_AUTHENTICATED" value="0x90a5" comment="Cannot send a signal to a destination that is not authenticated"/>
   <status name="ER_BUS_ENDPOINT_REDIRECTED" value="0x90a6" comment="Endpoint was redirected to another address"/>
   <status name="ER_BUS_AUTHENTICATION_PENDING" value="0x90a7" comment="Authentication of remote peer is pending"/>
+  <status name="ER_BUS_NOT_AUTHORIZED" value="0x90a8" comment="Operation was not authorized"/>
 
 </status_block>

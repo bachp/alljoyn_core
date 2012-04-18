@@ -8,7 +8,7 @@
  */
 
 /******************************************************************************
- * Copyright 2010-2011, Qualcomm Innovation Center, Inc.
+ * Copyright 2010-2012, Qualcomm Innovation Center, Inc.
  *
  *    Licensed under the Apache License, Version 2.0 (the "License");
  *    you may not use this file except in compliance with the License.
@@ -113,6 +113,15 @@ class AuthMechLogon : public AuthMechanism {
      * @return  Always returns true for this authentication mechanism.
      */
     bool IsInteractive() { return true; }
+
+    /**
+     * Indicates if an authentication mechanism was mutual or one sided. Some authentication
+     * mechanisms can be either mutual or one-side others are always one or the other.
+     *
+     * @return This authentication mechanism is always one-sided. The responder is authenticated to
+     *         the challenger but the reverse is not true.
+     */
+    bool IsMutual() { return false; }
 
     ~AuthMechLogon() { }
 

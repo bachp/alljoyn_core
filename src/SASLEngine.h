@@ -4,7 +4,7 @@
  */
 
 /******************************************************************************
- * Copyright 2009-2011, Qualcomm Innovation Center, Inc.
+ * Copyright 2009-2012, Qualcomm Innovation Center, Inc.
  *
  *    Licensed under the Apache License, Version 2.0 (the "License");
  *    you may not use this file except in compliance with the License.
@@ -53,8 +53,8 @@ class SASLEngine {
         ALLJOYN_WAIT_FOR_OK,
         ALLJOYN_WAIT_FOR_REJECT,
         ALLJOYN_WAIT_EXT_RESPONSE, ///< Wait for a response to an extension command */
-        ALLJOYN_AUTH_SUCCESS,     ///< Authentication was successful - conversation it over
-        ALLJOYN_AUTH_FAILED       ///< Authentication failed - conversation it over
+        ALLJOYN_AUTH_SUCCESS,      ///< Authentication was successful - conversation it over
+        ALLJOYN_AUTH_FAILED        ///< Authentication failed - conversation it over
     } AuthState;
 
     /**
@@ -154,6 +154,14 @@ class SASLEngine {
      */
     AuthMechanism::AuthRole GetRole() { return authRole; }
 
+    /**
+     * Returns true if the authentication mechanism resulted in mutual authentication or false if
+     * the authentication only authenticated the RESPONDER to the CHALLENGER.
+     *
+     * @return Returns true if the authentication was mutual.
+     */
+    bool AuthenticationIsMutual() { return authIsMutual; }
+
   private:
 
     /**
@@ -225,6 +233,11 @@ class SASLEngine {
      * Extension handler if present.
      */
     ExtensionHandler* extHandler;
+
+    /**
+     * Records if a mutual one-side authentication was used.
+     */
+    bool authIsMutual;
 
     /**
      * Internal methods

@@ -29,8 +29,9 @@
 
 #include <map>
 #include <limits>
-#include <bitset>
 #include <assert.h>
+
+#include <alljoyn/Message.h>
 
 #include <qcc/String.h>
 #include <qcc/GUID.h>
@@ -84,6 +85,7 @@ class _PeerState {
         authEvent(NULL)
     {
         ::memset(window, 0, sizeof(window));
+        ::memset(authorizations, 0, sizeof(authorizations));
     }
 
     /**
@@ -204,6 +206,36 @@ class _PeerState {
      */
     size_t SerialWindowSize() { return sizeof(window) / sizeof(window[0]); }
 
+    static const uint8_t ALLOW_SECURE_TX = 0x01; /* Transmit authorization */
+    static const uint8_t ALLOW_SECURE_RX = 0x02; /* Receive authorization */
+
+    /**
+     * Check if the peer is authorized to send or or receive a message of the specified
+     * type.
+     *
+     * @param msgType  The type of message that is being authorized.
+     * @param access   The access type being checked
+     *
+     * @return Return true if the message type is authorized.
+     */
+    bool IsAuthorized(AllJoynMessageType msgType, uint8_t access) {
+        return isSecure ? (authorizations[(uint8_t)msgType + 1] & access) == access : true;
+    }
+
+    /**
+     * Set or clear an authorization.
+     *
+     * @param msgType  The type of message that is being authorized.
+     * @param access   The access type to authorize, zero to clear.
+     */
+    void SetAuthorization(AllJoynMessageType msgType, uint8_t access) {
+        if (access) {
+            authorizations[(uint8_t)msgType + 1] |= access;
+        } else {
+            authorizations[(uint8_t)msgType + 1] = 0;
+        }
+    }
+
   private:
 
     /**
@@ -243,9 +275,19 @@ class _PeerState {
     qcc::Event* authEvent;
 
     /**
+     * Set to true if this remote peer was not authenticated by the local peer.
+     */
+    bool peerNotAuthenticated;
+
+    /**
      * The GUID for this peer.
      */
     qcc::GUID128 guid;
+
+    /**
+     * Array of message type authorizations.
+     */
+    uint8_t authorizations[4];
 
     /**
      * The session keys (unicast and broadcast) for this peer.

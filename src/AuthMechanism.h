@@ -47,8 +47,8 @@ class AuthMechanism {
 
     /** Authentication type  */
     typedef enum {
-        CHALLENGER, /**< A server usually provides the challenges */
-        RESPONDER   /**< A client usually provide the responses */
+        CHALLENGER, /**< A server provides the challenges */
+        RESPONDER   /**< A client provide the responses */
     } AuthRole;
 
     /**
@@ -162,6 +162,16 @@ class AuthMechanism {
      * @return  Returns true if this authentication method involves user interaction.
      */
     virtual bool IsInteractive() { return false; }
+
+    /**
+     * Indicates on the responding side if an authentication mechanism was mutual or one sided. Some
+     * authentication mechanisms can be either mutual or one-side others are always one or the
+     * other. This value is only meaningful on the responding (initiating) side of an authentication
+     * conversation. By definition the challenger has authenticated the responder.
+     *
+     * @return Returns true if the authentication was mutual.
+     */
+    virtual bool IsMutual() { return true; }
 
     /**
      * Destructor

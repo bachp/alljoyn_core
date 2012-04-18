@@ -684,9 +684,16 @@ size_t _Message::ComputeHeaderLen()
 QStatus _Message::EncryptMessage()
 {
     QStatus status;
-    PeerStateTable* peerStateTable = bus->GetInternal().GetPeerStateTable();
+    PeerState peerState = bus->GetInternal().GetPeerStateTable()->GetPeerState(GetDestination());
     KeyBlob key;
-    status = peerStateTable->GetPeerState(GetDestination())->GetKey(key, PEER_SESSION_KEY);
+    /*
+     * Check if we are authorized to send messagees of type to the remote peer.
+     */
+    if (!peerState->IsAuthorized((AllJoynMessageType)msgHeader.msgType, _PeerState::ALLOW_SECURE_TX)) {
+        status = ER_BUS_NOT_AUTHORIZED;
+    } else {
+        status = peerState->GetKey(key, PEER_SESSION_KEY);
+    }
     if (status == ER_OK) {
         size_t argsLen = msgHeader.bodyLen - ajn::Crypto::MACLength;
         size_t hdrLen = ROUNDUP8(sizeof(msgHeader) + msgHeader.headerLen);
