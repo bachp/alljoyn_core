@@ -752,7 +752,7 @@ QStatus _Message::MarshalMessage(const qcc::String& expectedSignature,
      * Keep the old message buffer around until we are done because some of the strings we are
      * marshaling may point into the old message.
      */
-    uint64_t* oldMsgBuf = msgBuf;
+    uint8_t* _oldMsgBuf = _msgBuf;
     /*
      * Clear out stale message data
      */
@@ -760,6 +760,7 @@ QStatus _Message::MarshalMessage(const qcc::String& expectedSignature,
     bufPos = NULL;
     bufEOD = NULL;
     msgBuf = NULL;
+    _msgBuf = NULL;
     /*
      * There should be a mapping for every field type
      */
@@ -840,7 +841,8 @@ QStatus _Message::MarshalMessage(const qcc::String& expectedSignature,
      * Allocate buffer for entire message.
      */
     bufSize = (hdrLen + msgHeader.bodyLen + 7);
-    msgBuf = new uint64_t[bufSize / 8];
+    _msgBuf = new uint8_t[bufSize + 7];
+    msgBuf = (uint64_t*)((uintptr_t)(_msgBuf + 7) & ~7); /* Align to 8 byte boundary */
     /*
      * Initialize the buffer and copy in the message header
      */
@@ -901,14 +903,15 @@ ExitMarshalMessage:
     /*
      * Don't need the old message buffer any more
      */
-    delete [] oldMsgBuf;
+    delete [] _oldMsgBuf;
 
     if (status == ER_OK) {
         QCC_DbgHLPrintf(("MarshalMessage: %d+%d %s", hdrLen, msgHeader.bodyLen, Description().c_str()));
     } else {
         QCC_LogError(status, ("MarshalMessage: %s", Description().c_str()));
-        delete [] msgBuf;
         msgBuf = NULL;
+        delete [] _msgBuf;
+        _msgBuf = NULL;
         bodyPtr = NULL;
         bufPos = NULL;
         bufEOD = NULL;

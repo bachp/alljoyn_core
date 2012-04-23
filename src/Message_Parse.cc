@@ -846,8 +846,9 @@ QStatus _Message::Unmarshal(RemoteEndpoint& endpoint, bool checkSender, bool ped
     /*
      * Clear out any stale message state
      */
-    delete [] msgBuf;
     msgBuf = NULL;
+    delete [] _msgBuf;
+    _msgBuf = NULL;
     ClearHeader();
     /*
      * Read the message header
@@ -917,7 +918,8 @@ QStatus _Message::Unmarshal(RemoteEndpoint& endpoint, bool checkSender, bool ped
      * message reducing the places where we need to check for bufEOD when unmarshaling the body.
      */
     bufSize = sizeof(msgHeader) + ((pktSize + 7) & ~7) + sizeof(uint64_t);
-    msgBuf = new uint64_t[bufSize / 8];
+    _msgBuf = new uint8_t[bufSize + 7];
+    msgBuf = (uint64_t*)((uintptr_t)(_msgBuf + 7) & ~7); /* Align to 8 byte boundary */
     /*
      * Copy header into the buffer
      */
@@ -1146,8 +1148,9 @@ ExitUnmarshal:
         /*
          * There was an unrecoverable failure while unmarshaling the message, cleanup before we return.
          */
-        delete [] msgBuf;
         msgBuf = NULL;
+        delete [] _msgBuf;
+        _msgBuf = NULL;
         ClearHeader();
         if (status != ER_SOCK_OTHER_END_CLOSED) {
             QCC_LogError(status, ("Failed to unmarshal message received on %s", endpoint.GetUniqueName().c_str()));

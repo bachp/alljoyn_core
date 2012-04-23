@@ -280,6 +280,7 @@ QStatus _Message::GetArgs(const char* signature, ...)
 _Message::_Message(BusAttachment& bus) :
     bus(bus),
     endianSwap(false),
+    _msgBuf(NULL),
     msgBuf(NULL),
     msgArgs(NULL),
     numMsgArgs(0),
@@ -296,7 +297,8 @@ _Message::_Message(const _Message& other)
     : bus(other.bus),
     endianSwap(other.endianSwap),
     msgHeader(other.msgHeader),
-    msgBuf(other.msgBuf ? new uint64_t[other.bufSize / 8] : NULL),
+    _msgBuf(other.msgBuf ? new uint8_t[other.bufSize + 7] : NULL),
+    msgBuf(_msgBuf ? (uint64_t*)((uintptr_t)(_msgBuf + 7) & ~7) : NULL),
     msgArgs((other.numMsgArgs && other.msgArgs) ? new MsgArg[other.numMsgArgs] : NULL),
     numMsgArgs(other.numMsgArgs),
     bufSize(other.bufSize),
@@ -335,7 +337,7 @@ _Message::_Message(const _Message& other)
 
 _Message::~_Message(void)
 {
-    delete [] msgBuf;
+    delete [] _msgBuf;
     delete [] msgArgs;
     while (numHandles) {
         qcc::Close(handles[--numHandles]);
@@ -363,7 +365,7 @@ QStatus _Message::ReMarshal(const char* senderName, bool newSerial)
     /*
      * We delete the current buffer after we have copied the body data
      */
-    uint64_t* savBuf = msgBuf;
+    uint8_t* _savBuf = _msgBuf;
 
     /*
      * Compute the new header sizes
@@ -374,7 +376,8 @@ QStatus _Message::ReMarshal(const char* senderName, bool newSerial)
      * message reducing the places where we need to check for bufEOD when unmarshaling the body.
      */
     bufSize = sizeof(msgHeader) + ((((msgHeader.headerLen + 7) & ~7) + msgHeader.bodyLen + 7) & ~7) + 8;
-    msgBuf = new uint64_t[bufSize / 8];
+    _msgBuf = new uint8_t[bufSize + 7];
+    msgBuf = (uint64_t*)((uintptr_t)(_msgBuf + 7) & ~7); /* Align to 8 byte boundary */
     bufPos = (uint8_t*)msgBuf;
     memcpy(bufPos, &msgHeader, sizeof(msgHeader));
     bufPos += sizeof(msgHeader);
@@ -406,7 +409,7 @@ QStatus _Message::ReMarshal(const char* senderName, bool newSerial)
      */
     assert((size_t)(bufEOD - (uint8_t*)msgBuf) < bufSize);
     memset(bufEOD, 0, (uint8_t*)msgBuf + bufSize - bufEOD);
-    delete [] savBuf;
+    delete [] _savBuf;
     return ER_OK;
 }
 
