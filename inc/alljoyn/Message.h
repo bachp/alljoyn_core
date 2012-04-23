@@ -754,7 +754,8 @@ class _Message {
 
     MessageHeader msgHeader;     ///< Current message header.
 
-    uint64_t* msgBuf;            ///< Pointer to the current msg buffer (uint64_t to ensure 8 byte alignment).
+    uint8_t* _msgBuf;            ///< Pointer to the current msg buffer.
+    uint64_t* msgBuf;            ///< Pointer to the current msg buffer (8 byte aligned pointer into _msgBuf).
     MsgArg* msgArgs;             ///< Pointer to the unmarshaled arguments.
     uint8_t numMsgArgs;          ///< Number of message args (signature cannot be longer than 255 chars).
 
