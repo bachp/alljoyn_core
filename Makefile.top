@@ -21,6 +21,7 @@
 all: distclean dist
 
 CC=gcc
+CXX=g++
 AR=ar
 
 # build configuration
