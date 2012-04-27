@@ -140,6 +140,13 @@ TEST_F(InterfaceTest, SUCCESS_RegisterBusObject) {
     //Register service object
     status =  g_msgBus->RegisterBusObject(myService);
     ASSERT_EQ(ER_OK, status) << "  Actual Status: " << QCC_StatusText(status);
+    // wait for signal upto 1.0 sec (5 * 200 ms)
+    for (int i = 0; i < 200; ++i) {
+        if (true == myService.getobjectRegistered()) {
+            break;
+        }
+        qcc::Sleep(5);
+    }
     ASSERT_TRUE(myService.getobjectRegistered());
 }
 
