@@ -35,6 +35,7 @@
 #include "BusInternal.h"
 #include "RemoteEndpoint.h"
 #include "NullTransport.h"
+#include "AllJoynPeerObj.h"
 
 #define QCC_MODULE "ALLJOYN"
 
@@ -82,6 +83,10 @@ class NullEndpoint : public BusEndpoint {
              */
             if (msg->encrypt) {
                 status = msg->EncryptMessage();
+                /* Report authorization failure as a security violation */
+                if (status == ER_BUS_NOT_AUTHORIZED) {
+                    clientBus.GetInternal().GetLocalEndpoint().GetPeerObj()->HandleSecurityViolation(msg, status);
+                }
             }
             if (status == ER_OK) {
                 msg->bus = &daemonBus;

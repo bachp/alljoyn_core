@@ -683,16 +683,17 @@ size_t _Message::ComputeHeaderLen()
 
 QStatus _Message::EncryptMessage()
 {
-    QStatus status;
-    PeerState peerState = bus->GetInternal().GetPeerStateTable()->GetPeerState(GetDestination());
     KeyBlob key;
-    /*
-     * Check if we are authorized to send messagees of type to the remote peer.
-     */
-    if (!peerState->IsAuthorized((AllJoynMessageType)msgHeader.msgType, _PeerState::ALLOW_SECURE_TX)) {
-        status = ER_BUS_NOT_AUTHORIZED;
-    } else {
-        status = peerState->GetKey(key, PEER_SESSION_KEY);
+    PeerState peerState = bus->GetInternal().GetPeerStateTable()->GetPeerState(GetDestination());
+    QStatus status = peerState->GetKey(key, PEER_SESSION_KEY);
+
+    if (status == ER_OK) {
+        /*
+         * Check we are authorized to send messages of this type to the remote peer.
+         */
+        if (!peerState->IsAuthorized((AllJoynMessageType)msgHeader.msgType, _PeerState::ALLOW_SECURE_TX)) {
+            status = ER_BUS_NOT_AUTHORIZED;
+        }
     }
     if (status == ER_OK) {
         size_t argsLen = msgHeader.bodyLen - ajn::Crypto::MACLength;

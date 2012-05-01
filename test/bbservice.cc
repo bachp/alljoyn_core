@@ -74,6 +74,7 @@ static bool g_echo_signal = false;
 static bool g_compress = false;
 static uint32_t g_keyExpiration = 0xFFFFFFFF;
 static bool g_cancelAdvertise = false;
+static bool g_ping_back = false;
 
 static volatile sig_atomic_t g_interrupt = false;
 
@@ -160,19 +161,11 @@ class MyAuthListener : public AuthListener {
 
         if (strcmp(authMechanism, "ALLJOYN_SRP_KEYX") == 0) {
             if (credMask & AuthListener::CRED_PASSWORD) {
-#if 0
                 if (authCount == 1) {
                     creds.SetPassword("yyyyyy");
                 } else {
                     creds.SetPassword("123456");
                 }
-#else
-                if (authCount == 1) {
-                    creds.SetPassword("123456");
-                } else {
-                    return false;
-                }
-#endif
                 printf("AuthListener returning fixed pin \"%s\" for %s\n", creds.GetPassword().c_str(), authMechanism);
             }
             return true;
@@ -238,8 +231,8 @@ class MyAuthListener : public AuthListener {
         printf("Authentication %s %s\n", authMechanism, success ? "succesful" : "failed");
     }
 
-    void SecurityViolation(const char* error) {
-        printf("Security violation %s\n", error);
+    void SecurityViolation(QStatus status, const Message& msg) {
+        printf("Security violation %s\n", QCC_StatusText(status));
     }
 
 };
@@ -504,6 +497,22 @@ class LocalTestObject : public BusObject {
                 QCC_LogError(status, ("Failed to send Signal"));
             }
         }
+        if (g_ping_back) {
+            MsgArg pingArg("s", "pingback");
+            const InterfaceDescription* ifc = bus.GetInterface(::org::alljoyn::alljoyn_test::InterfaceName);
+            const InterfaceDescription::Member* pingMethod = ifc->GetMember("my_ping");
+
+            ProxyBusObject remoteObj;
+            remoteObj = ProxyBusObject(bus, msg->GetSender(), ::org::alljoyn::alljoyn_test::ObjectPath, msg->GetSessionId());
+            remoteObj.AddInterface(*ifc);
+            /*
+             * Make a fire-and-forget method call. If the signal was encrypted encrypt the ping
+             */
+            QStatus status = remoteObj.MethodCall(*pingMethod, &pingArg, 1, msg->IsEncrypted() ? ALLJOYN_FLAG_ENCRYPTED : 0);
+            if (status != ER_OK) {
+                QCC_LogError(status, ("MethodCall on %s.%s failed", ::org::alljoyn::alljoyn_test::InterfaceName, pingMethod->name.c_str()));
+            }
+        }
     }
 
     void Ping(const InterfaceDescription::Member* member, Message& msg)
@@ -627,6 +636,7 @@ static void usage(void)
     printf("   -t                    = Advertise over TCP (enables selective advertising)\n");
     printf("   -l                    = Advertise locally (enables selective advertising)\n");
     printf("   -a                    = Cancel advertising while servicing a single client (causes rediscovery between iterations)\n");
+    printf("   -p                    = Respond to an incoming signal by pinging back to the sender\n");
 }
 
 /** Main entry point */
@@ -654,7 +664,19 @@ int main(int argc, char** argv)
         if (0 == strcmp("-h", argv[i])) {
             usage();
             exit(0);
+        } else if (0 == strcmp("-p", argv[i])) {
+            if (g_echo_signal) {
+                printf("options -e and -p are mutually exclusive\n");
+                usage();
+                exit(1);
+            }
+            g_ping_back = true;
         } else if (0 == strcmp("-e", argv[i])) {
+            if (g_ping_back) {
+                printf("options -p and -e are mutually exclusive\n");
+                usage();
+                exit(1);
+            }
             g_echo_signal = true;
         } else if (0 == strcmp("-x", argv[i])) {
             g_compress = true;

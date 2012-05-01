@@ -57,12 +57,14 @@ static const uint32_t PEER_AUTH_VERSION = 0x00010000;
 static void SetRights(PeerState& peerState, bool mutual, bool challenger)
 {
     if (mutual) {
+        QCC_DbgHLPrintf(("SetRights mutual"));
         peerState->SetAuthorization(MESSAGE_METHOD_CALL, _PeerState::ALLOW_SECURE_TX | _PeerState::ALLOW_SECURE_RX);
         peerState->SetAuthorization(MESSAGE_METHOD_RET,  _PeerState::ALLOW_SECURE_TX | _PeerState::ALLOW_SECURE_RX);
         peerState->SetAuthorization(MESSAGE_ERROR,       _PeerState::ALLOW_SECURE_TX | _PeerState::ALLOW_SECURE_RX);
         peerState->SetAuthorization(MESSAGE_SIGNAL,      _PeerState::ALLOW_SECURE_TX | _PeerState::ALLOW_SECURE_RX);
     } else {
         if (challenger) {
+            QCC_DbgHLPrintf(("SetRights challenger"));
             /*
              * We are the challenger in the auth conversation. The authentication was one-side so we
              * will accept encrypted calls from the remote peer but will not send them.
@@ -72,6 +74,7 @@ static void SetRights(PeerState& peerState, bool mutual, bool challenger)
             peerState->SetAuthorization(MESSAGE_ERROR,       _PeerState::ALLOW_SECURE_TX);
             peerState->SetAuthorization(MESSAGE_SIGNAL,      _PeerState::ALLOW_SECURE_TX | _PeerState::ALLOW_SECURE_RX);
         } else {
+            QCC_DbgHLPrintf(("SetRights responder"));
             /*
              * We initiated the authentication and responded to challenges from the remote peer. The
              * authentication was not mutual so we are not going to allow encrypted method calls
@@ -293,13 +296,14 @@ void AllJoynPeerObj::ExchangeGroupKeys(const InterfaceDescription::Member* membe
         StringSource src(msg->GetArg(0)->v_scalarArray.v_byte, msg->GetArg(0)->v_scalarArray.numElements);
         status = key.Load(src);
         if (status == ER_OK) {
+            PeerState peerState = peerStateTable->GetPeerState(msg->GetSender());
             /*
              * Tag the group key with the auth mechanism used by ExchangeGroupKeys. Group keys
              * are inherently directional - only initiator encrypts with the group key. We set
              * the role to NO_ROLE otherwise senders can't decrypt their own broadcast messages.
              */
             key.SetTag(msg->GetAuthMechanism(), KeyBlob::NO_ROLE);
-            peerStateTable->GetPeerState(msg->GetSender())->SetKey(key, PEER_GROUP_KEY);
+            peerState->SetKey(key, PEER_GROUP_KEY);
             /*
              * Return the local group key.
              */
@@ -676,6 +680,8 @@ QStatus AllJoynPeerObj::AuthenticatePeer(AllJoynMessageType msgType, const qcc::
         peerState->SetKey(key, PEER_SESSION_KEY);
         /* Record in the peer state that this peer is the local peer */
         peerState->isLocalPeer = true;
+        /* Set rights on the local peer - treat as mutual authentication */
+        SetRights(peerState, true, false);
         /* We are still holding the lock */
         lock.Unlock(MUTEX_CONTEXT);
         return ER_OK;
@@ -793,6 +799,10 @@ QStatus AllJoynPeerObj::AuthenticatePeer(AllJoynMessageType msgType, const qcc::
         KeyBlob key;
         StringSink snk;
         peerStateTable->GetGroupKey(key);
+        /*
+         * Access rights on the null-name peer only allows signals to be encrypted using this key
+         */
+        peerStateTable->GetPeerState("")->SetAuthorization(MESSAGE_SIGNAL, _PeerState::ALLOW_SECURE_TX);
         key.Store(snk);
         MsgArg arg("ay", snk.GetString().size(), snk.GetString().data());
         status = remotePeerObj.MethodCall(*(ifc->GetMember("ExchangeGroupKeys")), &arg, 1, replyMsg, DEFAULT_TIMEOUT, ALLJOYN_FLAG_ENCRYPTED);

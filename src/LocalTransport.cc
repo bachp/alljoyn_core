@@ -707,6 +707,13 @@ QStatus LocalEndpoint::HandleMethodCall(Message& message)
             status = ER_OK;
             break;
 
+        case ER_BUS_NOT_AUTHORIZED:
+            errStr = "org.alljoyn.Bus.SecurityViolation";
+            errMsg = "Method call not authorized";
+            peerObj->HandleSecurityViolation(message, status);
+            status = ER_OK;
+            break;
+
         case ER_BUS_NO_SUCH_OBJECT:
             errStr = "org.freedesktop.DBus.Error.ServiceUnknown";
             errMsg = QCC_StatusText(status);
@@ -766,7 +773,7 @@ QStatus LocalEndpoint::HandleSignal(Message& message)
         status = message->UnmarshalArgs(signal->signature);
     }
     if (status != ER_OK) {
-        if ((status == ER_BUS_MESSAGE_DECRYPTION_FAILED) || (status == ER_BUS_MESSAGE_NOT_ENCRYPTED)) {
+        if ((status == ER_BUS_MESSAGE_DECRYPTION_FAILED) || (status == ER_BUS_MESSAGE_NOT_ENCRYPTED) || (status == ER_BUS_NOT_AUTHORIZED)) {
             peerObj->HandleSecurityViolation(message, status);
             status = ER_OK;
         }
@@ -836,6 +843,7 @@ QStatus LocalEndpoint::HandleMethodReply(Message& message)
             switch (status) {
             case ER_BUS_MESSAGE_DECRYPTION_FAILED:
             case ER_BUS_MESSAGE_NOT_ENCRYPTED:
+            case ER_BUS_NOT_AUTHORIZED:
                 message->ErrorMsg(status, message->GetReplySerial());
                 peerObj->HandleSecurityViolation(message, status);
                 break;

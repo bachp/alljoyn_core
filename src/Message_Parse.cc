@@ -581,13 +581,6 @@ QStatus _Message::UnmarshalArgs(const qcc::String& expectedSignature, const char
         bool broadcast = (hdrFields.field[ALLJOYN_HDR_FIELD_DESTINATION].typeId == ALLJOYN_INVALID);
         size_t hdrLen = bodyPtr - (uint8_t*)msgBuf;
         PeerState peerState = bus->GetInternal().GetPeerStateTable()->GetPeerState(GetSender());
-        /*
-         * Check if the remote peer is authorized to deliver us messagees of this message type.
-         */
-        if (!peerState->IsAuthorized((AllJoynMessageType)msgHeader.msgType, _PeerState::ALLOW_SECURE_RX)) {
-            status = ER_BUS_NOT_AUTHORIZED;
-            goto ExitUnmarshalArgs;
-        }
         KeyBlob key;
         status = peerState->GetKey(key, broadcast ? PEER_GROUP_KEY : PEER_SESSION_KEY);
         if (status != ER_OK) {
@@ -596,6 +589,13 @@ QStatus _Message::UnmarshalArgs(const qcc::String& expectedSignature, const char
              * This status triggers a call to the security failure handler.
              */
             status = ER_BUS_MESSAGE_DECRYPTION_FAILED;
+            goto ExitUnmarshalArgs;
+        }
+        /*
+         * Check remote peer is authorized to deliver us messagees of this message type.
+         */
+        if (!peerState->IsAuthorized((AllJoynMessageType)msgHeader.msgType, _PeerState::ALLOW_SECURE_RX)) {
+            status = ER_BUS_NOT_AUTHORIZED;
             goto ExitUnmarshalArgs;
         }
         QCC_DbgHLPrintf(("Decrypting messge from %s", GetSender()));

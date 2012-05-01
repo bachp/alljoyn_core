@@ -8,7 +8,7 @@
  */
 
 /******************************************************************************
- * Copyright 2009-2011, Qualcomm Innovation Center, Inc.
+ * Copyright 2009-2012, Qualcomm Innovation Center, Inc.
  *
  *    Licensed under the Apache License, Version 2.0 (the "License");
  *    you may not use this file except in compliance with the License.
@@ -574,7 +574,7 @@ class ProxyBusObject : public MessageReceiver {
      * connections can only be secured if EnablePeerSecurity() was previously called on the bus
      * attachment for this proxy object. If the peer-to-peer connection is already secure this
      * function does nothing. Note that peer-to-peer connections are automatically secured when a
-     * method call or signal requiring encryption is sent or received.
+     * method call requiring encryption is sent.
      *
      * This call causes messages to be send on the bus, therefore it cannot be called within AllJoyn
      * callbacks (method/signal/reply handlers or ObjectRegistered callbacks, etc.)
@@ -596,7 +596,7 @@ class ProxyBusObject : public MessageReceiver {
      * connections can only be secured if EnablePeerSecurity() was previously called on the bus
      * attachment for this proxy object. If the peer-to-peer connection is already secure this
      * function does nothing. Note that peer-to-peer connections are automatically secured when a
-     * method call or signal requiring encryption is sent or received.
+     * method call requiring encryption is sent.
      *
      * Notification of success or failure is via the AuthListener passed to EnablePeerSecurity().
      *

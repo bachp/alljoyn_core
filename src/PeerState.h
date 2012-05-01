@@ -4,7 +4,7 @@
  */
 
 /******************************************************************************
- * Copyright 2010-2011, Qualcomm Innovation Center, Inc.
+ * Copyright 2010-2012, Qualcomm Innovation Center, Inc.
  *
  *    Licensed under the Apache License, Version 2.0 (the "License");
  *    you may not use this file except in compliance with the License.
@@ -219,7 +219,7 @@ class _PeerState {
      * @return Return true if the message type is authorized.
      */
     bool IsAuthorized(AllJoynMessageType msgType, uint8_t access) {
-        return isSecure ? (authorizations[(uint8_t)msgType + 1] & access) == access : true;
+        return isSecure ? (authorizations[(uint8_t)msgType - 1] & access) == access : true;
     }
 
     /**
@@ -230,9 +230,9 @@ class _PeerState {
      */
     void SetAuthorization(AllJoynMessageType msgType, uint8_t access) {
         if (access) {
-            authorizations[(uint8_t)msgType + 1] |= access;
+            authorizations[(uint8_t)msgType - 1] |= access;
         } else {
-            authorizations[(uint8_t)msgType + 1] = 0;
+            authorizations[(uint8_t)msgType - 1] = 0;
         }
     }
 

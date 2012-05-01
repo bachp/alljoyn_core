@@ -84,10 +84,17 @@ class MyBusListener : public BusListener, public SessionListener {
         QCC_SyncPrintf("FoundAdvertisedName(name=%s, transport=0x%x, prefix=%s)\n", name, transport, namePrefix);
 
         if (0 == strcmp(name, g_wellKnownName.c_str())) {
-            /* We found a remote bus that is advertising bbservice's well-known name so connect to it */
+            /* We found a remote bus that is advertising the well-known name so connect to it */
             SessionOpts opts(SessionOpts::TRAFFIC_MESSAGES, true, SessionOpts::PROXIMITY_ANY, transport);
             QStatus status = g_msgBus->JoinSession(name, ::org::alljoyn::alljoyn_test::SessionPort, this, sessionId, opts);
             if (ER_OK == status) {
+                if (encryption) {
+                    ProxyBusObject remotePeerObj(*g_msgBus, name, "/", 0);
+                    status = remotePeerObj.SecureConnection();
+                    if (status != ER_OK) {
+                        QCC_LogError(status, ("Failed to authenticate remote peer (status=%s)", QCC_StatusText(status)));
+                    }
+                }
                 /* Release main thread */
                 g_discoverEvent.SetEvent();
             } else {
@@ -146,7 +153,9 @@ class LocalTestObject : public BusObject {
         status = bus.CreateInterface(::org::alljoyn::alljoyn_test::InterfaceName, testIntf);
         if (ER_OK == status) {
             testIntf->AddSignal("my_signal", "a{ys}", NULL, 0);
+            testIntf->AddMethod("my_ping", "s", "s", "outStr,inStr", 0);
             testIntf->Activate();
+            AddInterface(*testIntf);
         } else {
             QCC_LogError(status, ("Failed to create interface %s", ::org::alljoyn::alljoyn_test::InterfaceName));
         }
@@ -162,9 +171,17 @@ class LocalTestObject : public BusObject {
                                                 NULL);
 
             if (status != ER_OK) {
-                QCC_SyncPrintf("Failed to register signal handler for 'org.alljoyn.alljoyn_test.my_signal': %s\n",
-                               QCC_StatusText(status));
+                QCC_SyncPrintf("Failed to register signal handler for 'org.alljoyn.alljoyn_test.my_signal': %s\n", QCC_StatusText(status));
             }
+        }
+
+        /* Register the method handlers with the object */
+        const MethodEntry methodEntries[] = {
+            { testIntf->GetMember("my_ping"), static_cast<MessageReceiver::MethodHandler>(&LocalTestObject::Ping) },
+        };
+        status = AddMethodHandlers(methodEntries, ArraySize(methodEntries));
+        if (ER_OK != status) {
+            QCC_LogError(status, ("Failed to register method handlers for LocalTestObject"));
         }
     }
 
@@ -269,6 +286,16 @@ class LocalTestObject : public BusObject {
         }
     }
 
+    void Ping(const InterfaceDescription::Member* member, Message& msg)
+    {
+        /* Reply with same string that was sent to us */
+        MsgArg arg(*(msg->GetArg(0)));
+        printf("Pinged with: %s\n", msg->GetArg(0)->ToString().c_str());
+        QStatus status = MethodReply(msg, &arg, 1);
+        if (ER_OK != status) {
+            QCC_LogError(status, ("Ping: Error sending reply"));
+        }
+    }
 
     map<qcc::String, size_t> rxCounts;
 
@@ -377,8 +404,8 @@ class MyAuthListener : public AuthListener {
         printf("Authentication %s %s\n", authMechanism, success ? "succesful" : "failed");
     }
 
-    void SecurityViolation(const char* error) {
-        printf("Security violation %s\n", error);
+    void SecurityViolation(QStatus status, const Message& msg) {
+        printf("Security violation %s\n", QCC_StatusText(status));
     }
 
     qcc::String userName;
@@ -420,8 +447,6 @@ int main(int argc, char** argv)
     bool useSignalHandler = false;
     bool discoverRemote = false;
     unsigned int pid;
-    char objPathTemplate[] = "/org/alljoyn/AllJoyn/%u/test";
-    char objPath[sizeof(objPathTemplate) + sizeof("65535")];
     unsigned long signalDelay = 0;
     unsigned long disconnectDelay = 0;
     unsigned long reportInterval = 1000;
@@ -438,14 +463,6 @@ int main(int argc, char** argv)
 
     /* Install SIGINT handler */
     signal(SIGINT, SigIntHandler);
-
-#ifdef _WIN32
-    pid = _getpid();
-    _snprintf(objPath, sizeof(objPath), objPathTemplate, pid);
-#else
-    pid = getpid();
-    snprintf(objPath, sizeof(objPath), objPathTemplate, pid);
-#endif
 
     /* Parse command line args */
     for (int i = 1; i < argc; ++i) {
@@ -599,7 +616,7 @@ int main(int argc, char** argv)
         }
 
         /* Register object and start the bus */
-        LocalTestObject* testObj = new LocalTestObject(*g_msgBus, objPath, signalDelay, disconnectDelay, reportInterval, maxSignals);
+        LocalTestObject* testObj = new LocalTestObject(*g_msgBus, ::org::alljoyn::alljoyn_test::ObjectPath, signalDelay, disconnectDelay, reportInterval, maxSignals);
         g_msgBus->RegisterBusObject(*testObj);
 
         /* Connect to the bus */
