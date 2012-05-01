@@ -385,7 +385,7 @@ QStatus KeyStore::Pull(Source& source, const qcc::String& password)
                             status = strSource.PullBytes(&keyRec.accessRights, sizeof(keyRec.accessRights), pulled);
                         } else {
                             /*
-                             * Maintain backwards compatibility with and older key store
+                             * Maintain backwards compatibility with an older key store
                              */
                             for (size_t i = 0; i < ArraySize(keyRec.accessRights); ++i) {
                                 keyRec.accessRights[i] = _PeerState::ALLOW_SECURE_TX | _PeerState::ALLOW_SECURE_RX;
@@ -613,6 +613,7 @@ QStatus KeyStore::GetKey(const qcc::GUID128& guid, KeyBlob& key, uint8_t accessR
         KeyRecord& keyRec = (*keys)[guid];
         key = keyRec.key;
         memcpy(accessRights, &keyRec.accessRights, sizeof(accessRights));
+        QCC_DbgPrintf(("AccessRights %1x%1x%1x%1x", accessRights[0], accessRights[1], accessRights[2], accessRights[3]));
         status = ER_OK;
     } else {
         status = ER_BUS_KEY_UNAVAILABLE;
@@ -643,6 +644,7 @@ QStatus KeyStore::AddKey(const qcc::GUID128& guid, const KeyBlob& key, const uin
     KeyRecord& keyRec = (*keys)[guid];
     keyRec.revision = revision + 1;
     keyRec.key = key;
+    QCC_DbgPrintf(("AccessRights %1x%1x%1x%1x", accessRights[0], accessRights[1], accessRights[2], accessRights[3]));
     memcpy(&keyRec.accessRights, accessRights, sizeof(accessRights));
     storeState = MODIFIED;
     deletions.erase(guid);
