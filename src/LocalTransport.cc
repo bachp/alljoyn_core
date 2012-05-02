@@ -46,7 +46,7 @@
 #include "BusInternal.h"
 
 
-#define QCC_MODULE "ALLJOYN"
+#define QCC_MODULE "LOCAL_TRANSPORT"
 
 using namespace std;
 using namespace qcc;
@@ -95,7 +95,8 @@ LocalEndpoint::LocalEndpoint(BusAttachment& bus) :
     dbusObj(NULL),
     alljoynObj(NULL),
     alljoynDebugObj(NULL),
-    peerObj(NULL)
+    peerObj(NULL),
+    threadPool(NULL)
 {
 }
 
@@ -105,6 +106,7 @@ LocalEndpoint::~LocalEndpoint()
 
     running = false;
 
+    assert(threadPool == NULL);
     assert(refCount > 0);
     /*
      * We can't complete the destruction if we have calls out the application.
@@ -134,6 +136,9 @@ LocalEndpoint::~LocalEndpoint()
 
 QStatus LocalEndpoint::Start()
 {
+    assert(threadPool == NULL);
+    threadPool = new ThreadPool("LocalEndpoint Callout ThreadPool", bus.GetConcurrency());
+
     QStatus status = ER_OK;
     /* Set the local endpoint's unique name */
     SetUniqueName(bus.GetInternal().GetRouter().GenerateUniqueName());
@@ -191,6 +196,21 @@ QStatus LocalEndpoint::Stop(void)
     running = false;
 
     IncrementAndFetch(&refCount);
+
+    /*
+     * This is a bit unusual, but we don't want to proceed to unregister any bus
+     * objects that may have dispatched concurrent message handler threads
+     * wandering around in them.  We won't get any new ones fired off since we
+     * set running to false, but we may have threads active now.
+     */
+    if (threadPool) {
+        threadPool->Stop();
+        threadPool->Join();
+
+        delete threadPool;
+        threadPool = NULL;
+    }
+
     /*
      * Unregister all registered bus objects
      */
@@ -219,6 +239,7 @@ QStatus LocalEndpoint::Join(void)
         peerObj->Join();
     }
     permVerifyThread.Join();
+
     return ER_OK;
 }
 
@@ -628,6 +649,34 @@ void LocalEndpoint::AlarmTriggered(const Alarm& alarm, QStatus reason)
     }
 }
 
+/*
+ * A class to package up a call to a method handler for future execution
+ * by a thread pool (i.e., a closure).
+ *
+ * Instead of calling the method handler directly, we have to indirect back
+ * through the LocalEndpoint which is the friend of the BusObject that can
+ * actually make the call.
+ */
+class MethodCallRunnable : public Runnable {
+  public:
+    MethodCallRunnable(LocalEndpoint* ep, const MethodTable::Entry* entry, Message message)
+        : ep(ep), entry(entry), message(message)
+    {
+        QCC_DbgHLPrintf(("MethodCallRunnable::MethodCallRunnable(): New closure for method call"));
+    }
+
+    virtual void Run(void)
+    {
+        QCC_DbgHLPrintf(("MethodCallRunnable::Run(): Firing closure for method call"));
+        ep->DoCallMethodHandler(entry, message);
+    }
+
+  private:
+    LocalEndpoint* ep;
+    const MethodTable::Entry* entry;
+    Message message;
+};
+
 QStatus LocalEndpoint::HandleMethodCall(Message& message)
 {
     QStatus status = ER_OK;
@@ -658,7 +707,20 @@ QStatus LocalEndpoint::HandleMethodCall(Message& message)
         /* Call the method handler */
         if (entry) {
             if (bus.GetInternal().GetRouter().IsDaemon() || entry->member->accessPerms.size() == 0) {
-                entry->object->CallMethodHandler(entry->handler, entry->member, message, entry->context);
+                Ptr<MethodCallRunnable> runnable = NewPtr<MethodCallRunnable>(this, entry, message);
+                for (;;) {
+                    status = threadPool->WaitForAvailableThread();
+                    if (status != ER_OK) {
+                        break;
+                    }
+
+                    status = threadPool->Execute(runnable);
+                    if (status == ER_THREADPOOL_EXHAUSTED) {
+                        continue;
+                    } else {
+                        break;
+                    }
+                }
             } else {
                 QCC_DbgPrintf(("Method(%s::%s) requires permission %s", message->GetInterface(), message->GetMemberName(), entry->member->accessPerms.c_str()));
                 chkMsgListLock.Lock(MUTEX_CONTEXT);
@@ -666,7 +728,20 @@ QStatus LocalEndpoint::HandleMethodCall(Message& message)
                 std::map<PermCheckedEntry, bool>::const_iterator it = permCheckedCallMap.find(permChkEntry);
                 if (it != permCheckedCallMap.end()) {
                     if (permCheckedCallMap[permChkEntry]) {
-                        entry->object->CallMethodHandler(entry->handler, entry->member, message, entry->context);
+                        Ptr<MethodCallRunnable> runnable = NewPtr<MethodCallRunnable>(this, entry, message);
+                        for (;;) {
+                            status = threadPool->WaitForAvailableThread();
+                            if (status != ER_OK) {
+                                break;
+                            }
+
+                            status = threadPool->Execute(runnable);
+                            if (status == ER_THREADPOOL_EXHAUSTED) {
+                                continue;
+                            } else {
+                                break;
+                            }
+                        }
                     } else {
                         QCC_LogError(ER_ALLJOYN_ACCESS_PERMISSION_ERROR, ("Endpoint(%s) has no permission to call method (%s::%s)",
                                                                           message->GetSender(), message->GetInterface(), message->GetMemberName()));
@@ -734,6 +809,34 @@ QStatus LocalEndpoint::HandleMethodCall(Message& message)
     return status;
 }
 
+/*
+ * A class to package up a call to a signal handler for future execution
+ * by a thread pool (i.e., a closure).
+ */
+class SignalCallRunnable : public Runnable {
+  public:
+    SignalCallRunnable(MessageReceiver* object,
+                       MessageReceiver::SignalHandler handler,
+                       const InterfaceDescription::Member* member,
+                       Message message)
+        : object(object), handler(handler), member(member), message(message)
+    {
+        QCC_DbgHLPrintf(("SignalCallRunnable::SignalCallRunnable(): New closure for signal call"));
+    }
+
+    virtual void Run(void)
+    {
+        QCC_DbgHLPrintf(("SignalCallRunnable::Run(): Firing closure for signal call"));
+        (object->*handler)(member, message->GetObjectPath(), message);
+    }
+
+  private:
+    MessageReceiver* object;
+    MessageReceiver::SignalHandler handler;
+    const InterfaceDescription::Member* member;
+    Message message;
+};
+
 QStatus LocalEndpoint::HandleSignal(Message& message)
 {
     QStatus status = ER_OK;
@@ -782,7 +885,23 @@ QStatus LocalEndpoint::HandleSignal(Message& message)
         if (bus.GetInternal().GetRouter().IsDaemon() || first->member->accessPerms.size() == 0) {
             list<SignalTable::Entry>::const_iterator callit;
             for (callit = callList.begin(); callit != callList.end(); ++callit) {
-                (callit->object->*callit->handler)(callit->member, message->GetObjectPath(), message);
+                Ptr<SignalCallRunnable> runnable = NewPtr<SignalCallRunnable>(callit->object,
+                                                                              callit->handler,
+                                                                              callit->member,
+                                                                              message);
+                for (;;) {
+                    status = threadPool->WaitForAvailableThread();
+                    if (status != ER_OK) {
+                        break;
+                    }
+
+                    status = threadPool->Execute(runnable);
+                    if (status == ER_THREADPOOL_EXHAUSTED) {
+                        continue;
+                    } else {
+                        break;
+                    }
+                }
             }
         } else {
             QCC_DbgPrintf(("Signal(%s::%s) requires permission %s", message->GetInterface(), message->GetMemberName(), first->member->accessPerms.c_str()));
@@ -797,7 +916,23 @@ QStatus LocalEndpoint::HandleSignal(Message& message)
                 if (permCheckedCallMap[permChkEntry]) {
                     list<SignalTable::Entry>::const_iterator callit;
                     for (callit = callList.begin(); callit != callList.end(); ++callit) {
-                        (callit->object->*callit->handler)(callit->member, message->GetObjectPath(), message);
+                        Ptr<SignalCallRunnable> runnable = NewPtr<SignalCallRunnable>(callit->object,
+                                                                                      callit->handler,
+                                                                                      callit->member,
+                                                                                      message);
+                        for (;;) {
+                            status = threadPool->WaitForAvailableThread();
+                            if (status != ER_OK) {
+                                break;
+                            }
+
+                            status = threadPool->Execute(runnable);
+                            if (status == ER_THREADPOOL_EXHAUSTED) {
+                                continue;
+                            } else {
+                                break;
+                            }
+                        }
                     }
                 } else {
                     /* Do not return Error message because signal does not require reply */
@@ -957,6 +1092,7 @@ void*  LocalEndpoint::PermVerifyThread::Run(void* arg)
                 if (msgType == MESSAGE_METHOD_CALL) {
                     if (allowed) {
                         const MethodTable::Entry* entry = msgInfo.methodEntry;
+                        /* Don't run on concurrency threadpool since we are separate thread anyway */
                         entry->object->CallMethodHandler(entry->handler, entry->member, msgInfo.msg, entry->context);
                     } else {
                         QCC_LogError(ER_ALLJOYN_ACCESS_PERMISSION_ERROR, ("Endpoint(%s) has no permission to call method (%s::%s)",
@@ -977,6 +1113,7 @@ void*  LocalEndpoint::PermVerifyThread::Run(void* arg)
                         list<SignalTable::Entry>& callList = msgInfo.signalCallList;
                         list<SignalTable::Entry>::const_iterator callit;
                         for (callit = callList.begin(); callit != callList.end(); ++callit) {
+                            /* Don't run on concurrency threadpool since we are separate thread anyway */
                             (callit->object->*callit->handler)(callit->member, (msgInfo.msg)->GetObjectPath(), message);
                         }
                     } else {

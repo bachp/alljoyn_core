@@ -73,11 +73,19 @@ class BusAttachment : public MessageReceiver {
      *
      * @param applicationName       Name of the application.
      * @param allowRemoteMessages   True if this attachment is allowed to receive messages from remote devices.
+     * @param concurrency           The maximum number of concurrent method and signal handlers locally executing.
      */
-    BusAttachment(const char* applicationName, bool allowRemoteMessages = false);
+    BusAttachment(const char* applicationName, bool allowRemoteMessages = false, uint32_t concurrency = 4);
 
     /** Destructor */
     virtual ~BusAttachment();
+
+    /**
+     * Get the concurrent method and signal handler limit.
+     *
+     * @return The maximum number of concurrent method and signal handlers.
+     */
+    uint32_t GetConcurrency();
 
     /**
      * Create an interface description with a given name.
@@ -993,7 +1001,7 @@ class BusAttachment : public MessageReceiver {
      *
      * @param internal  Internal state.
      */
-    BusAttachment(Internal* internal);
+    BusAttachment(Internal* internal, uint32_t concurrency);
     /// @endcond
 
   private:
@@ -1026,6 +1034,7 @@ class BusAttachment : public MessageReceiver {
     bool hasStarted;          /**< Indicates if the bus has ever been started */
     bool isStarted;           /**< Indicates if the bus has been started */
     bool isStopping;          /**< Indicates Stop has been called */
+    uint32_t concurrency;     /**< The maximum number of concurrent method and signal handlers locally executing */
     Internal* busInternal;    /**< Internal state information */
 
     class JoinObj {

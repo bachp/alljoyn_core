@@ -64,8 +64,12 @@ using namespace qcc;
 
 namespace ajn {
 
-BusAttachment::Internal::Internal(const char* appName, BusAttachment& bus, TransportFactoryContainer& factories,
-                                  Router* router, bool allowRemoteMessages, const char* listenAddresses) :
+BusAttachment::Internal::Internal(const char* appName,
+                                  BusAttachment& bus,
+                                  TransportFactoryContainer& factories,
+                                  Router* router,
+                                  bool allowRemoteMessages,
+                                  const char* listenAddresses) :
     application(appName ? appName : "unknown"),
     bus(bus),
     listenersLock(),
@@ -132,10 +136,11 @@ class LocalTransportFactoryContainer : public TransportFactoryContainer {
 } localTransportsContainer;
 volatile int32_t transportContainerInit = 0;
 
-BusAttachment::BusAttachment(const char* applicationName, bool allowRemoteMessages) :
+BusAttachment::BusAttachment(const char* applicationName, bool allowRemoteMessages, uint32_t concurrency) :
     hasStarted(false),
     isStarted(false),
     isStopping(false),
+    concurrency(concurrency),
     busInternal(new Internal(applicationName, *this, localTransportsContainer, NULL, allowRemoteMessages, NULL)),
     joinObj(this)
 {
@@ -147,10 +152,11 @@ BusAttachment::BusAttachment(const char* applicationName, bool allowRemoteMessag
     QCC_DbgTrace(("BusAttachment client constructor (%p)", this));
 }
 
-BusAttachment::BusAttachment(Internal* busInternal) :
+BusAttachment::BusAttachment(Internal* busInternal, uint32_t concurrency) :
     hasStarted(false),
     isStarted(false),
     isStopping(false),
+    concurrency(concurrency),
     busInternal(busInternal),
     joinObj(this)
 {
@@ -189,6 +195,11 @@ BusAttachment::~BusAttachment(void)
 
     delete busInternal;
     busInternal = NULL;
+}
+
+uint32_t BusAttachment::GetConcurrency()
+{
+    return concurrency;
 }
 
 QStatus BusAttachment::Start()
