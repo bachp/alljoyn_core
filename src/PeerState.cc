@@ -126,11 +126,15 @@ void PeerStateTable::DelPeerState(const qcc::String& busName)
 
 void PeerStateTable::GetGroupKey(qcc::KeyBlob& key)
 {
+    PeerState groupPeer = GetPeerState("");
     /*
      * The group key is carried by the null-name peer
      */
-    GetPeerState("")->GetKey(key, PEER_SESSION_KEY);
-
+    groupPeer->GetKey(key, PEER_SESSION_KEY);
+    /*
+     * Access rights on the group peer always allows signals to be encrypted.
+     */
+    groupPeer->SetAuthorization(MESSAGE_SIGNAL, _PeerState::ALLOW_SECURE_TX);
 }
 
 void PeerStateTable::Clear()

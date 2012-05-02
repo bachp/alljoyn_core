@@ -799,10 +799,6 @@ QStatus AllJoynPeerObj::AuthenticatePeer(AllJoynMessageType msgType, const qcc::
         KeyBlob key;
         StringSink snk;
         peerStateTable->GetGroupKey(key);
-        /*
-         * Access rights on the null-name peer only allows signals to be encrypted using this key
-         */
-        peerStateTable->GetPeerState("")->SetAuthorization(MESSAGE_SIGNAL, _PeerState::ALLOW_SECURE_TX);
         key.Store(snk);
         MsgArg arg("ay", snk.GetString().size(), snk.GetString().data());
         status = remotePeerObj.MethodCall(*(ifc->GetMember("ExchangeGroupKeys")), &arg, 1, replyMsg, DEFAULT_TIMEOUT, ALLJOYN_FLAG_ENCRYPTED);

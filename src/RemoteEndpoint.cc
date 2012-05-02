@@ -427,7 +427,7 @@ void* RemoteEndpoint::TxThread::Run(void* arg)
                 /* Report authorization failure as a security violation */
                 if (status == ER_BUS_NOT_AUTHORIZED) {
                     bus.GetInternal().GetLocalEndpoint().GetPeerObj()->HandleSecurityViolation(msg, status);
-                    /* 
+                    /*
                      * Clear the error after reporting the security violation otherwise we will exit
                      * this thread which will shut down the endpoint.
                      */
