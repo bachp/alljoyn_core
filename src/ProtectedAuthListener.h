@@ -49,6 +49,24 @@ class ProtectedAuthListener : public AuthListener {
     ProtectedAuthListener() : listener(NULL), refCount(0) { }
 
     /**
+     * Virtual destructor for derivable class.
+     */
+    virtual ~ProtectedAuthListener()
+    {
+        /*
+         * Clear the current listener to prevent any more calls to this listener.
+         */
+        this->listener = NULL;
+
+        /*
+         * Poll and sleep until the current listener is no longer in use.
+         */
+        while (refCount) {
+            qcc::Sleep(10);
+        }
+    }
+
+    /**
      * Set the listener. If one of internal listener callouts is currently being called this
      * function will block until the callout returns.
      */
@@ -132,8 +150,7 @@ class ProtectedAuthListener : public AuthListener {
     /*
      * Reference count so we know when the inner listener is no longer in use.
      */
-    int32_t refCount;
-
+    volatile int32_t refCount;
 };
 
 }
