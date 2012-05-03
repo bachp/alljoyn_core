@@ -186,8 +186,31 @@ void AllJoynPeerObj::GetExpansion(const InterfaceDescription::Member* member, Me
 
 QStatus AllJoynPeerObj::RequestHeaderExpansion(Message& msg, RemoteEndpoint* sender)
 {
+    bool expansionPending = false;
+    uint32_t token = msg->GetCompressionToken();
+
     assert(sender == bus.GetInternal().GetRouter().FindEndpoint(msg->GetRcvEndpointName()));
-    return DispatchRequest(msg, EXPAND_HEADER, sender->GetRemoteName());
+
+    lock.Lock(MUTEX_CONTEXT);
+    /*
+     * First check if there are any other messages waiting for the same expansion rule.
+     */
+    for (std::deque<Message>::iterator iter = msgsPendingExpansion.begin(); iter != msgsPendingExpansion.end(); ++iter) {
+        if ((*iter)->GetCompressionToken() == token) {
+            expansionPending = true;
+            break;
+        }
+    }
+    msgsPendingExpansion.push_back(msg);
+    lock.Unlock(MUTEX_CONTEXT);
+    /*
+     * If there is already an expansion request for this message we don't need another one.
+     */
+    if (expansionPending) {
+        return ER_OK;
+    } else {
+        return DispatchRequest(msg, EXPAND_HEADER, sender->GetRemoteName());
+    }
 }
 
 QStatus AllJoynPeerObj::RequestAuthentication(Message& msg)
@@ -195,10 +218,27 @@ QStatus AllJoynPeerObj::RequestAuthentication(Message& msg)
     return DispatchRequest(msg, AUTHENTICATE_PEER);
 }
 
+bool AllJoynPeerObj::RemoveCompressedMessage(Message& msg, uint32_t token)
+{
+    lock.Lock(MUTEX_CONTEXT);
+    for (std::deque<Message>::iterator iter = msgsPendingExpansion.begin(); iter != msgsPendingExpansion.end(); ++iter) {
+        if ((*iter)->GetCompressionToken() == token) {
+            msg = *iter;
+            msgsPendingExpansion.erase(iter);
+            lock.Unlock(MUTEX_CONTEXT);
+            return true;
+        }
+    }
+    lock.Unlock(MUTEX_CONTEXT);
+    return false;
+}
+
 /**
- * How long (in milliseconds) to wait for a response to an expansion request.
+ * We keep the timeout for the expansion request small to bound the number of unexpanded messages
+ * that we have to queue while we wait for the response. This neutralizes a DOS attack where a remote device
+ * that is sending compressed messages never responds to the request for the expansion rule.
  */
-#define EXPANSION_TIMEOUT   10000
+#define EXPANSION_TIMEOUT   1000
 
 void AllJoynPeerObj::ExpandHeader(Message& msg, const qcc::String& receivedFrom)
 {
@@ -231,9 +271,20 @@ void AllJoynPeerObj::ExpandHeader(Message& msg, const qcc::String& receivedFrom)
         }
     }
     /*
-     * If we have an expansion rule we can decompress the message.
+     * Clean up if we can't expand the messages.
      */
-    if (status == ER_OK) {
+    if (status != ER_OK) {
+        while (RemoveCompressedMessage(msg, token)) {
+            QCC_LogError(status, ("Failed to expand message %s", msg->Description().c_str()));
+        }
+        return;
+    }
+    /*
+     * Calling RemoveCompressedMessage() in a loop may look innefficient but it is highly unlikely
+     * we will be expanding different headers at the same time so we are really just removing the
+     * front message from the list.
+     */
+    while (RemoveCompressedMessage(msg, token)) {
         Router& router = bus.GetInternal().GetRouter();
         BusEndpoint* sender = router.FindEndpoint(msg->GetRcvEndpointName());
         if (sender) {
@@ -259,10 +310,7 @@ void AllJoynPeerObj::ExpandHeader(Message& msg, const qcc::String& receivedFrom)
              */
             router.PushMessage(msg, *sender);
         }
-    } else {
-        QCC_LogError(status, ("Failed to expand message %s", msg->Description().c_str()));
     }
-
 }
 
 /*
