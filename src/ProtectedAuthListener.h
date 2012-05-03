@@ -53,7 +53,7 @@ class ProtectedAuthListener : public AuthListener {
      */
     virtual ~ProtectedAuthListener()
     {
-	   Set(NULL);
+        Set(NULL);
     }
 
     /**
