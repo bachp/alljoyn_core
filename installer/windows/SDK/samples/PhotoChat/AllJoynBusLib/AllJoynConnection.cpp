@@ -190,7 +190,7 @@ void AllJoynConnection::startMessageBus()
     /* Get env vars */
     const char* connectSpec = getenv("BUS_ADDRESS");
     if (connectSpec == NULL) {
-        connectSpec = "tcp:addr=127.0.0.1,port=9955";
+        connectSpec = "tcp:addr=127.0.0.1,port=9956";
         NotifyUser(MSG_STATUS, "Connect spec defaulted to %s", connectSpec);
     } else
         NotifyUser(MSG_STATUS, "Got environment BUS_ADDRESS %s", connectSpec);

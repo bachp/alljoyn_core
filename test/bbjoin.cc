@@ -270,7 +270,7 @@ int main(int argc, char** argv)
 
     if (clientArgs.empty()) {
 #ifdef _WIN32
-        clientArgs = env->Find("BUS_ADDRESS", "tcp:addr=127.0.0.1,port=9955");
+        clientArgs = env->Find("BUS_ADDRESS", "tcp:addr=127.0.0.1,port=9956");
 #else
         clientArgs = env->Find("BUS_ADDRESS", "unix:abstract=alljoyn");
 #endif

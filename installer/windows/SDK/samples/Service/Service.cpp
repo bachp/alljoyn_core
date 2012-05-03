@@ -175,7 +175,7 @@ int main(int argc, char** argv, char** envArg)
     signal(SIGINT, SigIntHandler);
 
 #ifdef _WIN32
-    qcc::String connectArgs = "tcp:addr=127.0.0.1,port=9955";
+    qcc::String connectArgs = "tcp:addr=127.0.0.1,port=9956";
 #else
     qcc::String connectArgs = "unix:abstract=bluebus";
 #endif

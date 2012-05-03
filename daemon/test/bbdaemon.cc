@@ -415,7 +415,7 @@ int main(int argc, char** argv)
     Environ* env = Environ::GetAppEnviron();
 
 #ifdef QCC_OS_GROUP_WINDOWS
-    serverArgs = env->Find("BUS_SERVER_ADDRESSES", "localhost:port=9955;tcp:addr=0.0.0.0,port=9956,family=ipv4;bluetooth:");
+    serverArgs = env->Find("BUS_SERVER_ADDRESSES", "localhost:port=9956;tcp:addr=0.0.0.0,port=9955,family=ipv4;bluetooth:");
 #else
 
 #if defined(DAEMON_LIB)

@@ -23,7 +23,7 @@
 qcc::String ajn::getConnectArg() {
     qcc::Environ* env = qcc::Environ::GetAppEnviron();
 #if defined(QCC_OS_WINDOWS)
-    return env->Find("BUS_ADDRESS", "tcp:addr=127.0.0.1,port=9955");
+    return env->Find("BUS_ADDRESS", "tcp:addr=127.0.0.1,port=9956");
 #else
     return env->Find("BUS_ADDRESS", "unix:abstract=alljoyn");
 #endif

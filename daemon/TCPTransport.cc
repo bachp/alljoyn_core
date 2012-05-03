@@ -2898,7 +2898,7 @@ void TCPTransport::DoStartListen(qcc::String& normSpec)
     }
     /*
      * Set the SO_REUSEADDR socket option so we don't have to wait for four
-     * minutes while the endponit is in TIME_WAIT if we crash (or control-C).
+     * minutes while the endpoint is in TIME_WAIT if we crash (or control-C).
      */
     status = qcc::SetReuseAddress(listenFd, true);
     if (status != ER_OK) {
@@ -2921,7 +2921,20 @@ void TCPTransport::DoStartListen(qcc::String& normSpec)
      * Bind the socket to the listen address and start listening for incoming
      * connections on it.
      */
-    status = Bind(listenFd, listenAddr, listenPort);
+    if (ephemeralPort) {
+        /*
+         * First try binding to the default port
+         */
+        listenPort = PORT_DEFAULT;
+        status = Bind(listenFd, listenAddr, listenPort);
+        if (status != ER_OK) {
+            listenPort = 0;
+            status = Bind(listenFd, listenAddr, listenPort);
+        }
+    } else {
+        status = Bind(listenFd, listenAddr, listenPort);
+    }
+
     if (status == ER_OK) {
         /*
          * If the port was not set (or set to zero) then we will have bound an ephemeral port. If
