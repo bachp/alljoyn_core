@@ -106,7 +106,6 @@ LocalEndpoint::~LocalEndpoint()
 
     running = false;
 
-    assert(threadPool == NULL);
     assert(refCount > 0);
     /*
      * We can't complete the destruction if we have calls out the application.
@@ -131,6 +130,11 @@ LocalEndpoint::~LocalEndpoint()
     if (peerObj) {
         delete peerObj;
         peerObj = NULL;
+    }
+
+    if (threadPool) {
+        delete threadPool;
+        threadPool = NULL;
     }
 }
 
@@ -204,14 +208,12 @@ QStatus LocalEndpoint::Stop(void)
      * This is a bit unusual, but we don't want to proceed to unregister any bus
      * objects that may have dispatched concurrent message handler threads
      * wandering around in them.  We won't get any new ones fired off since we
-     * set running to false, but we may have threads active now.
+     * set running to false, but we may have threads active now.  So we must
+     * Join() the threadpool here in Stop().
      */
     if (threadPool) {
         threadPool->Stop();
         threadPool->Join();
-
-        delete threadPool;
-        threadPool = NULL;
     }
 
     /*
@@ -915,9 +917,9 @@ QStatus LocalEndpoint::HandleSignal(Message& message)
                     (callit->object->*callit->handler)(callit->member, message->GetObjectPath(), message);
                 } else {
                     Ptr<SignalCallRunnable> runnable = NewPtr<SignalCallRunnable>(callit->object,
-                        callit->handler,
-                        callit->member,
-                        message);
+                                                                                  callit->handler,
+                                                                                  callit->member,
+                                                                                  message);
                     for (;;) {
                         status = threadPool->WaitForAvailableThread();
                         if (status != ER_OK) {
@@ -951,9 +953,9 @@ QStatus LocalEndpoint::HandleSignal(Message& message)
                             (callit->object->*callit->handler)(callit->member, message->GetObjectPath(), message);
                         } else {
                             Ptr<SignalCallRunnable> runnable = NewPtr<SignalCallRunnable>(callit->object,
-                                callit->handler,
-                                callit->member,
-                                message);
+                                                                                          callit->handler,
+                                                                                          callit->member,
+                                                                                          message);
                             for (;;) {
                                 status = threadPool->WaitForAvailableThread();
                                 if (status != ER_OK) {
