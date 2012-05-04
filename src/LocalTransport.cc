@@ -681,6 +681,9 @@ QStatus LocalEndpoint::HandleMethodCall(Message& message)
 {
     QStatus status = ER_OK;
 
+    /* Determine if the source of this message is local to the process */
+    bool isLocalSender = bus.GetInternal().GetRouter().FindEndpoint(message->GetSender()) == this;
+
     /* Look up the member */
     const MethodTable::Entry* entry = methodTable.Find(message->GetObjectPath(),
                                                        message->GetInterface(),
@@ -707,18 +710,28 @@ QStatus LocalEndpoint::HandleMethodCall(Message& message)
         /* Call the method handler */
         if (entry) {
             if (bus.GetInternal().GetRouter().IsDaemon() || entry->member->accessPerms.size() == 0) {
-                Ptr<MethodCallRunnable> runnable = NewPtr<MethodCallRunnable>(this, entry, message);
-                for (;;) {
-                    status = threadPool->WaitForAvailableThread();
-                    if (status != ER_OK) {
-                        break;
-                    }
+                /*
+                 * We cannot make method calls coming in from the local endpoint
+                 * on another thread since our code depends on using recursive
+                 * mutexes in our locks.  Introducing a new thread into that mix
+                 * creates necessary and sufficient conditions for deadlock.
+                 */
+                if (isLocalSender) {
+                    entry->object->CallMethodHandler(entry->handler, entry->member, message, entry->context);
+                } else {
+                    Ptr<MethodCallRunnable> runnable = NewPtr<MethodCallRunnable>(this, entry, message);
+                    for (;;) {
+                        status = threadPool->WaitForAvailableThread();
+                        if (status != ER_OK) {
+                            break;
+                        }
 
-                    status = threadPool->Execute(runnable);
-                    if (status == ER_THREADPOOL_EXHAUSTED) {
-                        continue;
-                    } else {
-                        break;
+                        status = threadPool->Execute(runnable);
+                        if (status == ER_THREADPOOL_EXHAUSTED) {
+                            continue;
+                        } else {
+                            break;
+                        }
                     }
                 }
             } else {
@@ -728,20 +741,26 @@ QStatus LocalEndpoint::HandleMethodCall(Message& message)
                 std::map<PermCheckedEntry, bool>::const_iterator it = permCheckedCallMap.find(permChkEntry);
                 if (it != permCheckedCallMap.end()) {
                     if (permCheckedCallMap[permChkEntry]) {
-                        Ptr<MethodCallRunnable> runnable = NewPtr<MethodCallRunnable>(this, entry, message);
-                        for (;;) {
-                            status = threadPool->WaitForAvailableThread();
-                            if (status != ER_OK) {
-                                break;
-                            }
+                        /* Don't multithread method calls originating locally.  See comment in similar code above */
+                        if (isLocalSender) {
+                            entry->object->CallMethodHandler(entry->handler, entry->member, message, entry->context);
+                        } else {
+                            Ptr<MethodCallRunnable> runnable = NewPtr<MethodCallRunnable>(this, entry, message);
+                            for (;;) {
+                                status = threadPool->WaitForAvailableThread();
+                                if (status != ER_OK) {
+                                    break;
+                                }
 
-                            status = threadPool->Execute(runnable);
-                            if (status == ER_THREADPOOL_EXHAUSTED) {
-                                continue;
-                            } else {
-                                break;
+                                status = threadPool->Execute(runnable);
+                                if (status == ER_THREADPOOL_EXHAUSTED) {
+                                    continue;
+                                } else {
+                                    break;
+                                }
                             }
                         }
+
                     } else {
                         QCC_LogError(ER_ALLJOYN_ACCESS_PERMISSION_ERROR, ("Endpoint(%s) has no permission to call method (%s::%s)",
                                                                           message->GetSender(), message->GetInterface(), message->GetMemberName()));
@@ -841,6 +860,9 @@ QStatus LocalEndpoint::HandleSignal(Message& message)
 {
     QStatus status = ER_OK;
 
+    /* Determine if the source of this message is local to the process */
+    bool isLocalSender = bus.GetInternal().GetRouter().FindEndpoint(message->GetSender()) == this;
+
     signalTable.Lock();
 
     /* Look up the signal */
@@ -885,21 +907,26 @@ QStatus LocalEndpoint::HandleSignal(Message& message)
         if (bus.GetInternal().GetRouter().IsDaemon() || first->member->accessPerms.size() == 0) {
             list<SignalTable::Entry>::const_iterator callit;
             for (callit = callList.begin(); callit != callList.end(); ++callit) {
-                Ptr<SignalCallRunnable> runnable = NewPtr<SignalCallRunnable>(callit->object,
-                                                                              callit->handler,
-                                                                              callit->member,
-                                                                              message);
-                for (;;) {
-                    status = threadPool->WaitForAvailableThread();
-                    if (status != ER_OK) {
-                        break;
-                    }
+                /* Don't multithread signals originating locally.  See comment in similar code in MethodCallHandler */
+                if (isLocalSender) {
+                    (callit->object->*callit->handler)(callit->member, message->GetObjectPath(), message);
+                } else {
+                    Ptr<SignalCallRunnable> runnable = NewPtr<SignalCallRunnable>(callit->object,
+                        callit->handler,
+                        callit->member,
+                        message);
+                    for (;;) {
+                        status = threadPool->WaitForAvailableThread();
+                        if (status != ER_OK) {
+                            break;
+                        }
 
-                    status = threadPool->Execute(runnable);
-                    if (status == ER_THREADPOOL_EXHAUSTED) {
-                        continue;
-                    } else {
-                        break;
+                        status = threadPool->Execute(runnable);
+                        if (status == ER_THREADPOOL_EXHAUSTED) {
+                            continue;
+                        } else {
+                            break;
+                        }
                     }
                 }
             }
@@ -916,21 +943,26 @@ QStatus LocalEndpoint::HandleSignal(Message& message)
                 if (permCheckedCallMap[permChkEntry]) {
                     list<SignalTable::Entry>::const_iterator callit;
                     for (callit = callList.begin(); callit != callList.end(); ++callit) {
-                        Ptr<SignalCallRunnable> runnable = NewPtr<SignalCallRunnable>(callit->object,
-                                                                                      callit->handler,
-                                                                                      callit->member,
-                                                                                      message);
-                        for (;;) {
-                            status = threadPool->WaitForAvailableThread();
-                            if (status != ER_OK) {
-                                break;
-                            }
+                        /* Don't multithread signals originating locally.  See comment in similar code in MethodCallHandler */
+                        if (isLocalSender) {
+                            (callit->object->*callit->handler)(callit->member, message->GetObjectPath(), message);
+                        } else {
+                            Ptr<SignalCallRunnable> runnable = NewPtr<SignalCallRunnable>(callit->object,
+                                callit->handler,
+                                callit->member,
+                                message);
+                            for (;;) {
+                                status = threadPool->WaitForAvailableThread();
+                                if (status != ER_OK) {
+                                    break;
+                                }
 
-                            status = threadPool->Execute(runnable);
-                            if (status == ER_THREADPOOL_EXHAUSTED) {
-                                continue;
-                            } else {
-                                break;
+                                status = threadPool->Execute(runnable);
+                                if (status == ER_THREADPOOL_EXHAUSTED) {
+                                    continue;
+                                } else {
+                                    break;
+                                }
                             }
                         }
                     }
