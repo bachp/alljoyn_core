@@ -361,6 +361,14 @@ QStatus BusAttachment::Connect(const char* connectSpec, BusEndpoint** newep)
                 MsgArg arg("s", "type='signal',interface='org.alljoyn.Bus'");
                 const ProxyBusObject& dbusObj = this->GetDBusProxyObj();
                 status = dbusObj.MethodCall(org::freedesktop::DBus::InterfaceName, "AddMatch", &arg, 1, reply);
+            } else {
+                /*
+                 * We connected but failed to fully realize the connection so disconnect to cleanup.
+                 */
+                Transport* trans = busInternal->transportList.GetTransport(connectSpec);
+                if (trans) {
+                    trans->Disconnect(connectSpec);
+                }
             }
         }
     }
