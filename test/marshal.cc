@@ -1189,6 +1189,32 @@ int main(int argc, char** argv)
             status = ER_OK;
         }
     }
+    /* Not a complete type */
+    if (status == ER_OK) {
+        MsgArg arg;
+        status = arg.Set("iii", 1, 2, 3);
+        if (status == ER_OK) {
+            status = ER_FAIL;
+        } else {
+            status = ER_OK;
+        }
+    }
+    if (status == ER_OK) {
+        MsgArg arg("iii", 1, 2, 3);
+        if (arg.typeId != ALLJOYN_INVALID) {
+            status = ER_FAIL;
+        }
+    }
+    /* Truncated array */
+    if (status == ER_OK) {
+        MsgArg arg;
+        status = arg.Set("a", ArraySize(ay), ay);
+        if (status == ER_OK) {
+            status = ER_FAIL;
+        } else {
+            status = ER_OK;
+        }
+    }
 
     if (status == ER_OK) {
         status = MarshalTests();
