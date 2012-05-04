@@ -767,6 +767,9 @@ QStatus MsgArg::BuildArray(MsgArg* arry, const qcc::String elemSig, va_list* arg
     case '*':
         if (numElements > 0) {
             elements = va_arg(argp, MsgArg*);
+            if (!elements) {
+                return ER_INVALID_ADDRESS;
+            }
             const qcc::String sig = elements[0].Signature();
             /*
              * Check elements all have same type as the first element.
@@ -795,6 +798,9 @@ QStatus MsgArg::BuildArray(MsgArg* arry, const qcc::String elemSig, va_list* arg
     case 'h':
         if (numElements > 0) {
             elements = va_arg(argp, MsgArg*);
+            if (!elements) {
+                return ER_INVALID_ADDRESS;
+            }
             /*
              * Check elements conform to the expected signature type
              */
@@ -834,6 +840,9 @@ QStatus MsgArg::BuildArray(MsgArg* arry, const qcc::String elemSig, va_list* arg
     case 'g':
         if (numElements > 0) {
             char** strings = va_arg(argp, char**);
+            if (!strings) {
+                return ER_INVALID_ADDRESS;
+            }
             elements = new MsgArg[numElements];
             arry->flags |= OwnsArgs;
             for (size_t i = 0; i < numElements; ++i) {
@@ -919,11 +928,17 @@ QStatus MsgArg::VBuildArgs(const char*& signature, size_t sigLen, MsgArg* arg, s
     QStatus status = ER_OK;
     size_t numArgs = 0;
 
+    if (!signature) {
+        return ER_INVALID_ADDRESS;
+    }
     while (sigLen--) {
         switch (*signature++) {
         case '*':
         {
             MsgArg* inArg =  va_arg(argp, MsgArg*);
+            if (!inArg) {
+                return ER_INVALID_ADDRESS;
+            }
             if (inArg->typeId == ALLJOYN_ARRAY) {
                 status = arg->v_array.SetElements(inArg->v_array.elemSig, inArg->v_array.numElements, inArg->v_array.elements);
             } else {
@@ -936,6 +951,9 @@ QStatus MsgArg::VBuildArgs(const char*& signature, size_t sigLen, MsgArg* arg, s
         case 'a':
         {
             const char* elemSig = signature;
+            if (!elemSig) {
+                return ER_INVALID_ADDRESS;
+            }
             arg->typeId = ALLJOYN_ARRAY;
             if (*elemSig == '*') {
                 ++signature;
@@ -1106,6 +1124,9 @@ QStatus MsgArg::VBuildArgs(const char*& signature, size_t sigLen, MsgArg* arg, s
             break;
         }
         if (status != ER_OK) {
+            /*
+             * This will free any resources allocated above.
+             */
             arg->Clear();
             break;
         }
