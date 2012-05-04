@@ -533,6 +533,7 @@ void AllJoynPeerObj::AuthAdvance(Message& msg)
             peerAuthListener.AuthenticationComplete(mech.c_str(), sender.c_str(), true /* success */);
         }
         delete sasl;
+        sasl = NULL;
     }
 
     if (status != ER_OK) {
