@@ -63,8 +63,15 @@ daemon_lib = env.Install('$DISTDIR/lib', bdlib)
 daemon_obj = env.Install('$DISTDIR/lib', bdobj)
 env.Install('$DISTDIR/bin', daemon_progs)
 
-env['bdlib'] = daemon_lib
-env['bdobj'] = daemon_obj
+# Test programs to have built-in bundled daemon or not
+if env['BD'] == 'on':
+    env.Prepend(LIBS = daemon_lib)
+    env.Prepend(LIBS = daemon_obj)
+    env['bdlib'] = ""
+    env['bdobj'] = ""
+else:
+    env['bdlib'] = daemon_lib
+    env['bdobj'] = daemon_obj
 
 # Test programs 
 progs = env.SConscript('$OBJDIR/test/SConscript')
@@ -80,14 +87,6 @@ env.Install('$DISTDIR/bin/samples', progs)
 # Android daemon runner
 progs = env.SConscript('$OBJDIR/alljoyn_android/SConscript')
 env.Install('$DISTDIR/bin/alljoyn_android', progs)
-
-# Test programs built with bundled daemon
-bdenv = env.Clone()
-bdenv.Prepend(LIBS = daemon_lib)
-bdenv.Prepend(LIBS = daemon_obj)
-bdenv.VariantDir('$OBJDIR/bundled', 'test', duplicate = 0)
-bdprogs = bdenv.SConscript('$OBJDIR/bundled/SConscript', exports={'env':bdenv})
-bdenv.Install('$DISTDIR/bin/bundled', bdprogs)
 
 # Release notes and misc. legals
 env.Install('$DISTDIR', 'docs/ReleaseNotes.txt')
