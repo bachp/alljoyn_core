@@ -1,7 +1,7 @@
 /* bbjitter - tests roundtrip times and computes  jitter */
 
 /******************************************************************************
- * Copyright 2009-2011, Qualcomm Innovation Center, Inc.
+ * Copyright 2009-2012, Qualcomm Innovation Center, Inc.
  *
  *    Licensed under the Apache License, Version 2.0 (the "License");
  *    you may not use this file except in compliance with the License.
@@ -309,14 +309,15 @@ QStatus CreateSession(SessionPort sessport, SessionOpts& options)
 
 static void usage(void)
 {
-    printf("Usage: bbjoin \n\n");
+    printf("Usage: bbjitter \n\n");
     printf("Options:\n");
-    printf("   -h           = Print this help message\n");
-    printf("   -c           = Number of roundtrip calls to make\n");
-    printf("   -d           = Delay between each rountdtrip call\n");
-    printf("   -f <prefix>  = FindAdvertisedName prefix\n");
-    printf("   -b           = Advertise over Bluetooth (enables selective advertising)\n");
-    printf("   -t           = Advertise over TCP (enables selective advertising)\n");
+    printf("   -n <well-known-name> = Well-known bus name to advertise\n");
+    printf("   -h                   = Print this help message\n");
+    printf("   -c                   = Number of roundtrip calls to make\n");
+    printf("   -d                   = Delay between each rountdtrip call\n");
+    printf("   -f <prefix>          = FindAdvertisedName prefix\n");
+    printf("   -b                   = Advertise over Bluetooth (enables selective advertising)\n");
+    printf("   -t                   = Advertise over TCP (enables selective advertising)\n");
 }
 
 /** Main entry point */
