@@ -246,11 +246,7 @@ public class Service extends Activity {
             switch (msg.what) {
             /* Connect to the bus and start our service. */
             case CONNECT: {
-                /*
-                 * Bundled daemon
-                 */
 
-                org.alljoyn.bus.alljoyn.DaemonInit.PrepareDaemon(getApplicationContext());
                 mBus = new BusAttachment(getApplicationContext().getPackageName(),
                 			BusAttachment.RemoteMessage.Receive);
                 /*

@@ -23,8 +23,6 @@
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
         </activity>
-        <service android:name="org.alljoyn.bus.alljoyn.BundleDaemonService">
-		</service>
     </application>
 
 </manifest>

@@ -385,22 +385,7 @@ public class Client extends Activity {
             switch (msg.what) {
             /* Connect to the bus and start our service. */
             case CONNECT: {
-                /*
-                 * Bundled daemon
-                 */
 
-                org.alljoyn.bus.alljoyn.DaemonInit.PrepareDaemonAsync(getApplicationContext());
-
-                /* Wait till daemon is initialized */
-                while (!org.alljoyn.bus.alljoyn.DaemonInit.IsDaemonInited())
-                {
-                	try {
-                		logInfo("Sleep 100ms");
-                		Thread.sleep(100);
-                	} catch (InterruptedException e) {
-                		logInfo("Sleep 100ms fail!");
-                	}
-                }
                 mBus = new BusAttachment(getApplicationContext().getPackageName(),
                 			BusAttachment.RemoteMessage.Receive);
                 /*
