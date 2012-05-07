@@ -49,8 +49,9 @@ else:
     bt_srcs.extend(env.SConscript('bt_bluez/SConscript'))
     daemon_objs = base_objs + env.Object(bt_srcs)
 
-# Daemon library
-lib = env.StaticLibrary('ajdaemon', base_objs);
+# Bundled daemon library
+bdobj = env.SConscript('bundled/SConscript')
+bdlib = env.StaticLibrary('alljoyn-bdaemon', base_objs + bdobj);
 
 # AllJoyn Daemon
 progs = env.SConscript('${OS_GROUP}/SConscript', exports=['daemon_objs', 'config_objs'])
@@ -58,9 +59,6 @@ progs = env.SConscript('${OS_GROUP}/SConscript', exports=['daemon_objs', 'config
 # AllJoyn Daemon test programs
 tests = env.SConscript('test/SConscript', exports=['daemon_objs'])
 
-# Bundled daemon object file
-bdobj = env.SConscript('bundled/SConscript')
-
 # Return daemon and related tests
-ret = progs + tests, lib, bdobj
+ret = progs + tests, bdlib
 Return('ret')
