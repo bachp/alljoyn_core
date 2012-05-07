@@ -380,7 +380,7 @@ void* RemoteEndpoint::RxThread::Run(void* arg)
         }
     }
     if ((status != ER_OK) && (status != ER_STOPPING_THREAD) && (status != ER_SOCK_OTHER_END_CLOSED) && (status != ER_BUS_STOPPING)) {
-        QCC_LogError(status, ("Endpoint Rx thread (%s) exiting", GetName().c_str()));
+        QCC_LogError(status, ("Endpoint Rx thread (%s) exiting", GetName()));
     }
 
     /* On an unexpected disconnect save the status that cause the thread exit */
@@ -547,7 +547,7 @@ QStatus RemoteEndpoint::PushMessage(Message& msg)
     static uint32_t lastTime = 0;
     uint32_t now = GetTimestamp();
     if ((now - lastTime) > 1000) {
-        QCC_DbgPrintf(("Tx queue size (%s - %x) = %d", txThread.GetName().c_str(), txThread.GetHandle(), count));
+        QCC_DbgPrintf(("Tx queue size (%s - %x) = %d", txThread.GetName(), txThread.GetHandle(), count));
         lastTime = now;
     }
 #undef QCC_MODULE
