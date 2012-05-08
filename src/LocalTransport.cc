@@ -204,16 +204,8 @@ QStatus LocalEndpoint::Stop(void)
 
     IncrementAndFetch(&refCount);
 
-    /*
-     * This is a bit unusual, but we don't want to proceed to unregister any bus
-     * objects that may have dispatched concurrent message handler threads
-     * wandering around in them.  We won't get any new ones fired off since we
-     * set running to false, but we may have threads active now.  So we must
-     * Join() the threadpool here in Stop().
-     */
     if (threadPool) {
         threadPool->Stop();
-        threadPool->Join();
     }
 
     /*
@@ -240,6 +232,9 @@ QStatus LocalEndpoint::Stop(void)
 
 QStatus LocalEndpoint::Join(void)
 {
+    if (threadPool) {
+        threadPool->Join();
+    }
     if (peerObj) {
         peerObj->Join();
     }
