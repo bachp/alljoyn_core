@@ -57,17 +57,21 @@ env.Append(LIBPATH = [env.Dir('$DISTDIR/lib')])
 # Set the alljoyn library 
 env.Prepend(LIBS = ajlib)
 
-# AllJoyn Daemon, bundled daemon library
-daemon_progs, bdlib = env.SConscript('$OBJDIR/daemon/SConscript')
-bdaemon_lib = env.Install('$DISTDIR/lib', bdlib)
+# AllJoyn Daemon, daemon library, and bundled daemon object file
+daemon_progs, bdlib, bdobj = env.SConscript('$OBJDIR/daemon/SConscript')
+daemon_lib = env.Install('$DISTDIR/lib', bdlib)
+daemon_obj = env.Install('$DISTDIR/lib', bdobj)
 env.Install('$DISTDIR/bin', daemon_progs)
 
 # Test programs to have built-in bundled daemon or not
 if env['BD'] == 'on':
-    env.Prepend(LIBS = bdaemon_lib)
+    env.Prepend(LIBS = daemon_lib)
+    env.Prepend(LIBS = daemon_obj)
     env['bdlib'] = ""
+    env['bdobj'] = ""
 else:
-    env['bdlib'] = bdaemon_lib
+    env['bdlib'] = daemon_lib
+    env['bdobj'] = daemon_obj
 
 # Test programs 
 progs = env.SConscript('$OBJDIR/test/SConscript')
