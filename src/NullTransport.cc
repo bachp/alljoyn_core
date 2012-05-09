@@ -161,13 +161,7 @@ QStatus NullTransport::Start()
 
 QStatus NullTransport::Stop(void)
 {
-    if (running) {
-        running = false;
-        if (daemonLauncher) {
-            daemonLauncher->Stop();
-            daemonBus = NULL;
-        }
-    }
+    running = false;
     return ER_OK;
 }
 
@@ -223,6 +217,11 @@ QStatus NullTransport::Disconnect(const char* connectSpec)
 {
     delete endpoint;
     endpoint = NULL;
+    if (daemonBus) {
+        assert(daemonLauncher);
+        daemonLauncher->Stop();
+        daemonBus = NULL;
+    }
     return ER_OK;
 }
 

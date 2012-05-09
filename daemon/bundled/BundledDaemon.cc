@@ -154,7 +154,7 @@ ErrorExit:
         delete ajBusController;
         ajBusController = NULL;
         delete ajBus;
-        ajBusController = NULL;
+        ajBus = NULL;
     }
     busAttachment = NULL;
     return status;
@@ -175,7 +175,9 @@ void BundledDaemon::Join()
 
 QStatus BundledDaemon::Stop()
 {
-    if (DecrementAndFetch(&refCount) == 0) {
+    int32_t rc = DecrementAndFetch(&refCount);
+    assert(rc >= 0);
+    if (rc == 0) {
         if (ajBus) {
             return ajBus->Stop();
         } else {
