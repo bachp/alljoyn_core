@@ -313,8 +313,8 @@ static void usage(void)
     printf("Options:\n");
     printf("   -n <well-known-name> = Well-known bus name to advertise\n");
     printf("   -h                   = Print this help message\n");
-    printf("   -c                   = Number of roundtrip calls to make\n");
-    printf("   -d                   = Delay between each rountdtrip call\n");
+    printf("   -c <calls>           = Number of roundtrip calls to make\n");
+    printf("   -d <delay>           = Delay between each rountdtrip call in milliseconds\n");
     printf("   -f <prefix>          = FindAdvertisedName prefix\n");
     printf("   -b                   = Advertise over Bluetooth (enables selective advertising)\n");
     printf("   -t                   = Advertise over TCP (enables selective advertising)\n");
