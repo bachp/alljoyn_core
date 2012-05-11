@@ -4,7 +4,7 @@
  */
 
 /******************************************************************************
- * Copyright 2010-2011, Qualcomm Innovation Center, Inc.
+ * Copyright 2010-2012, Qualcomm Innovation Center, Inc.
  *
  *    Licensed under the Apache License, Version 2.0 (the "License");
  *    you may not use this file except in compliance with the License.
@@ -39,6 +39,7 @@
 #include <qcc/time.h>
 
 #include <alljoyn/KeyStoreListener.h>
+#include "ProtectedKeyStoreListener.h"
 
 #include <Status.h>
 
@@ -325,7 +326,7 @@ class KeyStore {
     /**
      * Listener for handling load/store requests
      */
-    KeyStoreListener* listener;
+    ProtectedKeyStoreListener* listener;
 
     /**
      * The guid for this key store

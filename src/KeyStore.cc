@@ -191,6 +191,7 @@ KeyStore::~KeyStore()
     }
     lock.Unlock(MUTEX_CONTEXT);
     delete defaultListener;
+    delete listener;
     delete keyStoreKey;
     delete keys;
 }
@@ -200,7 +201,7 @@ QStatus KeyStore::SetListener(KeyStoreListener& listener)
     if (this->listener != NULL) {
         return ER_BUS_LISTENER_ALREADY_SET;
     } else {
-        this->listener = &listener;
+        this->listener = new ProtectedKeyStoreListener(&listener);
         return ER_OK;
     }
 }
@@ -209,7 +210,8 @@ QStatus KeyStore::Init(const char* fileName, bool isShared)
 {
     if (storeState == UNAVAILABLE) {
         if (listener == NULL) {
-            listener = defaultListener = new DefaultKeyStoreListener(application, fileName);
+            defaultListener = new DefaultKeyStoreListener(application, fileName);
+            listener = new ProtectedKeyStoreListener(defaultListener);
         }
         shared = isShared;
         return Load();
