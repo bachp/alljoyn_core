@@ -208,12 +208,6 @@ int main(int argc, char** argv)
     QStatus status = ER_OK;
     uint32_t transportOpts = 0;
 
-#ifdef _WIN32
-    WSADATA wsaData;
-    WORD version = MAKEWORD(2, 0);
-    int error = WSAStartup(version, &wsaData);
-#endif
-
     printf("AllJoyn Library version: %s\n", ajn::GetVersion());
     printf("AllJoyn Library build info: %s\n", ajn::GetBuildInfo());
 
