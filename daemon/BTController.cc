@@ -3549,17 +3549,22 @@ void BTController::FlushCachedNames()
             if (!ifc) {
                 InterfaceDescription* newIfc;
                 bus.CreateInterface("org.alljoyn.Bus.Debug.BT", newIfc);
-                newIfc->AddMethod("FlushDiscoverTimes", NULL, NULL, NULL, 0);
-                newIfc->AddMethod("FlushSDPQueryTimes", NULL, NULL, NULL, 0);
-                newIfc->AddMethod("FlushConnectTimes", NULL, NULL, NULL, 0);
-                newIfc->AddMethod("FlushCachedNames", NULL, NULL, NULL, 0);
-                newIfc->AddProperty("DiscoverTimes", "a(su)", PROP_ACCESS_READ);
-                newIfc->AddProperty("SDPQueryTimes", "a(su)", PROP_ACCESS_READ);
-                newIfc->AddProperty("ConnectTimes", "a(su)", PROP_ACCESS_READ);
-                newIfc->Activate();
-                ifc = newIfc;
+                if (newIfc) {
+                    newIfc->AddMethod("FlushDiscoverTimes", NULL, NULL, NULL, 0);
+                    newIfc->AddMethod("FlushSDPQueryTimes", NULL, NULL, NULL, 0);
+                    newIfc->AddMethod("FlushConnectTimes", NULL, NULL, NULL, 0);
+                    newIfc->AddMethod("FlushCachedNames", NULL, NULL, NULL, 0);
+                    newIfc->AddProperty("DiscoverTimes", "a(su)", PROP_ACCESS_READ);
+                    newIfc->AddProperty("SDPQueryTimes", "a(su)", PROP_ACCESS_READ);
+                    newIfc->AddProperty("ConnectTimes", "a(su)", PROP_ACCESS_READ);
+                    newIfc->Activate();
+                    ifc = newIfc;
+                }
             }
-            master->AddInterface(*ifc);
+
+            if (ifc) {
+                master->AddInterface(*ifc);
+            }
         }
 
         if (ifc) {
