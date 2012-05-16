@@ -1277,7 +1277,7 @@ bool ClientTestDriver::TC_ConnectSingleReject()
     bool tcSuccess = true;
     BTNodeInfo node;
     String detail;
-    RemoteEndpoint* tep;
+    RemoteEndpoint* tep = NULL;
     char buf[100];
     size_t size = sizeof(buf);
     size_t received;
@@ -1324,7 +1324,7 @@ bool ClientTestDriver::TC_ConnectSingleRedirect()
     bool tcSuccess = true;
     BTNodeInfo node;
     String detail;
-    RemoteEndpoint* tep;
+    RemoteEndpoint* tep = NULL;
     BTBusAddress raddr;
     String authName;
     String redirectSpec;
@@ -1817,7 +1817,7 @@ bool ServerTestDriver::TC_RedirectSingle()
     BTNodeInfo node;
     String detail;
     BDAddress invalidAddr;
-    RemoteEndpoint* tep;
+    RemoteEndpoint* tep = NULL;
     BTBusAddress raddr;
     String authName;
     String unused;
