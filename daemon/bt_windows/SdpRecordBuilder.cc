@@ -486,6 +486,7 @@ SdpRecordBuilder& SdpRecordBuilder::operator=(const SdpRecordBuilder& source)
         if (source.recordHead) {
             const size_t size = source.recordSize;
 
+            free(this->recordHead);
             this->recordHead = malloc(size);
 
             if (this->recordHead) {
