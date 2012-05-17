@@ -2050,7 +2050,9 @@ bool BTTransport::BTAccessor::DeviceIo(void* messageIn, size_t inSize,
 {
     bool returnValue = false;
 
-    *returnedSize = 0;
+    if (returnedSize) {
+        *returnedSize = 0;
+    }
 
     if (INVALID_HANDLE_VALUE != deviceHandle) {
         DWORD bytesReturned = 0;

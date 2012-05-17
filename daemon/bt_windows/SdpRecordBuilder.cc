@@ -476,22 +476,25 @@ DWORD SdpRecordBuilder::GetDword(size_t offset)
 
 SdpRecordBuilder& SdpRecordBuilder::operator=(const SdpRecordBuilder& source)
 {
-    this->recordHead = 0;
-    this->recordSize = 0;
-    this->bufferLength = 0;
-    this->sequenceDepth = 0;
+    // Make sure we are not assigning to ourselves otherwise very bad things happen.
+    if (this != &source) {
+        this->recordHead = 0;
+        this->recordSize = 0;
+        this->bufferLength = 0;
+        this->sequenceDepth = 0;
 
-    if (source.recordHead) {
-        const size_t size = source.recordSize;
+        if (source.recordHead) {
+            const size_t size = source.recordSize;
 
-        this->recordHead = malloc(size);
+            this->recordHead = malloc(size);
 
-        if (this->recordHead) {
-            memcpy_s(this->recordHead, size, source.recordHead, size);
+            if (this->recordHead) {
+                memcpy_s(this->recordHead, size, source.recordHead, size);
 
-            this->recordSize = source.recordSize;
-            this->bufferLength = source.bufferLength;
-            this->sequenceDepth = source.sequenceDepth;
+                this->recordSize = source.recordSize;
+                this->bufferLength = source.bufferLength;
+                this->sequenceDepth = source.sequenceDepth;
+            }
         }
     }
 

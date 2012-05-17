@@ -46,7 +46,6 @@ WindowsBTEndpoint::~WindowsBTEndpoint()
 
 QStatus WindowsBTEndpoint::WaitForConnectionComplete(bool incoming)
 {
-    QStatus returnStatus;
     QCC_DbgTrace(("WindowsBTEndpoint::WaitForConnectionComplete(address = 0x%012I64X)",
                   GetRemoteDeviceAddress()));
 
@@ -61,32 +60,32 @@ QStatus WindowsBTEndpoint::WaitForConnectionComplete(bool incoming)
             if (incoming) {
                 uint8_t nul = 255;
                 size_t recvd;
-                returnStatus = btStream.PullBytes(&nul, sizeof(nul), recvd, waitTimeInMilliseconds);
-                if ((returnStatus != ER_OK) || (nul != 0)) {
-                    returnStatus = (returnStatus == ER_OK) ? ER_FAIL : returnStatus;
-                    QCC_LogError(returnStatus, ("Did not receive initial nul byte"));
+                connectionStatus = btStream.PullBytes(&nul, sizeof(nul), recvd, waitTimeInMilliseconds);
+                if ((connectionStatus != ER_OK) || (nul != 0)) {
+                    connectionStatus = (connectionStatus == ER_OK) ? ER_FAIL : connectionStatus;
+                    QCC_LogError(connectionStatus, ("Did not receive initial nul byte"));
                 }
             } else {
                 uint8_t nul = 0;
                 size_t sent;
-                returnStatus = btStream.PushBytes(&nul, sizeof(nul), sent);
+                connectionStatus = btStream.PushBytes(&nul, sizeof(nul), sent);
             }
             break;
 
         case WAIT_TIMEOUT:
             QCC_DbgPrintf(("WaitForConnectionComplete() timeout! (%u mS)", waitTimeInMilliseconds));
-            returnStatus = ER_TIMEOUT;
+            connectionStatus = ER_TIMEOUT;
             break;
 
         default:
-            returnStatus = ER_FAIL;
+            connectionStatus = ER_FAIL;
             break;
         }
     } else {
         QCC_LogError(connectionStatus, ("connectionCompleteEvent is NULL!"));
     }
 
-    return returnStatus;
+    return connectionStatus;
 }
 
 void WindowsBTEndpoint::SetConnectionComplete(QStatus status)
