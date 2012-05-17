@@ -25,7 +25,6 @@
 #include <qcc/SocketStream.h>
 #include <qcc/String.h>
 #include <qcc/StringUtil.h>
-#include <qcc/IfConfig.h>
 
 #include <alljoyn/BusAttachment.h>
 #include <alljoyn/Session.h>
@@ -33,7 +32,6 @@
 #include "BusInternal.h"
 #include "RemoteEndpoint.h"
 #include "Router.h"
-#include "ConfigDB.h"
 #include "DaemonTransport.h"
 
 #define QCC_MODULE "DAEMON_TRANSPORT"
@@ -54,7 +52,7 @@ class DaemonEndpoint : public RemoteEndpoint {
   public:
 
     DaemonEndpoint(BusAttachment& bus, bool incoming, const qcc::String connectSpec, SocketFd sock) :
-        RemoteEndpoint(bus, incoming, connectSpec, &stream, DaemonTransport::TransportName),
+        RemoteEndpoint(bus, incoming, connectSpec, stream, DaemonTransport::TransportName),
         stream(sock)
     {
     }
