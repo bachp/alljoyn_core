@@ -65,7 +65,7 @@ static MyBusListener* s_busListener = NULL;
 class MyBusListener : public BusListener, public SessionPortListener, public SessionListener {
   public:
 
-    MyBusListener(JavaVM* vm, jobject& jobj) : vm(vm), jobj(jobj)/*, _session_ids()*/, _id(0) { }
+    MyBusListener(JavaVM* vm, jobject& jobj) : vm(vm), jobj(jobj), _id(0) { }
 
     void NameOwnerChanged(const char* busName, const char* previousOwner, const char* newOwner)
     {
@@ -89,19 +89,13 @@ class MyBusListener : public BusListener, public SessionPortListener, public Ses
     void SessionJoined(SessionPort sessionPort, SessionId id, const char* joiner)
     {
         LOGD("SessionJoined with %s (id=%u)\n", joiner, id);
-        //_session_ids.insert(id);
         _id = id;
     }
 
     void SessionLost(SessionId id)
     {
-    	LOGD("SessionLost (id=%u)\n", id);
-//    	IdList::iterator it = _session_ids.find(id);
-//    	if (it != _session_ids.end())
-//    	{
-//    		_session_ids.erase(it);
-//    	}
-    	_id = 0;
+        LOGD("SessionLost (id=%u)\n", id);
+        _id = 0;
     }
 
   private:
@@ -109,8 +103,6 @@ class MyBusListener : public BusListener, public SessionPortListener, public Ses
     jobject jobj;
 
   public:
-	//typedef std::set<SessionId> IdList;
-	//IdList _session_ids;
     SessionId _id;
 };
 
@@ -339,20 +331,10 @@ JNIEXPORT void JNICALL Java_org_alljoyn_bus_samples_simpleservice_Service_stopSe
     }
 
 
-    if (s_busListener->_id != 0)
-    {
-		s_bus->LeaveSession(s_busListener->_id);
-		s_busListener->_id = 0;
+    if (s_busListener->_id != 0) {
+        s_bus->LeaveSession(s_busListener->_id);
+        s_busListener->_id = 0;
     }
-//    MyBusListener::IdList::const_iterator it = s_busListener->_session_ids.begin();
-//
-//    for ( ; it != s_busListener->_session_ids.end(); ++it)
-//    {
-//    	s_bus->LeaveSession(*it);
-//    }
-//    s_busListener->_session_ids.clear();
-
-
 
     env->ReleaseStringUTFChars(jServiceName, serviceNameStr);
     env->DeleteLocalRef(jServiceName);
