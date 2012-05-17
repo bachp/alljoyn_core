@@ -21,6 +21,7 @@
 #include <alljoyn/AllJoynStd.h>
 #include <qcc/Log.h>
 #include <new>
+//#include <set>
 #include <assert.h>
 #include <android/log.h>
 
@@ -63,7 +64,8 @@ static MyBusListener* s_busListener = NULL;
 
 class MyBusListener : public BusListener, public SessionPortListener, public SessionListener {
   public:
-    MyBusListener(JavaVM* vm, jobject& jobj) : vm(vm), jobj(jobj) { }
+
+    MyBusListener(JavaVM* vm, jobject& jobj) : vm(vm), jobj(jobj)/*, _session_ids()*/, _id(0) { }
 
     void NameOwnerChanged(const char* busName, const char* previousOwner, const char* newOwner)
     {
@@ -87,12 +89,29 @@ class MyBusListener : public BusListener, public SessionPortListener, public Ses
     void SessionJoined(SessionPort sessionPort, SessionId id, const char* joiner)
     {
         LOGD("SessionJoined with %s (id=%u)\n", joiner, id);
+        //_session_ids.insert(id);
+        _id = id;
     }
 
+    void SessionLost(SessionId id)
+    {
+    	LOGD("SessionLost (id=%u)\n", id);
+//    	IdList::iterator it = _session_ids.find(id);
+//    	if (it != _session_ids.end())
+//    	{
+//    		_session_ids.erase(it);
+//    	}
+    	_id = 0;
+    }
 
   private:
     JavaVM* vm;
     jobject jobj;
+
+  public:
+	//typedef std::set<SessionId> IdList;
+	//IdList _session_ids;
+    SessionId _id;
 };
 
 
@@ -124,50 +143,6 @@ class ServiceObject : public BusObject {
         LOGD("\n Object registered \n\n");
     }
 
-    /** Release the well-known name if it was acquired */
-    void ReleaseName() {
-        if (s_bus && isNameAcquired) {
-            uint32_t disposition = 0;
-            isNameAcquired = false;
-            const ProxyBusObject& dbusObj = bus.GetDBusProxyObj();
-            Message reply(*s_bus);
-            MsgArg arg;
-            arg.Set("s", wellKnownName.c_str());
-            QStatus status = dbusObj.MethodCall(org::freedesktop::DBus::InterfaceName,
-                                                "ReleaseName",
-                                                &arg,
-                                                1,
-                                                reply,
-                                                5000);
-            if (ER_OK == status) {
-                disposition = reply->GetArg(0)->v_uint32;
-            }
-            if ((ER_OK != status) || (disposition != DBUS_RELEASE_NAME_REPLY_RELEASED)) {
-                LOGE("Failed to release name %s (%s, disposition=%d)", wellKnownName.c_str(), QCC_StatusText(status), disposition);
-            }
-        }
-    }
-
-
-    void CancelAdvertise() {
-        uint32_t disposition = 0;
-        Message reply(*s_bus);
-        const ProxyBusObject& alljoynObj = bus.GetAllJoynProxyObj();
-        MsgArg args;
-        args.Set("s", wellKnownName.c_str());
-        QStatus status = alljoynObj.MethodCall(org::alljoyn::Bus::InterfaceName,
-                                               "CancelAdvertiseName",
-                                               &args,
-                                               1,
-                                               reply,
-                                               5000);
-        if (ER_OK == status) {
-            disposition = reply->GetArg(0)->v_uint32;
-        }
-        if ((ER_OK != status) || (disposition != ALLJOYN_CANCELADVERTISENAME_REPLY_SUCCESS)) {
-            LOGE("Failed to cancel advertise name %s (%s)", wellKnownName.c_str(), QCC_StatusText(status));
-        }
-    }
 
     /** Implement org.alljoyn.bus.samples.simple.Ping by returning the passed in string */
     void Ping(const InterfaceDescription::Member* member, Message& msg)
@@ -225,7 +200,6 @@ extern "C" {
 JNIEXPORT jint JNICALL Java_org_alljoyn_bus_samples_simpleservice_Service_simpleOnCreate(JNIEnv* env, jobject jobj)
 {
     QStatus status = ER_OK;
-
     /* Set AllJoyn logging */
     // QCC_SetLogLevels("ALLJOYN=7;ALL=1");
     QCC_UseOSLogging(true);
@@ -330,6 +304,7 @@ JNIEXPORT jboolean JNICALL Java_org_alljoyn_bus_samples_simpleservice_Service_st
     }
     env->ReleaseStringUTFChars(jServiceName, serviceNameStr);
     env->DeleteLocalRef(jServiceName);
+
     return (jboolean) true;
 }
 
@@ -349,7 +324,9 @@ JNIEXPORT void JNICALL Java_org_alljoyn_bus_samples_simpleservice_Service_stopSe
     qcc::String serviceName(SIMPLE_SERVICE_WELL_KNOWN_NAME_PREFIX);
     serviceName += serviceNameStr;
 
+
     /* Stop advertising the name */
+    LOGD("Canceling advertise name %s", serviceName.c_str());
     QStatus status = s_bus->CancelAdvertiseName(serviceName.c_str(), TRANSPORT_ANY);
     if (status != ER_OK) {
         LOGE("CancelAdvertiseName failed with %s", QCC_StatusText(status));
@@ -361,8 +338,25 @@ JNIEXPORT void JNICALL Java_org_alljoyn_bus_samples_simpleservice_Service_stopSe
         LOGE("ReleaseName failed with %s", QCC_StatusText(status));
     }
 
+
+    if (s_busListener->_id != 0)
+    {
+		s_bus->LeaveSession(s_busListener->_id);
+		s_busListener->_id = 0;
+    }
+//    MyBusListener::IdList::const_iterator it = s_busListener->_session_ids.begin();
+//
+//    for ( ; it != s_busListener->_session_ids.end(); ++it)
+//    {
+//    	s_bus->LeaveSession(*it);
+//    }
+//    s_busListener->_session_ids.clear();
+
+
+
     env->ReleaseStringUTFChars(jServiceName, serviceNameStr);
     env->DeleteLocalRef(jServiceName);
+
     return;
 }
 

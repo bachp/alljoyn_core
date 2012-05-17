@@ -20,12 +20,14 @@ import android.app.Activity;
 import android.content.Context;
 import android.os.Bundle;
 import android.os.Handler;
+import android.os.HandlerThread;
 import android.os.Message;
 import android.util.Log;
 import android.view.Menu;
 import android.view.MenuInflater;
 import android.view.MenuItem;
 import android.view.inputmethod.InputMethodManager;
+import android.widget.Button;
 import android.widget.EditText;
 import android.widget.ListView;
 import android.widget.Toast;
@@ -54,25 +56,36 @@ public class Client extends Activity {
                 busNameItemAdapter.add(item);
                 break;
             case BUSNAMEITEM_LOST:
-            	if (item.isConnected()) {
-            		item.setIsFound(false);
-            	} else {
-            		busNameItemAdapter.remove(item);
-            	}
+                busNameItemAdapter.remove(item);
                 break;
             case BUSNAMEITEM_DISCONNECT:
-            	if (item.isFound()) {
-            		item.setSessionId(0);
-            	} else {
-            		busNameItemAdapter.remove(item);
-            	}
+            {
+                final Button connectButton = (Button) findViewById(R.id.Connect);
+                item.setSessionId(0);
+                connectButton.setText("Connect");
                 break;
+            }
+
             default:
                 break;
             }
+
+
             listView.invalidate();
         }
     };
+
+    HandlerThread bus_thread = new HandlerThread("BusHandler");
+    { bus_thread.start(); }
+    Handler bus_handler = new Handler(bus_thread.getLooper());
+
+    public Handler getBusHandler() {
+        return bus_handler;
+    }
+
+    public Handler getUIHandler() {
+        return handler;
+    }
 
     /** Called when activity's onCreate is called */
     private native int simpleOnCreate(String packageName);
@@ -100,16 +113,24 @@ public class Client extends Activity {
         listView.setAdapter(busNameItemAdapter);
 
         editText = (EditText) findViewById(R.id.EditText);
-       
+
         listView.requestFocus();
 
-        // Initialize the native part of the sample
-        int ret = simpleOnCreate(getPackageName());
-        if (0 != ret) {
-            Toast.makeText(this, "simpleOnCreate failed with  " + ret, Toast.LENGTH_LONG).show();
-            finish();
-            return;
-        }
+
+        // Initialize the native part of the sample and connect to remote alljoyn instance
+        bus_handler.post(new Runnable() {
+            public void run() {
+                final int ret = simpleOnCreate(getPackageName());
+                if (0 != ret) {
+                    handler.post(new Runnable() {
+                        public void run() {
+                            Toast.makeText(Client.this, "simpleOnCreate failed with " + ret, Toast.LENGTH_LONG).show();
+                            finish();
+                        }
+                    });
+                }
+            }
+        });
     }
 
     @Override
@@ -122,6 +143,7 @@ public class Client extends Activity {
     @Override
     protected void onDestroy() {
         simpleOnDestroy();
+        bus_handler.getLooper().quit();
         super.onDestroy();
     }
 
@@ -150,8 +172,12 @@ public class Client extends Activity {
         editText.clearFocus();
     }
 
-    public void ping(int sessionId, String name) {
-        simplePing(sessionId, name, editText.getText().toString());
+    public void ping(final int sessionId, final String name) {
+        bus_handler.post(new Runnable() {
+            public void run() {
+                simplePing(sessionId, name, editText.getText().toString());
+            }
+        });
     }
 
     public void FoundNameCallback(String busName)
@@ -183,7 +209,7 @@ public class Client extends Activity {
         Log.e("SimpleClient", String.format("Disconnect session %d", sessionId));
         for (int i = 0; i < busNameItemAdapter.getCount(); ++i) {
             BusNameItem item = busNameItemAdapter.getItem(i);
-        	Log.e("SimpleClient", String.format("item.id=%d, sessionId=%d", item.getSessionId(), sessionId));
+            Log.e("SimpleClient", String.format("item.id=%d, sessionId=%d", item.getSessionId(), sessionId));
             if (item.getSessionId() == sessionId) {
                 Message msg = handler.obtainMessage(0);
                 msg.arg1 = BUSNAMEITEM_DISCONNECT;

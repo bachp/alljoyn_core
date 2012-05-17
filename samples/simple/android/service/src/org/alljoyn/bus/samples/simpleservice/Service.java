@@ -20,8 +20,7 @@ import android.app.Activity;
 import android.content.Context;
 import android.os.Bundle;
 import android.os.Handler;
-import android.os.Message;
-import android.util.Log;
+import android.os.HandlerThread;
 import android.view.Menu;
 import android.view.MenuInflater;
 import android.view.MenuItem;
@@ -51,21 +50,18 @@ public class Service extends Activity {
     /** Called to stop service */
     private native void stopService(String name);
 
+    HandlerThread bus_thread = new HandlerThread("BusHandler");
+    { bus_thread.start(); }
+    Handler bus_handler = new Handler(bus_thread.getLooper());
+
     /** Handler used to post messages from C++ into UI thread */
-    private Handler handler = new Handler() {
-        @Override
-        public void handleMessage(Message msg) {
-            listViewArrayAdapter.add((String)msg.obj);
-            listView.setSelection(listView.getBottom());
-        }
-    };
+    private Handler handler = new Handler();
 
     /** Called when the activity is first created. */
     @Override
     public void onCreate(Bundle savedInstanceState) {
 
         super.onCreate(savedInstanceState);
-
         setContentView(R.layout.main);
 
         listViewArrayAdapter = new ArrayAdapter<String>(this, R.layout.message);
@@ -74,39 +70,70 @@ public class Service extends Activity {
 
         Button startButton = (Button) findViewById(R.id.StartButton);
         startButton.setOnClickListener(new Button.OnClickListener() {
-                                           public void onClick(View v) {
-                                               EditText edit = (EditText) findViewById(R.id.AdvertisedName);
-                                               if (startService(edit.getText().toString(), getPackageName())) {
-                                                   Button startButton = (Button) v;
-                                                   startButton.setEnabled(false);
-                                                   Button stopButton = (Button) findViewById(R.id.StopButton);
-                                                   stopButton.setEnabled(true);
-                                                   hideInputMethod(edit);
-                                                   edit.setEnabled(false);
-                                               }
-                                           }
-                                       });
+            public void onClick(final View v) {
+                final EditText edit = (EditText) findViewById(R.id.AdvertisedName);
+
+                bus_handler.post(new Runnable() {
+                    // called from BusHandler thread!
+                    public void run() {
+                        if (startService(edit.getText().toString(), getPackageName())) {
+                            handler.post(new Runnable() {
+                                // post Runnable object back to main thread
+                                public void run() {
+                                    Button startButton = (Button) v;
+                                    startButton.setEnabled(false);
+                                    Button stopButton = (Button) findViewById(R.id.StopButton);
+                                    stopButton.setEnabled(true);
+                                    hideInputMethod(edit);
+                                    edit.setEnabled(false);
+                                }
+                            });
+                        }
+                    }
+                });
+            }
+        });
 
         Button stopButton = (Button) findViewById(R.id.StopButton);
+        stopButton.setEnabled(false);
+
         stopButton.setOnClickListener(new Button.OnClickListener() {
-                                          public void onClick(View v) {
-                                        	  EditText edit = (EditText) findViewById(R.id.AdvertisedName);
-                                              stopService(edit.getText().toString());
-                                              Button stopButton = (Button) v;
-                                              stopButton.setEnabled(false);
-                                              Button startButton = (Button) findViewById(R.id.StartButton);
-                                              startButton.setEnabled(true);
-                                              edit.setEnabled(true);
-                                          }
-                                      });
+            public void onClick(final View v) {
+                final EditText edit = (EditText) findViewById(R.id.AdvertisedName);
+
+                bus_handler.post(new Runnable() {
+                    // called from BusHandler thread!
+                    public void run() {
+                        stopService(edit.getText().toString());
+
+                        handler.post(new Runnable() {
+                            public void run() {
+                                Button stopButton = (Button) v;
+                                stopButton.setEnabled(false);
+                                Button startButton = (Button) findViewById(R.id.StartButton);
+                                startButton.setEnabled(true);
+                                edit.setEnabled(true);
+                            }
+                        });
+                    }
+                });
+            }
+        });
 
         // Initialize the native part of the sample and connect to remote alljoyn instance
-        int ret = simpleOnCreate();
-        if (0 != ret) {
-            Toast.makeText(this, "simpleOnCreate failed with " + ret, Toast.LENGTH_LONG).show();
-            finish();
-            return;
-        }
+        bus_handler.post(new Runnable() {
+            public void run() {
+                final int ret = simpleOnCreate();
+                if (0 != ret) {
+                    handler.post(new Runnable() {
+                        public void run() {
+                            Toast.makeText(Service.this, "simpleOnCreate failed with " + ret, Toast.LENGTH_LONG).show();
+                            finish();
+                        }
+                    });
+                }
+            }
+        });
     }
 
     @Override
@@ -119,6 +146,7 @@ public class Service extends Activity {
     @Override
     protected void onDestroy() {
         simpleOnDestroy();
+        bus_handler.getLooper().quit();
         super.onDestroy();
     }
 
@@ -149,11 +177,16 @@ public class Service extends Activity {
         inputManager.hideSoftInputFromWindow(focusView.getWindowToken(), 0);
     }
 
-    public void PingCallback(String sender, String pingStr) {
-        Message msg = handler.obtainMessage(0);
-        msg.obj = String.format("Message from %s: \"%s\"", sender.substring(sender.length() - 10), pingStr);
-        handler.sendMessage(msg);
+    public void PingCallback(final String sender, final String pingStr) {
+        handler.post(new Runnable() {
+            public void run() {
+                String s = String.format("Message from %s: \"%s\"", sender.substring(sender.length() - 10), pingStr);
+                listViewArrayAdapter.add(s);
+                listView.setSelection(listView.getBottom());
+            }
+        });
     }
+
 
     static {
         System.loadLibrary("SimpleService");
