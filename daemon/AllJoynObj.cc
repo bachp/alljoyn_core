@@ -2202,7 +2202,7 @@ void AllJoynObj::AdvertiseName(const InterfaceDescription::Member* member, Messa
             status = ER_BUS_BAD_SESSION_OPTS;
             for (size_t i = 0; i < transList.GetNumTransports(); ++i) {
                 Transport* trans = transList.GetTransport(i);
-                if (trans && (trans->GetTransportMask() & transports)) {
+                if (trans && trans->IsBusToBus() && (trans->GetTransportMask() & transports)) {
                     status = trans->EnableAdvertisement(advertiseNameStr);
                     if ((status != ER_OK) && (status != ER_NOT_IMPLEMENTED)) {
                         QCC_LogError(status, ("EnableAdvertisment failed for transport %s - mask=0x%x", trans->GetTransportName(), transports));
@@ -2456,7 +2456,7 @@ void AllJoynObj::CancelFindAdvertisedName(const InterfaceDescription::Member* me
     assert((numArgs == 1) && (args[0].typeId == ALLJOYN_STRING));
 
     /* Cancel advertisement */
-    QCC_DbgPrintf(("Calling ProcCancelFindName from CancelFindAdvertisedName [%s]", Thread::GetThread()->GetName()));
+    QCC_DbgPrintf(("Calling ProcCancelFindName from CancelFindAdvertisedName [%s]", Thread::GetThread()->GetName().c_str()));
     QStatus status = ProcCancelFindName(msg->GetSender(), args[0].v_string.str);
     uint32_t replyCode = (ER_OK == status) ? ALLJOYN_CANCELFINDADVERTISEDNAME_REPLY_SUCCESS : ALLJOYN_CANCELFINDADVERTISEDNAME_REPLY_FAILED;
 
@@ -3156,7 +3156,7 @@ void AllJoynObj::NameOwnerChanged(const qcc::String& alias, const qcc::String* o
             while (it != discoverMap.end()) {
                 if (it->second == *oldOwner) {
                     last = it++->first;
-                    QCC_DbgPrintf(("Calling ProcCancelFindName from NameOwnerChanged [%s]", Thread::GetThread()->GetName()));
+                    QCC_DbgPrintf(("Calling ProcCancelFindName from NameOwnerChanged [%s]", Thread::GetThread()->GetName().c_str()));
                     QStatus status = ProcCancelFindName(*oldOwner, last);
                     if (ER_OK != status) {
                         QCC_LogError(status, ("Failed to cancel discover for name \"%s\"", last.c_str()));
