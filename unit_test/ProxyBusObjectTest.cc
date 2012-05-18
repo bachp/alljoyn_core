@@ -172,8 +172,8 @@ class ProxyBusObjectTest : public testing::Test {
     ProxyBusObjectTestBusListener buslistener;
 };
 
-
-TEST_F(ProxyBusObjectTest, ParseXml) {
+// TODO: enable this test when ALLJOYN-1001 is resolved
+TEST_F(ProxyBusObjectTest, DISABLED_ParseXml) {
     const char* busObjectXML =
         "<node name=\"/org/alljoyn/test/ProxyObjectTest\">"
         "  <interface name=\"org.alljoyn.test.ProxyBusObjectTest\">\n"
@@ -182,43 +182,6 @@ TEST_F(ProxyBusObjectTest, ParseXml) {
         "    </signal>\n"
         "    <method name=\"ping\">\n"
         "      <arg name=\"in\" type=\"s\" direction=\"in\"/>\n"
-        "      <arg name=\"out\" type=\"s\" direction=\"out\"/>\n"
-        "    </method>\n"
-        "  </interface>\n"
-        "</node>\n";
-    QStatus status;
-
-    ProxyBusObject proxyObj(bus, NULL, NULL, 0);
-    status = proxyObj.ParseXml(busObjectXML, NULL);
-    EXPECT_EQ(ER_OK, status) << "  Actual Status: " << QCC_StatusText(status);
-
-    EXPECT_TRUE(proxyObj.ImplementsInterface("org.alljoyn.test.ProxyBusObjectTest"));
-
-    const InterfaceDescription* testIntf = proxyObj.GetInterface("org.alljoyn.test.ProxyBusObjectTest");
-    qcc::String introspect = testIntf->Introspect(0);
-
-    const char* expectedIntrospect =
-        "<interface name=\"org.alljoyn.test.ProxyBusObjectTest\">\n"
-        "  <signal name=\"chirp\">\n"
-        "    <arg name=\"chirp\" type=\"s\" direction=\"out\"/>\n"
-        "  </signal>\n"
-        "  <method name=\"ping\">\n"
-        "    <arg name=\"in\" type=\"s\" direction=\"in\"/>\n"
-        "    <arg name=\"out\" type=\"s\" direction=\"out\"/>\n"
-        "  </method>\n"
-        "</interface>\n";
-    EXPECT_STREQ(expectedIntrospect, introspect.c_str());
-}
-
-TEST_F(ProxyBusObjectTest, ParseXmlMethod) {
-    const char* busObjectXML =
-        "<node name=\"/org/alljoyn/test/ProxyObjectTest\">"
-        "  <interface name=\"org.alljoyn.test.ProxyBusObjectTest\">\n"
-        "    <signal name=\"chirp\">\n"
-        "      <arg name=\"chirp\" type=\"s\"/>\n"
-        "    </signal>\n"
-        "    <method name=\"ping\">\n"
-        "      <arg name=\"in\" type=\"s\" />\n"
         "      <arg name=\"out\" type=\"s\" direction=\"out\"/>\n"
         "    </method>\n"
         "  </interface>\n"
