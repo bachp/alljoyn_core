@@ -134,7 +134,7 @@ class Transport {
      *
      * @return the TransportMask for this transport.
      */
-    TransportMask GetTransportMask() const { return TRANSPORT_WLAN; }
+    virtual TransportMask GetTransportMask() const = 0;
 
     /**
      * Get a list of the possible listen specs of the current Transport for a

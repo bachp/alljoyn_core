@@ -87,6 +87,13 @@ class DaemonTransport : public Transport, public RemoteEndpoint::EndpointListene
     bool IsRunning() { return Thread::IsRunning(); }
 
     /**
+     * Get the transport mask for this transport
+     *
+     * @return the TransportMask for this transport.
+     */
+    TransportMask GetTransportMask() const { return TRANSPORT_LOCAL; }
+
+    /**
      * @internal
      * @brief Normalize a transport specification.
      *

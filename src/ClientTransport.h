@@ -96,6 +96,13 @@ class ClientTransport : public Transport, public RemoteEndpoint::EndpointListene
     bool IsRunning() { return m_running; }
 
     /**
+     * Get the transport mask for this transport
+     *
+     * @return the TransportMask for this transport.
+     */
+    TransportMask GetTransportMask() const { return TRANSPORT_LOCAL; }
+
+    /**
      * Normalize a transport specification.
      * Given a transport specification, convert it into a form which is guaranteed to have a one-to-one
      * relationship with a transport.

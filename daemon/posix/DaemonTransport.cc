@@ -353,7 +353,7 @@ QStatus DaemonTransport::StartListen(const char* listenSpec)
     SocketFd listenFd = -1;
     status = ListenFd(serverArgs, listenFd);
     if (status == ER_OK) {
-        status = Thread::Start((void*)listenFd);
+        status = Thread::Start((void*)(intptr_t)listenFd);
     }
     if ((listenFd != -1) && (status != ER_OK)) {
         qcc::Close(listenFd);
