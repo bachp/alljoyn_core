@@ -42,8 +42,8 @@
 				Name="VCCLCompilerTool"
 				AdditionalOptions="/vmm /vmg"
 				Optimization="0"
-				AdditionalIncludeDirectories="C:\Alljoyn\SDK\CPP\inc"
-				PreprocessorDefinitions="WIN32;_DEBUG;_CONSOLE;QCC_OS_GROUP_WINDOWS;QCC_OS_WINDOWS;QCC_CPU_X86"
+				AdditionalIncludeDirectories="$(ALLJOYN_SDK_HOME)\CPP\inc"
+				PreprocessorDefinitions="WIN32;_DEBUG;_WINDOWS;_USRDLL;QCC_OS_GROUP_WINDOWS;QCC_OS_WINDOWS;QCC_CPU_X86;CHATLIB32_EXPORTS"
 				MinimalRebuild="true"
 				ExceptionHandling="0"
 				BasicRuntimeChecks="3"
@@ -63,9 +63,9 @@
 			/>
 			<Tool
 				Name="VCLinkerTool"
-				AdditionalDependencies="alljoyn.lib wsock32.lib ws2_32.lib secur32.lib advapi32.lib crypt32.lib bcrypt.lib ncrypt.lib $(NOINHERIT)"
+				AdditionalDependencies="alljoyn.lib wsock32.lib ws2_32.lib secur32.lib advapi32.lib crypt32.lib bcrypt.lib ncrypt.lib iphlpapi.lib $(NOINHERIT)"
 				LinkIncremental="2"
-				AdditionalLibraryDirectories="C:\Alljoyn\SDK\CPP\lib\Debug;$(NOINHERIT)"
+				AdditionalLibraryDirectories="$(ALLJOYN_SDK_HOME)\CPP\lib\Debug;$(NOINHERIT)"
 				IgnoreDefaultLibraryNames="msvcrt.lib"
 				GenerateDebugInformation="true"
 				SubSystem="2"
@@ -121,7 +121,8 @@
 				Name="VCCLCompilerTool"
 				Optimization="2"
 				EnableIntrinsicFunctions="true"
-				PreprocessorDefinitions="WIN32;NDEBUG;_WINDOWS;_USRDLL;CHATLIB32_EXPORTS"
+				AdditionalIncludeDirectories="$(ALLJOYN_SDK_HOME)\CPP\inc"
+				PreprocessorDefinitions="WIN32;NDEBUG;_WINDOWS;_USRDLL;QCC_OS_GROUP_WINDOWS;QCC_OS_WINDOWS;QCC_CPU_X86;CHATLIB32_EXPORTS"
 				RuntimeLibrary="2"
 				EnableFunctionLevelLinking="true"
 				UsePrecompiledHeader="2"
@@ -139,7 +140,9 @@
 			/>
 			<Tool
 				Name="VCLinkerTool"
+				AdditionalDependencies="alljoyn.lib wsock32.lib ws2_32.lib secur32.lib advapi32.lib crypt32.lib bcrypt.lib ncrypt.lib iphlpapi.lib $(NOINHERIT)"
 				LinkIncremental="1"
+				AdditionalLibraryDirectories="$(ALLJOYN_SDK_HOME)\CPP\lib\Release;$(NOINHERIT)"
 				GenerateDebugInformation="true"
 				SubSystem="2"
 				OptimizeReferences="2"

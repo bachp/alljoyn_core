@@ -42,7 +42,7 @@
 				Name="VCCLCompilerTool"
 				AdditionalOptions="/vmm /vmg"
 				Optimization="0"
-				AdditionalIncludeDirectories="C:\Alljoyn\SDK\CPP\inc;$(NOINHERIT)"
+				AdditionalIncludeDirectories="$(ALLJOYN_SDK_HOME)\CPP\inc;$(NOINHERIT)"
 				PreprocessorDefinitions="WIN32;_DEBUG;_CONSOLE;QCC_OS_GROUP_WINDOWS;QCC_OS_WINDOWS;QCC_CPU_X86"
 				MinimalRebuild="true"
 				ExceptionHandling="0"
@@ -63,9 +63,9 @@
 			/>
 			<Tool
 				Name="VCLinkerTool"
-				AdditionalDependencies="alljoyn.lib wsock32.lib ws2_32.lib secur32.lib advapi32.lib crypt32.lib bcrypt.lib ncrypt.lib"
+				AdditionalDependencies="alljoyn.lib wsock32.lib ws2_32.lib secur32.lib advapi32.lib crypt32.lib bcrypt.lib ncrypt.lib iphlpapi.lib"
 				LinkIncremental="2"
-				AdditionalLibraryDirectories="C:\Alljoyn\SDK\CPP\lib\Debug;$(NOINHERIT)"
+				AdditionalLibraryDirectories="$(ALLJOYN_SDK_HOME)\CPP\lib\Debug;$(NOINHERIT)"
 				IgnoreDefaultLibraryNames="msvcrt"
 				GenerateDebugInformation="true"
 				SubSystem="2"
@@ -91,7 +91,7 @@
 			/>
 			<Tool
 				Name="VCPostBuildEventTool"
-				CommandLine="copy $(SolutionDir)$(ConfigurationName)  C:\Alljoyn\SDK\CS.NET\samples\PhotoChat\bin\Debug"
+				CommandLine="copy $(SolutionDir)$(ConfigurationName)  $(ALLJOYN_SDK_HOME)\CS.NET\samples\PhotoChat\bin\Debug"
 			/>
 		</Configuration>
 		<Configuration

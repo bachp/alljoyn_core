@@ -111,12 +111,6 @@
         }
         "Entry"
         {
-        "MsmKey" = "8:_0ED932C4467B4A77AFE1B4E57DBFEE5A"
-        "OwnerKey" = "8:_UNDEFINED"
-        "MsmSig" = "8:_UNDEFINED"
-        }
-        "Entry"
-        {
         "MsmKey" = "8:_0FB29465613C47BEADA1B3F264C9045B"
         "OwnerKey" = "8:_UNDEFINED"
         "MsmSig" = "8:_UNDEFINED"
@@ -213,6 +207,12 @@
         }
         "Entry"
         {
+        "MsmKey" = "8:_1C76EE1CADF8416EB82AE7DF6426F8D5"
+        "OwnerKey" = "8:_UNDEFINED"
+        "MsmSig" = "8:_UNDEFINED"
+        }
+        "Entry"
+        {
         "MsmKey" = "8:_1CB4BC522E1A43F7A0D21B3B0089FF20"
         "OwnerKey" = "8:_UNDEFINED"
         "MsmSig" = "8:_UNDEFINED"
@@ -268,6 +268,12 @@
         "Entry"
         {
         "MsmKey" = "8:_259FB4B8E6404F71B168F80B8E48339F"
+        "OwnerKey" = "8:_UNDEFINED"
+        "MsmSig" = "8:_UNDEFINED"
+        }
+        "Entry"
+        {
+        "MsmKey" = "8:_26A5BB2A82B544249F830330617AF74C"
         "OwnerKey" = "8:_UNDEFINED"
         "MsmSig" = "8:_UNDEFINED"
         }
@@ -669,6 +675,12 @@
         }
         "Entry"
         {
+        "MsmKey" = "8:_5711285AA54D42029F83B0FCBA96C139"
+        "OwnerKey" = "8:_UNDEFINED"
+        "MsmSig" = "8:_UNDEFINED"
+        }
+        "Entry"
+        {
         "MsmKey" = "8:_57A5E67B7133420B8AC18809F827D9AA"
         "OwnerKey" = "8:_UNDEFINED"
         "MsmSig" = "8:_UNDEFINED"
@@ -837,6 +849,12 @@
         }
         "Entry"
         {
+        "MsmKey" = "8:_73ABE186DB124872AD72FB379A13A194"
+        "OwnerKey" = "8:_UNDEFINED"
+        "MsmSig" = "8:_UNDEFINED"
+        }
+        "Entry"
+        {
         "MsmKey" = "8:_747AA80302B94D81AF72937B4788C9A2"
         "OwnerKey" = "8:_UNDEFINED"
         "MsmSig" = "8:_UNDEFINED"
@@ -958,12 +976,6 @@
         "Entry"
         {
         "MsmKey" = "8:_80D03C2ABFC74B5F8DBBF139A8425083"
-        "OwnerKey" = "8:_UNDEFINED"
-        "MsmSig" = "8:_UNDEFINED"
-        }
-        "Entry"
-        {
-        "MsmKey" = "8:_818B925EEA7F4DF386CAB52B790542FC"
         "OwnerKey" = "8:_UNDEFINED"
         "MsmSig" = "8:_UNDEFINED"
         }
@@ -1150,6 +1162,12 @@
         "Entry"
         {
         "MsmKey" = "8:_9C48B7834BBC4D3CB25BC3B64AE900A4"
+        "OwnerKey" = "8:_UNDEFINED"
+        "MsmSig" = "8:_UNDEFINED"
+        }
+        "Entry"
+        {
+        "MsmKey" = "8:_9D362C94C8B84D8BA0CD2D5B8C7A9F63"
         "OwnerKey" = "8:_UNDEFINED"
         "MsmSig" = "8:_UNDEFINED"
         }
@@ -1425,6 +1443,12 @@
         }
         "Entry"
         {
+        "MsmKey" = "8:_BE1B90A0087A423C8BB1DB63170D322B"
+        "OwnerKey" = "8:_UNDEFINED"
+        "MsmSig" = "8:_UNDEFINED"
+        }
+        "Entry"
+        {
         "MsmKey" = "8:_BE32CA7D3A1949D781457AB4EE29D787"
         "OwnerKey" = "8:_UNDEFINED"
         "MsmSig" = "8:_UNDEFINED"
@@ -1587,6 +1611,12 @@
         }
         "Entry"
         {
+        "MsmKey" = "8:_D09F03480A1D4003AA567C108AB2ECD0"
+        "OwnerKey" = "8:_UNDEFINED"
+        "MsmSig" = "8:_UNDEFINED"
+        }
+        "Entry"
+        {
         "MsmKey" = "8:_D0D2172BE8074A42A52244DBBEA79E01"
         "OwnerKey" = "8:_UNDEFINED"
         "MsmSig" = "8:_UNDEFINED"
@@ -1659,6 +1689,12 @@
         }
         "Entry"
         {
+        "MsmKey" = "8:_DAA7B82AE9D347968C53BB53EC65BDF5"
+        "OwnerKey" = "8:_UNDEFINED"
+        "MsmSig" = "8:_UNDEFINED"
+        }
+        "Entry"
+        {
         "MsmKey" = "8:_DBD304C08E2D49EE9CBDA274B4ED69B0"
         "OwnerKey" = "8:_UNDEFINED"
         "MsmSig" = "8:_UNDEFINED"
@@ -1672,12 +1708,6 @@
         "Entry"
         {
         "MsmKey" = "8:_DC969E978168471FB1877BDE14DB51A9"
-        "OwnerKey" = "8:_UNDEFINED"
-        "MsmSig" = "8:_UNDEFINED"
-        }
-        "Entry"
-        {
-        "MsmKey" = "8:_DCF88DC341B94468B7F931FC4C873AD8"
         "OwnerKey" = "8:_UNDEFINED"
         "MsmSig" = "8:_UNDEFINED"
         }
@@ -1732,6 +1762,18 @@
         "Entry"
         {
         "MsmKey" = "8:_E3E0E191C852410D88343C60B096F7B2"
+        "OwnerKey" = "8:_UNDEFINED"
+        "MsmSig" = "8:_UNDEFINED"
+        }
+        "Entry"
+        {
+        "MsmKey" = "8:_E472F3891E6B4A74BD00A765A91FAFF5"
+        "OwnerKey" = "8:_UNDEFINED"
+        "MsmSig" = "8:_UNDEFINED"
+        }
+        "Entry"
+        {
+        "MsmKey" = "8:_E4F32E447BBD445D832A11F1FF80490F"
         "OwnerKey" = "8:_UNDEFINED"
         "MsmSig" = "8:_UNDEFINED"
         }
@@ -1804,6 +1846,12 @@
         "Entry"
         {
         "MsmKey" = "8:_EE3EA107BC9A41E1B086F524500CEE9A"
+        "OwnerKey" = "8:_UNDEFINED"
+        "MsmSig" = "8:_UNDEFINED"
+        }
+        "Entry"
+        {
+        "MsmKey" = "8:_EE8ECD6104F84F24AF756272836D6E63"
         "OwnerKey" = "8:_UNDEFINED"
         "MsmSig" = "8:_UNDEFINED"
         }
@@ -2033,6 +2081,20 @@
     {
         "CustomAction"
         {
+            "{4AA51A2D-7D85-4A59-BA75-B0809FC8B380}:_4954E99219FE432590979808B85CA1E8"
+            {
+            "Name" = "8:SetUserEnvironmentVariable.vbs"
+            "Condition" = "8:"
+            "Object" = "8:_D09F03480A1D4003AA567C108AB2ECD0"
+            "FileType" = "3:4"
+            "InstallAction" = "3:2"
+            "Arguments" = "8:"
+            "EntryPoint" = "8:"
+            "Sequence" = "3:1"
+            "Identifier" = "8:_0C8BE07A_CDC2_4A91_AE7A_43DDE8C0BDB5"
+            "InstallerClass" = "11:FALSE"
+            "CustomActionData" = "8:/InstallPath=[TARGETDIR]|/AllUsers=[ALLUSERS]"
+            }
         }
         "DefaultFeature"
         {
@@ -2368,26 +2430,6 @@
             "IsDependency" = "11:FALSE"
             "IsolateTo" = "8:"
             }
-            "{1FB2D0AE-D3B9-43D4-B9DD-F88EC61E35DE}:_0ED932C4467B4A77AFE1B4E57DBFEE5A"
-            {
-            "SourcePath" = "8:aj.ico"
-            "TargetName" = "8:aj.ico"
-            "Tag" = "8:"
-            "Folder" = "8:_10467045E6804950995D46A9E3A03A72"
-            "Condition" = "8:"
-            "Transitive" = "11:FALSE"
-            "Vital" = "11:TRUE"
-            "ReadOnly" = "11:FALSE"
-            "Hidden" = "11:FALSE"
-            "System" = "11:FALSE"
-            "Permanent" = "11:FALSE"
-            "SharedLegacy" = "11:FALSE"
-            "PackageAs" = "3:1"
-            "Register" = "3:1"
-            "Exclude" = "11:TRUE"
-            "IsDependency" = "11:FALSE"
-            "IsolateTo" = "8:"
-            }
             "{1FB2D0AE-D3B9-43D4-B9DD-F88EC61E35DE}:_0FB29465613C47BEADA1B3F264C9045B"
             {
             "SourcePath" = "8:..\\..\\..\\..\\..\\..\\build\\win7\\x86\\release\\dist\\bin\\srp.exe"
@@ -2708,6 +2750,26 @@
             "IsDependency" = "11:FALSE"
             "IsolateTo" = "8:"
             }
+            "{1FB2D0AE-D3B9-43D4-B9DD-F88EC61E35DE}:_1C76EE1CADF8416EB82AE7DF6426F8D5"
+            {
+            "SourcePath" = "8:..\\..\\..\\..\\..\\samples\\basic\\VC2008Win7\\nameChange_client\\nameChange_client.vcproj"
+            "TargetName" = "8:nameChange_client.vcproj"
+            "Tag" = "8:"
+            "Folder" = "8:_0FC36551ACFB42E393AFC12558086830"
+            "Condition" = "8:"
+            "Transitive" = "11:FALSE"
+            "Vital" = "11:TRUE"
+            "ReadOnly" = "11:FALSE"
+            "Hidden" = "11:FALSE"
+            "System" = "11:FALSE"
+            "Permanent" = "11:FALSE"
+            "SharedLegacy" = "11:FALSE"
+            "PackageAs" = "3:1"
+            "Register" = "3:1"
+            "Exclude" = "11:FALSE"
+            "IsDependency" = "11:FALSE"
+            "IsolateTo" = "8:"
+            }
             "{1FB2D0AE-D3B9-43D4-B9DD-F88EC61E35DE}:_1CB4BC522E1A43F7A0D21B3B0089FF20"
             {
             "SourcePath" = "8:..\\..\\..\\..\\..\\..\\build\\win7\\x86\\release\\dist\\bin\\mcmd.exe"
@@ -2895,6 +2957,26 @@
             "Tag" = "8:"
             "Folder" = "8:_31A3F65E04BB4B8B805BD01C31FB792A"
             "Condition" = "8:CHECKBOXB3=1"
+            "Transitive" = "11:FALSE"
+            "Vital" = "11:TRUE"
+            "ReadOnly" = "11:FALSE"
+            "Hidden" = "11:FALSE"
+            "System" = "11:FALSE"
+            "Permanent" = "11:FALSE"
+            "SharedLegacy" = "11:FALSE"
+            "PackageAs" = "3:1"
+            "Register" = "3:1"
+            "Exclude" = "11:FALSE"
+            "IsDependency" = "11:FALSE"
+            "IsolateTo" = "8:"
+            }
+            "{1FB2D0AE-D3B9-43D4-B9DD-F88EC61E35DE}:_26A5BB2A82B544249F830330617AF74C"
+            {
+            "SourcePath" = "8:..\\..\\..\\..\\..\\samples\\chat\\linux\\VC2008Win7\\VC2008Win7.sln"
+            "TargetName" = "8:VC2008Win7.sln"
+            "Tag" = "8:"
+            "Folder" = "8:_F296CEAF7F3C4AEFB1E05165D166BC87"
+            "Condition" = "8:"
             "Transitive" = "11:FALSE"
             "Vital" = "11:TRUE"
             "ReadOnly" = "11:FALSE"
@@ -4228,6 +4310,26 @@
             "IsDependency" = "11:FALSE"
             "IsolateTo" = "8:"
             }
+            "{1FB2D0AE-D3B9-43D4-B9DD-F88EC61E35DE}:_5711285AA54D42029F83B0FCBA96C139"
+            {
+            "SourcePath" = "8:..\\..\\..\\..\\..\\samples\\basic\\VC2008Win7\\signalConsumer_client\\signalConsumer_client.vcproj"
+            "TargetName" = "8:signalConsumer_client.vcproj"
+            "Tag" = "8:"
+            "Folder" = "8:_A313B54C8AFE44E7BFEEF6AA393138A2"
+            "Condition" = "8:"
+            "Transitive" = "11:FALSE"
+            "Vital" = "11:TRUE"
+            "ReadOnly" = "11:FALSE"
+            "Hidden" = "11:FALSE"
+            "System" = "11:FALSE"
+            "Permanent" = "11:FALSE"
+            "SharedLegacy" = "11:FALSE"
+            "PackageAs" = "3:1"
+            "Register" = "3:1"
+            "Exclude" = "11:FALSE"
+            "IsDependency" = "11:FALSE"
+            "IsolateTo" = "8:"
+            }
             "{1FB2D0AE-D3B9-43D4-B9DD-F88EC61E35DE}:_57A5E67B7133420B8AC18809F827D9AA"
             {
             "SourcePath" = "8:..\\..\\..\\..\\..\\..\\build\\win7\\x86\\release\\dist\\bin\\bttimingclient.exe"
@@ -4788,6 +4890,26 @@
             "IsDependency" = "11:FALSE"
             "IsolateTo" = "8:"
             }
+            "{1FB2D0AE-D3B9-43D4-B9DD-F88EC61E35DE}:_73ABE186DB124872AD72FB379A13A194"
+            {
+            "SourcePath" = "8:..\\..\\..\\VS_Projects\\AlljoynService\\aj.ico"
+            "TargetName" = "8:aj.ico"
+            "Tag" = "8:"
+            "Folder" = "8:_10467045E6804950995D46A9E3A03A72"
+            "Condition" = "8:CHECKBOXB1=1 OR CHECKBOXB2=1"
+            "Transitive" = "11:FALSE"
+            "Vital" = "11:TRUE"
+            "ReadOnly" = "11:FALSE"
+            "Hidden" = "11:FALSE"
+            "System" = "11:FALSE"
+            "Permanent" = "11:FALSE"
+            "SharedLegacy" = "11:FALSE"
+            "PackageAs" = "3:1"
+            "Register" = "3:1"
+            "Exclude" = "11:FALSE"
+            "IsDependency" = "11:FALSE"
+            "IsolateTo" = "8:"
+            }
             "{1FB2D0AE-D3B9-43D4-B9DD-F88EC61E35DE}:_747AA80302B94D81AF72937B4788C9A2"
             {
             "SourcePath" = "8:..\\..\\samples\\PhotoChat\\AllJoynBusLib\\stdafx.cpp"
@@ -5196,26 +5318,6 @@
             "Folder" = "8:_71D38D35DE224422A77F20FF01804F05"
             "Condition" = "8:CHECKBOXC4=1"
             "Transitive" = "11:TRUE"
-            "Vital" = "11:TRUE"
-            "ReadOnly" = "11:FALSE"
-            "Hidden" = "11:FALSE"
-            "System" = "11:FALSE"
-            "Permanent" = "11:FALSE"
-            "SharedLegacy" = "11:FALSE"
-            "PackageAs" = "3:1"
-            "Register" = "3:1"
-            "Exclude" = "11:FALSE"
-            "IsDependency" = "11:FALSE"
-            "IsolateTo" = "8:"
-            }
-            "{1FB2D0AE-D3B9-43D4-B9DD-F88EC61E35DE}:_818B925EEA7F4DF386CAB52B790542FC"
-            {
-            "SourcePath" = "8:..\\..\\..\\..\\..\\..\\build\\win7\\x86\\release\\dist\\bin\\hci.exe"
-            "TargetName" = "8:hci.exe"
-            "Tag" = "8:"
-            "Folder" = "8:_0385890169A84CFFAAC97F8126D88F02"
-            "Condition" = "8:"
-            "Transitive" = "11:FALSE"
             "Vital" = "11:TRUE"
             "ReadOnly" = "11:FALSE"
             "Hidden" = "11:FALSE"
@@ -5836,6 +5938,26 @@
             "Folder" = "8:_32ED65737CAA44A8B062DEADF82AEFB4"
             "Condition" = "8:CHECKBOXC1=1"
             "Transitive" = "11:TRUE"
+            "Vital" = "11:TRUE"
+            "ReadOnly" = "11:FALSE"
+            "Hidden" = "11:FALSE"
+            "System" = "11:FALSE"
+            "Permanent" = "11:FALSE"
+            "SharedLegacy" = "11:FALSE"
+            "PackageAs" = "3:1"
+            "Register" = "3:1"
+            "Exclude" = "11:FALSE"
+            "IsDependency" = "11:FALSE"
+            "IsolateTo" = "8:"
+            }
+            "{1FB2D0AE-D3B9-43D4-B9DD-F88EC61E35DE}:_9D362C94C8B84D8BA0CD2D5B8C7A9F63"
+            {
+            "SourcePath" = "8:..\\..\\..\\..\\..\\samples\\chat\\linux\\VC2008Win7\\chatsample\\chatsample.vcproj"
+            "TargetName" = "8:chatsample.vcproj"
+            "Tag" = "8:"
+            "Folder" = "8:_CB24B4AE7E4F4626B21B46253F7681F7"
+            "Condition" = "8:"
+            "Transitive" = "11:FALSE"
             "Vital" = "11:TRUE"
             "ReadOnly" = "11:FALSE"
             "Hidden" = "11:FALSE"
@@ -6748,6 +6870,26 @@
             "IsDependency" = "11:FALSE"
             "IsolateTo" = "8:"
             }
+            "{1FB2D0AE-D3B9-43D4-B9DD-F88EC61E35DE}:_BE1B90A0087A423C8BB1DB63170D322B"
+            {
+            "SourcePath" = "8:..\\..\\..\\..\\..\\samples\\basic\\VC2008Win7\\signal_service\\signal_service.vcproj"
+            "TargetName" = "8:signal_service.vcproj"
+            "Tag" = "8:"
+            "Folder" = "8:_6F050C20CED84D34A898F2D6B5B57649"
+            "Condition" = "8:"
+            "Transitive" = "11:FALSE"
+            "Vital" = "11:TRUE"
+            "ReadOnly" = "11:FALSE"
+            "Hidden" = "11:FALSE"
+            "System" = "11:FALSE"
+            "Permanent" = "11:FALSE"
+            "SharedLegacy" = "11:FALSE"
+            "PackageAs" = "3:1"
+            "Register" = "3:1"
+            "Exclude" = "11:FALSE"
+            "IsDependency" = "11:FALSE"
+            "IsolateTo" = "8:"
+            }
             "{1FB2D0AE-D3B9-43D4-B9DD-F88EC61E35DE}:_BE32CA7D3A1949D781457AB4EE29D787"
             {
             "SourcePath" = "8:..\\..\\..\\..\\..\\..\\build\\win7\\x86\\release\\dist\\java\\docs\\org\\alljoyn\\bus\\BusAttachment.html"
@@ -7288,6 +7430,26 @@
             "IsDependency" = "11:FALSE"
             "IsolateTo" = "8:"
             }
+            "{1FB2D0AE-D3B9-43D4-B9DD-F88EC61E35DE}:_D09F03480A1D4003AA567C108AB2ECD0"
+            {
+            "SourcePath" = "8:SetUserEnvironmentVariable.vbs"
+            "TargetName" = "8:SetUserEnvironmentVariable.vbs"
+            "Tag" = "8:"
+            "Folder" = "8:_10467045E6804950995D46A9E3A03A72"
+            "Condition" = "8:"
+            "Transitive" = "11:FALSE"
+            "Vital" = "11:TRUE"
+            "ReadOnly" = "11:FALSE"
+            "Hidden" = "11:FALSE"
+            "System" = "11:FALSE"
+            "Permanent" = "11:FALSE"
+            "SharedLegacy" = "11:FALSE"
+            "PackageAs" = "3:1"
+            "Register" = "3:1"
+            "Exclude" = "11:FALSE"
+            "IsDependency" = "11:FALSE"
+            "IsolateTo" = "8:"
+            }
             "{1FB2D0AE-D3B9-43D4-B9DD-F88EC61E35DE}:_D0D2172BE8074A42A52244DBBEA79E01"
             {
             "SourcePath" = "8:..\\..\\samples\\PhotoChat\\PhotoChat.sln"
@@ -7528,6 +7690,26 @@
             "IsDependency" = "11:FALSE"
             "IsolateTo" = "8:"
             }
+            "{1FB2D0AE-D3B9-43D4-B9DD-F88EC61E35DE}:_DAA7B82AE9D347968C53BB53EC65BDF5"
+            {
+            "SourcePath" = "8:..\\..\\..\\..\\..\\samples\\basic\\VC2008Win7\\basic_service\\basic_service.vcproj"
+            "TargetName" = "8:basic_service.vcproj"
+            "Tag" = "8:"
+            "Folder" = "8:_FABB8E8967274C0187D386F25095E334"
+            "Condition" = "8:"
+            "Transitive" = "11:FALSE"
+            "Vital" = "11:TRUE"
+            "ReadOnly" = "11:FALSE"
+            "Hidden" = "11:FALSE"
+            "System" = "11:FALSE"
+            "Permanent" = "11:FALSE"
+            "SharedLegacy" = "11:FALSE"
+            "PackageAs" = "3:1"
+            "Register" = "3:1"
+            "Exclude" = "11:FALSE"
+            "IsDependency" = "11:FALSE"
+            "IsolateTo" = "8:"
+            }
             "{1FB2D0AE-D3B9-43D4-B9DD-F88EC61E35DE}:_DBD304C08E2D49EE9CBDA274B4ED69B0"
             {
             "SourcePath" = "8:..\\..\\..\\..\\..\\..\\build\\win7\\x86\\release\\dist\\inc\\alljoyn\\AllJoynStd.h"
@@ -7576,26 +7758,6 @@
             "Folder" = "8:_5DEB307FB96D4F4DBB9ECC2CE8075BF6"
             "Condition" = "8:CHECKBOXB3=1"
             "Transitive" = "11:FALSE"
-            "Vital" = "11:TRUE"
-            "ReadOnly" = "11:FALSE"
-            "Hidden" = "11:FALSE"
-            "System" = "11:FALSE"
-            "Permanent" = "11:FALSE"
-            "SharedLegacy" = "11:FALSE"
-            "PackageAs" = "3:1"
-            "Register" = "3:1"
-            "Exclude" = "11:FALSE"
-            "IsDependency" = "11:FALSE"
-            "IsolateTo" = "8:"
-            }
-            "{1FB2D0AE-D3B9-43D4-B9DD-F88EC61E35DE}:_DCF88DC341B94468B7F931FC4C873AD8"
-            {
-            "SourcePath" = "8:..\\..\\..\\..\\..\\..\\build\\win7\\x86\\release\\dist\\java\\docs\\resources\\inherit.gif"
-            "TargetName" = "8:inherit.gif"
-            "Tag" = "8:"
-            "Folder" = "8:_895D9C6EDF584E83B642804C13C97B4B"
-            "Condition" = "8:CHECKBOXC4=1"
-            "Transitive" = "11:TRUE"
             "Vital" = "11:TRUE"
             "ReadOnly" = "11:FALSE"
             "Hidden" = "11:FALSE"
@@ -7774,6 +7936,46 @@
             "TargetName" = "8:advtunnel.exe"
             "Tag" = "8:"
             "Folder" = "8:_0385890169A84CFFAAC97F8126D88F02"
+            "Condition" = "8:"
+            "Transitive" = "11:FALSE"
+            "Vital" = "11:TRUE"
+            "ReadOnly" = "11:FALSE"
+            "Hidden" = "11:FALSE"
+            "System" = "11:FALSE"
+            "Permanent" = "11:FALSE"
+            "SharedLegacy" = "11:FALSE"
+            "PackageAs" = "3:1"
+            "Register" = "3:1"
+            "Exclude" = "11:FALSE"
+            "IsDependency" = "11:FALSE"
+            "IsolateTo" = "8:"
+            }
+            "{1FB2D0AE-D3B9-43D4-B9DD-F88EC61E35DE}:_E472F3891E6B4A74BD00A765A91FAFF5"
+            {
+            "SourcePath" = "8:..\\..\\..\\..\\..\\samples\\basic\\README.txt"
+            "TargetName" = "8:README.txt"
+            "Tag" = "8:"
+            "Folder" = "8:_A68CCC123DAB4F619A43F0A1A9A42827"
+            "Condition" = "8:"
+            "Transitive" = "11:FALSE"
+            "Vital" = "11:TRUE"
+            "ReadOnly" = "11:FALSE"
+            "Hidden" = "11:FALSE"
+            "System" = "11:FALSE"
+            "Permanent" = "11:FALSE"
+            "SharedLegacy" = "11:FALSE"
+            "PackageAs" = "3:1"
+            "Register" = "3:1"
+            "Exclude" = "11:FALSE"
+            "IsDependency" = "11:FALSE"
+            "IsolateTo" = "8:"
+            }
+            "{1FB2D0AE-D3B9-43D4-B9DD-F88EC61E35DE}:_E4F32E447BBD445D832A11F1FF80490F"
+            {
+            "SourcePath" = "8:..\\..\\..\\..\\..\\samples\\basic\\VC2008Win7\\MSVC2008-Win7.sln"
+            "TargetName" = "8:MSVC2008-Win7.sln"
+            "Tag" = "8:"
+            "Folder" = "8:_25FA0F01F5A5431A98321A5BA3D4A981"
             "Condition" = "8:"
             "Transitive" = "11:FALSE"
             "Vital" = "11:TRUE"
@@ -8016,6 +8218,26 @@
             "Folder" = "8:_CEA898350FF448E2A0C06A6D9DEF35D1"
             "Condition" = "8:CHECKBOXC4=1"
             "Transitive" = "11:TRUE"
+            "Vital" = "11:TRUE"
+            "ReadOnly" = "11:FALSE"
+            "Hidden" = "11:FALSE"
+            "System" = "11:FALSE"
+            "Permanent" = "11:FALSE"
+            "SharedLegacy" = "11:FALSE"
+            "PackageAs" = "3:1"
+            "Register" = "3:1"
+            "Exclude" = "11:FALSE"
+            "IsDependency" = "11:FALSE"
+            "IsolateTo" = "8:"
+            }
+            "{1FB2D0AE-D3B9-43D4-B9DD-F88EC61E35DE}:_EE8ECD6104F84F24AF756272836D6E63"
+            {
+            "SourcePath" = "8:..\\..\\..\\..\\..\\samples\\basic\\VC2008Win7\\basic_client\\basic_client.vcproj"
+            "TargetName" = "8:basic_client.vcproj"
+            "Tag" = "8:"
+            "Folder" = "8:_5B45832F37284EED8F8E26E040AB91B6"
+            "Condition" = "8:"
+            "Transitive" = "11:FALSE"
             "Vital" = "11:TRUE"
             "ReadOnly" = "11:FALSE"
             "Hidden" = "11:FALSE"
@@ -9013,6 +9235,72 @@
                                     "Property" = "8:_FF4471CAFE1F4127A79F10CB1E336E42"
                                         "Folders"
                                         {
+                                            "{9EF0B969-E518-4E46-987F-47570745A589}:_25FA0F01F5A5431A98321A5BA3D4A981"
+                                            {
+                                            "Name" = "8:VC2008Win7"
+                                            "AlwaysCreate" = "11:FALSE"
+                                            "Condition" = "8:"
+                                            "Transitive" = "11:FALSE"
+                                            "Property" = "8:_DE947DAAE5154450B1DB858FA53F893A"
+                                                "Folders"
+                                                {
+                                                    "{9EF0B969-E518-4E46-987F-47570745A589}:_0FC36551ACFB42E393AFC12558086830"
+                                                    {
+                                                    "Name" = "8:nameChange_client"
+                                                    "AlwaysCreate" = "11:FALSE"
+                                                    "Condition" = "8:"
+                                                    "Transitive" = "11:FALSE"
+                                                    "Property" = "8:_C96B0AF79DE7437E93B5F716CF75E6F1"
+                                                        "Folders"
+                                                        {
+                                                        }
+                                                    }
+                                                    "{9EF0B969-E518-4E46-987F-47570745A589}:_5B45832F37284EED8F8E26E040AB91B6"
+                                                    {
+                                                    "Name" = "8:basic_client"
+                                                    "AlwaysCreate" = "11:FALSE"
+                                                    "Condition" = "8:"
+                                                    "Transitive" = "11:FALSE"
+                                                    "Property" = "8:_96FB2B8563174B0DBD02EF3483D7FDCE"
+                                                        "Folders"
+                                                        {
+                                                        }
+                                                    }
+                                                    "{9EF0B969-E518-4E46-987F-47570745A589}:_6F050C20CED84D34A898F2D6B5B57649"
+                                                    {
+                                                    "Name" = "8:signal_service"
+                                                    "AlwaysCreate" = "11:FALSE"
+                                                    "Condition" = "8:"
+                                                    "Transitive" = "11:FALSE"
+                                                    "Property" = "8:_88CDDE8D9BA745B5A0D9C74B664D3F82"
+                                                        "Folders"
+                                                        {
+                                                        }
+                                                    }
+                                                    "{9EF0B969-E518-4E46-987F-47570745A589}:_A313B54C8AFE44E7BFEEF6AA393138A2"
+                                                    {
+                                                    "Name" = "8:signalConsumer_client"
+                                                    "AlwaysCreate" = "11:FALSE"
+                                                    "Condition" = "8:"
+                                                    "Transitive" = "11:FALSE"
+                                                    "Property" = "8:_7BBAABD2E68141A599880967AB8FA838"
+                                                        "Folders"
+                                                        {
+                                                        }
+                                                    }
+                                                    "{9EF0B969-E518-4E46-987F-47570745A589}:_FABB8E8967274C0187D386F25095E334"
+                                                    {
+                                                    "Name" = "8:basic_service"
+                                                    "AlwaysCreate" = "11:FALSE"
+                                                    "Condition" = "8:"
+                                                    "Transitive" = "11:FALSE"
+                                                    "Property" = "8:_F9446D7AF07444A08BCC95FCD4C2B414"
+                                                        "Folders"
+                                                        {
+                                                        }
+                                                    }
+                                                }
+                                            }
                                         }
                                     }
                                     "{9EF0B969-E518-4E46-987F-47570745A589}:_CCBBA71BE2384C59AA931F200628999B"
@@ -9024,6 +9312,28 @@
                                     "Property" = "8:_25887392FA564A58A86DBB06D832D385"
                                         "Folders"
                                         {
+                                            "{9EF0B969-E518-4E46-987F-47570745A589}:_F296CEAF7F3C4AEFB1E05165D166BC87"
+                                            {
+                                            "Name" = "8:VC2008Win7"
+                                            "AlwaysCreate" = "11:FALSE"
+                                            "Condition" = "8:"
+                                            "Transitive" = "11:FALSE"
+                                            "Property" = "8:_990EE5B05D5541208DDE5B2A541E6D42"
+                                                "Folders"
+                                                {
+                                                    "{9EF0B969-E518-4E46-987F-47570745A589}:_CB24B4AE7E4F4626B21B46253F7681F7"
+                                                    {
+                                                    "Name" = "8:chatsample"
+                                                    "AlwaysCreate" = "11:FALSE"
+                                                    "Condition" = "8:"
+                                                    "Transitive" = "11:FALSE"
+                                                    "Property" = "8:_D4BADCFC196A4BE680DABF0BCE042558"
+                                                        "Folders"
+                                                        {
+                                                        }
+                                                    }
+                                                }
+                                            }
                                         }
                                     }
                                 }
@@ -9137,8 +9447,9 @@
         "Name" = "8:Microsoft Visual Studio"
         "ProductName" = "8:AlljoynSDK"
         "ProductCode" = "8:{44E6EE21-26E7-49FB-8A02-F1AC312E5837}"
-        "PackageCode" = "8:{2D0E05E7-86B7-4821-8F39-36E1818964B7}"
+        "PackageCode" = "8:{24BFE771-F326-4F46-81E3-CD7F9FA5FFB7}"
         "UpgradeCode" = "8:{E61A6F7A-75F0-4028-816E-702C1FBCB92E}"
+        "AspNetVersion" = "8:4.0.30319.0"
         "RestartWWWService" = "11:FALSE"
         "RemovePreviousVersions" = "11:FALSE"
         "DetectNewerInstalledVersion" = "11:TRUE"
@@ -9153,7 +9464,7 @@
         "Keywords" = "8:"
         "ARPCOMMENTS" = "8:"
         "ARPURLINFOABOUT" = "8:"
-        "ARPPRODUCTICON" = "8:_0ED932C4467B4A77AFE1B4E57DBFEE5A"
+        "ARPPRODUCTICON" = "8:"
         "ARPIconIndex" = "3:0"
         "SearchPath" = "8:"
         "UseSystemSearchPath" = "11:TRUE"

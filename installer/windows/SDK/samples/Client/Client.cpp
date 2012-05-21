@@ -49,6 +49,7 @@ static const SessionPort SERVICE_PORT = 25;
 
 static bool s_joinComplete = false;
 static SessionId s_sessionId = 0;
+static volatile sig_atomic_t g_interrupt = false;
 
 static void SigIntHandler(int sig)
 {
