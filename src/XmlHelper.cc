@@ -108,7 +108,7 @@ QStatus XmlHelper::ParseInterface(const XmlElement* elem, ProxyBusObject* obj)
                         qcc::String directionAtt = argElem->GetAttribute("direction");
                         qcc::String typeAtt = argElem->GetAttribute("type");
 
-                        if (typeAtt.empty() || (isMethod && directionAtt.empty())) {
+                        if (typeAtt.empty()) {
                             status = ER_BUS_BAD_XML;
                             QCC_LogError(status, ("Malformed <arg> tag (bad attributes)"));
                             break;

@@ -172,13 +172,16 @@ class ProxyBusObjectTest : public testing::Test {
     ProxyBusObjectTestBusListener buslistener;
 };
 
-// TODO: enable this test when ALLJOYN-1001 is resolved
-TEST_F(ProxyBusObjectTest, DISABLED_ParseXml) {
+
+TEST_F(ProxyBusObjectTest, ParseXml) {
     const char* busObjectXML =
         "<node name=\"/org/alljoyn/test/ProxyObjectTest\">"
         "  <interface name=\"org.alljoyn.test.ProxyBusObjectTest\">\n"
         "    <signal name=\"chirp\">\n"
         "      <arg name=\"chirp\" type=\"s\"/>\n"
+        "    </signal>\n"
+        "    <signal name=\"chirp2\">\n"
+        "      <arg name=\"chirp\" type=\"s\" direction=\"out\"/>\n"
         "    </signal>\n"
         "    <method name=\"ping\">\n"
         "      <arg name=\"in\" type=\"s\" direction=\"in\"/>\n"
@@ -200,6 +203,9 @@ TEST_F(ProxyBusObjectTest, DISABLED_ParseXml) {
     const char* expectedIntrospect =
         "<interface name=\"org.alljoyn.test.ProxyBusObjectTest\">\n"
         "  <signal name=\"chirp\">\n"
+        "    <arg name=\"chirp\" type=\"s\" direction=\"out\"/>\n"
+        "  </signal>\n"
+        "  <signal name=\"chirp2\">\n"
         "    <arg name=\"chirp\" type=\"s\" direction=\"out\"/>\n"
         "  </signal>\n"
         "  <method name=\"ping\">\n"

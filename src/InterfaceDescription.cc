@@ -131,7 +131,8 @@ qcc::String InterfaceDescription::Introspect(size_t indent) const
 
         /* Iterate over IN arguments */
         for (const char* sig = member.signature.c_str(); *sig;) {
-            xml += NextArg(sig, argNames, true, indent + 4);
+            // always treat signals as direction=out
+            xml += NextArg(sig, argNames, member.memberType != MESSAGE_SIGNAL, indent + 4);
         }
         /* Iterate over OUT arguments */
         for (const char* sig = member.returnSignature.c_str(); *sig;) {
