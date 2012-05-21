@@ -1586,8 +1586,8 @@ QStatus BTTransport::BTAccessor::ProcessSDPXML(XmlParseContext& xmlctx,
         goto exit;
     }
 
-    if (xmlctx.root.GetName().compare("record") == 0) {
-        const vector<XmlElement*>& recElements(xmlctx.root.GetChildren());
+    if (xmlctx.GetRoot()->GetName().compare("record") == 0) {
+        const vector<XmlElement*>& recElements(xmlctx.GetRoot()->GetChildren());
         vector<XmlElement*>::const_iterator recElem;
 
         for (recElem = recElements.begin(); recElem != recElements.end(); ++recElem) {
@@ -1731,7 +1731,7 @@ QStatus BTTransport::BTAccessor::ProcessSDPXML(XmlParseContext& xmlctx,
         }
     } else {
         status = ER_FAIL;
-        QCC_LogError(status, ("ProcessSDP(): Unexpected root tag parsing SDP XML: \"%s\"", xmlctx.root.GetName().c_str()));
+        QCC_LogError(status, ("ProcessSDP(): Unexpected root tag parsing SDP XML: \"%s\"", xmlctx.GetRoot()->GetName().c_str()));
     }
 
 exit:

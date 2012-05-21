@@ -1688,7 +1688,7 @@ QStatus BusAttachment::CreateInterfacesFromXml(const char* xml)
     QStatus status = XmlElement::Parse(pc);
     if (status == ER_OK) {
         XmlHelper xmlHelper(this, "BusAttachment");
-        status = xmlHelper.AddInterfaceDefinitions(pc.root);
+        status = xmlHelper.AddInterfaceDefinitions(pc.GetRoot());
     }
     return status;
 }

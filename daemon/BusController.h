@@ -86,6 +86,16 @@ class BusController {
      */
     void ObjectRegistered(BusObject* obj);
 
+    /**
+     * Attempt to start a service to handle the message received.
+     *
+     * @param msg       The message received.
+     * @param sendingEP The endpoint the message was received on
+     */
+    QStatus StartService(Message& msg, BusEndpoint* sendingEP) {
+        return ER_NOT_IMPLEMENTED;
+    }
+
   private:
 
     Bus& bus;

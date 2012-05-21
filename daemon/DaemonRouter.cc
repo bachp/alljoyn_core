@@ -5,7 +5,7 @@
  */
 
 /******************************************************************************
- * Copyright 2009-2011, Qualcomm Innovation Center, Inc.
+ * Copyright 2009-2012, Qualcomm Innovation Center, Inc.
  *
  *    Licensed under the Apache License, Version 2.0 (the "License");
  *    you may not use this file except in compliance with the License.
@@ -33,11 +33,7 @@
 
 #include "BusController.h"
 #include "BusEndpoint.h"
-#include "ConfigDB.h"
 #include "DaemonRouter.h"
-#if defined(QCC_OS_ANDROID)
-#include "PermissionDB.h"
-#endif
 
 #define QCC_MODULE "ALLJOYN"
 
@@ -48,44 +44,8 @@ using namespace qcc;
 namespace ajn {
 
 
-class DeferredMsg : public ServiceStartListener {
-
-  public:
-    DeferredMsg(Message& msg, const qcc::String senderUniqueName, DaemonRouter& router) :
-        msg(msg), senderUniqueName(senderUniqueName), router(router) { }
-
-  private:
-    void ServiceStarted(const qcc::String& serviceName, QStatus result);
-
-    Message msg;
-    const qcc::String senderUniqueName;
-    DaemonRouter& router;
-};
-
-void DeferredMsg::ServiceStarted(const qcc::String& serviceName, QStatus result)
-{
-
-    if (result == ER_OK) {
-        BusEndpoint* sender(router.FindEndpoint(senderUniqueName));
-        // Need to pass it though the policy checks agains (since not all
-        // policy checks were done).
-        router.PushMessage(msg, *sender);
-    } else {
-        BusEndpoint* destEndpoint(router.FindEndpoint(msg->GetSender()));
-        qcc::String description("Failed to start service for bus name: ");
-        description += msg->GetDestination();
-        msg->ErrorMsg(msg, "org.freedesktop.DBus.Error.ServiceUnknown", description.c_str());
-        destEndpoint->PushMessage(msg);
-    }
-
-
-    delete this;
-}
-
-
 DaemonRouter::DaemonRouter() : localEndpoint(NULL), ruleTable(), nameTable(), busController(NULL)
 {
-    AddBusNameListener(ConfigDB::GetConfigDB());
 }
 
 static QStatus SendThroughEndpoint(Message& msg, BusEndpoint& ep, SessionId sessionId)
@@ -105,9 +65,6 @@ static QStatus SendThroughEndpoint(Message& msg, BusEndpoint& ep, SessionId sess
 QStatus DaemonRouter::PushMessage(Message& msg, BusEndpoint& origSender)
 {
     QStatus status(ER_OK);
-    ConfigDB* configDB(ConfigDB::GetConfigDB());
-    PolicyDB policydb(configDB->GetPolicyDB());
-    NormalizedMsgHdr nmh(msg, policydb);
     BusEndpoint* sender = &origSender;
     bool replyExpected = (msg->GetType() == MESSAGE_METHOD_CALL) && ((msg->GetFlags() & ALLJOYN_FLAG_NO_REPLY_EXPECTED) == 0);
     std::set<BusEndpoint*> sentdestinations;  /**< Collection of bus endpoints to whom we have already sent a message */
@@ -115,63 +72,11 @@ QStatus DaemonRouter::PushMessage(Message& msg, BusEndpoint& origSender)
     const char* destination = msg->GetDestination();
     SessionId sessionId = msg->GetSessionId();
 
-    if (sender != localEndpoint) {
-        ALLJOYN_POLICY_DEBUG(Log(LOG_DEBUG, "Checking if OK for %s to send %s.%s to %s...\n",
-                                 msg->GetSender(),
-                                 msg->GetInterface(),
-                                 msg->GetMemberName() ? msg->GetMemberName() : msg->GetErrorName(),
-                                 destination));
-        bool allow = policydb->OKToSend(nmh, sender->GetUserId(), sender->GetGroupId());
-        ALLJOYN_POLICY_DEBUG(Log(LOG_INFO, "%s %s (uid:%d gid:%d) %s %s.%s %s message to %s.\n",
-                                 allow ? "Allowing" : "Denying",
-                                 msg->GetSender(), sender->GetUserId(), sender->GetGroupId(),
-                                 allow ? "to send" : "from sending",
-                                 msg->GetInterface(), msg->GetMemberName(),
-                                 (msg->GetType() == MESSAGE_SIGNAL ? "signal" :
-                                  (msg->GetType() == MESSAGE_METHOD_CALL ? "method call" :
-                                   (msg->GetType() == MESSAGE_METHOD_RET ? "method reply" : "error reply"))),
-                                 (destination[0] == '\0' ? "<all>" : destination)));
-
-        if (!allow) {
-            // TODO - Should eavesdroppers be allowed to see a message that
-            // was sender was denied delivery due to policy violations?
-            return ER_BUS_POLICY_VIOLATION;
-        }
-    }
-
     bool destinationEmpty = destination[0] == '\0';
     if (!destinationEmpty) {
         nameTable.Lock();
         BusEndpoint* destEndpoint = nameTable.FindEndpoint(destination);
         if (destEndpoint) {
-            if (destEndpoint != localEndpoint) {
-                ALLJOYN_POLICY_DEBUG(Log(LOG_DEBUG, "Checking OK for %s to receive %s.%s from %s\n",
-                                         destEndpoint->GetUniqueName().c_str(),
-                                         msg->GetInterface(),
-                                         msg->GetMemberName() ? msg->GetMemberName() : msg->GetErrorName(),
-                                         msg->GetSender()));
-
-                bool allow = policydb->OKToReceive(nmh, destEndpoint->GetUserId(), destEndpoint->GetGroupId());
-
-                ALLJOYN_POLICY_DEBUG(Log(LOG_INFO, "%s %s (uid:%d gid:%d) %s %s.%s %s message from %s.\n",
-                                         allow ? "Allowing" : "Denying",
-                                         destEndpoint->GetUniqueName().c_str(),
-                                         destEndpoint->GetUserId(), destEndpoint->GetGroupId(),
-                                         allow ? "to receive" : "from receiving",
-                                         msg->GetInterface(), msg->GetMemberName(),
-                                         (msg->GetType() == MESSAGE_SIGNAL ? "signal" :
-                                          (msg->GetType() == MESSAGE_METHOD_CALL ? "method call" :
-                                           (msg->GetType() == MESSAGE_METHOD_RET ? "method reply" : "error reply"))),
-                                         msg->GetSender()));
-
-                if (!allow) {
-                    // TODO - Should eavesdroppers be allowed to see a message
-                    // that was denied it's intended destination due to policy
-                    // violations?
-                    status = ER_BUS_POLICY_VIOLATION;
-                }
-            }
-
             if (ER_OK == status) {
                 /* If this message is coming from a bus-to-bus ep, make sure the receiver is willing to receive it */
                 if (!((sender->GetEndpointType() == BusEndpoint::ENDPOINT_TYPE_BUS2BUS) && !destEndpoint->AllowRemoteMessages())) {
@@ -226,68 +131,37 @@ QStatus DaemonRouter::PushMessage(Message& msg, BusEndpoint& origSender)
             if ((msg->GetFlags() & ALLJOYN_FLAG_AUTO_START) &&
                 (sender->GetEndpointType() != BusEndpoint::ENDPOINT_TYPE_BUS2BUS) &&
                 (sender->GetEndpointType() != BusEndpoint::ENDPOINT_TYPE_NULL)) {
-                /* Need to auto start the service targeted by the message and postpone delivery of the message. */
-                DeferredMsg* dm = new DeferredMsg(msg, sender->GetUniqueName(), *this);
-                ServiceDB serviceDB(configDB->GetServiceDB());
-                status = serviceDB->BusStartService(destination, dm, &busController->GetBus());
-                if (status != ER_OK) {
-                    delete dm;
-                }
 
-            } else if (replyExpected) {
-                QCC_LogError(ER_BUS_NO_ROUTE, ("Returning error %s no route to %s", msg->Description().c_str(), destination));
-                /* Need to let the sender know its reply message cannot be passed on. */
-                qcc::String description("Unknown bus name: ");
-                description += destination;
-                msg->ErrorMsg(msg, "org.freedesktop.DBus.Error.ServiceUnknown", description.c_str());
-                PushMessage(msg, *localEndpoint);
+                status = busController->StartService(msg, sender);
             } else {
-                QCC_LogError(ER_BUS_NO_ROUTE, ("Discarding %s no route to %s:%d", msg->Description().c_str(), destination, sessionId));
+                status = ER_BUS_NO_ROUTE;
+            }
+            if (status != ER_OK) {
+                if (replyExpected) {
+                    QCC_LogError(status, ("Returning error %s no route to %s", msg->Description().c_str(), destination));
+                    /* Need to let the sender know its reply message cannot be passed on. */
+                    qcc::String description("Unknown bus name: ");
+                    description += destination;
+                    msg->ErrorMsg(msg, "org.freedesktop.DBus.Error.ServiceUnknown", description.c_str());
+                    PushMessage(msg, *localEndpoint);
+                } else {
+                    QCC_LogError(status, ("Discarding %s no route to %s:%d", msg->Description().c_str(), destination, sessionId));
+                }
             }
         }
     }
 
     /* Forward broadcast to endpoints (local or remote) whose rules allow it */
-    if ((destinationEmpty && (sessionId == 0)) || policydb->EavesdropEnabled()) {
+    if (destinationEmpty && (sessionId == 0)) {
         nameTable.Lock();
         ruleTable.Lock();
         RuleIterator it = ruleTable.Begin();
         while (it != ruleTable.End()) {
             if (it->second.IsMatch(msg)) {
                 BusEndpoint* dest = it->first;
-                bool allow;
-                QCC_DbgPrintf(("Routing %s (%d) to %s",
-                               msg->Description().c_str(),
-                               msg->GetCallSerial(),
-                               dest->GetUniqueName().c_str()));
-                if (dest == localEndpoint) {
-                    allow = true;
-                } else {
-                    ALLJOYN_POLICY_DEBUG(Log(LOG_DEBUG, "Checking OK for %s to receive %s.%s from %s\n",
-                                             dest->GetUniqueName().c_str(),
-                                             msg->GetInterface(),
-                                             msg->GetMemberName() ? msg->GetMemberName() : msg->GetErrorName(),
-                                             msg->GetSender()));
-
-                    allow = (policydb->OKToReceive(nmh, dest->GetUserId(), dest->GetGroupId()) ||
-                             (policydb->EavesdropEnabled() &&
-                              policydb->OKToEavesdrop(nmh,
-                                                      sender->GetUserId(), sender->GetGroupId(),
-                                                      dest->GetUserId(), dest->GetGroupId())));
-
-                    ALLJOYN_POLICY_DEBUG(Log(LOG_INFO, "%s %s (uid:%d gid:%d) %s %s.%s %s message from %s.\n",
-                                             allow ? "Allowing" : "Denying",
-                                             dest->GetUniqueName().c_str(),
-                                             dest->GetUserId(), dest->GetGroupId(),
-                                             allow ? "to receive" : "from receiving",
-                                             msg->GetInterface(), msg->GetMemberName(),
-                                             (msg->GetType() == MESSAGE_SIGNAL ? "signal" :
-                                              (msg->GetType() == MESSAGE_METHOD_CALL ? "method call" :
-                                               (msg->GetType() == MESSAGE_METHOD_RET ? "method reply" : "error reply"))),
-                                             msg->GetSender()));
-                }
+                QCC_DbgPrintf(("Routing %s (%d) to %s", msg->Description().c_str(), msg->GetCallSerial(), dest->GetUniqueName().c_str()));
                 BusEndpoint* ep = it->first;
-                if (allow) {
+                if (dest == localEndpoint) {
                     /* Check to see if we have already sent signal/message to this endpoint.
                        This prevents sending the signal to endpoint twice if eavesdropping is enabled
                      */
@@ -298,7 +172,7 @@ QStatus DaemonRouter::PushMessage(Message& msg, BusEndpoint& origSender)
                     }
                     // Broadcast status must not trump directed message
                     // status, especially for eavesdropped messages.
-                    if (!alreadysent && (policydb->EavesdropEnabled() || !((sender->GetEndpointType() == BusEndpoint::ENDPOINT_TYPE_BUS2BUS) && !dest->AllowRemoteMessages()))) {
+                    if (!alreadysent && !((sender->GetEndpointType() == BusEndpoint::ENDPOINT_TYPE_BUS2BUS) && !dest->AllowRemoteMessages())) {
                         BusEndpoint::EndpointType epType = dest->GetEndpointType();
                         RemoteEndpoint* protectEp = (epType == BusEndpoint::ENDPOINT_TYPE_REMOTE) || (epType == BusEndpoint::ENDPOINT_TYPE_BUS2BUS) ? static_cast<RemoteEndpoint*>(dest) : NULL;
                         if (protectEp) {

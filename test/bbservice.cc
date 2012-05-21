@@ -20,6 +20,10 @@
  ******************************************************************************/
 #include <qcc/platform.h>
 
+#ifdef _WIN32
+#include <Crtdbg.h>
+#endif
+
 #include <assert.h>
 #include <signal.h>
 #include <stdio.h>
@@ -642,6 +646,9 @@ static void usage(void)
 /** Main entry point */
 int main(int argc, char** argv)
 {
+#ifdef _WIN32
+    _CrtMemDumpAllObjectsSince(NULL);
+#endif
     QStatus status = ER_OK;
     unsigned long reportInterval = 1000;
     const char* keyStore = NULL;

@@ -25,15 +25,9 @@ else:
 # bluetooth source files
 bt_srcs = [ 'BTController.cc', 'BTTransport.cc', 'BTNodeDB.cc' ]
 
-# configuration sources
-config_srcs = ['ConfigDB.cc', 'ServiceDB.cc', 'PropertyDB.cc', 'PolicyDB.cc']
-
 # basic daemon objects (excluding bluetooth)
 base_srcs = [ f for f in srcs if basename(str(f)) not in bt_srcs ]
 base_objs = env.Object(base_srcs)
-
-# config objects
-config_objs = env.Object(config_srcs)
 
 # Add in bluetooth support
 if env['OS'] == 'android_donut' or env['OS'] =="darwin":
@@ -60,7 +54,7 @@ if env['OS'] == 'android' or env['OS'] =='linux':
 lib = env.StaticLibrary('ajdaemon', base_objs);
     
 # AllJoyn Daemon
-progs = env.SConscript('${OS_GROUP}/SConscript', exports=['daemon_objs', 'config_objs'])
+progs = env.SConscript('${OS_GROUP}/SConscript', exports=['daemon_objs'])
 
 # AllJoyn Daemon test programs
 tests = env.SConscript('test/SConscript', exports=['daemon_objs'])

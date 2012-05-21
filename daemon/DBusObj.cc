@@ -5,7 +5,7 @@
  */
 
 /******************************************************************************
- * Copyright 2009-2011, Qualcomm Innovation Center, Inc.
+ * Copyright 2009-2012, Qualcomm Innovation Center, Inc.
  *
  *    Licensed under the Apache License, Version 2.0 (the "License");
  *    you may not use this file except in compliance with the License.
@@ -38,7 +38,6 @@
 #include "Bus.h"
 #include "BusInternal.h"
 #include "BusUtil.h"
-#include "ConfigDB.h"
 #include "DBusObj.h"
 #include "NameTable.h"
 #include "BusController.h"
@@ -51,45 +50,6 @@ using namespace qcc;
 #define MethodHander(a) static_cast<MessageReceiver::MethodHandler>(a)
 
 namespace ajn {
-
-
-class ServiceStartHandler : public ServiceStartListener {
-  public:
-    ServiceStartHandler(Message& msg, DBusObj& dbusObj) : msg(msg), dbusObj(dbusObj) { }
-
-  private:
-    void ServiceStarted(const qcc::String& serviceName, QStatus result);
-
-    Message msg;
-    DBusObj& dbusObj;
-};
-
-
-void ServiceStartHandler::ServiceStarted(const qcc::String& serviceName, QStatus result)
-{
-    if (result == ER_OK) {
-        MsgArg replyArg(ALLJOYN_UINT32);
-        replyArg.v_uint32 = DBUS_START_REPLY_SUCCESS;
-
-        /* Send the response */
-        QStatus status = dbusObj.MethodReply(msg, &replyArg, 1);
-
-        /* Log any error */
-        if (ER_OK != status) {
-            QCC_LogError(status, ("DBusObj::NameOwnerChanged failed to inform change of name"));
-        }
-    } else if (result == ER_TIMEOUT) {
-        qcc::String description("Application providing " + serviceName + " failed to start in time.");
-        dbusObj.MethodReply(msg, "org.freedesktop.DBus.Error.TimedOut", description.c_str());
-    } else {
-        qcc::String description("Failed to start application providing " + serviceName + ": ");
-        description += QCC_StatusText(result);
-        dbusObj.MethodReply(msg, "org.freedesktop.DBus.Error.TimedOut", description.c_str());
-    }
-
-    delete this;
-}
-
 
 
 DBusObj::DBusObj(Bus& bus, BusController* busController) :
@@ -213,22 +173,8 @@ void DBusObj::ListNames(const InterfaceDescription::Member* member, Message& msg
 
 void DBusObj::ListActivatableNames(const InterfaceDescription::Member* member, Message& msg)
 {
-    const ServiceDB& serviceDB(ConfigDB::GetConfigDB()->GetServiceDB());
-
-    /* Send the response */
-    size_t numNames = serviceDB->size();
-    MsgArg* names = new MsgArg[numNames];
-    servicedb::const_iterator it = serviceDB->begin();
-    size_t i = 0;
-    while (it != serviceDB->end()) {
-        names[i].typeId = ALLJOYN_STRING;
-        names[i].v_string.str = it->first.c_str();
-        names[i].v_string.len = it->first.size();
-        ++it;
-        ++i;
-    }
     MsgArg namesArray(ALLJOYN_ARRAY);
-    namesArray.v_array.SetElements("s", numNames, names);
+    namesArray.v_array.SetElements("s", 0, NULL);
 
     QStatus status = MethodReply(msg, &namesArray, 1);
     if (ER_OK != status) {
@@ -261,39 +207,18 @@ void DBusObj::RequestName(const InterfaceDescription::Member* member, Message& m
 {
     QStatus status;
     void* context = (void*) &msg;
-    const PolicyDB& policy(ConfigDB::GetConfigDB()->GetPolicyDB());
 
     const char* nameArg = msg->GetArg(0)->v_string.str;
     const uint32_t flagsArg = msg->GetArg(1)->v_uint32;
 
     if (*nameArg != ':' && IsLegalBusName(nameArg)) {
-        const BusEndpoint* sender(bus.GetInternal().GetRouter().FindEndpoint(msg->GetSender()));
-        uint32_t busNameId(policy->LookupStringID(nameArg));
-
-        QCC_DEBUG_ONLY(Log(LOG_DEBUG, "Checking if OK for app running as uid = %u and gid = %u to own \"%s\"\n",
-                           sender->GetUserId(), sender->GetGroupId(), nameArg));
-
-        if (policy->OKToOwn(busNameId, sender->GetUserId(), sender->GetGroupId())) {
-            /* Attempt to add the alias */
-            /* Response will be handled in AddAliasCB */
-            uint32_t disposition;
-            status = router.AddAlias(nameArg,
-                                     msg->GetSender(),
-                                     flagsArg,
-                                     disposition,
-                                     this,
-                                     context);
-            if (ER_OK != status) {
-                QCC_LogError(status, ("Router::AddAlias failed"));
-                MethodReply(msg, "FAILURE");
-            }
-        } else {
-            qcc::String errMsg("\"");
-            errMsg += msg->GetSender();
-            errMsg += "\" is not allowed to own the service \"";
-            errMsg += nameArg;
-            errMsg += "\" due to security policies in the configuration file";
-            MethodReply(msg, "org.freedesktop.DBus.Error.AccessDenied", errMsg.c_str());
+        /* Attempt to add the alias */
+        /* Response will be handled in AddAliasCB */
+        uint32_t disposition;
+        status = router.AddAlias(nameArg, msg->GetSender(), flagsArg, disposition, this, context);
+        if (ER_OK != status) {
+            QCC_LogError(status, ("Router::AddAlias failed"));
+            MethodReply(msg, "FAILURE");
         }
     } else {
         qcc::String errMsg("\"");
@@ -313,51 +238,17 @@ void DBusObj::ReleaseName(const InterfaceDescription::Member* member, Message& m
 
     /* Attempt to remove the alias */
     uint32_t disposition;
-    router.RemoveAlias(nameArg->v_string.str,
-                       msg->GetSender(),
-                       disposition,
-                       this,
-                       context);
+    router.RemoveAlias(nameArg->v_string.str, msg->GetSender(), disposition, this, context);
 }
 
 void DBusObj::StartServiceByName(const InterfaceDescription::Member* member, Message& msg)
 {
-    /* Parse incoming args */
-
-    qcc::String busName(msg->GetArg(0)->v_string.str);
-
-    if (router.FindEndpoint(busName) != NULL) {
-        MsgArg replyArg(ALLJOYN_UINT32);
-        replyArg.v_uint32 = DBUS_START_REPLY_ALREADY_RUNNING;
-
-        /* Send the response */
-        QStatus status = MethodReply(msg, &replyArg, 1);
-
-        /* Log any error */
-        if (ER_OK != status) {
-            QCC_LogError(status, ("DBusObj::StartServiceByName failed to inform service already running"));
-        }
-    } else {
-        ServiceDB serviceDB(ConfigDB::GetConfigDB()->GetServiceDB());
-        ServiceStartHandler* cb(new ServiceStartHandler(msg, *this));
-        QStatus status = serviceDB->BusStartService(busName.c_str(), cb, &bus);
-
-        if (status != ER_OK) {
-            QCC_LogError(status, ("Failed to start %s service", busName.c_str()));
-            if (status == ER_BUS_NO_SUCH_SERVICE) {
-                qcc::String description("Unknown bus name: ");
-                description += msg->GetDestination();
-                MethodReply(msg, "org.freedesktop.DBus.Error.ServiceUnknown", description.c_str());
-            } else {
-                qcc::String description("Unable to start service: ");
-                description += msg->GetDestination();
-                description += "(";
-                description += QCC_StatusText(status);
-                description += ")";
-                MethodReply(msg, "org.freedesktop.DBus.Error.Spawn.Failed", description.c_str());
-            }
-        }
-    }
+    qcc::String description("Unable to start service: ");
+    description += msg->GetDestination();
+    description += "(";
+    description += QCC_StatusText(ER_NOT_IMPLEMENTED);
+    description += ")";
+    MethodReply(msg, "org.freedesktop.DBus.Error.Spawn.Failed", description.c_str());
 }
 
 void DBusObj::GetNameOwner(const InterfaceDescription::Member* member, Message& msg)
@@ -569,19 +460,7 @@ void DBusObj::GetConnectionSELinuxSecurityContext(const InterfaceDescription::Me
 
 void DBusObj::ReloadConfig(const InterfaceDescription::Member* member, Message& msg)
 {
-    QStatus status;
-
-    ConfigDB* config = ConfigDB::GetConfigDB();
-    if (config->LoadConfigFile()) {
-        // success
-        status = MethodReply(msg, static_cast<MsgArg*>(NULL), 0);
-    } else {
-        status = MethodReply(msg, "org.freedesktop.DBus.Error.Failed");
-    }
-
-    if (ER_OK != status) {
-        QCC_LogError(status, ("ReloadConfig reply failed"));
-    }
+    MethodReply(msg, "org.freedesktop.DBus.Error.Failed");
 }
 
 void DBusObj::AddAliasComplete(const qcc::String& aliasName, uint32_t disposition, void* context)
