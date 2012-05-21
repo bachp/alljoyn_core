@@ -48,7 +48,7 @@
 
 #include "Bus.h"
 #include "BusController.h"
-#include "ConfigDB.h"
+#include "DaemonConfig.h"
 #include "BusInternal.h"
 
 #define DAEMONLIBRARY_EXPORTS
@@ -74,20 +74,15 @@ static const char defaultConfig[] =
     "  <listen>localhost:port=9956</listen>"
     "  <listen>bluetooth:</listen>"
     "  <listen>ice:</listen>"
-    "  <policy context=\"default\">"
-    "    <!-- Allow everything to be sent -->"
-    "    <allow send_destination=\"*\" eavesdrop=\"false\"/>"
-    "    <!-- Disable eavesdropping -->"
-    "    <allow eavesdrop=\"false\"/>"
-    "    <!-- Allow anyone to own anything -->"
-    "    <allow own=\"*\"/>"
-    "  </policy>"
     "  <limit name=\"auth_timeout\">32768</limit>"
     "  <limit name=\"max_incomplete_connections_tcp\">16</limit>"
     "  <limit name=\"max_completed_connections_tcp\">64</limit>"
-    "  <alljoyn module=\"ipns\">"
+    "  <ip_name_service>"
     "    <property interfaces=\"*\"/>"
-    "  </alljoyn>"
+    "    <property disable_directed_broadcast=\"false\"/>"
+    "    <property enable_ipv4=\"true\"/>"
+    "    <property enable_ipv6=\"true\"/>"
+    "  </ip_name_service>"
     "  <alljoyn module=\"icedm\">"
     "    <property interfaces=\"*\"/>"
     "    <property server=\"rdvs-test.qualcomm.com\"/>"
@@ -247,18 +242,20 @@ exit:
 
 int daemon(OptParse& opts)
 {
-    ConfigDB* config(ConfigDB::GetConfigDB());
+    DaemonConfig* config = DaemonConfig::Access();
 
     signal(SIGTERM, SignalHandler);
     signal(SIGINT, SignalHandler);
 
-    const ConfigDB::ListenList& listenList = config->GetListen();
-    ConfigDB::ListenList::const_iterator it = listenList.begin();
-    qcc::String listenSpecs;
+    /*
+     * Extract the listen specs
+     */
+    std::vector<qcc::String> listenList = config->GetList("listen");
+    std::vector<qcc::String>::const_iterator it = listenList.begin();
+    String listenSpecs;
 
     while (it != listenList.end()) {
         bool skip = false;
-        qcc::String addrStr(*it);
         if (it->compare(0, sizeof("tcp:") - 1, "tcp:") == 0) {
             // No special processing needed for TCP.
         } else if (it->compare(0, sizeof("localhost:") - 1, "localhost:") == 0) {
@@ -272,13 +269,13 @@ int daemon(OptParse& opts)
         }
 
         if (skip) {
-            Log(LOG_INFO, "Skipping transport for address: %s\n", addrStr.c_str());
+            Log(LOG_INFO, "Skipping transport for address: %s\n", it->c_str());
         } else {
-            Log(LOG_INFO, "Setting up transport for address: %s\n", addrStr.c_str());
+            Log(LOG_INFO, "Setting up transport for address: %s\n", it->c_str());
             if (!listenSpecs.empty()) {
                 listenSpecs.append(';');
             }
-            listenSpecs.append(addrStr);
+            listenSpecs.append(*it);
         }
         ++it;
     }
@@ -306,8 +303,8 @@ int daemon(OptParse& opts)
     /*
      * Check we have at least one authentication mechanism registered.
      */
-    if (!config->GetAuth().empty()) {
-        if (ajBus.GetInternal().FilterAuthMechanisms(config->GetAuth()) == 0) {
+    if (!config->Get("auth").empty()) {
+        if (ajBus.GetInternal().FilterAuthMechanisms(config->Get("auth")) == 0) {
             Log(LOG_ERR, "No supported authentication mechanisms.  Aborting...\n");
             return DAEMON_EXIT_STARTUP_ERROR;
         }
@@ -355,7 +352,6 @@ DAEMONLIBRARY_API int LoadDaemon(int argc, char** argv)
         loggerSettings->SetFile(stdout);
     OptParse opts(argc, argv);
     OptParse::ParseResultCode parseCode(opts.ParseResult());
-    ConfigDB* config(ConfigDB::GetConfigDB());
 
     switch (parseCode) {
     case OptParse::PR_OK:
@@ -370,14 +366,14 @@ DAEMONLIBRARY_API int LoadDaemon(int argc, char** argv)
 
     loggerSettings->SetLevel(opts.GetVerbosity());
 
+    DaemonConfig* config;
     if (opts.UseDefaultConfig()) {
-        StringSource src(defaultConfig);
-        if (!config->LoadSource(src)) {
-            return DAEMON_EXIT_CONFIG_ERROR;
-        }
+        config = DaemonConfig::Load(defaultConfig);
     } else {
-        config->SetConfigFile(opts.GetConfigFile());
-        if (!config->LoadConfigFile()) {
+        FileSource fs(opts.GetConfigFile());
+        if (fs.IsValid()) {
+            config = DaemonConfig::Load(fs);
+        } else {
             fprintf(stderr, "Invalid configuration file specified: \"%s\"\n", opts.GetConfigFile().c_str());
             return DAEMON_EXIT_CONFIG_ERROR;
         }

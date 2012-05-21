@@ -775,7 +775,7 @@ QStatus ProxyBusObject::ParseXml(const char* xml, const char* ident)
     QStatus status = XmlElement::Parse(pc);
     if (status == ER_OK) {
         XmlHelper xmlHelper(bus, ident ? ident : path.c_str());
-        status = xmlHelper.AddProxyObjects(*this, pc.root);
+        status = xmlHelper.AddProxyObjects(*this, pc.GetRoot());
     }
     return status;
 }

@@ -34,7 +34,7 @@
 #include "BusInternal.h"
 #include "RemoteEndpoint.h"
 #include "Router.h"
-#include "ConfigDB.h"
+#include "DaemonConfig.h"
 #include "NameService.h"
 #include "TCPTransport.h"
 
@@ -794,9 +794,13 @@ void TCPTransport::Authenticated(TCPEndpoint* conn)
 
 QStatus TCPTransport::Start()
 {
-    /* TODO - need to read these values from the configuration file */
-    const bool enableIPv4 = true;
-    const bool enableIPv6 = true;
+    DaemonConfig* config = DaemonConfig::Access();
+    /*
+     * Get configuration item that control whether or not to use IPv4, IPv6 and broadcasts.
+     */
+    bool enableIPv4 = config->Get("ip_name_service/property@enable_ipv4", "true") == "true";
+    bool enableIPv6 = config->Get("ip_name_service/property@enable_ipv6", "true") == "true";
+    bool disableBroadcast = config->Get("ip_name_service/property@disable_directed_broadcast", "false") == "true";
 
     QCC_DbgTrace(("TCPTransport::Start() ipv4=%s ipv6=%s", enableIPv4 ? "true" : "false", enableIPv6 ? "true" : "false"));
 
@@ -851,22 +855,12 @@ QStatus TCPTransport::Start()
     m_stopping = false;
 
     /*
-     * We have a configuration item that controls whether or not to use IPv4
-     * broadcasts, so we need to check it now and give it to the name service as
-     * we bring it up.
-     */
-    bool disable = false;
-    if (ConfigDB::GetConfigDB()->GetProperty(NameService::MODULE_NAME, NameService::BROADCAST_PROPERTY) == "true") {
-        disable = true;
-    }
-
-    /*
      * Get the guid from the bus attachment which will act as the globally unique
      * ID of the daemon.
      */
     qcc::String guidStr = m_bus.GetInternal().GetGlobalGUID().ToString();
 
-    QStatus status = m_ns->Init(guidStr, enableIPv4, enableIPv6, disable);
+    QStatus status = m_ns->Init(guidStr, enableIPv4, enableIPv6, disableBroadcast);
     if (status != ER_OK) {
         QCC_LogError(status, ("TCPTransport::Start(): Error starting name service"));
         return status;
@@ -1119,7 +1113,7 @@ QStatus TCPTransport::GetListenAddresses(const SessionOpts& opts, std::vector<qc
      * If there is no configuration item, we default to something rational.
      */
     QCC_DbgPrintf(("TCPTransport::GetListenAddresses(): GetProperty()"));
-    qcc::String interfaces = ConfigDB::GetConfigDB()->GetProperty(NameService::MODULE_NAME, NameService::INTERFACES_PROPERTY);
+    qcc::String interfaces = DaemonConfig::Access()->Get("ip_name_service/property@interfaces");
     if (interfaces.size() == 0) {
         interfaces = INTERFACES_DEFAULT;
     }
@@ -1173,8 +1167,7 @@ QStatus TCPTransport::GetListenAddresses(const SessionOpts& opts, std::vector<qc
              *   - be UP which means it has an IP address assigned;
              *   - not be the LOOPBACK device and therefore be remotely available.
              */
-            uint32_t mask = qcc::IfConfigEntry::UP |
-                            qcc::IfConfigEntry::LOOPBACK;
+            uint32_t mask = qcc::IfConfigEntry::UP | qcc::IfConfigEntry::LOOPBACK;
 
             uint32_t state = qcc::IfConfigEntry::UP;
 
@@ -1435,31 +1428,28 @@ void* TCPTransport::Run(void* arg)
      * used for DBus.  If any of those are present, we use them, otherwise we
      * provide some hopefully reasonable defaults.
      */
-    ConfigDB* config = ConfigDB::GetConfigDB();
+    DaemonConfig* config = DaemonConfig::Access();
 
     /*
      * tTimeout is the maximum amount of time we allow incoming connections to
      * mess about while they should be authenticating.  If they take longer
      * than this time, we feel free to disconnect them as deniers of service.
      */
-    uint32_t authTimeoutConfig = config->GetLimit("auth_timeout");
-    Timespec tTimeout = authTimeoutConfig ? authTimeoutConfig : ALLJOYN_AUTH_TIMEOUT_DEFAULT;
+    Timespec tTimeout = config->Get("limit@auth_timeout", ALLJOYN_AUTH_TIMEOUT_DEFAULT);
 
     /*
      * maxAuth is the maximum number of incoming connections that can be in
      * the process of authenticating.  If starting to authenticate a new
      * connection would mean exceeding this number, we drop the new connection.
      */
-    uint32_t maxAuthConfig = config->GetLimit("max_incomplete_connections_tcp");
-    uint32_t maxAuth = maxAuthConfig ? maxAuthConfig : ALLJOYN_MAX_INCOMPLETE_CONNECTIONS_TCP_DEFAULT;
+    uint32_t maxAuth = config->Get("limit@max_incomplete_connections", ALLJOYN_MAX_INCOMPLETE_CONNECTIONS_TCP_DEFAULT);
 
     /*
      * maxConn is the maximum number of active connections possible over the
      * TCP transport.  If starting to process a new connection would mean
      * exceeding this number, we drop the new connection.
      */
-    uint32_t maxConnConfig = config->GetLimit("max_completed_connections_tcp");
-    uint32_t maxConn = maxConnConfig ? maxConnConfig : ALLJOYN_MAX_COMPLETED_CONNECTIONS_TCP_DEFAULT;
+    uint32_t maxConn = config->Get("limit@max_completed_connections", ALLJOYN_MAX_COMPLETED_CONNECTIONS_TCP_DEFAULT);
 
     QStatus status = ER_OK;
 
@@ -2852,7 +2842,7 @@ void TCPTransport::DoStartListen(qcc::String& normSpec)
      * configuration item is empty (not assigned in the configuration database)
      * it defaults to "*".
      */
-    qcc::String interfaces = ConfigDB::GetConfigDB()->GetProperty(NameService::MODULE_NAME, NameService::INTERFACES_PROPERTY);
+    qcc::String interfaces = DaemonConfig::Access()->Get("ip_name_service/property@interfaces");
     if (interfaces.size() == 0) {
         interfaces = INTERFACES_DEFAULT;
     }

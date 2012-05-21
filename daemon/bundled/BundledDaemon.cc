@@ -35,7 +35,7 @@
 
 #include "Bus.h"
 #include "BusController.h"
-#include "ConfigDB.h"
+#include "DaemonConfig.h"
 #include "Transport.h"
 #include "TCPTransport.h"
 #include "NullTransport.h"
@@ -48,22 +48,17 @@ using namespace ajn;
 
 static const char bundledConfig[] =
     "<busconfig>"
-    "  <type>alljoyn</type>"
+    "  <type>alljoyn_bundled</type>"
     "  <listen>tcp:addr=0.0.0.0,port=0,family=ipv4</listen>"
-    "  <policy context=\"default\">"
-    "    <allow send_interface=\"*\"/>"
-    "    <allow receive_interface=\"*\"/>"
-    "    <allow own=\"*\"/>"
-    "    <allow user=\"*\"/>"
-    "    <allow send_requested_reply=\"true\"/>"
-    "    <allow receive_requested_reply=\"true\"/>"
-    "  </policy>"
     "  <limit name=\"auth_timeout\">32768</limit>"
     "  <limit name=\"max_incomplete_connections_tcp\">4</limit>"
     "  <limit name=\"max_completed_connections_tcp\">16</limit>"
-    "  <alljoyn module=\"ipns\">"
+    "  <ip_name_service>"
     "    <property interfaces=\"*\"/>"
-    "  </alljoyn>"
+    "    <property disable_directed_broadcast=\"false\"/>"
+    "    <property enable_ipv4=\"true\"/>"
+    "    <property enable_ipv6=\"true\"/>"
+    "  </ip_name_service>"
     "</busconfig>";
 
 class BundledDaemon : public DaemonLauncher {
@@ -112,24 +107,22 @@ QStatus BundledDaemon::Start(BusAttachment*& busAttachment)
 
     if (IncrementAndFetch(&refCount) == 1) {
         LoggerSetting::GetLoggerSetting("bundled-daemon", LOG_DEBUG, false, stdout);
-        ConfigDB* config = ConfigDB::GetConfigDB();
+
         /*
-         * Set the configuration
+         * Load the configuration
          */
-        StringSource src(bundledConfig);
-        config->LoadSource(src);
+        DaemonConfig* config = DaemonConfig::Load(bundledConfig);
         /*
          * Extract the listen specs
          */
-        const ConfigDB::ListenList& listenList = config->GetListen();
-        ConfigDB::ListenList::const_iterator it = listenList.begin();
+        std::vector<qcc::String> listenList = config->GetList("listen");
+        std::vector<qcc::String>::const_iterator it = listenList.begin();
         String listenSpecs;
         while (it != listenList.end()) {
-            qcc::String addrStr(*it);
             if (!listenSpecs.empty()) {
                 listenSpecs.append(';');
             }
-            listenSpecs.append(addrStr);
+            listenSpecs.append(*it);
             ++it;
         }
         /*

@@ -60,7 +60,7 @@ static bool GetPermsAssignedByAndroid(const uint32_t uid, std::set<qcc::String>&
  * @param root         The root element of a parsed xml file
  * @return true if permission information for the shared user id is found
  */
-static bool GetPermsBySharedUserId(const char* sharedUid, std::set<qcc::String>& permissions, const XmlElement& root);
+static bool GetPermsBySharedUserId(const char* sharedUid, std::set<qcc::String>& permissions, const XmlElement* root);
 
 PermissionDB& PermissionDB::GetDB()
 {
@@ -212,15 +212,15 @@ static bool GetPermsAssignedByAndroid(uint32_t uid, std::set<qcc::String>& permi
     }
 
     XmlParseContext xmlParseCtx(source);
-    XmlElement& root = xmlParseCtx.root;
     bool success = XmlElement::Parse(xmlParseCtx) == ER_OK;
     bool found  = false;
     bool isSharedUserId = false;
+    const XmlElement* root = xmlParseCtx.GetRoot();
 
     if (success) {
-        if (root.GetName().compare("packages") == 0) {
+        if (root->GetName().compare("packages") == 0) {
             QCC_DbgPrintf(("Xml Tag %s", "packages"));
-            const vector<XmlElement*>& elements = root.GetChildren();
+            const vector<XmlElement*>& elements = root->GetChildren();
             vector<XmlElement*>::const_iterator it;
 
             bool isSystemApp = false;
@@ -296,11 +296,11 @@ static bool GetPermsAssignedByAndroid(uint32_t uid, std::set<qcc::String>& permi
     return found;
 }
 
-static bool GetPermsBySharedUserId(const char* sharedUid, std::set<qcc::String>& permissions, const XmlElement& root)
+static bool GetPermsBySharedUserId(const char* sharedUid, std::set<qcc::String>& permissions, const XmlElement* root)
 {
     QCC_DbgTrace(("PermissionDB::GetPermsBySharedUserId(sharedUid = %s)", sharedUid));
     bool found = false;
-    const vector<XmlElement*>& elements = root.GetChildren();
+    const vector<XmlElement*>& elements = root->GetChildren();
     vector<XmlElement*>::const_iterator it;
     for (it = elements.begin(); it != elements.end() && !found; ++it) {
         if ((*it)->GetName().compare("shared-user") == 0) {

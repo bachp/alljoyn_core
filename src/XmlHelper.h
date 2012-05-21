@@ -56,14 +56,15 @@ class XmlHelper {
      *         #ER_BUS_BAD_XML if the XML was not as expected.
      *         #Other errors indicating the interfaces were not succesfully added.
      */
-    QStatus AddInterfaceDefinitions(qcc::XmlElement& root) {
-        if (root.GetName() == "interface") {
-            return ParseInterface(&root, NULL);
-        } else if (root.GetName() == "node") {
-            return ParseNode(&root, NULL);
-        } else {
-            return ER_BUS_BAD_XML;
+    QStatus AddInterfaceDefinitions(const qcc::XmlElement* root) {
+        if (root) {
+            if (root->GetName() == "interface") {
+                return ParseInterface(root, NULL);
+            } else if (root->GetName() == "node") {
+                return ParseNode(root, NULL);
+            }
         }
+        return ER_BUS_BAD_XML;
     }
 
     /**
@@ -76,9 +77,9 @@ class XmlHelper {
      *         #ER_BUS_BAD_XML if the XML was not as expected.
      *         #Other errors indicating the children were not succesfully added.
      */
-    QStatus AddProxyObjects(ProxyBusObject& parent, qcc::XmlElement& root) {
-        if (root.GetName() == "node") {
-            return ParseNode(&root, &parent);
+    QStatus AddProxyObjects(ProxyBusObject& parent, const qcc::XmlElement* root) {
+        if (root && (root->GetName() == "node")) {
+            return ParseNode(root, &parent);
         } else {
             return ER_BUS_BAD_XML;
         }

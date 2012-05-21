@@ -13,7 +13,7 @@
 #    limitations under the License.
 # 
 
-Import('env', 'daemon_objs', 'config_objs')
+Import('env', 'daemon_objs')
 
 # Add OS specific daemon_objs
 daemon_objs += env.Object(['UDPPacketStream.cc'])
@@ -22,7 +22,6 @@ daemon_objs += env.Object(['ProximityScanner.cc'])
 
 # Build the posix daemon and service launcher helper.
 daemon = env.Program('alljoyn-daemon', ['daemon-main.cc'] + daemon_objs)
-#servicehelper = env.Program('alljoyn-daemon-launch-helper', ['servicehelper-main.cc'] + config_objs)
 
 #
 # On Android, build a static library that can be linked into a JNI dynamic 
@@ -31,7 +30,7 @@ daemon = env.Program('alljoyn-daemon', ['daemon-main.cc'] + daemon_objs)
 if env['OS'] == 'android':
    libenv = env.Clone(CCFLAGS = '-DDAEMON_LIB')
    libenv.Object(target = 'alljoyn-daemon', source = 'daemon-main.cc')
-   libdaemon = env.StaticLibrary(['alljoyn-daemon'] + daemon_objs + config_objs)
+   libdaemon = env.StaticLibrary(['alljoyn-daemon'] + daemon_objs)
    dlibs = env.Install('$DISTDIR/lib', libdaemon)
 
 #progs = daemon + servicehelper

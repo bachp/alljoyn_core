@@ -47,7 +47,7 @@
 
 #include "Bus.h"
 #include "BusController.h"
-#include "ConfigDB.h"
+#include "DaemonConfig.h"
 #include "Transport.h"
 #include "TransportList.h"
 
@@ -58,27 +58,21 @@ using namespace std;
 using namespace ajn;
 
 /*
- * Simple config to allow all messages with PolicyDB tied into DaemonRouter and
+ * Simple config to
  * to provide some non-default limits for the daemon tcp transport.
  */
-static const char policyConfig[] =
+static const char daemonConfig[] =
     "<busconfig>"
-    "  <type>windowsalljoyn</type>"
-    "  <policy context=\"default\">"
-    "    <allow send_interface=\"*\"/>"
-    "    <allow receive_interface=\"*\"/>"
-    "    <allow own=\"*\"/>"
-    "    <allow user=\"*\"/>"
-    "    <allow send_requested_reply=\"true\"/>"
-    "    <allow receive_requested_reply=\"true\"/>"
-    "  </policy>"
-    "  <limit name=\"auth_timeout\">32768</limit>"
+    "  <type>alljoyn</type>"
+    "  <limit name=\"auth_timeout\">5000</limit>"
     "  <limit name=\"max_incomplete_connections_tcp\">16</limit>"
     "  <limit name=\"max_completed_connections_tcp\">64</limit>"
-    "  <alljoyn module=\"ipns\">"
+    "  <ip_name_service>"
     "    <property interfaces=\"*\"/>"
     "    <property disable_directed_broadcast=\"false\"/>"
-    "  </alljoyn>"
+    "    <property enable_ipv4=\"true\"/>"
+    "    <property enable_ipv6=\"true\"/>"
+    "  </ip_name_service>"
     "</busconfig>";
 
 /** Static top level message bus object */
@@ -380,9 +374,7 @@ int main(int argc, char** argv)
     qcc::GUID128 guid;
     bool mimicBbservice = false;
     bool noBT = false;
-    ConfigDB* config(ConfigDB::GetConfigDB());
-    StringSource src(policyConfig);
-    config->LoadSource(src);
+    DaemonConfig* config = DaemonConfig::Load(daemonConfig);
 
     printf("AllJoyn Library version: %s\n", ajn::GetVersion());
     printf("AllJoyn Library build info: %s\n", ajn::GetBuildInfo());
