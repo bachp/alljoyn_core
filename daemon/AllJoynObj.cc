@@ -2456,7 +2456,7 @@ void AllJoynObj::CancelFindAdvertisedName(const InterfaceDescription::Member* me
     assert((numArgs == 1) && (args[0].typeId == ALLJOYN_STRING));
 
     /* Cancel advertisement */
-    QCC_DbgPrintf(("Calling ProcCancelFindName from CancelFindAdvertisedName [%s]", Thread::GetThread()->GetName().c_str()));
+    QCC_DbgPrintf(("Calling ProcCancelFindName from CancelFindAdvertisedName [%s]", Thread::GetThread()->GetName()));
     QStatus status = ProcCancelFindName(msg->GetSender(), args[0].v_string.str);
     uint32_t replyCode = (ER_OK == status) ? ALLJOYN_CANCELFINDADVERTISEDNAME_REPLY_SUCCESS : ALLJOYN_CANCELFINDADVERTISEDNAME_REPLY_FAILED;
 
@@ -3156,7 +3156,7 @@ void AllJoynObj::NameOwnerChanged(const qcc::String& alias, const qcc::String* o
             while (it != discoverMap.end()) {
                 if (it->second == *oldOwner) {
                     last = it++->first;
-                    QCC_DbgPrintf(("Calling ProcCancelFindName from NameOwnerChanged [%s]", Thread::GetThread()->GetName().c_str()));
+                    QCC_DbgPrintf(("Calling ProcCancelFindName from NameOwnerChanged [%s]", Thread::GetThread()->GetName()));
                     QStatus status = ProcCancelFindName(*oldOwner, last);
                     if (ER_OK != status) {
                         QCC_LogError(status, ("Failed to cancel discover for name \"%s\"", last.c_str()));
