@@ -24,6 +24,11 @@ common_hdrs, common_objs = env.SConscript(['../common/SConscript'])
 if env['OS_GROUP'] == 'windows' or env['OS'] == 'android':
     env.SConscript(['../stlport/SConscript'])
 
+if(not(env.has_key('BULLSEYE_BIN'))):
+    print('BULLSEYE_BIN not specified')
+else:
+    env.PrependENVPath('PATH', env.get('BULLSEYE_BIN'))
+
 # manually add dependencies for xml to h, and for files included in the xml
 env.Depends('inc/Status.h', 'src/Status.xml');
 env.Depends('inc/Status.h', '../common/src/Status.xml');
