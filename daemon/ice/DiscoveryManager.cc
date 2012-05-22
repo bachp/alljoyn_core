@@ -584,7 +584,7 @@ QStatus DiscoveryManager::CancelAdvertiseOrLocate(bool cancelAdvertise, const St
             // Delete the entry
             //
             QCC_DbgPrintf(("DiscoveryManager::CancelAdvertiseOrLocate(): Deleting entry %s\n", name.c_str()));
-            tempMap->erase(it++);
+            tempMap->erase(it);
 
             // Remove the corresponding entry from the current list and sort it
             tempList->remove(name);
@@ -752,10 +752,12 @@ void DiscoveryManager::RemoveSessionDetailFromMap(bool client, std::pair<String,
 
     if (client) {
         DiscoveryManagerMutex.Lock(MUTEX_CONTEXT);
-        for (it = OutgoingICESessions.begin(); it != OutgoingICESessions.end(); it++) {
+        for (it = OutgoingICESessions.begin(); it != OutgoingICESessions.end();) {
 
             if ((it->first == sessionDetail.first) && ((it->second).destinationName == sessionDetail.second.destinationName) && ((it->second).remotePeerAddress == sessionDetail.second.remotePeerAddress)) {
-                OutgoingICESessions.erase(it);
+                OutgoingICESessions.erase(it++);
+            } else {
+                ++it;
             }
         }
         DiscoveryManagerMutex.Unlock(MUTEX_CONTEXT);
@@ -764,7 +766,9 @@ void DiscoveryManager::RemoveSessionDetailFromMap(bool client, std::pair<String,
         for (it = IncomingICESessions.begin(); it != IncomingICESessions.end(); it++) {
 
             if ((it->first == sessionDetail.first) && ((it->second).destinationName == sessionDetail.second.destinationName) && ((it->second).remotePeerAddress == sessionDetail.second.remotePeerAddress)) {
-                IncomingICESessions.erase(it);
+                IncomingICESessions.erase(it++);
+            } else {
+                ++it;
             }
         }
         DiscoveryManagerMutex.Unlock(MUTEX_CONTEXT);
@@ -1628,12 +1632,14 @@ QStatus DiscoveryManager::HandleMatchRevokedResponse(MatchRevokedResponse respon
         // Purge OutgoingICESessions to remove any entries related to Daemon with GUID
         // peerID.
         if (!OutgoingICESessions.empty()) {
-            for (session_it = OutgoingICESessions.begin(); session_it != OutgoingICESessions.end(); session_it++) {
+            for (session_it = OutgoingICESessions.begin(); session_it != OutgoingICESessions.end();) {
 
                 if ((session_it->second).remotePeerAddress == response.peerAddr) {
 
                     // Remove the entry from the OutgoingICESessions
-                    OutgoingICESessions.erase(session_it);
+                    OutgoingICESessions.erase(session_it++);
+                } else {
+                    ++session_it;
                 }
             }
         }
@@ -1641,12 +1647,14 @@ QStatus DiscoveryManager::HandleMatchRevokedResponse(MatchRevokedResponse respon
         // Purge IncomingICESessions to remove any entries related to Daemon with GUID
         // peerID.
         if (!IncomingICESessions.empty()) {
-            for (session_it = IncomingICESessions.begin(); session_it != IncomingICESessions.end(); session_it++) {
+            for (session_it = IncomingICESessions.begin(); session_it != IncomingICESessions.end();) {
 
                 if ((session_it->second).remotePeerAddress == response.peerAddr) {
 
                     // Remove the entry from the IncomingICESessions
-                    IncomingICESessions.erase(session_it);
+                    IncomingICESessions.erase(session_it++);
+                } else {
+                    ++session_it;
                 }
             }
         }
@@ -1687,12 +1695,14 @@ QStatus DiscoveryManager::HandleMatchRevokedResponse(MatchRevokedResponse respon
 
                 // Purge OutgoingICESessions to remove any entries related to Daemon with
                 // peerID and the service response.services.front().
-                for (session_it = OutgoingICESessions.begin(); session_it != OutgoingICESessions.end(); session_it++) {
+                for (session_it = OutgoingICESessions.begin(); session_it != OutgoingICESessions.end();) {
 
                     if (((session_it->second).remotePeerAddress == response.peerAddr) && ((session_it->second).destinationName == response.services.front())) {
 
                         // Remove the entry from the OutgoingICESessions
-                        OutgoingICESessions.erase(session_it);
+                        OutgoingICESessions.erase(session_it++);
+                    } else {
+                        ++session_it;
                     }
                 }
 
