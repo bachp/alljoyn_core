@@ -17,7 +17,6 @@ import os
 
 # include the core
 env = SConscript(['../build_core/SConscript'])
-env.PrependENVPath('PATH', '/opt/bullseye/bin')
 
 # Add/remove projects from build
 env.SConscript(['SConscript'])
