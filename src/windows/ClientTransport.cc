@@ -51,7 +51,7 @@ class ClientEndpoint : public RemoteEndpoint {
     ClientEndpoint(ClientTransport* transport, BusAttachment& bus, const qcc::String connectSpec,
                    qcc::SocketFd sock, const qcc::IPAddress& ipAddr, uint16_t port)
         :
-        RemoteEndpoint(bus, false, connectSpec, m_stream, ClientTransport::TransportName),
+        RemoteEndpoint(bus, false, connectSpec, &m_stream, ClientTransport::TransportName),
         m_transport(transport),
         m_stream(sock),
         m_ipAddr(ipAddr),

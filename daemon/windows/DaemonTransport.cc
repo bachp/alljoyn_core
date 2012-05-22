@@ -54,7 +54,7 @@ class DaemonEndpoint : public RemoteEndpoint {
   public:
 
     DaemonEndpoint(BusAttachment& bus, bool incoming, const qcc::String connectSpec, SocketFd sock) :
-        RemoteEndpoint(bus, incoming, connectSpec, stream, DaemonTransport::TransportName),
+        RemoteEndpoint(bus, incoming, connectSpec, &stream, DaemonTransport::TransportName),
         stream(sock)
     {
     }
