@@ -49,13 +49,16 @@ else:
     bt_srcs.extend(env.SConscript('bt_bluez/SConscript'))
     daemon_objs = base_objs + env.Object(bt_srcs)
 
+# Add in ICE support
+if env['OS'] == 'android' or env['OS'] =='linux':
+    ice_srcs = env.SConscript('ice/SConscript')
+    daemon_objs.extend(env.Object(ice_srcs))
+    json_srcs = env.SConscript('JSON/SConscript')
+    daemon_objs.extend(env.Object(json_srcs))   
+
 # Daemon library
 lib = env.StaticLibrary('ajdaemon', base_objs);
     
-# JSON Sources
-json_srcs = env.SConscript('JSON/SConscript')
-daemon_objs.extend(env.Object(json_srcs))    
-
 # AllJoyn Daemon
 progs = env.SConscript('${OS_GROUP}/SConscript', exports=['daemon_objs', 'config_objs'])
 
