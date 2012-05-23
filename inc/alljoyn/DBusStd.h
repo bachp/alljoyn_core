@@ -25,12 +25,11 @@
 
 #include <qcc/platform.h>
 
-#include <alljoyn/BusAttachment.h>
-#include <alljoyn/InterfaceDescription.h>
-
 #include <Status.h>
 
 namespace ajn {
+class BusAttachment;
+
 namespace org {
 namespace freedesktop {
 

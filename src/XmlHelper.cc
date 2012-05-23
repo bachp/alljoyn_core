@@ -92,7 +92,7 @@ QStatus XmlHelper::ParseInterface(const XmlElement* elem, ProxyBusObject* obj)
                 qcc::String inSig;
                 qcc::String outSig;
                 qcc::String argList;
-                uint8_t annotations = 0;
+                InterfaceDescription::AnnotationsMap annotations;
 
                 /* Iterate over member children */
                 const vector<XmlElement*>& argChildren = ifChildElem->GetChildren();
@@ -158,8 +158,18 @@ QStatus XmlHelper::ParseInterface(const XmlElement* elem, ProxyBusObject* obj)
                 if (accessStr == "write") access = PROP_ACCESS_WRITE;
                 if (accessStr == "readwrite") access = PROP_ACCESS_RW;
                 status = intf.AddProperty(memberName.c_str(), sig.c_str(), access);
+
+                // add Property annotations
+                const vector<XmlElement*>& argChildren = ifChildElem->GetChildren();
+                vector<XmlElement*>::const_iterator argIt = argChildren.begin();
+                while ((ER_OK == status) && (argIt != argChildren.end())) {
+                    const XmlElement* argElem = *argIt++;
+                    status = intf.AddPropertyAnnotation(memberName, argElem->GetAttribute("name"), argElem->GetAttribute("value"));
+                }
             }
-        } else if (ifChildName != "annotation") {
+        } else if (ifChildName == "annotation") {
+            status = intf.AddAnnotation(ifChildElem->GetAttribute("name"), ifChildElem->GetAttribute("value"));
+        } else {
             status = ER_FAIL;
             QCC_LogError(status, ("Unknown element \"%s\" found in introspection data from %s", ifChildName.c_str(), ident));
             break;

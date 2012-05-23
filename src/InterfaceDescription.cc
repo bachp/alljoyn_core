@@ -22,10 +22,9 @@
 
 #include <qcc/platform.h>
 #include <qcc/String.h>
-#include <qcc/StringMapKey.h>
+
 #include <map>
 #include <alljoyn/AllJoynStd.h>
-#include <alljoyn/DBusStd.h>
 #include <Status.h>
 
 #include "SignatureUtils.h"
@@ -62,19 +61,32 @@ static qcc::String NextArg(const char*& signature, qcc::String& argNames, bool i
 }
 
 struct InterfaceDescription::Definitions {
-    std::map<qcc::StringMapKey, Member> members;       /**< Interface members */
-    std::map<qcc::StringMapKey, Property> properties;  /**< Interface properties */
+    typedef std::map<qcc::StringMapKey, Member> MemberMap;
+    typedef std::map<qcc::StringMapKey, Property> PropertyMap;
+
+    MemberMap members;              /**< Interface members */
+    PropertyMap properties;         /**< Interface properties */
+    AnnotationsMap annotations;     /**< Interface Annotations */
 
     Definitions() { }
-    Definitions(std::map<qcc::StringMapKey, Member> m, std::map<qcc::StringMapKey, Property> p) : members(m), properties(p) { }
+    Definitions(const MemberMap& m, const PropertyMap& p, const AnnotationsMap& a) :
+        members(m), properties(p), annotations(a) { }
 };
+
+bool InterfaceDescription::Member::GetAnnotation(const qcc::String& name, qcc::String& value) const
+{
+    AnnotationsMap::const_iterator it = annotations.find(name);
+    return (it != annotations.end() ? value = it->second, true : false);
+}
 
 InterfaceDescription::InterfaceDescription(const char* name, bool secure) :
     defs(new Definitions),
     name(name),
-    isActivated(false),
-    secure(secure)
+    isActivated(false)
 {
+    if (secure) {
+        defs->annotations[org::alljoyn::Bus::Secure] = "true";
+    }
 }
 
 InterfaceDescription::~InterfaceDescription()
@@ -83,13 +95,12 @@ InterfaceDescription::~InterfaceDescription()
 }
 
 InterfaceDescription::InterfaceDescription(const InterfaceDescription& other) :
-    defs(new Definitions(other.defs->members, other.defs->properties)),
+    defs(new Definitions(other.defs->members, other.defs->properties, other.defs->annotations)),
     name(other.name),
-    isActivated(false),
-    secure(other.secure)
+    isActivated(false)
 {
     /* Update the iface pointer in each member */
-    std::map<qcc::StringMapKey, Member>::iterator mit = defs->members.begin();
+    Definitions::MemberMap::iterator mit = defs->members.begin();
     while (mit != defs->members.end()) {
         mit++->second.iface = this;
     }
@@ -101,15 +112,21 @@ InterfaceDescription& InterfaceDescription::operator=(const InterfaceDescription
         name = other.name;
         defs->members = other.defs->members;
         defs->properties = other.defs->properties;
-        secure = other.secure;
+        defs->annotations = other.defs->annotations;
 
         /* Update the iface pointer in each member */
-        std::map<qcc::StringMapKey, Member>::iterator mit = defs->members.begin();
+        Definitions::MemberMap::iterator mit = defs->members.begin();
         while (mit != defs->members.end()) {
             mit++->second.iface = this;
         }
     }
     return *this;
+}
+
+bool InterfaceDescription::IsSecure() const
+{
+    AnnotationsMap::const_iterator it = defs->annotations.find(org::alljoyn::Bus::Secure);
+    return (it != defs->annotations.end() && it->second == "true");
 }
 
 qcc::String InterfaceDescription::Introspect(size_t indent) const
@@ -122,7 +139,7 @@ qcc::String InterfaceDescription::Introspect(size_t indent) const
     /*
      * Iterate over interface defs->members
      */
-    std::map<qcc::StringMapKey, Member>::const_iterator mit = defs->members.begin();
+    Definitions::MemberMap::const_iterator mit = defs->members.begin();
     while (mit != defs->members.end()) {
         const Member& member = mit->second;
         qcc::String argNames = member.argNames;
@@ -141,19 +158,19 @@ qcc::String InterfaceDescription::Introspect(size_t indent) const
         /*
          * Add annotations
          */
-        if (member.annotation  & MEMBER_ANNOTATE_NO_REPLY) {
-            xml += in + "    <annotation name=\"" + org::freedesktop::DBus::AnnotateNoReply + "\" value=\"true\"/>\n";
+
+        AnnotationsMap::const_iterator ait = member.annotations.begin();
+        for (; ait != member.annotations.end(); ++ait) {
+            xml += in + "    <annotation name=\"" + ait->first.c_str() + "\" value=\"" + ait->second + "\"/>\n";
         }
-        if (member.annotation  & MEMBER_ANNOTATE_DEPRECATED) {
-            xml += in + "    <annotation name=\"" + org::freedesktop::DBus::AnnotateDeprecated + "\" value=\"true\"/>\n";
-        }
+
         xml += in + "  </" + mtype + ">\n";
         ++mit;
     }
     /*
      * Iterate over interface properties
      */
-    map<qcc::StringMapKey, Property>::const_iterator pit = defs->properties.begin();
+    Definitions::PropertyMap::const_iterator pit = defs->properties.begin();
     while (pit != defs->properties.end()) {
         const Property& property = pit->second;
         xml += in + "  <property name=\"" + property.name + "\" type=\"" + property.signature + "\"";
@@ -162,13 +179,32 @@ qcc::String InterfaceDescription::Introspect(size_t indent) const
         } else if (property.access == PROP_ACCESS_WRITE) {
             xml += " access=\"write\"/>\n";
         } else {
-            xml += " access=\"readwrite\"/>\n";
+            xml += " access=\"readwrite\"";
         }
+
+        if (property.annotations.size()) {
+            xml += ">\n";
+
+            // add annotations
+            AnnotationsMap::const_iterator ait = property.annotations.begin();
+            for (; ait != property.annotations.end(); ++ait) {
+                xml += in + "    <annotation name=\"" + ait->first.c_str() + "\" value=\"" + ait->second + "\"/>\n";
+            }
+
+            xml += in + "  </property>\n";
+        } else {
+            xml += "/>\n";
+        }
+
         ++pit;
     }
-    if (IsSecure()) {
-        xml += in + "  <annotation name=\"" + org::alljoyn::Bus::Secure + "\" value=\"true\"/>\n";
+
+    // add interface annotations
+    AnnotationsMap::const_iterator ait = defs->annotations.begin();
+    for (; ait != defs->annotations.end(); ++ait) {
+        xml += in + "  <annotation name=\"" + ait->first.c_str() + "\" value=\"" + ait->second + "\"/>\n";
     }
+
     xml += in + "</interface>\n";
     return xml;
 }
@@ -188,9 +224,57 @@ QStatus InterfaceDescription::AddMember(AllJoynMessageType type,
     StringMapKey key = qcc::String(name);
     Member member(this, type, name, inSig, outSig, argNames, annotation, accessPerms);
     pair<StringMapKey, Member> item(key, member);
-    pair<map<StringMapKey, Member>::iterator, bool> ret = defs->members.insert(item);
+    pair<Definitions::MemberMap::iterator, bool> ret = defs->members.insert(item);
     return ret.second ? ER_OK : ER_BUS_MEMBER_ALREADY_EXISTS;
 }
+
+QStatus InterfaceDescription::AddMember(AllJoynMessageType type,
+                                        const char* name,
+                                        const char* inSig,
+                                        const char* outSig,
+                                        const char* argNames,
+                                        const AnnotationsMap& annotations,
+                                        const char* accessPerms)
+{
+    if (isActivated) {
+        return ER_BUS_INTERFACE_ACTIVATED;
+    }
+
+    StringMapKey key = qcc::String(name);
+    Member member(this, type, name, inSig, outSig, argNames, annotations, accessPerms);
+    pair<StringMapKey, Member> item(key, member);
+    pair<Definitions::MemberMap::iterator, bool> ret = defs->members.insert(item);
+    return ret.second ? ER_OK : ER_BUS_MEMBER_ALREADY_EXISTS;
+}
+
+QStatus InterfaceDescription::AddMemberAnnotation(const char* member, const qcc::String& name, const qcc::String& value)
+{
+    if (isActivated) {
+        return ER_BUS_INTERFACE_ACTIVATED;
+    }
+
+    Definitions::MemberMap::iterator it = defs->members.find(StringMapKey(member));
+    if (it == defs->members.end()) {
+        return ER_BUS_INTERFACE_NO_SUCH_MEMBER;
+    }
+
+    Member& m = it->second;
+    std::pair<AnnotationsMap::iterator, bool> ret = m.annotations.insert(std::make_pair(StringMapKey(name), value));
+    return ret.second ? ER_OK : ER_BUS_ANNOTATION_ALREADY_EXISTS;
+}
+
+bool InterfaceDescription::GetMemberAnnotation(const char* member, const qcc::String& name, qcc::String& value) const
+{
+    Definitions::MemberMap::const_iterator mit = defs->members.find(StringMapKey(member));
+    if (mit == defs->members.end()) {
+        return false;
+    }
+
+    const Member& m = mit->second;
+    AnnotationsMap::const_iterator ait = m.annotations.find(StringMapKey(name));
+    return (ait != defs->annotations.end() ? value = ait->second, true : false);
+}
+
 
 QStatus InterfaceDescription::AddProperty(const char* name, const char* signature, uint8_t access)
 {
@@ -201,8 +285,53 @@ QStatus InterfaceDescription::AddProperty(const char* name, const char* signatur
     StringMapKey key = qcc::String(name);
     Property prop(name, signature, access);
     pair<StringMapKey, Property> item(key, prop);
-    pair<map<StringMapKey, Property>::iterator, bool> ret = defs->properties.insert(item);
+    pair<Definitions::PropertyMap::iterator, bool> ret = defs->properties.insert(item);
     return ret.second ? ER_OK : ER_BUS_PROPERTY_ALREADY_EXISTS;
+}
+
+QStatus InterfaceDescription::AddPropertyAnnotation(const qcc::String& p_name, const qcc::String& name, const qcc::String& value)
+{
+    if (isActivated) {
+        return ER_BUS_INTERFACE_ACTIVATED;
+    }
+
+    Definitions::PropertyMap::iterator pit = defs->properties.find(StringMapKey(p_name));
+    if (pit == defs->properties.end()) {
+        return ER_BUS_NO_SUCH_PROPERTY;
+    }
+
+    Property& property = pit->second;
+    std::pair<AnnotationsMap::iterator, bool> ret = property.annotations.insert(std::make_pair(StringMapKey(name), value));
+    return (ret.second ? ER_OK : ER_BUS_ANNOTATION_ALREADY_EXISTS);
+}
+
+bool InterfaceDescription::GetPropertyAnnotation(const qcc::String& p_name, const qcc::String& name, qcc::String& value) const
+{
+    Definitions::PropertyMap::const_iterator pit = defs->properties.find(StringMapKey(p_name));
+    if (pit == defs->properties.end()) {
+        return false;
+    }
+
+    const Property& property = pit->second;
+    AnnotationsMap::const_iterator ait = property.annotations.find(StringMapKey(p_name));
+    return (ait != property.annotations.end() ? value = ait->second, true : false);
+}
+
+QStatus InterfaceDescription::AddAnnotation(const qcc::String& name, const qcc::String& value)
+{
+    if (isActivated) {
+        return ER_BUS_INTERFACE_ACTIVATED;
+    }
+
+    StringMapKey key = qcc::String(name);
+    std::pair<AnnotationsMap::iterator, bool> ret = defs->annotations.insert(std::make_pair(key, value));
+    return ret.second ? ER_OK : ER_BUS_ANNOTATION_ALREADY_EXISTS;
+}
+
+bool InterfaceDescription::GetAnnotation(const qcc::String& name, qcc::String& value) const
+{
+    AnnotationsMap::const_iterator it = defs->annotations.find(StringMapKey(name));
+    return (it != defs->annotations.end() ? value = it->second, true : false);
 }
 
 bool InterfaceDescription::operator==(const InterfaceDescription& other) const
@@ -211,33 +340,12 @@ bool InterfaceDescription::operator==(const InterfaceDescription& other) const
         return false;
     }
 
-    if ((defs->members.size() != other.defs->members.size()) || (defs->properties.size() != other.defs->properties.size())) {
+    if (defs->members != other.defs->members ||
+        defs->properties != other.defs->properties ||
+        defs->annotations != other.defs->annotations) {
         return false;
     }
 
-    map<qcc::StringMapKey, Member>::const_iterator mit = defs->members.begin();
-    while (mit != defs->members.end()) {
-        map<qcc::StringMapKey, Member>::const_iterator oMit = other.defs->members.find(mit->first);
-        if (oMit == other.defs->members.end()) {
-            return false;
-        }
-        if (!(oMit->second == mit->second)) {
-            return false;
-        }
-        ++mit;
-    }
-
-    map<qcc::StringMapKey, Property>::const_iterator pit = defs->properties.begin();
-    while (pit != defs->properties.end()) {
-        map<qcc::StringMapKey, Property>::const_iterator oPit = other.defs->properties.find(pit->first);
-        if (oPit == other.defs->properties.end()) {
-            return false;
-        }
-        if (!(oPit->second == pit->second)) {
-            return false;
-        }
-        ++pit;
-    }
     return true;
 }
 
@@ -246,7 +354,7 @@ size_t InterfaceDescription::GetProperties(const Property** props, size_t numPro
     size_t count = defs->properties.size();
     if (props) {
         count = min(count, numProps);
-        map<qcc::StringMapKey, Property>::const_iterator pit = defs->properties.begin();
+        Definitions::PropertyMap::const_iterator pit = defs->properties.begin();
         for (size_t i = 0; i < count; i++, pit++) {
             props[i] = &(pit->second);
         }
@@ -256,8 +364,7 @@ size_t InterfaceDescription::GetProperties(const Property** props, size_t numPro
 
 const InterfaceDescription::Property* InterfaceDescription::GetProperty(const char* name) const
 {
-    std::map<qcc::StringMapKey, Property>::const_iterator pit = defs->properties.find(qcc::StringMapKey(name));
-
+    Definitions::PropertyMap::const_iterator pit = defs->properties.find(qcc::StringMapKey(name));
     return (pit == defs->properties.end()) ? NULL : &(pit->second);
 }
 
@@ -266,7 +373,7 @@ size_t InterfaceDescription::GetMembers(const Member** members, size_t numMember
     size_t count = defs->members.size();
     if (members) {
         count = min(count, numMembers);
-        map<qcc::StringMapKey, Member>::const_iterator mit = defs->members.begin();
+        Definitions::MemberMap::const_iterator mit = defs->members.begin();
         for (size_t i = 0; i < count; i++, mit++) {
             members[i] = &(mit->second);
         }
@@ -276,8 +383,7 @@ size_t InterfaceDescription::GetMembers(const Member** members, size_t numMember
 
 const InterfaceDescription::Member* InterfaceDescription::GetMember(const char* name) const
 {
-    std::map<qcc::StringMapKey, Member>::const_iterator mit = defs->members.find(qcc::StringMapKey(name));
-
+    Definitions::MemberMap::const_iterator mit = defs->members.find(qcc::StringMapKey(name));
     return (mit == defs->members.end()) ? NULL : &(mit->second);
 }
 
