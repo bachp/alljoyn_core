@@ -1499,10 +1499,11 @@ void DaemonICETransport::AllocateICESessionThread::ThreadExit(Thread* thread)
     while (it != transportObj->allocateICESessionThreads.end()) {
         if (*it == thread) {
             deleteMe = *it;
-            transportObj->allocateICESessionThreads.erase(it);
+            transportObj->allocateICESessionThreads.erase(it++);
             break;
+        } else {
+            ++it;
         }
-        ++it;
     }
     transportObj->allocateICESessionThreadsLock.Unlock(MUTEX_CONTEXT);
     if (deleteMe) {
@@ -1748,7 +1749,7 @@ void* DaemonICETransport::Run(void* arg)
 
                 std::multimap<String, SessionReceiverInfo>::iterator it;
 
-                for (it = IncomingICESessions.begin(); it != IncomingICESessions.end(); it++) {
+                for (it = IncomingICESessions.begin(); it != IncomingICESessions.end();) {
 
                     QCC_DbgPrintf(("DaemonICETransport::Run(): maxAuth == %d", maxAuth));
                     QCC_DbgPrintf(("DaemonICETransport::Run(): maxConn == %d", maxConn));
@@ -1772,11 +1773,14 @@ void* DaemonICETransport::Run(void* arg)
                                 allocateICESessionThreads.push_back(ast);
 
                                 // Remove this entry from IncomingICESessions
-                                IncomingICESessions.erase(it);
+                                IncomingICESessions.erase(it++);
 
                             } else {
                                 QCC_LogError(status, ("DaemonICETransport::Run(): Failed to start AllocateICESessionThread"));
+                                ++it;
                             }
+                        } else {
+                            ++it;
                         }
 
                         allocateICESessionThreadsLock.Unlock(MUTEX_CONTEXT);
@@ -1786,6 +1790,7 @@ void* DaemonICETransport::Run(void* arg)
                         IncomingICESessions.clear();
                         status = ER_AUTH_FAIL;
                         QCC_LogError(status, ("DaemonICETransport::Run(): No slot for new connection"));
+                        ++it;
                     }
                 }
             }
@@ -2449,12 +2454,13 @@ void DaemonICETransport::PurgeSessionsMap(String peerID, const vector<String>* n
 
         m_IncomingICESessionsLock.Lock(MUTEX_CONTEXT);
         if (!IncomingICESessions.empty()) {
-            for (it = IncomingICESessions.begin(); it != IncomingICESessions.end(); it++) {
+            for (it = IncomingICESessions.begin(); it != IncomingICESessions.end();) {
 
                 if ((it->second).m_guid == peerID) {
-                    IncomingICESessions.erase(it);
+                    IncomingICESessions.erase(it++);
+                } else {
+                    ++it;
                 }
-
             }
         }
         m_IncomingICESessionsLock.Unlock(MUTEX_CONTEXT);

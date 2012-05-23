@@ -763,7 +763,7 @@ void DiscoveryManager::RemoveSessionDetailFromMap(bool client, std::pair<String,
         DiscoveryManagerMutex.Unlock(MUTEX_CONTEXT);
     } else {
         DiscoveryManagerMutex.Lock(MUTEX_CONTEXT);
-        for (it = IncomingICESessions.begin(); it != IncomingICESessions.end(); it++) {
+        for (it = IncomingICESessions.begin(); it != IncomingICESessions.end();) {
 
             if ((it->first == sessionDetail.first) && ((it->second).destinationName == sessionDetail.second.destinationName) && ((it->second).remotePeerAddress == sessionDetail.second.remotePeerAddress)) {
                 IncomingICESessions.erase(it++);
