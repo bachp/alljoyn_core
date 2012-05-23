@@ -1,4 +1,4 @@
-AllJoyn Version 2.3.3 Release Notes
+AllJoyn Version 2.5.0 Release Notes
 -----------------------------------
 
 Platform Support
@@ -14,40 +14,19 @@ Platform Support
 Features added in this release
 ------------------------------
 
-None
+(FIXME)
 
 
 Issues Addressed in this Release
 --------------------------------
 
-1) ALLJOYN-850: AllJoyn client library's use of libcrypto could conflict
-   with Android Framework's use of libcrypto within an AllJoyn enabled app
-   that uses encryption/authentication.
-
-2) ALLJOYN-934: The debug variant of the bundled AllJoyn daemon could 
-   exit due to incorrect assertion failure.
-
-3) ALLJOYN-946: Message serial number validation can fail to reject repeated
-   messages if their are many other messages between repeats.
-
-4) ALLJOYN-958: Java binding's BusAttachment.unregisterBusListener() could
-   cause jni crash on Android ICS.
+(FIXME)
 
 
 Known issues and limitations with this release
 ----------------------------------------------
 
-1) ALLJOYN-829: Link timeout changes made via  BusAttachment::SetLinkTimeout()
-   do not take effect until after the involved endpoints receive one more
-   message with the original link timeout values.
-
-2) ALLJOYN-830: SetLinkTimeout cannot be called from within the
-   SessionPortListener::SessionJoined callback.
-
-3) ALLJOYN-907: LostAdvertisedName indication may be delayed (up to 2 minutes) 
-   when only a single serivce/client pair is running on two devices and the 
-   client disconnects prior to the service disconnecting or canceling the
-   advertisement.
+(FIXME)
 
 
 Compatibility
@@ -77,6 +56,8 @@ of AllJoyn (ALLJOYN-803).
 
 Change history
 --------------
+2.3.3 - Bug fixes.
+
 2.3.2 - Bug fixes.
 
 2.3.1 - Bug fixes.
