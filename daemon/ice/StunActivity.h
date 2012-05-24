@@ -41,7 +41,7 @@ struct StunActivity {
 
     Stun* stun;
     ICECandidate candidate;
-    Retransmit* retransmit;   // Used by host candidate during gathering to bind/allocate
+    Retransmit retransmit;    // Used by host candidate during gathering to bind/allocate
                               // from STUN/TURN server.
                               // Used by reflexive candidate just to keep time of last indication.
                               // Used by relayed candidate to refresh Allocations from TURN server.
