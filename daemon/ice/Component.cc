@@ -45,18 +45,12 @@ void Component::EmptyActivityList(void)
 
         // Because a stun object can be shared among candidates,
         // we only delete it once - here, from the Host_Candidate that allocated it.
-        if (ICECandidate::Host_Candidate == stunActivity->candidate->GetType()) {
+        if (_ICECandidate::Host_Candidate == stunActivity->candidate->GetType()) {
 
             if (stunActivity->stun) {
                 delete stunActivity->stun;
                 stunActivity->stun = NULL;
             }
-        }
-        stunActivity->candidate->DecRef();
-
-        if (stunActivity->retransmit) {
-            delete stunActivity->retransmit;
-            stunActivity->retransmit = NULL;
         }
 
         delete stunActivity;
@@ -65,25 +59,23 @@ void Component::EmptyActivityList(void)
 }
 
 
-QStatus Component::AddCandidate(ICECandidate*candidate)
+QStatus Component::AddCandidate(const ICECandidate& candidate)
 {
     QStatus status = ER_OK;
 
-    candidate->IncRef();
     candidateList.push_back(candidate);
 
     return status;
 }
 
 
-QStatus Component::RemoveCandidate(ICECandidate* candidate)
+QStatus Component::RemoveCandidate(ICECandidate& candidate)
 {
     QStatus status = ER_FAIL;
 
     iterator iter;
     for (iter = candidateList.begin(); iter != candidateList.end(); ++iter) {
-        if ((*iter) == candidate) {
-            candidate->DecRef();
+        if (candidate == (*iter)) {
             candidateList.erase(iter);
             status = ER_OK;
             break;
@@ -122,7 +114,8 @@ QStatus Component::CreateHostCandidate(qcc::SocketType socketType, const qcc::IP
         StunActivity* stunActivity = new StunActivity(stun);
         AddToStunActivityList(stunActivity);
 
-        ICECandidate* candidate = new ICECandidate(ICECandidate::Host_Candidate, host, host, this, socketType, stunActivity, interfaceName);
+        _ICECandidate::ICECandidateType type = _ICECandidate::Host_Candidate;
+        ICECandidate candidate(type, host, host, this, socketType, stunActivity, interfaceName);
         status = AddCandidate(candidate);
 
         if (ER_OK == status) {
@@ -134,10 +127,9 @@ QStatus Component::CreateHostCandidate(qcc::SocketType socketType, const qcc::IP
 }
 
 
-void Component::AssignDefaultCandidate(ICECandidate*candidate)
+void Component::AssignDefaultCandidate(const ICECandidate& candidate)
 {
-    if (NULL == defaultCandidate ||
-        candidate->GetType() > defaultCandidate->GetType()) {
+    if (candidate->GetType() > defaultCandidate->GetType()) {
         defaultCandidate = candidate;
     }
 }
@@ -190,8 +182,10 @@ void Component::AddToValidList(ICECandidatePair* validPair)
     QCC_DbgPrintf(("AddToValidList isValid(current): %s, hasValidPair(current): %s, [local addr = %s port = %d], [remote addr = %s port = %d]",
                    (validPair->isValid ? "true" : "false"),
                    (hasValidPair ? "true" : "false"),
-                   validPair->local.GetEndpoint().addr.ToString().c_str(), validPair->local.GetEndpoint().port,
-                   validPair->remote.GetEndpoint().addr.ToString().c_str(), validPair->remote.GetEndpoint().port));
+                   validPair->local->GetEndpoint().addr.ToString().c_str(),
+                   validPair->local->GetEndpoint().port,
+                   validPair->remote->GetEndpoint().addr.ToString().c_str(),
+                   validPair->remote->GetEndpoint().port));
 
     validPair->isValid = true;
 
@@ -260,9 +254,9 @@ Retransmit* Component::GetRetransmitByTransaction(const StunTransactionID& tid) 
     list<StunActivity*>::const_iterator it;
     for (it = stunActivityList.begin(); it != stunActivityList.end(); ++it) {
         StunTransactionID transaction;
-        if ((*it)->retransmit->GetTransactionID(transaction) &&
+        if ((*it)->retransmit.GetTransactionID(transaction) &&
             transaction == tid) {
-            retransmit = (*it)->retransmit;
+            retransmit = &(*it)->retransmit;
             break;
         }
     }

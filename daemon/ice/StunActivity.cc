@@ -29,30 +29,42 @@
 
 namespace ajn {
 
-void StunActivity::SetCandidate(ICECandidate* candidate)
+StunActivity::StunActivity(Stun* stun) :
+    stun(stun),
+    candidate(),
+    retransmit()
 {
+}
+
+StunActivity::~StunActivity()
+{
+
+}
+
+void StunActivity::SetCandidate(const ICECandidate& candidate)
+{
+    QCC_DbgTrace(("%s(%p): ", __FUNCTION__, this));
+
     this->candidate = candidate;
-    this->candidate->IncRef();
+
+    retransmit = Retransmit();
 
     switch (candidate->GetType()) {
-    case ICECandidate::Host_Candidate:
+    case _ICECandidate::Host_Candidate:
         // retransmit will maintain count of retries and timeouts as we perform the
-        // (one and only) Bind/Allocate request to the STUN/TURN server for this local interface.
-        retransmit = new Retransmit();
+        // (one and only) Bind/Allocate request to the STUN/TURN server for this local interface
         break;
 
-    case ICECandidate::ServerReflexive_Candidate:
-    case ICECandidate::PeerReflexive_Candidate:
+    case _ICECandidate::ServerReflexive_Candidate:
+    case _ICECandidate::PeerReflexive_Candidate:
         // Reflexive candidates use 'retransmit' only for NAT keepalive time stamping.
         // They do NOT timeout responses, nor perform retransmits.
-        retransmit = new Retransmit();
-        retransmit->RecordKeepaliveTime();  // stamp time now
+        retransmit.RecordKeepaliveTime();  // stamp time now
         break;
 
-    case ICECandidate::Relayed_Candidate:
+    case _ICECandidate::Relayed_Candidate:
         // For refreshing Allocations/CreatePermissions on the TURN server.
-        retransmit = new Retransmit();
-        retransmit->RecordKeepaliveTime();  // stamp time now
+        retransmit.RecordKeepaliveTime();  // stamp time now
         break;
 
     default:

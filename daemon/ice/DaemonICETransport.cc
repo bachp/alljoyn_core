@@ -158,7 +158,7 @@ class DaemonICEEndpoint : public RemoteEndpoint, public PacketEngineListener {
         m_authThread(this, transport),
         m_stunActivity(stunActivity),
         m_stun(m_stunActivity->stun),
-        m_icePktStream(m_stun, (m_stunActivity->candidate->GetType() == ICECandidate::Host_Candidate)),
+        m_icePktStream(m_stun, (m_stunActivity->candidate->GetType() == _ICECandidate::Host_Candidate)),
         m_ipAddr(m_stun->GetRemoteAddr()),
         m_port(m_stun->GetRemotePort()),
         m_wasSuddenDisconnect(!incoming),
@@ -176,7 +176,7 @@ class DaemonICEEndpoint : public RemoteEndpoint, public PacketEngineListener {
         m_iceSession->StopPacingThreadAndClearStunQueue();
 
         /* We need to send TURN refresh or NAT keep alive iff the selected candidate is not the host candidate */
-        if (m_stunActivity->candidate->GetType() != ICECandidate::Host_Candidate) {
+        if (m_stunActivity->candidate->GetType() != _ICECandidate::Host_Candidate) {
 
             /* Set up either the keep alive or the turn refresh alarm as applicable */
             DaemonICETransport::AlarmContext* cctx = new DaemonICETransport::AlarmContext(this);
@@ -552,7 +552,7 @@ QStatus DaemonICEEndpoint::PacketEngineListen(void)
     m_pktEngineConnectEvent.ResetEvent();
 
     /* Stop Stun internal packet processing */
-    m_stun->DisableStunProcessing();
+    m_stun->ReleaseFD();
 
     /* Start the ICEPacketStream */
     status = m_icePktStream.Start();
@@ -652,7 +652,7 @@ QStatus DaemonICEEndpoint::PacketEngineConnect(void)
     /* Stop the STUN RxThread */
     // @@ JP TODO: This is needed because other side may not be complete with ICE dance and killing stun processing too early will make him fail. */
     qcc::Sleep(3000);
-    m_stun->DisableStunProcessing();
+    m_stun->ReleaseFD();
 
     /* Start ICEPacketStream */
     status = m_icePktStream.Start();
@@ -788,7 +788,7 @@ void DaemonICEEndpoint::SendSTUNKeepAliveAndTURNRefreshRequest(void)
     delete[] rBuf;
     delete msg;
 
-    if (m_stunActivity->candidate->GetType() == ICECandidate::Relayed_Candidate) {
+    if (m_stunActivity->candidate->GetType() == _ICECandidate::Relayed_Candidate) {
         if ((!FirstTURNRefreshSent) || ((GetTimestamp() - TURNRefreshTimeStamp) >= m_iceSession->GetTURNRefreshPeriod())) {
             /* Send TURN refresh */
             msg = new StunMessage(STUN_MSG_REQUEST_CLASS,
@@ -1347,6 +1347,7 @@ ThreadReturn STDCALL DaemonICETransport::AllocateICESessionThread::Run(void* arg
 
             /* Get the local ICE candidates */
             status = iceSession->GetLocalICECandidates(candidates, ufrag, pwd);
+            QCC_DbgPrintf(("GetLocalICECandidates returned ufrag=%s, pwd=%s", ufrag.c_str(), pwd.c_str()));
 
             if (ER_OK == status) {
                 /* Send candidates to the server */
@@ -1381,7 +1382,7 @@ ThreadReturn STDCALL DaemonICETransport::AllocateICESessionThread::Run(void* arg
 
                             peerCandidateListener.GetPeerCandiates(peerCandidates, ice_frag, ice_pwd);
 
-                            QCC_DbgPrintf(("DaemonICETransport::AllocateICESessionThread::Run(): StartChecks\n"));
+                            QCC_DbgPrintf(("DaemonICETransport::AllocateICESessionThread::Run(): StartChecks(peer_frag=%s, peer_pwd=%s)", ice_frag.c_str(), ice_pwd.c_str()));
 
                             /*Start the ICE Checks*/
                             status = iceSession->StartChecks(peerCandidates, ice_frag, ice_pwd);
@@ -1413,12 +1414,12 @@ ThreadReturn STDCALL DaemonICETransport::AllocateICESessionThread::Run(void* arg
 
                                             /* Disable listener threads */
                                             for (size_t i = 0; i < selectedCandidatePairList.size(); ++i) {
-                                                selectedCandidatePairList[i]->local.GetStunActivity()->candidate->StopCheckListener();
+                                                selectedCandidatePairList[i]->local->GetStunActivity()->candidate->StopCheckListener();
                                             }
 
                                             /* Create endpoint */
                                             conn = new DaemonICEEndpoint(transportObj, transportObj->m_bus, true, "", iceSession,
-                                                                         selectedCandidatePairList[0]->local.GetStunActivity());
+                                                                         selectedCandidatePairList[0]->local->GetStunActivity());
 
                                             if (conn->GetEpState() == DaemonICEEndpoint::EP_FAILED) {
                                                 status = ER_FAIL;
@@ -2027,7 +2028,7 @@ QStatus DaemonICETransport::Connect(const char* connectSpec, const SessionOpts& 
 
                             QCC_DbgPrintf(("DaemonICETransport::Connect(): Starting ICE Checks"));
 
-                            /*Start the ICE Checks*/
+                            /* Start the ICE Checks*/
                             status = iceSession->StartChecks(peerCandidates, true, ice_frag, ice_pwd);
 
                             QCC_DbgPrintf(("DaemonICETransport::Connect(): StartChecks status = 0x%x", status));
@@ -2037,6 +2038,7 @@ QStatus DaemonICETransport::Connect(const char* connectSpec, const SessionOpts& 
                                 QCC_DbgPrintf(("DaemonICETransport::Connect(): Waiting for StartChecks to complete"));
                                 status = iceListener.Wait();
                                 QCC_DbgPrintf(("DaemonICETransport::Connect(): StartChecks done status=0x%x", status));
+
                                 if (ER_OK == status) {
                                     ICESession::ICESessionState state = iceListener.GetState();
 
@@ -2053,7 +2055,7 @@ QStatus DaemonICETransport::Connect(const char* connectSpec, const SessionOpts& 
                                         if (selectedCandidatePairList.size() > 0) {
                                             /* Disable listener threads */
                                             for (size_t i = 0; i < selectedCandidatePairList.size(); ++i) {
-                                                selectedCandidatePairList[i]->local.GetStunActivity()->candidate->StopCheckListener();
+                                                selectedCandidatePairList[i]->local->GetStunActivity()->candidate->StopCheckListener();
                                             }
                                             /*
                                              * The underling transport mechanism is started, but we need to create a
@@ -2062,7 +2064,7 @@ QStatus DaemonICETransport::Connect(const char* connectSpec, const SessionOpts& 
                                              */
                                             if (status == ER_OK) {
 
-                                                StunActivity* stunActivityPtr = selectedCandidatePairList[0]->local.GetStunActivity();
+                                                StunActivity* stunActivityPtr = selectedCandidatePairList[0]->local->GetStunActivity();
 
                                                 String remoteAddr = (stunActivityPtr->stun->GetRemoteAddr()).ToString();
                                                 String remotePort = U32ToString((uint32_t)(stunActivityPtr->stun->GetRemotePort()));

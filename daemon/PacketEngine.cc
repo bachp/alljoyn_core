@@ -107,7 +107,8 @@ PacketEngine::PacketEngine(const qcc::String& name, uint32_t maxWindowSize) :
     rxPacketThread(name),
     txPacketThread(name),
     maxWindowSize(maxWindowSize),
-    isRunning(false)
+    isRunning(false),
+    rxPacketThreadReload(false)
 {
     QCC_DbgTrace(("PacketEngine::PacketEngine(%p)", this));
 
@@ -128,6 +129,7 @@ PacketEngine::PacketEngine(const qcc::String& name, uint32_t maxWindowSize) :
 PacketEngine::~PacketEngine()
 {
     QCC_DbgTrace(("~PacketEngine(%p)", this));
+    rxPacketThreadReload = true;
     Stop();
     Join();
 }
@@ -189,8 +191,12 @@ QStatus PacketEngine::RemovePacketStream(PacketStream& stream)
     map<Event*, pair<PacketStream*, PacketEngineListener*> >::iterator it = packetStreams.find(&stream.GetSourceEvent());
     if (it != packetStreams.end()) {
         packetStreams.erase(it);
+        rxPacketThreadReload = false;
         channelInfoLock.Unlock();
         rxPacketThread.Alert();
+        while (!rxPacketThreadReload) {
+            qcc::Sleep(20);
+        }
     } else {
         channelInfoLock.Unlock();
         status = ER_FAIL;
@@ -784,10 +790,12 @@ qcc::ThreadReturn STDCALL PacketEngine::RxPacketThread::Run(void* arg)
     engine = reinterpret_cast<PacketEngine*>(arg);
     vector<Event*> checkEvents, sigEvents;
     QStatus status = ER_OK;
+    Event& stopEvent = GetStopEvent();
     while (!IsStopping() && (status == ER_OK)) {
         checkEvents.clear();
         sigEvents.clear();
-        checkEvents.push_back(&GetStopEvent());
+        checkEvents.push_back(&stopEvent);
+        engine->rxPacketThreadReload = true;
         engine->channelInfoLock.Lock();
         map<Event*, pair<PacketStream*, PacketEngineListener*> >::iterator sit = engine->packetStreams.begin();
         while (sit != engine->packetStreams.end()) {
@@ -800,7 +808,6 @@ qcc::ThreadReturn STDCALL PacketEngine::RxPacketThread::Run(void* arg)
             while (!sigEvents.empty()) {
                 engine->channelInfoLock.Lock();
                 map<Event*, pair<PacketStream*, PacketEngineListener*> >::const_iterator it = engine->packetStreams.find(sigEvents.back());
-                sigEvents.pop_back();
                 if (it != engine->packetStreams.end()) {
                     PacketStream& stream = *(it->second.first);
                     PacketEngineListener& listener = *(it->second.second);
@@ -822,12 +829,12 @@ qcc::ThreadReturn STDCALL PacketEngine::RxPacketThread::Run(void* arg)
                     }
                 } else {
                     engine->channelInfoLock.Unlock();
+                    if (sigEvents.back() == &stopEvent) {
+                        GetStopEvent().ResetEvent();
+                    }
                 }
+                sigEvents.pop_back();
             }
-        }
-        if (status == ER_ALERTED_THREAD) {
-            GetStopEvent().ResetEvent();
-            status = ER_OK;
         }
     }
     if (status != ER_STOPPING_THREAD) {

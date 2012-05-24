@@ -206,20 +206,20 @@ void ICESession::ComposeAndEnqueueStunRequest(Stun* stun, Retransmit* gatherRetr
 
 void ICESession::EnqueueTurnRefresh(StunActivity* stunActivity)
 {
-    Retransmit* retransmit = stunActivity->retransmit;
+    Retransmit& retransmit = stunActivity->retransmit;
     Stun* stun = stunActivity->stun;
     StunMessage* msg;
     StunTransactionID tid;
 
-    if (!retransmit->GetTransactionID(tid) ||
-        (retransmit->GetState() == Retransmit::ReceivedAuthenticateResponse)) {
+    if (!retransmit.GetTransactionID(tid) ||
+        (retransmit.GetState() == Retransmit::ReceivedAuthenticateResponse)) {
         // First attempt (or required to use different transaction)
         msg = new StunMessage(STUN_MSG_REQUEST_CLASS,
                               STUN_MSG_REFRESH_METHOD,
                               stun->GetComponent()->GetHmacKey(),
                               stun->GetComponent()->GetHmacKeyLength());
         msg->GetTransactionID(tid);
-        retransmit->SetTransactionID(tid);
+        retransmit.SetTransactionID(tid);
     } else {
         // Retry attempt.
         msg = new StunMessage(STUN_MSG_REQUEST_CLASS,
@@ -231,7 +231,7 @@ void ICESession::EnqueueTurnRefresh(StunActivity* stunActivity)
 
     msg->AddAttribute(new StunAttributeSoftware("AllJoyn " + String(GetVersion())));
 
-    if (retransmit->GetState() == Retransmit::ReceivedAuthenticateResponse) {
+    if (retransmit.GetState() == Retransmit::ReceivedAuthenticateResponse) {
         msg->AddAttribute(new StunAttributeUsername(usernameForShortTermCredential));
 
         uint32_t requestedLifetime = TURN_PERMISSION_REFRESH_PERIOD_SECS;
@@ -296,7 +296,7 @@ void ICESession::DeterminePeerReflexiveFoundation(IPAddress addr,
 
             Component::const_iterator candidateIt;
             for (candidateIt = (*componentIt)->Begin(); candidateIt != (*componentIt)->End(); ++candidateIt) {
-                if ((*candidateIt)->GetType() == ICECandidate::PeerReflexive_Candidate &&
+                if ((*candidateIt)->GetType() == _ICECandidate::PeerReflexive_Candidate &&
                     (*candidateIt)->GetBase().addr == addr &&
                     (*candidateIt)->GetTransportProtocol() == transportProtocol) {
                     foundation = (*candidateIt)->GetFoundation();
@@ -324,7 +324,7 @@ void ICESession::AssignFoundations(void)
         ICEStream::const_iterator componentIt;
         for (componentIt = (*streamIt)->Begin(); componentIt != (*streamIt)->End(); ++componentIt) {
 
-            Component::const_iterator candidateIt;
+            Component::iterator candidateIt;
             for (candidateIt = (*componentIt)->Begin(); candidateIt != (*componentIt)->End(); ++candidateIt) {
                 candidateList.push_back((*candidateIt)->GetFoundationAttrs());
             }
@@ -360,7 +360,9 @@ void ICESession::AssignPriorities(void)
     }
 }
 
-uint32_t ICESession::AssignPriority(uint16_t componentID, ICECandidate* IceCandidate, ICECandidate::ICECandidateType candidateType,
+uint32_t ICESession::AssignPriority(uint16_t componentID,
+                                    const ICECandidate& IceCandidate,
+                                    _ICECandidate::ICECandidateType candidateType,
                                     String interfaceName)
 {
     uint16_t typePreference = 0;
@@ -368,7 +370,7 @@ uint32_t ICESession::AssignPriority(uint16_t componentID, ICECandidate* IceCandi
 
     // Set 'type' preference per draft-ietf-mmusic-ice-19 Section 4.1.2.2
     switch (candidateType) {
-    case ICECandidate::Host_Candidate:
+    case _ICECandidate::Host_Candidate:
         if (AdapterUtil::GetAdapterUtil()->IsMultihomed() &&
             AdapterUtil::GetAdapterUtil()->IsVPN(IceCandidate->GetBase().addr)) {
             typePreference = 0;
@@ -377,15 +379,15 @@ uint32_t ICESession::AssignPriority(uint16_t componentID, ICECandidate* IceCandi
         }
         break;
 
-    case ICECandidate::ServerReflexive_Candidate:
+    case _ICECandidate::ServerReflexive_Candidate:
         typePreference = 100;
         break;
 
-    case ICECandidate::Relayed_Candidate:
+    case _ICECandidate::Relayed_Candidate:
         typePreference = 0;
         break;
 
-    case ICECandidate::PeerReflexive_Candidate:
+    case _ICECandidate::PeerReflexive_Candidate:
         typePreference = 110;
         break;
 
@@ -397,7 +399,7 @@ uint32_t ICESession::AssignPriority(uint16_t componentID, ICECandidate* IceCandi
     if (!AdapterUtil::GetAdapterUtil()->IsMultihomed()) {
         localPreference = 65535;
     } else {
-        if (ICECandidate::Host_Candidate == candidateType &&
+        if (_ICECandidate::Host_Candidate == candidateType &&
             AdapterUtil::GetAdapterUtil()->IsVPN(IceCandidate->GetBase().addr)) {
             localPreference = 0;
         } else {
@@ -433,7 +435,7 @@ void ICESession::AssignPrioritiesPerICEStream(const ICEStream* stream)
     ICEStream::const_iterator componentIt;
     for (componentIt = stream->Begin(); componentIt != stream->End(); ++componentIt) {
 
-        Component::const_iterator candidateIt;
+        Component::iterator candidateIt;
         for (candidateIt = (*componentIt)->Begin(); candidateIt != (*componentIt)->End(); ++candidateIt) {
             (*candidateIt)->SetPriority(AssignPriority((*componentIt)->GetID(), *candidateIt, (*candidateIt)->GetType(), (*candidateIt)->GetInterfaceName()));
         }
@@ -539,14 +541,14 @@ QStatus ICESession::UpdateLocalICECandidates(void)
                 tempCandidate.address = endPoint.addr;
                 tempCandidate.port = endPoint.port;
 
-                if ((*candidateIt)->GetType() ==  ICECandidate::ServerReflexive_Candidate ||
-                    (*candidateIt)->GetType() ==  ICECandidate::PeerReflexive_Candidate) {
+                if ((*candidateIt)->GetType() ==  _ICECandidate::ServerReflexive_Candidate ||
+                    (*candidateIt)->GetType() ==  _ICECandidate::PeerReflexive_Candidate) {
 
                     tempCandidate.raddress = base.addr;
                     tempCandidate.rport = base.port;
                 }
 
-                if ((*candidateIt)->GetType() ==  ICECandidate::Relayed_Candidate) {
+                if ((*candidateIt)->GetType() ==  _ICECandidate::Relayed_Candidate) {
                     IPEndpoint mappedAddress = (*candidateIt)->GetMappedAddress();
                     String mappedAddressPort = U32ToString(mappedAddress.port, 10);
 
@@ -562,7 +564,7 @@ QStatus ICESession::UpdateLocalICECandidates(void)
     return status;
 }
 
-void ICESession::ComposeCandidateList(list<ICECandidate*>& composedList) const
+void ICESession::ComposeCandidateList(list<ICECandidate>& composedList) const
 {
     stream_const_iterator streamIt;
     for (streamIt = streamList.begin(); streamIt != streamList.end(); ++streamIt) {
@@ -601,7 +603,7 @@ void ICESession::StartSubsequentCheckList(ICEStream*stream)
 
 
 
-void ICESession::ComposeICEStreamCandidateList(list<ICECandidate*>& composedList) const
+void ICESession::ComposeICEStreamCandidateList(list<ICECandidate>& composedList) const
 {
     stream_const_iterator streamIt;
     size_t stream = 0;
@@ -620,7 +622,7 @@ void ICESession::ComposeICEStreamCandidateList(list<ICECandidate*>& composedList
 }
 
 
-bool compareCandidatesToEliminate(ICECandidate* first, ICECandidate* second)
+bool compareCandidatesToEliminate(const ICECandidate& first, const ICECandidate& second)
 {
     IPEndpoint firstEndPoint = first->GetEndpoint();
     IPEndpoint secondEndPoint = second->GetEndpoint();
@@ -652,22 +654,20 @@ bool compareCandidatesToEliminate(ICECandidate* first, ICECandidate* second)
 
 void ICESession::EliminateRedundantCandidates(void)
 {
-    list<ICECandidate*> composedList;
-    list<ICECandidate*>::iterator iter;
+    list<ICECandidate> composedList;
+    list<ICECandidate>::iterator iter;
 
     ComposeCandidateList(composedList);
     composedList.sort(compareCandidatesToEliminate);
-    ICECandidate* prev = NULL;
+    ICECandidate prev;
 
     for (iter = composedList.begin(); iter != composedList.end(); ++iter) {
-        if (prev == NULL) {
+        if (prev->GetType() == _ICECandidate::Invalid_Candidate) {
             prev = *iter;
             continue;
         }
 
-        if ((prev->GetEndpoint() == (*iter)->GetEndpoint())  &&
-            (prev->GetBase() == (*iter)->GetBase())) {
-
+        if ((prev->GetEndpoint() == (*iter)->GetEndpoint()) && (prev->GetBase() == (*iter)->GetBase())) {
             Component*component = (*iter)->GetComponent();
             // This is guaranteed to be the lower priority candidate
             component->RemoveCandidate(*iter);
@@ -696,25 +696,25 @@ bool ICESession::RelayedCandidateActivityIsStale(StunActivity* stunActivity)
 {
     bool isStale = false;
 
-    Retransmit::RetransmitState retryState = stunActivity->retransmit->GetState();
+    Retransmit::RetransmitState retryState = stunActivity->retransmit.GetState();
 
     switch (retryState) {
     case Retransmit::ReceivedAuthenticateResponse:
         // Server has responded to previous request with a challenge for credentials,
         // so arrange for this to appear first in sorted list.
-        stunActivity->retransmit->PrematurelyAge();
+        stunActivity->retransmit.PrematurelyAge();
 
         // This will also refresh NAT bindings..
         isStale = true;
         break;
 
     case Retransmit::AwaitingResponse:
-        if (stunActivity->retransmit->RetryTimedOut()) {
-            if (stunActivity->retransmit->RetryAvailable()) {
+        if (stunActivity->retransmit.RetryTimedOut()) {
+            if (stunActivity->retransmit.RetryAvailable()) {
                 isStale = true;
             } else {
                 // All retry attempts failed.
-                stunActivity->retransmit->SetState(Retransmit::NoResponseToAllRetries);
+                stunActivity->retransmit.SetState(Retransmit::NoResponseToAllRetries);
             }
         }
         break;
@@ -726,7 +726,7 @@ bool ICESession::RelayedCandidateActivityIsStale(StunActivity* stunActivity)
         // Time for next keepalive?
 
         // How long ago did we refresh?
-        uint32_t ageMsecs = stunActivity->retransmit->GetAwaitingTransmitTimeMsecs();
+        uint32_t ageMsecs = stunActivity->retransmit.GetAwaitingTransmitTimeMsecs();
         // How long were we given to live?
         uint32_t refreshAgeSecs =
             (stunActivity == stunActivity->candidate->GetPermissionStunActivity()) ?
@@ -750,8 +750,8 @@ bool ICESession::RelayedCandidateActivityIsStale(StunActivity* stunActivity)
 bool compareStunActivitiesByTime(StunActivity* first, StunActivity* second)
 {
     // longer wait is higher priority
-    return (first->retransmit->GetAwaitingTransmitTimeMsecs() >
-            second->retransmit->GetAwaitingTransmitTimeMsecs());
+    return (first->retransmit.GetAwaitingTransmitTimeMsecs() >
+            second->retransmit.GetAwaitingTransmitTimeMsecs());
 }
 
 
@@ -776,7 +776,7 @@ void ICESession::GetAllReadyStunActivities(list<StunActivity*>& foundList)
             list<StunActivity*>::const_iterator stunActivityIt;
             for (stunActivityIt = stunActivityList->begin(); stunActivityIt != stunActivityList->end(); ++stunActivityIt) {
                 switch ((*stunActivityIt)->candidate->GetType()) {
-                case ICECandidate::Relayed_Candidate:
+                case _ICECandidate::Relayed_Candidate:
                 {
                     // Once gathered, any relayed candidate must be periodically refreshed.
                     if (RelayedCandidateActivityIsStale(*stunActivityIt)) {
@@ -785,8 +785,8 @@ void ICESession::GetAllReadyStunActivities(list<StunActivity*>& foundList)
                     break;
                 }
 
-                case ICECandidate::ServerReflexive_Candidate:
-                case ICECandidate::PeerReflexive_Candidate:
+                case _ICECandidate::ServerReflexive_Candidate:
+                case _ICECandidate::PeerReflexive_Candidate:
                 {
                     // During and after gathering phase, the NAT bindings for each reflexive
                     // candidate are 'kept-alive' by sending a periodic Binding Indication.
@@ -795,18 +795,18 @@ void ICESession::GetAllReadyStunActivities(list<StunActivity*>& foundList)
                     // We do not timeout on a response.
                     // ToDo: the retransmit timestamp should be updated each time the application sends
                     // via the Stun object, probably in ice_SpliceSend (or the equivalent...)
-                    if ((*stunActivityIt)->retransmit->GetAwaitingTransmitTimeMsecs() >
+                    if ((*stunActivityIt)->retransmit.GetAwaitingTransmitTimeMsecs() >
                         STUN_KEEP_ALIVE_INTERVAL_IN_MILLISECS) {
                         foundList.push_back(*stunActivityIt);
                     }
                     break;
                 }
 
-                case ICECandidate::Host_Candidate:
+                case _ICECandidate::Host_Candidate:
                 {
-                    Retransmit* retransmit = (*stunActivityIt)->retransmit;
+                    Retransmit& retransmit = (*stunActivityIt)->retransmit;
 
-                    switch (retransmit->GetState()) {
+                    switch (retransmit.GetState()) {
                     case Retransmit::AwaitingTransmitSlot:
                     case Retransmit::ReceivedAuthenticateResponse:
                         foundList.push_back(*stunActivityIt);
@@ -815,15 +815,15 @@ void ICESession::GetAllReadyStunActivities(list<StunActivity*>& foundList)
 
                     case Retransmit::AwaitingResponse:
                         // see if we have timed out
-                        if (retransmit->RetryTimedOut()) {
+                        if (retransmit.RetryTimedOut()) {
                             //verify that we have not exceeded retries
-                            if (retransmit->AnyRetriesNotSent()) {
-                                retransmit->SetState(Retransmit::AwaitingTransmitSlot);
+                            if (retransmit.AnyRetriesNotSent()) {
+                                retransmit.SetState(Retransmit::AwaitingTransmitSlot);
                                 foundList.push_back(*stunActivityIt);
                                 allCandidatesGathered = false;
                             } else {
                                 // We are done with attempting to reach the server on this candidate.
-                                retransmit->SetState(Retransmit::NoResponseToAllRetries);
+                                retransmit.SetState(Retransmit::NoResponseToAllRetries);
 #ifdef AGGRESSIVE_FAIL_GATHERING
                                 anyCandidatesFailedRetries = true;
                                 SetErrorCode(ER_ICE_SERVER_NO_RESPONSE);
@@ -837,7 +837,7 @@ void ICESession::GetAllReadyStunActivities(list<StunActivity*>& foundList)
 
                     case Retransmit::ReceivedErrorResponse:
                         errorFound = true;
-                        SetErrorCode(retransmit->GetErrorCode());
+                        SetErrorCode(retransmit.GetErrorCode());
                         break;
 
                     case Retransmit::NoResponseToAllRetries:
@@ -860,7 +860,7 @@ void ICESession::GetAllReadyStunActivities(list<StunActivity*>& foundList)
                     break;
                 }
 
-                case ICECandidate::Invalid_Candidate:
+                case _ICECandidate::Invalid_Candidate:
                 default:
                     break;
                 }
@@ -920,31 +920,31 @@ void ICESession::FindPendingWork(void)
         stunReadyList.pop_front();
 
         switch (nextStunActivity->candidate->GetType()) {
-        case ICECandidate::Host_Candidate:
+        case _ICECandidate::Host_Candidate:
             // Queue it for transmit/retransmit.
             // (We have already verified that we will not exceed retries.)
-            ComposeAndEnqueueStunRequest(nextStunActivity->stun, nextStunActivity->retransmit);
+            ComposeAndEnqueueStunRequest(nextStunActivity->stun, &nextStunActivity->retransmit);
 
             // Update its time stamp and set state to awaiting response
-            nextStunActivity->retransmit->IncrementAttempts();
+            nextStunActivity->retransmit.IncrementAttempts();
             break;
 
-        case ICECandidate::ServerReflexive_Candidate:
-        case ICECandidate::PeerReflexive_Candidate:
+        case _ICECandidate::ServerReflexive_Candidate:
+        case _ICECandidate::PeerReflexive_Candidate:
         {
             // Queue it for transmit only. Because this is an
             // Indication there is no retransmit on timeout.
-            IPEndpoint destination = nextStunActivity->candidate->GetType() == ICECandidate::ServerReflexive_Candidate ?
+            IPEndpoint destination = nextStunActivity->candidate->GetType() == _ICECandidate::ServerReflexive_Candidate ?
                                      StunServer :
                                      StunServer;                                         //ToDo use peer-reflexive address
             ComposeAndEnqueueNATKeepalive(nextStunActivity->stun, destination);
 
             // Update its time stamp.
-            nextStunActivity->retransmit->IncrementAttempts();
+            nextStunActivity->retransmit.IncrementAttempts();
             break;
         }
 
-        case ICECandidate::Relayed_Candidate:
+        case _ICECandidate::Relayed_Candidate:
         {
             // Queue it for transmit/retransmit.
             // (We have already verified that we will not exceed retries.)
@@ -956,11 +956,11 @@ void ICESession::FindPendingWork(void)
             }
 
             // Update its time stamp and set state to awaiting response
-            nextStunActivity->retransmit->IncrementAttempts();
+            nextStunActivity->retransmit.IncrementAttempts();
             break;
         }
 
-        case ICECandidate::Invalid_Candidate:
+        case _ICECandidate::Invalid_Candidate:
         default:
             break;
         }
@@ -1147,6 +1147,8 @@ QStatus ICESession::StartChecks(list<ICECandidates>& peerCandidates, String ice_
         // destination for each component of that stream appears in a candidate attribute.)
 
         status = FormCheckLists(peerCandidates, ice_frag, ice_pwd);
+    } else {
+        QCC_LogError(status, ("StartChecks called with bad ICESessionState=%d", sessionState));
     }
 
     lock.Unlock();
@@ -1165,6 +1167,8 @@ QStatus ICESession::StartChecks(list<ICECandidates>& peerCandidates, String ice_
 
 QStatus ICESession::FormCheckLists(list<ICECandidates>& peerCandidates, String ice_frag, String ice_pwd)
 {
+    QCC_DbgTrace(("ICESession::FormCheckLists(%p, ice_frag=%s, ice_pwd=%s", this, ice_frag.c_str(), ice_pwd.c_str()));
+
     QStatus status = ER_OK;
 
     localInitiatedCheckUsername = ice_frag + ":" + ufrag;
@@ -1182,8 +1186,8 @@ QStatus ICESession::FormCheckLists(list<ICECandidates>& peerCandidates, String i
     // Now get the real key ...
     stunCredential.GetKey(remoteShortTermHmacKey, hmacKeyLen);
 
-    list<ICECandidate*> localICEStreamCandidates;
-    list<ICECandidate*>::iterator localCandidatesIter;
+    list<ICECandidate> localICEStreamCandidates;
+    list<ICECandidate>::iterator localCandidatesIter;
 
     // Get our local candidates
     ComposeICEStreamCandidateList(localICEStreamCandidates);
@@ -1195,48 +1199,52 @@ QStatus ICESession::FormCheckLists(list<ICECandidates>& peerCandidates, String i
         IPEndpoint remoteEndPoint;
         remoteEndPoint.addr = remoteIPAddress;
         remoteEndPoint.port = peerCandidates.front().port;
-        ICECandidate::ICECandidateType remoteCandidateType = (ICECandidate::ICECandidateType)peerCandidates.front().type;
+        _ICECandidate::ICECandidateType remoteCandidateType = (_ICECandidate::ICECandidateType)peerCandidates.front().type;
         String remoteFoundation = peerCandidates.front().foundation;
         ComponentID remoteComponentID = peerCandidates.front().componentID;
-        ICECandidate* remoteCandidate = NULL;
+        ICECandidate remoteCandidate;
 
 
         for (localCandidatesIter = localICEStreamCandidates.begin();
              localCandidatesIter != localICEStreamCandidates.end();
              localCandidatesIter++) {
-            if ((*localCandidatesIter)->GetComponent()->GetID() == remoteComponentID &&
-                ((*localCandidatesIter)->GetEndpoint().addr.IsIPv4() == remoteIPAddress.IsIPv4() ||
-                 (*localCandidatesIter)->GetEndpoint().addr.IsIPv6() == remoteIPAddress.IsIPv6())) {
+            ICECandidate& localCandidate = *localCandidatesIter;
+            if (localCandidate->GetComponent()->GetID() == remoteComponentID &&
+                (localCandidate->GetEndpoint().addr.IsIPv4() == remoteIPAddress.IsIPv4() ||
+                 localCandidate->GetEndpoint().addr.IsIPv6() == remoteIPAddress.IsIPv6())) {
 
                 // Now that we know the local component, create the remote candidate object
-                if (NULL == remoteCandidate) {
-                    remoteCandidate = new ICECandidate(remoteCandidateType, remoteEndPoint,
-                                                       (*localCandidatesIter)->GetComponent(),
-                                                       remoteTransportProtocol,
-                                                       remotePriority, remoteFoundation);
+                if (remoteCandidate->GetType() == _ICECandidate::Invalid_Candidate) {
+                    Component* component = localCandidate->GetComponent();
+                    remoteCandidate = ICECandidate(remoteCandidateType,
+                                                   remoteEndPoint,
+                                                   component,
+                                                   remoteTransportProtocol,
+                                                   remotePriority,
+                                                   remoteFoundation);
 
                     streamList[0]->AddRemoteCandidate(remoteCandidate);
                 }
 
                 // Pair remote candidate with local
                 // Identify default candidate pair
-                bool isDefaultPair = ((*localCandidatesIter) == (*localCandidatesIter)->GetComponent()->GetDefaultCandidate());
+                bool isDefaultPair = localCandidate == localCandidate->GetComponent()->GetDefaultCandidate();
 
                 // Compute pair priority
-                uint64_t pairPriority = ComputePairPriority(isControllingAgent, (*localCandidatesIter)->GetPriority(), remotePriority);
-                ICECandidatePair* pair = new ICECandidatePair(*(*localCandidatesIter), *remoteCandidate, isDefaultPair, pairPriority);
+                uint64_t pairPriority = ComputePairPriority(isControllingAgent, localCandidate->GetPriority(), remotePriority);
+                ICECandidatePair* pair = new ICECandidatePair(localCandidate, remoteCandidate, isDefaultPair, pairPriority);
 
                 uint64_t controlTieBreaker = 0;
                 Crypto_GetRandomBytes(reinterpret_cast<uint8_t*>(&controlTieBreaker), sizeof(controlTieBreaker));
 
-                uint32_t bindRequestPriority = AssignPriority((*localCandidatesIter)->GetComponent()->GetID(), *localCandidatesIter, ICECandidate::PeerReflexive_Candidate, (*localCandidatesIter)->GetInterfaceName());
+                uint32_t bindRequestPriority = AssignPriority(localCandidate->GetComponent()->GetID(), localCandidate, _ICECandidate::PeerReflexive_Candidate, localCandidate->GetInterfaceName());
                 status = pair->InitChecker(controlTieBreaker, useAggressiveNomination, bindRequestPriority);
                 if (ER_OK != status) {
                     delete pair;
                     goto exit;
                 }
 
-                (*localCandidatesIter)->GetComponent()->GetICEStream()->AddCandidatePair(pair);
+                localCandidate->GetComponent()->GetICEStream()->AddCandidatePair(pair);
             }
         }
 
@@ -1262,24 +1270,24 @@ exit:
 }
 
 
-void ICESession::EnqueueTurnCreatePermissions(ICECandidate* candidate)
+void ICESession::EnqueueTurnCreatePermissions(ICECandidate& candidate)
 {
     // For the TURN allocation associated with this local candidate,
     // compose one CreatePermission request for all remote candidates
     Stun* stun = candidate->GetStunActivity()->stun;
-    Retransmit* retransmit = candidate->GetPermissionStunActivity()->retransmit;
+    Retransmit& retransmit = candidate->GetPermissionStunActivity()->retransmit;
     StunTransactionID tid;
     StunMessage* msg;
 
-    if (!retransmit->GetTransactionID(tid)) {
-        QCC_DbgPrintf(("!retransmit->GetTransactionID(tid) = %d (retransmit->GetState() == Retransmit::ReceivedAuthenticateResponse) = %d", !retransmit->GetTransactionID(tid), (retransmit->GetState() == Retransmit::ReceivedAuthenticateResponse)));
+    if (!retransmit.GetTransactionID(tid)) {
+        QCC_DbgPrintf(("!retransmit.GetTransactionID(tid) = %d (retransmit.GetState() == Retransmit::ReceivedAuthenticateResponse) = %d", !retransmit.GetTransactionID(tid), (retransmit.GetState() == Retransmit::ReceivedAuthenticateResponse)));
         // First attempt (or required to use different transaction)
         msg = new StunMessage(STUN_MSG_REQUEST_CLASS,
                               STUN_MSG_CREATE_PERMISSION_METHOD,
                               stun->GetComponent()->GetHmacKey(),
                               stun->GetComponent()->GetHmacKeyLength());
         msg->GetTransactionID(tid);
-        retransmit->SetTransactionID(tid);
+        retransmit.SetTransactionID(tid);
     } else {
         // Retry attempt. Use same tid.
         msg = new StunMessage(STUN_MSG_REQUEST_CLASS,
@@ -1320,9 +1328,9 @@ void ICESession::SetTurnPermissions(void)
     for (streamIt = Begin(); streamIt != End(); ++streamIt) {
         ICEStream::const_iterator componentIt;
         for (componentIt = (*streamIt)->Begin(); componentIt != (*streamIt)->End(); ++componentIt) {
-            Component::const_iterator candidateIt;
+            Component::iterator candidateIt;
             for (candidateIt = (*componentIt)->Begin(); candidateIt != (*componentIt)->End(); ++candidateIt) {
-                if ((*candidateIt)->GetType() == ICECandidate::Relayed_Candidate) {
+                if ((*candidateIt)->GetType() == _ICECandidate::Relayed_Candidate) {
                     EnqueueTurnCreatePermissions(*candidateIt);
                 }
             }
@@ -1413,12 +1421,11 @@ void ICESession::UpdateICEStreamStates(void)
 
                     // Prepare for media on the local stun object. Configure
                     // the stun object (previously potentially shared by candidates).
-                    bool usingTurn = (selectedPair->local.GetType() == ICECandidate::Relayed_Candidate);
-                    selectedPair->local.GetStunActivity()->stun->Connect(
-                        selectedPair->remote.GetEndpoint().addr,
-                        selectedPair->remote.GetEndpoint().port,
+                    bool usingTurn = (selectedPair->local->GetType() == _ICECandidate::Relayed_Candidate);
+                    selectedPair->local->GetStunActivity()->stun->Connect(
+                        selectedPair->remote->GetEndpoint().addr,
+                        selectedPair->remote->GetEndpoint().port,
                         usingTurn);
-
                 } else {
                     QCC_LogError(status, ("GetSelectedCandidatePair failed."));
                     break;
@@ -1581,8 +1588,10 @@ void ICESession::GetSelectedCandidatePairList(vector<ICECandidatePair*>& selecte
     vector<ICECandidatePair*>::iterator iter;
     for (iter = selectedCandidatePairList.begin(); iter != selectedCandidatePairList.end(); ++iter) {
         QCC_DbgPrintf(("SelectedPair: local %s:%d remote %s:%d",
-                       (*iter)->local.GetEndpoint().addr.ToString().c_str(), (*iter)->local.GetEndpoint().port,
-                       (*iter)->remote.GetEndpoint().addr.ToString().c_str(), (*iter)->remote.GetEndpoint().port));
+                       (*iter)->local->GetEndpoint().addr.ToString().c_str(),
+                       (*iter)->local->GetEndpoint().port,
+                       (*iter)->remote->GetEndpoint().addr.ToString().c_str(),
+                       (*iter)->remote->GetEndpoint().port));
     }
 
 }

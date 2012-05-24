@@ -60,7 +60,7 @@ class ICECandidatePair {
         CheckResponseSent
     } CheckStatus;
 
-    String CheckStatusToString(CheckStatus status);
+    String CheckStatusToString(const CheckStatus status) const;
 
 
     /**
@@ -69,15 +69,7 @@ class ICECandidatePair {
      * @param local     Local candidate used in pair.
      * @param remote    Remote candidate used in pair.
      */
-    ICECandidatePair(const ICECandidate& local, const ICECandidate& remote, bool isDefault, uint64_t priority) :
-        local(local), remote(remote), state(Frozen), isValid(false), checkRetry(),
-        canceledRetry(), priority(priority),
-        isDefault(isDefault), isNominated(false), isNominatedContingent(false), foundation(),
-        useAggressiveNomination(), regularlyNominated(), controlTieBreaker(),
-        bindRequestPriority(), isTriggered() {
-        // the colon disambiguates "12" + "345" from "123" + "45"
-        foundation = local.GetFoundation() + ":" + remote.GetFoundation();
-    }
+    ICECandidatePair(const ICECandidate& local, const ICECandidate& remote, bool isDefault, uint64_t priority);
 
     ~ICECandidatePair(void);
 
@@ -135,10 +127,10 @@ class ICECandidatePair {
 
 
     /** Local ICECandidate */
-    const ICECandidate& local;
+    const ICECandidate local;
 
     /** Remote ICECandidate */
-    const ICECandidate& remote;
+    const ICECandidate remote;
 
     /** Connection check state for this ICECandidatePair */
     ICEPairConnectionState state;

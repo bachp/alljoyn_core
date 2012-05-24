@@ -91,25 +91,7 @@ Stun::Stun(SocketType type,
 Stun::~Stun(void)
 {
     QCC_DbgTrace(("Stun::~Stun(%p)", this));
-    if (opened) {
-        Shutdown();
-    }
-
-    if (SOCKET_ERROR != sockfd) {
-        Close();
-    }
-
-    while (stunMsgQueue.size() > 0) {
-        StunBuffer sb(stunMsgQueue.front());
-        delete[] sb.storage;
-        stunMsgQueue.pop();
-    }
-
-    while (appQueue.size() > 0) {
-        StunBuffer sb(appQueue.front());
-        delete[] sb.storage;
-        appQueue.pop();
-    }
+    ReleaseFD(true);
 }
 
 
@@ -1606,6 +1588,32 @@ QStatus Stun::AppRecvSG(ScatterGatherList& sg, size_t& received)
 
 exit:
     return status;
+}
+
+void Stun::ReleaseFD(bool close)
+{
+    QCC_DbgTrace(("Stun::ReleaseFD(close = %d)", close));
+    if (opened) {
+        Shutdown();
+    }
+
+    if (close && (sockfd != SOCKET_ERROR)) {
+        Close();
+    }
+
+    sockfd = SOCKET_ERROR;
+
+    while (stunMsgQueue.size() > 0) {
+        StunBuffer sb(stunMsgQueue.front());
+        delete[] sb.storage;
+        stunMsgQueue.pop();
+    }
+
+    while (appQueue.size() > 0) {
+        StunBuffer sb(appQueue.front());
+        delete[] sb.storage;
+        appQueue.pop();
+    }
 }
 
 } //namespace ajn

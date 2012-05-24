@@ -22,13 +22,15 @@
 #ifndef _ICECANDIDATE_H
 #define _ICECANDIDATE_H
 
+#include <qcc/platform.h>
+
 #include <string>
 #include <qcc/IPAddress.h>
 #include <qcc/SocketTypes.h>
 #include <qcc/Config.h>
 #include <qcc/Thread.h>
+#include <qcc/ManagedObj.h>
 #include <Stun.h>
-#include "StunActivity.h"
 
 using namespace std;
 using namespace qcc;
@@ -37,19 +39,23 @@ namespace ajn {
 
 // forward declarations
 class Component;
-class ICECandidate;
+class _ICECandidate;
 class ICECandidatePair;
+class StunActivity;
+
+// Types
+typedef qcc::ManagedObj<_ICECandidate>  ICECandidate;
 
 class FoundationAttrs {
   public:
-    ICECandidate* IceCandidate;
+    ICECandidate IceCandidate;
     uint16_t candidateType;
     IPAddress baseAddr;
     IPAddress serverAddr;
     SocketType transportProtocol;
 
     FoundationAttrs(
-        ICECandidate* IceCandidate,
+        const ICECandidate& IceCandidate,
         uint16_t candidateType,
         IPAddress baseAddr,
         IPAddress serverAddr,
@@ -89,7 +95,7 @@ class FoundationAttrs {
  * ICECandidate is a local or remote address and port that is a potential point
  * of contact for receipt of media.
  */
-class ICECandidate {
+class _ICECandidate {
   public:
     /** Candidate Type */
     /*  Important! Do not change the order of these enumerations. Used in
@@ -130,21 +136,22 @@ class ICECandidate {
      */
 
     // Local Host/Server-Reflexive/Peer-Reflexive
-    ICECandidate(ICECandidate::ICECandidateType type, IPEndpoint endPoint, IPEndpoint base, Component* component, SocketType transportProtocol, StunActivity* stunActivity, String interfaceName);
+    _ICECandidate(_ICECandidate::ICECandidateType type, IPEndpoint endPoint, IPEndpoint base, Component* component, SocketType transportProtocol, StunActivity* stunActivity, String interfaceName);
 
     // Local Relayed Candidate
-    ICECandidate(IPEndpoint endPoint, IPEndpoint base, IPEndpoint mappedAddress, uint32_t grantedAllocationLifetimeSecs,
-                 Component* component, SocketType transportProtocol, StunActivity* stunActivity, StunActivity* permissionStunActivity);
+    _ICECandidate(IPEndpoint endPoint, IPEndpoint base, IPEndpoint mappedAddress, uint32_t grantedAllocationLifetimeSecs,
+                  Component* component, SocketType transportProtocol, StunActivity* stunActivity, StunActivity* permissionStunActivity);
 
     // Remote Candidate
-    ICECandidate(ICECandidate::ICECandidateType type, IPEndpoint endPoint, Component* component, SocketType transportProtocol, uint32_t priority, String foundation);
+    _ICECandidate(_ICECandidate::ICECandidateType type, IPEndpoint endPoint, Component* component, SocketType transportProtocol, uint32_t priority, String foundation);
 
 
-    ~ICECandidate(void);
+    // Default Candidate
+    _ICECandidate();
 
-    void IncRef();
+    ~_ICECandidate(void);
 
-    void DecRef();
+    bool operator==(const _ICECandidate& other) const { return this == &other; }
 
     Component* GetComponent(void) const { return component; }
 
@@ -169,15 +176,16 @@ class ICECandidate {
     IPEndpoint GetBase(void) const { return base; }
     IPEndpoint GetMappedAddress(void) const { return mappedAddress; }
 
-    IPAddress GetServer(void) const { return stunActivity->stun->GetSTUNServerInfo().address; }
+    IPAddress GetServer(void) const;
 
-    String GetTURNUserName(void) const { return stunActivity->stun->GetSTUNServerInfo().acct; }
+    String GetTURNUserName(void) const;
 
     SocketType GetTransportProtocol(void) const { return transportProtocol; }
 
     FoundationAttrs* GetFoundationAttrs(void)
     {
-        return new FoundationAttrs(this, (uint16_t)GetType(), GetBase().addr, GetServer(), GetTransportProtocol());
+        ICECandidate candidate(this);
+        return new FoundationAttrs(candidate, (uint16_t)GetType(), GetBase().addr, GetServer(), GetTransportProtocol());
     }
 
     StunActivity* GetStunActivity(void) const { return stunActivity; }
@@ -227,20 +235,25 @@ class ICECandidate {
 
     ICECandidate* sharedStunRelayedCandidate;
     ICECandidate* sharedStunServerReflexiveCandidate;
-    ICECandidate* sharedStunPeerReflexiveCandidate;
 
     Thread* listenerThread;
 
     int32_t refs;
+
+    /* Private copy constructor */
+    _ICECandidate(const _ICECandidate& other);
+
+    /* Private assignment operator */
+    const _ICECandidate& operator=(const _ICECandidate& other);
 
     // The following methods only used by a Host_Candidate
     void AwaitRequestsAndResponses(void);
 
     static ThreadReturn STDCALL ListenerThreadStub(void* pThis)
     {
-        ICECandidate* candidate = (ICECandidate*)pThis;
-        candidate->AwaitRequestsAndResponses();
-
+        ICECandidate* candidate = (ICECandidate*) pThis;
+        (*candidate)->AwaitRequestsAndResponses();
+        delete candidate;
         return 0;
     }
 

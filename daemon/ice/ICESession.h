@@ -379,9 +379,9 @@ class ICESession {
 
     void GetAllReadyStunActivities(list<StunActivity*>& foundList);
 
-    void ComposeCandidateList(list<ICECandidate*>& composedList) const;
+    void ComposeCandidateList(list<ICECandidate>& composedList) const;
 
-    void ComposeICEStreamCandidateList(list<ICECandidate*>& composedList) const;
+    void ComposeICEStreamCandidateList(list<ICECandidate>& composedList) const;
 
     void EliminateRedundantCandidates();
 
@@ -391,7 +391,7 @@ class ICESession {
 
     void AssignPriorities(void);
 
-    uint32_t AssignPriority(uint16_t componentID, ICECandidate* IceCandidate, ICECandidate::ICECandidateType candidateType, String interfaceName);
+    uint32_t AssignPriority(uint16_t componentID, const ICECandidate& IceCandidate, _ICECandidate::ICECandidateType candidateType, String interfaceName);
 
     void AssignPrioritiesPerICEStream(const ICEStream* stream);
 
@@ -432,7 +432,7 @@ class ICESession {
 
     void EnqueueTurnRefresh(StunActivity* stunActivity);
 
-    void EnqueueTurnCreatePermissions(ICECandidate* candidate);
+    void EnqueueTurnCreatePermissions(ICECandidate& candidate);
 
     QStatus DeallocateTurn(Stun* stun);
 

@@ -288,9 +288,18 @@ class Stun {
     SocketFd GetSocketFD(void) { return sockfd; }
 
     /// FIXME: This should be made more generic and return a void * to user data.
-    Component*GetComponent(void) const { return component; }
+    Component* GetComponent(void) const { return component; }
 
     SocketType GetSocketType(void) const { return type; }
+
+    /**
+     * This releases the Stun objects control of the underlying file
+     * descriptor.  Callers are expected to have called GetSocketFD() before
+     * hand and are responsible for closing the socket except if close is set
+     * to true, in which case the socke will be closed as well.  Once this is
+     * called, this object is for all intents and purposes dead.
+     */
+    void ReleaseFD(bool close = false);
 
     /**
      * Return the Remote Host Address of the STUN connection

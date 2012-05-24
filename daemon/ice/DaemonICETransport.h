@@ -104,7 +104,7 @@ class PeerCandidateListenerImpl : public PeerCandidateListener {
 
     PeerCandidateListenerImpl() : waitEvent(), ice_frag(), ice_pwd() { }
 
-    void SetPeerCandiates(list<ICECandidates>& candidates, String frag, String pwd)
+    void SetPeerCandiates(list<ICECandidates>& candidates, const String& frag, const String& pwd)
     {
         peerCandidates = candidates;
         ice_frag = frag;

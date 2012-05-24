@@ -21,27 +21,26 @@
  *    limitations under the License.
  ******************************************************************************/
 
+#include <qcc/platform.h>
+
 #include <StunRetry.h>
+#include <ICECandidate.h>
 
 /** @internal */
 #define QCC_MODULE "STUNACTIVITY"
 
 namespace ajn {
 
-// Forward Declaration
-class ICECandidate;
-
 struct StunActivity {
-    StunActivity(Stun* stun) :
-        stun(stun),
-        candidate(NULL),
-        retransmit(NULL)
-    { }
 
-    void SetCandidate(ICECandidate* candidate);
+    StunActivity(Stun* stun);
+
+    ~StunActivity();
+
+    void SetCandidate(const ICECandidate& candidate);
 
     Stun* stun;
-    ICECandidate* candidate;
+    ICECandidate candidate;
     Retransmit* retransmit;   // Used by host candidate during gathering to bind/allocate
                               // from STUN/TURN server.
                               // Used by reflexive candidate just to keep time of last indication.

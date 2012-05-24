@@ -41,8 +41,7 @@ class PeerCandidateListener {
     /**
      * Notify listener that Peer candidates are available
      */
-
-    virtual void SetPeerCandiates(list<ICECandidates>& candidates, String frag, String pwd) = 0;
+    virtual void SetPeerCandiates(list<ICECandidates>& candidates, const String& frag, const String& pwd) = 0;
 };
 
 } //namespace ajn
