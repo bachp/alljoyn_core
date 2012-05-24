@@ -67,7 +67,7 @@ class Component {
         stunActivityList(),
         candidateList(),
         af(af),
-        defaultCandidate(NULL),
+        defaultCandidate(),
         selectedPair(NULL),
         socketType(qcc::QCC_SOCK_DGRAM),
         hasValidPair(false),
@@ -79,11 +79,11 @@ class Component {
 
     QStatus AddStun(const qcc::IPAddress& address, uint16_t& port, Stun*& stun);
 
-    QStatus AddCandidate(ICECandidate* candidate);
+    QStatus AddCandidate(const ICECandidate& candidate);
 
     QStatus CreateHostCandidate(qcc::SocketType socketType, const qcc::IPAddress& addr, uint16_t port, qcc::String interfaceName);
 
-    QStatus RemoveCandidate(ICECandidate* candidate);
+    QStatus RemoveCandidate(ICECandidate& candidate);
 
     uint16_t GetId(void) { return id; }
 
@@ -93,12 +93,14 @@ class Component {
     }
 
     /// const_iterator typedef.
-    typedef list<ICECandidate*>::const_iterator const_iterator;
-    typedef list<ICECandidate*>::iterator iterator;
+    typedef list<ICECandidate>::const_iterator const_iterator;
+    typedef list<ICECandidate>::iterator iterator;
 
     const_iterator Begin(void) const { return candidateList.begin(); }
     const_iterator End(void) const { return candidateList.end(); }
 
+    iterator Begin(void) { return candidateList.begin(); }
+    iterator End(void) { return candidateList.end(); }
 
     typedef list<ICECandidatePair*>::const_iterator const_iterator_validList;
 
@@ -138,9 +140,9 @@ class Component {
 
     ComponentID GetID(void) const { return id; }
 
-    ICECandidate* GetDefaultCandidate(void) const { return defaultCandidate; }
+    ICECandidate GetDefaultCandidate(void) const { return defaultCandidate; }
 
-    void AssignDefaultCandidate(ICECandidate* candidate);
+    void AssignDefaultCandidate(const ICECandidate& candidate);
 
     qcc::SocketType GetSocketType(void) const { return socketType; }
 
@@ -166,11 +168,11 @@ class Component {
 
     list<StunActivity*> stunActivityList;
 
-    list<ICECandidate*> candidateList;
+    list<ICECandidate> candidateList;
 
     qcc::AddressFamily af;
 
-    ICECandidate* defaultCandidate;
+    ICECandidate defaultCandidate;
 
     ICECandidatePair* selectedPair; ///< Highest priority nominated pair in 'valid' list
                                     //   if checkListState is 'Completed'

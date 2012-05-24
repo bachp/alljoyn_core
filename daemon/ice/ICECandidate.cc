@@ -39,46 +39,118 @@ using namespace qcc;
 
 namespace ajn {
 
-ICECandidate::ICECandidate(ICECandidate::ICECandidateType type, IPEndpoint endPoint, IPEndpoint base, Component* component, SocketType transportProtocol, StunActivity* stunActivity,
-                           String interfaceName)
-    : type(type), priority(), endPoint(endPoint), base(base), mappedAddress(), grantedAllocationLifetimeSecs(),
-    foundation(), component(component), transportProtocol(transportProtocol), stunActivity(stunActivity),
-    permissionStunActivity(), terminating(false), sharedStunRelayedCandidate(), sharedStunServerReflexiveCandidate(),
-    sharedStunPeerReflexiveCandidate(), listenerThread(NULL), refs(0), InterfaceName(interfaceName)
+_ICECandidate::_ICECandidate(_ICECandidate::ICECandidateType type,
+                             IPEndpoint endPoint,
+                             IPEndpoint base,
+                             Component* component,
+                             SocketType transportProtocol,
+                             StunActivity* stunActivity,
+                             String interfaceName) :
+    type(type),
+    priority(),
+    endPoint(endPoint),
+    base(base),
+    mappedAddress(),
+    grantedAllocationLifetimeSecs(),
+    foundation(),
+    component(component),
+    transportProtocol(transportProtocol),
+    stunActivity(stunActivity),
+    permissionStunActivity(),
+    terminating(false),
+    sharedStunRelayedCandidate(NULL),
+    sharedStunServerReflexiveCandidate(NULL),
+    listenerThread(NULL),
+    refs(0),
+    InterfaceName(interfaceName)
 {
     QCC_DbgTrace(("ICECandidate::ICECandidate1(%p, type=%d)", this, type));
-    stunActivity->SetCandidate(this);
+    stunActivity->SetCandidate(ICECandidate(this));
 }
 
-ICECandidate::ICECandidate(IPEndpoint endPoint, IPEndpoint base, IPEndpoint mappedAddress, uint32_t grantedAllocationLifetimeSecs,
-                           Component* component, SocketType transportProtocol, StunActivity* stunActivity, StunActivity* permissionStunActivity)
-    : type(ICECandidate::Relayed_Candidate), priority(), endPoint(endPoint), base(base), mappedAddress(mappedAddress),
-    grantedAllocationLifetimeSecs(grantedAllocationLifetimeSecs), foundation(), component(component), transportProtocol(transportProtocol),
-    stunActivity(stunActivity), permissionStunActivity(permissionStunActivity),
-    terminating(false), sharedStunRelayedCandidate(), sharedStunServerReflexiveCandidate(), sharedStunPeerReflexiveCandidate(), listenerThread(NULL)
+_ICECandidate::_ICECandidate(IPEndpoint endPoint,
+                             IPEndpoint base,
+                             IPEndpoint mappedAddress,
+                             uint32_t grantedAllocationLifetimeSecs,
+                             Component* component,
+                             SocketType transportProtocol,
+                             StunActivity* stunActivity,
+                             StunActivity* permissionStunActivity) :
+    type(_ICECandidate::Relayed_Candidate),
+    priority(),
+    endPoint(endPoint),
+    base(base),
+    mappedAddress(mappedAddress),
+    grantedAllocationLifetimeSecs(grantedAllocationLifetimeSecs),
+    foundation(),
+    component(component),
+    transportProtocol(transportProtocol),
+    stunActivity(stunActivity),
+    permissionStunActivity(permissionStunActivity),
+    terminating(false),
+    sharedStunRelayedCandidate(NULL),
+    sharedStunServerReflexiveCandidate(NULL),
+    listenerThread(NULL)
 {
-    QCC_DbgTrace(("ICECandidate::~ICECandidate2(%p, relayed)", this));
-    stunActivity->SetCandidate(this);
-    permissionStunActivity->SetCandidate(this);
+    QCC_DbgTrace(("ICECandidate::ICECandidate2(%p, relayed)", this));
+    stunActivity->SetCandidate(ICECandidate(this));
+    permissionStunActivity->SetCandidate(ICECandidate(this));
 }
 
-ICECandidate::ICECandidate(ICECandidate::ICECandidateType type, IPEndpoint endPoint, Component* component, SocketType transportProtocol, uint32_t priority, String foundation)
-    : type(type), priority(priority), endPoint(endPoint), base(), mappedAddress(),
-    grantedAllocationLifetimeSecs(), foundation(foundation), component(component), transportProtocol(transportProtocol), stunActivity(),
-    permissionStunActivity(), terminating(false), sharedStunRelayedCandidate(), sharedStunServerReflexiveCandidate(), sharedStunPeerReflexiveCandidate(), listenerThread(NULL)
+_ICECandidate::_ICECandidate(_ICECandidate::ICECandidateType type,
+                             IPEndpoint endPoint,
+                             Component* component,
+                             SocketType transportProtocol,
+                             uint32_t priority,
+                             String foundation) :
+    type(type),
+    priority(priority),
+    endPoint(endPoint),
+    base(),
+    mappedAddress(),
+    grantedAllocationLifetimeSecs(),
+    foundation(foundation),
+    component(component),
+    transportProtocol(transportProtocol),
+    stunActivity(),
+    permissionStunActivity(),
+    terminating(false),
+    sharedStunRelayedCandidate(NULL),
+    sharedStunServerReflexiveCandidate(NULL),
+    listenerThread(NULL)
 {
-    QCC_DbgTrace(("ICECandidate::~ICECandidate3(%p, type=%d)", this, type));
+    QCC_DbgTrace(("ICECandidate::ICECandidate3(%p, type=%d)", this, type));
     if (stunActivity) {
-        stunActivity->SetCandidate(this);
+        stunActivity->SetCandidate(ICECandidate(this));
     }
 }
 
-ICECandidate::~ICECandidate(void)
+_ICECandidate::_ICECandidate() :
+    type(Invalid_Candidate),
+    priority(),
+    endPoint(),
+    base(),
+    mappedAddress(),
+    grantedAllocationLifetimeSecs(),
+    foundation(),
+    component(),
+    transportProtocol(),
+    stunActivity(),
+    permissionStunActivity(),
+    terminating(false),
+    sharedStunRelayedCandidate(NULL),
+    sharedStunServerReflexiveCandidate(NULL),
+    listenerThread(NULL)
+{
+    QCC_DbgTrace(("ICECandidate::ICECandidate(%p, INVALID)", this));
+}
+
+_ICECandidate::~_ICECandidate(void)
 {
     QCC_DbgTrace(("ICECandidate::~ICECandidate(%p)", this));
     terminating = true;
 
-    if (NULL != listenerThread && Thread::GetThread() != listenerThread) {
+    if (NULL != listenerThread) {
         // Wait on listener thread.
         QCC_DbgPrintf(("Stopping listener thread 0x%x", listenerThread));
 
@@ -87,30 +159,25 @@ ICECandidate::~ICECandidate(void)
         delete listenerThread;
         listenerThread = NULL;
     }
-}
 
-void ICECandidate::IncRef()
-{
-    qcc::IncrementAndFetch(&refs);
-}
-
-void ICECandidate::DecRef()
-{
-    if (qcc::DecrementAndFetch(&refs) <= 0) {
-        delete this;
+    if (sharedStunRelayedCandidate) {
+        delete sharedStunRelayedCandidate;
+    }
+    if (sharedStunServerReflexiveCandidate) {
+        delete sharedStunServerReflexiveCandidate;
     }
 }
 
-QStatus ICECandidate::StartListener(void)
+QStatus _ICECandidate::StartListener(void)
 {
     listenerThread = new Thread("ListenerThreadStub", ListenerThreadStub);
 
     // Start the thread which will listen for responses, ICE checks
-    return (listenerThread->Start(this));
+    return (listenerThread->Start(new ICECandidate(this)));
 }
 
 
-QStatus ICECandidate::StopCheckListener(void)
+QStatus _ICECandidate::StopCheckListener(void)
 {
     QStatus status = ER_OK;
 
@@ -122,7 +189,7 @@ QStatus ICECandidate::StopCheckListener(void)
     return status;
 }
 
-void ICECandidate::AwaitRequestsAndResponses(void)
+void _ICECandidate::AwaitRequestsAndResponses(void)
 {
     // This method runs only in the instance of a Host Candidate, but
     // because the host candidate's stun object is shared by reflexive and
@@ -140,6 +207,21 @@ void ICECandidate::AwaitRequestsAndResponses(void)
 
     QStatus status = ER_OK;
     while (!terminating && !signaledStop) {
+
+        ICESession* session = component->GetICEStream()->GetSession();
+        if (session) {
+            session->Lock();
+            uint64_t startTime = GetTimestamp64();
+            while ((session->GetState() == ICESession::ICECandidatesGathered) &&
+                   (session->ChecksStarted() == false) &&
+                   (GetTimestamp64() < (startTime + 10000))) {
+                session->Unlock();
+                qcc::Sleep(100);
+                session->Lock();
+            }
+            session->Unlock();
+        }
+
         // block until receive data is ready, or timeout
         switch (status = ReadReceivedMessage(worstCaseShudownTimeoutMsec)) {
         case ER_TIMEOUT:
@@ -165,7 +247,7 @@ void ICECandidate::AwaitRequestsAndResponses(void)
 }
 
 // Section 7.2.1 draft-ietf-mmusic-ice-19
-QStatus ICECandidate::ReadReceivedMessage(uint32_t timeoutMsec)
+QStatus _ICECandidate::ReadReceivedMessage(uint32_t timeoutMsec)
 {
     // This method runs in the instance of a Host Candidate, but
     // because the host candidate's stun object is shared by server
@@ -188,13 +270,14 @@ QStatus ICECandidate::ReadReceivedMessage(uint32_t timeoutMsec)
     uint32_t requestPriority = 0;
     StunTransactionID tid;
 
-    component->GetICEStream()->GetSession()->Lock();
+    ICESession* session = component->GetICEStream()->GetSession();
+    session->Lock();
 
-    StunMessage msg(component->GetICEStream()->GetSession()->GetRemoteInitiatedCheckUsername(),
-                    component->GetICEStream()->GetSession()->GetRemoteInitiatedCheckHmacKey(),
-                    component->GetICEStream()->GetSession()->GetRemoteInitiatedCheckHmacKeyLength());
+    StunMessage msg(session->GetRemoteInitiatedCheckUsername(),
+                    session->GetRemoteInitiatedCheckHmacKey(),
+                    session->GetRemoteInitiatedCheckHmacKeyLength());
 
-    component->GetICEStream()->GetSession()->Unlock();
+    session->Unlock();
 
     status = stunActivity->stun->RecvStunMessage(msg, remote.addr, remote.port, receivedMsgWasRelayed, timeoutMsec);
 
@@ -224,26 +307,31 @@ QStatus ICECandidate::ReadReceivedMessage(uint32_t timeoutMsec)
     // and try to match up transaction in list of checks that we have sent.
     CheckRetry* checkRetry = component->GetCheckRetryByTransaction(tid);
     if (NULL != checkRetry) {
-        QCC_DbgPrintf(("TID: %s, %s", tid.ToString().c_str(),
-                       (msg.GetTypeClass() == STUN_MSG_RESPONSE_CLASS) ? "Check Response matches" : "Unlikely but can happen!!!"));
+        if (msg.GetTypeClass() == STUN_MSG_RESPONSE_CLASS) {
+            QCC_DbgPrintf(("TID: %s, Check Response matches", tid.ToString().c_str()));
+        } else {
+            QCC_DbgPrintf(("TID: %s, Expected STUN Response to check but got %s with matching tid instead", tid.ToString().c_str(), msg.MessageClassToString(msg.GetTypeClass()).c_str()));
+            checkRetry = NULL;
+        }
     }
 
     // We don't know if this is a request or response yet, but assume it is a response
     // and try to match up transaction in list of non-checks (Allocate refresh, etc) that we have sent.
     Retransmit* retransmit = component->GetRetransmitByTransaction(tid);
     if (NULL != retransmit) {
-        QCC_DbgPrintf(("TID: %s, %s", tid.ToString().c_str(),
-                       ((msg.GetTypeClass() == STUN_MSG_RESPONSE_CLASS) || (msg.GetTypeClass() == STUN_MSG_ERROR_CLASS))
-                       ? "NonCheck Response matches" : "Duplicate TID!!!"));
+        if ((msg.GetTypeClass() == STUN_MSG_RESPONSE_CLASS) || (msg.GetTypeClass() == STUN_MSG_ERROR_CLASS)) {
+            QCC_DbgPrintf(("TID: %s, Found matching NonCheck %s", tid.ToString().c_str(), msg.MessageClassToString(msg.GetTypeClass()).c_str()));
+        } else {
+            QCC_DbgPrintf(("TID: %s, Expected STUN Response to nonCheck but got %s with matching tid instead", tid.ToString().c_str(), msg.MessageClassToString(msg.GetTypeClass()).c_str()));
+            retransmit = NULL;
+        }
     }
 
     if (NULL == checkRetry && NULL == retransmit) {
-        QCC_DbgPrintf(("TID: %s, Unknown %s", tid.ToString().c_str(),
-                       (msg.GetTypeClass() == STUN_MSG_REQUEST_CLASS) ? "Request" : "Response"));
+        QCC_DbgPrintf(("TID: %s, Unknown %s", tid.ToString().c_str(), msg.MessageClassToString(msg.GetTypeClass()).c_str()));
     }
 
-
-    ICECandidate* relayedCandidate = NULL;
+    ICECandidate relayedCandidate;
     IPEndpoint reflexive;
     IPEndpoint relayed;
     uint32_t grantedAllocationLifetimeSecs = 0;
@@ -265,7 +353,7 @@ QStatus ICECandidate::ReadReceivedMessage(uint32_t timeoutMsec)
 
             if (ICESession::ICEGatheringCandidates ==
                 component->GetICEStream()->GetSession()->GetState()) {
-                if (relayedCandidate) {
+                if (relayedCandidate->GetType() == _ICECandidate::Relayed_Candidate) {
                     relayedCandidate->SetMappedAddress(reflexive);
                 }
 
@@ -277,14 +365,23 @@ QStatus ICECandidate::ReadReceivedMessage(uint32_t timeoutMsec)
                     stunActivity->stun->GetComponent()->AddToStunActivityList(
                         reflexiveCandidateStunActivity);
 
-                    sharedStunServerReflexiveCandidate = new ICECandidate(
-                        ICECandidate::ServerReflexive_Candidate,
-                        reflexive, base, stunActivity->stun->GetComponent(),
-                        stunActivity->stun->GetSocketType(),
-                        reflexiveCandidateStunActivity, InterfaceName);
+                    _ICECandidate::ICECandidateType type = _ICECandidate::ServerReflexive_Candidate;
+                    SocketType sockType = stunActivity->stun->GetSocketType();
+                    Component* component = stunActivity->stun->GetComponent();
+                    ICECandidate reflexiveCandidate = ICECandidate(type,
+                                                                   reflexive,
+                                                                   base,
+                                                                   component,
+                                                                   sockType,
+                                                                   reflexiveCandidateStunActivity,
+                                                                   InterfaceName);
 
                     // store server_reflexive candidate (reuse host candidate's stun object)
-                    stunActivity->stun->GetComponent()->AddCandidate(sharedStunServerReflexiveCandidate);
+                    stunActivity->stun->GetComponent()->AddCandidate(reflexiveCandidate);
+                    if (sharedStunServerReflexiveCandidate) {
+                        delete sharedStunServerReflexiveCandidate;
+                    }
+                    sharedStunServerReflexiveCandidate = new ICECandidate(reflexiveCandidate);
                 }
             }
             // cease retries
@@ -327,10 +424,16 @@ QStatus ICECandidate::ReadReceivedMessage(uint32_t timeoutMsec)
                     stunActivity->stun->GetComponent()->AddToStunActivityList(
                         permissionStunActivity);
 
-                    relayedCandidate = new ICECandidate(relayed, relayed, reflexive, grantedAllocationLifetimeSecs,
-                                                        stunActivity->stun->GetComponent(), stunActivity->stun->GetSocketType(),
-                                                        relayedCandidateStunActivity,
-                                                        permissionStunActivity);
+                    SocketType sockType = stunActivity->stun->GetSocketType();
+                    Component* component = stunActivity->stun->GetComponent();
+                    relayedCandidate = ICECandidate(relayed,
+                                                    relayed,
+                                                    reflexive,
+                                                    grantedAllocationLifetimeSecs,
+                                                    component,
+                                                    sockType,
+                                                    relayedCandidateStunActivity,
+                                                    permissionStunActivity);
 
                     // store relayed candidate
                     stunActivity->stun->GetComponent()->AddCandidate(relayedCandidate);
@@ -340,7 +443,10 @@ QStatus ICECandidate::ReadReceivedMessage(uint32_t timeoutMsec)
                     stunActivity->stun->SetTurnPort(relayed.port);
                     QCC_DbgPrintf(("Setting Relay address %s and port %d in STUN object", relayed.addr.ToString().c_str(), relayed.port));
 
-                    sharedStunRelayedCandidate = relayedCandidate; // to demux received check messages later
+                    if (sharedStunRelayedCandidate) {
+                        delete sharedStunRelayedCandidate;
+                    }
+                    sharedStunRelayedCandidate = new ICECandidate(relayedCandidate); // to demux received check messages later
                 }
             }
             // cease retries
@@ -353,7 +459,7 @@ QStatus ICECandidate::ReadReceivedMessage(uint32_t timeoutMsec)
         case STUN_ATTR_LIFETIME: {
             const StunAttributeLifetime& sa = *reinterpret_cast<StunAttributeLifetime*>(*stunAttrIt);
             grantedAllocationLifetimeSecs = sa.GetLifetime();
-            if (relayedCandidate) {
+            if (relayedCandidate->GetType() == _ICECandidate::Relayed_Candidate) {
                 relayedCandidate->SetAllocationLifetimeSeconds(grantedAllocationLifetimeSecs);
             }
 
@@ -511,10 +617,15 @@ QStatus ICECandidate::ReadReceivedMessage(uint32_t timeoutMsec)
 
             // Section 7.2.1.3 draft-ietf-mmusic-ice-19
             String uniqueFoundation;
-            ICECandidate* remoteCandidate = component->GetICEStream()->MatchRemoteCandidate(remote, uniqueFoundation);
-            if (!remoteCandidate) {
-                remoteCandidate = new ICECandidate(ICECandidate::PeerReflexive_Candidate,
-                                                   remote, component, transportProtocol, requestPriority, uniqueFoundation);
+            ICECandidate remoteCandidate = component->GetICEStream()->MatchRemoteCandidate(remote, uniqueFoundation);
+            if (remoteCandidate->GetType() == _ICECandidate::Invalid_Candidate) {
+                _ICECandidate::ICECandidateType type = _ICECandidate::PeerReflexive_Candidate;
+                remoteCandidate = ICECandidate(type,
+                                               remote,
+                                               component,
+                                               transportProtocol,
+                                               requestPriority,
+                                               uniqueFoundation);
 
                 // Add remote peer-reflexive candidate to our list.
                 component->GetICEStream()->AddRemoteCandidate(remoteCandidate);
@@ -529,15 +640,21 @@ QStatus ICECandidate::ReadReceivedMessage(uint32_t timeoutMsec)
             // candidates (host, server-reflexive, relayed,) each belonging to perhaps multiple candidate pairs.
             ICECandidatePair* constructedPair = NULL;
             if (receivedMsgWasRelayed) {
-                constructedPair = component->GetICEStream()->MatchCheckListEndpoint(sharedStunRelayedCandidate->endPoint, remote);
+                constructedPair = component->GetICEStream()->MatchCheckListEndpoint((*sharedStunRelayedCandidate)->endPoint, remote);
             } else {
                 constructedPair = component->GetICEStream()->MatchCheckListEndpoint(endPoint, remote);
                 if (NULL == constructedPair) {
-                    constructedPair = component->GetICEStream()->MatchCheckListEndpoint(sharedStunServerReflexiveCandidate->endPoint, remote);
+                    constructedPair = component->GetICEStream()->MatchCheckListEndpoint((*sharedStunServerReflexiveCandidate)->endPoint, remote);
                 }
             }
 
             if (!constructedPair) {
+#if 0
+                /*
+                 * This code was originally intended to insert peer reflexive candidates, but it cannot work because
+                 * you cannot use a new ICECandidate without first calling ICECandidatePair::InitChecker.
+                 * For now, peer reflexive handling is disabled.
+                 */
                 // pair is not currently on check list
                 uint64_t pairPriority =
                     component->GetICEStream()->GetSession()->ComputePairPriority(
@@ -545,16 +662,21 @@ QStatus ICECandidate::ReadReceivedMessage(uint32_t timeoutMsec)
                         0,                         //ToDo constructedPair->local.GetPriority(),
                         remoteCandidate->GetPriority());
 
-                constructedPair = new ICECandidatePair(*this, *remoteCandidate, false, pairPriority);
+                ICECandidate local(this);
+                constructedPair = new ICECandidatePair(local, remoteCandidate, false, pairPriority);
                 // Insert into checkList based on priority.
                 component->GetICEStream()->AddCandidatePairByPriority(constructedPair);
 
                 constructedPair->AddTriggered();
 
                 QCC_DbgPrintf(("Added new pair local %s:%d remote %s:%d",
-                               constructedPair->local.GetEndpoint().addr.ToString().c_str(),
-                               constructedPair->local.GetEndpoint().port,
-                               constructedPair->remote.endPoint.addr.ToString().c_str(), constructedPair->remote.endPoint.port));
+                               constructedPair->local->GetEndpoint().addr.ToString().c_str(),
+                               constructedPair->local->GetEndpoint().port,
+                               constructedPair->remote->endPoint.addr.ToString().c_str(),
+                               constructedPair->remote->endPoint.port));
+#else
+                break;
+#endif
             } else {
                 // Pair is on check list
                 switch (constructedPair->state) {
@@ -589,15 +711,19 @@ QStatus ICECandidate::ReadReceivedMessage(uint32_t timeoutMsec)
                 if (constructedPair->state == ICECandidatePair::Succeeded) {
                     constructedPair->SetNominated();
                     QCC_DbgPrintf(("SetNominated (CONTROLLED) local %s:%d remote %s:%d",
-                                   constructedPair->local.endPoint.addr.ToString().c_str(), constructedPair->local.endPoint.port,
-                                   constructedPair->remote.endPoint.addr.ToString().c_str(), constructedPair->remote.endPoint.port));
+                                   constructedPair->local->endPoint.addr.ToString().c_str(),
+                                   constructedPair->local->endPoint.port,
+                                   constructedPair->remote->endPoint.addr.ToString().c_str(),
+                                   constructedPair->remote->endPoint.port));
 
                 } else if (constructedPair->state == ICECandidatePair::InProgress ||
                            constructedPair->state == ICECandidatePair::Waiting) { //EqualsCanceledTransactionID??
                     constructedPair->SetNominatedContingent();
                     QCC_DbgPrintf(("SetNominatedContingent (CONTROLLED) local %s:%d remote %s:%d",
-                                   constructedPair->local.endPoint.addr.ToString().c_str(), constructedPair->local.endPoint.port,
-                                   constructedPair->remote.endPoint.addr.ToString().c_str(), constructedPair->remote.endPoint.port));
+                                   constructedPair->local->endPoint.addr.ToString().c_str(),
+                                   constructedPair->local->endPoint.port,
+                                   constructedPair->remote->endPoint.addr.ToString().c_str(),
+                                   constructedPair->remote->endPoint.port));
                 }
             }
 
@@ -626,7 +752,7 @@ QStatus ICECandidate::ReadReceivedMessage(uint32_t timeoutMsec)
                     QCC_DbgPrintf(("CheckSucceeded"));
 
                     // Notify the stream object
-                    component->GetICEStream()->ProcessCheckEvent(intendedPair,
+                    component->GetICEStream()->ProcessCheckEvent(*intendedPair,
                                                                  ICECandidatePair::CheckSucceeded, mappedAddress);
                 }
 
@@ -647,8 +773,18 @@ exit:
     return status;
 }
 
-QStatus ICECandidate::SendResponse(uint16_t checkStatus, IPEndpoint& dest,
-                                   bool usingTurn, StunTransactionID tid)
+IPAddress _ICECandidate::GetServer(void) const
+{
+    return stunActivity->stun->GetSTUNServerInfo().address;
+}
+
+String _ICECandidate::GetTURNUserName(void) const
+{
+    return stunActivity->stun->GetSTUNServerInfo().acct;
+}
+
+QStatus _ICECandidate::SendResponse(uint16_t checkStatus, IPEndpoint& dest,
+                                    bool usingTurn, StunTransactionID tid)
 {
     QStatus status = ER_OK;
     StunMessage*msg = NULL;
@@ -684,12 +820,12 @@ QStatus ICECandidate::SendResponse(uint16_t checkStatus, IPEndpoint& dest,
     return status;
 }
 
-String ICECandidate::GetPriorityString(void) const
+String _ICECandidate::GetPriorityString(void) const
 {
     return U32ToString((uint32_t)priority, 10);
 }
 
-String ICECandidate::GetTypeString(void) const
+String _ICECandidate::GetTypeString(void) const
 {
     String s;
 

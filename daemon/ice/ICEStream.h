@@ -107,9 +107,11 @@ class ICEStream {
 
     void AddCandidatePairByPriority(ICECandidatePair* checkPair);
 
-    void AddRemoteCandidate(ICECandidate* remoteCandidate);
+    void AddRemoteCandidate(const ICECandidate& remoteCandidate);
 
-    void ProcessCheckEvent(ICECandidatePair* requestPair, ICECandidatePair::CheckStatus status, IPEndpoint& mappedAddress);
+    void ProcessCheckEvent(ICECandidatePair& requestPair,
+                           ICECandidatePair::CheckStatus status,
+                           IPEndpoint& mappedAddress);
 
     /*A check list with at least one pair that is Waiting is
        called an active check list, and a check list with all pairs frozen
@@ -121,7 +123,7 @@ class ICEStream {
 
     void CancelChecks(void);
 
-    ICECandidate* MatchRemoteCandidate(IPEndpoint& source, String& uniqueFoundation);
+    ICECandidate MatchRemoteCandidate(IPEndpoint& source, String& uniqueFoundation);
 
     ICECandidatePair* MatchCheckList(IPEndpoint& remoteEndpoint, StunTransactionID& tid);
 
@@ -138,7 +140,7 @@ class ICEStream {
     void SetTerminate(void);
 
     /// const_iterator typedef.
-    typedef list<ICECandidate*>::const_iterator constRemoteListIterator;
+    typedef list<ICECandidate>::const_iterator constRemoteListIterator;
     constRemoteListIterator RemoteListBegin(void) const { return remoteCandidateList.begin(); }
     constRemoteListIterator RemoteListEnd(void) const { return remoteCandidateList.end(); }
 
@@ -171,7 +173,7 @@ class ICEStream {
 
     void UpdatePairStates(ICECandidatePair* pair);
 
-    bool DiscoverPeerReflexive(IPEndpoint& mappedAddress, ICECandidatePair* pair, ICECandidate*& peerReflexiveCandidate);
+    bool DiscoverPeerReflexive(IPEndpoint& mappedAddress, ICECandidatePair* pair, ICECandidate& peerReflexiveCandidate);
 
     void UnfreezeMatchingPairs(String foundation);
 
@@ -207,9 +209,9 @@ class ICEStream {
 
     Mutex lock;
 
-    list<ICECandidate*> remoteCandidateList;
+    list<ICECandidate> remoteCandidateList;
 
-    typedef list<ICECandidate*>::iterator remoteListIterator;
+    typedef list<ICECandidate>::iterator remoteListIterator;
 
     STUNServerInfo STUNInfo;
 

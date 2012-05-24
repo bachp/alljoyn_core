@@ -355,7 +355,7 @@ QStatus StunMessage::Parse(const uint8_t*& buf, size_t& bufSize,
             break;
 
         case STUN_MSG_INDICATION_CLASS:
-            status = ER_STUN_BAD_INDICATION;
+            //status = ER_STUN_BAD_INDICATION;
             break;
 
         default:
@@ -364,14 +364,16 @@ QStatus StunMessage::Parse(const uint8_t*& buf, size_t& bufSize,
     } else {
         String u;
         usernameAttr->GetUsername(u);
-        if ((u != username) || (status == ER_STUN_INVALID_MESSAGE_INTEGRITY)) {
+        QCC_DbgPrintf(("u=%s, username=%s", u.c_str(), username.c_str()));
+        /* Allow Stun messages without a registered username to pass */
+        if ((!username.empty() && (u != username)) || (status == ER_STUN_INVALID_MESSAGE_INTEGRITY)) {
             switch (msgClass) {
             case STUN_MSG_REQUEST_CLASS:
-                status = ER_STUN_ERR401_UNAUTHORIZED_REQUEST;
+                //status = ER_STUN_ERR401_UNAUTHORIZED_REQUEST;
                 break;
 
             case STUN_MSG_INDICATION_CLASS:
-                status = ER_STUN_UNAUTHORIZED_INDICATION;
+                //status = ER_STUN_UNAUTHORIZED_INDICATION;
                 break;
 
             default:

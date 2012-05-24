@@ -245,6 +245,7 @@ class PacketEngine : public qcc::AlarmListener {
     std::map<uint32_t, ChannelInfo> channelInfos;
     uint32_t maxWindowSize;
     bool isRunning;
+    bool rxPacketThreadReload;
 
     ChannelInfo* CreateChannelInfo(uint32_t chanId, const PacketDest& dest, PacketStream& packetStream, PacketEngineListener& listener, uint16_t windowSize);
 

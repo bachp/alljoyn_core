@@ -42,8 +42,10 @@ void ICEStream::DumpChecklist(void)
     for (it = CheckListBegin(); it != CheckListEnd(); ++it, ++count) {
 
         QCC_DbgPrintf(("Pair %d: local %s:%d remote %s:%d", count,
-                       (*it)->local.GetEndpoint().addr.ToString().c_str(), (*it)->local.GetEndpoint().port,
-                       (*it)->remote.GetEndpoint().addr.ToString().c_str(), (*it)->remote.GetEndpoint().port));
+                       (*it)->local->GetEndpoint().addr.ToString().c_str(),
+                       (*it)->local->GetEndpoint().port,
+                       (*it)->remote->GetEndpoint().addr.ToString().c_str(),
+                       (*it)->remote->GetEndpoint().port));
     }
 }
 #endif
@@ -61,11 +63,7 @@ ICEStream::~ICEStream(void)
         checkList.pop_back();
     }
 
-    while (!remoteCandidateList.empty()) {
-        ICECandidate* candidate = remoteCandidateList.back();
-        delete candidate;
-        remoteCandidateList.pop_back();
-    }
+    remoteCandidateList.clear();
 
     // Empty componentList
     while (!componentList.empty()) {
@@ -100,7 +98,7 @@ void ICEStream::CancelChecks(void)
     checkListState = CheckStateInitial;
 }
 
-void ICEStream::AddRemoteCandidate(ICECandidate* remoteCandidate)
+void ICEStream::AddRemoteCandidate(const ICECandidate& remoteCandidate)
 {
     remoteCandidateList.push_back(remoteCandidate);
 }
@@ -165,19 +163,19 @@ void ICEStream::SortAndPruneCandidatePairs(void)
             continue;
         }
 
-        IPEndpoint prevLocalEndpoint = prev->local.GetEndpoint();
-        IPEndpoint currLocalEndpoint = (*iter)->local.GetEndpoint();
+        IPEndpoint prevLocalEndpoint = prev->local->GetEndpoint();
+        IPEndpoint currLocalEndpoint = (*iter)->local->GetEndpoint();
 
-        if (prev->local.GetType() == ICECandidate::ServerReflexive_Candidate) {
-            prevLocalEndpoint = prev->local.GetBase();
+        if (prev->local->GetType() == _ICECandidate::ServerReflexive_Candidate) {
+            prevLocalEndpoint = prev->local->GetBase();
         }
 
-        if ((*iter)->local.GetType() == ICECandidate::ServerReflexive_Candidate) {
-            currLocalEndpoint = (*iter)->local.GetBase();
+        if ((*iter)->local->GetType() == _ICECandidate::ServerReflexive_Candidate) {
+            currLocalEndpoint = (*iter)->local->GetBase();
         }
 
         if ((prevLocalEndpoint == currLocalEndpoint) &&
-            (prev->remote.GetEndpoint() == (*iter)->remote.GetEndpoint())) {
+            (prev->remote->GetEndpoint() == (*iter)->remote->GetEndpoint())) {
 
             // This is guaranteed to be the lower priority candidate
             delete (*iter);
@@ -220,9 +218,9 @@ bool compareByFoundationCompIDPriority(ICECandidatePair* first, ICECandidatePair
         higher = true;
     } else if (firstFoundation == secondFoundation) {
         // We want components sorted descending
-        if (first->local.GetComponent()->GetID() > second->local.GetComponent()->GetID()) {
+        if (first->local->GetComponent()->GetID() > second->local->GetComponent()->GetID()) {
             higher = true;
-        } else if (first->local.GetComponent()->GetID() == second->local.GetComponent()->GetID()) {
+        } else if (first->local->GetComponent()->GetID() == second->local->GetComponent()->GetID()) {
             // We want priorities sorted ascending
             higher = first->GetPriority() < second->GetPriority();
         }
@@ -585,12 +583,12 @@ void ICEStream::UpdatePairStates(ICECandidatePair* pair)
         for (streamIter = session->Begin(); streamIter != session->End(); ++streamIter) {
             if ((*streamIter) != this) {
                 if ((*streamIter)->CheckListIsActive()) {
-                    UnfreezeMatchingPairs(*streamIter, pair->local.GetComponent());
+                    UnfreezeMatchingPairs(*streamIter, pair->local->GetComponent());
                 } else {
                     // See if there is at least one pair in the check list whose
                     // foundation matches a pair in the valid list under consideration
                     vector<ICECandidatePair*> matchingList;
-                    if (AtLeastOneMatchingPair(*streamIter, pair->local.GetComponent(), matchingList)) {
+                    if (AtLeastOneMatchingPair(*streamIter, pair->local->GetComponent(), matchingList)) {
                         // Set state of _all_ matching pairs to Waiting
                         vector<ICECandidatePair*>::iterator matchListIt;
                         for (matchListIt = matchingList.begin(); matchListIt != matchingList.end(); ++matchListIt) {
@@ -609,30 +607,39 @@ void ICEStream::UpdatePairStates(ICECandidatePair* pair)
 
 
 // Section 7.1.2.2.1 draft-ietf-mmusic-ice-19
-bool ICEStream::DiscoverPeerReflexive(IPEndpoint& mappedAddress, ICECandidatePair* pair, ICECandidate*& peerReflexiveCandidate)
+bool ICEStream::DiscoverPeerReflexive(IPEndpoint& mappedAddress, ICECandidatePair* pair, ICECandidate& peerReflexiveCandidate)
 {
-    peerReflexiveCandidate = NULL;
+    /* Invalidate candidate */
+    peerReflexiveCandidate = ICECandidate();
 
     // Compare against known candidates.
-    ICECandidate* match = NULL;
+    ICECandidate match;
     Component::const_iterator candidateIt;
-    for (candidateIt = pair->local.GetComponent()->Begin(); candidateIt != pair->local.GetComponent()->End(); ++candidateIt) {
+    for (candidateIt = pair->local->GetComponent()->Begin(); candidateIt != pair->local->GetComponent()->End(); ++candidateIt) {
         if ((*candidateIt)->GetEndpoint() == mappedAddress) {
             match = *candidateIt;
             break;
         }
     }
 
-    if (!match) {
+    if (match->GetType() != _ICECandidate::Invalid_Candidate) {
         StunActivity* reflexiveCandidateStunActivity =
-            new StunActivity(pair->local.GetStunActivity()->stun);
+            new StunActivity(pair->local->GetStunActivity()->stun);
 
-        pair->local.GetComponent()->AddToStunActivityList(reflexiveCandidateStunActivity);
+        pair->local->GetComponent()->AddToStunActivityList(reflexiveCandidateStunActivity);
 
-        peerReflexiveCandidate = new ICECandidate(ICECandidate::PeerReflexive_Candidate,
-                                                  mappedAddress, pair->local.GetBase(), pair->local.GetComponent(),
-                                                  pair->local.GetTransportProtocol(), reflexiveCandidateStunActivity,
-                                                  pair->local.GetInterfaceName());
+        _ICECandidate::ICECandidateType type = _ICECandidate::PeerReflexive_Candidate;
+        Component* component = pair->local->GetComponent();
+        IPEndpoint base = pair->local->GetBase();
+        SocketType sockType = pair->local->GetTransportProtocol();
+        String ifaceName = pair->local->GetInterfaceName();
+        peerReflexiveCandidate = ICECandidate(type,
+                                              mappedAddress,
+                                              base,
+                                              component,
+                                              sockType,
+                                              reflexiveCandidateStunActivity,
+                                              ifaceName);
         peerReflexiveCandidate->SetPriority(pair->GetBindRequestPriority());
         String foundation;
         session->DeterminePeerReflexiveFoundation(mappedAddress.addr,
@@ -641,28 +648,31 @@ bool ICEStream::DiscoverPeerReflexive(IPEndpoint& mappedAddress, ICECandidatePai
         peerReflexiveCandidate->SetFoundation(foundation);
 
         // Add peer-reflexive candidate to our list.
-        pair->local.GetComponent()->AddCandidate(peerReflexiveCandidate);
+        pair->local->GetComponent()->AddCandidate(peerReflexiveCandidate);
     }
 
-    return (NULL != peerReflexiveCandidate);
+    return (peerReflexiveCandidate->GetType() != _ICECandidate::Invalid_Candidate);
 }
 
 
 
 // Section 7.1.2 draft-ietf-mmusic-ice-19
-void ICEStream::ProcessCheckEvent(ICECandidatePair* requestPair, ICECandidatePair::CheckStatus status, IPEndpoint& mappedAddress)
+void ICEStream::ProcessCheckEvent(ICECandidatePair& requestPair,
+                                  ICECandidatePair::CheckStatus status,
+                                  IPEndpoint& mappedAddress)
 {
-    ICECandidate* peerReflexiveCandidate = NULL;
+    QCC_DbgTrace(("ICEStream::ProcessCheckEvent(local=%s:%d (%s)  remote=%s:%d (%s) status=%s, priority=%ld, mapped=%s)",
+                  requestPair.local->GetEndpoint().addr.ToString().c_str(),
+                  requestPair.local->GetEndpoint().port,
+                  requestPair.local->GetTypeString().c_str(),
+                  requestPair.remote->GetEndpoint().addr.ToString().c_str(),
+                  requestPair.remote->GetEndpoint().port,
+                  requestPair.remote->GetTypeString().c_str(),
+                  requestPair.CheckStatusToString(status).c_str(),
+                  requestPair.GetPriority(),
+                  mappedAddress.addr.ToString().c_str()));
 
-    if (requestPair != NULL) {
-        QCC_DbgPrintf(("CheckEvent %s, [local addr = %s port = %d], [remote addr = %s port = %d]",
-                       requestPair->CheckStatusToString(status).c_str(),
-                       requestPair->local.GetEndpoint().addr.ToString().c_str(), requestPair->local.GetEndpoint().port,
-                       requestPair->remote.GetEndpoint().addr.ToString().c_str(), requestPair->remote.GetEndpoint().port));
-    } else {
-        QCC_DbgPrintf(("CheckEvent null request pair"));
-        return;
-    }
+    ICECandidate peerReflexiveCandidate;
 
     switch (status) {
     case ICECandidatePair::CheckRoleConflict:
@@ -670,38 +680,40 @@ void ICEStream::ProcessCheckEvent(ICECandidatePair* requestPair, ICECandidatePai
         // using same tie-breaker.
         session->SwapControllingAgent();
 
-        requestPair->AddTriggered();
+        requestPair.AddTriggered();
         break;
 
     case ICECandidatePair::CheckSucceeded:
     {
-        ICECandidatePair* validPair = requestPair;
+        ICECandidatePair* validPair = &requestPair;
 
         // Compare mapped address against known candidates.
-        if (DiscoverPeerReflexive(mappedAddress, requestPair, peerReflexiveCandidate)) {
+        // @@ JP
+#if 0
+        if (DiscoverPeerReflexive(mappedAddress, &requestPair, peerReflexiveCandidate)) {
             // We found a new candidate...
             // Section 7.1.2.2.2 draft-ietf-mmusic-ice-19
             // Construct a Valid Pair and add to ValidList.
             uint64_t pairPriority = session->ComputePairPriority(session->IsControllingAgent(),
                                                                  peerReflexiveCandidate->GetPriority(),
-                                                                 requestPair->remote.GetPriority());
-            ICECandidatePair* peerPair = new ICECandidatePair(*peerReflexiveCandidate, requestPair->remote, false, pairPriority);
-            peerPair->InitChecker(*requestPair); // use same priority, etc. as original pair
+                                                                 requestPair.remote->GetPriority());
+            ICECandidatePair* peerPair = new ICECandidatePair(peerReflexiveCandidate, requestPair.remote, false, pairPriority);
+            peerPair->InitChecker(requestPair); // use same priority, etc. as original pair
             //AddCandidatePair(peerPair);
 
             // Replace the original request pair for updating
             validPair = peerPair;
         }
-
-        validPair->local.GetComponent()->AddToValidList(validPair);
+#endif
+        validPair->local->GetComponent()->AddToValidList(validPair);
 
         // Section 7.1.2.2.3 draft-ietf-mmusic-ice-19
         // This is ambiguous. Spec says 'pair that generated the check', which implies
         // the original request, not any peer-reflexive that may have just been added.
-        requestPair->state = ICECandidatePair::Succeeded;
+        requestPair.state = ICECandidatePair::Succeeded;
 
-        UnfreezeMatchingPairs(requestPair->GetFoundation());
-        UpdatePairStates(requestPair);
+        UnfreezeMatchingPairs(requestPair.GetFoundation());
+        UpdatePairStates(&requestPair);
 
         // Section 7.1.2.2.4 draft-ietf-mmusic-ice-19
         // This is less ambiguous, as it says "valid pair generated from that check..."
@@ -711,12 +723,12 @@ void ICEStream::ProcessCheckEvent(ICECandidatePair* requestPair, ICECandidatePai
     }
 
     case ICECandidatePair::CheckTimeout:
-        requestPair->state = ICECandidatePair::Failed;
+        requestPair.state = ICECandidatePair::Failed;
         break;
 
     case ICECandidatePair::CheckGenericFailed:
     default:
-        requestPair->state = ICECandidatePair::Failed;
+        requestPair.state = ICECandidatePair::Failed;
         break;
     }
 
@@ -772,8 +784,8 @@ ICECandidatePair* ICEStream::MatchCheckListEndpoint(IPEndpoint& localEndpoint, I
     checkListIterator iter;
 
     for (iter = CheckListBegin(); iter != CheckListEnd(); ++iter) {
-        if ((*iter)->local.GetEndpoint() == localEndpoint &&
-            (*iter)->remote.GetEndpoint() == remoteEndpoint) {
+        if ((*iter)->local->GetEndpoint() == localEndpoint &&
+            (*iter)->remote->GetEndpoint() == remoteEndpoint) {
             pair = (*iter);
             break;
         }
@@ -790,7 +802,7 @@ ICECandidatePair* ICEStream::MatchCheckList(IPEndpoint& remoteEndpoint, StunTran
     checkListIterator iter;
 
     for (iter = CheckListBegin(); iter != CheckListEnd(); ++iter) {
-        if (((*iter)->remote.GetEndpoint() == remoteEndpoint) &&
+        if (((*iter)->remote->GetEndpoint() == remoteEndpoint) &&
             (tid == (*iter)->GetTransactionID() || (*iter)->EqualsCanceledTransactionID(tid))) {
             pair = (*iter);
             break;
@@ -801,9 +813,9 @@ ICECandidatePair* ICEStream::MatchCheckList(IPEndpoint& remoteEndpoint, StunTran
 }
 
 
-ICECandidate* ICEStream::MatchRemoteCandidate(IPEndpoint& source, String& uniqueFoundation)
+ICECandidate ICEStream::MatchRemoteCandidate(IPEndpoint& source, String& uniqueFoundation)
 {
-    ICECandidate* remoteCandidate = NULL;
+    ICECandidate remoteCandidate;
     uint32_t foundationID = 0;
 
     // Walk remote candidate list looking for this endpoint.
@@ -816,7 +828,7 @@ ICECandidate* ICEStream::MatchRemoteCandidate(IPEndpoint& source, String& unique
         }
     }
 
-    if (!remoteCandidate) {
+    if (remoteCandidate->GetType() == _ICECandidate::Invalid_Candidate) {
         uniqueFoundation = U32ToString((uint32_t)++ foundationID);
     }
 
@@ -833,7 +845,7 @@ void ICEStream::RemoveWaitFrozenPairsForComponent(Component* component)
         for (checkListIter = CheckListBegin(); checkListIter != CheckListEnd(); ++checkListIter) {
             if (((*checkListIter)->state == ICECandidatePair::Frozen ||
                  (*checkListIter)->state == ICECandidatePair::Waiting) &&
-                component == (*checkListIter)->local.GetComponent()) {
+                component == (*checkListIter)->local->GetComponent()) {
                 ICECandidatePair* pair = *checkListIter;
                 pair->RemoveTriggered();
                 checkList.remove(pair);
@@ -856,7 +868,7 @@ void ICEStream::CeaseRetransmissions(Component* component, uint64_t lowestPairPr
         removing = false;
         for (checkListIter = CheckListBegin(); checkListIter != CheckListEnd(); ++checkListIter) {
             if ((*checkListIter)->state == ICECandidatePair::InProgress &&
-                (*checkListIter)->local.GetComponent() == component &&
+                (*checkListIter)->local->GetComponent() == component &&
                 (*checkListIter)->GetPriority() < lowestPairPriority) {
 
                 // Implies that if/when the response arrives, it will be ignored.
