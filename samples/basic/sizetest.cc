@@ -43,24 +43,12 @@ using namespace ajn;
 
 static const char testData[] = "This is the message that we are going to encrypt and then decrypt and verify";
 
-void foo()
+void CheckSize()
 {
-#pragma pack(show)
-
-	int iSize = sizeof(KeyStore);  // the compiler says KeyStore is
+    int iSize = sizeof(KeyStore);  // the compiler says KeyStore is
     {
         KeyStore* keyStore = new KeyStore("keystore_test");
 
-//        keyStore.Init(NULL, true);
-//        keyStore.Clear();
-//
-//        key.Rand(Crypto_AES::AES128_SIZE, KeyBlob::AES);
-//        keyStore.AddKey(guid1, key);
-//        key.Rand(620, KeyBlob::GENERIC);
-//        keyStore.AddKey(guid2, key);
-//
-//        status = keyStore.Store();
-//        ASSERT_EQ(ER_OK, status) << "  Actual Status: " << QCC_StatusText(status) << " Failed to store keystore";
         delete keyStore;
     }
 
@@ -76,12 +64,7 @@ int main(int argc, char**argv, char**envArg)
 
     printf("\n Running alljoyn_core unit test\n");
 
-    foo();
-
-
-
-//    testing::InitGoogleTest(&argc, argv);
-//    status = RUN_ALL_TESTS();
+    CheckSize();
 
     printf("%s exiting with status %d \n", argv[0], status);
 
