@@ -44,11 +44,11 @@ if env['OS'] == 'android':
     env.Install(distDir, Dir('bundle_test/BundledService/res').srcnode())
     
     distDir = '$DISTDIR/alljoyn_android/proximity_service'
-    env.Install(distDir, env.Glob('proximity_service/AndroidManifest.xml'))
-    env.Install(distDir, env.Glob('proximity_service/.classpath'))
-    env.Install(distDir, env.Glob('proximity_service/.project'))
-    env.Install(distDir, env.Glob('proximity_service/default.properties'))
-    env.Install(distDir, Dir('proximity_service/src').srcnode())
+    env.Install(distDir, env.Glob('alljoyn_android_ext/AndroidManifest.xml'))
+    env.Install(distDir, env.Glob('alljoyn_android_ext/.classpath'))
+    env.Install(distDir, env.Glob('alljoyn_android_ext/.project'))
+    env.Install(distDir, env.Glob('alljoyn_android_ext/default.properties'))
+    env.Install(distDir, Dir('alljoyn_android_ext/src').srcnode())
     
     distDir = '$DISTDIR/alljoyn_android/ice_client_login_service'
     env.Install(distDir, env.Glob('ice_client_login_service/AndroidManifest.xml'))
