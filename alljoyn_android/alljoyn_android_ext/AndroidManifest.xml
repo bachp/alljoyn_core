@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="utf-8"?>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+      package="org.alljoyn.jni"
+      android:versionCode="1"
+      android:versionName="1.0">
+    <uses-sdk android:minSdkVersion="10" />
+	<uses-permission android:name="android.permission.ACCESS_WIFI_STATE"></uses-permission>
+    <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE"/>
+    <uses-permission android:name="android.permission.CHANGE_WIFI_STATE" />
+    <uses-permission android:name="android.permission.INTERNET" />
+    <application android:icon="@drawable/icon" android:label="@string/app_name">
+     <service android:name=".AllJoynAndroidExt" android:enabled="true">
+            <intent-filter>
+              <action android:name="org.alljoyn.jni.alljoynandroidext" />
+            </intent-filter>
+	</service>
+    </application>
+</manifest>
