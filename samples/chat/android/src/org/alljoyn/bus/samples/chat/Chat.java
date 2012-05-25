@@ -130,7 +130,6 @@ public class Chat extends Activity {
     }
 
     private OnClickListener radio_listener = new OnClickListener() {
-        @Override
         public void onClick(View v) {
             // Perform action on clicks
             RadioButton rb = (RadioButton) v;
@@ -192,7 +191,6 @@ public class Chat extends Activity {
             dialog.setTitle("Name to be advertised:");
             Button okButton = (Button) dialog.findViewById(R.id.AdvertiseOk);
             okButton.setOnClickListener(new OnClickListener() {
-                @Override
                 public void onClick(View v) {
                     View r = v.getRootView();
                     TextView text = (TextView) r.findViewById(R.id.AdvertiseText);
@@ -206,7 +204,6 @@ public class Chat extends Activity {
             });
             Button cancelButton = (Button) dialog.findViewById(R.id.AdvertiseCancel);
             cancelButton.setOnClickListener(new OnClickListener() {
-                @Override
                 public void onClick(View v) {
                     dismissDialog(DIALOG_ADVERTISE);
                     finish();
@@ -220,7 +217,6 @@ public class Chat extends Activity {
             dialog.setTitle("Name of session you want to join:");
             Button joinokButton = (Button) dialog.findViewById(R.id.JoinSessionOk);
             joinokButton.setOnClickListener(new OnClickListener() {
-                @Override
                 public void onClick(View v) {
                     View r = v.getRootView();
                     TextView text = (TextView) r.findViewById(R.id.JoinSessionText);
@@ -233,7 +229,6 @@ public class Chat extends Activity {
             });
             Button joinCancelButton = (Button) dialog.findViewById(R.id.JoinSessionCancel);
             joinCancelButton.setOnClickListener(new OnClickListener() {
-                @Override
                 public void onClick(View v) {
                     dismissDialog(DIALOG_JOIN_SESSION);
                     finish();
@@ -253,7 +248,6 @@ public class Chat extends Activity {
 
         editText = (EditText) findViewById(R.id.EditText);
         editText.setOnEditorActionListener(new TextView.OnEditorActionListener() {
-            @Override
             public boolean onEditorAction(TextView view, int actionId, KeyEvent event) {
                 if (actionId == EditorInfo.IME_NULL && event.getAction() == KeyEvent.ACTION_UP) {
                     String message = view.getText().toString();
