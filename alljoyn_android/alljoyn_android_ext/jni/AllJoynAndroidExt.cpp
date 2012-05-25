@@ -249,7 +249,7 @@ JNIEXPORT jint JNICALL Java_org_alljoyn_jni_AllJoynAndroidExt_jniOnCreate(JNIEnv
     if (ER_OK != status) {
         LOGE("Failed to create interface \"%s\" (%s)", SCAN_SERVICE_INTERFACE_NAME, QCC_StatusText(status));
         goto exit;
-    } else  {
+    } else {
         status = scanIntf->AddMethod("Scan", "b",  "a(ssb)", "results");
         if (ER_OK != status) {
             LOGE("Failed to AddMethod \"Scan\" (%s)", QCC_StatusText(status));
@@ -276,7 +276,7 @@ JNIEXPORT jint JNICALL Java_org_alljoyn_jni_AllJoynAndroidExt_jniOnCreate(JNIEnv
     if (ER_OK != status) {
         LOGE("BusAttachment::Connect(\"%s\") failed (%s)", daemonAddr, QCC_StatusText(status));
         goto exit;
-    } else   {
+    } else {
         LOGE("BusAttachment::Connect(\"%s\") SUCCEDDED (%s)", daemonAddr, QCC_StatusText(status));
     }
 
@@ -334,7 +334,7 @@ JNIEXPORT jint JNICALL JNI_OnLoad(JavaVM* vm,
     if (!clazz) {
         LOGD("*********************** error while loading the class *******************");
         return JNI_ERR;
-    } else   {
+    } else {
         //LOGD("org/alljoyn/jni/ScanResultMessage loaded SUCCESSFULLY");
     }
 
