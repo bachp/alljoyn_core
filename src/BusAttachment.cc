@@ -386,6 +386,13 @@ QStatus BusAttachment::Connect(const char* connectSpec, BusEndpoint** newep)
                                                NULL);
             }
             if (ER_OK == status) {
+                 assert(iface);
+                 status = RegisterSignalHandler(busInternal,
+                                                static_cast<MessageReceiver::SignalHandler>(&BusAttachment::Internal::AllJoynSignalHandler),
+                                                iface->GetMember("PropertiesChanged"),
+                                                NULL);
+            }
+            if (ER_OK == status) {
                 Message reply(*this);
                 MsgArg arg("s", "type='signal',interface='org.alljoyn.Bus'");
                 const ProxyBusObject& dbusObj = this->GetDBusProxyObj();
@@ -461,6 +468,12 @@ QStatus BusAttachment::Disconnect(const char* connectSpec)
                 UnregisterSignalHandler(busInternal,
                                         static_cast<MessageReceiver::SignalHandler>(&BusAttachment::Internal::AllJoynSignalHandler),
                                         alljoynIface->GetMember("MPSessionChanged"),
+                                        NULL);
+            }
+            if (dbusIface) {
+                UnregisterSignalHandler(busInternal,
+                                        static_cast<MessageReceiver::SignalHandler>(&BusAttachment::Internal::AllJoynSignalHandler),
+                                        dbusIface->GetMember("PropertiesChanged"),
                                         NULL);
             }
         }

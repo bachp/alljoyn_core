@@ -39,6 +39,7 @@ const char* org::freedesktop::DBus::WellKnownName = "org.freedesktop.DBus";
 
 const char* org::freedesktop::DBus::AnnotateNoReply = "org.freedesktop.DBus.Method.NoReply";
 const char* org::freedesktop::DBus::AnnotateDeprecated = "org.freedesktop.DBus.Deprecated";
+const char* org::freedesktop::DBus::AnnotateEmitsChanged = "org.freedesktop.DBus.Property.EmitsChangedSignal";
 
 /** org.freedesktop.DBus.Properties Definitions */
 const char* org::freedesktop::DBus::Properties::InterfaceName = "org.freedesktop.DBus.Properties";
@@ -88,6 +89,8 @@ QStatus org::freedesktop::DBus::CreateInterfaces(BusAttachment& bus) {
     intf->AddSignal("NameOwnerChanged",                    "sss",   NULL,               0);
     intf->AddSignal("NameLost",                            "s",     NULL,               0);
     intf->AddSignal("NameAcquired",                        "s",     NULL,               0);
+    intf->AddSignal("PropertiesChanged",                   "sa{sv}as",    NULL,               0);
+
     intf->Activate();
 
     /* Create the org.freedesktop.DBus.Introspectable interface */

@@ -34,6 +34,7 @@ namespace ajn {
  * Foward declaration.
  */
 class BusAttachment;
+class MsgArg;
 
 /**
  * Abstract base class implemented by AllJoyn users and called by AllJoyn to inform
@@ -86,6 +87,14 @@ class BusListener {
      * @param newOwner       The unique name that now owns the name or NULL if the there is no new owner.
      */
     virtual void NameOwnerChanged(const char* busName, const char* previousOwner, const char* newOwner) { }
+
+    /**
+     * Called by the bus when the value of a property changes if that property has annotation
+     *
+     * @param propName       The well-known name that has changed.
+     * @param propValue      The new value of the property; NULL if not present
+     */
+    virtual void PropertyChanged(const char* propName, const MsgArg* propValue) { }
 
     /**
      * Called when a BusAttachment this listener is registered with is stopping.

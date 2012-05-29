@@ -41,6 +41,7 @@ extern const char* WellKnownName;                      /**< The well known name 
 
 extern const char* AnnotateNoReply;                    /**< Annotation for reply to a method call */
 extern const char* AnnotateDeprecated;                 /**< Annotation for marking entry as depreciated  */
+extern const char* AnnotateEmitsChanged;               /**< Annotation for when a property is modified {true,false,invalidates} */
 
 /** Definitions for org.freedesktop.DBus.Properties */
 namespace Properties {

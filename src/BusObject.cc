@@ -208,7 +208,33 @@ void BusObject::SetProp(const InterfaceDescription::Member* member, Message& msg
                     QCC_DbgPrintf(("Property value for %s has wrong type %s", property->v_string.str, prop->signature.c_str()));
                     status = ER_BUS_SET_WRONG_SIGNATURE;
                 } else if (prop->access & PROP_ACCESS_WRITE) {
+                    // set the value, then inform bus listeners via Signal
                     status = Set(iface->v_string.str, property->v_string.str, *(val->v_variant.val));
+
+                    // TODO: check if property org::freedesktop::DBus::AnnotateEmitsChanged is set
+                    // if 'invalidates', emit a signal
+                    // if 'true' emit a signal with the new value
+
+                    qcc::String emitsChanged;
+                    if (!status && ifc->GetPropertyAnnotation(property->v_string.str, org::freedesktop::DBus::AnnotateEmitsChanged, emitsChanged)) {
+                        if (emitsChanged == "true") {
+                            const InterfaceDescription::Member* propChanged = ifc->GetMember("PropertiesChanged");
+                            MsgArg entryStruct("{sv}", property->v_string.str, val->v_variant.val);
+                            MsgArg entry(ALLJOYN_ARRAY);
+                            entry.v_array.SetElements("a{sv}", 1, &entryStruct);
+                            MsgArg changedArg("sa{sv}as", iface->v_string.str, 1, &entry, 0, NULL);
+                            Signal(NULL, 0, *propChanged, &changedArg, 1, 0, ALLJOYN_FLAG_GLOBAL_BROADCAST);
+
+                        } else if (emitsChanged == "invalidates") {
+                            const InterfaceDescription::Member* propChanged = ifc->GetMember("PropertiesChanged");
+                            // EMPTY array, followed by array of strings
+                            MsgArg entryString("s", property->v_string.str);
+                            MsgArg entry(ALLJOYN_ARRAY);
+                            entry.v_array.SetElements("as", 1, &entryString);
+                            MsgArg changedArg("sa{sv}as", iface->v_string.str, 0, NULL, 1, &entry);
+                            Signal(NULL, 0, *propChanged, &changedArg, 1, 0, ALLJOYN_FLAG_GLOBAL_BROADCAST);
+                        }
+                    }
                 } else {
                     QCC_DbgPrintf(("No write access on property %s", property->v_string.str));
                     status = ER_BUS_PROPERTY_ACCESS_DENIED;
