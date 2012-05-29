@@ -50,7 +50,7 @@ static const char bundledConfig[] =
     "<busconfig>"
     "  <type>alljoyn_bundled</type>"
     "  <listen>tcp:addr=0.0.0.0,port=0,family=ipv4</listen>"
-    "  <limit name=\"auth_timeout\">32768</limit>"
+    "  <limit name=\"auth_timeout\">5000</limit>"
     "  <limit name=\"max_incomplete_connections_tcp\">4</limit>"
     "  <limit name=\"max_completed_connections_tcp\">16</limit>"
     "  <ip_name_service>"
