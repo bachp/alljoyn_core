@@ -665,7 +665,7 @@ class MsgArg {
 
     void SetOwnershipDeep();
     static void Clone(MsgArg& dest, const MsgArg& src);
-    static QStatus BuildArray(MsgArg* arry, const qcc::String elemSig, va_list* argp);
+    static QStatus BuildArray(MsgArg* arry, const qcc::String& elemSig, va_list* argp);
     static QStatus VBuildArgs(const char*& signature, size_t sigLen, MsgArg* arg, size_t maxArgs, va_list* argp, size_t* count = NULL);
     static QStatus ParseArray(const MsgArg* arry, const char* elemSig, size_t elemSigLen, va_list* argp);
     static QStatus VParseArgs(const char*& signature, size_t sigLen, const MsgArg* argList, size_t numArgs, va_list* argp);

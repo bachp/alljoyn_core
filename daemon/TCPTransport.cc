@@ -2969,7 +2969,7 @@ void TCPTransport::DoStartListen(qcc::String& normSpec)
      * a daemon listening on multiple TCP ports.
      */
     assert(m_ns);
-    m_ns->SetEndpoints("", "", listenPort);
+    m_ns->SetEndpoints(String::Empty, String::Empty, listenPort);
     m_listenFdsLock.Unlock(MUTEX_CONTEXT);
 
     /*

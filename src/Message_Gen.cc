@@ -89,22 +89,9 @@ namespace ajn {
         } \
     } while (0)
 
-#define MarshalPad2() \
+#define MarshalPad(_alignment) \
     do { \
-        size_t pad = PadBytes(bufPos, 2); \
-        if (pad) { Marshal1(0); } \
-    } while (0)
-
-#define MarshalPad4() \
-    do { \
-        size_t pad = PadBytes(bufPos, 4); \
-        if (pad & 1) { Marshal1(0); } \
-        if (pad & 2) { Marshal2(0); } \
-    } while (0)
-
-#define MarshalPad8() \
-    do { \
-        size_t pad = PadBytes(bufPos, 8); \
+        size_t pad = PadBytes(bufPos, _alignment); \
         if (pad & 1) { Marshal1(0); } \
         if (pad & 2) { Marshal2(0); } \
         if (pad & 4) { Marshal4(0); } \
@@ -114,11 +101,6 @@ namespace ajn {
  * Round up to a multiple of 8
  */
 #define ROUNDUP8(n)  (((n) + 7) & ~7)
-
-/*
- * Round up to a multiple of 8
- */
-#define ROUNDUP4(n)  (((n) + 3) & ~3)
 
 static inline QStatus CheckedArraySize(size_t sz, uint32_t& len)
 {
@@ -143,10 +125,13 @@ QStatus _Message::MarshalArgs(const MsgArg* arg, size_t numArgs)
             status = ER_BUS_BAD_VALUE;
             break;
         }
-        //QCC_DbgPrintf(("MarshalArgs @%ld %s", bufPos - bodyPtr, arg->ToString().c_str()));
+        /*
+         * Align on boundary for type as specified in the wire protocol
+         */
+        MarshalPad(SignatureUtils::AlignmentForType(arg->typeId));
+
         switch (arg->typeId) {
         case ALLJOYN_DICT_ENTRY:
-            MarshalPad8();
             status = MarshalArgs(arg->v_dictEntry.key, 1);
             if (status == ER_OK) {
                 status = MarshalArgs(arg->v_dictEntry.val, 1);
@@ -154,7 +139,6 @@ QStatus _Message::MarshalArgs(const MsgArg* arg, size_t numArgs)
             break;
 
         case ALLJOYN_STRUCT:
-            MarshalPad8();
             status = MarshalArgs(arg->v_struct.members, arg->v_struct.numMembers);
             break;
 
@@ -163,7 +147,6 @@ QStatus _Message::MarshalArgs(const MsgArg* arg, size_t numArgs)
                 status = ER_BUS_BAD_VALUE;
                 break;
             }
-            MarshalPad4();
             alignment = SignatureUtils::AlignmentForType((AllJoynTypeId)(arg->v_array.elemSig[0]));
             if (arg->v_array.numElements > 0) {
                 if (!arg->v_array.elements) {
@@ -185,7 +168,7 @@ QStatus _Message::MarshalArgs(const MsgArg* arg, size_t numArgs)
                     bufPos += 4;
                     /* Length does not include padding for first element, so pad to 8 byte boundary if required. */
                     if (alignment == 8) {
-                        MarshalPad8();
+                        MarshalPad(8);
                     }
                     uint8_t* elemPos = bufPos;
                     status = MarshalArgs(arg->v_array.elements, arg->v_array.numElements);
@@ -209,7 +192,7 @@ QStatus _Message::MarshalArgs(const MsgArg* arg, size_t numArgs)
             } else {
                 Marshal4(0);
                 if (alignment == 8) {
-                    MarshalPad8();
+                    MarshalPad(8);
                 }
             }
             break;
@@ -223,7 +206,6 @@ QStatus _Message::MarshalArgs(const MsgArg* arg, size_t numArgs)
                 status = ER_BUS_BAD_VALUE;
                 break;
             }
-            MarshalPad4();
             if (endianSwap) {
                 MarshalReversed(&len, 4);
             } else {
@@ -249,7 +231,6 @@ QStatus _Message::MarshalArgs(const MsgArg* arg, size_t numArgs)
                 status = ER_BUS_BAD_VALUE;
                 break;
             }
-            MarshalPad4();
             if (endianSwap) {
                 MarshalReversed(&len, 4);
                 for (size_t i = 0; i < arg->v_scalarArray.numElements; i++) {
@@ -264,7 +245,6 @@ QStatus _Message::MarshalArgs(const MsgArg* arg, size_t numArgs)
         case ALLJOYN_DOUBLE_ARRAY:
         case ALLJOYN_UINT64_ARRAY:
         case ALLJOYN_INT64_ARRAY:
-            MarshalPad4();
             status = CheckedArraySize(8 * arg->v_scalarArray.numElements, len);
             if (status != ER_OK) {
                 break;
@@ -276,19 +256,19 @@ QStatus _Message::MarshalArgs(const MsgArg* arg, size_t numArgs)
                 }
                 if (endianSwap) {
                     MarshalReversed(&len, 4);
-                    MarshalPad8();
+                    MarshalPad(8);
                     for (size_t i = 0; i < arg->v_scalarArray.numElements; i++) {
                         MarshalReversed(&arg->v_scalarArray.v_uint64[i], 8);
                     }
                 } else {
                     Marshal4(len);
-                    MarshalPad8();
+                    MarshalPad(8);
                     MarshalBytes(arg->v_scalarArray.v_uint64, len);
                 }
             } else {
                 /* Even empty arrays are padded to the element type alignment boundary */
                 Marshal4(0);
-                MarshalPad8();
+                MarshalPad(8);
             }
             break;
 
@@ -302,7 +282,6 @@ QStatus _Message::MarshalArgs(const MsgArg* arg, size_t numArgs)
                 status = ER_BUS_BAD_VALUE;
                 break;
             }
-            MarshalPad4();
             if (endianSwap) {
                 MarshalReversed(&len, 4);
                 for (size_t i = 0; i < arg->v_scalarArray.numElements; i++) {
@@ -323,7 +302,6 @@ QStatus _Message::MarshalArgs(const MsgArg* arg, size_t numArgs)
                 status = ER_BUS_BAD_VALUE;
                 break;
             }
-            MarshalPad4();
             if (endianSwap) {
                 MarshalReversed(&len, 4);
             } else {
@@ -333,7 +311,6 @@ QStatus _Message::MarshalArgs(const MsgArg* arg, size_t numArgs)
             break;
 
         case ALLJOYN_BOOLEAN:
-            MarshalPad4();
             if (arg->v_bool) {
                 if (endianSwap) {
                     uint32_t b = 1;
@@ -348,7 +325,6 @@ QStatus _Message::MarshalArgs(const MsgArg* arg, size_t numArgs)
 
         case ALLJOYN_INT32:
         case ALLJOYN_UINT32:
-            MarshalPad4();
             if (endianSwap) {
                 MarshalReversed(&arg->v_uint32, 4);
             } else {
@@ -359,7 +335,6 @@ QStatus _Message::MarshalArgs(const MsgArg* arg, size_t numArgs)
         case ALLJOYN_DOUBLE:
         case ALLJOYN_UINT64:
         case ALLJOYN_INT64:
-            MarshalPad8();
             if (endianSwap) {
                 MarshalReversed(&arg->v_uint64, 8);
             } else {
@@ -383,7 +358,6 @@ QStatus _Message::MarshalArgs(const MsgArg* arg, size_t numArgs)
 
         case ALLJOYN_INT16:
         case ALLJOYN_UINT16:
-            MarshalPad2();
             if (endianSwap) {
                 MarshalReversed(&arg->v_uint16, 2);
             } else {
@@ -399,7 +373,6 @@ QStatus _Message::MarshalArgs(const MsgArg* arg, size_t numArgs)
 
         // FALLTHROUGH
         case ALLJOYN_STRING:
-            MarshalPad4();
             if (arg->v_string.str) {
                 if (arg->v_string.str[arg->v_string.len]) {
                     status = ER_BUS_NOT_NUL_TERMINATED;
@@ -455,7 +428,6 @@ QStatus _Message::MarshalArgs(const MsgArg* arg, size_t numArgs)
                 }
             }
             /* Marshal the index of the handle */
-            MarshalPad4();
             if (endianSwap) {
                 MarshalReversed(&index, 4);
             } else {
@@ -587,7 +559,7 @@ void _Message::MarshalHeaderFields()
             /*
              * Header fields align on an 8 byte boundary
              */
-            MarshalPad8();
+            MarshalPad(8);
             Marshal1(FieldTypeMapping[fieldId]);
             /*
              * We relocate the string pointers in the fields to point to the marshaled versions to
@@ -658,7 +630,7 @@ void _Message::MarshalHeaderFields()
     /*
      * Header must be zero-padded to end on an 8 byte boundary
      */
-    MarshalPad8();
+    MarshalPad(8);
 }
 
 

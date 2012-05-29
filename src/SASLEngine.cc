@@ -172,18 +172,28 @@ static AuthCmdType ParseAuth(qcc::String& str)
     return AllJoynAuthCmdList[i].cmdType;
 }
 
-static qcc::String ComposeAuth(AuthCmdType cmd, qcc::String str1 = "", qcc::String str2 = "")
+static void ComposeAuth(qcc::String& outStr, AuthCmdType cmd, const qcc::String& str1, const qcc::String& str2)
 {
-    qcc::String result = AllJoynAuthCmdList[cmd].cmdStr;
+    outStr = AllJoynAuthCmdList[cmd].cmdStr;
     if (!str1.empty()) {
-        result += ' ' + str1;
+        outStr += ' ' + str1;
     }
     if (!str2.empty()) {
-        result += ' ' + str2;
+        outStr += ' ' + str2;
     }
-    return result + CRLF;
+    outStr.push_back('\r');
+    outStr.push_back('\n');
 }
 
+static void ComposeAuth(qcc::String& outStr, AuthCmdType cmd, const qcc::String& str1)
+{
+    ComposeAuth(outStr, cmd, str1, String());
+}
+
+static void ComposeAuth(qcc::String& outStr, AuthCmdType cmd)
+{
+    ComposeAuth(outStr, cmd, String(), String());
+}
 
 /*
  * Composes an AUTH command using the current set of authentication methods.
@@ -212,7 +222,7 @@ QStatus SASLEngine::NewAuthRequest(qcc::String& authCmd)
                 qcc::String response = AsciiToHex(authMechanism->InitialResponse(authResult));
                 if ((authResult == AuthMechanism::ALLJOYN_AUTH_OK) || (authResult == AuthMechanism::ALLJOYN_AUTH_CONTINUE)) {
                     SetState((authResult == AuthMechanism::ALLJOYN_AUTH_OK) ?  ALLJOYN_WAIT_FOR_OK : ALLJOYN_WAIT_FOR_DATA);
-                    authCmd = ComposeAuth(CMD_AUTH, authMechanism->GetName(), response);
+                    ComposeAuth(authCmd, CMD_AUTH, authMechanism->GetName(), response);
                     break;
                 }
                 QCC_LogError(ER_AUTH_FAIL, ("InitialReponse failed authMechanism %s", authMechanism->GetName()));
@@ -313,7 +323,8 @@ QStatus SASLEngine::Response(qcc::String& inStr, qcc::String& outStr)
                  */
                 challenge = HexToAscii(inStr.erase(0, 1));
                 if (challenge.empty()) {
-                    outStr = ComposeAuth(CMD_ERROR, "Expected hex-encoded data");
+                    response = "Expected hex-encoded data";
+                    cmd = CMD_ERROR;
                     break;
                 }
                 QCC_DbgPrintf(("Challenge: %s", challenge.c_str()));
@@ -321,25 +332,26 @@ QStatus SASLEngine::Response(qcc::String& inStr, qcc::String& outStr)
             response = AsciiToHex(authMechanism->Response(challenge, authResult));
             if (authResult == AuthMechanism::ALLJOYN_AUTH_OK) {
                 SetState(ALLJOYN_WAIT_FOR_OK);
-                outStr = ComposeAuth(CMD_DATA, response);
+                cmd = CMD_DATA;
             } else if (authResult == AuthMechanism::ALLJOYN_AUTH_ERROR) {
-                outStr = ComposeAuth(CMD_ERROR, response);
+                cmd = CMD_ERROR;
                 SetState(ALLJOYN_WAIT_FOR_DATA);
             } else if (authResult == AuthMechanism::ALLJOYN_AUTH_CONTINUE) {
-                outStr = ComposeAuth(CMD_DATA, response);
+                cmd = CMD_DATA;
                 SetState(ALLJOYN_WAIT_FOR_DATA);
             } else {
                 if (authResult == AuthMechanism::ALLJOYN_AUTH_RETRY) {
                     /* Retry the current authentication mechanism */
                     authSet.insert(authMechanism->GetName());
                 }
-                outStr = ComposeAuth(CMD_CANCEL);
+                cmd = CMD_CANCEL;
+                response.clear();
                 SetState(ALLJOYN_WAIT_FOR_REJECT);
             }
             break;
 
         case ALLJOYN_WAIT_FOR_OK:
-            outStr = ComposeAuth(CMD_CANCEL);
+            cmd = CMD_CANCEL;
             SetState(ALLJOYN_WAIT_FOR_REJECT);
             break;
 
@@ -365,7 +377,8 @@ QStatus SASLEngine::Response(qcc::String& inStr, qcc::String& outStr)
                 }
             }
             if (outStr.empty()) {
-                outStr = ComposeAuth(CMD_BEGIN, localId);
+                response = localId;
+                cmd = CMD_BEGIN;
                 SetState(ALLJOYN_AUTH_SUCCESS);
             }
             break;
@@ -379,12 +392,13 @@ QStatus SASLEngine::Response(qcc::String& inStr, qcc::String& outStr)
     case CMD_ERROR:
         switch (authState) {
         case ALLJOYN_WAIT_FOR_DATA:
-            outStr = ComposeAuth(CMD_CANCEL);
+            cmd = CMD_CANCEL;
             SetState(ALLJOYN_WAIT_FOR_REJECT);
             break;
 
         case ALLJOYN_WAIT_FOR_OK:
-            outStr = ComposeAuth(CMD_BEGIN, localId);
+            response = localId;
+            cmd = CMD_BEGIN;
             SetState(ALLJOYN_WAIT_FOR_REJECT);
             break;
 
@@ -393,7 +407,8 @@ QStatus SASLEngine::Response(qcc::String& inStr, qcc::String& outStr)
             if (!outStr.empty()) {
                 outStr += CRLF;
             } else {
-                outStr = ComposeAuth(CMD_BEGIN, localId);
+                response = localId;
+                cmd = CMD_BEGIN;
                 SetState(ALLJOYN_AUTH_SUCCESS);
             }
             break;
@@ -411,14 +426,16 @@ QStatus SASLEngine::Response(qcc::String& inStr, qcc::String& outStr)
             if (!outStr.empty()) {
                 outStr += CRLF;
             } else {
-                outStr = ComposeAuth(CMD_BEGIN, localId);
+                response = localId;
+                cmd = CMD_BEGIN;
                 SetState(ALLJOYN_AUTH_SUCCESS);
             }
             break;
 
         case ALLJOYN_WAIT_FOR_DATA:
         case ALLJOYN_WAIT_FOR_OK:
-            outStr = ComposeAuth(CMD_ERROR, "Unexpected Command");
+            response = "Unexpected Command";
+            cmd = CMD_ERROR;
             break;
 
         default:
@@ -429,6 +446,9 @@ QStatus SASLEngine::Response(qcc::String& inStr, qcc::String& outStr)
     }
 
     if (status == ER_OK) {
+        if (outStr.empty()) {
+            ComposeAuth(outStr, cmd, response);
+        }
         QCC_DbgPrintf(("Responder sending %s", outStr.c_str()));
     } else {
         QCC_DbgPrintf(("Responder auth failed: %s", QCC_StatusText(status)));
@@ -437,7 +457,7 @@ QStatus SASLEngine::Response(qcc::String& inStr, qcc::String& outStr)
             /*
              * This should cause the server to terminate the authentication conversation
              */
-            outStr = ComposeAuth(CMD_BEGIN);
+            ComposeAuth(outStr, CMD_BEGIN);
             status = ER_OK;
         }
     }
@@ -480,13 +500,15 @@ QStatus SASLEngine::Challenge(qcc::String& inStr, qcc::String& outStr)
             if (!inStr.erase(0, nameEnd).empty()) {
                 response = HexToAscii(inStr.erase(0, 1));
                 if (response.empty()) {
-                    outStr = ComposeAuth(CMD_ERROR, "Expected hex-encoded data");
+                    response = "Expected hex-encoded data";
+                    cmd = CMD_ERROR;
                     break;
                 }
             }
             /* Check the requested authentication mechanism is supported */
             if (authSet.count(mechanismName) == 0) {
-                outStr = ComposeAuth(CMD_REJECTED, ExpandAuthNames(authSet));
+                response = ExpandAuthNames(authSet);
+                cmd = CMD_REJECTED;
                 break;
             }
             /* Check if we are retrying the current auth mechanism or starting a new one */
@@ -506,7 +528,8 @@ QStatus SASLEngine::Challenge(qcc::String& inStr, qcc::String& outStr)
             }
             /* If we still don't have an authentication mechanism send a reject */
             if (!authMechanism) {
-                outStr = ComposeAuth(CMD_REJECTED, ExpandAuthNames(authSet));
+                response = ExpandAuthNames(authSet);
+                cmd = CMD_REJECTED;
                 break;
             }
             if (response.empty()) {
@@ -516,21 +539,26 @@ QStatus SASLEngine::Challenge(qcc::String& inStr, qcc::String& outStr)
                 challenge = authMechanism->Challenge(response, authResult);
             }
             if (authResult == AuthMechanism::ALLJOYN_AUTH_OK) {
-                outStr = ComposeAuth(CMD_OK, localId);
+                response = localId;
+                cmd = CMD_OK;
                 SetState(ALLJOYN_WAIT_FOR_BEGIN);
             } else if (authResult == AuthMechanism::ALLJOYN_AUTH_CONTINUE) {
-                outStr = ComposeAuth(CMD_DATA, AsciiToHex(challenge));
+                response = AsciiToHex(challenge);
+                cmd = CMD_DATA;
                 SetState(ALLJOYN_WAIT_FOR_DATA);
             } else if (authResult == AuthMechanism::ALLJOYN_AUTH_ERROR) {
-                outStr = ComposeAuth(CMD_ERROR, challenge.empty() ? "Invalid response" : challenge.c_str());
+                response = challenge.empty() ? "Invalid response" : challenge.c_str();
+                cmd = CMD_ERROR;
             } else if (authResult == AuthMechanism::ALLJOYN_AUTH_RETRY) {
-                outStr = ComposeAuth(CMD_REJECTED, ExpandAuthNames(authSet));
+                response = ExpandAuthNames(authSet);
+                cmd = CMD_REJECTED;
             } else {
                 SetState(ALLJOYN_AUTH_FAILED);
                 status = ER_AUTH_FAIL;
             }
         } else {
-            outStr = ComposeAuth(CMD_ERROR, "Unexpected");
+            response = "Unexpected";
+            cmd = CMD_ERROR;
         }
         break;
 
@@ -552,9 +580,11 @@ QStatus SASLEngine::Challenge(qcc::String& inStr, qcc::String& outStr)
     case CMD_CANCEL:
     case CMD_ERROR:
         if (authState == ALLJOYN_WAIT_FOR_AUTH) {
-            outStr = ComposeAuth(CMD_ERROR, "Expecting AUTH");
+            response = "Expecting AUTH";
+            cmd = CMD_ERROR;
         } else {
-            outStr = ComposeAuth(CMD_REJECTED, ExpandAuthNames(authSet));
+            response = ExpandAuthNames(authSet);
+            cmd = CMD_REJECTED;
             if (authState != ALLJOYN_AUTH_FAILED) {
                 SetState(ALLJOYN_WAIT_FOR_AUTH);
             }
@@ -568,20 +598,24 @@ QStatus SASLEngine::Challenge(qcc::String& inStr, qcc::String& outStr)
              */
             response = HexToAscii(inStr.erase(0, 1));
             if (response.empty()) {
-                outStr = ComposeAuth(CMD_ERROR, "Expected hex-encoded data");
+                response = "Expected hex-encoded data";
+                cmd = CMD_ERROR;
             } else {
                 QCC_DbgPrintf(("Response: %s", response.c_str()));
                 AuthMechanism::AuthResult authResult;
                 qcc::String challenge = authMechanism->Challenge(response, authResult);
                 if (authResult == AuthMechanism::ALLJOYN_AUTH_OK) {
-                    outStr = ComposeAuth(CMD_OK, localId);
+                    response = localId;
+                    cmd = CMD_OK;
                     SetState(ALLJOYN_WAIT_FOR_BEGIN);
                 } else if (authResult == AuthMechanism::ALLJOYN_AUTH_CONTINUE) {
-                    outStr = ComposeAuth(CMD_DATA, AsciiToHex(challenge));
+                    response = AsciiToHex(challenge);
+                    cmd = CMD_DATA;
                     SetState(ALLJOYN_WAIT_FOR_DATA);
                 } else if (authResult == AuthMechanism::ALLJOYN_AUTH_RETRY) {
+                    response = ExpandAuthNames(authSet);
+                    cmd = CMD_REJECTED;
                     SetState(ALLJOYN_WAIT_FOR_AUTH);
-                    outStr = ComposeAuth(CMD_REJECTED, ExpandAuthNames(authSet));
                 } else {
                     SetState(ALLJOYN_AUTH_FAILED);
                     status = ER_AUTH_FAIL;
@@ -589,7 +623,8 @@ QStatus SASLEngine::Challenge(qcc::String& inStr, qcc::String& outStr)
             }
         } else {
             /* No state change */
-            outStr = ComposeAuth(CMD_ERROR, "Unexpected");
+            response = "Unexpected";
+            cmd = CMD_ERROR;
         }
         break;
 
@@ -605,10 +640,16 @@ QStatus SASLEngine::Challenge(qcc::String& inStr, qcc::String& outStr)
             }
         }
         if (outStr.empty()) {
-            outStr = ComposeAuth(CMD_ERROR, "Unknown");
+            response = "Unknown";
+            cmd = CMD_ERROR;
         }
         break;
     }
+
+    if (outStr.empty()) {
+        ComposeAuth(outStr, cmd, response);
+    }
+
     QCC_DbgPrintf(("Challenger sending %s", outStr.c_str()));
     return status;
 }

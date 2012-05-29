@@ -442,10 +442,20 @@ class _Message {
      *                      - Return the error message string stored
      *                      - leave errorMessage unchanged if error message string not found
      * @return
-     *      - If error detected return error name stored in the AllJoyn header field
-     *      - NULL if error not detected
+     *      - If the message is an error message return the error name from the AllJoyn header
+     *      - NULL if the message type is not MESSAGE_ERRORe.
      */
     const char* GetErrorName(qcc::String* errorMessage = NULL) const;
+
+    /**
+     * Returns a complete description of an error by concatenating the error name and the error
+     * message together.
+     *
+     * @return
+     *      - If the message is an error message return the error description
+     *      - An empty string if the message type is not MESSAGE_ERROR.
+     */
+    qcc::String GetErrorDescription() const;
 
     /**
      * Destructor for the %_Message class.
@@ -453,14 +463,18 @@ class _Message {
     ~_Message();
 
     /**
-     * Returns an XML string representation of the message
-     * @return an XML string representation of the message
+     * In debug builds returns an XML string representation of the message. In release builds
+     * returns an empty string.
+     *
+     * @return an XML string representation of the message or an empty string.
      */
     qcc::String ToString() const;
 
     /**
-     * Returns a string that provides a brief description of the message
-     * @return a brief description of the message
+     * In debug builds returns a string that provides a brief description of the message. In release
+     * builds returns and empty string.
+     *
+     * @return a brief description of the message or an empty string.
      */
     qcc::String Description() const;
 
