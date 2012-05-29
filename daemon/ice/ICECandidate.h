@@ -136,14 +136,14 @@ class _ICECandidate {
      */
 
     // Local Host/Server-Reflexive/Peer-Reflexive
-    _ICECandidate(_ICECandidate::ICECandidateType type, IPEndpoint endPoint, IPEndpoint base, Component* component, SocketType transportProtocol, StunActivity* stunActivity, String interfaceName);
+    _ICECandidate(ICECandidateType type, IPEndpoint endPoint, IPEndpoint base, Component* component, SocketType transportProtocol, StunActivity* stunActivity, String interfaceName);
 
     // Local Relayed Candidate
     _ICECandidate(IPEndpoint endPoint, IPEndpoint base, IPEndpoint mappedAddress, uint32_t grantedAllocationLifetimeSecs,
                   Component* component, SocketType transportProtocol, StunActivity* stunActivity, StunActivity* permissionStunActivity);
 
     // Remote Candidate
-    _ICECandidate(_ICECandidate::ICECandidateType type, IPEndpoint endPoint, Component* component, SocketType transportProtocol, uint32_t priority, String foundation);
+    _ICECandidate(ICECandidateType type, IPEndpoint endPoint, Component* component, SocketType transportProtocol, uint32_t priority, String foundation);
 
 
     // Default Candidate

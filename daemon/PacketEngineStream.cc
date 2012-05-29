@@ -46,8 +46,8 @@ PacketEngineStream::PacketEngineStream() :
 {
 }
 
-PacketEngineStream::PacketEngineStream(PacketEngine& engine, uint32_t chanId, Event& sourceEvent, Event& sinkEvent)
-    : engine(&engine),
+PacketEngineStream::PacketEngineStream(PacketEngine& engine, uint32_t chanId, Event& sourceEvent, Event& sinkEvent) :
+    engine(&engine),
     chanId(chanId),
     sourceEvent(&sourceEvent),
     sinkEvent(&sinkEvent),
@@ -55,8 +55,8 @@ PacketEngineStream::PacketEngineStream(PacketEngine& engine, uint32_t chanId, Ev
 {
 }
 
-PacketEngineStream::PacketEngineStream(const PacketEngineStream& other)
-    : engine(other.engine),
+PacketEngineStream::PacketEngineStream(const PacketEngineStream& other) :
+    engine(other.engine),
     chanId(other.chanId),
     sourceEvent(other.sourceEvent),
     sinkEvent(other.sinkEvent),

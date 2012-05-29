@@ -217,6 +217,8 @@ class PacketEngine : public qcc::AlarmListener {
 
     QStatus Connect(const PacketDest& dest, PacketStream& packetStream, PacketEngineListener& listener, void* context);
 
+    PacketStream* GetPacketStream(const PacketEngineStream& stream);
+
     /**
      * Request graceful disconnect of stream.
      * Note taht stream is not actually disconnected until PacketEngineDisconnectCB is called.

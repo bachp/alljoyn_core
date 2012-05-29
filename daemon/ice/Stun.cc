@@ -261,6 +261,8 @@ QStatus Stun::Close(void)
 {
     QStatus status = ER_STUN_SOCKET_NOT_OPEN;
 
+    QCC_DbgTrace(("Stun::Close*() [sockfd = %d]", sockfd));
+
     if (SOCKET_ERROR != sockfd) {
         qcc::Close(sockfd);
         sockfd = SOCKET_ERROR;

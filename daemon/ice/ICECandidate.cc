@@ -154,6 +154,7 @@ _ICECandidate::~_ICECandidate(void)
         // Wait on listener thread.
         QCC_DbgPrintf(("Stopping listener thread 0x%x", listenerThread));
 
+        printf("listenerThread=%p, thisThread=%p\n", listenerThread, Thread::GetThread());
         listenerThread->Stop();
         listenerThread->Join();
         delete listenerThread;
@@ -206,7 +207,8 @@ void _ICECandidate::AwaitRequestsAndResponses(void)
     bool signaledStop = false;
 
     QStatus status = ER_OK;
-    while (!terminating && !signaledStop) {
+    Thread* thisThread = Thread::GetThread();
+    while (!terminating && !signaledStop && !thisThread->IsStopping()) {
 
         ICESession* session = component->GetICEStream()->GetSession();
         if (session) {
@@ -238,6 +240,7 @@ void _ICECandidate::AwaitRequestsAndResponses(void)
 
         default:
             QCC_LogError(status, ("ReadReceivedMessage"));
+            signaledStop = true;
             break;
         }
     }
@@ -282,7 +285,7 @@ QStatus _ICECandidate::ReadReceivedMessage(uint32_t timeoutMsec)
     status = stunActivity->stun->RecvStunMessage(msg, remote.addr, remote.port, receivedMsgWasRelayed, timeoutMsec);
 
     if (ER_OK != status) {
-        QCC_DbgPrintf(("ReadReceivedMessage status = %d", status));
+        QCC_LogError(status, ("ReadReceivedMessage status = %d", status));
         return status;
     }
 #if !defined(NDEBUG)

@@ -449,7 +449,8 @@ void ICESession::StunTurnPacingWork(void)
 
     uint32_t pacingIntervalMsecs = 500;
 
-    while (!terminating) {
+    Thread* thisThread = Thread::GetThread();
+    while (!terminating && !thisThread->IsStopping()) {
         // If any requests are to be sent, enqueue them. Check for timeouts.
         FindPendingWork();
 
@@ -463,6 +464,7 @@ void ICESession::StunTurnPacingWork(void)
                                                              false); // not sending to peer
             if (ER_OK != status) {
                 QCC_LogError(status, ("StunTurnPacingWork"));
+                terminating = true;
             }
 
             delete stunWork->msg;

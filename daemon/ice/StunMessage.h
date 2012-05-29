@@ -115,6 +115,10 @@ class StunMessage : public StunIOInterface {
     typedef std::map<StunTransactionID, keyInfo> ExpectedResponseMap;
 
   private:
+
+    StunMessage(const StunMessage& msg);
+    StunMessage operator=(const StunMessage& msg);
+
     std::list<StunAttribute*> attrs; ///< List of STUN message attributes.
     std::list<uint16_t> badAttrs;    ///< List of Unrecognized attributes (used in parsing).
     StunMsgTypeClass msgClass;      ///< Message type class.
