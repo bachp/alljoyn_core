@@ -184,7 +184,7 @@ class TokenRefreshListenerImpl : public TokenRefreshListener {
  * versions revolves around routing and discovery. This class provides a
  * specialization of class Transport for use by daemons.
  */
-class DaemonICETransport : public Transport, public RemoteEndpoint::EndpointListener, public Thread, public AlarmListener {
+class DaemonICETransport : public Transport, public RemoteEndpoint::EndpointListener, public Thread, public AlarmListener, public PacketEngineListener {
     friend class DaemonICEEndpoint;
 
   public:
@@ -433,6 +433,21 @@ class DaemonICETransport : public Transport, public RemoteEndpoint::EndpointList
     void AlarmTriggered(const qcc::Alarm& alarm, QStatus status);
 
     /**
+     * PacketEngineAccept callback
+     */
+    bool PacketEngineAcceptCB(PacketEngine& engine, const PacketEngineStream& stream, const PacketDest& dest);
+
+    /**
+     * PacketEngineConnect callback
+     */
+    void PacketEngineConnectCB(PacketEngine& engine, QStatus status, const PacketEngineStream* stream, const PacketDest& dest, void* context);
+
+    /**
+     * PacketEngineDisconnect callback
+     */
+    void PacketEngineDisconnectCB(PacketEngine& engine, const PacketEngineStream& stream, const PacketDest& dest);
+
+    /**
      * Name of transport used in transport specs.
      */
     static const char* TransportName;
@@ -560,6 +575,20 @@ class DaemonICETransport : public Transport, public RemoteEndpoint::EndpointList
      */
     void PurgeSessionsMap(String peerID,  const vector<String>* nameList);
 
+    /**
+     * STUN keep-alive and TURN refresh helper.
+     *
+     * @param icePacketStream   ICEPacketStream
+     */
+    void SendSTUNKeepAliveAndTURNRefreshRequest(ICEPacketStream& icePacketStream);
+
+    ICEPacketStream* AcquireICEPacketStream(const qcc::String& connectSpec);
+
+    QStatus AcquireICEPacketStreamByPointer(ICEPacketStream* icePacketStream);
+
+    void ReleaseICEPacketStream(const ICEPacketStream& icePktStream);
+
+
     class ICECallback {
       public:
         ICECallback(TransportListener*& listener, DaemonICETransport* DaemonICETransport) : m_listener(listener), m_daemonICETransport(DaemonICETransport) { }
@@ -628,7 +657,10 @@ class DaemonICETransport : public Transport, public RemoteEndpoint::EndpointList
     String mobileNwInterfaceName;
 
     /* Timer used to handle the alarms */
-    Timer DaemonICETransportTimer;
+    Timer daemonICETransportTimer;
+
+    qcc::Mutex pktStreamMapLock;
+    std::map<qcc::String, std::pair<ICEPacketStream, int32_t> > pktStreamMap;
 };
 
 } // namespace ajn

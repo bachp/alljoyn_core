@@ -31,6 +31,8 @@
 #include "StunMessage.h"
 #include "Stun.h"
 #include "StunAttribute.h"
+#include "ICECandidate.h"
+#include "ICESession.h"
 
 namespace ajn {
 
@@ -45,13 +47,18 @@ class ICEPacketStream : public PacketStream {
                                           StunAttributeFingerprint::ATTR_SIZE_WITH_HEADER;
 
     /** Construct a PacketDest from a addr,port */
-    static PacketDest GetPacketDest(const qcc::String& addr, uint16_t port);
+    static PacketDest GetPacketDest(const qcc::IPAddress& addr, uint16_t port);
 
     /** Constructor */
     ICEPacketStream();
 
     /** Constructor */
-    ICEPacketStream(Stun* stunPtr, bool hostCandidate);
+    ICEPacketStream(ICESession& iceSession, Stun& stunPtr, _ICECandidate::ICECandidateType candidateType);
+
+    /** Copy constructor */
+    ICEPacketStream(const ICEPacketStream& other);
+
+    ICEPacketStream& operator=(const ICEPacketStream& other);
 
     /** Destructor */
     ~ICEPacketStream();
@@ -146,11 +153,82 @@ class ICEPacketStream : public PacketStream {
     qcc::String ToString(const PacketDest& dest) const;
 
     /**
+     * Get HMAC key
+     *
+     * @return hmac key (from ICESession)
+     */
+    const qcc::String& GetHmacKey() const { return hmacKey; }
+
+    /**
+     * Get ICE destination.
+     *
+     * @return ICE negociated destination
+     */
+    PacketDest GetICEDestination() const { return GetPacketDest(remoteAddress, remotePort); }
+
+    /**
+     * Get ICE destination address.
+     *
+     * @return ICE negociated IPAddress.
+     */
+    const IPAddress& GetICERemoteAddr() const { return remoteAddress; }
+
+    /**
+     * Get ICE destination port
+     *
+     * @return ICE negociated IP port.
+     */
+    uint16_t GetICERemotePort() const { return remotePort; }
+
+    /**
+     * Return the ICE candidate type associated with this ICEPacketStream.
+     *
+     * @return ICECandidateType associated with this ICEPacketStream.
+     */
+    _ICECandidate::ICECandidateType GetCandidateType() const { return iceCandidateType; }
+
+    /**
+     * Return the TURN server's refresh period.
+     * This call returns 0 unless the candidate type is Relayed_Candidate.
+     *
+     * @return TURN server refresh period in milliseconds.
+     */
+    uint32_t GetTurnRefreshPeriod() const { return turnRefreshPeriod; }
+
+    /**
+     * Return the timestamp of the last TURN server's refresh.
+     *
+     * @return time of last TURN server refresh.
+     */
+    uint64_t GetTurnRefreshTimestamp() const { return turnRefreshTimestamp; }
+
+    /**
+     * Set the timestamp of the last TURN server's refresh.
+     *
+     * @param time  64-bit timestamp of last TURN refresh.
+     */
+    void SetTurnRefreshTimestamp(uint64_t time)  { turnRefreshTimestamp = time; }
+
+    /**
+     * Return the username used for TURN server authentication.
+     *
+     * @return TURN server username
+     */
+    qcc::String GetTurnUsername() const { return turnUsername; }
+
+    /**
+     * Return the username used for TURN server authentication.
+     *
+     * @return TURN server username
+     */
+    uint32_t GetStunKeepAlivePeriod() const { return stunKeepAlivePeriod; }
+
+    /**
      * Compose a STUN message with the passed in data.
      */
     static QStatus ComposeStunMessage(const void* buf, size_t numBytes, uint8_t* renderBuf, size_t& renderSize,
                                       qcc::IPAddress destnAddress, uint16_t destnPort, String userName,
-                                      const uint8_t* key, size_t keyLen);
+                                      const qcc::String& key);
 
     /**
      * Strip STUN overhead from a received message.
@@ -168,11 +246,12 @@ class ICEPacketStream : public PacketStream {
     qcc::Event* sinkEvent;
     size_t mtuWithStunOverhead;
     size_t interfaceMtu;
-    bool usingHostCandidate;
-    bool usingTURN;
-    const uint8_t* hmacKey;
-    size_t hmacKeyLen;
-    String TURNUserName;
+    _ICECandidate::ICECandidateType iceCandidateType;
+    qcc::String hmacKey;
+    qcc::String turnUsername;
+    uint32_t turnRefreshPeriod;
+    uint64_t turnRefreshTimestamp;
+    uint32_t stunKeepAlivePeriod;
     Mutex sendLock;
     uint8_t* rxRenderBuf;
     uint8_t* txRenderBuf;

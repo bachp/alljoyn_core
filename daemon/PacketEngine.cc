@@ -1505,4 +1505,20 @@ qcc::ThreadReturn STDCALL PacketEngine::TxPacketThread::Run(void* arg)
     return (qcc::ThreadReturn) 0;
 }
 
+PacketStream* PacketEngine::GetPacketStream(const PacketEngineStream& stream)
+{
+    PacketStream* ret = NULL;
+    channelInfoLock.Lock();
+    map<uint32_t, ChannelInfo>::iterator it = channelInfos.begin();
+    while (it != channelInfos.end()) {
+        if (&(it->second.stream) == &stream) {
+            ret = &(it->second.packetStream);
+            break;
+        }
+        ++it;
+    }
+    channelInfoLock.Unlock();
+    return ret;
+}
+
 }
