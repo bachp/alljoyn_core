@@ -53,31 +53,6 @@ namespace ajn {
 
 char _Message::outEndian = _Message::myEndian;
 
-static const char* HdrId[] = {
-    "INVALID",
-    "PATH",
-    "INTERFACE",
-    "MEMBER",
-    "ERROR_NAME",
-    "REPLY_SERIAL",
-    "DESTINATION",
-    "SENDER",
-    "SIGNATURE",
-    "HANDLES",
-    "TIMESTAMP",
-    "TIME_TO_LIVE",
-    "COMPRESSION_TOKEN",
-    "SESSION_ID"
-};
-
-static const char* MsgId[] = {
-    "INVALID",
-    "METHOD_CALL",
-    "METHOD_RET",
-    "ERROR",
-    "SIGNAL"
-};
-
 qcc::String _Message::ToString() const
 {
     return ToString(msgArgs, numMsgArgs);
@@ -136,10 +111,38 @@ const bool HeaderFields::Compressible[] = {
     false             /* ALLJOYN_HDR_FIELD_UNKNOWN           */
 };
 
+#ifndef NDEBUG
+static const char* MsgId[] = {
+    "INVALID",
+    "METHOD_CALL",
+    "METHOD_RET",
+    "ERROR",
+    "SIGNAL"
+};
+
+static const char* HdrId[] = {
+    "INVALID",
+    "PATH",
+    "INTERFACE",
+    "MEMBER",
+    "ERROR_NAME",
+    "REPLY_SERIAL",
+    "DESTINATION",
+    "SENDER",
+    "SIGNATURE",
+    "HANDLES",
+    "TIMESTAMP",
+    "TIME_TO_LIVE",
+    "COMPRESSION_TOKEN",
+    "SESSION_ID"
+};
+#endif
+
 qcc::String HeaderFields::ToString(size_t indent) const
 {
-    qcc::String in = qcc::String(indent, ' ');
     qcc::String str;
+#ifndef NDEBUG
+    qcc::String in = qcc::String(indent, ' ');
     for (size_t i = ALLJOYN_HDR_FIELD_PATH; i < ALLJOYN_HDR_FIELD_UNKNOWN; i++) {
         if (field[i].typeId != ALLJOYN_INVALID) {
             str += in + "<header field=\"" + qcc::String(HdrId[i]) + "\">\n";
@@ -147,6 +150,7 @@ qcc::String HeaderFields::ToString(size_t indent) const
             str += in + "</header>\n";
         }
     }
+#endif
     return str;
 }
 
@@ -156,6 +160,7 @@ qcc::String HeaderFields::ToString(size_t indent) const
 qcc::String _Message::Description() const
 {
     qcc::String outStr;
+#ifndef NDEBUG
     outStr += qcc::String(msgHeader.msgType <= MESSAGE_SIGNAL ? MsgId[msgHeader.msgType] : MsgId[0]);
     switch (msgHeader.msgType) {
     case MESSAGE_METHOD_CALL:
@@ -203,6 +208,7 @@ qcc::String _Message::Description() const
     default:
         break;
     }
+#endif
     return outStr;
 }
 
@@ -219,6 +225,7 @@ static qcc::String FlagBits(uint8_t flags)
 qcc::String _Message::ToString(const MsgArg* args, size_t numArgs) const
 {
     qcc::String outStr;
+#ifndef NDEBUG
     size_t indent = 2;
     qcc::String in = qcc::String(indent, ' ');
 
@@ -245,6 +252,7 @@ qcc::String _Message::ToString(const MsgArg* args, size_t numArgs) const
         }
         outStr += "</message>";
     }
+#endif
     return outStr;
 }
 
@@ -264,6 +272,18 @@ const char* _Message::GetErrorName(qcc::String* errorMessage) const
         }
     }
     return NULL;
+}
+
+qcc::String _Message::GetErrorDescription() const
+{
+    qcc::String msg;
+    const char* err = GetErrorName(&msg);
+    if (msg.empty()) {
+        return err;
+    } else {
+        qcc::String description = err;
+        return description + ", \"" + msg + "\"";
+    }
 }
 
 QStatus _Message::GetArgs(const char* signature, ...)

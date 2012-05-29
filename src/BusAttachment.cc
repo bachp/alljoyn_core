@@ -751,12 +751,7 @@ QStatus BusAttachment::RequestName(const char* requestedName, uint32_t flags)
             }
         }
     } else {
-        String errMsg;
-        const char* errName = reply->GetErrorName(&errMsg);
-        QCC_LogError(status, ("%s.RequestName returned ERROR_MESSAGE (error=%s, \"%s\")",
-                              org::freedesktop::DBus::InterfaceName,
-                              errName,
-                              errMsg.c_str()));
+        QCC_LogError(status, ("%s.RequestName returned ERROR_MESSAGE (error=%s)", org::freedesktop::DBus::InterfaceName, reply->GetErrorDescription().c_str()));
     }
     return status;
 }
@@ -797,12 +792,7 @@ QStatus BusAttachment::ReleaseName(const char* name)
             }
         }
     } else {
-        String errMsg;
-        const char* errName = reply->GetErrorName(&errMsg);
-        QCC_LogError(status, ("%s.ReleaseName returned ERROR_MESSAGE (error=%s, \"%s\")",
-                              org::freedesktop::DBus::InterfaceName,
-                              errName,
-                              errMsg.c_str()));
+        QCC_LogError(status, ("%s.ReleaseName returned ERROR_MESSAGE (error=%s)", org::freedesktop::DBus::InterfaceName, reply->GetErrorDescription().c_str()));
     }
     return status;
 }
@@ -822,12 +812,7 @@ QStatus BusAttachment::AddMatch(const char* rule)
     const ProxyBusObject& dbusObj = this->GetDBusProxyObj();
     QStatus status = dbusObj.MethodCall(org::freedesktop::DBus::InterfaceName, "AddMatch", args, numArgs, reply);
     if (ER_OK != status) {
-        String errMsg;
-        const char* errName = reply->GetErrorName(&errMsg);
-        QCC_LogError(status, ("%s.AddMatch returned ERROR_MESSAGE (error=%s, \"%s\")",
-                              org::freedesktop::DBus::InterfaceName,
-                              errName,
-                              errMsg.c_str()));
+        QCC_LogError(status, ("%s.AddMatch returned ERROR_MESSAGE (error=%s)", org::freedesktop::DBus::InterfaceName, reply->GetErrorDescription().c_str()));
     }
     return status;
 }
@@ -847,12 +832,7 @@ QStatus BusAttachment::RemoveMatch(const char* rule)
     const ProxyBusObject& dbusObj = this->GetDBusProxyObj();
     QStatus status = dbusObj.MethodCall(org::freedesktop::DBus::InterfaceName, "RemoveMatch", args, numArgs, reply);
     if (ER_OK != status) {
-        String errMsg;
-        const char* errName = reply->GetErrorName(&errMsg);
-        QCC_LogError(status, ("%s.RemoveMatch returned ERROR_MESSAGE (error=%s, \"%s\")",
-                              org::freedesktop::DBus::InterfaceName,
-                              errName,
-                              errMsg.c_str()));
+        QCC_LogError(status, ("%s.RemoveMatch returned ERROR_MESSAGE (error=%s)", org::freedesktop::DBus::InterfaceName, reply->GetErrorDescription().c_str()));
     }
     return status;
 }
@@ -893,12 +873,7 @@ QStatus BusAttachment::FindAdvertisedName(const char* namePrefix)
             }
         }
     } else {
-        String errMsg;
-        const char* errName = reply->GetErrorName(&errMsg);
-        QCC_LogError(status, ("%s.FindAdvertisedName returned ERROR_MESSAGE (error=%s, \"%s\")",
-                              org::alljoyn::Bus::InterfaceName,
-                              errName,
-                              errMsg.c_str()));
+        QCC_LogError(status, ("%s.FindAdvertisedName returned ERROR_MESSAGE (error=%s)", org::alljoyn::Bus::InterfaceName, reply->GetErrorDescription().c_str()));
     }
     return status;
 }
@@ -935,12 +910,7 @@ QStatus BusAttachment::CancelFindAdvertisedName(const char* namePrefix)
             }
         }
     } else {
-        String errMsg;
-        const char* errName = reply->GetErrorName(&errMsg);
-        QCC_LogError(status, ("%s.CancelFindAdvertisedName returned ERROR_MESSAGE (error=%s, \"%s\")",
-                              org::alljoyn::Bus::InterfaceName,
-                              errName,
-                              errMsg.c_str()));
+        QCC_LogError(status, ("%s.CancelFindAdvertisedName returned ERROR_MESSAGE (error=%s)", org::alljoyn::Bus::InterfaceName, reply->GetErrorDescription().c_str()));
     }
     return status;
 }
@@ -981,12 +951,7 @@ QStatus BusAttachment::AdvertiseName(const char* name, TransportMask transports)
             }
         }
     } else {
-        String errMsg;
-        const char* errName = reply->GetErrorName(&errMsg);
-        QCC_LogError(status, ("%s.AdvertiseName returned ERROR_MESSAGE (error=%s, \"%s\")",
-                              org::alljoyn::Bus::InterfaceName,
-                              errName,
-                              errMsg.c_str()));
+        QCC_LogError(status, ("%s.AdvertiseName returned ERROR_MESSAGE (error=%s)", org::alljoyn::Bus::InterfaceName, reply->GetErrorDescription().c_str()));
     }
     return status;
 }
@@ -1023,12 +988,7 @@ QStatus BusAttachment::CancelAdvertiseName(const char* name, TransportMask trans
             }
         }
     } else {
-        String errMsg;
-        const char* errName = reply->GetErrorName(&errMsg);
-        QCC_LogError(status, ("%s.CancelAdvertiseName returned ERROR_MESSAGE (error=%s, \"%s\")",
-                              org::alljoyn::Bus::InterfaceName,
-                              errName,
-                              errMsg.c_str()));
+        QCC_LogError(status, ("%s.CancelAdvertiseName returned ERROR_MESSAGE (error=%s)", org::alljoyn::Bus::InterfaceName, reply->GetErrorDescription().c_str()));
     }
     return status;
 }
@@ -1076,12 +1036,7 @@ QStatus BusAttachment::NameHasOwner(const char* name, bool& hasOwner)
     if (ER_OK == status) {
         status = reply->GetArgs("b", &hasOwner);
     } else {
-        String errMsg;
-        const char* errName = reply->GetErrorName(&errMsg);
-        QCC_LogError(status, ("%s.NameHasOwner returned ERROR_MESSAGE (error=%s, \"%s\")",
-                              org::freedesktop::DBus::InterfaceName,
-                              errName,
-                              errMsg.c_str()));
+        QCC_LogError(status, ("%s.NameHasOwner returned ERROR_MESSAGE (error=%s)", org::freedesktop::DBus::InterfaceName, reply->GetErrorDescription().c_str()));
     }
     return status;
 }
@@ -1121,13 +1076,7 @@ QStatus BusAttachment::BindSessionPort(SessionPort& sessionPort, const SessionOp
 
     QStatus status = this->GetAllJoynProxyObj().MethodCall(org::alljoyn::Bus::InterfaceName, "BindSessionPort", args, ArraySize(args), reply);
     if (status != ER_OK) {
-        String errMsg;
-        const char* errName = reply->GetErrorName(&errMsg);
-        QCC_LogError(status, ("%s.BindSessionPort returned ERROR_MESSAGE (error=%s, \"%s\")",
-                              org::alljoyn::Bus::InterfaceName,
-                              errName,
-                              errMsg.c_str()));
-
+        QCC_LogError(status, ("%s.BindSessionPort returned ERROR_MESSAGE (error=%s)", org::alljoyn::Bus::InterfaceName, reply->GetErrorDescription().c_str()));
     } else {
         SessionPort tempPort;
         uint32_t disposition;
@@ -1175,13 +1124,7 @@ QStatus BusAttachment::UnbindSessionPort(SessionPort sessionPort)
 
     QStatus status = this->GetAllJoynProxyObj().MethodCall(org::alljoyn::Bus::InterfaceName, "UnbindSessionPort", args, ArraySize(args), reply);
     if (status != ER_OK) {
-        String errMsg;
-        const char* errName = reply->GetErrorName(&errMsg);
-        QCC_LogError(status, ("%s.UnbindSessionPort returned ERROR_MESSAGE (error=%s, \"%s\")",
-                              org::alljoyn::Bus::InterfaceName,
-                              errName,
-                              errMsg.c_str()));
-
+        QCC_LogError(status, ("%s.UnbindSessionPort returned ERROR_MESSAGE (error=%s)", org::alljoyn::Bus::InterfaceName, reply->GetErrorDescription().c_str()));
     } else {
         uint32_t disposition;
         status = reply->GetArgs("u", &disposition);
@@ -1317,13 +1260,7 @@ void BusAttachment::Internal::DoJoinSessionMethodCB(Message& reply, void* contex
         }
     } else if (reply->GetType() == MESSAGE_ERROR) {
         status = ER_BUS_REPLY_IS_ERROR_MESSAGE;
-        String errMsg;
-        const char* errName = reply->GetErrorName(&errMsg);
-        sessionId = 0;
-        QCC_LogError(status, ("%s.JoinSession returned ERROR_MESSAGE (error=%s, \"%s\")",
-                              org::alljoyn::Bus::InterfaceName,
-                              errName,
-                              errMsg.c_str()));
+        QCC_LogError(status, ("%s.JoinSession returned ERROR_MESSAGE (error=%s)", org::alljoyn::Bus::InterfaceName, reply->GetErrorDescription().c_str()));
     }
     if (ctx->sessionListener && (status == ER_OK)) {
         sessionListenersLock.Lock(MUTEX_CONTEXT);
@@ -1405,13 +1342,8 @@ QStatus BusAttachment::JoinSession(const char* sessionHost, SessionPort sessionP
             }
         }
     } else {
-        String errMsg;
-        const char* errName = reply->GetErrorName(&errMsg);
         sessionId = 0;
-        QCC_LogError(status, ("%s.JoinSession returned ERROR_MESSAGE (error=%s, \"%s\")",
-                              org::alljoyn::Bus::InterfaceName,
-                              errName,
-                              errMsg.c_str()));
+        QCC_LogError(status, ("%s.JoinSession returned ERROR_MESSAGE (error=%s)", org::alljoyn::Bus::InterfaceName, reply->GetErrorDescription().c_str()));
     }
     if (listener && (status == ER_OK)) {
         busInternal->sessionListenersLock.Lock(MUTEX_CONTEXT);
@@ -1453,12 +1385,7 @@ QStatus BusAttachment::LeaveSession(const SessionId& sessionId)
             }
         }
     } else {
-        String errMsg;
-        const char* errName = reply->GetErrorName(&errMsg);
-        QCC_LogError(status, ("%s.LeaveSession returned ERROR_MESSAGE (error=%s, \"%s\")",
-                              org::alljoyn::Bus::InterfaceName,
-                              errName,
-                              errMsg.c_str()));
+        QCC_LogError(status, ("%s.LeaveSession returned ERROR_MESSAGE (error=%s)", org::alljoyn::Bus::InterfaceName, reply->GetErrorDescription().c_str()));
     }
     return status;
 }
@@ -1488,12 +1415,7 @@ QStatus BusAttachment::GetSessionFd(SessionId sessionId, SocketFd& sockFd)
             }
         }
     } else {
-        String errMsg;
-        const char* errName = reply->GetErrorName(&errMsg);
-        QCC_LogError(status, ("%s.GetSessionFd returned ERROR_MESSAGE (error=%s, \"%s\")",
-                              org::alljoyn::Bus::InterfaceName,
-                              errName,
-                              errMsg.c_str()));
+        QCC_LogError(status, ("%s.GetSessionFd returned ERROR_MESSAGE (error=%s)", org::alljoyn::Bus::InterfaceName, reply->GetErrorDescription().c_str()));
     }
     return status;
 }
@@ -1512,12 +1434,7 @@ QStatus BusAttachment::SetLinkTimeout(SessionId sessionId, uint32_t& linkTimeout
 
     QStatus status = this->GetAllJoynProxyObj().MethodCall(org::alljoyn::Bus::InterfaceName, "SetLinkTimeout", args, ArraySize(args), reply);
     if (status != ER_OK) {
-        String errMsg;
-        const char* errName = reply->GetErrorName(&errMsg);
-        QCC_LogError(status, ("%s.SetLinkTimeout returned ERROR_MESSAGE (error=%s, \"%s\")",
-                              org::alljoyn::Bus::InterfaceName,
-                              errName,
-                              errMsg.c_str()));
+        QCC_LogError(status, ("%s.SetLinkTimeout returned ERROR_MESSAGE (error=%s)", org::alljoyn::Bus::InterfaceName, reply->GetErrorDescription().c_str()));
         status = ER_ALLJOYN_SETLINKTIMEOUT_REPLY_NOT_SUPPORTED;
     } else {
         uint32_t disposition;

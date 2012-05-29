@@ -81,8 +81,8 @@ QStatus XmlHelper::ParseInterface(const XmlElement* elem, ProxyBusObject* obj)
     ifIt = elem->GetChildren().begin();
     while ((ER_OK == status) && (ifIt != elem->GetChildren().end())) {
         const XmlElement* ifChildElem = *ifIt++;
-        qcc::String ifChildName = ifChildElem->GetName();
-        qcc::String memberName = ifChildElem->GetAttribute("name");
+        const qcc::String& ifChildName = ifChildElem->GetName();
+        const qcc::String& memberName = ifChildElem->GetAttribute("name");
         if ((ifChildName == "method") || (ifChildName == "signal")) {
             if (IsLegalMemberName(memberName.c_str())) {
 
@@ -104,9 +104,9 @@ QStatus XmlHelper::ParseInterface(const XmlElement* elem, ProxyBusObject* obj)
                             argList += ',';
                         }
                         isFirstArg = false;
-                        qcc::String nameAtt = argElem->GetAttribute("name");
-                        qcc::String directionAtt = argElem->GetAttribute("direction");
-                        qcc::String typeAtt = argElem->GetAttribute("type");
+                        const qcc::String& nameAtt = argElem->GetAttribute("name");
+                        const qcc::String& directionAtt = argElem->GetAttribute("direction");
+                        const qcc::String& typeAtt = argElem->GetAttribute("type");
 
                         if (typeAtt.empty()) {
                             status = ER_BUS_BAD_XML;
@@ -121,8 +121,8 @@ QStatus XmlHelper::ParseInterface(const XmlElement* elem, ProxyBusObject* obj)
                             outSig += argElem->GetAttribute("type");
                         }
                     } else if (argElem->GetName() == "annotation") {
-                        qcc::String nameAtt = argElem->GetAttribute("name");
-                        qcc::String valueAtt = argElem->GetAttribute("value");
+                        const qcc::String& nameAtt = argElem->GetAttribute("name");
+                        const qcc::String& valueAtt = argElem->GetAttribute("value");
 
                         if (nameAtt == org::freedesktop::DBus::AnnotateDeprecated && valueAtt == "true") {
                             annotations |= MEMBER_ANNOTATE_DEPRECATED;
@@ -136,9 +136,9 @@ QStatus XmlHelper::ParseInterface(const XmlElement* elem, ProxyBusObject* obj)
                 if ((ER_OK == status) && (isMethod || isSignal)) {
                     status = intf.AddMember(isMethod ? MESSAGE_METHOD_CALL : MESSAGE_SIGNAL,
                                             memberName.c_str(),
-                                            inSig.empty() ? NULL : inSig.c_str(),
-                                            outSig.empty() ? NULL : outSig.c_str(),
-                                            argList.empty() ? NULL : argList.c_str(),
+                                            inSig.c_str(),
+                                            outSig.c_str(),
+                                            argList.c_str(),
                                             annotations);
                 }
             } else {
@@ -146,8 +146,8 @@ QStatus XmlHelper::ParseInterface(const XmlElement* elem, ProxyBusObject* obj)
                 QCC_LogError(status, ("Illegal member name \"%s\" introspection data for %s", memberName.c_str(), ident));
             }
         } else if (ifChildName == "property") {
-            qcc::String sig = ifChildElem->GetAttribute("type");
-            qcc::String accessStr = ifChildElem->GetAttribute("access");
+            const qcc::String& sig = ifChildElem->GetAttribute("type");
+            const qcc::String& accessStr = ifChildElem->GetAttribute("access");
             if (!SignatureUtils::IsCompleteType(sig.c_str())) {
                 status = ER_BUS_BAD_SIGNATURE;
                 QCC_LogError(status, ("Invalid signature for property %s in introspection data from %s", memberName.c_str(), ident));
@@ -213,12 +213,12 @@ QStatus XmlHelper::ParseNode(const XmlElement* root, ProxyBusObject* obj)
     vector<XmlElement*>::const_iterator it = rootChildren.begin();
     while ((ER_OK == status) && (it != rootChildren.end())) {
         const XmlElement* elem = *it++;
-        const qcc::String elemName = elem->GetName();
+        const qcc::String& elemName = elem->GetName();
         if (elemName == "interface") {
             status = ParseInterface(elem, obj);
         } else if (elemName == "node") {
             if (obj) {
-                qcc::String relativePath = elem->GetAttribute("name");
+                const qcc::String& relativePath = elem->GetAttribute("name");
                 qcc::String childObjPath = obj->GetPath();
                 if (0 || childObjPath.size() > 1) {
                     childObjPath += '/';

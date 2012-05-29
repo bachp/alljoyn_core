@@ -361,13 +361,6 @@ class AllJoynObj : public BusObject, public NameListener, public TransportListen
      */
     DaemonRouter& GetDaemonRouter() { return router; }
 
-    /**
-     * Called to check whether have enough permissions to use designated transports.
-     * @param   sender        The sender's well-known name string
-     * @param   transports    The transport mask
-     * @param   callerName    The caller that invokes this check
-     */
-    QStatus CheckTransportsPermission(qcc::String& sender, TransportMask& transports, const char*);
   private:
     Bus& bus;                             /**< The bus */
     DaemonRouter& router;                 /**< The router */
@@ -428,7 +421,30 @@ class AllJoynObj : public BusObject, public NameListener, public TransportListen
             streamingEp(NULL),
             isInitializing(false) { }
     };
-    std::multimap<std::pair<qcc::String, SessionId>, SessionMapEntry> sessionMap;  /**< Map (endpointName,sessionId) to session info */
+
+    typedef std::multimap<std::pair<qcc::String, SessionId>, SessionMapEntry> SessionMapType;
+
+    SessionMapType sessionMap;  /**< Map (endpointName,sessionId) to session info */
+
+    /*
+     * Helper function to get session map interator
+     */
+    SessionMapEntry* SessionMapFind(const qcc::String& name, SessionId session);
+
+    /*
+     * Helper function to get session map range interator
+     */
+    SessionMapType::iterator SessionMapLowerBound(const qcc::String& name, SessionId session);
+
+    /**
+     * Helper function to insert a sesssion map
+     */
+    void SessionMapInsert(SessionMapEntry& sme);
+
+    /**
+     * Helper function to erase a sesssion map
+     */
+    void SessionMapErase(SessionMapEntry& sme);
 
     const qcc::GUID128& guid;                               /**< Global GUID of this daemon */
 
@@ -490,6 +506,14 @@ class AllJoynObj : public BusObject, public NameListener, public TransportListen
      * Release AllJoynObj locks.
      */
     void ReleaseLocks();
+
+    /**
+     * Called to check whether have enough permissions to use designated transports.
+     * @param   sender        The sender's well-known name string
+     * @param   transports    The transport mask
+     * @param   callerName    The caller that invokes this check
+     */
+    QStatus CheckTransportsPermission(const qcc::String& sender, TransportMask& transports, const char* callerName);
 
     /**
      * Utility function used to send a single FoundName signal.
