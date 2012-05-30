@@ -36,6 +36,13 @@ namespace ajn {
 Component::~Component(void)
 {
     EmptyActivityList();
+
+    /* Disable the ICEComponents' threads that are managed by this component */
+    list<ICECandidate>::iterator it = candidateList.begin();
+    while (it != candidateList.end()) {
+        (*it)->StopCheckListener();
+        ++it;
+    }
 }
 
 void Component::EmptyActivityList(void)

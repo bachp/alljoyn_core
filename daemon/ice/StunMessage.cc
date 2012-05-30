@@ -227,6 +227,8 @@ exit:
 
 StunMessage::~StunMessage(void)
 {
+    QCC_DbgTrace(("%s(%p)", __FUNCTION__, this));
+
     // Reclaim memory consumed by the attributes.
     while (!attrs.empty()) {
         StunAttribute* attr = attrs.front();
