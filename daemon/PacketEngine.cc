@@ -182,13 +182,28 @@ QStatus PacketEngine::AddPacketStream(PacketStream& stream, PacketEngineListener
     return ER_OK;
 }
 
-QStatus PacketEngine::RemovePacketStream(PacketStream& stream)
+QStatus PacketEngine::RemovePacketStream(PacketStream& pktStream)
 {
-    QCC_DbgTrace(("PacketEngine::RemovePacketStream(%p)", &stream));
+    QCC_DbgTrace(("PacketEngine::RemovePacketStream(%p)", &pktStream));
 
     QStatus status = ER_OK;
+
+    /* Abruptly disconnect any channels that are still using pktStream */
+    ChannelInfo* ci = NULL;
+    while ((ci = AcquireNextChannelInfo(ci)) != NULL) {
+        if (&ci->packetStream == &pktStream) {
+            QCC_DbgPrintf(("PacketEngine: Disconnecting PacketEngineStream %p because its PacketStream (%p) has been removed", &ci->stream, &ci->packetStream));
+            Disconnect(ci->stream);
+            /* Wait for ci to be closed */
+            while (ci->state != ChannelInfo::CLOSED) {
+                qcc::Sleep(20);
+            }
+        }
+    }
+
+    /* Remove packetStream itself */
     channelInfoLock.Lock();
-    map<Event*, pair<PacketStream*, PacketEngineListener*> >::iterator it = packetStreams.find(&stream.GetSourceEvent());
+    map<Event*, pair<PacketStream*, PacketEngineListener*> >::iterator it = packetStreams.find(&pktStream.GetSourceEvent());
     if (it != packetStreams.end()) {
         packetStreams.erase(it);
         rxPacketThreadReload = false;
@@ -1088,6 +1103,7 @@ void PacketEngine::RxPacketThread::HandleConnectReq(Packet* p, PacketStream& pac
 
 void PacketEngine::RxPacketThread::HandleConnectRsp(Packet* p)
 {
+
     uint32_t reqProtoVersion = letoh32(p->payload[1]);
     QStatus status = ER_OK;
     QStatus rspStatus = static_cast<QStatus>(letoh32(p->payload[2]));
@@ -1095,6 +1111,7 @@ void PacketEngine::RxPacketThread::HandleConnectRsp(Packet* p)
 
     /* Channel for this connectRsp should already exist and should be in OPENING state */
     ChannelInfo* ci = engine->AcquireChannelInfo(p->chanId);
+    QCC_DbgTrace(("PacketEngine::HandleConnectRsp(%s)", ci ? engine->ToString(ci->packetStream, p->GetSender()).c_str() : ""));
     if (ci) {
         ConnectReqAlarmContext* ctx = static_cast<ConnectReqAlarmContext*>(ci->connectReqAlarm.GetContext());
         if (ctx) {
@@ -1141,8 +1158,10 @@ void PacketEngine::RxPacketThread::HandleConnectRsp(Packet* p)
 
 void PacketEngine::RxPacketThread::HandleConnectRspAck(Packet* p)
 {
+
     /* Channel for this connectRsp should already exist and should be in OPENING state */
     ChannelInfo* ci = engine->AcquireChannelInfo(p->chanId);
+    QCC_DbgTrace(("PacketEngine::HandleConnectRspAck(%s)", ci ? engine->ToString(ci->packetStream, p->GetSender()).c_str() : ""));
     ConnectRspAlarmContext* ctx = static_cast<ConnectRspAlarmContext*>(ci->connectRspAlarm.GetContext());
     if (ci && ctx) {
         /* Disable any connect(Rsp)Alarm retry timer */

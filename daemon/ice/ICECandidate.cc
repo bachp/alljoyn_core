@@ -60,8 +60,7 @@ _ICECandidate::_ICECandidate(_ICECandidate::ICECandidateType type,
     terminating(false),
     sharedStunRelayedCandidate(NULL),
     sharedStunServerReflexiveCandidate(NULL),
-    listenerThread(NULL),
-    refs(0),
+    candidateThread(NULL),
     InterfaceName(interfaceName)
 {
     QCC_DbgTrace(("ICECandidate::ICECandidate1(%p, type=%d)", this, type));
@@ -90,7 +89,7 @@ _ICECandidate::_ICECandidate(IPEndpoint endPoint,
     terminating(false),
     sharedStunRelayedCandidate(NULL),
     sharedStunServerReflexiveCandidate(NULL),
-    listenerThread(NULL)
+    candidateThread(NULL)
 {
     QCC_DbgTrace(("ICECandidate::ICECandidate2(%p, relayed)", this));
     stunActivity->SetCandidate(ICECandidate(this));
@@ -117,7 +116,7 @@ _ICECandidate::_ICECandidate(_ICECandidate::ICECandidateType type,
     terminating(false),
     sharedStunRelayedCandidate(NULL),
     sharedStunServerReflexiveCandidate(NULL),
-    listenerThread(NULL)
+    candidateThread(NULL)
 {
     QCC_DbgTrace(("ICECandidate::ICECandidate3(%p, type=%d)", this, type));
     if (stunActivity) {
@@ -140,7 +139,7 @@ _ICECandidate::_ICECandidate() :
     terminating(false),
     sharedStunRelayedCandidate(NULL),
     sharedStunServerReflexiveCandidate(NULL),
-    listenerThread(NULL)
+    candidateThread(NULL)
 {
     QCC_DbgTrace(("ICECandidate::ICECandidate(%p, INVALID)", this));
 }
@@ -150,16 +149,7 @@ _ICECandidate::~_ICECandidate(void)
     QCC_DbgTrace(("ICECandidate::~ICECandidate(%p)", this));
     terminating = true;
 
-    if (NULL != listenerThread) {
-        // Wait on listener thread.
-        QCC_DbgPrintf(("Stopping listener thread 0x%x", listenerThread));
-
-        printf("listenerThread=%p, thisThread=%p\n", listenerThread, Thread::GetThread());
-        listenerThread->Stop();
-        listenerThread->Join();
-        delete listenerThread;
-        listenerThread = NULL;
-    }
+    StopCheckListener();
 
     if (sharedStunRelayedCandidate) {
         delete sharedStunRelayedCandidate;
@@ -169,16 +159,17 @@ _ICECandidate::~_ICECandidate(void)
     }
 }
 
-QStatus _ICECandidate::StartListener(void)
+QStatus _ICECandidate::StartListener()
 {
-    listenerThread = new Thread("ListenerThreadStub", ListenerThreadStub);
+    QCC_DbgTrace(("%s", __FUNCTION__));
+    assert(!candidateThread);
+    candidateThread = new ICECandidateThread(new ICECandidate(this));
 
     // Start the thread which will listen for responses, ICE checks
-    return (listenerThread->Start(new ICECandidate(this)));
+    return candidateThread->Start();
 }
 
-
-QStatus _ICECandidate::StopCheckListener(void)
+QStatus _ICECandidate::StopCheckListener()
 {
     QStatus status = ER_OK;
 
@@ -187,10 +178,16 @@ QStatus _ICECandidate::StopCheckListener(void)
     // Notify checkListener thread to quit.
     terminating = true;
 
+    /* Signal the candidateThread to stop and wait for it it die */
+    if (candidateThread) {
+        candidateThread->Stop();
+        candidateThread->Join();
+    }
+
     return status;
 }
 
-void _ICECandidate::AwaitRequestsAndResponses(void)
+void _ICECandidate::AwaitRequestsAndResponses()
 {
     // This method runs only in the instance of a Host Candidate, but
     // because the host candidate's stun object is shared by reflexive and
@@ -652,6 +649,7 @@ QStatus _ICECandidate::ReadReceivedMessage(uint32_t timeoutMsec)
             }
 
             if (!constructedPair) {
+                // @@ JP
 #if 0
                 /*
                  * This code was originally intended to insert peer reflexive candidates, but it cannot work because

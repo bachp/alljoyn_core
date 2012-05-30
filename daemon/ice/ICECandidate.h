@@ -236,9 +236,34 @@ class _ICECandidate {
     ICECandidate* sharedStunRelayedCandidate;
     ICECandidate* sharedStunServerReflexiveCandidate;
 
-    Thread* listenerThread;
+    class ICECandidateThread : public qcc::Thread {
+      public:
+        ICECandidateThread(ICECandidate* candidate) :
+            qcc::Thread("iceCand"), candidate(candidate) { }
 
-    int32_t refs;
+        ThreadReturn STDCALL Run(void* arg)
+        {
+            (*candidate)->AwaitRequestsAndResponses();
+            return 0;
+        }
+
+        void ThreadExit(qcc::Thread* p)
+        {
+            /* Cleanup Candidate */
+            (*candidate)->candidateThread = NULL;
+
+            /* Decrement candidate reference */
+            delete candidate;
+
+            /* Remove self */
+            delete this;
+        }
+
+      private:
+        ICECandidate* candidate;
+    };
+
+    ICECandidateThread* candidateThread;
 
     /* Private copy constructor */
     _ICECandidate(const _ICECandidate& other);
@@ -249,17 +274,10 @@ class _ICECandidate {
     // The following methods only used by a Host_Candidate
     void AwaitRequestsAndResponses(void);
 
-    static ThreadReturn STDCALL ListenerThreadStub(void* pThis)
-    {
-        ICECandidate* candidate = (ICECandidate*) pThis;
-        (*candidate)->AwaitRequestsAndResponses();
-        delete candidate;
-        return 0;
-    }
-
     QStatus ReadReceivedMessage(uint32_t timeoutMsec);
 
     QStatus SendResponse(uint16_t checkStatus, IPEndpoint& dest, bool usingTurn, StunTransactionID tid);
+
 
     String InterfaceName;
 
