@@ -24,7 +24,7 @@
 using namespace ajn;
 
 ProtectedSessionListener::ProtectedSessionListener(SessionListener* _listener)
- : listener(NULL), lock(), refCount(0)
+    : listener(NULL), lock(), refCount(0)
 {
     Set(_listener);
 }

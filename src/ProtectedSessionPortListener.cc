@@ -20,7 +20,7 @@ using namespace ajn;
 
 
 ProtectedSessionPortListener::ProtectedSessionPortListener(SessionPortListener* _listener)
- : listener(NULL), lock(), refCount(0)
+    : listener(NULL), lock(), refCount(0)
 {
     Set(_listener);
 }

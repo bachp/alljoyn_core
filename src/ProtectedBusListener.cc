@@ -25,7 +25,7 @@ using namespace ajn;
 
 
 ProtectedBusListener::ProtectedBusListener(BusListener* _listener)
-  : listener(NULL), lock(), refCount(0)
+    : listener(NULL), lock(), refCount(0)
 {
     Set(_listener);
 }

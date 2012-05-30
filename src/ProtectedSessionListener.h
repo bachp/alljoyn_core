@@ -35,7 +35,7 @@
 namespace ajn {
 
 class ProtectedSessionListener {
-public:
+  public:
 
     ProtectedSessionListener(SessionListener* listener);
     ~ProtectedSessionListener();
@@ -69,7 +69,7 @@ public:
      */
     void SessionMemberRemoved(SessionId sessionId, const char* uniqueName);
 
-private:
+  private:
     SessionListener* listener;
     qcc::Mutex lock;
     int32_t refCount;
