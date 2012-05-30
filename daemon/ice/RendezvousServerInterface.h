@@ -514,7 +514,11 @@ typedef enum _ResponseType {
     /**
      * The address candidate response
      */
-    ADDRESS_CANDIDATES_RESPONSE
+    ADDRESS_CANDIDATES_RESPONSE,
+    /**
+     * The start ICE checks response
+     */
+    START_ICE_CHECKS_RESPONSE
 } ResponseType;
 
 /**
@@ -617,6 +621,18 @@ class SearchMatchResponse : public InterfaceResponse {
      */
     STUNServerInfo STUNInfo;
 
+};
+
+/**
+ * The StartICEChecks response structure received from the Rendezvous Server.
+ */
+class StartICEChecksResponse : public InterfaceResponse {
+  public:
+    /**
+     * The peerAddress of the remote daemon running the client that received the
+     * address candidates from this daemon.
+     */
+    String peerAddr;
 };
 
 /**
