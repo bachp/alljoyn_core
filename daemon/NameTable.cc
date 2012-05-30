@@ -132,6 +132,8 @@ QStatus NameTable::AddAlias(const qcc::String& aliasName,
 {
     QStatus status;
 
+    QCC_DbgTrace(("NameTable: AddAlias(%s, %s)", aliasName.c_str(), uniqueName.c_str()));
+
     lock.Lock(MUTEX_CONTEXT);
     hash_map<qcc::String, BusEndpoint*, Hash, Equal>::const_iterator it = uniqueNames.find(uniqueName);
     if (it != uniqueNames.end()) {
@@ -199,6 +201,8 @@ void NameTable::RemoveAlias(const qcc::String& aliasName,
     const qcc::String* oldOwner = NULL;
     const qcc::String* newOwner = NULL;
     qcc::String aliasNameCopy(aliasName);
+
+    QCC_DbgTrace(("NameTable: RemoveAlias(%s, %s)", aliasName.c_str(), ownerName.c_str()));
 
     lock.Lock(MUTEX_CONTEXT);
 
