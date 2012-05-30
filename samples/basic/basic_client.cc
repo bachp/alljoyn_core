@@ -28,7 +28,6 @@
 #include <vector>
 
 #include <qcc/String.h>
-#include <qcc/Thread.h>
 
 #include <alljoyn/BusAttachment.h>
 #include <alljoyn/version.h>
@@ -43,7 +42,6 @@ using namespace ajn;
 static BusAttachment* g_msgBus = NULL;
 
 /*constants*/
-//PPN
 static const char* INTERFACE_NAME = "org.alljoyn.Bus.sample";
 static const char* SERVICE_NAME = "org.alljoyn.Bus.sample";
 static const char* SERVICE_PATH = "/sample";
@@ -164,9 +162,11 @@ int main(int argc, char** argv, char** envArg)
 
     /* Wait for join session to complete */
     while (!s_joinComplete && !g_interrupt) {
-        qcc::Sleep(100);
-
-
+#ifdef _WIN32
+        Sleep(100);
+#else
+        usleep(100 * 1000);
+#endif
     }
 
     if (status == ER_OK && g_interrupt == false) {
@@ -187,10 +187,6 @@ int main(int argc, char** argv, char** envArg)
         } else {
             printf("MethodCall on %s.%s failed", SERVICE_NAME, "cat");
         }
-    }
-
-    while (1) {
-
     }
 
     /* Deallocate bus */

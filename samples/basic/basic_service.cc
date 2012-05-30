@@ -32,7 +32,6 @@
 #include <vector>
 
 #include <qcc/String.h>
-#include <qcc/Thread.h>
 
 #include <alljoyn/BusAttachment.h>
 #include <alljoyn/DBusStd.h>
@@ -55,7 +54,6 @@ static BusAttachment* g_msgBus = NULL;
 static MyBusListener* s_busListener = NULL;
 
 /*constants*/
-//PPN
 static const char* INTERFACE_NAME = "org.alljoyn.Bus.sample";
 static const char* SERVICE_NAME = "org.alljoyn.Bus.sample";
 static const char* SERVICE_PATH = "/sample";
@@ -231,9 +229,11 @@ int main(int argc, char** argv, char** envArg)
 
     if (ER_OK == status) {
         while (g_interrupt == false) {
-
-            qcc::Sleep(100);
-
+#ifdef _WIN32
+            Sleep(100);
+#else
+            usleep(100 * 1000);
+#endif
         }
     }
 
