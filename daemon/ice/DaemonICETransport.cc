@@ -1253,6 +1253,7 @@ ThreadReturn STDCALL DaemonICETransport::AllocateICESessionThread::Run(void* arg
                                             String remoteAddr = (stunActivityPtr->stun->GetRemoteAddr()).ToString();
                                             String remotePort = U32ToString((uint32_t)(stunActivityPtr->stun->GetRemotePort()));
                                             String connectSpec = "ice:guid=" + clientGUID;
+                                            printf("AllocateSessionThread: connectSpec=\"%s\"\n", connectSpec.c_str());
 
                                             /* Wait for a while to let ICE settle down */
                                             // @@ JP THIS NEEDS WORK

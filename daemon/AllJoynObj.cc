@@ -767,6 +767,7 @@ ThreadReturn STDCALL AllJoynObj::JoinSessionThread::RunJoin()
             while (replyCode == ALLJOYN_JOINSESSION_REPLY_SUCCESS) {
                 /* Do we route through b2bEp? If so, we're done */
                 ep = b2bEp ? ajObj.router.FindEndpoint(b2bEp->GetRemoteName()) : NULL;
+
                 VirtualEndpoint* vep = (ep && (ep->GetEndpointType() == BusEndpoint::ENDPOINT_TYPE_VIRTUAL)) ? static_cast<VirtualEndpoint*>(ep) : NULL;
                 if (!b2bEp) {
                     QCC_LogError(ER_FAIL, ("B2B endpoint %s disappeared during JoinSession", b2bEpName.c_str()));
@@ -805,6 +806,7 @@ ThreadReturn STDCALL AllJoynObj::JoinSessionThread::RunJoin()
                     replyCode = ALLJOYN_JOINSESSION_REPLY_FAILED;
                 }
                 /* Re-acquire locks and endpoints */
+                qcc::Sleep(500);
                 ajObj.AcquireLocks();
                 vSessionEp = static_cast<VirtualEndpoint*>(ajObj.router.FindEndpoint(sessionHost));
                 vSessionEpName = vSessionEp ? vSessionEp->GetUniqueName() : "";
