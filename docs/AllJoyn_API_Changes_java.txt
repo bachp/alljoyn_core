@@ -11,6 +11,234 @@ Each Status, Method, or class will be marked as follows:
 Each addition should contain a short explanation of what added or changed.
 For more information please refer to the API documentation. 
 -------------------------------------------------------------------------------
+AllJoyn API Changes between v2.3.0 and v2.5.0 (Java API)
+
+NEW STATUS
+THREADPOOL_EXHAUSTED  value = 0x101f 
+    A thread pool has reached its specified concurrency
+
+NEW STATUS
+THREADPOOL_STOPPING  value = 0x1020 
+    Cannot execute a closure on a stopping thread pool
+
+NEW STATUS
+BUS_AUTHENTICATION_PENDING value = 0x90a7 
+    Authentication of remote peer is pending
+
+NEW STATUS
+BUS_NOT_AUTHORIZED value = 0x90a8 
+    Operation was not authorized
+
+NEW STATUS
+PACKET_BUS_NO_SUCH_CHANNEL value = 0x90a9 
+    Received packet for unknown channel
+
+NEW STATUS
+PACKET_BAD_FORMAT value = 0x90aa 
+    Received packet with incorrect header information
+
+NEW STATUS
+PACKET_CONNECT_TIMEOUT value = 0x90ab 
+    Timed out waiting for connect response
+
+NEW STATUS
+PACKET_CHANNEL_FAIL value = 0x90ac 
+    Failed to create new comm channel
+
+NEW STATUS
+PACKET_TOO_LARGE value = 0x90ad 
+    Message too large for use with packet based transport
+
+NEW STATUS
+PACKET_BAD_PARAMETER value = 0x90ae 
+    Invalid PacketEngine control packet received
+
+NEW STATUS
+PACKET_BAD_CRC value = 0x90af 
+    Packet has invalid CRC
+
+NEW STATUS
+STUN_ATTR_SIZE_MISMATCH value = 0x90b0 
+    STUN attribute size does not match size parsed
+
+NEW STATUS
+STUN_AUTH_CHALLENGE value = 0x90b1 
+    STUN server has denied request, issued Challenge
+
+NEW STATUS
+STUN_SOCKET_NOT_OPEN value = 0x90b2 
+    Underlying socket not open for operation
+
+NEW STATUS
+STUN_SOCKET_OPEN value = 0x90b3 
+    Underlying socket alread open
+
+NEW STATUS
+STUN_FAILED_TO_SEND_MSG value = 0x90b4 
+    Failed to send STUN message
+
+NEW STATUS
+STUN_FRAMING_ERROR value = 0x90b5 
+    Application specified invalid TCP framing
+
+NEW STATUS
+STUN_INVALID_ERROR_CODE value = 0x90b6 
+    Invalid STUN error code
+
+NEW STATUS
+STUN_INVALID_FINGERPRINT value = 0x90b7 
+    Fingerprint CRC does not match
+
+NEW STATUS
+STUN_INVALID_ADDR_FAMILY value = 0x90b8 
+    Invalid address family value in STUN 'address' attribute
+
+NEW STATUS
+STUN_INVALID_MESSAGE_INTEGRITY value = 0x90b9 
+    SHA1-HMAC message integrity value does not match. When passed to upper layer, 
+    indicates unauthorized response, message must be ignored
+
+NEW STATUS
+STUN_INVALID_MSG_TYPE value = 0x90ba 
+    Invalid STUN message type
+
+NEW STATUS
+STUN_INVALID_ATTR_TYPE value = 0x90bb 
+    Invalid STUN message attribute type
+
+NEW STATUS
+STUN_RESPONSE_WITH_USERNAME value = 0x90bc 
+    STUN response message included a USERNAME attribute
+
+NEW STATUS
+STUN_ERR400_BAD_REQUEST value = 0x90bd 
+    Received bad STUN request, upper layer must send error code 400
+
+NEW STATUS
+STUN_BAD_INDICATION value = 0x90be 
+    Received bad STUN indication, upper layer must ignore message
+
+NEW STATUS
+STUN_ERR401_UNAUTHORIZED_REQUEST value = 0x90bf 
+    Received STUN request with invalid USERNAME or invalid MESSAGE-INTEGRITY, 
+    upper layer must send error code 401
+
+NEW STATUS
+STUN_TOO_MANY_ATTRIBUTES value = 0x90c0 
+    Too many attributes in STUN message or unknown attributes list
+
+NEW STATUS
+STUN_DUPLICATE_ATTRIBUTE value = 0x90c1 
+    STUN message attribute must only be added once
+
+NEW STATUS
+STUN_UNAUTHORIZED_INDICATION value = 0x90c2 
+    Receive STUN indication with invalid USERNAME or invalid MESSAGE-INTEGRITY, 
+    upper layer must ignore message
+
+NEW STATUS
+ICE_ALLOCATING_MEMORY value = 0x90c3 
+    Unable to allocate heap from ICE
+
+NEW STATUS
+ICE_CHECKS_INCOMPLETE value = 0x90c4 
+    ICE Checks have not completed
+
+NEW STATUS
+ICE_ALLOCATE_REJECTED_NO_RESOURCES value = 0x90c5 
+    TURN server rejected ALLOCATE request
+
+NEW STATUS
+ICE_ALLOCATION_QUOTA_REACHED value = 0x90c6 
+    TURN server rejected with 486
+
+NEW STATUS
+ICE_ALLOCATION_MISMATCH value = 0x90c7 
+    TURN server has expired the allocation
+
+NEW STATUS
+ICE_STUN_ERROR value = 0x90c8 
+    Generic ICE error
+
+NEW STATUS
+ICE_INVALID_STATE value = 0x90c9 
+    ICE Agent is not in proper state to perform request
+
+NEW STATUS
+ICE_UNKNOWN_COMPONENT_ID value = 0x90ca 
+    ICE Component type is not recognized
+
+NEW STATUS
+RENDEZVOUS_SERVER_DEACTIVATED_USER value = 0x90cb 
+    Rendezvous Server has deactivated the current user. Register with the 
+    Rendezvous Server to continue.
+
+NEW STATUS
+RENDEZVOUS_SERVER_UNKNOWN_USER value = 0x90cc 
+    Rendezvous Server does not recognize the current user. Register with the 
+    Rendezvous Server to continue.
+
+NEW STATUS
+UNABLE_TO_CONNECT_TO_RENDEZVOUS_SERVER value = 0x90cd 
+    Unable to connect to the Rendezvous Server
+
+NEW STATUS
+NOT_CONNECTED_TO_RENDEZVOUS_SERVER value = 0x90ce 
+    Not connected to the Rendezvous Server
+
+NEW STATUS
+UNABLE_TO_SEND_MESSAGE_TO_RENDEZVOUS_SERVER value = 0x90cf 
+    Unable to send message to the Rendezvous Server
+
+NEW STATUS
+INVALID_RENDEZVOUS_SERVER_INTERFACE_MESSAGE value = 0x90d0 
+    Invalid Rendezvous Server interface message
+
+NEW STATUS
+INVALID_PERSISTENT_CONNECTION_MESSAGE_RESPONSE value = 0x90d1 
+    Invalid message response received over the Persistent connection with the 
+    Rendezvous Server
+
+NEW STATUS
+INVALID_ON_DEMAND_CONNECTION_MESSAGE_RESPONSE value = 0x90d2 
+    Invalid message response received over the On Demand connection with the 
+    Rendezvous Server
+
+NEW STATUS
+INVALID_HTTP_METHOD_USED_FOR_RENDEZVOUS_SERVER_INTERFACE_MESSAGE value = 0x90d3 
+    Invalid HTTP method type used for Rendezvous Server interface message
+
+NEW STATUS
+RENDEZVOUS_SERVER_ERR500_INTERNAL_ERROR value = 0x90d4 
+    Received a HTTP 500 status code from the Rendezvous Server. This indicates 
+    an internal error in the Server
+
+NEW STATUS
+RENDEZVOUS_SERVER_ERR503_STATUS_UNAVAILABLE value = 0x90d5 
+    Received a HTTP 503 status code from the Rendezvous Server. This indicates 
+    unavailability of the Server error state
+
+NEW STATUS
+RENDEZVOUS_SERVER_ERR401_UNAUTHORIZED_REQUEST value = 0x90d6 
+    Received a HTTP 401 status code from the Rendezvous Server. This indicates 
+    that the client is unauthorized to send a request to the Server. The Client 
+    login procedure must be initiated.
+
+NEW STATUS
+RENDEZVOUS_SERVER_UNRECOVERABLE_ERROR value = 0x90d7 
+    Received a HTTP status code indicating unrecoverable error from the 
+    Rendezvous Server. The connection with the Server should be re-established.
+
+NEW STATUS
+RENDEZVOUS_SERVER_ROOT_CERTIFICATE_UNINITIALIZED value = 0x90d8 
+    Rendezvous Server root ceritificate uninitialized.
+    
+NEW METHOD
+BusListener.busDisconnected()
+    Called when a BusAttachment this listener is registered with is has become 
+    disconnected from the bus
+
+-------------------------------------------------------------------------------
 AllJoyn API Changes between v2.2.0 and v2.3.0 (Java API)
 NEW STATUS
 WARNING value="0x1D"
@@ -167,5 +395,5 @@ SessionListener.sessionMemberRemoved(int sessionId, String uniqueName)
     [param] uniqueName - Unique name of member who left the session.
     
 NEW STATUS 
-ER_ALREADY_REGISTERED value="0xa004" 
+ALREADY_REGISTERED value="0xa004" 
     An AuthListener is already set on this BusAttachment
