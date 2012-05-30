@@ -19,9 +19,13 @@ ALLJOYN_DIST := ../..
 # for use by AllJoyn developers. Code built from alljoyn_core
 #ALLJOYN_DIST := ../../build/linux/x86/debug/dist
 #ALLJOYN_DIST := ../../build/linux/x86/release/dist
+#ALLJOYN_DIST := ../../build/linux/x86-64/debug/dist
+#ALLJOYN_DIST := ../../build/linux/x86-64/release/dist
 # for use by AllJoyn developers. Code built from master
 #ALLJOYN_DIST := ../../../build/linux/x86/debug/dist
 #ALLJOYN_DIST := ../../../build/linux/x86/release/dist
+#ALLJOYN_DIST := ../../../build/linux/x86-64/debug/dist
+#ALLJOYN_DIST := ../../../build/linux/x86-64/release/dist
 
 OBJ_DIR := obj
 
@@ -40,11 +44,11 @@ default: all
 all: basic_client basic_service nameChange_client signal_service signalConsumer_client
 
 basic_client: basic_client.o $(ALLJOYN_LIB)
-	mkdir $(BIN_DIR)
+	mkdir -p $(BIN_DIR)
 	$(CXX) -o $(BIN_DIR)/$@ $(OBJ_DIR)/basic_client.o $(TOP)$(ALLJOYN_LIB) $(LIBS)
 
 basic_client.o: basic_client.cc $(ALLJOYN_LIB)
-	mkdir $(OBJ_DIR)
+	mkdir -p $(OBJ_DIR)
 	$(CXX) -c $(CXXFLAGS) -I$(ALLJOYN_DIST)/inc -o $(OBJ_DIR)/$@ basic_client.cc
 
 basic_service: basic_service.o $(ALLJOYN_LIB)

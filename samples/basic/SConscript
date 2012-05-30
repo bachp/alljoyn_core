@@ -23,9 +23,6 @@ progs = [
     env.Program('signal_service', ['signal_service.cc']),
     env.Program('nameChange_client', ['nameChange_client.cc']),
     env.Program('signalConsumer_client', ['signalConsumer_client.cc']),
-    env.Program('ICE_Advertisement', ['ICE_Advertisement.cc']),
-    env.Program('ICE_Search', ['ICE_Search.cc']),
-    env.Program('ICE_MatchRevokedResponse', ['ICE_MatchRevokedResponse.cc'])
     ]
 
 if 'linux' == env['OS'] or 'darwin' == env['OS']:

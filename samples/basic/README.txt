@@ -61,21 +61,5 @@ nameChange_client.cc:
         --==## signalConsumer: Name Changed signal Received ##==--
             New name: bar
         name Change client exiting with status 0 (ER_OK)
-        
-The following are samples of an ICE service and client that will use the already existing D-Bus or AllJoyn daemon to transfer messages.
-    +ICE_Advertisement.cc
-    +ICE_Search.cc
-    +ICE_MatchRevokedResponse.cc
 
-ICE_Advertisement.cc:
-	will create two services that will join the bus and request the name 'org.alljoyn.Bus.method_sample' and 'org.alljoyn.Bus.ice_sample'
-	Then the Advertisement of these two names will be canceled one after another.
-
-ICE_Search.cc:
-	will connect to the bus discover the the interfaces 'org.alljoyn.Bus.method_sample' and 'org.alljoyn.Bus.ice_sample' and 
-	then the discovery of these two interfaces will be canceled one after another.
-	
-ICE_MatchRevokedResponse.cc:
-will create one service that will join the bus and request the name 'org.alljoyn.Bus.method_sample'
-Then the Advertisement of this name will be canceled.
         

@@ -37,7 +37,10 @@ progs = [
     env.Program('compression',   ['compression.cc']),
     env.Program('rawclient',     ['rawclient.cc']),
     env.Program('rawservice',    ['rawservice.cc']),
-    env.Program('sessions',      ['sessions.cc'])
+    env.Program('sessions',      ['sessions.cc']),
+    env.Program('ICE_Advertisement',        ['ICE_Advertisement.cc']),
+    env.Program('ICE_Search',               ['ICE_Search.cc']),
+    env.Program('ICE_MatchRevokedResponse', ['ICE_MatchRevokedResponse.cc'])
     ]
 
 if env['OS'] == 'linux' or env['OS'] == 'android':
