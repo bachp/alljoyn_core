@@ -33,9 +33,6 @@
 
 #include <alljoyn/BusAttachment.h>
 #include <alljoyn/InterfaceDescription.h>
-#include <alljoyn/BusListener.h>
-#include <alljoyn/SessionPortListener.h>
-#include <alljoyn/SessionListener.h>
 
 #include "AuthManager.h"
 #include "ClientRouter.h"
@@ -44,6 +41,9 @@
 #include "Transport.h"
 #include "TransportList.h"
 #include "CompressionRules.h"
+#include "ProtectedBusListener.h"
+#include "ProtectedSessionListener.h"
+#include "ProtectedSessionPortListener.h"
 
 #include <Status.h>
 
@@ -279,7 +279,12 @@ class BusAttachment::Internal : public MessageReceiver, public qcc::AlarmListene
     qcc::String application;              /* Name of the that owns the BusAttachment application */
     BusAttachment& bus;                   /* Reference back to the bus attachment that owns this state */
     qcc::Mutex listenersLock;             /* Mutex that protects BusListeners vector */
-    std::list<BusListener*> listeners;    /* List of registered BusListeners */
+    typedef std::list<ProtectedBusListener*> ListenerList;
+    ListenerList listeners;               /* List of registered BusListeners */
+
+    typedef std::map<BusListener*, ListenerList::iterator> ListenerMap;
+    ListenerMap listenerMap;
+
     TransportList transportList;          /* List of active transports */
     KeyStore keyStore;                    /* The key store for the bus attachment */
     AuthManager authManager;              /* The authentication manager for the bus attachment */
@@ -298,13 +303,11 @@ class BusAttachment::Internal : public MessageReceiver, public qcc::AlarmListene
     qcc::Mutex stopLock;                  /* Protects BusAttachement::Stop from being reentered */
     int32_t stopCount;                    /* Number of caller's blocked in BusAttachment::Stop() */
 
-    struct ProtectedSessionPortListener {
-        SessionPortListener* listener;
-        int32_t refCount;
-        ProtectedSessionPortListener(SessionPortListener* listener) : listener(listener), refCount(0) { }
-    };
-    std::map<SessionPort, ProtectedSessionPortListener> sessionPortListeners;  /* Lookup SessionPortListener by session port */
-    std::map<SessionId, SessionListener*> sessionListeners;            /* Lookup SessionListener by session id */
+    std::map<SessionPort, ProtectedSessionPortListener*> sessionPortListeners;  /* Lookup SessionPortListener by session port */
+    typedef std::map<SessionId, ProtectedSessionListener*> SessionListenerMap;
+    SessionListenerMap sessionListeners;            /* Lookup SessionListener by session id */
+
+
     qcc::Mutex sessionListenersLock;                                   /* Lock protecting sessionListners maps */
 };
 
