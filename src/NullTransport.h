@@ -43,13 +43,14 @@
 
 namespace ajn {
 
+class NullTransport;
 
 /**
  * Class for launching a bundled daemon.
  */
 struct DaemonLauncher {
 
-    virtual QStatus Start(BusAttachment*& busAttachment) = 0;
+    virtual QStatus Start(NullTransport* nullTransport) = 0;
 
     virtual QStatus Stop() = 0;
 
@@ -174,6 +175,11 @@ class NullTransport : public Transport {
      * @return  Always returns false, NullTransports are only used to connect to a local daemon.
      */
     bool IsBusToBus() const { return false; }
+
+    /**
+     * Link the daemon bus to the client bus
+     */
+    QStatus LinkBus(BusAttachment* otherBus);
 
     /**
      * If there is a bundled daemon it will call in to register a launcher with the

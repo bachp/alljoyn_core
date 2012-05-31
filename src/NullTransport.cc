@@ -179,6 +179,31 @@ QStatus NullTransport::NormalizeTransportSpec(const char* inSpec, qcc::String& o
     return ER_OK;
 }
 
+QStatus NullTransport::LinkBus(BusAttachment* otherBus)
+{
+    QCC_DbgHLPrintf(("Linking client and daemon busses"));
+
+    daemonBus = otherBus;
+    endpoint = new NullEndpoint(bus, *daemonBus);
+    /*
+     * The compression rules are shared between the client bus and the daemon bus
+     */
+    bus.GetInternal().OverrideCompressionRules(daemonBus->GetInternal().GetCompressionRules());
+    /*
+     * Register the null endpoint with the daemon router. The client is registered as soon as we
+     * receive a message from the daemon. This will happen as soon as the daemon has completed
+     * the registration.
+     */
+    QCC_DbgHLPrintf(("Registering null endpoint with daemon"));
+    QStatus status = daemonBus->GetInternal().GetRouter().RegisterEndpoint(*endpoint, false);
+    if (status != ER_OK) {
+        delete endpoint;
+        endpoint = NULL;
+        daemonBus = NULL;
+    }
+    return status;
+}
+
 QStatus NullTransport::Connect(const char* connectSpec, const SessionOpts& opts, BusEndpoint** newep)
 {
     QStatus status = ER_OK;
@@ -190,25 +215,13 @@ QStatus NullTransport::Connect(const char* connectSpec, const SessionOpts& opts,
         return ER_BUS_TRANSPORT_NOT_AVAILABLE;
     }
     if (!daemonBus) {
-        status = daemonLauncher->Start(daemonBus);
-    }
-    if (status == ER_OK) {
-        assert(daemonBus);
-        endpoint = new NullEndpoint(bus, *daemonBus);
-        if (newep) {
-            *newep = endpoint;
+        status = daemonLauncher->Start(this);
+        if (status == ER_OK) {
+            assert(endpoint);
+            if (newep) {
+                *newep = endpoint;
+            }
         }
-        /*
-         * The compression rules are shared between the client bus and the daemon bus
-         */
-        bus.GetInternal().OverrideCompressionRules(daemonBus->GetInternal().GetCompressionRules());
-        /*
-         * Register the null endpoint with the daemon router. The client is registered as soon as we
-         * receive a message from the daemon. This will happen as soon as the daemon has completed
-         * the registration.
-         */
-        QCC_DbgHLPrintf(("Registering null endpoint with daemon"));
-        daemonBus->GetInternal().GetRouter().RegisterEndpoint(*endpoint, false);
     }
     return status;
 }
