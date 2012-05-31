@@ -519,7 +519,7 @@ class IsAt : public ProtocolElement {
     /**
      * @internal
      * @brief Get the protocol flag indicating that the daemon generating
-     * this answer has provided a daemon GUID string.
+     * this answer has provided a GUID string.
      *
      * This flag is set to true by the SetGuid() call (or deserializing
      * a message for which the flag was set) and indicates that a daemon
@@ -527,7 +527,7 @@ class IsAt : public ProtocolElement {
      *
      * @return True if the daemon has provided a GUID.
      */
-    bool GetGuidlag(void) const { return m_flagG; }
+    bool GetGuidFlag(void) const { return m_flagG; }
 
     /**
      * @internal
@@ -557,30 +557,30 @@ class IsAt : public ProtocolElement {
 
     /**
      * @internal
-     * @brief Set the daemon GUID string for the responding daemon.
+     * @brief Set the GUID string for the responding name service.
      *
-     * This method takes a string with the daemon guid in "presentation" format
+     * This method takes a string with the name service guid in "presentation" format
      * and  arranges for it to be written out in the protocol message.  Although
      * this is typically a string representation of a GUID, the string is not
      * interpreted by the protocol and can be used to carry any global (not
-     * related to an infividual well-known name) information related to the
+     * related to an individual well-known name) information related to the
      * generating daemon.
      *
-     * @param guid The daemon GUID sring of the responding daemon.
+     * @param guid The name service GUID string of the responding name service.
      */
-    void SetGuid(qcc::String guid);
+    void SetGuid(const qcc::String& guid);
 
     /**
      * @internal
-     * @brief Get the daemon GUID string for the responding daemon.
+     * @brief Get the name service GUID string for the responding daemon.
      *
-     * This method returns a string with the daemon guid in "presentation" format.
+     * This method returns a string with the guid in "presentation" format.
      * Although this is typically a string representation of a GUID, the string
      * is not interpreted by the protocol and can be used to carry any global
      * (not related to an infividual well-known name) information related to the
      * generating daemon.
      *
-     * @return The daemon GUID string of the responding daemon.
+     * @return The GUID string of the responding name service.
      */
     qcc::String GetGuid(void) const;
 
