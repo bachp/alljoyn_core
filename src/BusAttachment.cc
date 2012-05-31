@@ -680,7 +680,7 @@ QStatus BusAttachment::EnablePeerSecurity(const char* authMechanisms,
         if (peerObj) {
             peerObj->SetupPeerAuthentication(authMechanisms, authMechanisms ? listener : NULL);
         } else {
-            return ER_FAIL;
+            return ER_BUS_SECURITY_NOT_ENABLED;
         }
     }
     return status;
