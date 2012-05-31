@@ -43,6 +43,8 @@ namespace ajn {
 #define BLUETOOTH_UID 1002
 #endif
 
+static PermissionDB permissionDB;
+
 /**
  * Get the assigned permissions of the installed Android package with specific user id
  * @param uid          The user Id
@@ -59,6 +61,11 @@ static bool GetPermsAssignedByAndroid(const uint32_t uid, std::set<qcc::String>&
  * @return true if permission information for the shared user id is found
  */
 static bool GetPermsBySharedUserId(const char* sharedUid, std::set<qcc::String>& permissions, const XmlElement& root);
+
+PermissionDB& PermissionDB::GetDB()
+{
+    return permissionDB;
+}
 
 bool PermissionDB::VerifyPermsOnAndroid(const uint32_t userId, const std::set<qcc::String>& permsReq)
 {

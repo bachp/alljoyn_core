@@ -41,6 +41,10 @@
 #include "Transport.h"
 #include "VirtualEndpoint.h"
 
+#if defined(QCC_OS_ANDROID)
+#include "PermissionDB.h"
+#endif
+
 namespace ajn {
 
 /** Forward Declaration */
@@ -452,7 +456,7 @@ class AllJoynObj : public BusObject, public NameListener, public TransportListen
     class JoinSessionThread : public qcc::Thread, public qcc::ThreadListener {
       public:
         JoinSessionThread(AllJoynObj& ajObj, const Message& msg, bool isJoin) :
-            qcc::Thread(qcc::String("JoinS-") + qcc::U32ToString(IncrementAndFetch(&jstCount))),
+            qcc::Thread(qcc::String("JoinS-") + qcc::U32ToString(qcc::IncrementAndFetch(&jstCount))),
             ajObj(ajObj),
             msg(msg),
             isJoin(isJoin) { }

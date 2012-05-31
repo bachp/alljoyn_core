@@ -287,25 +287,26 @@ void AllJoynObj::ObjectRegistered(void)
 QStatus AllJoynObj::CheckTransportsPermission(qcc::String& sender, TransportMask& transports, const char* callerName)
 {
     QStatus status = ER_OK;
+#if defined(QCC_OS_ANDROID)
     AcquireLocks();
     BusEndpoint* srcEp = router.FindEndpoint(sender);
     if (srcEp != NULL) {
         if (transports & TRANSPORT_BLUETOOTH) {
-            bool allowed = router.GetPermissionDB().IsBluetoothAllowed(*srcEp);
+            bool allowed = PermissionDB::GetDB().IsBluetoothAllowed(*srcEp);
             if (!allowed) {
                 transports ^= TRANSPORT_BLUETOOTH;
                 QCC_LogError(ER_ALLJOYN_ACCESS_PERMISSION_WARNING, ("AllJoynObj::%s() WARNING: No permission to use Bluetooth", (callerName == NULL) ? "" : callerName));
             }
         }
         if (transports & TRANSPORT_WLAN) {
-            bool allowed = router.GetPermissionDB().IsWifiAllowed(*srcEp);
+            bool allowed = PermissionDB::GetDB().IsWifiAllowed(*srcEp);
             if (!allowed) {
                 transports ^= TRANSPORT_WLAN;
                 QCC_LogError(ER_ALLJOYN_ACCESS_PERMISSION_WARNING, ("AllJoynObj::%s() WARNING: No permission to use Wifi", ((callerName == NULL) ? "" : callerName)));
             }
         }
         if (transports & TRANSPORT_ICE) {
-            bool allowed = router.GetPermissionDB().IsWifiAllowed(*srcEp);
+            bool allowed = PermissionDB::GetDB().IsWifiAllowed(*srcEp);
             if (!allowed) {
                 transports ^= TRANSPORT_ICE;
                 QCC_LogError(ER_ALLJOYN_ACCESS_PERMISSION_WARNING, ("AllJoynObj::%s() WARNING: No permission to use Wifi for ICE", ((callerName == NULL) ? "" : callerName)));
@@ -319,6 +320,7 @@ QStatus AllJoynObj::CheckTransportsPermission(qcc::String& sender, TransportMask
         QCC_LogError(ER_BUS_NO_ENDPOINT, ("AllJoynObj::CheckTransportsPermission No Bus Endpoint found for Sender %s", sender.c_str()));
     }
     ReleaseLocks();
+#endif
     return status;
 }
 
@@ -2134,7 +2136,7 @@ void AllJoynObj::AliasUnixUser(const InterfaceDescription::Member* member, Messa
     }
 
     if (replyCode == ALLJOYN_ALIASUNIXUSER_REPLY_SUCCESS) {
-        if (router.GetPermissionDB().AddAliasUnixUser(origUID, aliasUID) != ER_OK) {
+        if (PermissionDB::GetDB().AddAliasUnixUser(origUID, aliasUID) != ER_OK) {
             replyCode = ALLJOYN_ALIASUNIXUSER_REPLY_FAILED;
         }
     }
@@ -2375,16 +2377,18 @@ void AllJoynObj::FindAdvertisedName(const InterfaceDescription::Member* member, 
             for (size_t i = 0; i < transList.GetNumTransports(); ++i) {
                 Transport* trans = transList.GetTransport(i);
                 if (trans && (srcEp != NULL)) {
-                    if (trans->GetTransportMask() & TRANSPORT_BLUETOOTH && !router.GetPermissionDB().IsBluetoothAllowed(*srcEp)) {
+#if defined(QCC_OS_ANDROID)
+                    if (trans->GetTransportMask() & TRANSPORT_BLUETOOTH && !PermissionDB::GetDB().IsBluetoothAllowed(*srcEp)) {
                         QCC_LogError(ER_ALLJOYN_ACCESS_PERMISSION_WARNING, ("AllJoynObj::FindAdvertisedName WARNING: No permission to use Bluetooth"));
                         transForbidden |= TRANSPORT_BLUETOOTH;
                         continue;
                     }
-                    if (trans->GetTransportMask() & TRANSPORT_WLAN && !router.GetPermissionDB().IsWifiAllowed(*srcEp)) {
+                    if (trans->GetTransportMask() & TRANSPORT_WLAN && !PermissionDB::GetDB().IsWifiAllowed(*srcEp)) {
                         QCC_LogError(ER_ALLJOYN_ACCESS_PERMISSION_WARNING, ("AllJoynObj::FindAdvertisedName WARNING: No permission to use Wifi"));
                         transForbidden |= TRANSPORT_WLAN;
                         continue;
                     }
+#endif
                     trans->EnableDiscovery(namePrefix.c_str());
                 } else {
                     QCC_LogError(ER_BUS_TRANSPORT_NOT_AVAILABLE, ("NULL transport pointer found in transportList"));

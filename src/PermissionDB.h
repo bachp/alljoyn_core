@@ -1,6 +1,6 @@
 /**
  * @file
- * AllJoyn Permission database class
+ * Implement a permission verification class
  */
 
 /******************************************************************************
@@ -23,13 +23,16 @@
 
 #include "BusEndpoint.h"
 
-using namespace std;
-using namespace qcc;
-
 namespace ajn {
 
 class PermissionDB {
   public:
+
+    /**
+     * Get the singleton instance of PermissionDB
+     */
+    static PermissionDB& GetDB();
+
     /**
      * Check whether the endpoint is allowed to use Bluetooth
      * @param endponit The endpoint to be checked
