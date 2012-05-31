@@ -62,4 +62,5 @@ nameChange_client.cc:
             New name: bar
         name Change client exiting with status 0 (ER_OK)
 
+
         
