@@ -60,28 +60,11 @@ namespace ajn {
  */
 class NameService : public qcc::Thread {
   public:
-    /**
-     * @brief The module name of the name service, for use in the configuration
-     * database.
-     */
-    static const char* MODULE_NAME;
-
-    /**
-     * @brief The property name used to define the interfaces (e.g., eth0) used
-     * in discovery.
-     */
-    static const char* INTERFACES_PROPERTY;
 
     /**
      * @brief The property value used to specify the wildcard interface name.
      */
     static const char* INTERFACES_WILDCARD;
-
-    /**
-     * @brief The property name used to define the interfaces (e.g., eth0) used
-     * in discovery.
-     */
-    static const char* BROADCAST_PROPERTY;
 
     /**
      * @brief The maximum size of a name, in general.

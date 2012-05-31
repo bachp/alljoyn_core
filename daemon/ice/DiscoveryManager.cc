@@ -42,7 +42,7 @@
 
 #include "DiscoveryManager.h"
 #include "RendezvousServerInterface.h"
-#include "ConfigDB.h"
+#include "DaemonConfig.h"
 #include "ProximityScanEngine.h"
 #include "RendezvousServerConnection.h"
 
@@ -63,44 +63,16 @@ namespace ajn {
 // manager will use for discovery.
 //
 //   <busconfig>
-//     <alljoyn module="icedm">
+//     <ice_discovery_manager>
 //       <property interfaces="*"/>
-//     </alljoyn>
+//       <property server="rdvs-test.qualcomm.com"/>
+//       <property EthernetPrefix="eth"/>
+//       <property WiFiPrefix="wlan"/>
+//       <property MobileNwPrefix="ppp"/>
+//       <property Protocol="HTTP"/>
+//     </ice_discovery_manager>
 //   </busconfig>
 //
-const char* DiscoveryManager::MODULE_NAME = "icedm";
-
-//
-// The name of the property used to configure the interfaces over which the
-// Discovery Manager should run discovery.
-//
-const char* DiscoveryManager::INTERFACES_PROPERTY = "interfaces";
-
-//
-// The name of the property used to configure the Rendezvous Server address to which the
-// Discovery Manager should connect.
-//
-const char* DiscoveryManager::RENDEZVOUS_SERVER_PROPERTY = "server";
-
-//
-// The name of the property used to configure the Ethernet interface name prefix.
-//
-const char* DiscoveryManager::ETHERNET_INTERFACE_NAME_PREFIX_PROPERTY = "EthernetPrefix";
-
-//
-// The name of the property used to configure the Wi-Fi interface name prefix.
-//
-const char* DiscoveryManager::WIFI_INTERFACE_NAME_PREFIX_PROPERTY = "WiFiPrefix";
-
-//
-// The name of the property used to configure the Mobile network interface name prefix.
-//
-const char* DiscoveryManager::MOBILE_NETWORK_INTERFACE_NAME_PREFIX_PROPERTY = "MobileNwPrefix";
-
-/**
- * @brief The name of the property used to configure the connection protocol.
- */
-const char* DiscoveryManager::CONNECTION_PROTOCOL_PROPERTY = "Protocol";
 
 //
 // The value of the interfaces property used to configure the Discovery Manager
@@ -146,34 +118,39 @@ DiscoveryManager::DiscoveryManager(BusAttachment& bus)
 {
     QCC_DbgPrintf(("DiscoveryManager::DiscoveryManager()\n"));
 
+    //
+    // There are configurable attributes of the Discovery Manager which are determined
+    // by the configuration database.  A module name is required and is defined
+    // here.  An example of how to use this is in setting the interfaces the discovery
+    // manager will use for discovery.
+    //
+    //   <busconfig>
+    //     <ice_discovery_manager>
+    //       <property interfaces="*"/>
+    //       <property server="rdvs-test.qualcomm.com"/>
+    //       <property EthernetPrefix="eth"/>
+    //       <property WiFiPrefix="wlan"/>
+    //       <property MobileNwPrefix="ppp"/>
+    //       <property Protocol="HTTP"/>
+    //     </ice_discovery_manager>
+    //   </busconfig>
+    //
+    DaemonConfig* config = DaemonConfig::Access();
+
     /* Retrieve the Rendezvous Server address from the config file */
-    RendezvousServer = ConfigDB::GetConfigDB()->GetProperty(DiscoveryManager::MODULE_NAME, DiscoveryManager::RENDEZVOUS_SERVER_PROPERTY);
-    if (RendezvousServer.size() == 0) {
-        // PPN - Change this to deployment server before release
-        RendezvousServer = String("rdvs-test.qualcomm.com");
-    }
+    // TODO PPN - Change this to deployment server before release
+    RendezvousServer = config->Get("ice_discovery_manager/property@server", "rdvs-test.qualcomm.com");
 
     /* Retrieve the connection protocol to be used */
-    if (ConfigDB::GetConfigDB()->GetProperty(DiscoveryManager::MODULE_NAME, DiscoveryManager::CONNECTION_PROTOCOL_PROPERTY) == String("HTTP")) {
+    if (config->Get("ice_discovery_manager/propeerty@protocol") == "HTTP") {
         QCC_DbgPrintf(("DiscoveryManager::DiscoveryManager(): Using HTTP"));
         UseHTTP = true;
     }
 
     /* Retrieve the interface name prefixes from the config file */
-    ethernetInterfaceName = ConfigDB::GetConfigDB()->GetProperty(DiscoveryManager::MODULE_NAME, DiscoveryManager::ETHERNET_INTERFACE_NAME_PREFIX_PROPERTY);
-    if (ethernetInterfaceName.size() == 0) {
-        ethernetInterfaceName = String("eth");
-    }
-
-    wifiInterfaceName = ConfigDB::GetConfigDB()->GetProperty(DiscoveryManager::MODULE_NAME, DiscoveryManager::WIFI_INTERFACE_NAME_PREFIX_PROPERTY);
-    if (wifiInterfaceName.size() == 0) {
-        wifiInterfaceName = String("wlan");
-    }
-
-    mobileNwInterfaceName = ConfigDB::GetConfigDB()->GetProperty(DiscoveryManager::MODULE_NAME, DiscoveryManager::MOBILE_NETWORK_INTERFACE_NAME_PREFIX_PROPERTY);
-    if (mobileNwInterfaceName.size() == 0) {
-        mobileNwInterfaceName = String("ppp");
-    }
+    ethernetInterfaceName = config->Get("ice_discovery_manager/property@EthernetPrefix", "eth");
+    wifiInterfaceName = config->Get("ice_discovery_manager/property@WiFiPrefix", "wlan");
+    mobileNwInterfaceName = config->Get("ice_discovery_manager/property@MobileNwPrefix", "ppp");
 
     QCC_DbgPrintf(("DiscoveryManager::DiscoveryManager(): RendezvousServer = %s\n", RendezvousServer.c_str()));
 

@@ -77,44 +77,6 @@ class DiscoveryManager : public Thread, public AlarmListener {
     BusAttachment& bus;
 
     /**
-     * @brief The module name of the Discovery Manager, for use in the configuration
-     * database.
-     */
-    static const char* MODULE_NAME;
-
-    /**
-     * @brief The property name used to define the interfaces (e.g., eth0) used
-     * in discovery.
-     */
-    static const char* INTERFACES_PROPERTY;
-
-    /**
-     * @brief The name of the property used to configure the Rendezvous Server address to which the
-     * Discovery Manager should connect.
-     */
-    static const char* RENDEZVOUS_SERVER_PROPERTY;
-
-    /**
-     * @brief The name of the property used to configure the Ethernet interface name prefix.
-     */
-    static const char* ETHERNET_INTERFACE_NAME_PREFIX_PROPERTY;
-
-    /**
-     * @brief The name of the property used to configure the Wi-Fi interface name prefix.
-     */
-    static const char* WIFI_INTERFACE_NAME_PREFIX_PROPERTY;
-
-    /**
-     * @brief The name of the property used to configure the Mobile network interface name prefix.
-     */
-    static const char* MOBILE_NETWORK_INTERFACE_NAME_PREFIX_PROPERTY;
-
-    /**
-     * @brief The name of the property used to configure the connection protocol.
-     */
-    static const char* CONNECTION_PROTOCOL_PROPERTY;
-
-    /**
      * @brief Returns the interface name prefixes.
      */
     void GetInterfaceNamePrefixes(String& ethPrefix, String& wifiPrefix, String& mobileNwPrefix);
