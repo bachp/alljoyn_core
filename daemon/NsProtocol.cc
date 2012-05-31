@@ -80,7 +80,7 @@ size_t StringData::Deserialize(uint8_t const* buffer, uint32_t bufsize)
     QCC_DbgPrintf(("StringData::Deserialize()"));
 
     //
-    // If there's not enough room in the buffer to even get the string size out
+    // If there's not enough data in the buffer to even get the string size out
     // then bail.
     //
     if (bufsize < 1) {
@@ -88,24 +88,22 @@ size_t StringData::Deserialize(uint8_t const* buffer, uint32_t bufsize)
         return 0;
     }
 
-    m_string = "";
     m_size = buffer[0];
     --bufsize;
 
     //
-    // If there's not enough room in the buffer to accomodate the string that
-    // the buffer says is there, then bail.
+    // If there's not enough data in the buffer then bail.
     //
     if (bufsize < m_size) {
         QCC_DbgPrintf(("StringData::Deserialize(): Insufficient bufsize %d", bufsize));
         m_size = 0;
         return 0;
     }
-
-    for (uint8_t i = 1; i <= m_size; ++i) {
-        m_string += buffer[i];
+    if (m_size > 0) {
+        m_string.assign(reinterpret_cast<const char*>(buffer + 1), m_size);
+    } else {
+        m_string.clear();
     }
-
     QCC_DbgPrintf(("StringData::Deserialize(): %s from buffer", m_string.c_str()));
     return 1 + m_size;
 }
@@ -119,7 +117,7 @@ IsAt::~IsAt()
 {
 }
 
-void IsAt::SetGuid(qcc::String guid)
+void IsAt::SetGuid(const qcc::String& guid)
 {
     m_guid = guid;
     m_flagG = true;
@@ -143,7 +141,7 @@ uint16_t IsAt::GetPort(void) const
 
 void IsAt::ClearIPv4(void)
 {
-    m_ipv4 = "";
+    m_ipv4.clear();
     m_flagF = false;
 }
 
@@ -160,7 +158,7 @@ qcc::String IsAt::GetIPv4(void) const
 
 void IsAt::ClearIPv6(void)
 {
-    m_ipv6 = "";
+    m_ipv6.clear();
     m_flagS = false;
 }
 
