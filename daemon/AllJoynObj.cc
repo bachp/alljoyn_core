@@ -2447,7 +2447,7 @@ void AllJoynObj::FindAdvertisedName(const InterfaceDescription::Member* member, 
         while ((it != nameMap.end()) && (0 == strncmp(it->first.c_str(), namePrefix.c_str(), namePrefix.size()))) {
             /* If this transport is forbidden to use, then skip the advertised name */
             if ((it->second.transport & transForbidden) != 0) {
-                QCC_DbgPrintf(("AllJoynObj::FindAdvertisedName(%s): Forbit to send existing advertised name %s over transport %d to %s due to lack of permission",
+                QCC_DbgPrintf(("AllJoynObj::FindAdvertisedName(%s): forbid to send existing advertised name %s over transport %d to %s due to lack of permission",
                                namePrefix.c_str(), it->first.c_str(), it->second.transport, sender.c_str()));
                 ++it;
                 continue;
@@ -2516,13 +2516,13 @@ QStatus AllJoynObj::ProcCancelFindName(const qcc::String& sender, const qcc::Str
     }
 
     /* Check and delete the transport restriction info on this sender and prefix*/
-    multimap<String, std::pair<TransportMask, String> >::iterator forbitIt = transForbidMap.lower_bound(namePrefix);
-    while ((forbitIt != transForbidMap.end()) && (forbitIt->first == namePrefix)) {
-        if (forbitIt->second.second == sender) {
-            transForbidMap.erase(forbitIt);
+    multimap<String, std::pair<TransportMask, String> >::iterator forbidIt = transForbidMap.lower_bound(namePrefix);
+    while ((forbidIt != transForbidMap.end()) && (forbidIt->first == namePrefix)) {
+        if (forbidIt->second.second == sender) {
+            transForbidMap.erase(forbidIt);
             break;
         }
-        ++forbitIt;
+        ++forbidIt;
     }
 
     /* Disable discovery if we removed the last discoverMap entry with a given prefix */
@@ -3213,8 +3213,8 @@ void AllJoynObj::FoundNames(const qcc::String& busAddr,
                             const vector<qcc::String>* names,
                             uint8_t ttl)
 {
-    QCC_DbgTrace(("AllJoynObj::FoundNames(busAddr = \"%s\", guid = \"%s\", *names = %p, ttl = %d)",
-                  busAddr.c_str(), guid.c_str(), names, ttl));
+    QCC_DbgTrace(("AllJoynObj::FoundNames(busAddr = \"%s\", guid = \"%s\", names = %s, ttl = %d)",
+                  busAddr.c_str(), guid.c_str(), StringVectorToString(names, ",").c_str(), ttl));
 
     if (NULL == foundNameSignal) {
         return;
@@ -3265,16 +3265,16 @@ void AllJoynObj::FoundNames(const qcc::String& busAddr,
                             if (nit->compare(0, dit->first.size(), dit->first) == 0) {
                                 /* Check whether the discoverer is allowed to use the transport over which the advertised name if found*/
                                 bool forbidden = false;
-                                multimap<String, std::pair<TransportMask, String> >::const_iterator forbitIt = transForbidMap.lower_bound((*nit)[0]);
-                                while ((forbitIt != transForbidMap.end()) && (forbitIt->first.compare(*nit) <= 0)) {
-                                    if (nit->compare(0, forbitIt->first.size(), forbitIt->first) == 0 &&
-                                        forbitIt->second.second.compare(dit->second) == 0 &&
-                                        (forbitIt->second.first & transport) != 0) {
+                                multimap<String, std::pair<TransportMask, String> >::const_iterator forbidIt = transForbidMap.lower_bound((*nit)[0]);
+                                while ((forbidIt != transForbidMap.end()) && (forbidIt->first.compare(*nit) <= 0)) {
+                                    if (nit->compare(0, forbidIt->first.size(), forbidIt->first) == 0 &&
+                                        forbidIt->second.second.compare(dit->second) == 0 &&
+                                        (forbidIt->second.first & transport) != 0) {
                                         forbidden = true;
-                                        QCC_DbgPrintf(("FoundNames: Forbid to send advertised name %s over transport %d to %s due to lack of permission", (*nit).c_str(), transport, forbitIt->second.second.c_str()));
+                                        QCC_DbgPrintf(("FoundNames: Forbid to send advertised name %s over transport %d to %s due to lack of permission", (*nit).c_str(), transport, forbidIt->second.second.c_str()));
                                         break;
                                     }
-                                    ++forbitIt;
+                                    ++forbidIt;
                                 }
                                 if (!forbidden) {
                                     foundNameSet.insert(FoundNameEntry(*nit, dit->first, dit->second));
