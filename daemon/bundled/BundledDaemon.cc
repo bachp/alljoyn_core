@@ -70,7 +70,7 @@ class BundledDaemon : public DaemonLauncher {
     /**
      * Launch the bundled daemon
      */
-    QStatus Start(BusAttachment*& busAttachment);
+    QStatus Start(NullTransport* nullTransport);
 
     /**
      * Terminate the bundled daemon
@@ -101,7 +101,7 @@ BundledDaemon::BundledDaemon() : refCount(0), ajBus(NULL), ajBusController(NULL)
     NullTransport::RegisterDaemonLauncher(this);
 }
 
-QStatus BundledDaemon::Start(BusAttachment*& busAttachment)
+QStatus BundledDaemon::Start(NullTransport* nullTransport)
 {
     QStatus status = ER_OK;
 
@@ -138,7 +138,14 @@ QStatus BundledDaemon::Start(BusAttachment*& busAttachment)
             goto ErrorExit;
         }
     }
-    busAttachment = ajBus;
+    /*
+     * Use the null transport to link the daemon and client bus together
+     */
+    status = nullTransport->LinkBus(ajBus);
+    if (status != ER_OK) {
+        goto ErrorExit;
+    }
+
     return ER_OK;
 
 ErrorExit:
@@ -149,7 +156,6 @@ ErrorExit:
         delete ajBus;
         ajBus = NULL;
     }
-    busAttachment = NULL;
     return status;
 }
 
