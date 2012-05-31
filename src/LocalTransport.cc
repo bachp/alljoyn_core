@@ -45,6 +45,9 @@
 #include "BusUtil.h"
 #include "BusInternal.h"
 
+#if defined(QCC_OS_ANDROID)
+#include "PermissionDB.h"
+#endif
 
 #define QCC_MODULE "LOCAL_TRANSPORT"
 
@@ -185,10 +188,11 @@ QStatus LocalEndpoint::Start()
         running = true;
         bus.GetInternal().GetRouter().RegisterEndpoint(*this, true);
     }
-
+#if defined(QCC_OS_ANDROID)
     if (!bus.GetInternal().GetRouter().IsDaemon()) {
         permVerifyThread.Start(this, NULL);
     }
+#endif
     return status;
 }
 
@@ -225,8 +229,9 @@ QStatus LocalEndpoint::Stop(void)
     }
     objectsLock.Unlock(MUTEX_CONTEXT);
     DecrementAndFetch(&refCount);
-
+#if defined(QCC_OS_ANDROID)
     permVerifyThread.Stop();
+#endif
     return ER_OK;
 }
 
@@ -238,8 +243,9 @@ QStatus LocalEndpoint::Join(void)
     if (peerObj) {
         peerObj->Join();
     }
+#if defined(QCC_OS_ANDROID)
     permVerifyThread.Join();
-
+#endif
     return ER_OK;
 }
 
@@ -735,6 +741,7 @@ QStatus LocalEndpoint::HandleMethodCall(Message& message)
                     }
                 }
             } else {
+#if defined(QCC_OS_ANDROID)
                 QCC_DbgPrintf(("Method(%s::%s) requires permission %s", message->GetInterface(), message->GetMemberName(), entry->member->accessPerms.c_str()));
                 chkMsgListLock.Lock(MUTEX_CONTEXT);
                 PermCheckedEntry permChkEntry(message->GetSender(), message->GetObjectPath(), message->GetInterface(), message->GetMemberName());
@@ -780,6 +787,9 @@ QStatus LocalEndpoint::HandleMethodCall(Message& message)
                     wakeEvent.SetEvent();
                 }
                 chkMsgListLock.Unlock(MUTEX_CONTEXT);
+#else
+                QCC_LogError(ER_FAIL, ("Peer permission verification is not Supported!"));
+#endif
             }
         }
     } else if (message->GetType() == MESSAGE_METHOD_CALL && !(message->GetFlags() & ALLJOYN_FLAG_NO_REPLY_EXPECTED)) {
@@ -931,6 +941,7 @@ QStatus LocalEndpoint::HandleSignal(Message& message)
                 }
             }
         } else {
+#if defined(QCC_OS_ANDROID)
             QCC_DbgPrintf(("Signal(%s::%s) requires permission %s", message->GetInterface(), message->GetMemberName(), first->member->accessPerms.c_str()));
             PermCheckedEntry permChkEntry(message->GetSender(), message->GetObjectPath(), message->GetInterface(), message->GetMemberName());
             chkMsgListLock.Lock(MUTEX_CONTEXT);
@@ -973,6 +984,9 @@ QStatus LocalEndpoint::HandleSignal(Message& message)
                 }
             }
             chkMsgListLock.Unlock(MUTEX_CONTEXT);
+#else
+            QCC_LogError(ER_FAIL, ("Peer permission verification is not Supported!"));
+#endif
         }
     }
     return status;
@@ -1046,6 +1060,7 @@ void LocalEndpoint::BusIsConnected()
     }
 }
 
+#if defined(QCC_OS_ANDROID)
 void*  LocalEndpoint::PermVerifyThread::Run(void* arg)
 {
     QStatus status = ER_OK;
@@ -1087,7 +1102,6 @@ void*  LocalEndpoint::PermVerifyThread::Run(void* arg)
                 }
 
                 bool allowed = true;
-#if defined(QCC_OS_ANDROID)
                 uint32_t userId = -1;
                 /* Ask daemon about the user id of the sender */
                 MsgArg arg("s", message->GetSender());
@@ -1103,11 +1117,8 @@ void*  LocalEndpoint::PermVerifyThread::Run(void* arg)
                 }
                 /* The permission check is only required for UnixEndpoint */
                 if (userId != (uint32_t)-1) {
-                    allowed = localEp->permDb.VerifyPeerPermissions(userId, permsReq);
+                    allowed = PermissionDB::GetDB().VerifyPeerPermissions(userId, permsReq);
                 }
-#else
-                QCC_LogError(ER_FAIL, ("Peer permission verification is not Supported!"));
-#endif
 
                 QCC_DbgPrintf(("VerifyPeerPermissions result: allowed = %d", allowed));
                 localEp->chkMsgListLock.Lock(MUTEX_CONTEXT);
@@ -1162,6 +1173,7 @@ void*  LocalEndpoint::PermVerifyThread::Run(void* arg)
     }
     return (void*)status;
 }
+#endif
 
 const ProxyBusObject& LocalEndpoint::GetAllJoynDebugObj() {
     if (!alljoynDebugObj) {

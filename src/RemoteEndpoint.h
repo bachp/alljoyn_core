@@ -161,7 +161,7 @@ class RemoteEndpoint : public BusEndpoint, public qcc::ThreadListener {
      * Set the underlying stream for this RemoteEndpoint.
      * This call can be used to override the Stream set in RemoteEndpoint's constructor
      */
-    void SetStream(Stream* s) { stream = s; }
+    void SetStream(qcc::Stream* s) { stream = s; }
 
     /**
      * Join the endpoint.
@@ -329,13 +329,13 @@ class RemoteEndpoint : public BusEndpoint, public qcc::ThreadListener {
      * Increment numWaiters count for this endpoint.
      * Endpoint will not be deleted until this count goes to zero.
      */
-    void IncrementWaiters() { IncrementAndFetch(&numWaiters); }
+    void IncrementWaiters() { qcc::IncrementAndFetch(&numWaiters); }
 
     /**
      * Decremeent numWaiters count for this endpoint.
      * Endpoint will not be deleted until this count goes to zero.
      */
-    void DecrementWaiters() { DecrementAndFetch(&numWaiters); }
+    void DecrementWaiters() { qcc::DecrementAndFetch(&numWaiters); }
 
   protected:
 

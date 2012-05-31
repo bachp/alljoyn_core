@@ -26,6 +26,9 @@ if env['OS'] == 'darwin':
 else:
     os_srcs = [ f for f in env.Glob(env['OS_GROUP'] + '/*.cc') ]
 
+if env['OS'] == 'android':
+    os_srcs += [env['OS_GROUP'] + '/' + env['OS'] + '/PermissionDB.cc']
+
 alljoyn_core_objs = env.Object(srcs) + env.Object(os_srcs)
 objs = common_objs + alljoyn_core_objs 
 

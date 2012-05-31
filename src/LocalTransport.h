@@ -48,7 +48,6 @@
 #include "MethodTable.h"
 #include "SignalTable.h"
 #include "Transport.h"
-#include "PermissionDB.h"
 
 #if defined(__GNUCC__) || defined (QCC_OS_DARWIN)
 #include <ext/hash_map>
@@ -375,16 +374,17 @@ class LocalEndpoint : public BusEndpoint, public qcc::AlarmListener, public Mess
      */
     std::map<uint32_t, ReplyContext> replyMap;
 
+#if defined(QCC_OS_ANDROID)
     /**
      * Type definition for a message pending for permission check.
      */
     typedef struct ChkPendingMsg {
         Message msg;                                /**< The message pending for permission check */
         const MethodTable::Entry* methodEntry;      /**< Method handler */
-        list<SignalTable::Entry> signalCallList;    /**< List of signal handlers */
+        std::list<SignalTable::Entry> signalCallList;    /**< List of signal handlers */
         qcc::String perms;                          /**< The required permissions */
         ChkPendingMsg(Message& msg, const MethodTable::Entry* methodEntry, const qcc::String& perms) : msg(msg), methodEntry(methodEntry), perms(perms) { }
-        ChkPendingMsg(Message& msg, list<SignalTable::Entry>& signalCallList, const qcc::String& perms) : msg(msg), signalCallList(signalCallList), perms(perms) { }
+        ChkPendingMsg(Message& msg, std::list<SignalTable::Entry>& signalCallList, const qcc::String& perms) : msg(msg), signalCallList(signalCallList), perms(perms) { }
     } ChkPendingMsg;
 
     /**
@@ -392,11 +392,11 @@ class LocalEndpoint : public BusEndpoint, public qcc::AlarmListener, public Mess
      */
     typedef struct PermCheckedEntry {
       public:
-        const String sender;                        /**< The endpoint name that issues the call */
-        const String sourcePath;                    /**< The object path of the call */
-        const String iface;                         /**< The interface name of the call */
-        const String signalName;                    /**< The method or signal name of the call */
-        PermCheckedEntry(const String& sender, const String& sourcePath, const String& iface, const String& signalName) : sender(sender), sourcePath(sourcePath), iface(iface), signalName(signalName) { }
+        const qcc::String sender;                        /**< The endpoint name that issues the call */
+        const qcc::String sourcePath;                    /**< The object path of the call */
+        const qcc::String iface;                         /**< The interface name of the call */
+        const qcc::String signalName;                    /**< The method or signal name of the call */
+        PermCheckedEntry(const qcc::String& sender, const qcc::String& sourcePath, const qcc::String& iface, const qcc::String& signalName) : sender(sender), sourcePath(sourcePath), iface(iface), signalName(signalName) { }
         bool operator<(const PermCheckedEntry& other) const {
             return (sender < other.sender) || ((sender == other.sender) && (sourcePath < other.sourcePath))
                    || ((sourcePath == other.sourcePath) && (iface < other.iface))
@@ -414,12 +414,12 @@ class LocalEndpoint : public BusEndpoint, public qcc::AlarmListener, public Mess
         PermVerifyThread() : Thread("PermVerifyThread") { }
     };
 
+    PermVerifyThread permVerifyThread;             /**< The permission verification thread */
     std::list<ChkPendingMsg> chkPendingMsgList;    /**< List of messages pending for permission check */
     std::map<PermCheckedEntry, bool> permCheckedCallMap;  /**< Map of a permission-checked method/signal call to the verification result */
     qcc::Mutex chkMsgListLock;                     /**< Mutex protecting the pending message list and the verification result cache map */
     qcc::Event wakeEvent;                          /**< Event to notify the permission verification thread of new pending messages */
-    PermVerifyThread permVerifyThread;             /**< The permission verification thread */
-    PermissionDB permDb;                           /**< Permission security information cache */
+#endif
 
     bool running;                      /**< Is the local endpoint up and running */
     int32_t refCount;                  /**< Reference count for local transport */
