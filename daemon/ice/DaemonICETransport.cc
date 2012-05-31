@@ -475,6 +475,8 @@ QStatus DaemonICEEndpoint::PacketEngineConnect(const IPAddress& addr, uint16_t p
     PacketDest packDest = ICEPacketStream::GetPacketDest(addr, port);
 
     /* Connect to dest */
+    Event waitEvt;
+    m_connectWaitEvent = &waitEvt;
     status = m_transport->m_packetEngine.Connect(packDest, m_icePktStream, *m_transport, this);
     if (status != ER_OK) {
         m_authState = AUTH_FAILED;
@@ -482,8 +484,6 @@ QStatus DaemonICEEndpoint::PacketEngineConnect(const IPAddress& addr, uint16_t p
         return status;
     }
 
-    Event waitEvt;
-    m_connectWaitEvent = &waitEvt;
     status = Event::Wait(waitEvt, PACKET_ENGINE_CONNECT_AND_ACCEPT_TIMEOUT);
     if (status != ER_OK) {
         m_authState = AUTH_FAILED;
@@ -985,6 +985,7 @@ void DaemonICETransport::PacketEngineDisconnectCB(PacketEngine& engine, const Pa
             ++it;
         }
     }
+    m_endpointListLock.Unlock();
 }
 
 void DaemonICETransport::SendSTUNKeepAliveAndTURNRefreshRequest(ICEPacketStream& icePktStream)
@@ -1253,7 +1254,6 @@ ThreadReturn STDCALL DaemonICETransport::AllocateICESessionThread::Run(void* arg
                                             String remoteAddr = (stunActivityPtr->stun->GetRemoteAddr()).ToString();
                                             String remotePort = U32ToString((uint32_t)(stunActivityPtr->stun->GetRemotePort()));
                                             String connectSpec = "ice:guid=" + clientGUID;
-                                            printf("AllocateSessionThread: connectSpec=\"%s\"\n", connectSpec.c_str());
 
                                             /* Wait for a while to let ICE settle down */
                                             // @@ JP THIS NEEDS WORK
@@ -1900,7 +1900,6 @@ QStatus DaemonICETransport::Connect(const char* connectSpec, const SessionOpts& 
                                                 Stun* stun = selectedCandidatePairList[0]->local->GetStunActivity()->stun;
 
                                                 /* Wrap ICE session FD in a new ICEPacketStream */
-                                                printf("######## INSERTING PacketStream with key=\"%s\"\n", normSpec.c_str());
                                                 ICEPacketStream pks(*iceSession, *stun, selectedCandidatePairList[0]->local->GetType());
                                                 map<String, pair<ICEPacketStream, int32_t> >::iterator it =
                                                     pktStreamMap.insert(pair<String, pair<ICEPacketStream, int32_t> >(normSpec, pair<ICEPacketStream, int32_t>(pks, 1))).first;
