@@ -416,7 +416,8 @@ class BusAttachment : public MessageReceiver {
     const ProxyBusObject& GetAllJoynDebugObj();
 
     /**
-     * Get the unique name of this BusAttachment.
+     * Get the unique name of this BusAttachment. Returns an empty string if the bus attachment
+     * is not connected.
      *
      * @return The unique name of this BusAttachment.
      */
