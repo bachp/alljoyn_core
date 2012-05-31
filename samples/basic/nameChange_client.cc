@@ -146,9 +146,9 @@ int main(int argc, char** argv, char** envArg)
     /* Wait for join session to complete */
     while (!s_joinComplete && !g_interrupt) {
 #ifdef _WIN32
-        Sleep(100);
+        Sleep(10);
 #else
-        usleep(100 * 1000);
+        usleep(10 * 1000);
 #endif
     }
 
