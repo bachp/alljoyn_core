@@ -623,6 +623,12 @@ class DiscoveryManager : public Thread, public AlarmListener {
 
     /**
      * @internal
+     * @brief Handle the Start ICE Checks Response message.
+     */
+    QStatus HandleStartICEChecksResponse(StartICEChecksResponse response);
+
+    /**
+     * @internal
      * @brief Handle the Match Revoked Response message.
      */
     QStatus HandleMatchRevokedResponse(MatchRevokedResponse response);

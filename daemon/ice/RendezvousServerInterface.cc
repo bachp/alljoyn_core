@@ -157,6 +157,10 @@ String PrintResponseType(ResponseType type)
         retStr = String("ADDRESS_CANDIDATES_RESPONSE");
         break;
 
+    case START_ICE_CHECKS_RESPONSE:
+        retStr = String("START_ICE_CHECKS_RESPONSE");
+        break;
+
     case INVALID_RESPONSE:
     default:
         break;
@@ -534,6 +538,13 @@ void PrintMessageResponse(Response msg)
             }
         }
 
+    } else if (msg.type == START_ICE_CHECKS_RESPONSE) {
+
+        StartICEChecksResponse* StartICEChecks = static_cast<StartICEChecksResponse*>(msg.response);
+        StartICEChecksResponse startICEChecks = *StartICEChecks;
+        QCC_DbgPrintf(("PrintMessageResponse(): Start ICE Checks Response"));
+        QCC_DbgPrintf(("startICEChecks[peerAddr] = %s", startICEChecks.peerAddr.c_str()));
+
     } else {
 
         QCC_LogError(ER_FAIL, ("PrintMessageResponse(): Invalid Response"));
@@ -579,6 +590,7 @@ QStatus ParseMessagesResponse(Json::Value receivedResponse, ResponseMessage& par
     Json::StaticString deleteAll("deleteAll");
     Json::StaticString foundation("foundation");
     Json::StaticString componentID("componentID");
+    Json::StaticString startICEChecks("startICEChecks");
 
     Response tempMsg;
 
@@ -970,6 +982,30 @@ QStatus ParseMessagesResponse(Json::Value receivedResponse, ResponseMessage& par
                         } else {
                             status = ER_FAIL;
                             QCC_LogError(status, ("ParseMessagesResponse(): matchRevoked member not found"));
+                        }
+                    } else if (msgsObjArrayMember[type] == "startICEChecks") {
+                        QCC_DbgPrintf(("ParseMessagesResponse(): [%d] Start ICE Checks Message", j));
+
+                        if (msgsObjArrayMember.isMember(startICEChecks)) {
+                            Json::Value startICEChecksObj = msgsObjArrayMember[startICEChecks];
+
+                            if (startICEChecksObj.isMember(peerAddr)) {
+                                tempMsg.type = START_ICE_CHECKS_RESPONSE;
+                                StartICEChecksResponse* StartICEChecks = new StartICEChecksResponse();
+                                StartICEChecks->peerAddr = String(startICEChecksObj[peerAddr].asCString());
+
+                                tempMsg.response = static_cast<StartICEChecksResponse*>(StartICEChecks);
+                                parsedResponse.msgs.push_back(tempMsg);
+                                PrintMessageResponse(tempMsg);
+
+                            } else {
+                                status = ER_FAIL;
+                                QCC_LogError(status, ("ParseMessagesResponse(): startICEChecks[peerAddr] member not found"));
+                            }
+
+                        } else {
+                            status = ER_FAIL;
+                            QCC_LogError(status, ("ParseMessagesResponse(): startICEChecks member not found"));
                         }
                     } else {
                         status = ER_FAIL;

@@ -1610,6 +1610,17 @@ QStatus DiscoveryManager::HandleSearchMatchResponse(SearchMatchResponse response
     return status;
 }
 
+QStatus DiscoveryManager::HandleStartICEChecksResponse(StartICEChecksResponse response)
+{
+    QCC_DbgPrintf(("DiscoveryManager::HandleStartICEChecksResponse(): peerAddr = %s\n", response.peerAddr.c_str()));
+
+    QStatus status = ER_OK;
+
+    // PPN - Add code to handle the StartICEChecks Response
+
+    return status;
+}
+
 QStatus DiscoveryManager::HandleMatchRevokedResponse(MatchRevokedResponse response)
 {
 
@@ -1959,6 +1970,18 @@ QStatus DiscoveryManager::HandlePersistentMessageResponse(Json::Value payload)
                     if (ER_OK != HandleAddressCandidatesResponse(*AddressCandidates)) {
                         status = ER_INVALID_PERSISTENT_CONNECTION_MESSAGE_RESPONSE;
                         QCC_LogError(status, ("DiscoveryManager::HandlePersistentMessageResponse(): Received an erroneous address candidates response"));
+                    }
+                }
+                //
+                // Start ICE checks response has been received.
+                // Handle it accordingly.
+                //
+                else if (resp_it->type ==  START_ICE_CHECKS_RESPONSE) {
+                    StartICEChecksResponse* StartICEChecks = static_cast<StartICEChecksResponse*>(resp_it->response);
+
+                    if (ER_OK != HandleStartICEChecksResponse(*StartICEChecks)) {
+                        status = ER_INVALID_PERSISTENT_CONNECTION_MESSAGE_RESPONSE;
+                        QCC_LogError(status, ("DiscoveryManager::HandlePersistentMessageResponse(): Received an erroneous start ICE checks response"));
                     }
                 }
             } else {
