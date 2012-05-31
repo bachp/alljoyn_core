@@ -268,35 +268,20 @@ namespace ajn {
 // service will use for discovery.
 //
 //   <busconfig>
-//     <alljoyn module="ipns">
+//     <ip_name_service>
 //       <property interfaces="*"/>
-//       <property disable_directed_broadcast="true"/>
-//     </alljoyn>
+//       <property disable_directed_broadcast="false"/>
+//       <property enable_ipv4="true"/>
+//       <property enable_ipv6="true"/>
+//     </ip_name_service>
 //   </busconfig>
 //
-const char* NameService::MODULE_NAME = "ipns";
-
-//
-// The name of the property used to configure the interfaces over which the
-// name service should run discovery.
-//
-const char* NameService::INTERFACES_PROPERTY = "interfaces";
 
 //
 // The value of the interfaces property used to configure the name service
 // to run discovery over all interfaces in the system.
 //
 const char* NameService::INTERFACES_WILDCARD = "*";
-
-//
-// The name of the property used to configure whether or not we disable the
-// sending of subnet directed broadcasts during discovery.  The value "true"
-// means broadcast will not be done, and "false" means we will do them.  It
-// turns out that on some wireless access points, directed broadcasts are
-// the only way to get IPv4 name service packets out if IPv4 multicast is
-// disabled.  This setting defaults to "false".
-//
-const char* NameService::BROADCAST_PROPERTY = "disable_directed_broadcast";
 
 //
 // This is just a random IPv4 multicast group chosen out of the defined site

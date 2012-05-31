@@ -116,14 +116,18 @@ static const char
     "    <property enable_ipv4=\"true\"/>"
     "    <property enable_ipv6=\"true\"/>"
     "  </ip_name_service>"
-    "  <alljoyn module=\"icedm\">"
+    "  <ice>"
+    "    <limit name=\"max_incomplete_connections\">16</limit>"
+    "    <limit name=\"max_completed_connections\">64</limit>"
+    "  </ice>"
+    "  <ice_discovery_manager>"
     "    <property interfaces=\"*\"/>"
     "    <property server=\"rdvs-test.qualcomm.com\"/>"
     "    <property EthernetPrefix=\"eth\"/>"
     "    <property WiFiPrefix=\"wlan\"/>"
     "    <property MobileNwPrefix=\"ppp\"/>"
     "    <property Protocol=\"HTTP\"/>"
-    "  </alljoyn>"
+    "  </ice_discovery_manager>"
     "</busconfig>";
 
 

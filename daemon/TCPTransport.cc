@@ -2842,10 +2842,7 @@ void TCPTransport::DoStartListen(qcc::String& normSpec)
      * configuration item is empty (not assigned in the configuration database)
      * it defaults to "*".
      */
-    qcc::String interfaces = DaemonConfig::Access()->Get("ip_name_service/property@interfaces");
-    if (interfaces.size() == 0) {
-        interfaces = INTERFACES_DEFAULT;
-    }
+    qcc::String interfaces = DaemonConfig::Access()->Get("ip_name_service/property@interfaces", INTERFACES_DEFAULT);
 
     while (interfaces.size()) {
         qcc::String currentInterface;
