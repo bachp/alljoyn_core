@@ -104,8 +104,6 @@ QStatus XmlHelper::ParseInterface(const XmlElement* elem, ProxyBusObject* obj)
                             argList += ',';
                         }
                         isFirstArg = false;
-                        const qcc::String& nameAtt = argElem->GetAttribute("name");
-                        const qcc::String& directionAtt = argElem->GetAttribute("direction");
                         const qcc::String& typeAtt = argElem->GetAttribute("type");
 
                         if (typeAtt.empty()) {
@@ -116,9 +114,9 @@ QStatus XmlHelper::ParseInterface(const XmlElement* elem, ProxyBusObject* obj)
 
                         argList += argElem->GetAttribute("name");
                         if (isSignal || (argElem->GetAttribute("direction") == "in")) {
-                            inSig += argElem->GetAttribute("type");
+                            inSig += typeAtt;
                         } else {
-                            outSig += argElem->GetAttribute("type");
+                            outSig += typeAtt;
                         }
                     } else if (argElem->GetName() == "annotation") {
                         const qcc::String& nameAtt = argElem->GetAttribute("name");
