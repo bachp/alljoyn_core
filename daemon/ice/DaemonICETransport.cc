@@ -2232,7 +2232,7 @@ void DaemonICETransport::DisableDiscovery(const char* namePrefix)
     QStatus status = m_dm->CancelAdvertiseOrLocate(false, namePrefix);
 
     if (status != ER_OK) {
-        QCC_LogError(status, ("DaemonICETransport::EnableDiscovery(): Failure disabling discovery for \"%s\" on ICE", namePrefix));
+        QCC_LogError(status, ("DaemonICETransport::DisableDiscovery(): Failure disabling discovery for \"%s\" on ICE", namePrefix));
     }
 }
 
