@@ -502,7 +502,7 @@ int daemon(OptParse& opts) {
         } else if (addrStr.compare(0, sizeof("tcp:") - 1, "tcp:") == 0) {
             skip = opts.GetNoTCP();
 
-        } else if (it->compare(0, sizeof("ice:") - 1, "ice:") == 0) {
+        } else if (addrStr.compare(0, sizeof("ice:") - 1, "ice:") == 0) {
             skip = opts.GetNoICE();
 
         } else if (addrStr.compare("bluetooth:") == 0) {
