@@ -191,11 +191,11 @@ QStatus SCRAM_SHA_1::ValidateClientLoginFinalResponse(ClientLoginFinalResponse r
         status = ValidateServer(ServerFinalResponse.v);
 
         if (status == ER_OK) {
-            if ((!response.peerIDPresent) || (!response.daemonRegistrationRequiredPresent) ||
+            if ((!response.peerIDPresent) || (!response.peerAddrPresent) || (!response.daemonRegistrationRequiredPresent) ||
                 (!response.sessionActivePresent) || (!response.configDataPresent)) {
                 status = ER_FAIL;
-                QCC_LogError(status, ("SCRAM_SHA_1::ValidateClientLoginFinalResponse(): peerIDPresent(%d) daemonRegistrationRequiredPresent(%d) sessionActivePresent(%d) configDataPresent(%d)",
-                                      response.peerIDPresent, response.daemonRegistrationRequiredPresent, response.sessionActivePresent, response.configDataPresent));
+                QCC_LogError(status, ("SCRAM_SHA_1::ValidateClientLoginFinalResponse(): peerIDPresent(%d) peerAddrPresent(%d) daemonRegistrationRequiredPresent(%d) sessionActivePresent(%d) configDataPresent(%d)",
+                                      response.peerIDPresent, response.peerAddrPresent, response.daemonRegistrationRequiredPresent, response.sessionActivePresent, response.configDataPresent));
             } else {
                 if (!response.configData.TkeepalivePresent) {
                     status = ER_FAIL;

@@ -88,6 +88,7 @@ DiscoveryManager::DiscoveryManager(BusAttachment& bus)
     GetAccountNameMethod(String("GetClientAccountName")),
     GetAccountPasswordMethod(String("GetClientAccountPassword")),
     PeerID(),
+    PeerAddr(),
     DiscoveryManagerState(IMPL_SHUTDOWN),
     PersistentIdentifier(),
     InterfaceFlags(NONE),
@@ -2556,8 +2557,9 @@ void DiscoveryManager::HandleSuccessfulClientAuthentication(ClientLoginFinalResp
 {
     QCC_DbgPrintf(("DiscoveryManager::HandleSuccessfulClientAuthentication()"));
 
-    /* Set the PeerID */
+    /* Set the PeerID and PeerAddr */
     PeerID = response.peerID;
+    PeerAddr = response.peerAddr;
 
     if (response.daemonRegistrationRequired) {
         /* Set the RegisterDaemonWithServer flag so that the DiscoveryManager thread may
