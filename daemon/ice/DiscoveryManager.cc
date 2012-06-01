@@ -143,7 +143,7 @@ DiscoveryManager::DiscoveryManager(BusAttachment& bus)
     RendezvousServer = config->Get("ice_discovery_manager/property@server", "rdvs-test.qualcomm.com");
 
     /* Retrieve the connection protocol to be used */
-    if (config->Get("ice_discovery_manager/propeerty@protocol") == "HTTP") {
+    if (config->Get("ice_discovery_manager/property@Protocol") == "HTTP") {
         QCC_DbgPrintf(("DiscoveryManager::DiscoveryManager(): Using HTTP"));
         UseHTTP = true;
     }
