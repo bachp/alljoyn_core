@@ -644,7 +644,7 @@ TEST(PerfTest, FindAdvertisedName_MatchAll_Success)
     status = client_msgBus->FindAdvertisedName("");
     ASSERT_EQ(ER_OK, status) << "  Actual Status: " << QCC_StatusText(status);
 
-    status = Event::Wait(g_discoverEvent);
+    status = Event::Wait(g_discoverEvent, 5000);
     ASSERT_EQ(ER_OK, status) << "  Actual Status: " << QCC_StatusText(status);
 
 }
@@ -672,7 +672,7 @@ TEST(PerfTest, FindAdvertisedName_MatchExactName_Success)
     status = client_msgBus->FindAdvertisedName("org.alljoyn.test_services");
     ASSERT_EQ(ER_OK, status) << "  Actual Status: " << QCC_StatusText(status);
 
-    status = Event::Wait(g_discoverEvent);
+    status = Event::Wait(g_discoverEvent, 5000);
     ASSERT_EQ(ER_OK, status) << "  Actual Status: " << QCC_StatusText(status);
 
     //GetTimeNow(&endTime);
@@ -798,7 +798,7 @@ TEST(PerfTest, ClientTest_BasicDiscovery) {
     status = client_msgBus->FindAdvertisedName("org.alljoyn.test_services");
     ASSERT_EQ(ER_OK, status) << "  Actual Status: " << QCC_StatusText(status);
 
-    status = Event::Wait(g_discoverEvent);
+    status = Event::Wait(g_discoverEvent, 5000);
     ASSERT_EQ(ER_OK, status) << "  Actual Status: " << QCC_StatusText(status);
 
     /* Join the session */
