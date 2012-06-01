@@ -394,17 +394,7 @@ class DaemonICETransport : public Transport, public RemoteEndpoint::EndpointList
      *      - ER_OK if successful.
      *      - an error status otherwise.
      */
-    QStatus GetListenAddresses(const SessionOpts& opts, std::vector<String>& busAddrs) const
-    {
-        if (opts.transports & GetTransportMask()) {
-            qcc::String guid = m_bus.GetInternal().GetGlobalGUID().ToString();
-            qcc::String listenAddr = qcc::String("ice:guid=") + guid;
-            if (!listenAddr.empty()) {
-                busAddrs.push_back(listenAddr);
-            }
-        }
-        return ER_OK;
-    }
+    QStatus GetListenAddresses(const SessionOpts& opts, std::vector<String>& busAddrs) const;
 
     /**
      * Callback for DaemonICEEndpoint exit.

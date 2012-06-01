@@ -702,6 +702,12 @@ class DiscoveryManager : public Thread, public AlarmListener {
      */
     void SetDisconnectEvent(void) { DisconnectEvent.SetEvent(); };
 
+    /**
+     * @internal
+     * @brief Return the PeerAddr
+     */
+    qcc::String GetPeerAddr(void) { return PeerAddr; };
+
   private:
 
     /**

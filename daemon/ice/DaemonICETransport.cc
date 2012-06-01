@@ -1191,6 +1191,28 @@ QStatus DaemonICETransport::Join(void)
     return ER_OK;
 }
 
+QStatus DaemonICETransport::GetListenAddresses(const SessionOpts& opts, std::vector<String>& busAddrs) const
+{
+    QCC_DbgTrace(("DaemonICETransport::GetListenAddresses()"));
+
+    if (opts.transports & GetTransportMask()) {
+
+        /* For the ICE transport, peerAddr is the alias of GUID */
+        qcc::String peerAddr = m_dm->GetPeerAddr();
+
+        if (peerAddr.empty()) {
+            QCC_LogError(ER_FAIL, ("DaemonICETransport::GetListenAddresses(): PeerAddr is empty"));
+            return ER_FAIL;
+        } else {
+            qcc::String listenAddr = qcc::String("ice:guid=") + peerAddr;
+            if (!listenAddr.empty()) {
+                busAddrs.push_back(listenAddr);
+            }
+        }
+    }
+    return ER_OK;
+}
+
 void DaemonICETransport::EndpointExit(RemoteEndpoint* ep)
 {
     /*
