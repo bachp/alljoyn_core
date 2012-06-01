@@ -795,9 +795,16 @@ class DiscoveryManager : public Thread, public AlarmListener {
     /**
      * @internal
      *
-     * @brief Rendezvous server address.
+     * @brief Peer ID assigned for this daemon.
      */
     String PeerID;
+
+    /**
+     * @internal
+     *
+     * @brief Peer Address assigned to this daemon.
+     */
+    String PeerAddr;
 
     /**
      * @internal

@@ -1191,40 +1191,6 @@ QStatus DaemonICETransport::Join(void)
     return ER_OK;
 }
 
-QStatus DaemonICETransport::GetListenAddresses(const SessionOpts& opts, std::vector<String>& busAddrs) const
-{
-    QCC_DbgTrace(("DaemonICETransport::GetListenAddresses()"));
-
-    /*
-     * We are given a session options structure that defines the kind of
-     * transports that are being sought.  ICE provides reliable traffic as
-     * understood by the session options, so we only return something if
-     * the traffic type is TRAFFIC_MESSAGES or TRAFFIC_RAW_RELIABLE.  It's
-     * not an error if we don't match, we just don't have anything to offer.
-     */
-    if (opts.traffic != SessionOpts::TRAFFIC_MESSAGES && opts.traffic != SessionOpts::TRAFFIC_RAW_RELIABLE) {
-        QCC_DbgTrace(("DaemonICETransport::GetListenAddresses(): traffic mismatch"));
-        return ER_OK;
-    }
-
-    /*
-     * The other session option that we need to filter on is the transport
-     * bit field.
-     */
-    if (!(opts.transports & (TRANSPORT_ICE))) {
-        QCC_DbgTrace(("DaemonICETransport::GetListenAddresses(): transport mismatch"));
-        return ER_OK;
-    }
-
-    /*
-     * If we can get the list and walk it, we have succeeded.  It is not an
-     * error to have no available interfaces.  In fact, it is quite expected
-     * in a phone if it is not associated with an access point over wi-fi.
-     */
-    QCC_DbgTrace(("DaemonICETransport::GetListenAddresses(): done"));
-    return ER_OK;
-}
-
 void DaemonICETransport::EndpointExit(RemoteEndpoint* ep)
 {
     /*

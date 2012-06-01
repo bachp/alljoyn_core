@@ -850,6 +850,16 @@ typedef struct _ClientLoginFinalResponse {
     String peerID;
 
     /**
+     * Boolean indicating if a valid peerAddr is present in the response.
+     */
+    bool peerAddrPresent;
+
+    /**
+     * Peer identifier used by the daemon for Rendezvous Session.
+     */
+    String peerAddr;
+
+    /**
      * Boolean indicating if a valid daemonRegistrationRequired is present in the response.
      */
     bool daemonRegistrationRequiredPresent;
@@ -882,6 +892,11 @@ typedef struct _ClientLoginFinalResponse {
     void SetpeerID(String peerid) {
         peerIDPresent = true;
         peerID = peerid;
+    }
+
+    void SetpeerAddr(String peeraddr) {
+        peerAddrPresent = true;
+        peerAddr = peeraddr;
     }
 
     void SetdaemonRegistrationRequired(bool value) {
