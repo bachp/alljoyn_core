@@ -558,6 +558,26 @@ QStatus DiscoveryManager::CancelAdvertiseOrLocate(bool cancelAdvertise, const St
 
     for (it = tempMap->begin(); it != tempMap->end(); it++) {
         if (it->first == name) {
+
+            // Send Found callback to AllJoynObj.cc to remove all the names that we discovered corresponding
+            // to this Search from the nameMap
+            list<ServiceInfo>* responseInfo = &(it->second.response);
+            list<ServiceInfo>::iterator candidate_it;
+
+            for (candidate_it = responseInfo->begin(); candidate_it != responseInfo->end(); candidate_it++) {
+                vector<String> wkn;
+                wkn.push_back(candidate_it->serviceName);
+                if (!wkn.empty()) {
+                    if (iceCallback) {
+
+                        QCC_DbgPrintf(("DiscoveryManager::CancelAdvertiseOrLocate(): Trying to invoke the iceCallback to clear %s with GUID %s from nameMap\n",
+                                       candidate_it->serviceName.c_str(), candidate_it->serviceDaemonGUID.c_str()));
+
+                        (*iceCallback)(FOUND, String(), candidate_it->serviceDaemonGUID, &wkn, 0);
+                    }
+                }
+            }
+
             //
             // Delete the entry
             //
