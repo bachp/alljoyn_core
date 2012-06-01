@@ -4,7 +4,7 @@
  */
 
 /******************************************************************************
- * Copyright 2010-2011, Qualcomm Innovation Center, Inc.
+ * Copyright 2010-2012, Qualcomm Innovation Center, Inc.
  *
  *    Licensed under the Apache License, Version 2.0 (the "License");
  *    you may not use this file except in compliance with the License.
@@ -98,11 +98,6 @@ AllJoynObj::AllJoynObj(Bus& bus, BusController* busController) :
 AllJoynObj::~AllJoynObj()
 {
     bus.UnregisterBusObject(*this);
-
-    // TODO: Unregister signal handlers.
-    // TODO: Unregister name listeners
-    // TODO: Unregister transport listener
-    // TODO: Unregister local object
 
     /* Wait for any outstanding JoinSessionThreads */
     joinSessionThreadsLock.Lock(MUTEX_CONTEXT);
@@ -767,13 +762,14 @@ ThreadReturn STDCALL AllJoynObj::JoinSessionThread::RunJoin()
             while (replyCode == ALLJOYN_JOINSESSION_REPLY_SUCCESS) {
                 /* Do we route through b2bEp? If so, we're done */
                 ep = b2bEp ? ajObj.router.FindEndpoint(b2bEp->GetRemoteName()) : NULL;
+                vSessionEp = static_cast<VirtualEndpoint*>(ajObj.router.FindEndpoint(sessionHost));
 
                 VirtualEndpoint* vep = (ep && (ep->GetEndpointType() == BusEndpoint::ENDPOINT_TYPE_VIRTUAL)) ? static_cast<VirtualEndpoint*>(ep) : NULL;
                 if (!b2bEp) {
                     QCC_LogError(ER_FAIL, ("B2B endpoint %s disappeared during JoinSession", b2bEpName.c_str()));
                     replyCode = ALLJOYN_JOINSESSION_REPLY_FAILED;
                     break;
-                } else if (vep && vep->CanUseRoute(*b2bEp)) {
+                } else if (vep && vep->CanUseRoute(*b2bEp) && vSessionEp) {
                     break;
                 }
 
@@ -806,7 +802,6 @@ ThreadReturn STDCALL AllJoynObj::JoinSessionThread::RunJoin()
                     replyCode = ALLJOYN_JOINSESSION_REPLY_FAILED;
                 }
                 /* Re-acquire locks and endpoints */
-                qcc::Sleep(500);
                 ajObj.AcquireLocks();
                 vSessionEp = static_cast<VirtualEndpoint*>(ajObj.router.FindEndpoint(sessionHost));
                 vSessionEpName = vSessionEp ? vSessionEp->GetUniqueName() : "";
@@ -1426,7 +1421,6 @@ qcc::ThreadReturn STDCALL AllJoynObj::JoinSessionThread::RunAttach()
                             QCC_LogError(status, ("AddSessionRoute(%u, %s, %s, %s) failed", id, dest, b2bEp->GetUniqueName().c_str(), srcEp->GetUniqueName().c_str(), srcB2BEp2->GetUniqueName().c_str()));
                         }
                     } else {
-                        // TODO: Need to cleanup partially setup session
                         replyCode = ALLJOYN_JOINSESSION_REPLY_FAILED;
                     }
                 } else {

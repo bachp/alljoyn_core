@@ -281,8 +281,10 @@ QStatus _ICECandidate::ReadReceivedMessage(uint32_t timeoutMsec)
 
     status = stunActivity->stun->RecvStunMessage(msg, remote.addr, remote.port, receivedMsgWasRelayed, timeoutMsec);
 
-    if (ER_OK != status) {
-        QCC_LogError(status, ("ReadReceivedMessage status = %d", status));
+    if (status != ER_OK) {
+        if (status != ER_STOPPING_THREAD) {
+            QCC_LogError(status, ("ReadReceivedMessage status = %d", status));
+        }
         return status;
     }
 #if !defined(NDEBUG)

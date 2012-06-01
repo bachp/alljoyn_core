@@ -492,6 +492,7 @@ QStatus DaemonICEEndpoint::PacketEngineConnect(const IPAddress& addr, uint16_t p
     }
 
     if (m_packetEngineReturnStatus != ER_OK) {
+        status = m_packetEngineReturnStatus;
         m_authState = AUTH_FAILED;
         QCC_LogError(status, ("DaemonICEEndpoint::AuthThread::Run(): PacketEngineConnectCB returned a failure"));
         return status;
