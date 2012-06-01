@@ -146,42 +146,61 @@ class DiscoveryManager : public Thread, public AlarmListener {
     /**
      * @brief Set the Callback for notification of events.
      */
-    void SetCallback(Callback<void, CallbackType, const String&, const String&, const vector<String>*, uint8_t>* iceCb);
+    void SetCallback(Callback<void, CallbackType, const String&, const vector<String>*, uint8_t>* iceCb);
 
     /**
-     * @brief Advertise/Locate an AllJoyn daemon service.
+     * @brief Advertise an AllJoyn daemon service.
      *
-     * If an AllJoyn daemon wants to advertise/find the presence of a well-known name
+     * If an AllJoyn daemon wants to advertise the presence of a well-known name
      * on the Rendezvous Server, it calls this function.
      *
      * This method allows the caller to specify a single well-known interface
      * name supported by the exporting AllJoyn.
      *
-     * @param[in] advertise Advertise the passed name if set to true else find it
-     *
-     * @param[in] name      The AllJoyn interface name to Advertise/Find(e.g., "org.freedesktop.Sensor").
+     * @param[in] name      The AllJoyn interface name to Advertise(e.g., "org.freedesktop.Sensor").
      *
      * @return Status of the operation.  Returns ER_OK on success.
      */
-    QStatus AdvertiseOrLocate(bool advertise, const String& name);
+    QStatus AdvertiseName(const String& name);
 
     /**
-     * @brief Cancel an AllJoyn daemon service advertisement/locate.
+     * @brief Search an AllJoyn daemon service.
      *
-     * If an AllJoyn daemon wants to cancel an advertisement/locate of a well-known name
-     * on the Rendezvous Server it calls this function.
+     * If an AllJoyn daemon wants to search the presence of a well-known name
+     * on the Rendezvous Server, it calls this function.
      *
-     * @param[in] cancelAdvertise Stop Advertising the passed name if set to true else Stop finding it
+     * This method allows the caller to specify a single well-known interface
+     * name supported by the exporting AllJoyn.
      *
-     * @param[in] name            The AllJoyn interface name to stop Advertising/Locating(e.g., "org.freedesktop.Sensor").
-     *
-     * @param[in] loginName       The login name used to authenticate with the Rendezvous Server.
-     *
-     * @param[in] loginKey        The login key used to authenticate with the Rendezvous Server.
+     * @param[in] name      The AllJoyn interface name to Search(e.g., "org.freedesktop.Sensor").
      *
      * @return Status of the operation.  Returns ER_OK on success.
      */
-    QStatus CancelAdvertiseOrLocate(bool cancelAdvertise, const String& name);
+    QStatus SearchName(const String& name);
+
+    /**
+     * @brief Cancel an AllJoyn daemon service advertisement.
+     *
+     * If an AllJoyn daemon wants to cancel the advertisement of a well-known name
+     * on the Rendezvous Server it calls this function.
+     *
+     * @param[in] name The AllJoyn interface name to stop Advertising(e.g., "org.freedesktop.Sensor").
+     *
+     * @return Status of the operation.  Returns ER_OK on success.
+     */
+    QStatus CancelAdvertiseName(const String& name);
+
+    /**
+     * @brief Cancel an AllJoyn daemon service search.
+     *
+     * If an AllJoyn daemon wants to cancel the search of a well-known name
+     * on the Rendezvous Server it calls this function.
+     *
+     * @param[in] name The AllJoyn interface name to stop searching(e.g., "org.freedesktop.Sensor").
+     *
+     * @return Status of the operation.  Returns ER_OK on success.
+     */
+    QStatus CancelSearchName(const String& name);
 
     /**
      * @brief Return the STUN server information.
@@ -193,35 +212,22 @@ class DiscoveryManager : public Thread, public AlarmListener {
      *
      * @param[in] remotePeerID    Peer address of the remote daemon on which the service/client of interest is running
      *
-     * @param[in] name            Well known name of the service/client of interest
-     *
      * @param[out] stunInfo       STUN server information
-     *
-     * @param[out] matchID        Match ID
      *
      * @return Status of the operation.  Returns ER_OK on success.
      */
-    QStatus GetSTUNInfo(bool client, String remotePeerID, String remoteName, STUNServerInfo& stunInfo, String& matchID);
+    QStatus GetSTUNInfo(bool client, String remotePeerID, STUNServerInfo& stunInfo);
 
     /*
      * Internal structure used to store information related to the initiator and receiver of an ICE session.
      */
     struct SessionEntry {
 
-        /* GUID of the remote daemon */
-        String remotePeerAddress;
-
-        /* Well Known name of the destination Client/Service */
-        String destinationName;
-
         /* ICE Session user name */
         String ice_frag;
 
         /* ICE Session password */
         String ice_pwd;
-
-        /* Associated match ID */
-        String matchID;
 
         /* Address candidates of the service */
         list<ICECandidates> serviceCandidates;
@@ -246,13 +252,10 @@ class DiscoveryManager : public Thread, public AlarmListener {
 
         SessionEntry() : AddSTUNInfo(false), STUNInfoPresent(false) { }
 
-        SessionEntry(bool client, String guid, String destName, list<ICECandidates> iceCandidates,
-                     String frag, String pwd, String matchid) {
-            remotePeerAddress = guid;
-            destinationName = destName;
+        SessionEntry(bool client, list<ICECandidates> iceCandidates,
+                     String frag, String pwd) {
             ice_frag = frag;
             ice_pwd = pwd;
-            matchID = matchid;
             if (client) {
                 clientCandidates = iceCandidates;
             } else {
@@ -260,10 +263,8 @@ class DiscoveryManager : public Thread, public AlarmListener {
             }
         }
 
-        void SetClientInfo(String guid, String destName, list<ICECandidates> iceCandidates,
+        void SetClientInfo(list<ICECandidates> iceCandidates,
                            String frag, String pwd, PeerCandidateListener* listener, bool addStun = true) {
-            remotePeerAddress = guid;
-            destinationName = destName;
             ice_frag = frag;
             ice_pwd = pwd;
             clientCandidates = iceCandidates;
@@ -271,10 +272,8 @@ class DiscoveryManager : public Thread, public AlarmListener {
             AddSTUNInfo = addStun;
         }
 
-        void SetServiceInfo(String guid, String destName, list<ICECandidates> iceCandidates,
+        void SetServiceInfo(list<ICECandidates> iceCandidates,
                             String frag, String pwd, PeerCandidateListener* listener) {
-            remotePeerAddress = guid;
-            destinationName = destName;
             ice_frag = frag;
             ice_pwd = pwd;
             serviceCandidates = iceCandidates;
@@ -363,7 +362,7 @@ class DiscoveryManager : public Thread, public AlarmListener {
      *
      * @param[in] client          Set to true if this function is called by a client, Set to false if this function is called by a service
      *
-     * @param[in] sessionDetail   Pair of a session request initiator name to the session request receiver details
+     * @param[in] sessionDetail   Pair of the remote daemon GUID to the session request receiver details
      *
      * @return Status of the operation.  Returns ER_OK on success.
      */
@@ -601,13 +600,6 @@ class DiscoveryManager : public Thread, public AlarmListener {
      * @brief Handle the Address Candidates Response message.
      */
     QStatus HandleAddressCandidatesResponse(AddressCandidatesResponse response);
-
-    /**
-     * @internal
-     * @brief Purge the nameMap and findMap to remove all services discovered from
-     * a particular daemon specified by peerAddress.
-     */
-    void PurgeFindAndNameMap(String peerAddress);
 
     /**
      * @internal
@@ -891,48 +883,45 @@ class DiscoveryManager : public Thread, public AlarmListener {
      * @internal
      * @brief ICE Callback
      */
-    Callback<void, CallbackType, const String&, const String&, const vector<String>*, uint8_t>* iceCallback;
+    Callback<void, CallbackType, const String&, const vector<String>*, uint8_t>* iceCallback;
 
-    class ServiceInfo {
+    class RemoteDaemonServicesInfo {
       public:
-        /*Discovered Service Name*/
-        String serviceName;
+        /* GUID of the remote daemon */
+        String remoteGUID;
 
-        /* Match ID associated with this Search Match */
-        String matchID;
-
-        /*GUID of the Daemon running the Service*/
-        String serviceDaemonGUID;
-
-        /*STUN Info to be used for ICE connectivity with the Service*/
-        STUNServerInfo stunInfo;
+        /* Vector of services running on the remote daemon that have been discovered by us */
+        vector<String> services;
     };
 
+    class RemoteDaemonStunInfo {
+      public:
+        /* STUN Info to be used for ICE connectivity with the Daemon running the Service */
+        STUNServerInfo stunInfo;
+
+        /* list of services running on the remote daemon that have been discovered by us */
+        list<String> services;
+    };
 
     /**
      * @internal
      * @brief A class used to store the developer credentials of a service/client and a map of the
      * received responses for the Advertisement and FindName from the Rendezvous Server.
      */
-    class NameEntryAssociatedInfo {
+    // PPN - Make this a map if possible
+    class SearchResponseInfo {
       public:
-        list<ServiceInfo> response; /**< list of the received client/service's well known name, GUID of the Daemon from which
-                                         the information was received and the STUN Information associated with the discovery*/
+        list<RemoteDaemonServicesInfo> response; /**< list of the GUID of the Daemon from which the information was received and the
+                                                      vector of services discovered */
 
         //Constructor
-        NameEntryAssociatedInfo() { }
+        SearchResponseInfo() { }
 
         //Destructor
-        ~NameEntryAssociatedInfo() {
+        ~SearchResponseInfo() {
             response.clear();
         }
     };
-
-    /**
-     * @internal
-     * @brief A map of all of the names that the user has advertised along with a list of responses for each advertisement.
-     */
-    std::multimap<String, NameEntryAssociatedInfo> advertiseMap;
 
     /**
      * @internal
@@ -962,7 +951,13 @@ class DiscoveryManager : public Thread, public AlarmListener {
      * @internal
      * @brief A map of all of the names that a user has requested to be found along with the response received for each.
      */
-    std::multimap<String, NameEntryAssociatedInfo> findMap;
+    std::map<String, SearchResponseInfo> searchMap;
+
+    /**
+     * @internal
+     * @brief A map of all the remote GUIDs and the associated STUN and TURN server information.
+     */
+    std::map<String, RemoteDaemonStunInfo> StunAndTurnServerInfo;
 
     /**
      * @internal

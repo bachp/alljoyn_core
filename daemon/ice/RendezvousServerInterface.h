@@ -44,6 +44,8 @@
 using namespace qcc;
 using namespace std;
 
+#define PROPOSED_INTERFACE_CHANGES
+
 namespace ajn {
 
 /**
@@ -104,7 +106,8 @@ const String DaemonRegistrationUri = RendezvousServerAddress + RendezvousProtoco
 /**
  * The refresh time-expiry token call.
  */
-const String TokenRefreshUri = RendezvousServerAddress + RendezvousProtocolVersion + String("/peer/%s/token/match/%s");
+// PPN - Interface change
+const String TokenRefreshUri = RendezvousServerAddress + RendezvousProtocolVersion + String("/peer/%s/token");
 
 /* Buffer time to subtract from the token expiry time specified by the Rendezvous Server so that we try to get new tokens
  * before the old tokens actually expire at the Server */
@@ -452,6 +455,7 @@ class ICECandidatesMessage  : public InterfaceMessage {
      * Daemon is sending the ICE Candidates message through the
      * Rendezvous Server.
      */
+#ifndef PROPOSED_INTERFACE_CHANGES
     String source;
 
     /**
@@ -460,6 +464,7 @@ class ICECandidatesMessage  : public InterfaceMessage {
      * Rendezvous Server.
      */
     String destination;
+#endif
 
     /**
      * The user name fragment used by ICE for message integrity.
@@ -596,7 +601,11 @@ class SearchMatchResponse : public InterfaceResponse {
 
     /* The unique identifier assigned to a match by the server.
      * It is utilized later to refresh time-expired token. */
+#ifndef PROPOSED_INTERFACE_CHANGES
     String matchID;
+
+    // PPN - Add a field to specify the search name that generated this Search Match response
+#endif
 
     /**
      * The service name that has resulted in this match message
@@ -668,6 +677,8 @@ class MatchRevokedResponse : public InterfaceResponse {
  */
 class AddressCandidatesResponse : public InterfaceResponse {
   public:
+
+#ifndef PROPOSED_INTERFACE_CHANGES
     /**
      * The name of the service that sent or is receiving this Address Candidate Message
      * to the Rendezvous Server.
@@ -679,6 +690,7 @@ class AddressCandidatesResponse : public InterfaceResponse {
      * to the Rendezvous Server.
      */
     String destination;
+#endif
 
     /**
      * The peer address of the Daemon that sent this Address Candidate Message
@@ -686,11 +698,13 @@ class AddressCandidatesResponse : public InterfaceResponse {
      */
     String peerAddr;
 
+#ifndef PROPOSED_INTERFACE_CHANGES
     /**
      * The unique identifier assigned to a match by the server.
      * It is utilized later to refresh time-expired token.
      */
     String matchID;
+#endif
 
     /**
      * The user name fragment used by ICE for message integrity.
@@ -1235,17 +1249,21 @@ class TokenRefreshMessage : public InterfaceMessage {
     /**
      * The matchID associated with the tokens to be refreshed.
      */
+#ifndef PROPOSED_INTERFACE_CHANGES
     String matchID;
+#endif
 
     /**
      * The remote peer address corresponding to this matchID.
      */
     String remotePeerAddress;
 
+#ifndef PROPOSED_INTERFACE_CHANGES
     /**
      * The remote service/client name corresponding to this matchID.
      */
     String remoteName;
+#endif
 
     /* Listener to call back on availability of new refreshed tokens */
     TokenRefreshListener* tokenRefreshListener;
@@ -1434,7 +1452,7 @@ String GetDaemonRegistrationUri(String peerID);
 /**
  * Returns the refresh token URI.
  */
-String GetTokenRefreshUri(String peerID, String matchID);
+String GetTokenRefreshUri(String peerID);
 
 }
 
