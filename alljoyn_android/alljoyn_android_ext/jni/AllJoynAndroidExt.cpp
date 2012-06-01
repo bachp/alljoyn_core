@@ -247,6 +247,7 @@ JNIEXPORT jint JNICALL Java_org_alljoyn_jni_AllJoynAndroidExt_jniOnCreate(JNIEnv
     JavaVM* vm;
     jobject jglobalObj = NULL;
 
+    jglobalObj = env->NewGlobalRef(jobj);
 
     env->GetJavaVM(&vm);
 
@@ -254,53 +255,62 @@ JNIEXPORT jint JNICALL Java_org_alljoyn_jni_AllJoynAndroidExt_jniOnCreate(JNIEnv
     if (!packageNameStr) {
         LOGE("GetStringUTFChars failed");
         status = ER_FAIL;
-        goto exit;
     }
 
-    /* Create message bus */
-    s_bus = new BusAttachment("AllJoynAndroidExtService", true);
-    if (!s_bus) {
-        LOGE("new BusAttachment failed");
-        status = ER_FAIL;
-        goto exit;
-    }
+    while (true) {
 
-    /* Create org.alljoyn.bus.samples.chat interface */
-    status = s_bus->CreateInterface(SCAN_SERVICE_INTERFACE_NAME, scanIntf);
-    if (ER_OK != status) {
-        LOGE("Failed to create interface \"%s\" (%s)", SCAN_SERVICE_INTERFACE_NAME, QCC_StatusText(status));
-        goto exit;
-    } else {
-        status = scanIntf->AddMethod("Scan", "b",  "a(ssb)", "results");
-        if (ER_OK != status) {
-            LOGE("Failed to AddMethod \"Scan\" (%s)", QCC_StatusText(status));
-            goto exit;
+        /* Create message bus */
+        s_bus = new BusAttachment("AllJoynAndroidExtService", true);
+        if (!s_bus) {
+            LOGE("new BusAttachment failed");
+        } else   {
+            /* Create org.alljoyn.bus.samples.chat interface */
+            status = s_bus->CreateInterface(SCAN_SERVICE_INTERFACE_NAME, scanIntf);
+            if (ER_OK != status) {
+                LOGE("Failed to create interface \"%s\" (%s)", SCAN_SERVICE_INTERFACE_NAME, QCC_StatusText(status));
+            } else   {
+                status = scanIntf->AddMethod("Scan", "b",  "a(ssb)", "results");
+                if (ER_OK != status) {
+                    LOGE("Failed to AddMethod \"Scan\" (%s)", QCC_StatusText(status));
+                }
+
+                status = scanIntf->AddMethod("GetHomeDir", NULL, "s", "results");
+                if (ER_OK != status) {
+                    LOGE("Failed to AddMethod \"GetHomeDir\" (%s)", QCC_StatusText(status));
+                }
+
+                scanIntf->Activate();
+
+                /* Register service object */
+                s_obj = new ScanService(*s_bus, SCAN_SERVICE_OBJECT_PATH, vm, jglobalObj);
+                status = s_bus->RegisterBusObject(*s_obj);
+                if (ER_OK != status) {
+                    LOGE("BusAttachment::RegisterBusObject failed (%s)", QCC_StatusText(status));
+                } else   {
+                    /* Start the msg bus */
+                    status = s_bus->Start();
+                    if (ER_OK != status) {
+                        LOGE("BusAttachment::Start failed (%s)", QCC_StatusText(status));
+                    } else   {
+                        /* Connect to the daemon */
+                        status = s_bus->Connect(daemonAddr);
+                        if (ER_OK != status) {
+                            LOGE("BusAttachment::Connect(\"%s\") failed (%s)", daemonAddr, QCC_StatusText(status));
+                            s_bus->Disconnect(daemonAddr);
+                            s_bus->UnregisterBusObject(*s_obj);
+                            delete s_obj;
+                        } else   {
+                            LOGE("BusAttachment::Connect(\"%s\") SUCCEDDED (%s)", daemonAddr, QCC_StatusText(status));
+                            break;
+                        }
+                    }
+                }
+            }
         }
-        scanIntf->Activate();
+        LOGD("Sleeping before trying to reconnect to the daemon");
+        sleep(5);
+        LOGD("Up from sleep");
     }
-
-
-    /* Register service object */
-    s_obj = new ScanService(*s_bus, SCAN_SERVICE_OBJECT_PATH, vm, jobj);
-    s_bus->RegisterBusObject(*s_obj);
-
-
-    /* Start the msg bus */
-    status = s_bus->Start();
-    if (ER_OK != status) {
-        LOGE("BusAttachment::Start failed (%s)", QCC_StatusText(status));
-        goto exit;
-    }
-
-    /* Connect to the daemon */
-    status = s_bus->Connect(daemonAddr);
-    if (ER_OK != status) {
-        LOGE("BusAttachment::Connect(\"%s\") failed (%s)", daemonAddr, QCC_StatusText(status));
-        goto exit;
-    } else {
-        LOGE("BusAttachment::Connect(\"%s\") SUCCEDDED (%s)", daemonAddr, QCC_StatusText(status));
-    }
-
 
 
     /* Request name */
@@ -311,9 +321,6 @@ JNIEXPORT jint JNICALL Java_org_alljoyn_jni_AllJoynAndroidExt_jniOnCreate(JNIEnv
     } else {
         LOGE("\n Request Name was successful");
     }
-
-
-exit:
 
 
     return (jint) 1;

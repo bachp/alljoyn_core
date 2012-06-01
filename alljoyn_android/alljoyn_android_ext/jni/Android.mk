@@ -6,7 +6,7 @@
 LOCAL_PATH := $(call my-dir)
 
 # AllJoyn specifics
-#ALLJOYN_DIST := /home/nikhil/udp/alljoyn_core/build/android/arm/debug/dist
+#ALLJOYN_DIST := /home/nikhil/quic_rc/alljoyn_core/build/android/arm/debug/dist
 ALLJOYN_DIST := ../../
 
 # The CLEAR_VARS variable is provided by the build system and points to a
