@@ -661,16 +661,7 @@ void ICEStream::ProcessCheckEvent(ICECandidatePair& requestPair,
                                   ICECandidatePair::CheckStatus status,
                                   IPEndpoint& mappedAddress)
 {
-    QCC_DbgTrace(("ICEStream::ProcessCheckEvent(local=%s:%d (%s)  remote=%s:%d (%s) status=%s, priority=%ld, mapped=%s)",
-                  requestPair.local->GetEndpoint().addr.ToString().c_str(),
-                  requestPair.local->GetEndpoint().port,
-                  requestPair.local->GetTypeString().c_str(),
-                  requestPair.remote->GetEndpoint().addr.ToString().c_str(),
-                  requestPair.remote->GetEndpoint().port,
-                  requestPair.remote->GetTypeString().c_str(),
-                  requestPair.CheckStatusToString(status).c_str(),
-                  requestPair.GetPriority(),
-                  mappedAddress.addr.ToString().c_str()));
+    QCC_DbgTrace(("ICEStream::ProcessCheckEvent"));
 
     ICECandidate peerReflexiveCandidate;
 
