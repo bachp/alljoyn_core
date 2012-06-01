@@ -263,12 +263,12 @@ JNIEXPORT jint JNICALL Java_org_alljoyn_jni_AllJoynAndroidExt_jniOnCreate(JNIEnv
         s_bus = new BusAttachment("AllJoynAndroidExtService", true);
         if (!s_bus) {
             LOGE("new BusAttachment failed");
-        } else   {
+        } else {
             /* Create org.alljoyn.bus.samples.chat interface */
             status = s_bus->CreateInterface(SCAN_SERVICE_INTERFACE_NAME, scanIntf);
             if (ER_OK != status) {
                 LOGE("Failed to create interface \"%s\" (%s)", SCAN_SERVICE_INTERFACE_NAME, QCC_StatusText(status));
-            } else   {
+            } else {
                 status = scanIntf->AddMethod("Scan", "b",  "a(ssb)", "results");
                 if (ER_OK != status) {
                     LOGE("Failed to AddMethod \"Scan\" (%s)", QCC_StatusText(status));
@@ -286,12 +286,12 @@ JNIEXPORT jint JNICALL Java_org_alljoyn_jni_AllJoynAndroidExt_jniOnCreate(JNIEnv
                 status = s_bus->RegisterBusObject(*s_obj);
                 if (ER_OK != status) {
                     LOGE("BusAttachment::RegisterBusObject failed (%s)", QCC_StatusText(status));
-                } else   {
+                } else {
                     /* Start the msg bus */
                     status = s_bus->Start();
                     if (ER_OK != status) {
                         LOGE("BusAttachment::Start failed (%s)", QCC_StatusText(status));
-                    } else   {
+                    } else {
                         /* Connect to the daemon */
                         status = s_bus->Connect(daemonAddr);
                         if (ER_OK != status) {
@@ -299,7 +299,7 @@ JNIEXPORT jint JNICALL Java_org_alljoyn_jni_AllJoynAndroidExt_jniOnCreate(JNIEnv
                             s_bus->Disconnect(daemonAddr);
                             s_bus->UnregisterBusObject(*s_obj);
                             delete s_obj;
-                        } else   {
+                        } else {
                             LOGE("BusAttachment::Connect(\"%s\") SUCCEDDED (%s)", daemonAddr, QCC_StatusText(status));
                             break;
                         }
