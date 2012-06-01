@@ -64,10 +64,9 @@ static QStatus SendThroughEndpoint(Message& msg, BusEndpoint& ep, SessionId sess
 
 QStatus DaemonRouter::PushMessage(Message& msg, BusEndpoint& origSender)
 {
-    QStatus status(ER_OK);
+    QStatus status = ER_OK;
     BusEndpoint* sender = &origSender;
     bool replyExpected = (msg->GetType() == MESSAGE_METHOD_CALL) && ((msg->GetFlags() & ALLJOYN_FLAG_NO_REPLY_EXPECTED) == 0);
-    std::set<BusEndpoint*> sentdestinations;  /**< Collection of bus endpoints to whom we have already sent a message */
 
     const char* destination = msg->GetDestination();
     SessionId sessionId = msg->GetSessionId();
@@ -77,53 +76,48 @@ QStatus DaemonRouter::PushMessage(Message& msg, BusEndpoint& origSender)
         nameTable.Lock();
         BusEndpoint* destEndpoint = nameTable.FindEndpoint(destination);
         if (destEndpoint) {
-            if (ER_OK == status) {
-                /* If this message is coming from a bus-to-bus ep, make sure the receiver is willing to receive it */
-                if (!((sender->GetEndpointType() == BusEndpoint::ENDPOINT_TYPE_BUS2BUS) && !destEndpoint->AllowRemoteMessages())) {
-                    /*
-                     * If the sender doesn't allow remote messages reject method calls that go off
-                     * device and require a reply because the reply will be blocked and this is most
-                     * definitely not what the sender expects.
-                     */
-                    if ((destEndpoint->GetEndpointType() == BusEndpoint::ENDPOINT_TYPE_VIRTUAL) && replyExpected && !sender->AllowRemoteMessages()) {
-                        QCC_DbgPrintf(("Blocking method call from %s to %s (serial=%d) because caller does not allow remote messages",
-                                       msg->GetSender(),
-                                       destEndpoint->GetUniqueName().c_str(),
-                                       msg->GetCallSerial()));
-                        msg->ErrorMsg(msg, "org.alljoyn.Bus.Blocked", "Method reply would be blocked because caller does not allow remote messages");
-                        PushMessage(msg, *localEndpoint);
-                    } else {
-                        BusEndpoint::EndpointType epType = destEndpoint->GetEndpointType();
-                        RemoteEndpoint* protectEp = (epType == BusEndpoint::ENDPOINT_TYPE_REMOTE) || (epType == BusEndpoint::ENDPOINT_TYPE_BUS2BUS) ? static_cast<RemoteEndpoint*>(destEndpoint) : NULL;
-                        if (protectEp) {
-                            protectEp->IncrementWaiters();
-                        }
-                        nameTable.Unlock();
-                        status = SendThroughEndpoint(msg, *destEndpoint, sessionId);
-                        if (protectEp) {
-                            protectEp->DecrementWaiters();
-                        }
-
-                        nameTable.Lock();
-                    }
-                } else {
-                    QCC_DbgPrintf(("Blocking message from %s to %s (serial=%d) because receiver does not allow remote messages",
+            /* If this message is coming from a bus-to-bus ep, make sure the receiver is willing to receive it */
+            if (!((sender->GetEndpointType() == BusEndpoint::ENDPOINT_TYPE_BUS2BUS) && !destEndpoint->AllowRemoteMessages())) {
+                /*
+                 * If the sender doesn't allow remote messages reject method calls that go off
+                 * device and require a reply because the reply will be blocked and this is most
+                 * definitely not what the sender expects.
+                 */
+                if ((destEndpoint->GetEndpointType() == BusEndpoint::ENDPOINT_TYPE_VIRTUAL) && replyExpected && !sender->AllowRemoteMessages()) {
+                    QCC_DbgPrintf(("Blocking method call from %s to %s (serial=%d) because caller does not allow remote messages",
                                    msg->GetSender(),
                                    destEndpoint->GetUniqueName().c_str(),
                                    msg->GetCallSerial()));
-                    /* If caller is expecting a response return an error indicating the method call was blocked */
-                    if (replyExpected) {
-                        qcc::String description("Remote method calls blocked for bus name: ");
-                        description += destination;
-                        msg->ErrorMsg(msg, "org.alljoyn.Bus.Blocked", description.c_str());
-                        PushMessage(msg, *localEndpoint);
-                    }
-                }
-                if ((ER_OK != status) && (ER_BUS_ENDPOINT_CLOSING != status)) {
-                    QCC_LogError(status, ("BusEndpoint::PushMessage failed"));
+                    msg->ErrorMsg(msg, "org.alljoyn.Bus.Blocked", "Method reply would be blocked because caller does not allow remote messages");
+                    PushMessage(msg, *localEndpoint);
                 } else {
-                    sentdestinations.insert(destEndpoint);
+                    BusEndpoint::EndpointType epType = destEndpoint->GetEndpointType();
+                    RemoteEndpoint* protectEp = (epType == BusEndpoint::ENDPOINT_TYPE_REMOTE) || (epType == BusEndpoint::ENDPOINT_TYPE_BUS2BUS) ? static_cast<RemoteEndpoint*>(destEndpoint) : NULL;
+                    if (protectEp) {
+                        protectEp->IncrementWaiters();
+                    }
+                    nameTable.Unlock();
+                    status = SendThroughEndpoint(msg, *destEndpoint, sessionId);
+                    if (protectEp) {
+                        protectEp->DecrementWaiters();
+                    }
+                    nameTable.Lock();
                 }
+            } else {
+                QCC_DbgPrintf(("Blocking message from %s to %s (serial=%d) because receiver does not allow remote messages",
+                               msg->GetSender(),
+                               destEndpoint->GetUniqueName().c_str(),
+                               msg->GetCallSerial()));
+                /* If caller is expecting a response return an error indicating the method call was blocked */
+                if (replyExpected) {
+                    qcc::String description("Remote method calls blocked for bus name: ");
+                    description += destination;
+                    msg->ErrorMsg(msg, "org.alljoyn.Bus.Blocked", description.c_str());
+                    PushMessage(msg, *localEndpoint);
+                }
+            }
+            if ((ER_OK != status) && (ER_BUS_ENDPOINT_CLOSING != status)) {
+                QCC_LogError(status, ("BusEndpoint::PushMessage failed"));
             }
             nameTable.Unlock();
         } else {
@@ -149,10 +143,11 @@ QStatus DaemonRouter::PushMessage(Message& msg, BusEndpoint& origSender)
                 }
             }
         }
-    }
-
-    /* Forward broadcast to endpoints (local or remote) whose rules allow it */
-    if (destinationEmpty && (sessionId == 0)) {
+    } else if (sessionId == 0) {
+        /*
+         * The message has an empty destination field and no session is specified so this is a
+         * regular broadcast message.
+         */
         nameTable.Lock();
         ruleTable.Lock();
         RuleIterator it = ruleTable.Begin();
@@ -160,74 +155,67 @@ QStatus DaemonRouter::PushMessage(Message& msg, BusEndpoint& origSender)
             if (it->second.IsMatch(msg)) {
                 BusEndpoint* dest = it->first;
                 QCC_DbgPrintf(("Routing %s (%d) to %s", msg->Description().c_str(), msg->GetCallSerial(), dest->GetUniqueName().c_str()));
-                BusEndpoint* ep = it->first;
-                if (dest == localEndpoint) {
-                    /* Check to see if we have already sent signal/message to this endpoint.
-                       This prevents sending the signal to endpoint twice if eavesdropping is enabled
-                     */
-                    bool alreadysent = false;
-                    set<BusEndpoint*>::const_iterator sdit = sentdestinations.find(dest);
-                    if (sdit != sentdestinations.end()) {
-                        alreadysent = true;
+                /*
+                 * If the message originated locally or the destination allows remote messages
+                 * forward the message, otherwise silently ignore it.
+                 */
+                if (!((sender->GetEndpointType() == BusEndpoint::ENDPOINT_TYPE_BUS2BUS) && !dest->AllowRemoteMessages())) {
+                    BusEndpoint::EndpointType epType = dest->GetEndpointType();
+                    RemoteEndpoint* protectEp = (epType == BusEndpoint::ENDPOINT_TYPE_REMOTE) || (epType == BusEndpoint::ENDPOINT_TYPE_BUS2BUS) ? static_cast<RemoteEndpoint*>(dest) : NULL;
+                    if (protectEp) {
+                        protectEp->IncrementWaiters();
                     }
-                    // Broadcast status must not trump directed message
-                    // status, especially for eavesdropped messages.
-                    if (!alreadysent && !((sender->GetEndpointType() == BusEndpoint::ENDPOINT_TYPE_BUS2BUS) && !dest->AllowRemoteMessages())) {
-                        BusEndpoint::EndpointType epType = dest->GetEndpointType();
-                        RemoteEndpoint* protectEp = (epType == BusEndpoint::ENDPOINT_TYPE_REMOTE) || (epType == BusEndpoint::ENDPOINT_TYPE_BUS2BUS) ? static_cast<RemoteEndpoint*>(dest) : NULL;
-                        if (protectEp) {
-                            protectEp->IncrementWaiters();
-                        }
-                        ruleTable.Unlock();
-                        nameTable.Unlock();
-                        QStatus tStatus = SendThroughEndpoint(msg, *dest, sessionId);
-                        status = (status == ER_OK) ? tStatus : status;
-                        if (protectEp) {
-                            protectEp->DecrementWaiters();
-                        }
-                        nameTable.Lock();
-                        ruleTable.Lock();
+                    ruleTable.Unlock();
+                    nameTable.Unlock();
+                    QStatus tStatus = SendThroughEndpoint(msg, *dest, sessionId);
+                    status = (status == ER_OK) ? tStatus : status;
+                    if (protectEp) {
+                        protectEp->DecrementWaiters();
                     }
+                    nameTable.Lock();
+                    ruleTable.Lock();
                 }
-                it = ruleTable.AdvanceToNextEndpoint(ep);
+                it = ruleTable.AdvanceToNextEndpoint(dest);
             } else {
                 ++it;
             }
         }
         ruleTable.Unlock();
         nameTable.Unlock();
-    }
-
-    /* Send global broadcast to all busToBus endpoints that aren't the sender of the message */
-    if (destinationEmpty && (sessionId == 0) && msg->IsGlobalBroadcast()) {
-        m_b2bEndpointsLock.Lock(MUTEX_CONTEXT);
-        set<RemoteEndpoint*>::const_iterator it = m_b2bEndpoints.begin();
-        while (it != m_b2bEndpoints.end()) {
-            if ((*it) != &origSender) {
+        /*
+         * Route global broadcast to all bus-to-bus endpoints that aren't the sender of the message
+         */
+        if (msg->IsGlobalBroadcast()) {
+            m_b2bEndpointsLock.Lock(MUTEX_CONTEXT);
+            set<RemoteEndpoint*>::const_iterator it = m_b2bEndpoints.begin();
+            while (it != m_b2bEndpoints.end()) {
                 RemoteEndpoint* ep = *it;
-                BusEndpoint::EndpointType epType = ep->GetEndpointType();
-                RemoteEndpoint* protectEp = (epType == BusEndpoint::ENDPOINT_TYPE_REMOTE) || (epType == BusEndpoint::ENDPOINT_TYPE_BUS2BUS) ? static_cast<RemoteEndpoint*>(ep) : NULL;
-                if (protectEp) {
-                    protectEp->IncrementWaiters();
+                if (ep != &origSender) {
+                    BusEndpoint::EndpointType epType = ep->GetEndpointType();
+                    RemoteEndpoint* protectEp = (epType == BusEndpoint::ENDPOINT_TYPE_REMOTE) || (epType == BusEndpoint::ENDPOINT_TYPE_BUS2BUS) ? static_cast<RemoteEndpoint*>(ep) : NULL;
+                    if (protectEp) {
+                        protectEp->IncrementWaiters();
+                    }
+                    m_b2bEndpointsLock.Unlock(MUTEX_CONTEXT);
+                    QStatus tStatus = SendThroughEndpoint(msg, *ep, sessionId);
+                    status = (status == ER_OK) ? tStatus : status;
+                    if (protectEp) {
+                        protectEp->DecrementWaiters();
+                    }
+                    m_b2bEndpointsLock.Lock(MUTEX_CONTEXT);
+                    it = m_b2bEndpoints.lower_bound(ep);
                 }
-                m_b2bEndpointsLock.Unlock(MUTEX_CONTEXT);
-                QStatus tStatus = SendThroughEndpoint(msg, *ep, sessionId);
-                status = (status == ER_OK) ? tStatus : status;
-                if (protectEp) {
-                    protectEp->DecrementWaiters();
+                if (it != m_b2bEndpoints.end()) {
+                    ++it;
                 }
-                m_b2bEndpointsLock.Lock(MUTEX_CONTEXT);
-                it = m_b2bEndpoints.lower_bound(ep);
             }
-            if (it != m_b2bEndpoints.end()) {
-                ++it;
-            }
+            m_b2bEndpointsLock.Unlock(MUTEX_CONTEXT);
         }
-        m_b2bEndpointsLock.Unlock(MUTEX_CONTEXT);
-    }
-
-    /* Send session multicast messages */
-    if (destinationEmpty && (sessionId != 0)) {
+    } else {
+        /*
+         * The message has an empty destination field and a session id was specified so this is a
+         * session multicast message.
+         */
         sessionCastSetLock.Lock(MUTEX_CONTEXT);
         RemoteEndpoint* lastB2b = NULL;
         SessionCastEntry sce(sessionId, msg->GetSender(), NULL, NULL);
