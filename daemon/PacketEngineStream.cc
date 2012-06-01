@@ -101,10 +101,10 @@ QStatus PacketEngineStream::PullBytes(void* buf, size_t reqBytes, size_t& actual
         Packet*& p = ci->rxPackets[drain % ci->windowSize];
         if (drain == ci->rxFill) {
             /* Wait for more packets to arrive */
+            sourceEvent->ResetEvent();
             ci->rxLock.Unlock();
             status = Event::Wait(*sourceEvent, timeout);
             ci->rxLock.Lock();
-            sourceEvent->ResetEvent();
             if (status == ER_OK) {
                 if (ci->state == PacketEngine::ChannelInfo::OPEN) {
                     drain = ci->rxDrain;
@@ -174,7 +174,7 @@ QStatus PacketEngineStream::PullBytes(void* buf, size_t reqBytes, size_t& actual
 
         /* Clear data-available event in source if empty */
         if (ci->rxDrain == ci->rxFill) {
-            ci->sourceEvent.ResetEvent();
+            sourceEvent->ResetEvent();
         }
     } else if (status == ER_ALERTED_THREAD) {
         status = ER_NONE;
@@ -188,6 +188,7 @@ QStatus PacketEngineStream::PullBytes(void* buf, size_t reqBytes, size_t& actual
     }
     ci->rxLock.Unlock();
     engine->ReleaseChannelInfo(*ci);
+
     return status;
 }
 
