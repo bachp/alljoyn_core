@@ -688,17 +688,7 @@ ThreadReturn STDCALL AllJoynObj::JoinSessionThread::RunJoin()
                 multimap<String, NameMapEntry>::iterator nmit = ajObj.nameMap.lower_bound(sessionHost);
                 while (nmit != ajObj.nameMap.end() && (nmit->first == sessionHost)) {
                     if (nmit->second.transport & optsIn.transports) {
-                        String tempbusAddr = nmit->second.busAddr;
-                        TransportList& transList = ajObj.bus.GetInternal().GetTransportList();
-                        Transport* trans = transList.GetTransport(tempbusAddr);
-                        if (trans != NULL) {
-                            status = trans->ComposeBusAddrForConnect(tempbusAddr, sender, nmit->first);
-
-                            if (status == ER_OK) {
-                                busAddrs.push_back(tempbusAddr);
-                                QCC_DbgPrintf(("AllJoynObj::JoinSessionThread::RunJoin(): tempbusAddr(%s)", tempbusAddr.c_str()));
-                            }
-                        }
+                        busAddrs.push_back(nmit->second.busAddr);
                         break;
                     }
                     ++nmit;

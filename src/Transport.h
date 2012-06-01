@@ -194,18 +194,6 @@ class Transport {
     virtual QStatus Connect(const char* connectSpec, const SessionOpts& opts, BusEndpoint** newep) { return ER_FAIL; }
 
     /**
-     * Compose a bus address based on the input parameters.
-     *
-     * @param busAddr    Reference to the bus address object to be modified
-     * @param senderName Name of the sender initiating the connect request
-     * @param foundName  Found name to which the sender is trying to connect
-     * @return
-     *      - ER_OK if successful.
-     *      - an error status otherwise.
-     */
-    virtual QStatus ComposeBusAddrForConnect(qcc::String& busAddr, qcc::String senderName, qcc::String foundName) { return ER_OK; }
-
-    /**
      * Disconnect from a specified AllJoyn/DBus address.
      *
      * @param connectSpec    The connectSpec used in Connect.

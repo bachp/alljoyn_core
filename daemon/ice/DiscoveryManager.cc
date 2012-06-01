@@ -376,7 +376,7 @@ QStatus DiscoveryManager::CloseInterface(const String& name)
     return ER_OK;
 }
 
-void DiscoveryManager::SetCallback(Callback<void, CallbackType, const String&, const String&, const vector<String>*, uint8_t>* iceCb)
+void DiscoveryManager::SetCallback(Callback<void, CallbackType, const String&, const vector<String>*, uint8_t>* iceCb)
 {
     QCC_DbgPrintf(("DiscoveryManager::SetCallback()\n"));
 
@@ -453,60 +453,44 @@ void DiscoveryManager::ComposeAdvertisementorSearch(bool advertisement, HttpConn
     message.httpMethod = httpMethod;
 }
 
-QStatus DiscoveryManager::AdvertiseOrLocate(bool advertise, const String& name)
+QStatus DiscoveryManager::AdvertiseName(const String& name)
 {
-    QCC_DbgPrintf(("DiscoveryManager::AdvertiseOrLocate()\n"));
+    QCC_DbgPrintf(("DiscoveryManager::AdvertiseName()\n"));
 
     if (DiscoveryManagerState != IMPL_RUNNING) {
-        QCC_DbgPrintf(("DiscoveryManager::AdvertiseOrLocate(): Not IMPL_RUNNING\n"));
+        QCC_DbgPrintf(("DiscoveryManager::AdvertiseName(): Not IMPL_RUNNING\n"));
         return ER_FAIL;
     }
 
-    std::multimap<String, NameEntryAssociatedInfo>* tempMap = &advertiseMap;
-    list<String>* tempList = &currentAdvertiseList;
+    QCC_DbgPrintf(("DiscoveryManager::AdvertiseName(): Called for an Advertising %s", name.c_str()));
 
-    if (!advertise) {
-        tempMap = &findMap;
-        tempList = &currentSearchList;
-        QCC_DbgPrintf(("DiscoveryManager::AdvertiseOrLocate(): Called for a Locate %s", name.c_str()));
-    } else {
-        QCC_DbgPrintf(("DiscoveryManager::AdvertiseOrLocate(): Called for an Advertise %s", name.c_str()));
-    }
-
-    //
-    // There are at least two threads wandering through advertiseMap or findMap.
-    //
     DiscoveryManagerMutex.Lock(MUTEX_CONTEXT);
 
-    //
-    // Make a note to ourselves which services we are advertising or finding so we can
-    // respond to protocol questions in the future.
-    //
-    multimap<String, NameEntryAssociatedInfo>::iterator it;
+    // Check is the name is already being advertised
+    list<String>::iterator it;
 
-    for (it = tempMap->begin(); it != tempMap->end(); it++) {
-        if (it->first == name) {
-            //
-            // Nothing has changed, so don't bother.
-            //
-            QCC_DbgPrintf(("DiscoveryManager::AdvertiseOrLocate(): Duplicate request\n"));
-            DiscoveryManagerMutex.Unlock(MUTEX_CONTEXT);
-            return ER_OK;
+    if (!currentAdvertiseList.empty()) {
+        for (it = currentAdvertiseList.begin(); it != currentAdvertiseList.end();) {
+
+            if (*it == name) {
+                // Release the mutex.
+                DiscoveryManagerMutex.Unlock(MUTEX_CONTEXT);
+
+                // As we are already advertising the name, we don't need to do anything
+                QCC_DbgPrintf(("DiscoveryManager::AdvertiseName(): Already advertising %s", name.c_str()));
+                return ER_OK;
+            } else {
+                ++it;
+            }
         }
     }
 
-    //
-    // Add entry to map
-    //
-    NameEntryAssociatedInfo temp;
-    tempMap->insert(pair<String, NameEntryAssociatedInfo>(name, temp));
-    QCC_DbgPrintf(("DiscoveryManager::AdvertiseOrLocate(): Added %s", name.c_str()));
+    QCC_DbgPrintf(("DiscoveryManager::AdvertiseName(): Adding %s", name.c_str()));
 
-    // Add the entry to the corresponding current list and sort the list
-    tempList->push_back(name);
-    tempList->sort();
+    currentAdvertiseList.push_back(name);
+    currentAdvertiseList.sort();
 
-    // If the ClientAuthenticationFailed flag is set, reset it as the Advertise/Search list
+    // If the ClientAuthenticationFailed flag is set, reset it as the Advertise list
     // has changed
     if (ClientAuthenticationFailed) {
         ClientAuthenticationFailed = false;
@@ -515,7 +499,7 @@ QStatus DiscoveryManager::AdvertiseOrLocate(bool advertise, const String& name)
     HttpConnection::Method httpMethod = HttpConnection::METHOD_POST;
 
     RendezvousMessage message;
-    ComposeAdvertisementorSearch(advertise, httpMethod, message);
+    ComposeAdvertisementorSearch(true, httpMethod, message);
 
     //
     // Queue this message for transmission out to the Rendezvous Server.
@@ -529,76 +513,199 @@ QStatus DiscoveryManager::AdvertiseOrLocate(bool advertise, const String& name)
     return ER_OK;
 }
 
-QStatus DiscoveryManager::CancelAdvertiseOrLocate(bool cancelAdvertise, const String& name)
+QStatus DiscoveryManager::SearchName(const String& name)
 {
-    QCC_DbgPrintf(("DiscoveryManager::CancelAdvertiseOrLocate()\n"));
+    QCC_DbgPrintf(("DiscoveryManager::SearchName()\n"));
 
     if (DiscoveryManagerState != IMPL_RUNNING) {
-        QCC_DbgPrintf(("DiscoveryManager::CancelAdvertiseOrLocate(): Not IMPL_RUNNING\n"));
+        QCC_DbgPrintf(("DiscoveryManager::SearchName(): Not IMPL_RUNNING\n"));
         return ER_FAIL;
     }
 
-    std::multimap<String, NameEntryAssociatedInfo>* tempMap = &advertiseMap;
-    list<String>* tempList = &currentAdvertiseList;
+    QCC_DbgPrintf(("DiscoveryManager::SearchName(): Called for a Searching %s", name.c_str()));
 
-    if (!cancelAdvertise) {
-        tempMap = &findMap;
-        tempList = &currentSearchList;
-        QCC_DbgPrintf(("DiscoveryManager::CancelAdvertiseOrLocate(): Called for a deleting Locate %s", name.c_str()));
-    } else {
-        QCC_DbgPrintf(("DiscoveryManager::CancelAdvertiseOrLocate(): Called for a deleting Advertise %s", name.c_str()));
-    }
-
-    //
-    // There are at least two threads wandering through the advertised list.
-    //
     DiscoveryManagerMutex.Lock(MUTEX_CONTEXT);
 
-    multimap<String, NameEntryAssociatedInfo>::iterator it;
+    // Check is the name is already being searched
+    if (!searchMap.empty()) {
+        map<String, SearchResponseInfo>::iterator it = searchMap.find(name);
 
-    for (it = tempMap->begin(); it != tempMap->end(); it++) {
-        if (it->first == name) {
+        if (it != searchMap.end()) {
+            // Release the mutex.
+            DiscoveryManagerMutex.Unlock(MUTEX_CONTEXT);
 
-            // Send Found callback to AllJoynObj.cc to remove all the names that we discovered corresponding
+            // As we are already searching the name, we don't need to do anything
+            QCC_DbgPrintf(("DiscoveryManager::SearchName(): Already searching %s", name.c_str()));
+            return ER_OK;
+        }
+    }
+
+    QCC_DbgPrintf(("DiscoveryManager::SearchName(): Adding %s", name.c_str()));
+
+    // Add entry to the map
+    SearchResponseInfo temp;
+    searchMap.insert(pair<String, SearchResponseInfo>(name, temp));
+
+    // Add the entry to the corresponding current list, sort the list and then run unique function on the list
+    // to remove any duplicates
+    currentSearchList.push_back(name);
+    currentSearchList.sort();
+
+    // If the ClientAuthenticationFailed flag is set, reset it as the Search list
+    // has changed
+    if (ClientAuthenticationFailed) {
+        ClientAuthenticationFailed = false;
+    }
+
+    HttpConnection::Method httpMethod = HttpConnection::METHOD_POST;
+
+    RendezvousMessage message;
+    ComposeAdvertisementorSearch(false, httpMethod, message);
+
+    //
+    // Queue this message for transmission out to the Rendezvous Server.
+    //
+    if (message.messageType != INVALID_MESSAGE) {
+        QueueMessage(message);
+    }
+
+    DiscoveryManagerMutex.Unlock(MUTEX_CONTEXT);
+
+    return ER_OK;
+}
+
+QStatus DiscoveryManager::CancelAdvertiseName(const String& name)
+{
+    QCC_DbgPrintf(("DiscoveryManager::CancelAdvertiseName()\n"));
+
+    if (DiscoveryManagerState != IMPL_RUNNING) {
+        QCC_DbgPrintf(("DiscoveryManager::CancelAdvertiseName(): Not IMPL_RUNNING\n"));
+        return ER_FAIL;
+    }
+
+    QCC_DbgPrintf(("DiscoveryManager::CancelAdvertiseName(): Called for a deleting Advertise %s", name.c_str()));
+
+    DiscoveryManagerMutex.Lock(MUTEX_CONTEXT);
+
+    // Check is the name is still being advertised
+    list<String>::iterator it;
+
+    if (!currentAdvertiseList.empty()) {
+        for (it = currentAdvertiseList.begin(); it != currentAdvertiseList.end();) {
+
+            if (*it == name) {
+
+                QCC_DbgPrintf(("DiscoveryManager::CancelAdvertiseName(): Deleting entry %s\n", name.c_str()));
+
+                // Remove the corresponding entry from the currentAdvertiseList and sort it
+                currentAdvertiseList.remove(name);
+                currentAdvertiseList.sort();
+
+                // If there are no entries in the list, it means that we are
+                // deleting all Advertisements/Searches. So use
+                // DELETE. Otherwise use POST.
+                HttpConnection::Method httpMethod = HttpConnection::METHOD_POST;
+
+                if (currentAdvertiseList.empty()) {
+                    httpMethod = HttpConnection::METHOD_DELETE;
+                }
+
+                RendezvousMessage message;
+                ComposeAdvertisementorSearch(true, httpMethod, message);
+
+                //
+                // Queue this message for transmission out to the Rendezvous Server.
+                //
+                if (message.messageType != INVALID_MESSAGE) {
+                    QueueMessage(message);
+                }
+
+                // Break out of the loop
+                break;
+
+            } else {
+                ++it;
+            }
+        }
+    }
+
+    DiscoveryManagerMutex.Unlock(MUTEX_CONTEXT);
+
+    return ER_OK;
+}
+
+QStatus DiscoveryManager::CancelSearchName(const String& name)
+{
+    QCC_DbgPrintf(("DiscoveryManager::CancelSearchName()\n"));
+
+    if (DiscoveryManagerState != IMPL_RUNNING) {
+        QCC_DbgPrintf(("DiscoveryManager::CancelSearchName(): Not IMPL_RUNNING\n"));
+        return ER_FAIL;
+    }
+
+    DiscoveryManagerMutex.Lock(MUTEX_CONTEXT);
+
+    // Check is the name is already removed from the searchMap
+    if (!searchMap.empty()) {
+        map<String, SearchResponseInfo>::iterator it = searchMap.find(name);
+
+        if (it != searchMap.end()) {
+
+            QCC_DbgPrintf(("DiscoveryManager::CancelSearchName(): Deleting entry %s\n", name.c_str()));
+
+            // Send Found callback to remove all the names that we discovered corresponding
             // to this Search from the nameMap
-            list<ServiceInfo>* responseInfo = &(it->second.response);
-            list<ServiceInfo>::iterator candidate_it;
+            list<RemoteDaemonServicesInfo>* remoteDaemonServicesInfo = &(it->second.response);
+            list<RemoteDaemonServicesInfo>::iterator remoteDaemonServices_it;
 
-            for (candidate_it = responseInfo->begin(); candidate_it != responseInfo->end(); candidate_it++) {
-                vector<String> wkn;
-                wkn.push_back(candidate_it->serviceName);
+            for (remoteDaemonServices_it = remoteDaemonServicesInfo->begin(); remoteDaemonServices_it != remoteDaemonServicesInfo->end();) {
+                vector<String> wkn = remoteDaemonServices_it->services;
                 if (!wkn.empty()) {
+
                     if (iceCallback) {
 
-                        QCC_DbgPrintf(("DiscoveryManager::CancelAdvertiseOrLocate(): Trying to invoke the iceCallback to clear %s with GUID %s from nameMap\n",
-                                       candidate_it->serviceName.c_str(), candidate_it->serviceDaemonGUID.c_str()));
+                        QCC_DbgPrintf(("DiscoveryManager::CancelSearchName(): Trying to invoke the iceCallback to clear discovered services with GUID %s corresponding "
+                                       "to the find name %s from nameMap\n", remoteDaemonServices_it->remoteGUID.c_str(), name.c_str()));
 
-                        (*iceCallback)(FOUND, String(), candidate_it->serviceDaemonGUID, &wkn, 0);
+                        (*iceCallback)(FOUND, remoteDaemonServices_it->remoteGUID, &wkn, 0);
+                    }
+
+                    // Purge the StunAndTurnServerInfo
+                    map<String, RemoteDaemonStunInfo>::iterator stun_it = StunAndTurnServerInfo.find(remoteDaemonServices_it->remoteGUID);
+                    if (stun_it != StunAndTurnServerInfo.end()) {
+                        for (uint8_t i = 0; i < remoteDaemonServices_it->services.size(); i++) {
+                            stun_it->second.services.remove(remoteDaemonServices_it->services[i]);
+                            QCC_DbgPrintf(("DiscoveryManager::CancelSearchName(): Removed service %s from StunAndTurnServerInfo\n", remoteDaemonServices_it->services[i].c_str()));
+                        }
+
+                        if (stun_it->second.services.empty()) {
+                            StunAndTurnServerInfo.erase(stun_it);
+                            QCC_DbgPrintf(("DiscoveryManager::CancelSearchName(): Removed entry for GUID %s from StunAndTurnServerInfo\n", remoteDaemonServices_it->remoteGUID.c_str()));
+                        }
                     }
                 }
+
+                ++remoteDaemonServices_it;
             }
 
-            //
-            // Delete the entry
-            //
-            QCC_DbgPrintf(("DiscoveryManager::CancelAdvertiseOrLocate(): Deleting entry %s\n", name.c_str()));
-            tempMap->erase(it);
+            // Remove the entry from the searchMap
+            searchMap.erase(it);
 
-            // Remove the corresponding entry from the current list and sort it
-            tempList->remove(name);
-            tempList->sort();
+            // Remove the corresponding entry from the currentSearchList and sort it
+            currentSearchList.remove(name);
+            currentSearchList.sort();
 
             // If there are no entries in the list, it means that we are
             // deleting all Advertisements/Searches. So use
             // DELETE. Otherwise use POST.
             HttpConnection::Method httpMethod = HttpConnection::METHOD_POST;
 
-            if (tempList->empty()) {
+            if (currentSearchList.empty()) {
                 httpMethod = HttpConnection::METHOD_DELETE;
             }
 
             RendezvousMessage message;
-            ComposeAdvertisementorSearch(cancelAdvertise, httpMethod, message);
+            ComposeAdvertisementorSearch(false, httpMethod, message);
 
             //
             // Queue this message for transmission out to the Rendezvous Server.
@@ -606,69 +713,47 @@ QStatus DiscoveryManager::CancelAdvertiseOrLocate(bool cancelAdvertise, const St
             if (message.messageType != INVALID_MESSAGE) {
                 QueueMessage(message);
             }
-
-            DiscoveryManagerMutex.Unlock(MUTEX_CONTEXT);
-            return ER_OK;
         }
     }
 
     DiscoveryManagerMutex.Unlock(MUTEX_CONTEXT);
 
-    QCC_DbgPrintf(("DiscoveryManager::CancelAdvertiseOrLocate(): Could not find entry to delete"));
-
     return ER_OK;
 }
 
-QStatus DiscoveryManager::GetSTUNInfo(bool client, String remotePeerId, String remoteName, STUNServerInfo& stunInfo, String& matchID)
+QStatus DiscoveryManager::GetSTUNInfo(bool client, String remotePeerId, STUNServerInfo& stunInfo)
 {
     if (client) {
-        QCC_DbgPrintf(("DiscoveryManager::GetSTUNInfo(): Trying to retrieve the STUN server info for service %s on Daemon with GUID %s\n",
-                       remoteName.c_str(), remotePeerId.c_str()));
-
-        multimap<String, NameEntryAssociatedInfo>::iterator it;
+        QCC_DbgPrintf(("DiscoveryManager::GetSTUNInfo(): Trying to retrieve the STUN server info for a service on Daemon with GUID %s\n",
+                       remotePeerId.c_str()));
 
         DiscoveryManagerMutex.Lock(MUTEX_CONTEXT);
-        for (it = findMap.begin(); it != findMap.end(); it++) {
-            if (remoteName.find(it->first) != String::npos) {
 
-                QCC_DbgPrintf(("DiscoveryManager::GetSTUNInfo(): Found the corresponding entry in the find map\n"));
-
-                list<ServiceInfo>* responseInfo = &(it->second.response);
-
-                list<ServiceInfo>::iterator candidate_it;
-
-                for (candidate_it = responseInfo->begin(); candidate_it != responseInfo->end(); candidate_it++) {
-                    if ((candidate_it->serviceName == remoteName) &&
-                        (candidate_it->serviceDaemonGUID == remotePeerId)) {
-
-                        // We found the entry
-                        stunInfo = candidate_it->stunInfo;
-                        matchID = candidate_it->matchID;
-                        DiscoveryManagerMutex.Unlock(MUTEX_CONTEXT);
-                        QCC_DbgPrintf(("DiscoveryManager::GetSTUNInfo(): Found the STUN server info\n"));
-                        return ER_OK;
-                    }
-                }
-            }
+        map<String, RemoteDaemonStunInfo>::iterator stun_it = StunAndTurnServerInfo.find(remotePeerId);
+        if (stun_it != StunAndTurnServerInfo.end()) {
+            // We found the entry
+            stunInfo = stun_it->second.stunInfo;
+            DiscoveryManagerMutex.Unlock(MUTEX_CONTEXT);
+            QCC_DbgPrintf(("DiscoveryManager::GetSTUNInfo(): Found the STUN server info\n"));
+            return ER_OK;
         }
 
         DiscoveryManagerMutex.Unlock(MUTEX_CONTEXT);
 
-        QCC_DbgPrintf(("DiscoveryManager::GetSTUNInfo(): Did not find an entry corresponding to the service\n"));
+        QCC_DbgPrintf(("DiscoveryManager::GetSTUNInfo(): Did not find an entry corresponding to the peerId %s\n", remotePeerId.c_str()));
 
         return ER_FAIL;
     } else {
 
-        QCC_DbgPrintf(("DiscoveryManager::GetSTUNInfo(): Trying to retrieve the STUN server info for client %s on Daemon with GUID %s\n",
-                       remoteName.c_str(), remotePeerId.c_str()));
+        QCC_DbgPrintf(("DiscoveryManager::GetSTUNInfo(): Trying to retrieve the STUN server info for client on Daemon with GUID %s\n",
+                       remotePeerId.c_str()));
 
         multimap<String, SessionEntry>::iterator it;
 
         DiscoveryManagerMutex.Lock(MUTEX_CONTEXT);
         for (it = IncomingICESessions.begin(); it != IncomingICESessions.end(); it++) {
-            if (((it->first) == remoteName) && ((it->second).remotePeerAddress == remotePeerId) && ((it->second).STUNInfoPresent)) {
+            if (((it->first) == remotePeerId) && ((it->second).STUNInfoPresent)) {
                 stunInfo = (it->second).STUNInfo;
-                matchID = (it->second).matchID;
                 DiscoveryManagerMutex.Unlock(MUTEX_CONTEXT);
                 QCC_DbgPrintf(("DiscoveryManager::GetSTUNInfo(): Found the STUN server info\n"));
                 return ER_OK;
@@ -693,11 +778,13 @@ QStatus DiscoveryManager::QueueICEAddressCandidatesMessage(bool client, std::pai
 
     ICECandidatesMessage* addressCandidates = new ICECandidatesMessage();
 
-    addressCandidates->source = sessionDetail.first;
-    addressCandidates->destination = sessionDetail.second.destinationName;
+#ifndef PROPOSED_INTERFACE_CHANGES
+    addressCandidates->source = String("");
+    addressCandidates->destination = String("");
+#endif
     addressCandidates->ice_ufrag = sessionDetail.second.ice_frag;
     addressCandidates->ice_pwd = sessionDetail.second.ice_pwd;
-    addressCandidates->destinationPeerID = sessionDetail.second.remotePeerAddress;
+    addressCandidates->destinationPeerID = sessionDetail.first;
 
     //
     // If a client is sending the address candidate message, then
@@ -724,8 +811,7 @@ QStatus DiscoveryManager::QueueICEAddressCandidatesMessage(bool client, std::pai
         multimap<String, SessionEntry>::iterator it;
         DiscoveryManagerMutex.Lock(MUTEX_CONTEXT);
         for (it = IncomingICESessions.begin(); it != IncomingICESessions.end(); it++) {
-            if (((it->first) == sessionDetail.second.destinationName) && ((it->second).destinationName == sessionDetail.first) &&
-                ((it->second).remotePeerAddress) == sessionDetail.second.remotePeerAddress) {
+            if ((it->first) == sessionDetail.first) {
                 (it->second).peerListener = sessionDetail.second.peerListener;
             }
         }
@@ -752,7 +838,7 @@ void DiscoveryManager::RemoveSessionDetailFromMap(bool client, std::pair<String,
         DiscoveryManagerMutex.Lock(MUTEX_CONTEXT);
         for (it = OutgoingICESessions.begin(); it != OutgoingICESessions.end();) {
 
-            if ((it->first == sessionDetail.first) && ((it->second).destinationName == sessionDetail.second.destinationName) && ((it->second).remotePeerAddress == sessionDetail.second.remotePeerAddress)) {
+            if (it->first == sessionDetail.first) {
                 OutgoingICESessions.erase(it++);
             } else {
                 ++it;
@@ -763,7 +849,7 @@ void DiscoveryManager::RemoveSessionDetailFromMap(bool client, std::pair<String,
         DiscoveryManagerMutex.Lock(MUTEX_CONTEXT);
         for (it = IncomingICESessions.begin(); it != IncomingICESessions.end();) {
 
-            if ((it->first == sessionDetail.first) && ((it->second).destinationName == sessionDetail.second.destinationName) && ((it->second).remotePeerAddress == sessionDetail.second.remotePeerAddress)) {
+            if (it->first == sessionDetail.first) {
                 IncomingICESessions.erase(it++);
             } else {
                 ++it;
@@ -1538,61 +1624,101 @@ QStatus DiscoveryManager::SendMessage(RendezvousMessage message)
 
 QStatus DiscoveryManager::HandleSearchMatchResponse(SearchMatchResponse response)
 {
-    QCC_DbgPrintf(("DiscoveryManager::HandleSearchMatchResponse(): Trying to invoke found callback for matchID %s service %s on Daemon with GUID %s\n",
-                   response.matchID.c_str(), response.service.c_str(), response.peerAddr.c_str()));
+    QCC_DbgPrintf(("DiscoveryManager::HandleSearchMatchResponse(): Trying to invoke found callback for service %s on Daemon with GUID %s\n",
+                   response.service.c_str(), response.peerAddr.c_str()));
 
     QStatus status = ER_OK;
 
     vector<String> wkn;
 
+    bool found = false;
+
     //
     // See if the well-known name that has been found is in our list of names
     // to be found.
     //
-    multimap<String, NameEntryAssociatedInfo>::iterator it;
+    map<String, SearchResponseInfo>::iterator it;
 
-    for (it = findMap.begin(); it != findMap.end(); it++) {
+    // PPN - use a find here after the search match name is sent by the server
+    for (it = searchMap.begin(); it != searchMap.end(); it++) {
         //
         // We need to do a find instead of == because the name that was found would have
         // an AllJoyn Daemon specific identifier appended to it which would not be
         // present in the name that needs to be found.
         //
+        // PPN - Check if the find name for which the match was generated is same as the one in searchMap
         if (response.service.find(it->first) != String::npos) {
 
-            QCC_DbgPrintf(("DiscoveryManager::HandleSearchMatchResponse(): Found the corresponding entry in the find map\n"));
+            QCC_DbgPrintf(("DiscoveryManager::HandleSearchMatchResponse(): Found the corresponding entry in the searchMap\n"));
 
-            list<ServiceInfo>* responseInfo = &(it->second.response);
-            //
-            // If the well-known name that has been found is in our list of names
-            // to be found, verify if a found entry already exists for the same
-            //
-            list<ServiceInfo>::iterator candidate_it;
+            // Update the searchMap with the new information
+            list<RemoteDaemonServicesInfo>* remoteDaemonServicesInfo = &(it->second.response);
+            list<RemoteDaemonServicesInfo>::iterator remoteDaemonServices_it;
 
-            for (candidate_it = responseInfo->begin(); candidate_it != responseInfo->end(); candidate_it++) {
-                //
-                // If a found entry already exists for the same do nothing
-                //
-                if ((candidate_it->serviceName == response.service) &&
-                    (candidate_it->serviceDaemonGUID == response.peerAddr)) {
-                    return status;
+            for (remoteDaemonServices_it = remoteDaemonServicesInfo->begin(); remoteDaemonServices_it != remoteDaemonServicesInfo->end();) {
+
+                if (remoteDaemonServices_it->remoteGUID == response.peerAddr) {
+
+                    // Check if we have already discovered this service
+                    for (uint8_t i = 0; i < remoteDaemonServices_it->services.size(); i++) {
+                        if (response.service == remoteDaemonServices_it->services[i]) {
+                            QCC_DbgPrintf(("DiscoveryManager::HandleSearchMatchResponse(): The service %s with GUID %s has already been discovered\n", response.service.c_str(), response.peerAddr.c_str()));
+                            found = true;
+                            // Break out of the remoteDaemonServices_it->services for loop
+                            break;
+                        }
+                    }
+
+                    if (!found) {
+                        // Update the services list if this service that has been discovered is not a part of that list and also update
+                        // the services list accordingly in StunAndTurnServerInfo
+
+                        remoteDaemonServices_it->services.push_back(response.service);
+                        wkn.push_back(response.service);
+
+                        map<String, RemoteDaemonStunInfo>::iterator stun_it = StunAndTurnServerInfo.find(response.peerAddr);
+                        if (stun_it != StunAndTurnServerInfo.end()) {
+                            stun_it->second.services.push_back(response.service);
+                        } else {
+                            RemoteDaemonStunInfo temp;
+                            temp.stunInfo = response.STUNInfo;
+                            temp.services.push_back(response.service);
+                            StunAndTurnServerInfo.insert(pair<String, RemoteDaemonStunInfo>(response.peerAddr, temp));
+                        }
+
+                        found = true;
+
+                        QCC_DbgPrintf(("DiscoveryManager::HandleSearchMatchResponse(): Added service %s with GUID %s to searchMap and StunAndTurnServerInfo\n",
+                                       response.service.c_str(), response.peerAddr.c_str()));
+                    }
+
+                    // Break out of the remoteDaemonServices_it for loop
+                    break;
                 }
+
+                ++remoteDaemonServices_it;
             }
 
-            QCC_DbgPrintf(("DiscoveryManager::HandleSearchMatchResponse(): Found new instance of a name\n"));
+            if (!found) {
+                // Insert a new entry corresponding to this GUID and service discovered in the searchMap and StunAndTurnServerInfo
+                RemoteDaemonServicesInfo temp;
+                temp.remoteGUID = response.peerAddr;
+                temp.services.push_back(response.service);
 
-            //
-            // If we have fallen through to this point, it means that we have found a new
-            // instance of a name. Add it to response map and send a found callback
-            //
-            ServiceInfo tempInfo;
-            tempInfo.serviceName = response.service;
-            tempInfo.matchID = response.matchID;
-            tempInfo.serviceDaemonGUID = response.peerAddr;
-            tempInfo.stunInfo = response.STUNInfo;
+                it->second.response.push_back(temp);
+                wkn.push_back(response.service);
 
-            responseInfo->push_back(tempInfo);
+                // Update the StunAndTurnServerInfo with the new information
+                RemoteDaemonStunInfo tempStunInfo;
+                tempStunInfo.stunInfo = response.STUNInfo;
+                tempStunInfo.services.push_back(response.service);
+                StunAndTurnServerInfo.insert(pair<String, RemoteDaemonStunInfo>(response.peerAddr, tempStunInfo));
 
-            wkn.push_back(response.service);
+            }
+
+            // break out of the searchMap for loop
+            // PPN - remove later
+            break;
         }
     }
 
@@ -1601,7 +1727,7 @@ QStatus DiscoveryManager::HandleSearchMatchResponse(SearchMatchResponse response
 
             QCC_DbgPrintf(("DiscoveryManager::HandleSearchMatchResponse(): Trying to invoke the iceCallback\n"));
 
-            (*iceCallback)(FOUND, String(), response.peerAddr, &wkn, 0xFF);
+            (*iceCallback)(FOUND, response.peerAddr, &wkn, 0xFF);
         }
     }
 
@@ -1614,7 +1740,16 @@ QStatus DiscoveryManager::HandleStartICEChecksResponse(StartICEChecksResponse re
 
     QStatus status = ER_OK;
 
-    // PPN - Add code to handle the StartICEChecks Response
+    // Invoke the call back to tell the DaemonICETransport that the Address Candidates message corresponding to a Service
+    // has been successfully delivered to the other peer
+    multimap<String, SessionEntry>::iterator it;
+    for (it = IncomingICESessions.begin(); it != IncomingICESessions.end(); it++) {
+        if ((it->first) == response.peerAddr) {
+            ((it->second).peerListener)->SetPeerCandiates((it->second).clientCandidates, (it->second).ice_frag, (it->second).ice_pwd);
+            IncomingICESessions.erase(it);
+            break;
+        }
+    }
 
     return status;
 }
@@ -1625,10 +1760,7 @@ QStatus DiscoveryManager::HandleMatchRevokedResponse(MatchRevokedResponse respon
     QCC_DbgPrintf(("DiscoveryManager::HandleMatchRevokedResponse(): Trying to invoke found callback to record unavailability of previously available services "
                    "on Daemon with GUID %s\n", response.peerAddr.c_str()));
 
-    bool foundMatch = false;
     QStatus status = ER_OK;
-
-    multimap<String, SessionEntry>::iterator session_it;
 
     //
     // If deleteall has been set, all the services from the Daemon with GUID peerID
@@ -1636,98 +1768,120 @@ QStatus DiscoveryManager::HandleMatchRevokedResponse(MatchRevokedResponse respon
     // done when a rendezvous session closed message is received
     //
     if (response.deleteAll) {
-        PurgeFindAndNameMap(response.peerAddr);
 
-        // Purge OutgoingICESessions to remove any entries related to Daemon with GUID
-        // peerID.
-        if (!OutgoingICESessions.empty()) {
-            for (session_it = OutgoingICESessions.begin(); session_it != OutgoingICESessions.end();) {
+        QCC_DbgPrintf(("DiscoveryManager::HandleMatchRevokedResponse(): Delete All Set for peerAddress = %s", response.peerAddr.c_str()));
 
-                if ((session_it->second).remotePeerAddress == response.peerAddr) {
+        // Remove the entry corresponding to this peerAddress from the StunAndTurnServerInfo as the remote peer has revoked all
+        // its advertisements, we do not need to know the STUN server address as we anyways wont initiate any connections to that
+        // remote daemon
+        StunAndTurnServerInfo.erase(response.peerAddr);
 
-                    // Remove the entry from the OutgoingICESessions
-                    OutgoingICESessions.erase(session_it++);
-                } else {
-                    ++session_it;
+        // Remove the entries corresponding to response.peerAddr from the searchMap
+        multimap<String, SearchResponseInfo>::iterator it;
+        for (it = searchMap.begin(); it != searchMap.end(); it++) {
+
+            list<RemoteDaemonServicesInfo>* remoteDaemonServicesInfo = &(it->second.response);
+            list<RemoteDaemonServicesInfo>::iterator remoteDaemonServices_it;
+
+            for (remoteDaemonServices_it = remoteDaemonServicesInfo->begin(); remoteDaemonServices_it != remoteDaemonServicesInfo->end();) {
+
+                if (remoteDaemonServices_it->remoteGUID == response.peerAddr) {
+
+                    remoteDaemonServicesInfo->erase(remoteDaemonServices_it);
+
+                    // Break out of the remoteDaemonServices_it for loop
+                    break;
                 }
+
+                ++remoteDaemonServices_it;
             }
         }
 
-        // Purge IncomingICESessions to remove any entries related to Daemon with GUID
-        // peerID.
-        if (!IncomingICESessions.empty()) {
-            for (session_it = IncomingICESessions.begin(); session_it != IncomingICESessions.end();) {
+        //
+        // Invoke the found callback to purge the nameMap
+        //
+        if (iceCallback) {
 
-                if ((session_it->second).remotePeerAddress == response.peerAddr) {
+            QCC_DbgPrintf(("DiscoveryManager::PurgeNameMap(): Trying to invoke the iceCallback\n"));
 
-                    // Remove the entry from the IncomingICESessions
-                    IncomingICESessions.erase(session_it++);
-                } else {
-                    ++session_it;
-                }
-            }
+            (*iceCallback)(FOUND, response.peerAddr, NULL, 0);
         }
 
     } else {
         if (!response.services.empty()) {
             QCC_DbgPrintf(("DiscoveryManager::HandleMatchRevokedResponse(): Received a list of services being revoked\n"));
+
+            list<String> tempList = response.services;
+
+            // Purge the StunAndTurnServerInfo
+            map<String, RemoteDaemonStunInfo>::iterator stun_it = StunAndTurnServerInfo.find(response.peerAddr);
+            if (stun_it != StunAndTurnServerInfo.end()) {
+                while (!tempList.empty()) {
+                    stun_it->second.services.remove(tempList.front());
+                    QCC_DbgPrintf(("DiscoveryManager::HandleMatchRevokedResponse(): Removed service %s from StunAndTurnServerInfo\n", tempList.front().c_str()));
+                    tempList.pop_front();
+                }
+
+                if (stun_it->second.services.empty()) {
+                    StunAndTurnServerInfo.erase(stun_it);
+                    QCC_DbgPrintf(("DiscoveryManager::HandleMatchRevokedResponse(): Removed entry for GUID %s from StunAndTurnServerInfo\n", response.peerAddr.c_str()));
+                }
+            }
+
+            tempList = response.services;
+            // Purge the searchMap
+            map<String, SearchResponseInfo>::iterator it;
+            for (it = searchMap.begin(); it != searchMap.end(); it++) {
+
+                // Update the searchMap with the new information
+                list<RemoteDaemonServicesInfo>* remoteDaemonServicesInfo = &(it->second.response);
+                list<RemoteDaemonServicesInfo>::iterator remoteDaemonServices_it;
+
+                for (remoteDaemonServices_it = remoteDaemonServicesInfo->begin(); remoteDaemonServices_it != remoteDaemonServicesInfo->end();) {
+
+                    if (remoteDaemonServices_it->remoteGUID == response.peerAddr) {
+
+                        while (!tempList.empty()) {
+                            vector<String>::iterator services_it;
+                            for (services_it = remoteDaemonServices_it->services.begin(); services_it != remoteDaemonServices_it->services.end();) {
+
+                                if (*services_it == tempList.front()) {
+                                    remoteDaemonServices_it->services.erase(services_it);
+                                    QCC_DbgPrintf(("DiscoveryManager::HandleSearchMatchResponse(): The service %s with GUID %s has been removed from searchMap\n",
+                                                   tempList.front().c_str(), response.peerAddr.c_str()));
+                                    // Break out of the remoteDaemonServices_it->services for loop
+                                    break;
+                                } else {
+                                    ++services_it;
+                                }
+                            }
+
+                            tempList.pop_front();
+                        }
+
+                        // Break out of the remoteDaemonServices_it for loop
+                        break;
+                    }
+
+                    ++remoteDaemonServices_it;
+                }
+            }
+
             vector<String> wkn;
 
             while (!response.services.empty()) {
-                for (multimap<String, NameEntryAssociatedInfo>::iterator it = findMap.begin(); it != findMap.end(); it++) {
-                    if (response.services.front().find(it->first) != String::npos) {
-
-                        QCC_DbgPrintf(("DiscoveryManager::HandleMatchRevokedResponse(): Found the corresponding entry in the find map\n"));
-
-                        wkn.push_back(response.services.front());
-
-                        list<ServiceInfo>* responseInfo = &(it->second.response);
-                        for (list<ServiceInfo>::iterator i = responseInfo->begin(); i != responseInfo->end();) {
-                            if (((*i).serviceName == response.services.front()) &&
-                                ((*i).serviceDaemonGUID == response.peerAddr)) {
-                                responseInfo->erase(i++);
-                                //
-                                // We use this flag to determine if we need to invoke the found callback.
-                                // If this flag is set, it means that we have entries corresponding to
-                                // the services being revoked in the nameMap that we would need to purge
-                                // by invoking the found callback
-                                //
-                                if (!foundMatch) {
-                                    foundMatch = true;
-                                }
-                            } else {
-                                ++i;
-                            }
-                        }
-                    }
-                }
-
-                // Purge OutgoingICESessions to remove any entries related to Daemon with
-                // peerID and the service response.services.front().
-                for (session_it = OutgoingICESessions.begin(); session_it != OutgoingICESessions.end();) {
-
-                    if (((session_it->second).remotePeerAddress == response.peerAddr) && ((session_it->second).destinationName == response.services.front())) {
-
-                        // Remove the entry from the OutgoingICESessions
-                        OutgoingICESessions.erase(session_it++);
-                    } else {
-                        ++session_it;
-                    }
-                }
-
+                wkn.push_back(response.services.front());
                 response.services.pop_front();
             }
 
-            if (foundMatch) {
-                //
-                // Invoke the found callback to purge the nameMap
-                //
-                if (iceCallback) {
+            //
+            // Invoke the found callback to purge the nameMap
+            //
+            if (iceCallback) {
 
-                    QCC_DbgPrintf(("DiscoveryManager::HandleMatchRevokedResponse(): Trying to invoke the iceCallback\n"));
+                QCC_DbgPrintf(("DiscoveryManager::HandleMatchRevokedResponse(): Trying to invoke the iceCallback\n"));
 
-                    (*iceCallback)(FOUND, String(), response.peerAddr, &wkn, 0);
-                }
+                (*iceCallback)(FOUND, response.peerAddr, &wkn, 0);
             }
         }
     }
@@ -1748,81 +1902,62 @@ QStatus DiscoveryManager::HandleAddressCandidatesResponse(AddressCandidatesRespo
     // Flag used to indicate that the StartICEChecks callback was invoked
     bool invokedStartICEChecks = false;
 
-    String serviceName = response.destination;
-    String clientName = response.source;
-
     //
     // If the address candidates message has been sent from a remote client to a local service, we need to
     // invoke the AllocateICESession callback or else we have to invoke the StartICEChecks callback
     //
 
-    // Check if the address candidates message received from the Client is in response
-    // to a advertisement from this daemon.
-    multimap<String, NameEntryAssociatedInfo>::iterator it;
+    //
+    // Check if we have received the address candidates from a remote service in response to the candidates that we sent out for a local
+    // client
+    //
 
-    for (it = advertiseMap.begin(); it != advertiseMap.end(); it++) {
+    multimap<String, SessionEntry>::iterator it;
 
-        if (it->first == serviceName) {
-            // We have now confirmed that we have received a client address candidates in response to
-            // one of our Advertisements. Populate an entry corresponding to this in
-            // IncomingICESession so that we can look that up later and direct the
-            // address candidates that the service would generate to the appropriate client
-            SessionEntry entry(true, response.peerAddr, serviceName, response.candidates, response.ice_ufrag, response.ice_pwd, response.matchID);
+    for (it = OutgoingICESessions.begin(); it != OutgoingICESessions.end(); it++) {
 
-            if (response.STUNInfoPresent) {
-                entry.SetSTUNInfo(response.STUNInfo);
-            }
+        if (((it->first) == response.peerAddr)) {
+            // Populate the details in the ActiveOutgoingICESessions map
+            (it->second).serviceCandidates = response.candidates;
+            (it->second).ice_frag = response.ice_ufrag;
+            (it->second).ice_pwd = response.ice_pwd;
 
-            IncomingICESessions.insert(pair<String, SessionEntry>(clientName, entry));
+            // Invoke the callback to inform the DaemonICETransport that the Service candiates have been received
+            ((it->second).peerListener)->SetPeerCandiates((it->second).serviceCandidates, response.ice_ufrag, response.ice_pwd);
 
-            vector<String> wkn;
-            wkn.push_back(clientName);
+            // Remove the entry from the OutgoingICESessions
+            OutgoingICESessions.erase(it);
 
-            // Invoke the AllocateICESession callback
-            if (iceCallback) {
-                QCC_DbgPrintf(("DiscoveryManager::HandleAddressCandidatesResponse(): Invoking the AllocateICESession callback\n"));
-                (*iceCallback)(ALLOCATE_ICE_SESSION, serviceName, response.peerAddr, &wkn, 0xFF);
-            }
-
-            invokedAllocateICESession = true;
+            invokedStartICEChecks = true;
 
             // break out of the for loop
             break;
         }
-
     }
 
-    //
-    // If the AllocateICESession callback was not invoked, it means that we may have received the address
-    // candidates from a remote service in response to the candidates that we sent out for a local
-    // client
-    //
-    if (!invokedAllocateICESession) {
+    // If the StartChecksCallback was not invoked
+    if (!invokedStartICEChecks) {
+        // Check if the address candidates message received from the Client is in response
+        // to a advertisement from this daemon.
+        multimap<String, SearchResponseInfo>::iterator it;
 
-        multimap<String, SessionEntry>::iterator it;
+        // Populate an entry corresponding to this in
+        // IncomingICESession so that we can look that up later and direct the
+        // address candidates that the service would generate to the appropriate client
+        SessionEntry entry(true, response.candidates, response.ice_ufrag, response.ice_pwd);
 
-        serviceName = response.source;
-        clientName = response.destination;
+        if (response.STUNInfoPresent) {
+            entry.SetSTUNInfo(response.STUNInfo);
+        }
 
-        for (it = OutgoingICESessions.begin(); it != OutgoingICESessions.end(); it++) {
+        IncomingICESessions.insert(pair<String, SessionEntry>(response.peerAddr, entry));
 
-            if ((it->first == clientName) && ((it->second).destinationName == serviceName) && ((it->second).remotePeerAddress == response.peerAddr)) {
-                // Populate the details in the ActiveOutgoingICESessions map
-                (it->second).serviceCandidates = response.candidates;
-                (it->second).ice_frag = response.ice_ufrag;
-                (it->second).ice_pwd = response.ice_pwd;
+        vector<String> wkn;
 
-                // Invoke the callback to inform the DaemonICETransport that the Service candiates have been received
-                ((it->second).peerListener)->SetPeerCandiates((it->second).serviceCandidates, response.ice_ufrag, response.ice_pwd);
-
-                // Remove the entry from the OutgoingICESessions
-                OutgoingICESessions.erase(it);
-
-                invokedStartICEChecks = true;
-
-                // break out of the for loop
-                break;
-            }
+        // Invoke the AllocateICESession callback
+        if (iceCallback) {
+            QCC_DbgPrintf(("DiscoveryManager::HandleAddressCandidatesResponse(): Invoking the AllocateICESession callback\n"));
+            (*iceCallback)(ALLOCATE_ICE_SESSION, response.peerAddr, &wkn, 0xFF);
         }
     }
 
@@ -1834,51 +1969,6 @@ QStatus DiscoveryManager::HandleAddressCandidatesResponse(AddressCandidatesRespo
     }
 
     return status;
-}
-
-void DiscoveryManager::PurgeFindAndNameMap(String peerAddress)
-{
-    multimap<String, NameEntryAssociatedInfo>::iterator it;
-    list<ServiceInfo>* responseInfo;
-    bool foundMatch = false;
-
-    for (it = findMap.begin(); it != findMap.end(); it++) {
-        responseInfo = &(it->second.response);
-        QCC_DbgPrintf(("DiscoveryManager::PurgeFindAndNameMap(): size of response = %d", it->second.response.size()));
-
-        for (list<ServiceInfo>::iterator i = responseInfo->begin(); i != responseInfo->end();) {
-            //
-            // If we have a service discovered from that daemon, then delete the entry
-            //
-            QCC_DbgPrintf(("DiscoveryManager::PurgeFindAndNameMap(): %s", (*i).serviceDaemonGUID.c_str()));
-            if ((*i).serviceDaemonGUID == peerAddress) {
-                responseInfo->erase(i++);
-                //
-                // We use this flag to determine if we need to invoke the found callback.
-                // If this flag is set, it means that we have entries corresponding to
-                // the services being revoked in the nameMap that we would need to purge
-                // by invoking the found callback
-                //
-                if (!foundMatch) {
-                    foundMatch = true;
-                }
-            } else {
-                ++i;
-            }
-        }
-    }
-
-    if (foundMatch) {
-        //
-        // Invoke the found callback to purge the nameMap
-        //
-        if (iceCallback) {
-
-            QCC_DbgPrintf(("DiscoveryManager::PurgeFindAndNameMap(): Trying to invoke the iceCallback\n"));
-
-            (*iceCallback)(FOUND, String(), peerAddress, NULL, 0);
-        }
-    }
 }
 
 QStatus DiscoveryManager::HandlePersistentMessageResponse(Json::Value payload)
@@ -2295,6 +2385,7 @@ QStatus DiscoveryManager::HandleOnDemandMessageResponse(Json::Value payload)
 
             case RENDEZVOUS_SESSION_DELETE:
             case DAEMON_REGISTRATION:
+            case ADDRESS_CANDIDATES:
                 // Nothing to be done
                 QCC_DbgPrintf(("DiscoveryManager::HandleOnDemandMessageResponse(): Nothing to be done"));
                 break;
@@ -2303,21 +2394,6 @@ QStatus DiscoveryManager::HandleOnDemandMessageResponse(Json::Value payload)
             default:
                 status = ER_INVALID_ON_DEMAND_CONNECTION_MESSAGE_RESPONSE;
                 QCC_LogError(status, ("DiscoveryManager::HandleOnDemandMessageResponse(): %s", QCC_StatusText(status)));
-                break;
-
-            case ADDRESS_CANDIDATES:
-                ICECandidatesMessage * adressCandMsg = static_cast<ICECandidatesMessage*>(LastOnDemandMessageSent.interfaceMessage);
-                // Invoke the call back to tell the DaemonICETransport that the Address Candidates message corresponding to a Service
-                // has been successfully sent to the Server
-                multimap<String, SessionEntry>::iterator it;
-                for (it = IncomingICESessions.begin(); it != IncomingICESessions.end(); it++) {
-                    if (((it->first) == adressCandMsg->destination) && ((it->second).destinationName == adressCandMsg->source) &&
-                        ((it->second).remotePeerAddress) == adressCandMsg->destinationPeerID) {
-                        ((it->second).peerListener)->SetPeerCandiates((it->second).clientCandidates, (it->second).ice_frag, (it->second).ice_pwd);
-                        IncomingICESessions.erase(it);
-                        break;
-                    }
-                }
                 break;
             }
         }
@@ -2685,58 +2761,44 @@ QStatus DiscoveryManager::HandleTokenRefreshResponse(Json::Value payload)
             QCC_DbgPrintf(("DiscoveryManager::HandleTokenRefreshResponse(): client = %d", refreshMsg->client));
 
             if (refreshMsg->client) {
-                QCC_DbgPrintf(("DiscoveryManager::HandleTokenRefreshResponse(): Trying to invoke the Token Refresh callback for service %s on Daemon with GUID %s and matchID %s\n",
-                               refreshMsg->remoteName.c_str(), refreshMsg->remotePeerAddress.c_str(), refreshMsg->matchID.c_str()));
+                QCC_DbgPrintf(("DiscoveryManager::HandleTokenRefreshResponse(): Trying to invoke the Token Refresh callback for service on Daemon with GUID %s\n",
+                               refreshMsg->remotePeerAddress.c_str()));
 
-                multimap<String, NameEntryAssociatedInfo>::iterator it;
+                multimap<String, SearchResponseInfo>::iterator it;
 
                 DiscoveryManagerMutex.Lock(MUTEX_CONTEXT);
-                for (it = findMap.begin(); it != findMap.end(); it++) {
-                    if (refreshMsg->remoteName.find(it->first) != String::npos) {
 
-                        QCC_DbgPrintf(("DiscoveryManager::HandleTokenRefreshResponse(): Found the corresponding entry in the find map\n"));
+                map<String, RemoteDaemonStunInfo>::iterator stun_it = StunAndTurnServerInfo.find(refreshMsg->remotePeerAddress);
+                if (stun_it != StunAndTurnServerInfo.end()) {
 
-                        list<ServiceInfo>* responseInfo = &(it->second.response);
+                    // We found the entry
+                    stun_it->second.stunInfo.acct = response.acct;
+                    stun_it->second.stunInfo.pwd = response.pwd;
+                    stun_it->second.stunInfo.expiryTime = response.expiryTime;
+                    stun_it->second.stunInfo.recvTime = response.recvTime;
 
-                        list<ServiceInfo>::iterator candidate_it;
+                    refreshMsg->tokenRefreshListener->SetTokens(response.acct, response.pwd, response.recvTime, response.expiryTime);
 
-                        for (candidate_it = responseInfo->begin(); candidate_it != responseInfo->end(); candidate_it++) {
-                            if ((candidate_it->serviceName == refreshMsg->remoteName) &&
-                                (candidate_it->serviceDaemonGUID == refreshMsg->remotePeerAddress) &&
-                                (candidate_it->matchID == refreshMsg->matchID)) {
-
-                                // We found the entry
-                                candidate_it->stunInfo.acct = response.acct;
-                                candidate_it->stunInfo.pwd = response.pwd;
-                                candidate_it->stunInfo.expiryTime = response.expiryTime;
-                                candidate_it->stunInfo.recvTime = response.recvTime;
-
-                                refreshMsg->tokenRefreshListener->SetTokens(response.acct, response.pwd, response.recvTime, response.expiryTime);
-
-                                DiscoveryManagerMutex.Unlock(MUTEX_CONTEXT);
-                                QCC_DbgPrintf(("DiscoveryManager::HandleTokenRefreshResponse(): Invoked the token refresh callback\n"));
-                                return ER_OK;
-                            }
-                        }
-                    }
+                    DiscoveryManagerMutex.Unlock(MUTEX_CONTEXT);
+                    QCC_DbgPrintf(("DiscoveryManager::HandleTokenRefreshResponse(): Invoked the token refresh callback\n"));
+                    return ER_OK;
                 }
 
                 DiscoveryManagerMutex.Unlock(MUTEX_CONTEXT);
 
-                QCC_DbgPrintf(("DiscoveryManager::HandleTokenRefreshResponse(): Did not find an entry corresponding to the matchID\n"));
+                QCC_DbgPrintf(("DiscoveryManager::HandleTokenRefreshResponse(): Did not find an entry corresponding to the GUID %s\n", refreshMsg->remotePeerAddress.c_str()));
 
                 return ER_FAIL;
             } else {
 
-                QCC_DbgPrintf(("DiscoveryManager::HandleTokenRefreshResponse(): Trying to retrieve the STUN server info for client %s on Daemon with GUID %s with matchID %s\n",
-                               refreshMsg->remoteName.c_str(), refreshMsg->remotePeerAddress.c_str(), refreshMsg->matchID.c_str()));
+                QCC_DbgPrintf(("DiscoveryManager::HandleTokenRefreshResponse(): Trying to retrieve the STUN server info for client on Daemon with GUID %s\n",
+                               refreshMsg->remotePeerAddress.c_str()));
 
                 multimap<String, SessionEntry>::iterator it;
 
                 DiscoveryManagerMutex.Lock(MUTEX_CONTEXT);
                 for (it = IncomingICESessions.begin(); it != IncomingICESessions.end(); it++) {
-                    if (((it->first) == refreshMsg->remoteName) && ((it->second).remotePeerAddress == refreshMsg->remotePeerAddress) &&
-                        ((it->second).matchID == refreshMsg->matchID) && ((it->second).STUNInfoPresent)) {
+                    if (((it->first) == refreshMsg->remotePeerAddress) && ((it->second).STUNInfoPresent)) {
 
                         (it->second).STUNInfo.acct = response.acct;
                         (it->second).STUNInfo.pwd = response.pwd;
@@ -2865,10 +2927,9 @@ QStatus DiscoveryManager::PrepareOutgoingMessage(RendezvousMessage message, Http
             return status;
         }
     } else if (message.messageType == TOKEN_REFRESH) {
-        /* Daemon Registration is sent only using GET HTTP method */
+        /* Token Refresh Message is sent only using GET HTTP method */
         if (httpMethod == HttpConnection::METHOD_GET) {
-            TokenRefreshMessage* refMsg = static_cast<TokenRefreshMessage*>(message.interfaceMessage);
-            uri = GetTokenRefreshUri(PeerID, refMsg->matchID);
+            uri = GetTokenRefreshUri(PeerID);
         } else {
             status = ER_INVALID_HTTP_METHOD_USED_FOR_RENDEZVOUS_SERVER_INTERFACE_MESSAGE;
             QCC_LogError(status, ("DiscoveryManager::PrepareOutgoingMessage(): HTTP Methods other than GET cannot be used for "
@@ -3110,7 +3171,7 @@ void DiscoveryManager::GetUserCredentials(void)
 
 void DiscoveryManager::ComposeAndQueueTokenRefreshMessage(TokenRefreshMessage refreshMessage)
 {
-    QCC_DbgPrintf(("DiscoveryManager::ComposeAndQueueTokenRefreshMessage(): matchID = %s", refreshMessage.matchID.c_str()));
+    QCC_DbgPrintf(("DiscoveryManager::ComposeAndQueueTokenRefreshMessage()"));
 
     /* Construct the Daemon Registration Message */
     RendezvousMessage message;

@@ -716,7 +716,7 @@ QStatus DaemonICETransport::Start()
      * we hear about a new well-known bus name.
      */
     m_dm->SetCallback(
-        new CallbackImpl<ICECallback, void, ajn::DiscoveryManager::CallbackType, const String&, const String&, const vector<String>*, uint8_t>
+        new CallbackImpl<ICECallback, void, ajn::DiscoveryManager::CallbackType, const String&, const vector<String>*, uint8_t>
             (&m_iceCallback, &ICECallback::ICE));
 
     /* Get the interface name prefixes from the Discovery Manager */
@@ -1123,8 +1123,7 @@ void DaemonICETransport::EndpointExit(RemoteEndpoint* ep)
 
 ThreadReturn STDCALL DaemonICETransport::AllocateICESessionThread::Run(void* arg)
 {
-    QCC_DbgHLPrintf(("DaemonICETransport::AllocateICESessionThread::Run(): serviceName(%s) "
-                     "clientName(%s) clientGUID(%s)", serviceName.c_str(), clientName.c_str(), clientGUID.c_str()));
+    QCC_DbgHLPrintf(("DaemonICETransport::AllocateICESessionThread::Run(): clientGUID(%s)", clientGUID.c_str()));
 
     QStatus status = ER_FAIL;
 
@@ -1135,7 +1134,6 @@ ThreadReturn STDCALL DaemonICETransport::AllocateICESessionThread::Run(void* arg
     assert(transportObj->m_dm);
 
     STUNServerInfo stunInfo;
-    String matchID;
 
     DiscoveryManager::SessionEntry entry;
 
@@ -1144,7 +1142,7 @@ ThreadReturn STDCALL DaemonICETransport::AllocateICESessionThread::Run(void* arg
      * on the remote daemon that we are intending to connect to. The STUN server
      * information is required to allocate the ICE candidates.
      */
-    if (transportObj->m_dm->GetSTUNInfo(false, clientGUID, clientName, stunInfo, matchID) == ER_OK) {
+    if (transportObj->m_dm->GetSTUNInfo(false, clientGUID, stunInfo) == ER_OK) {
         QCC_DbgPrintf(("DaemonICETransport::AllocateICESessionThread::Run(): Retrieved the STUN server information from the Discovery Manager"));
     } else {
         status = ER_FAIL;
@@ -1155,7 +1153,7 @@ ThreadReturn STDCALL DaemonICETransport::AllocateICESessionThread::Run(void* arg
     /* Ensure that the TURN user and pwd tokens have not expired. If they have, then get new tokens from the
      * Rendezvous Server */
     if (!transportObj->CheckTURNTokenExpiry(stunInfo)) {
-        status = transportObj->GetNewTokensFromServer(false, stunInfo, matchID, clientGUID, clientName);
+        status = transportObj->GetNewTokensFromServer(false, stunInfo, clientGUID);
 
         if (status != ER_OK) {
             QCC_LogError(status, ("DaemonICETransport::AllocateICESessionThread::Run(): Unable to retrieve new "
@@ -1194,13 +1192,13 @@ ThreadReturn STDCALL DaemonICETransport::AllocateICESessionThread::Run(void* arg
 
             if (ER_OK == status) {
                 /* Send candidates to the server */
-                QCC_DbgPrintf(("DaemonICETransport::AllocateICESessionThread::Run(): Service %s sending candidates to Peer:", serviceName.c_str()));
+                QCC_DbgPrintf(("DaemonICETransport::AllocateICESessionThread::Run(): Service sending candidates to Peer"));
 
                 PeerCandidateListenerImpl peerCandidateListener;
-                entry.SetServiceInfo(clientGUID, clientName, candidates, ufrag, pwd, &peerCandidateListener);
+                entry.SetServiceInfo(candidates, ufrag, pwd, &peerCandidateListener);
 
                 /* Send the ICE Address Candidates to the client */
-                status = (transportObj->m_dm)->QueueICEAddressCandidatesMessage(false, std::pair<String, DiscoveryManager::SessionEntry>(serviceName, entry));
+                status = (transportObj->m_dm)->QueueICEAddressCandidatesMessage(false, std::pair<String, DiscoveryManager::SessionEntry>(clientGUID, entry));
 
                 if (status == ER_OK) {
                     /*
@@ -1335,7 +1333,7 @@ ThreadReturn STDCALL DaemonICETransport::AllocateICESessionThread::Run(void* arg
     if (iceSession) {
         transportObj->m_iceManager->DeallocateSession(iceSession);
         iceSession = NULL;
-        (transportObj->m_dm)->RemoveSessionDetailFromMap(false, std::pair<String, DiscoveryManager::SessionEntry>(serviceName, entry));
+        (transportObj->m_dm)->RemoveSessionDetailFromMap(false, std::pair<String, DiscoveryManager::SessionEntry>(clientGUID, entry));
     }
 
     return 0;
@@ -1594,52 +1592,40 @@ void* DaemonICETransport::Run(void* arg)
             // the IncomingICESessions. Spin off a separate thread to handle this allocation of ICE Sessions.
             m_IncomingICESessionsLock.Lock(MUTEX_CONTEXT);
 
-            if (!IncomingICESessions.empty()) {
+            while (!IncomingICESessions.empty()) {
+                QCC_DbgPrintf(("DaemonICETransport::Run(): maxAuth == %d", maxAuth));
+                QCC_DbgPrintf(("DaemonICETransport::Run(): maxConn == %d", maxConn));
+                QCC_DbgPrintf(("DaemonICETransport::Run(): mAuthList.size() == %d", m_authList.size()));
+                QCC_DbgPrintf(("DaemonICETransport::Run(): mEndpointList.size() == %d", m_endpointList.size()));
+                assert(m_authList.size() + m_endpointList.size() <= maxConn);
 
-                std::multimap<String, SessionReceiverInfo>::iterator it;
+                /*
+                 * Do we have a slot available for a new connection?  If so, use
+                 * it.
+                 */
+                m_endpointListLock.Lock(MUTEX_CONTEXT);
+                if ((m_authList.size() < maxAuth) && (m_authList.size() + m_endpointList.size() < maxConn)) {
+                    /* Handle AllocateICESession on another thread */
+                    allocateICESessionThreadsLock.Lock(MUTEX_CONTEXT);
 
-                for (it = IncomingICESessions.begin(); it != IncomingICESessions.end();) {
+                    if (!m_stopping) {
+                        AllocateICESessionThread* ast = new AllocateICESessionThread(this, IncomingICESessions.front());
+                        status = ast->Start(NULL, ast);
+                        if (status == ER_OK) {
+                            allocateICESessionThreads.push_back(ast);
 
-                    QCC_DbgPrintf(("DaemonICETransport::Run(): maxAuth == %d", maxAuth));
-                    QCC_DbgPrintf(("DaemonICETransport::Run(): maxConn == %d", maxConn));
-                    QCC_DbgPrintf(("DaemonICETransport::Run(): mAuthList.size() == %d", m_authList.size()));
-                    QCC_DbgPrintf(("DaemonICETransport::Run(): mEndpointList.size() == %d", m_endpointList.size()));
-                    assert(m_authList.size() + m_endpointList.size() <= maxConn);
-
-                    /*
-                     * Do we have a slot available for a new connection?  If so, use
-                     * it.
-                     */
-                    m_endpointListLock.Lock(MUTEX_CONTEXT);
-                    if ((m_authList.size() < maxAuth) && (m_authList.size() + m_endpointList.size() < maxConn)) {
-                        /* Handle AllocateICESession on another thread */
-                        allocateICESessionThreadsLock.Lock(MUTEX_CONTEXT);
-
-                        if (!m_stopping) {
-                            AllocateICESessionThread* ast = new AllocateICESessionThread(this, it->first, (it->second).m_foundName, (it->second).m_guid);
-                            status = ast->Start(NULL, ast);
-                            if (status == ER_OK) {
-                                allocateICESessionThreads.push_back(ast);
-
-                                // Remove this entry from IncomingICESessions
-                                IncomingICESessions.erase(it++);
-
-                            } else {
-                                QCC_LogError(status, ("DaemonICETransport::Run(): Failed to start AllocateICESessionThread"));
-                                ++it;
-                            }
                         } else {
-                            ++it;
+                            QCC_LogError(status, ("DaemonICETransport::Run(): Failed to start AllocateICESessionThread"));
                         }
-                        allocateICESessionThreadsLock.Unlock(MUTEX_CONTEXT);
-                        m_endpointListLock.Unlock(MUTEX_CONTEXT);
-                    } else {
-                        m_endpointListLock.Unlock(MUTEX_CONTEXT);
-                        IncomingICESessions.clear();
-                        status = ER_AUTH_FAIL;
-                        QCC_LogError(status, ("DaemonICETransport::Run(): No slot for new connection"));
-                        ++it;
                     }
+                    IncomingICESessions.pop_front();
+                    allocateICESessionThreadsLock.Unlock(MUTEX_CONTEXT);
+                    m_endpointListLock.Unlock(MUTEX_CONTEXT);
+                } else {
+                    m_endpointListLock.Unlock(MUTEX_CONTEXT);
+                    IncomingICESessions.clear();
+                    status = ER_AUTH_FAIL;
+                    QCC_LogError(status, ("DaemonICETransport::Run(): No slot for new connection"));
                 }
             }
 
@@ -1698,32 +1684,6 @@ QStatus DaemonICETransport::NormalizeTransportSpec(const char* inSpec, String& o
         outSpec = "ice:guid=" + i->second;
     }
 
-    i = argMap.find("senderName");
-    if (i == argMap.end()) {
-        status = ER_BUS_BAD_TRANSPORT_ARGS;
-        QCC_LogError(status, ("DaemonICETransport::NormalizeTransportSpec: The unique name of the session initiator "
-                              "has not been specified in the ICE Transport Address"));
-    } else {
-        /*
-         * We have a value associated with the "senderName" key.  Run it through
-         * a conversion function to make sure it's a valid value.
-         */
-        outSpec += ",senderName=" + i->second;
-    }
-
-    i = argMap.find("foundName");
-    if (i == argMap.end()) {
-        status = ER_BUS_BAD_TRANSPORT_ARGS;
-        QCC_LogError(status, ("DaemonICETransport::NormalizeTransportSpec: The well known name that was found "
-                              "has not been specified in the ICE Transport Address"));
-    } else {
-        /*
-         * We have a value associated with the "foundName" key.  Run it through
-         * a conversion function to make sure it's a valid value.
-         */
-        outSpec += ",foundName=" + i->second;
-    }
-
     return ER_OK;
 }
 
@@ -1762,6 +1722,8 @@ QStatus DaemonICETransport::Connect(const char* connectSpec, const SessionOpts& 
     assert(m_iceManager);
     assert(m_dm);
 
+    DiscoveryManager::SessionEntry entry;
+
     /*
      * Parse and normalize the connectArgs.
      */
@@ -1781,16 +1743,13 @@ QStatus DaemonICETransport::Connect(const char* connectSpec, const SessionOpts& 
         ICESessionListenerImpl iceListener;
 
         STUNServerInfo stunInfo;
-        String matchID;
-
-        DiscoveryManager::SessionEntry entry;
 
         /*
          * Retrieve the STUN server information corresponding to the particular service name
          * on the remote daemon that we are intending to connect to. The STUN server
          * information is required to allocate the ICE candidates.
          */
-        if (m_dm->GetSTUNInfo(true, argMap["guid"], argMap["foundName"], stunInfo, matchID) == ER_OK) {
+        if (m_dm->GetSTUNInfo(true, argMap["guid"], stunInfo) == ER_OK) {
             QCC_DbgPrintf(("DaemonICETransport::Connect(): Retrieved the STUN server information from the Discovery Manager"));
         } else {
             status = ER_FAIL;
@@ -1801,7 +1760,7 @@ QStatus DaemonICETransport::Connect(const char* connectSpec, const SessionOpts& 
         /* Ensure that the TURN user and pwd tokens have not expired. If they have, then get new tokens from the
          * Rendezvous Server */
         if (!CheckTURNTokenExpiry(stunInfo)) {
-            status = GetNewTokensFromServer(true, stunInfo, matchID, argMap["guid"], argMap["foundName"]);
+            status = GetNewTokensFromServer(true, stunInfo, argMap["guid"]);
             if (status != ER_OK) {
                 QCC_LogError(status, ("DaemonICETransport::Connect(): Unable to retrieve new tokens from the Rendezvous Server"));
                 return status;
@@ -1829,12 +1788,12 @@ QStatus DaemonICETransport::Connect(const char* connectSpec, const SessionOpts& 
 
                 if (ER_OK == status) {
                     /* Send ICE candidates to server */
-                    QCC_DbgPrintf(("DaemonICETransport::Connect(): Client %s sending its candidates to Peer", argMap["senderName"].c_str()));
+                    QCC_DbgPrintf(("DaemonICETransport::Connect(): Client sending its candidates to Peer"));
 
                     PeerCandidateListenerImpl peerCandidateListener;
-                    entry.SetClientInfo(argMap["guid"], argMap["foundName"], candidates, ufrag, pwd, &peerCandidateListener);
+                    entry.SetClientInfo(candidates, ufrag, pwd, &peerCandidateListener);
 
-                    status = m_dm->QueueICEAddressCandidatesMessage(true, std::pair<String, DiscoveryManager::SessionEntry>(argMap["senderName"], entry));
+                    status = m_dm->QueueICEAddressCandidatesMessage(true, std::pair<String, DiscoveryManager::SessionEntry>(argMap["guid"], entry));
 
                     if (status == ER_OK) {
                         /*
@@ -2041,8 +2000,7 @@ QStatus DaemonICETransport::Connect(const char* connectSpec, const SessionOpts& 
     if (iceSession) {
         m_iceManager->DeallocateSession(iceSession);
         iceSession = NULL;
-        // @@ JP Is this really necessary now that iceSessions are short-lived?
-        //m_dm->RemoveSessionDetailFromMap(true, std::pair<String, DiscoveryManager::SessionEntry>(argMap["senderName"], entry));
+        m_dm->RemoveSessionDetailFromMap(true, std::pair<String, DiscoveryManager::SessionEntry>(argMap["guid"], entry));
     }
 
     /* Set caller's ep ref */
@@ -2057,18 +2015,6 @@ QStatus DaemonICETransport::Connect(const char* connectSpec, const SessionOpts& 
     }
 
     return status;
-}
-
-QStatus DaemonICETransport::ComposeBusAddrForConnect(String& busAddr, String senderName, String foundName)
-{
-    QCC_DbgHLPrintf(("DaemonICETransport::ComposeBusAddrForConnect():busAddr(%s) senderName(%s) foundName(%s)",
-                     busAddr.c_str(), senderName.c_str(), foundName.c_str()));
-
-    busAddr += ",senderName=" + senderName + ",foundName=" + foundName;
-
-    QCC_DbgPrintf(("DaemonICETransport::ComposeBusAddrForConnect(): Updated busAddr(%s)", busAddr.c_str()));
-
-    return ER_OK;
 }
 
 /*
@@ -2201,7 +2147,7 @@ void DaemonICETransport::EnableDiscovery(const char* namePrefix)
         return;
     }
 
-    QStatus status = m_dm->AdvertiseOrLocate(false, namePrefix);
+    QStatus status = m_dm->SearchName(namePrefix);
 
     if (status != ER_OK) {
         QCC_LogError(status, ("DaemonICETransport::EnableDiscovery(): Failure enabling discovery for \"%s\" on ICE", namePrefix));
@@ -2229,7 +2175,7 @@ void DaemonICETransport::DisableDiscovery(const char* namePrefix)
     }
 
     assert(m_dm);
-    QStatus status = m_dm->CancelAdvertiseOrLocate(false, namePrefix);
+    QStatus status = m_dm->CancelSearchName(namePrefix);
 
     if (status != ER_OK) {
         QCC_LogError(status, ("DaemonICETransport::DisableDiscovery(): Failure disabling discovery for \"%s\" on ICE", namePrefix));
@@ -2257,7 +2203,7 @@ QStatus DaemonICETransport::EnableAdvertisement(const String& advertiseName)
     }
 
     assert(m_dm);
-    QStatus status = m_dm->AdvertiseOrLocate(true, advertiseName);
+    QStatus status = m_dm->AdvertiseName(advertiseName);
 
     if (status != ER_OK) {
         QCC_LogError(status, ("DaemonICETransport::EnableAdvertisment(%s) failure", advertiseName.c_str()));
@@ -2286,24 +2232,20 @@ void DaemonICETransport::DisableAdvertisement(const String& advertiseName, bool 
     }
 
     assert(m_dm);
-    QStatus status = m_dm->CancelAdvertiseOrLocate(true, advertiseName);
+    QStatus status = m_dm->CancelAdvertiseName(advertiseName);
 
     if (status != ER_OK) {
         QCC_LogError(status, ("DaemonICETransport::DisableAdvertisement(): Failure disabling advertising \"%s\" for ICE", advertiseName.c_str()));
     }
 }
 
-void DaemonICETransport::RecordIncomingICESessions(String serviceName, String guid, String clientName)
+void DaemonICETransport::RecordIncomingICESessions(String guid)
 {
-    SessionReceiverInfo entry;
-    entry.m_guid = guid;
-    entry.m_foundName = clientName;
-
     // We need not check if a similar entry already exists in IncomingICESessions before inserting the
     // details of this request in the same because it is absolutely valid to receive two independent connect
     // requests from the same client on the same daemon to this same service on this daemon.
     m_IncomingICESessionsLock.Lock(MUTEX_CONTEXT);
-    IncomingICESessions.insert(std::pair<String, SessionReceiverInfo>(serviceName, entry));
+    IncomingICESessions.push_back(guid);
     m_IncomingICESessionsLock.Unlock(MUTEX_CONTEXT);
 
     // Set the wakeDaemonICETransportRun event
@@ -2312,7 +2254,7 @@ void DaemonICETransport::RecordIncomingICESessions(String serviceName, String gu
 
 void DaemonICETransport::PurgeSessionsMap(String peerID, const vector<String>* nameList)
 {
-    std::multimap<String, SessionReceiverInfo>::iterator it;
+    std::list<String>::iterator it;
 
     //
     // If the nameList is empty delete all the entries corresponding to GUID=peerID
@@ -2326,7 +2268,7 @@ void DaemonICETransport::PurgeSessionsMap(String peerID, const vector<String>* n
         if (!IncomingICESessions.empty()) {
             for (it = IncomingICESessions.begin(); it != IncomingICESessions.end();) {
 
-                if ((it->second).m_guid == peerID) {
+                if (*it == peerID) {
                     IncomingICESessions.erase(it++);
                 } else {
                     ++it;
@@ -2337,8 +2279,7 @@ void DaemonICETransport::PurgeSessionsMap(String peerID, const vector<String>* n
     }
 }
 
-void DaemonICETransport::ICECallback::ICE(ajn::DiscoveryManager::CallbackType cbType, const String& name,
-                                          const String& guid, const vector<String>* nameList, uint8_t ttl)
+void DaemonICETransport::ICECallback::ICE(ajn::DiscoveryManager::CallbackType cbType, const String& guid, const vector<String>* nameList, uint8_t ttl)
 {
     /*
      * Whenever the Discovery Manager receives a message indicating that a bus-name
@@ -2377,7 +2318,7 @@ void DaemonICETransport::ICECallback::ICE(ajn::DiscoveryManager::CallbackType cb
                 m_daemonICETransport->PurgeSessionsMap(guid, nameList);
             }
         } else if (cbType == m_daemonICETransport->m_dm->ALLOCATE_ICE_SESSION) {
-            m_daemonICETransport->RecordIncomingICESessions(name, guid, nameList->front());
+            m_daemonICETransport->RecordIncomingICESessions(guid);
         }
     }
 }
@@ -2397,7 +2338,7 @@ bool DaemonICETransport::CheckTURNTokenExpiry(STUNServerInfo stunInfo)
     return true;
 }
 
-QStatus DaemonICETransport::GetNewTokensFromServer(bool client, STUNServerInfo& stunInfo, String matchID, String remotePeerAddress, String remoteName)
+QStatus DaemonICETransport::GetNewTokensFromServer(bool client, STUNServerInfo& stunInfo, String remotePeerAddress)
 {
     QCC_DbgPrintf(("DaemonICETransport::GetNewTokensFromServer()"));
 
@@ -2405,8 +2346,10 @@ QStatus DaemonICETransport::GetNewTokensFromServer(bool client, STUNServerInfo& 
     TokenRefreshMessage refreshMessage;
 
     refreshMessage.client = client;
-    refreshMessage.matchID = matchID;
-    refreshMessage.remoteName = remoteName;
+#ifndef PROPOSED_INTERFACE_CHANGES
+    refreshMessage.matchID = String("");
+    refreshMessage.remoteName = String("");
+#endif
     refreshMessage.remotePeerAddress = remotePeerAddress;
     refreshMessage.tokenRefreshListener = &tokenRefreshListener;
 
