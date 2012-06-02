@@ -374,7 +374,6 @@ int main(int argc, char** argv)
     qcc::GUID128 guid;
     bool mimicBbservice = false;
     bool noBT = false;
-    DaemonConfig* config = DaemonConfig::Load(daemonConfig);
 
     printf("AllJoyn Library version: %s\n", ajn::GetVersion());
     printf("AllJoyn Library build info: %s\n", ajn::GetBuildInfo());
