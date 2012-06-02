@@ -446,7 +446,6 @@ int main(int argc, char** argv)
     bool doStress = false;
     bool useSignalHandler = false;
     bool discoverRemote = false;
-    unsigned int pid;
     unsigned long signalDelay = 0;
     unsigned long disconnectDelay = 0;
     unsigned long reportInterval = 1000;
