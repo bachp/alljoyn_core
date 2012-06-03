@@ -151,6 +151,8 @@ NullTransport::NullTransport(BusAttachment& bus) : bus(bus), running(false), end
 
 NullTransport::~NullTransport()
 {
+    Stop();
+    Join();
 }
 
 QStatus NullTransport::Start()
@@ -162,6 +164,7 @@ QStatus NullTransport::Start()
 QStatus NullTransport::Stop(void)
 {
     running = false;
+    Disconnect("null:");
     return ER_OK;
 }
 
