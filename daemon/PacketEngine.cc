@@ -44,6 +44,7 @@ struct AlarmContext {
         CONTEXT_DISCONNECT_RSP,
         CONTEXT_XON,
         CONTEXT_DELAY_ACK,
+        CONTEXT_CLOSING
     };
 
     ContextType contextType;
@@ -91,6 +92,10 @@ struct XOnAlarmContext : public AlarmContext {
 
 struct DelayAckAlarmContext : public AlarmContext {
     DelayAckAlarmContext(uint32_t chanId) : AlarmContext(AlarmContext::CONTEXT_DELAY_ACK, chanId) { }
+};
+
+struct ClosingAlarmContext : public AlarmContext {
+    ClosingAlarmContext(uint32_t chanId) : AlarmContext(AlarmContext::CONTEXT_CLOSING, chanId) { }
 };
 
 static uint32_t GetValidWindowSize(uint32_t inWinSize)
@@ -150,14 +155,13 @@ QStatus PacketEngine::Start(uint32_t mtu) {
 
 QStatus PacketEngine::Stop() {
     QCC_DbgTrace(("PacketEngine::Stop()"));
-
-    isRunning = false;
     QStatus status = timer.Stop();
     QStatus tStatus = txPacketThread.Stop();
     status = (status == ER_OK) ? tStatus : status;
     tStatus = rxPacketThread.Stop();
     status = (status == ER_OK) ? tStatus : status;
     tStatus = pool.Stop();
+    isRunning = false;
     return (status == ER_OK) ? tStatus : status;
 }
 
@@ -195,8 +199,11 @@ QStatus PacketEngine::RemovePacketStream(PacketStream& pktStream)
             QCC_DbgPrintf(("PacketEngine: Disconnecting PacketEngineStream %p because its PacketStream (%p) has been removed", &ci->stream, &ci->packetStream));
             Disconnect(ci->stream);
             /* Wait for ci to be closed */
-            while (ci->state != ChannelInfo::CLOSED) {
+            while (ci && isRunning && (ci->state != ChannelInfo::CLOSED)) {
+                uint32_t chanId = ci->id;
+                ReleaseChannelInfo(*ci);
                 qcc::Sleep(20);
+                ci = AcquireChannelInfo(chanId);
             }
         }
     }
@@ -209,7 +216,7 @@ QStatus PacketEngine::RemovePacketStream(PacketStream& pktStream)
         rxPacketThreadReload = false;
         channelInfoLock.Unlock();
         rxPacketThread.Alert();
-        while (!rxPacketThreadReload) {
+        while (isRunning && !rxPacketThreadReload) {
             qcc::Sleep(20);
         }
     } else {
@@ -461,6 +468,16 @@ void PacketEngine::AlarmTriggered(const Alarm& alarm, QStatus reason)
         break;
     }
 
+    case AlarmContext::CONTEXT_CLOSING:
+    {
+        ClosingAlarmContext* cctx = static_cast<ClosingAlarmContext*>(ctx);
+        ChannelInfo* ci = AcquireChannelInfo(cctx->chanId);
+        if (ci) {
+            ci->state = ChannelInfo::CLOSED;
+            ReleaseChannelInfo(*ci);
+        }
+    }
+
     default:
     {
         uint32_t t = static_cast<uint32_t>(ctx->contextType);
@@ -606,7 +623,7 @@ PacketEngine::ChannelInfo::~ChannelInfo()
         }
     }
 
-    while (useCount > 0) {
+    while (engine.isRunning && (useCount > 0)) {
         qcc::Sleep(5);
     }
 
@@ -1136,6 +1153,12 @@ void PacketEngine::RxPacketThread::HandleConnectRsp(Packet* p)
                 ci->windowSize = reqWindowSize;
                 ci->wasOpen = (ci->state == ChannelInfo::OPEN);
                 ci->listener.PacketEngineConnectCB(*engine, rspStatus, &ci->stream, ci->dest, ctx->context);
+
+                /* Arm the close timer if needed */
+                if (ci->state == ChannelInfo::CLOSING && !ci->closingAlarmContext) {
+                    ci->closingAlarmContext = new ClosingAlarmContext(ci->id);
+                    engine->timer.AddAlarm(Alarm(CLOSING_TIMEOUT, engine, 0, ci->closingAlarmContext));
+                }
             } else if ((ci->state != ChannelInfo::OPEN) && (ci->state != ChannelInfo::CLOSING)) {
                 /* Only allow retry of ack if state OPEN or CLOSING */
                 status = ER_FAIL;
@@ -1488,7 +1511,7 @@ qcc::ThreadReturn STDCALL PacketEngine::TxPacketThread::Run(void* arg)
                                     } else {
                                         /* Return packet and close this channel */
                                         QCC_LogError(status, ("TxPacketThread: PushPacketBytes(%s) failed. Closing channel", engine->ToString(ci->packetStream, ci->dest).c_str()));
-                                        ci->state = ChannelInfo::CLOSING;
+                                        ci->state = ChannelInfo::CLOSED;
                                         status = ER_OK;
                                         break;
                                     }
