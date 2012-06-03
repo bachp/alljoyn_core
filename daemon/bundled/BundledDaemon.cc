@@ -115,16 +115,7 @@ QStatus BundledDaemon::Start(NullTransport* nullTransport)
         /*
          * Extract the listen specs
          */
-        std::vector<qcc::String> listenList = config->GetList("listen");
-        std::vector<qcc::String>::const_iterator it = listenList.begin();
-        String listenSpecs;
-        while (it != listenList.end()) {
-            if (!listenSpecs.empty()) {
-                listenSpecs.append(';');
-            }
-            listenSpecs.append(*it);
-            ++it;
-        }
+        String listenSpecs = StringVectorToString(&config->GetList("listen"), ";");
         /*
          * Add the transports
          */
@@ -137,6 +128,11 @@ QStatus BundledDaemon::Start(NullTransport* nullTransport)
         if (ER_OK != status) {
             goto ErrorExit;
         }
+        /*
+         * TODO - until we figure out why the daemon doesn't cleanly restart bump the refCount once
+         * more so the bundled daemon doesn't ever get released.
+         */
+        IncrementAndFetch(&refCount);
     }
     /*
      * Use the null transport to link the daemon and client bus together
