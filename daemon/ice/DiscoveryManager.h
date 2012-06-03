@@ -438,9 +438,9 @@ class DiscoveryManager : public Thread, public AlarmListener {
         // Using this function to print the hard-coded proximity message
         GenerateJSONProximity(proximity[0]);
 
-        wifi.BSSID = String("b2");
-        wifi.SSID = String("b2");
-        bt.MAC = String("b2");
+        wifi.BSSID = String("a1");
+        wifi.SSID = String("a1");
+        bt.MAC = String("a1");
 
         proximity[1].wifiaps.push_back(wifi);
         proximity[1].BTs.push_back(bt);
@@ -448,9 +448,9 @@ class DiscoveryManager : public Thread, public AlarmListener {
         // Using this function to print the hard-coded proximity message
         GenerateJSONProximity(proximity[1]);
 
-        wifi.BSSID = String("c3");
-        wifi.SSID = String("c3");
-        bt.MAC = String("c3");
+        wifi.BSSID = String("a1");
+        wifi.SSID = String("a1");
+        bt.MAC = String("a1");
 
         proximity[2].wifiaps.push_back(wifi);
         proximity[2].BTs.push_back(bt);
