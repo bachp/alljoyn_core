@@ -244,7 +244,8 @@ TEST(PerfTest, ErrorMsg_Error_no_such_object) {
 
     String errMsg;
     reply->GetErrorName(&errMsg);
-    EXPECT_STREQ("ER_BUS_NO_SUCH_OBJECT", errMsg.c_str());
+
+    EXPECT_STREQ(QCC_StatusText(ER_BUS_NO_SUCH_OBJECT), errMsg.c_str());
 }
 
 TEST(PerfTest, ErrorMsg_does_not_exist_interface) {
@@ -292,7 +293,7 @@ TEST(PerfTest, ErrorMsg_MethodCallOnNonExistantMethod) {
     Message reply(*test_msgBus);
     MsgArg pingStr("s", "Test Ping");
     status = remoteObj.MethodCall(testclient.getClientInterfaceName(), "my_unknown", &pingStr, 1, reply, 5000);
-    ASSERT_EQ(ER_BUS_INTERFACE_NO_SUCH_MEMBER, status);
+    EXPECT_EQ(ER_BUS_INTERFACE_NO_SUCH_MEMBER, status) << "  Actual Status: " << QCC_StatusText(status);
 }
 
 
@@ -302,9 +303,8 @@ TEST(PerfTest, MethodCallTest_LargeParameters) {
     ASSERT_EQ(ER_OK, ServiceSetup());
 
     ClientSetup testclient(ajn::getConnectArg().c_str());
-
-    ASSERT_STREQ("ER_OK", QCC_StatusText(testclient.MethodCall(100, 2)));
-
+    QStatus status = testclient.MethodCall(100, 2);
+    EXPECT_EQ(ER_OK, status) << "  Actual Status: " << QCC_StatusText(status);
 
 }
 
@@ -315,7 +315,8 @@ TEST(PerfTest, MethodCallTest_SimpleCall) {
 
     ClientSetup testclient(ajn::getConnectArg().c_str());
 
-    ASSERT_STREQ("ER_OK", QCC_StatusText(testclient.MethodCall(1, 1)));
+    QStatus status = testclient.MethodCall(1, 1);
+    EXPECT_EQ(ER_OK, status) << "  Actual Status: " << QCC_StatusText(status);
 
 }
 
@@ -324,7 +325,8 @@ TEST(PerfTest, MethodCallTest_EmptyParameters) {
 
     ClientSetup testclient(ajn::getConnectArg().c_str());
 
-    ASSERT_STREQ("ER_OK", QCC_StatusText(testclient.MethodCall(1, 3)));
+    QStatus status = testclient.MethodCall(1, 3);
+    EXPECT_EQ(ER_OK, status) << "  Actual Status: " << QCC_StatusText(status);
 
 }
 
@@ -333,8 +335,8 @@ TEST(PerfTest, MethodCallTest_InvalidParameters) {
 
     ClientSetup testclient(ajn::getConnectArg().c_str());
 
-    ASSERT_STREQ("ER_BUS_UNEXPECTED_SIGNATURE", QCC_StatusText(testclient.MethodCall(1, 4)));
-
+    QStatus status = testclient.MethodCall(1, 4);
+    EXPECT_EQ(ER_BUS_UNEXPECTED_SIGNATURE, status) << "  Actual Status: " << QCC_StatusText(status);
 }
 
 /* Test signals */
@@ -375,7 +377,8 @@ TEST(PerfTest, Properties_SettingNoSuchProperty) {
     EXPECT_EQ(ER_BUS_REPLY_IS_ERROR_MESSAGE, status) << "  Actual Status: " << QCC_StatusText(status);
     String errMsg;
     reply->GetErrorName(&errMsg);
-    ASSERT_STREQ("ER_BUS_NO_SUCH_PROPERTY", errMsg.c_str());
+    EXPECT_STREQ(QCC_StatusText(ER_BUS_NO_SUCH_PROPERTY), errMsg.c_str());
+
 }
 
 TEST(PerfTest, Properties_SettingReadOnlyProperty) {
@@ -399,7 +402,7 @@ TEST(PerfTest, Properties_SettingReadOnlyProperty) {
     EXPECT_EQ(ER_BUS_REPLY_IS_ERROR_MESSAGE, status) << "  Actual Status: " << QCC_StatusText(status);
     String errMsg;
     reply->GetErrorName(&errMsg);
-    ASSERT_STREQ("ER_BUS_PROPERTY_ACCESS_DENIED", errMsg.c_str());
+    EXPECT_STREQ(QCC_StatusText(ER_BUS_PROPERTY_ACCESS_DENIED), errMsg.c_str());
 }
 
 TEST(PerfTest, Signals_With_Two_Parameters) {
