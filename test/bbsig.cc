@@ -712,9 +712,8 @@ int main(int argc, char** argv)
         }
 
         /* Clean up msg bus for next stress loop iteration*/
-		delete g_msgBus;
+        delete g_msgBus;
         g_msgBus = NULL;
-        
 
         /* Clean up the test object for the next stress loop iteration */
         delete testObj;
@@ -725,8 +724,8 @@ int main(int argc, char** argv)
 
     if (g_msgBus) {
         BusAttachment* deleteMe = g_msgBus;
-        g_msgBus = NULL;
         delete deleteMe;
+        g_msgBus = NULL;
     }
 
     QCC_SyncPrintf("bbsig exiting with %d (%s)\n", status, QCC_StatusText(status));
