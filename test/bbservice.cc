@@ -521,14 +521,15 @@ class LocalTestObject : public BusObject {
 
     void Ping(const InterfaceDescription::Member* member, Message& msg)
     {
-
+        char *value = NULL;
         /* Reply with same string that was sent to us */
-        MsgArg arg(*(msg->GetArg(0)));
-        printf("Pinged with: %s\n", msg->GetArg(0)->ToString().c_str());
+        const MsgArg *arg((msg->GetArg(0)));
+        arg->Get("s",&value);
+        printf("Pinged with: %s\n", value);
         if (msg->IsEncrypted()) {
             printf("Authenticated using %s\n", msg->GetAuthMechanism().c_str());
         }
-        QStatus status = MethodReply(msg, &arg, 1);
+        QStatus status = MethodReply(msg, arg, 1);
         if (ER_OK != status) {
             QCC_LogError(status, ("Ping: Error sending reply"));
         }
