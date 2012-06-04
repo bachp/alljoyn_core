@@ -521,10 +521,10 @@ class LocalTestObject : public BusObject {
 
     void Ping(const InterfaceDescription::Member* member, Message& msg)
     {
-        char *value = NULL;
+        char* value = NULL;
         /* Reply with same string that was sent to us */
-        const MsgArg *arg((msg->GetArg(0)));
-        arg->Get("s",&value);
+        const MsgArg* arg((msg->GetArg(0)));
+        arg->Get("s", &value);
         printf("Pinged with: %s\n", value);
         if (msg->IsEncrypted()) {
             printf("Authenticated using %s\n", msg->GetAuthMechanism().c_str());

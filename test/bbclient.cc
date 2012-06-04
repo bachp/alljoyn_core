@@ -809,8 +809,8 @@ int main(int argc, char** argv)
                 MsgArg val;
                 status = remoteObj.GetProperty(::org::alljoyn::alljoyn_test::values::InterfaceName, "int_val", val);
                 if (ER_OK == status) {
-                    int iVal=0;
-                    val.Get("i",&iVal);
+                    int iVal = 0;
+                    val.Get("i", &iVal);
                     QCC_SyncPrintf("%s.%s ( path=%s) returned \"%d\"\n",
                                    g_wellKnownName.c_str(),
                                    "GetProperty",
