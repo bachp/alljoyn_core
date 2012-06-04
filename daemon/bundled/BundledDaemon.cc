@@ -115,7 +115,8 @@ QStatus BundledDaemon::Start(NullTransport* nullTransport)
         /*
          * Extract the listen specs
          */
-        String listenSpecs = StringVectorToString(&config->GetList("listen"), ";");
+        vector<String> listenList = config->GetList("listen");
+        String listenSpecs = StringVectorToString(&listenList, ";");
         /*
          * Add the transports
          */
