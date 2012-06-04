@@ -525,6 +525,12 @@ void BusAttachment::WaitStopInternal()
 
             isStarted = false;
             isStopping = false;
+
+            Internal::ListenerList::iterator it = busInternal->listeners.begin();
+            while (it != busInternal->listeners.end()) {
+                ProtectedBusListener* listener = *(it++);
+                delete listener;
+            }
         }
 
         busInternal->stopLock.Unlock(MUTEX_CONTEXT);
@@ -1018,6 +1024,7 @@ void BusAttachment::UnregisterBusListener(BusListener& listener)
     }
 
     if (it != busInternal->listeners.end()) {
+        delete *it;
         busInternal->listeners.erase(it);
         listener.ListenerUnregistered();
     }
