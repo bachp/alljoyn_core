@@ -101,7 +101,6 @@ TEST(MsgArgTest, Basic) {
     int64_t*p64;
     size_t p64len;
     status = arg.Get("((iuiu)(yd)at)", &i, &u, &i, &u, &y, &d, &p64len, &p64);
-    ASSERT_STREQ(QCC_StatusText(status), "ER_OK");
     EXPECT_EQ(ER_OK, status) << "  Actual Status: " << QCC_StatusText(status);
     EXPECT_EQ(i, -9999);
     EXPECT_EQ(u, 0x32323232u);
@@ -128,26 +127,25 @@ TEST(MsgArgTest, Variants)
     MsgArg arg;
 
     status = arg.Set("v", new MsgArg("i", 420));
-    ASSERT_EQ(status, ER_OK);
+    EXPECT_EQ(ER_OK, status) << "  Actual Status: " << QCC_StatusText(status);
     status = arg.Get("u", &i);
-    ASSERT_STREQ(QCC_StatusText(status), "ER_BUS_SIGNATURE_MISMATCH");
-
+    EXPECT_EQ(ER_BUS_SIGNATURE_MISMATCH, status) << "  Actual Status: " << QCC_StatusText(status);
 
     status = arg.Set("v", new MsgArg("d", &d));
     ASSERT_EQ(status, ER_OK);
     status = arg.Get("i", &i);
-    ASSERT_STREQ(QCC_StatusText(status), "ER_BUS_SIGNATURE_MISMATCH");
+    EXPECT_EQ(ER_BUS_SIGNATURE_MISMATCH, status) << "  Actual Status: " << QCC_StatusText(status);
     status = arg.Get("s", &str);
-    ASSERT_STREQ(QCC_StatusText(status), "ER_BUS_SIGNATURE_MISMATCH");
+    EXPECT_EQ(ER_BUS_SIGNATURE_MISMATCH, status) << "  Actual Status: " << QCC_StatusText(status);
     status = arg.Get("d", &dt);
-    ASSERT_STREQ(QCC_StatusText(status), "ER_OK");
+    EXPECT_EQ(ER_OK, status) << "  Actual Status: " << QCC_StatusText(status);
 
     status = arg.Set("v", new MsgArg("s", s));
     ASSERT_EQ(status, ER_OK);
     status = arg.Get("i", &i);
-    ASSERT_STREQ(QCC_StatusText(status), "ER_BUS_SIGNATURE_MISMATCH");
+    EXPECT_EQ(ER_BUS_SIGNATURE_MISMATCH, status) << "  Actual Status: " << QCC_StatusText(status);
     status = arg.Get("s", &str);
-    ASSERT_STREQ(QCC_StatusText(status), "ER_OK");
+    EXPECT_EQ(ER_OK, status) << "  Actual Status: " << QCC_StatusText(status);
 }
 
 TEST(MsgArgTest, Scalars)
