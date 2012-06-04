@@ -712,9 +712,9 @@ int main(int argc, char** argv)
         }
 
         /* Clean up msg bus for next stress loop iteration*/
-        BusAttachment* deleteMe = g_msgBus;
+		delete g_msgBus;
         g_msgBus = NULL;
-        delete deleteMe;
+        
 
         /* Clean up the test object for the next stress loop iteration */
         delete testObj;
