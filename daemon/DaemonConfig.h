@@ -54,7 +54,7 @@ class DaemonConfig {
     /**
      * Return the configuration singleton
      */
-    static DaemonConfig* Access() { return singleton; }
+    static DaemonConfig* Access() { assert(singleton); return singleton; }
 
     /**
      * Release the configuration singleton
