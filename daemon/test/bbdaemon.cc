@@ -381,6 +381,9 @@ int main(int argc, char** argv)
     /* Install SIGINT handler */
     signal(SIGINT, SigIntHandler);
 
+    /* Load the configuration information */
+    DaemonConfig::Load(daemonConfig);
+
     /* Parse command line args */
     for (int i = 1; i < argc; ++i) {
         if (0 == strcmp("-h", argv[i])) {
