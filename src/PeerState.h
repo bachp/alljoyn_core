@@ -219,7 +219,7 @@ class _PeerState {
      * @return Return true if the message type is authorized.
      */
     bool IsAuthorized(AllJoynMessageType msgType, uint8_t access) {
-        return isSecure ? (authorizations[(uint8_t)msgType - 1] & access) == access : true;
+        return isSecure ? (authorizations[(uint8_t)msgType] & access) == access : true;
     }
 
     /**
@@ -230,9 +230,9 @@ class _PeerState {
      */
     void SetAuthorization(AllJoynMessageType msgType, uint8_t access) {
         if (access) {
-            authorizations[(uint8_t)msgType - 1] |= access;
+            authorizations[(uint8_t)msgType] |= access;
         } else {
-            authorizations[(uint8_t)msgType - 1] = 0;
+            authorizations[(uint8_t)msgType] = 0;
         }
     }
 
@@ -287,7 +287,7 @@ class _PeerState {
     /**
      * Array of message type authorizations.
      */
-    uint8_t authorizations[4];
+    uint8_t authorizations[5];
 
     /**
      * The session keys (unicast and broadcast) for this peer.
