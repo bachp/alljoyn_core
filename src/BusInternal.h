@@ -306,8 +306,6 @@ class BusAttachment::Internal : public MessageReceiver, public qcc::AlarmListene
     std::map<SessionPort, ProtectedSessionPortListener*> sessionPortListeners;  /* Lookup SessionPortListener by session port */
     typedef std::map<SessionId, ProtectedSessionListener*> SessionListenerMap;
     SessionListenerMap sessionListeners;            /* Lookup SessionListener by session id */
-
-
     qcc::Mutex sessionListenersLock;                                   /* Lock protecting sessionListners maps */
 };
 

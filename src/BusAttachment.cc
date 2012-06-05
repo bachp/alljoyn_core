@@ -531,6 +531,22 @@ void BusAttachment::WaitStopInternal()
                 ProtectedBusListener* listener = *(it++);
                 delete listener;
             }
+            busInternal->listeners.clear();
+            busInternal->listenerMap.clear();
+
+            std::map<SessionPort, ProtectedSessionPortListener*>::iterator pspit = busInternal->sessionPortListeners.begin();
+            while (pspit != busInternal->sessionPortListeners.end()) {
+                delete pspit->second;
+                ++pspit;
+            }
+            busInternal->sessionPortListeners.clear();
+
+            Internal::SessionListenerMap::iterator sit = busInternal->sessionListeners.begin();
+            while (sit != busInternal->sessionListeners.end()) {
+                delete sit->second;
+                ++sit;
+            }
+            busInternal->sessionListeners.clear();
         }
 
         busInternal->stopLock.Unlock(MUTEX_CONTEXT);
@@ -1394,6 +1410,17 @@ QStatus BusAttachment::LeaveSession(const SessionId& sessionId)
     } else {
         QCC_LogError(status, ("%s.LeaveSession returned ERROR_MESSAGE (error=%s)", org::alljoyn::Bus::InterfaceName, reply->GetErrorDescription().c_str()));
     }
+
+    if (status == ER_OK) {
+        busInternal->sessionListenersLock.Lock(MUTEX_CONTEXT);
+        Internal::SessionListenerMap::iterator it = busInternal->sessionListeners.find(sessionId);
+        if (it != busInternal->sessionListeners.end()) {
+            delete it->second;
+            busInternal->sessionListeners.erase(it);
+        }
+        busInternal->sessionListenersLock.Unlock(MUTEX_CONTEXT);
+    }
+
     return status;
 }
 
