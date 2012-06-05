@@ -151,13 +151,14 @@ class LocalTestObject : public BusObject {
         /* Add org.alljoyn.alljoyn_test interface */
         InterfaceDescription* testIntf = NULL;
         status = bus.CreateInterface(::org::alljoyn::alljoyn_test::InterfaceName, testIntf);
-        if (ER_OK == status) {
+        if ((ER_OK == status) && testIntf) {
             testIntf->AddSignal("my_signal", "a{ys}", NULL, 0);
             testIntf->AddMethod("my_ping", "s", "s", "outStr,inStr", 0);
             testIntf->Activate();
             AddInterface(*testIntf);
         } else {
             QCC_LogError(status, ("Failed to create interface %s", ::org::alljoyn::alljoyn_test::InterfaceName));
+            return;
         }
 
         /* Get my_signal member */

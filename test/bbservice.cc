@@ -504,17 +504,19 @@ class LocalTestObject : public BusObject {
         if (g_ping_back) {
             MsgArg pingArg("s", "pingback");
             const InterfaceDescription* ifc = bus.GetInterface(::org::alljoyn::alljoyn_test::InterfaceName);
-            const InterfaceDescription::Member* pingMethod = ifc->GetMember("my_ping");
+            if (ifc) {
+                const InterfaceDescription::Member* pingMethod = ifc->GetMember("my_ping");
 
-            ProxyBusObject remoteObj;
-            remoteObj = ProxyBusObject(bus, msg->GetSender(), ::org::alljoyn::alljoyn_test::ObjectPath, msg->GetSessionId());
-            remoteObj.AddInterface(*ifc);
-            /*
-             * Make a fire-and-forget method call. If the signal was encrypted encrypt the ping
-             */
-            QStatus status = remoteObj.MethodCall(*pingMethod, &pingArg, 1, msg->IsEncrypted() ? ALLJOYN_FLAG_ENCRYPTED : 0);
-            if (status != ER_OK) {
-                QCC_LogError(status, ("MethodCall on %s.%s failed", ::org::alljoyn::alljoyn_test::InterfaceName, pingMethod->name.c_str()));
+                ProxyBusObject remoteObj;
+                remoteObj = ProxyBusObject(bus, msg->GetSender(), ::org::alljoyn::alljoyn_test::ObjectPath, msg->GetSessionId());
+                remoteObj.AddInterface(*ifc);
+                /*
+                 * Make a fire-and-forget method call. If the signal was encrypted encrypt the ping
+                 */
+                QStatus status = remoteObj.MethodCall(*pingMethod, &pingArg, 1, msg->IsEncrypted() ? ALLJOYN_FLAG_ENCRYPTED : 0);
+                if (status != ER_OK) {
+                    QCC_LogError(status, ("MethodCall on %s.%s failed", ::org::alljoyn::alljoyn_test::InterfaceName, pingMethod->name.c_str()));
+                }
             }
         }
     }
