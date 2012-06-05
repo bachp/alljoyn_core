@@ -34,6 +34,7 @@ using namespace qcc;
 /** @internal */
 #define QCC_MODULE "STUNRETRY"
 
+static const uint8_t MAX_SEND_ATTEMPTS = 6;
 
 class CheckRetry {
   public:
@@ -42,15 +43,17 @@ class CheckRetry {
         transactionValid(false),
         transaction()
     {
-        maxReceiveWaitMsec[0] = 200;
-        maxReceiveWaitMsec[1] = 400;
-        maxReceiveWaitMsec[2] = 800;
-        maxReceiveWaitMsec[3] = 1600;
-        maxReceiveWaitMsec[4] = 1600;
-        maxReceiveWaitMsec[5] = 1600;
-        maxReceiveWaitMsec[6] = 1600;
-        maxReceiveWaitMsec[7] = 1600;
-        maxReceiveWaitMsec[8] = 1600;
+        /* Set the response reception time interval for all attempts to 500ms */
+        for (uint8_t i = 0; i < MAX_SEND_ATTEMPTS; i++) {
+            maxReceiveWaitMsec[i] = 500;
+        }
+
+        /* Set the response reception time interval for the first attempt to 200ms
+         * and the second attempt to 400ms */
+        if (MAX_SEND_ATTEMPTS >= 2) {
+            maxReceiveWaitMsec[0] = 200;
+            maxReceiveWaitMsec[1] = 400;
+        }
     }
 
     ~CheckRetry(void) { }
@@ -108,7 +111,6 @@ class CheckRetry {
     bool transactionValid;
     StunTransactionID transaction;
 
-    static const uint8_t MAX_SEND_ATTEMPTS = 9;
     uint16_t maxReceiveWaitMsec[MAX_SEND_ATTEMPTS];
 };
 
@@ -121,15 +123,17 @@ class Retransmit {
         retransmitState(AwaitingTransmitSlot),
         queuedTime(0), transactionValid(), transaction()
     {
-        maxReceiveWaitMsec[0] = 100;
-        maxReceiveWaitMsec[1] = 200;
-        maxReceiveWaitMsec[2] = 400;
-        maxReceiveWaitMsec[3] = 800;
-        maxReceiveWaitMsec[4] = 1600;
-        maxReceiveWaitMsec[5] = 1600;
-        maxReceiveWaitMsec[6] = 1600;
-        maxReceiveWaitMsec[7] = 1600;
-        maxReceiveWaitMsec[8] = 1600;
+        /* Set the response reception time interval for all attempts to 500ms */
+        for (uint8_t i = 0; i < MAX_SEND_ATTEMPTS; i++) {
+            maxReceiveWaitMsec[i] = 500;
+        }
+
+        /* Set the response reception time interval for the first attempt to 200ms
+         * and the second attempt to 400ms */
+        if (MAX_SEND_ATTEMPTS >= 2) {
+            maxReceiveWaitMsec[0] = 200;
+            maxReceiveWaitMsec[1] = 400;
+        }
     }
 
     ~Retransmit(void);
@@ -188,7 +192,6 @@ class Retransmit {
     bool transactionValid;
     StunTransactionID transaction;
 
-    static const uint8_t MAX_SEND_ATTEMPTS = 9;
     uint16_t maxReceiveWaitMsec[MAX_SEND_ATTEMPTS];
 };
 
