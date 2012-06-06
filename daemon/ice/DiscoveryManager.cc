@@ -778,10 +778,6 @@ QStatus DiscoveryManager::QueueICEAddressCandidatesMessage(bool client, std::pai
 
     ICECandidatesMessage* addressCandidates = new ICECandidatesMessage();
 
-#ifndef PROPOSED_INTERFACE_CHANGES
-    addressCandidates->source = String("");
-    addressCandidates->destination = String("");
-#endif
     addressCandidates->ice_ufrag = sessionDetail.second.ice_frag;
     addressCandidates->ice_pwd = sessionDetail.second.ice_pwd;
     addressCandidates->destinationPeerID = sessionDetail.first;
@@ -1624,8 +1620,8 @@ QStatus DiscoveryManager::SendMessage(RendezvousMessage message)
 
 QStatus DiscoveryManager::HandleSearchMatchResponse(SearchMatchResponse response)
 {
-    QCC_DbgPrintf(("DiscoveryManager::HandleSearchMatchResponse(): Trying to invoke found callback for service %s on Daemon with GUID %s\n",
-                   response.service.c_str(), response.peerAddr.c_str()));
+    QCC_DbgPrintf(("DiscoveryManager::HandleSearchMatchResponse(): Trying to invoke found callback for service %s on Daemon with GUID %s which is a response to the search %s\n",
+                   response.service.c_str(), response.peerAddr.c_str(), response.searchedService.c_str()));
 
     QStatus status = ER_OK;
 
@@ -1637,88 +1633,75 @@ QStatus DiscoveryManager::HandleSearchMatchResponse(SearchMatchResponse response
     // See if the well-known name that has been found is in our list of names
     // to be found.
     //
-    map<String, SearchResponseInfo>::iterator it;
+    map<String, SearchResponseInfo>::iterator it = searchMap.find(response.searchedService);
 
-    // PPN - use a find here after the search match name is sent by the server
-    for (it = searchMap.begin(); it != searchMap.end(); it++) {
-        //
-        // We need to do a find instead of == because the name that was found would have
-        // an AllJoyn Daemon specific identifier appended to it which would not be
-        // present in the name that needs to be found.
-        //
-        // PPN - Check if the find name for which the match was generated is same as the one in searchMap
-        if (response.service.find(it->first) != String::npos) {
+    if (it != searchMap.end()) {
 
-            QCC_DbgPrintf(("DiscoveryManager::HandleSearchMatchResponse(): Found the corresponding entry in the searchMap\n"));
+        QCC_DbgPrintf(("DiscoveryManager::HandleSearchMatchResponse(): Found the corresponding entry %s in the searchMap\n", response.searchedService.c_str()));
 
-            // Update the searchMap with the new information
-            list<RemoteDaemonServicesInfo>* remoteDaemonServicesInfo = &(it->second.response);
-            list<RemoteDaemonServicesInfo>::iterator remoteDaemonServices_it;
+        // Update the searchMap with the new information
+        list<RemoteDaemonServicesInfo>* remoteDaemonServicesInfo = &(it->second.response);
+        list<RemoteDaemonServicesInfo>::iterator remoteDaemonServices_it;
 
-            for (remoteDaemonServices_it = remoteDaemonServicesInfo->begin(); remoteDaemonServices_it != remoteDaemonServicesInfo->end();) {
+        for (remoteDaemonServices_it = remoteDaemonServicesInfo->begin(); remoteDaemonServices_it != remoteDaemonServicesInfo->end();) {
 
-                if (remoteDaemonServices_it->remoteGUID == response.peerAddr) {
+            if (remoteDaemonServices_it->remoteGUID == response.peerAddr) {
 
-                    // Check if we have already discovered this service
-                    for (uint8_t i = 0; i < remoteDaemonServices_it->services.size(); i++) {
-                        if (response.service == remoteDaemonServices_it->services[i]) {
-                            QCC_DbgPrintf(("DiscoveryManager::HandleSearchMatchResponse(): The service %s with GUID %s has already been discovered\n", response.service.c_str(), response.peerAddr.c_str()));
-                            found = true;
-                            // Break out of the remoteDaemonServices_it->services for loop
-                            break;
-                        }
-                    }
-
-                    if (!found) {
-                        // Update the services list if this service that has been discovered is not a part of that list and also update
-                        // the services list accordingly in StunAndTurnServerInfo
-
-                        remoteDaemonServices_it->services.push_back(response.service);
-                        wkn.push_back(response.service);
-
-                        map<String, RemoteDaemonStunInfo>::iterator stun_it = StunAndTurnServerInfo.find(response.peerAddr);
-                        if (stun_it != StunAndTurnServerInfo.end()) {
-                            stun_it->second.services.push_back(response.service);
-                        } else {
-                            RemoteDaemonStunInfo temp;
-                            temp.stunInfo = response.STUNInfo;
-                            temp.services.push_back(response.service);
-                            StunAndTurnServerInfo.insert(pair<String, RemoteDaemonStunInfo>(response.peerAddr, temp));
-                        }
-
+                // Check if we have already discovered this service
+                for (uint8_t i = 0; i < remoteDaemonServices_it->services.size(); i++) {
+                    if (response.service == remoteDaemonServices_it->services[i]) {
+                        QCC_DbgPrintf(("DiscoveryManager::HandleSearchMatchResponse(): The service %s with GUID %s has already been discovered\n", response.service.c_str(), response.peerAddr.c_str()));
                         found = true;
-
-                        QCC_DbgPrintf(("DiscoveryManager::HandleSearchMatchResponse(): Added service %s with GUID %s to searchMap and StunAndTurnServerInfo\n",
-                                       response.service.c_str(), response.peerAddr.c_str()));
+                        // Break out of the remoteDaemonServices_it->services for loop
+                        break;
                     }
-
-                    // Break out of the remoteDaemonServices_it for loop
-                    break;
                 }
 
-                ++remoteDaemonServices_it;
+                if (!found) {
+                    // Update the services list if this service that has been discovered is not a part of that list and also update
+                    // the services list accordingly in StunAndTurnServerInfo
+
+                    remoteDaemonServices_it->services.push_back(response.service);
+                    wkn.push_back(response.service);
+
+                    map<String, RemoteDaemonStunInfo>::iterator stun_it = StunAndTurnServerInfo.find(response.peerAddr);
+                    if (stun_it != StunAndTurnServerInfo.end()) {
+                        stun_it->second.services.push_back(response.service);
+                    } else {
+                        RemoteDaemonStunInfo temp;
+                        temp.stunInfo = response.STUNInfo;
+                        temp.services.push_back(response.service);
+                        StunAndTurnServerInfo.insert(pair<String, RemoteDaemonStunInfo>(response.peerAddr, temp));
+                    }
+
+                    found = true;
+
+                    QCC_DbgPrintf(("DiscoveryManager::HandleSearchMatchResponse(): Added service %s with GUID %s to searchMap and StunAndTurnServerInfo\n",
+                                   response.service.c_str(), response.peerAddr.c_str()));
+                }
+
+                // Break out of the remoteDaemonServices_it for loop
+                break;
             }
 
-            if (!found) {
-                // Insert a new entry corresponding to this GUID and service discovered in the searchMap and StunAndTurnServerInfo
-                RemoteDaemonServicesInfo temp;
-                temp.remoteGUID = response.peerAddr;
-                temp.services.push_back(response.service);
+            ++remoteDaemonServices_it;
+        }
 
-                it->second.response.push_back(temp);
-                wkn.push_back(response.service);
+        if (!found) {
+            // Insert a new entry corresponding to this GUID and service discovered in the searchMap and StunAndTurnServerInfo
+            RemoteDaemonServicesInfo temp;
+            temp.remoteGUID = response.peerAddr;
+            temp.services.push_back(response.service);
 
-                // Update the StunAndTurnServerInfo with the new information
-                RemoteDaemonStunInfo tempStunInfo;
-                tempStunInfo.stunInfo = response.STUNInfo;
-                tempStunInfo.services.push_back(response.service);
-                StunAndTurnServerInfo.insert(pair<String, RemoteDaemonStunInfo>(response.peerAddr, tempStunInfo));
+            it->second.response.push_back(temp);
+            wkn.push_back(response.service);
 
-            }
+            // Update the StunAndTurnServerInfo with the new information
+            RemoteDaemonStunInfo tempStunInfo;
+            tempStunInfo.stunInfo = response.STUNInfo;
+            tempStunInfo.services.push_back(response.service);
+            StunAndTurnServerInfo.insert(pair<String, RemoteDaemonStunInfo>(response.peerAddr, tempStunInfo));
 
-            // break out of the searchMap for loop
-            // PPN - remove later
-            break;
         }
     }
 
