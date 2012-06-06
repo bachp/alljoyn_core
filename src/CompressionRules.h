@@ -34,16 +34,20 @@
 
 #include <Status.h>
 
+#include <qcc/STLContainer.h>
 #include <map>
+//namespace std{
+//using namespace tr1; // add the tr1 to std, to allow line 139 to compile
+//}
 
-#if defined(__GNUC__) && !defined(ANDROID)
-#include <ext/hash_map>
-namespace std {
-using namespace __gnu_cxx;
-}
-#else
-#include <hash_map>
-#endif
+//#if defined(__GNUC__) && !defined(ANDROID)
+//#include <ext/hash_map>
+//namespace std {
+//using namespace __gnu_cxx;
+//}
+//#else
+//#include <hash_map>
+//#endif
 
 namespace ajn {
 
@@ -132,7 +136,7 @@ class _CompressionRules {
     /**
      * The header compression mapping from header fields to compression token
      */
-    std::hash_map<const ajn::HeaderFields*, uint32_t, HdrFieldHash, HdrFieldsEq> fieldMap;
+    std::unordered_map<const ajn::HeaderFields*, uint32_t, HdrFieldHash, HdrFieldsEq> fieldMap;
 
     /*
      * The header expansion mapping from compression token to header fields

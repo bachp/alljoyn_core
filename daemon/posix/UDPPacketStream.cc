@@ -116,7 +116,7 @@ QStatus UDPPacketStream::Start()
     /* Bind socket */
     if (status == ER_OK) {
         ((sockaddr_in*)&sa)->sin_port = htons(port);
-        if (bind(sock, &sa, sizeof(struct sockaddr_in)) >= 0) {
+        if (::bind(sock, &sa, sizeof(struct sockaddr_in)) >= 0) {
             sourceEvent = new qcc::Event(sock, qcc::Event::IO_READ, false);
             sinkEvent = new qcc::Event(sock, qcc::Event::IO_WRITE, false);
         } else {

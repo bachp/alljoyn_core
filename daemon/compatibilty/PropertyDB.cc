@@ -38,7 +38,7 @@ class _PropertyMap {
     qcc::String Get(qcc::String name);
 
   private:
-    std::hash_map<qcc::StringMapKey, qcc::String> m_properties;
+    std::unordered_map<qcc::StringMapKey, qcc::String> m_properties;
 };
 
 void _PropertyMap::Set(qcc::String name, qcc::String value)
@@ -48,7 +48,7 @@ void _PropertyMap::Set(qcc::String name, qcc::String value)
 
 qcc::String _PropertyMap::Get(qcc::String name)
 {
-    std::hash_map<qcc::StringMapKey, qcc::String>::const_iterator i = m_properties.find(name);
+    std::unordered_map<qcc::StringMapKey, qcc::String>::const_iterator i = m_properties.find(name);
     if (i == m_properties.end()) {
         return "";
     }
@@ -57,14 +57,14 @@ qcc::String _PropertyMap::Get(qcc::String name)
 
 _PropertyDB::~_PropertyDB()
 {
-    for (std::hash_map<qcc::StringMapKey, _PropertyMap*>::iterator i = m_modules.begin(); i != m_modules.end(); ++i) {
+    for (std::unordered_map<qcc::StringMapKey, _PropertyMap*>::iterator i = m_modules.begin(); i != m_modules.end(); ++i) {
         delete i->second;
     }
 }
 
 void _PropertyDB::Set(qcc::String module, qcc::String name, qcc::String value)
 {
-    std::hash_map<qcc::StringMapKey, _PropertyMap*>::const_iterator i = m_modules.find(module);
+    std::unordered_map<qcc::StringMapKey, _PropertyMap*>::const_iterator i = m_modules.find(module);
     if (i == m_modules.end()) {
         _PropertyMap* p = new _PropertyMap;
         p->Set(name, value);
@@ -76,7 +76,7 @@ void _PropertyDB::Set(qcc::String module, qcc::String name, qcc::String value)
 
 qcc::String _PropertyDB::Get(qcc::String module, qcc::String name)
 {
-    std::hash_map<qcc::StringMapKey, _PropertyMap*>::const_iterator i = m_modules.find(module);
+    std::unordered_map<qcc::StringMapKey, _PropertyMap*>::const_iterator i = m_modules.find(module);
     if (i == m_modules.end()) {
         return "";
     }

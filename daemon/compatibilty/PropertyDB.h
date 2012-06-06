@@ -40,7 +40,7 @@ class _PropertyDB {
     qcc::String Get(qcc::String module, qcc::String name);
 
   private:
-    std::hash_map<qcc::StringMapKey, _PropertyMap*> m_modules;
+    std::unordered_map<qcc::StringMapKey, _PropertyMap*> m_modules;
 };
 
 /**

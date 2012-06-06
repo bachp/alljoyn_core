@@ -39,14 +39,15 @@
 
 #include <Status.h>
 
-#if defined(__GNUC__) && !defined(ANDROID)
-#include <ext/hash_map>
-namespace std {
-using namespace __gnu_cxx;
-}
-#else
-#include <hash_map>
-#endif
+#include <qcc/STLContainer.h>
+//#if defined(__GNUC__) && !defined(ANDROID)
+//#include <ext/hash_map>
+//namespace std {
+//using namespace __gnu_cxx;
+//}
+//#else
+//#include <hash_map>
+//#endif
 
 namespace ajn {
 
@@ -134,12 +135,12 @@ class SignalTable {
     /**
      * Table iterator
      */
-    typedef std::hash_multimap<Key, Entry, Hash, Equal>::iterator iterator;
+    typedef std::unordered_multimap<Key, Entry, Hash, Equal>::iterator iterator;
 
     /**
      * Const table iterator
      */
-    typedef std::hash_multimap<Key, Entry, Hash, Equal>::const_iterator const_iterator;
+    typedef std::unordered_multimap<Key, Entry, Hash, Equal>::const_iterator const_iterator;
 
     /**
      * Add an entry to the signal hash table.
@@ -201,7 +202,7 @@ class SignalTable {
     qcc::Mutex lock; /**< Lock protecting the signal table */
 
     /**  The hash table */
-    std::hash_multimap<Key, Entry, Hash, Equal> hashTable;
+    std::unordered_multimap<Key, Entry, Hash, Equal> hashTable;
 };
 
 }

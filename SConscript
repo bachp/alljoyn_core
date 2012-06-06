@@ -21,8 +21,8 @@ env['_ALLJOYNCORE_'] = True
 
 # Dependent Projects
 common_hdrs, common_objs = env.SConscript(['../common/SConscript'])
-if env['OS_GROUP'] == 'windows' or env['OS'] == 'android':
-    env.SConscript(['../stlport/SConscript'])
+#if env['OS_GROUP'] == 'windows' or env['OS'] == 'android':
+#    env.SConscript(['../stlport/SConscript'])
 
 if(not(env.has_key('BULLSEYE_BIN'))):
     print('BULLSEYE_BIN not specified')
@@ -84,6 +84,9 @@ env.Install('$DISTDIR/bin', progs)
 
 # Build unit Tests
 env.SConscript('unit_test/SConscript', variant_dir='$OBJDIR/unittest', duplicate=0)
+
+# Build unit Tests
+env.SConscript('size_test/SConscript', variant_dir='$OBJDIR/sizetest', duplicate=0)
 
 # Sample programs
 progs = env.SConscript('$OBJDIR/samples/SConscript')

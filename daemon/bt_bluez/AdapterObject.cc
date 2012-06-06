@@ -489,7 +489,7 @@ SocketFd _AdapterObject::OpenHCI()
     // Need to select the adapter we are sending the HCI command to.
     addr.family = AF_BLUETOOTH;
     addr.dev = id;
-    if (bind(hciFd, (struct sockaddr*)&addr, sizeof(addr)) < 0) {
+    if (::bind(hciFd, (struct sockaddr*)&addr, sizeof(addr)) < 0) {
         close(hciFd);
         hciFd = -1;
         goto exit;

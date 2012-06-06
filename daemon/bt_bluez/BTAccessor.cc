@@ -636,7 +636,7 @@ QStatus BTTransport::BTAccessor::StartConnectable(BDAddress& addr,
 
         for (psm = 0x1001; (psm < 0x8fff); psm += 2) {
             l2capAddr.psm = htole16(psm);         // BlueZ requires PSM to be in little-endian format
-            ret = bind(l2capLFd, (struct sockaddr*)&l2capAddr, sizeof(l2capAddr));
+            ret = ::bind(l2capLFd, (struct sockaddr*)&l2capAddr, sizeof(l2capAddr));
             if (ret != -1) {
                 break;
             }
