@@ -30,16 +30,17 @@
 
 #include "NameTable.h"
 
-#if defined(__GNUC__) && !defined(ANDROID)
-#include <ext/hash_map>
-#include <ext/hash_set>
-namespace std {
-using namespace __gnu_cxx;
-}
-#else
-#include <hash_map>
-#include <hash_set>
-#endif
+#include <qcc/STLContainer.h>
+//#if defined(__GNUC__) && !defined(ANDROID)
+//#include <ext/hash_map>
+//#include <ext/hash_set>
+//namespace std {
+//using namespace __gnu_cxx;
+//}
+//#else
+//#include <hash_map>
+//#include <hash_set>
+//#endif
 
 #if !defined(ALLJOYN_BUILD_POLICY_DEBUG)
 #define ALLJOYN_BUILD_POLICY_DEBUG 0
@@ -220,7 +221,7 @@ class _PolicyDB {
     static const uint32_t WILDCARD = 0x0;               /**< match everything string id */
 
 
-    typedef std::hash_set<uint32_t> BusNameIDSet;
+    typedef std::unordered_set<uint32_t> BusNameIDSet;
 
     /**
      * Container for all the matching criteria for a rule.
@@ -413,18 +414,18 @@ class _PolicyDB {
      */
     struct PolicyRuleListSet {
         PolicyRuleList defaultRules;        /**< default rules */
-        std::hash_map<uint32_t, PolicyRuleList> groupRules; /**< group rules on a per group id basis */
-        std::hash_map<uint32_t, PolicyRuleList> userRules;  /**< user rules on a per user id basis */
+        std::unordered_map<uint32_t, PolicyRuleList> groupRules; /**< group rules on a per group id basis */
+        std::unordered_map<uint32_t, PolicyRuleList> userRules;  /**< user rules on a per user id basis */
         PolicyRuleList atConsoleRules;      /**< at console rules */
         PolicyRuleList notAtConsoleRules;   /**< not at console rules */
         PolicyRuleList mandatoryRules;      /**< mandatory rules */
     };
 
     /** typedef for mapping a string to a numerical value for normalization */
-    typedef std::hash_map<qcc::StringMapKey, uint32_t> StringIDMap;
+    typedef std::unordered_map<qcc::StringMapKey, uint32_t> StringIDMap;
 
     /** typedef for mapping a unique bus name to a set of normalized well known bus names */
-    typedef std::hash_map<qcc::StringMapKey, BusNameIDSet> UniqueNameIDMap;
+    typedef std::unordered_map<qcc::StringMapKey, BusNameIDSet> UniqueNameIDMap;
 
     /**
      * Adds rules to specific rule sets.  Called by public AddRule to add
@@ -536,7 +537,7 @@ class _PolicyDB {
 
 /**
  * This class converts and stores a message's header information in a form
- * that allows for very fast lookup in hash_map<>'s.
+ * that allows for very fast lookup in unordered_map<>'s.
  */
 class NormalizedMsgHdr {
   public:

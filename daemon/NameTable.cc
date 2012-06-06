@@ -42,7 +42,6 @@ using namespace qcc;
 
 namespace ajn {
 
-
 qcc::String NameTable::GenerateUniqueName(void)
 {
     return uniquePrefix + U32ToString(IncrementAndFetch((int32_t*)&uniqueId));
@@ -76,12 +75,12 @@ void NameTable::RemoveUniqueName(const qcc::String& uniqueName)
 
     /* Erase the unique bus name and any well-known names that use the same endpoint */
     lock.Lock(MUTEX_CONTEXT);
-    hash_map<qcc::String, BusEndpoint*, Hash, Equal>::iterator it = uniqueNames.find(uniqueName);
+    unordered_map<qcc::String, BusEndpoint*, Hash, Equal>::iterator it = uniqueNames.find(uniqueName);
     if (it != uniqueNames.end()) {
         BusEndpoint* endpoint = it->second;
 
         /* Remove well-known names asssociated with uniqueName */
-        hash_map<qcc::String, deque<NameQueueEntry>, Hash, Equal>::iterator ait = aliasNames.begin();
+        unordered_map<qcc::String, deque<NameQueueEntry>, Hash, Equal>::iterator ait = aliasNames.begin();
         while (ait != aliasNames.end()) {
             deque<NameQueueEntry>::iterator lit = ait->second.begin();
             bool startOver = false;
@@ -135,9 +134,9 @@ QStatus NameTable::AddAlias(const qcc::String& aliasName,
     QCC_DbgTrace(("NameTable: AddAlias(%s, %s)", aliasName.c_str(), uniqueName.c_str()));
 
     lock.Lock(MUTEX_CONTEXT);
-    hash_map<qcc::String, BusEndpoint*, Hash, Equal>::const_iterator it = uniqueNames.find(uniqueName);
+    unordered_map<qcc::String, BusEndpoint*, Hash, Equal>::const_iterator it = uniqueNames.find(uniqueName);
     if (it != uniqueNames.end()) {
-        hash_map<qcc::String, deque<NameQueueEntry>, Hash, Equal>::iterator wasIt = aliasNames.find(aliasName);
+        unordered_map<qcc::String, deque<NameQueueEntry>, Hash, Equal>::iterator wasIt = aliasNames.find(aliasName);
         NameQueueEntry entry = { uniqueName, flags };
         const qcc::String* origOwner = NULL;
         const qcc::String* newOwner = NULL;
@@ -207,7 +206,7 @@ void NameTable::RemoveAlias(const qcc::String& aliasName,
     lock.Lock(MUTEX_CONTEXT);
 
     /* Find endpoint for aliasName */
-    hash_map<qcc::String, deque<NameQueueEntry>, Hash, Equal>::iterator it = aliasNames.find(aliasName);
+    unordered_map<qcc::String, deque<NameQueueEntry>, Hash, Equal>::iterator it = aliasNames.find(aliasName);
     if (it != aliasNames.end()) {
         deque<NameQueueEntry>& queue = it->second;
 
@@ -253,12 +252,13 @@ BusEndpoint* NameTable::FindEndpoint(const qcc::String& busName) const
 
     lock.Lock(MUTEX_CONTEXT);
     if (busName[0] == ':') {
-        hash_map<qcc::String, BusEndpoint*, Hash, Equal>::const_iterator it = uniqueNames.find(busName);
+        unordered_map<qcc::String, BusEndpoint*, Hash, Equal>::const_iterator it = uniqueNames.find(busName);
         if (it != uniqueNames.end()) {
             ret = it->second;
         }
+
     } else {
-        hash_map<qcc::String, deque<NameQueueEntry>, Hash, Equal>::const_iterator it = aliasNames.find(busName);
+        unordered_map<qcc::String, deque<NameQueueEntry>, Hash, Equal>::const_iterator it = aliasNames.find(busName);
         if (it != aliasNames.end()) {
             assert(!it->second.empty());
             ret = FindEndpoint(it->second[0].endpointName);
@@ -279,12 +279,12 @@ void NameTable::GetBusNames(vector<qcc::String>& names) const
 {
     lock.Lock(MUTEX_CONTEXT);
 
-    hash_map<qcc::String, deque<NameQueueEntry>, Hash, Equal>::const_iterator it = aliasNames.begin();
+    unordered_map<qcc::String, deque<NameQueueEntry>, Hash, Equal>::const_iterator it = aliasNames.begin();
     while (it != aliasNames.end()) {
         names.push_back(it->first);
         ++it;
     }
-    hash_map<qcc::String, BusEndpoint*, Hash, Equal>::const_iterator uit = uniqueNames.begin();
+    unordered_map<qcc::String, BusEndpoint*, Hash, Equal>::const_iterator uit = uniqueNames.begin();
     while (uit != uniqueNames.end()) {
         names.push_back(uit->first);
         ++uit;
@@ -298,12 +298,12 @@ void NameTable::GetUniqueNamesAndAliases(vector<pair<qcc::String, vector<qcc::St
     /* Create a intermediate map to avoid N^2 perf */
     multimap<const BusEndpoint*, qcc::String> epMap;
     lock.Lock(MUTEX_CONTEXT);
-    hash_map<qcc::String, BusEndpoint*, Hash, Equal>::const_iterator uit = uniqueNames.begin();
+    unordered_map<qcc::String, BusEndpoint*, Hash, Equal>::const_iterator uit = uniqueNames.begin();
     while (uit != uniqueNames.end()) {
         epMap.insert(pair<const BusEndpoint*, qcc::String>(uit->second, uit->first));
         ++uit;
     }
-    hash_map<qcc::String, deque<NameQueueEntry>, Hash, Equal>::const_iterator ait = aliasNames.begin();
+    unordered_map<qcc::String, deque<NameQueueEntry>, Hash, Equal>::const_iterator ait = aliasNames.begin();
     while (ait != aliasNames.end()) {
         BusEndpoint* ep = FindEndpoint(ait->second.front().endpointName);
         if (ep) {
@@ -347,7 +347,7 @@ void NameTable::GetUniqueNamesAndAliases(vector<pair<qcc::String, vector<qcc::St
 
 void NameTable::GetQueuedNames(const qcc::String& busName, std::vector<qcc::String>& names)
 {
-    hash_map<qcc::String, deque<NameQueueEntry>, Hash, Equal>::iterator ait = aliasNames.find(busName.c_str());
+    unordered_map<qcc::String, deque<NameQueueEntry>, Hash, Equal>::iterator ait = aliasNames.find(busName.c_str());
     if (ait != aliasNames.end()) {
 
         names.reserve(ait->second.size()); //prevent dynamic resizing in loop

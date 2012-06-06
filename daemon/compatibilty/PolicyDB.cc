@@ -425,7 +425,7 @@ bool _PolicyDB::OKToConnect(uint32_t uid, uint32_t gid) const
     bool allow(false);
     bool ruleMatch(false);
 
-    std::hash_map<uint32_t, PolicyRuleList>::const_iterator it;
+    std::unordered_map<uint32_t, PolicyRuleList>::const_iterator it;
 
     ruleMatch = CheckConnect(allow, connectRS.mandatoryRules, uid, gid);
 
@@ -466,7 +466,7 @@ bool _PolicyDB::OKToOwn(uint32_t busNameID,
 {
     bool allow(false);
     bool ruleMatch(false);
-    std::hash_map<uint32_t, PolicyRuleList>::const_iterator it;
+    std::unordered_map<uint32_t, PolicyRuleList>::const_iterator it;
 
     if (!ownRS.mandatoryRules.empty()) {
         ALLJOYN_POLICY_DEBUG(Log(LOG_DEBUG, "    checking mandatory rules\n"));
@@ -517,7 +517,7 @@ bool _PolicyDB::OKToReceive(const NormalizedMsgHdr& nmh,
 {
     bool allow(false);
     bool ruleMatch(false);
-    std::hash_map<uint32_t, PolicyRuleList>::const_iterator it;
+    std::unordered_map<uint32_t, PolicyRuleList>::const_iterator it;
 
     if (!receiveRS.mandatoryRules.empty()) {
         ALLJOYN_POLICY_DEBUG(Log(LOG_DEBUG, "    checking mandatory rules\n"));
@@ -570,7 +570,7 @@ bool _PolicyDB::OKToSend(const NormalizedMsgHdr& nmh,
     bool allow(((nmh.type != ajn::MESSAGE_INVALID) &&
                 (nmh.type != ajn::MESSAGE_METHOD_CALL)));
     bool ruleMatch(false);
-    std::hash_map<uint32_t, PolicyRuleList>::const_iterator it;
+    std::unordered_map<uint32_t, PolicyRuleList>::const_iterator it;
 
     if (!sendRS.mandatoryRules.empty()) {
         ALLJOYN_POLICY_DEBUG(Log(LOG_DEBUG, "    checking mandatory rules\n"));
@@ -624,7 +624,7 @@ bool _PolicyDB::OKToEavesdrop(const NormalizedMsgHdr& nmh,
 {
     bool allow(false);
     bool ruleMatch(false);
-    std::hash_map<uint32_t, PolicyRuleList>::const_iterator it;
+    std::unordered_map<uint32_t, PolicyRuleList>::const_iterator it;
 
     if (!sendRS.mandatoryRules.empty()) {
         ALLJOYN_POLICY_DEBUG(Log(LOG_DEBUG, "    checking mandatory eavesdrop send rules\n"));

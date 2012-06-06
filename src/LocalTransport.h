@@ -49,14 +49,15 @@
 #include "SignalTable.h"
 #include "Transport.h"
 
-#if defined(__GNUCC__) || defined (QCC_OS_DARWIN)
-#include <ext/hash_map>
-namespace std {
-using namespace __gnu_cxx;
-}
-#else
-#include <hash_map>
-#endif
+#include <qcc/STLContainer.h>
+//#if defined(__GNUCC__) || defined (QCC_OS_DARWIN)
+//#include <ext/hash_map>
+//namespace std {
+//using namespace __gnu_cxx;
+//}
+//#else
+//#include <hash_map>
+//#endif
 
 namespace ajn {
 
@@ -367,7 +368,7 @@ class LocalEndpoint : public BusEndpoint, public qcc::AlarmListener, public Mess
     /**
      * Registered LocalObjects
      */
-    std::hash_map<const char*, BusObject*, std::hash<const char*>, PathEq> localObjects;
+    std::unordered_map<const char*, BusObject*, std::hash<const char*>, PathEq> localObjects;
 
     /**
      * Map from serial numbers for outstanding method calls to response handelers.
