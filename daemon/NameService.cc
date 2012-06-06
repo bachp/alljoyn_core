@@ -1059,9 +1059,13 @@ void NameService::LazyUpdateInterfaces(void)
             // Android build -- i.e., we have to do it anyway.
             //
             if (entries[i].m_family == qcc::QCC_AF_INET) {
-                status = qcc::JoinMulticastGroup(sockFd, qcc::QCC_AF_INET, IPV4_MULTICAST_GROUP, entries[i].m_name);
+                QStatus status1 = qcc::JoinMulticastGroup(sockFd, qcc::QCC_AF_INET, IPV4_MULTICAST_GROUP, entries[i].m_name);
+                QStatus status2 = qcc::JoinMulticastGroup(sockFd, qcc::QCC_AF_INET, IPV4_ALLJOYN_MULTICAST_GROUP, entries[i].m_name);
+                status = status1 != ER_OK ? status1 : status2;
             } else if (entries[i].m_family == qcc::QCC_AF_INET6) {
-                status = qcc::JoinMulticastGroup(sockFd, qcc::QCC_AF_INET6, IPV6_MULTICAST_GROUP, entries[i].m_name);
+                QStatus status1 = qcc::JoinMulticastGroup(sockFd, qcc::QCC_AF_INET6, IPV6_MULTICAST_GROUP, entries[i].m_name);
+                QStatus status2 = qcc::JoinMulticastGroup(sockFd, qcc::QCC_AF_INET6, IPV6_ALLJOYN_MULTICAST_GROUP, entries[i].m_name);
+                status = status1 != ER_OK ? status1 : status2;
             }
             if (status != ER_OK) {
                 QCC_LogError(status, ("NameService::LazyUpdateInterfaces(): unable to join multicast group"));
