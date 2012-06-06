@@ -332,10 +332,6 @@ String GenerateJSONCandidates(ICECandidatesMessage message)
 {
     Json::Value addCandMsg;
 
-#ifndef PROPOSED_INTERFACE_CHANGES
-    Json::StaticString source("source");
-    Json::StaticString destination("destination");
-#endif
     Json::StaticString ice_ufrag("ice-ufrag");
     Json::StaticString ice_pwd("ice-pwd");
     Json::StaticString candidates("candidates");
@@ -349,10 +345,6 @@ String GenerateJSONCandidates(ICECandidatesMessage message)
     Json::StaticString foundation("foundation");
     Json::StaticString componentID("componentID");
 
-#ifndef PROPOSED_INTERFACE_CHANGES
-    addCandMsg[source] = message.source.c_str();
-    addCandMsg[destination] = message.destination.c_str();
-#endif
     addCandMsg[ice_ufrag] = message.ice_ufrag.c_str();
     addCandMsg[ice_pwd] = message.ice_pwd.c_str();
 
@@ -471,9 +463,7 @@ void PrintMessageResponse(Response msg)
         SearchMatchResponse Search = *SearchMatch;
         QCC_DbgPrintf(("PrintMessageResponse(): Search Match Response"));
         QCC_DbgPrintf(("match[service] = %s", Search.service.c_str()));
-#ifndef PROPOSED_INTERFACE_CHANGES
-        QCC_DbgPrintf(("match[matchID] = %s", Search.matchID.c_str()));
-#endif
+        QCC_DbgPrintf(("match[searchedService] = %s", Search.searchedService.c_str()));
         QCC_DbgPrintf(("match[peerAddr] = %s", Search.peerAddr.c_str()));
         QCC_DbgPrintf(("match[STUNInfo][address] = %s", Search.STUNInfo.address.ToString().c_str()));
         QCC_DbgPrintf(("match[STUNInfo][port] = %d", Search.STUNInfo.port));
@@ -506,16 +496,9 @@ void PrintMessageResponse(Response msg)
         AddressCandidatesResponse* AddressCandidates = static_cast<AddressCandidatesResponse*>(msg.response);
         AddressCandidatesResponse Candidates = *AddressCandidates;
         QCC_DbgPrintf(("PrintMessageResponse(): Address Candidate Response"));
-#ifndef PROPOSED_INTERFACE_CHANGES
-        QCC_DbgPrintf(("addressCandidates[source] = %s", Candidates.source.c_str()));
-        QCC_DbgPrintf(("addressCandidates[destination] = %s", Candidates.destination.c_str()));
-#endif
         QCC_DbgPrintf(("addressCandidates[peerAddr] = %s", Candidates.peerAddr.c_str()));
         QCC_DbgPrintf(("addressCandidates[ice-ufrag] = %s", Candidates.ice_ufrag.c_str()));
         QCC_DbgPrintf(("addressCandidates[ice-pwd] = %s", Candidates.ice_pwd.c_str()));
-#ifndef PROPOSED_INTERFACE_CHANGES
-        QCC_DbgPrintf(("addressCandidates[matchID] = %s", Candidates.matchID.c_str()));
-#endif
 
         while (!Candidates.candidates.empty()) {
             QCC_DbgPrintf(("addressCandidates[candidates][type] = %s", GetICECandidateTypeString(Candidates.candidates.front().type).c_str()));
@@ -575,9 +558,7 @@ QStatus ParseMessagesResponse(Json::Value receivedResponse, ResponseMessage& par
     Json::StaticString service("service");
     Json::StaticString type("type");
     Json::StaticString match("match");
-#ifndef PROPOSED_INTERFACE_CHANGES
-    Json::StaticString matchID("matchID");
-#endif
+    Json::StaticString searchedService("searchedService");
     Json::StaticString peerID("peerID");
     Json::StaticString ice_ufrag("ice-ufrag");
     Json::StaticString ice_pwd("ice-pwd");
@@ -623,106 +604,100 @@ QStatus ParseMessagesResponse(Json::Value receivedResponse, ResponseMessage& par
 
                             Json::Value matchObj = msgsObjArrayMember[match];
 
-#ifndef PROPOSED_INTERFACE_CHANGES
-                            if (matchObj.isMember(matchID)) {
-#endif
-                            if (matchObj.isMember(service)) {
-                                if (matchObj.isMember(peerAddr)) {
-                                    if (matchObj.isMember(STUNInfo)) {
+                            if (matchObj.isMember(searchedService)) {
+                                if (matchObj.isMember(service)) {
+                                    if (matchObj.isMember(peerAddr)) {
+                                        if (matchObj.isMember(STUNInfo)) {
 
-                                        Json::Value STUNInfoObj = matchObj[STUNInfo];
+                                            Json::Value STUNInfoObj = matchObj[STUNInfo];
 
-                                        if (STUNInfoObj.isMember(address)) {
-                                            if (STUNInfoObj.isMember(acct)) {
-                                                if (STUNInfoObj.isMember(pwd)) {
-                                                    if (STUNInfoObj.isMember(expiryTime)) {
-                                                        tempMsg.type = SEARCH_MATCH_RESPONSE;
-                                                        SearchMatchResponse* SearchMatch = new SearchMatchResponse();
-#ifndef PROPOSED_INTERFACE_CHANGES
-                                                        SearchMatch->matchID = String(matchObj[matchID].asCString());
-#endif
-                                                        SearchMatch->service = String(matchObj[service].asCString());
-                                                        SearchMatch->peerAddr = String(matchObj[peerAddr].asCString());
-                                                        status = SearchMatch->STUNInfo.address.SetAddress(String(STUNInfoObj[address].asCString()), true);
-                                                        if (status != ER_OK) {
-                                                            QCC_LogError(status, ("ParseMessagesResponse(): Invalid STUN Server address specified in Search Match response"));
-                                                            return status;
-                                                        }
-                                                        if (STUNInfoObj.isMember(port)) {
-                                                            SearchMatch->STUNInfo.port = STUNInfoObj[port].asInt();
-                                                        } else {
-                                                            QCC_DbgPrintf(("ParseMessagesResponse(): Setting the port to default value as match[STUNInfo][port] member was not found"));
-                                                        }
-                                                        SearchMatch->STUNInfo.acct = String(STUNInfoObj[acct].asCString());
-                                                        SearchMatch->STUNInfo.pwd = String(STUNInfoObj[pwd].asCString());
-                                                        SearchMatch->STUNInfo.expiryTime = ((STUNInfoObj[expiryTime].asInt()) - TURN_TOKEN_EXPIRY_TIME_BUFFER_IN_SECONDS) * 1000;
-                                                        SearchMatch->STUNInfo.recvTime = GetTimestamp();
+                                            if (STUNInfoObj.isMember(address)) {
+                                                if (STUNInfoObj.isMember(acct)) {
+                                                    if (STUNInfoObj.isMember(pwd)) {
+                                                        if (STUNInfoObj.isMember(expiryTime)) {
+                                                            tempMsg.type = SEARCH_MATCH_RESPONSE;
+                                                            SearchMatchResponse* SearchMatch = new SearchMatchResponse();
+                                                            SearchMatch->searchedService = String(matchObj[searchedService].asCString());
+                                                            SearchMatch->service = String(matchObj[service].asCString());
+                                                            SearchMatch->peerAddr = String(matchObj[peerAddr].asCString());
+                                                            status = SearchMatch->STUNInfo.address.SetAddress(String(STUNInfoObj[address].asCString()), true);
+                                                            if (status != ER_OK) {
+                                                                QCC_LogError(status, ("ParseMessagesResponse(): Invalid STUN Server address specified in Search Match response"));
+                                                                return status;
+                                                            }
+                                                            if (STUNInfoObj.isMember(port)) {
+                                                                SearchMatch->STUNInfo.port = STUNInfoObj[port].asInt();
+                                                            } else {
+                                                                QCC_DbgPrintf(("ParseMessagesResponse(): Setting the port to default value as match[STUNInfo][port] member was not found"));
+                                                            }
+                                                            SearchMatch->STUNInfo.acct = String(STUNInfoObj[acct].asCString());
+                                                            SearchMatch->STUNInfo.pwd = String(STUNInfoObj[pwd].asCString());
+                                                            SearchMatch->STUNInfo.expiryTime = ((STUNInfoObj[expiryTime].asInt()) - TURN_TOKEN_EXPIRY_TIME_BUFFER_IN_SECONDS) * 1000;
+                                                            SearchMatch->STUNInfo.recvTime = GetTimestamp();
 
-                                                        if (STUNInfoObj.isMember(relay)) {
-                                                            Json::Value relayObj = STUNInfoObj[relay];
+                                                            if (STUNInfoObj.isMember(relay)) {
+                                                                Json::Value relayObj = STUNInfoObj[relay];
 
-                                                            if (relayObj.isMember(address)) {
-                                                                if (relayObj.isMember(port)) {
-                                                                    SearchMatch->STUNInfo.relayInfoPresent = true;
-                                                                    status = SearchMatch->STUNInfo.relay.address.SetAddress(String(relayObj[address].asCString()));
-                                                                    if (status != ER_OK) {
-                                                                        QCC_LogError(status, ("ParseMessagesResponse(): Invalid Relay Server address specified in Search Match response"));
-                                                                        return status;
+                                                                if (relayObj.isMember(address)) {
+                                                                    if (relayObj.isMember(port)) {
+                                                                        SearchMatch->STUNInfo.relayInfoPresent = true;
+                                                                        status = SearchMatch->STUNInfo.relay.address.SetAddress(String(relayObj[address].asCString()));
+                                                                        if (status != ER_OK) {
+                                                                            QCC_LogError(status, ("ParseMessagesResponse(): Invalid Relay Server address specified in Search Match response"));
+                                                                            return status;
+                                                                        }
+                                                                        SearchMatch->STUNInfo.relay.port = relayObj[port].asInt();
+
+                                                                        tempMsg.response = static_cast<SearchMatchResponse*>(SearchMatch);
+
+                                                                        parsedResponse.msgs.push_back(tempMsg);
+                                                                        PrintMessageResponse(tempMsg);
+                                                                    } else {
+                                                                        status = ER_FAIL;
+                                                                        QCC_LogError(status, ("ParseMessagesResponse(): match[STUNInfo][relay][port] member not found"));
                                                                     }
-                                                                    SearchMatch->STUNInfo.relay.port = relayObj[port].asInt();
-
-                                                                    tempMsg.response = static_cast<SearchMatchResponse*>(SearchMatch);
-
-                                                                    parsedResponse.msgs.push_back(tempMsg);
-                                                                    PrintMessageResponse(tempMsg);
                                                                 } else {
                                                                     status = ER_FAIL;
-                                                                    QCC_LogError(status, ("ParseMessagesResponse(): match[STUNInfo][relay][port] member not found"));
+                                                                    QCC_LogError(status, ("ParseMessagesResponse(): match[STUNInfo][relay][address] member not found"));
                                                                 }
                                                             } else {
-                                                                status = ER_FAIL;
-                                                                QCC_LogError(status, ("ParseMessagesResponse(): match[STUNInfo][relay][address] member not found"));
+                                                                tempMsg.response = static_cast<SearchMatchResponse*>(SearchMatch);
+                                                                parsedResponse.msgs.push_back(tempMsg);
+                                                                PrintMessageResponse(tempMsg);
+                                                                QCC_DbgPrintf(("ParseMessagesResponse(): match[STUNInfo][relay] member not found"));
                                                             }
                                                         } else {
-                                                            tempMsg.response = static_cast<SearchMatchResponse*>(SearchMatch);
-                                                            parsedResponse.msgs.push_back(tempMsg);
-                                                            PrintMessageResponse(tempMsg);
-                                                            QCC_DbgPrintf(("ParseMessagesResponse(): match[STUNInfo][relay] member not found"));
+                                                            status = ER_FAIL;
+                                                            QCC_LogError(status, ("ParseMessagesResponse(): match[STUNInfo][expiryTime] member not found"));
                                                         }
                                                     } else {
                                                         status = ER_FAIL;
-                                                        QCC_LogError(status, ("ParseMessagesResponse(): match[STUNInfo][expiryTime] member not found"));
+                                                        QCC_LogError(status, ("ParseMessagesResponse(): match[STUNInfo][pwd] member not found"));
                                                     }
                                                 } else {
                                                     status = ER_FAIL;
-                                                    QCC_LogError(status, ("ParseMessagesResponse(): match[STUNInfo][pwd] member not found"));
+                                                    QCC_LogError(status, ("ParseMessagesResponse(): match[STUNInfo][acct] member not found"));
                                                 }
                                             } else {
                                                 status = ER_FAIL;
-                                                QCC_LogError(status, ("ParseMessagesResponse(): match[STUNInfo][acct] member not found"));
+                                                QCC_LogError(status, ("ParseMessagesResponse(): match[STUNInfo][address] member not found"));
                                             }
                                         } else {
                                             status = ER_FAIL;
-                                            QCC_LogError(status, ("ParseMessagesResponse(): match[STUNInfo][address] member not found"));
+                                            QCC_LogError(status, ("ParseMessagesResponse(): match[STUNInfo] member not found"));
                                         }
                                     } else {
                                         status = ER_FAIL;
-                                        QCC_LogError(status, ("ParseMessagesResponse(): match[STUNInfo] member not found"));
+                                        QCC_LogError(status, ("ParseMessagesResponse(): match[peerAddr] member not found"));
                                     }
                                 } else {
                                     status = ER_FAIL;
-                                    QCC_LogError(status, ("ParseMessagesResponse(): match[peerAddr] member not found"));
+                                    QCC_LogError(status, ("ParseMessagesResponse(): match[service] member not found"));
                                 }
                             } else {
                                 status = ER_FAIL;
-                                QCC_LogError(status, ("ParseMessagesResponse(): match[service] member not found"));
+                                QCC_LogError(status, ("ParseMessagesResponse(): match[searchedService] member not found"));
                             }
-#ifndef PROPOSED_INTERFACE_CHANGES
-                        } else {
-                            status = ER_FAIL;
-                            QCC_LogError(status, ("ParseMessagesResponse(): match[matchID] member not found"));
-                        }
-#endif
                         } else {
                             status = ER_FAIL;
                             QCC_LogError(status, ("ParseMessagesResponse(): match member not found"));
@@ -735,24 +710,12 @@ QStatus ParseMessagesResponse(Json::Value receivedResponse, ResponseMessage& par
 
                             ICECandidates tempCandidateMsg;
 
-#ifndef PROPOSED_INTERFACE_CHANGES
-                            if (addressCandidatesObj.isMember(matchID)) {
-                                if (addressCandidatesObj.isMember(source)) {
-                                    if (addressCandidatesObj.isMember(destination)) {
-#endif
                             if (addressCandidatesObj.isMember(peerAddr)) {
                                 if (addressCandidatesObj.isMember(ice_ufrag)) {
                                     if (addressCandidatesObj.isMember(ice_pwd)) {
                                         tempMsg.type = ADDRESS_CANDIDATES_RESPONSE;
                                         AddressCandidatesResponse* AddressCandidates = new AddressCandidatesResponse();
-#ifndef PROPOSED_INTERFACE_CHANGES
-                                        AddressCandidates->source = String(addressCandidatesObj[source].asCString());
-                                        AddressCandidates->destination = String(addressCandidatesObj[destination].asCString());
-#endif
                                         AddressCandidates->peerAddr = String(addressCandidatesObj[peerAddr].asCString());
-#ifndef PROPOSED_INTERFACE_CHANGES
-                                        AddressCandidates->matchID = String(addressCandidatesObj[matchID].asCString());
-#endif
                                         AddressCandidates->ice_ufrag = String(addressCandidatesObj[ice_ufrag].asCString());
                                         AddressCandidates->ice_pwd = String(addressCandidatesObj[ice_pwd].asCString());
 
@@ -939,20 +902,6 @@ QStatus ParseMessagesResponse(Json::Value receivedResponse, ResponseMessage& par
                                 status = ER_FAIL;
                                 QCC_LogError(status, ("ParseMessagesResponse(): addressCandidates[peerAddr] member not found"));
                             }
-#ifndef PROPOSED_INTERFACE_CHANGES
-                        } else {
-                            status = ER_FAIL;
-                            QCC_LogError(status, ("ParseMessagesResponse(): addressCandidates[destination] member not found"));
-                        }
-                    } else {
-                        status = ER_FAIL;
-                        QCC_LogError(status, ("ParseMessagesResponse(): addressCandidates[source] member not found"));
-                    }
-                } else {
-                    status = ER_FAIL;
-                    QCC_LogError(status, ("ParseMessagesResponse(): addressCandidates[matchID] member not found"));
-                }
-#endif
                         } else {
                             status = ER_FAIL;
                             QCC_LogError(status, ("ParseMessagesResponse(): addressCandidates member not found"));

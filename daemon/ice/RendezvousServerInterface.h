@@ -450,21 +450,6 @@ typedef struct _ICECandidates {
  */
 class ICECandidatesMessage  : public InterfaceMessage {
   public:
-    /**
-     * The name of the service on behalf of which or to which the AllJoyn
-     * Daemon is sending the ICE Candidates message through the
-     * Rendezvous Server.
-     */
-#ifndef PROPOSED_INTERFACE_CHANGES
-    String source;
-
-    /**
-     * The name of the client on behalf of which or to which the AllJoyn
-     * Daemon is sending the ICE Candidates message through the
-     * Rendezvous Server.
-     */
-    String destination;
-#endif
 
     /**
      * The user name fragment used by ICE for message integrity.
@@ -601,11 +586,7 @@ class SearchMatchResponse : public InterfaceResponse {
 
     /* The unique identifier assigned to a match by the server.
      * It is utilized later to refresh time-expired token. */
-#ifndef PROPOSED_INTERFACE_CHANGES
-    String matchID;
-
-    // PPN - Add a field to specify the search name that generated this Search Match response
-#endif
+    String searchedService;
 
     /**
      * The service name that has resulted in this match message
@@ -678,33 +659,11 @@ class MatchRevokedResponse : public InterfaceResponse {
 class AddressCandidatesResponse : public InterfaceResponse {
   public:
 
-#ifndef PROPOSED_INTERFACE_CHANGES
-    /**
-     * The name of the service that sent or is receiving this Address Candidate Message
-     * to the Rendezvous Server.
-     */
-    String source;
-
-    /**
-     * The name of the client that sent or is receiving this Address Candidate Message
-     * to the Rendezvous Server.
-     */
-    String destination;
-#endif
-
     /**
      * The peer address of the Daemon that sent this Address Candidate Message
      * to the Rendezvous Server.
      */
     String peerAddr;
-
-#ifndef PROPOSED_INTERFACE_CHANGES
-    /**
-     * The unique identifier assigned to a match by the server.
-     * It is utilized later to refresh time-expired token.
-     */
-    String matchID;
-#endif
 
     /**
      * The user name fragment used by ICE for message integrity.
@@ -1247,23 +1206,9 @@ class TokenRefreshMessage : public InterfaceMessage {
     bool client;
 
     /**
-     * The matchID associated with the tokens to be refreshed.
-     */
-#ifndef PROPOSED_INTERFACE_CHANGES
-    String matchID;
-#endif
-
-    /**
      * The remote peer address corresponding to this matchID.
      */
     String remotePeerAddress;
-
-#ifndef PROPOSED_INTERFACE_CHANGES
-    /**
-     * The remote service/client name corresponding to this matchID.
-     */
-    String remoteName;
-#endif
 
     /* Listener to call back on availability of new refreshed tokens */
     TokenRefreshListener* tokenRefreshListener;

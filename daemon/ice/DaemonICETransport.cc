@@ -2346,10 +2346,6 @@ QStatus DaemonICETransport::GetNewTokensFromServer(bool client, STUNServerInfo& 
     TokenRefreshMessage refreshMessage;
 
     refreshMessage.client = client;
-#ifndef PROPOSED_INTERFACE_CHANGES
-    refreshMessage.matchID = String("");
-    refreshMessage.remoteName = String("");
-#endif
     refreshMessage.remotePeerAddress = remotePeerAddress;
     refreshMessage.tokenRefreshListener = &tokenRefreshListener;
 
