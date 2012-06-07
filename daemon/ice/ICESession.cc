@@ -1213,7 +1213,6 @@ QStatus ICESession::FormCheckLists(list<ICECandidates>& peerCandidates, String i
         ComponentID remoteComponentID = peerCandidates.front().componentID;
         ICECandidate remoteCandidate;
 
-
         for (localCandidatesIter = localICEStreamCandidates.begin();
              localCandidatesIter != localICEStreamCandidates.end();
              localCandidatesIter++) {
@@ -1231,6 +1230,13 @@ QStatus ICESession::FormCheckLists(list<ICECandidates>& peerCandidates, String i
                                                    remoteTransportProtocol,
                                                    remotePriority,
                                                    remoteFoundation);
+
+                    if (remoteCandidateType == _ICECandidate::Relayed_Candidate) {
+                        IPEndpoint remoteMappedEndpoint;
+                        remoteMappedEndpoint.addr = peerCandidates.front().raddress;
+                        remoteMappedEndpoint.port = peerCandidates.front().rport;
+                        remoteCandidate->SetMappedAddress(remoteMappedEndpoint);
+                    }
 
                     streamList[0]->AddRemoteCandidate(remoteCandidate);
                 }
@@ -1311,6 +1317,11 @@ void ICESession::EnqueueTurnCreatePermissions(ICECandidate& candidate)
     ICEStream::constRemoteListIterator iter;
 
     for (iter = stream->RemoteListBegin(); iter != stream->RemoteListEnd(); ++iter) {
+#if 0
+        if ((*iter)->GetType()  == _ICECandidate::Host_Candidate) {
+            continue;
+        }
+#endif
         IPEndpoint peerEndpoint = (*iter)->GetEndpoint();
         msg->AddAttribute(new StunAttributeXorPeerAddress(*msg, peerEndpoint.addr, peerEndpoint.port));
 
@@ -1356,6 +1367,7 @@ void ICESession::UpdateICEStreamStates(void)
     bool atLeastOneIsRunning = false;
 
     stream_iterator streamIt;
+    QCC_DbgTrace(("ICESession::UpdateICEStreamStates"));
 
     for (streamIt = Begin(); streamIt != End(); ++streamIt) {
         ICEStream::ICEStreamCheckListState checkListState = (*streamIt)->GetCheckListState();
@@ -1596,11 +1608,13 @@ void ICESession::GetSelectedCandidatePairList(vector<ICECandidatePair*>& selecte
     // walk list and display
     vector<ICECandidatePair*>::iterator iter;
     for (iter = selectedCandidatePairList.begin(); iter != selectedCandidatePairList.end(); ++iter) {
-        QCC_DbgPrintf(("SelectedPair: local %s:%d remote %s:%d",
+        QCC_DbgPrintf(("SelectedPair: local %s:%d (%s) remote %s:%d (%s)",
                        (*iter)->local->GetEndpoint().addr.ToString().c_str(),
                        (*iter)->local->GetEndpoint().port,
+                       (*iter)->local->GetTypeString().c_str(),
                        (*iter)->remote->GetEndpoint().addr.ToString().c_str(),
-                       (*iter)->remote->GetEndpoint().port));
+                       (*iter)->remote->GetEndpoint().port,
+                       (*iter)->remote->GetTypeString().c_str()));
     }
 
 }

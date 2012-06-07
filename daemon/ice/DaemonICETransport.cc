@@ -1023,7 +1023,7 @@ void DaemonICETransport::SendSTUNKeepAliveAndTURNRefreshRequest(ICEPacketStream&
     delete[] rBuf;
 
     /* Send TURN refresh (if needed) at slower interval */
-    if (icePktStream.GetCandidateType() == _ICECandidate::Relayed_Candidate) {
+    if (icePktStream.IsUsingTurn()) {
         if ((GetTimestamp64() - icePktStream.GetTurnRefreshTimestamp()) >= icePktStream.GetTurnRefreshPeriod()) {
             /* Send TURN refresh */
             String hmacKey = icePktStream.GetHmacKey();
@@ -1271,7 +1271,7 @@ ThreadReturn STDCALL DaemonICETransport::AllocateICESessionThread::Run(void* arg
                                                 QCC_DbgPrintf(("DaemonTCPTransport::AllocateICESessionThread: Reusing existing pktStream for %s", connectSpec.c_str()));
                                             } else {
                                                 /* Wrap ICE session FD in a new ICEPacketStream */
-                                                ICEPacketStream pks(*iceSession, *stunActivityPtr->stun, selectedCandidatePairList[0]->local->GetType());
+                                                ICEPacketStream pks(*iceSession, *stunActivityPtr->stun, *selectedCandidatePairList[0]);
                                                 map<String, pair<ICEPacketStream, int32_t> >::iterator sit =
                                                     transportObj->pktStreamMap.insert(pair<String, pair<ICEPacketStream, int32_t> >(connectSpec, pair<ICEPacketStream, int32_t>(pks, 1))).first;
 
@@ -1815,7 +1815,7 @@ QStatus DaemonICETransport::Connect(const char* connectSpec, const SessionOpts& 
                             QCC_DbgPrintf(("DaemonICETransport::Connect(): Starting ICE Checks"));
 
                             /* Start the ICE Checks*/
-                            status = iceSession->StartChecks(peerCandidates, true, ice_frag, ice_pwd);
+                            status = iceSession->StartChecks(peerCandidates, false, ice_frag, ice_pwd);
 
                             QCC_DbgPrintf(("DaemonICETransport::Connect(): StartChecks status = 0x%x", status));
 
@@ -1860,7 +1860,7 @@ QStatus DaemonICETransport::Connect(const char* connectSpec, const SessionOpts& 
                                                 Stun* stun = selectedCandidatePairList[0]->local->GetStunActivity()->stun;
 
                                                 /* Wrap ICE session FD in a new ICEPacketStream */
-                                                ICEPacketStream pks(*iceSession, *stun, selectedCandidatePairList[0]->local->GetType());
+                                                ICEPacketStream pks(*iceSession, *stun, *selectedCandidatePairList[0]);
                                                 map<String, pair<ICEPacketStream, int32_t> >::iterator it =
                                                     pktStreamMap.insert(pair<String, pair<ICEPacketStream, int32_t> >(normSpec, pair<ICEPacketStream, int32_t>(pks, 1))).first;
 

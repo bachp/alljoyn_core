@@ -283,7 +283,7 @@ QStatus _ICECandidate::ReadReceivedMessage(uint32_t timeoutMsec)
 
     if (status != ER_OK) {
         if (status != ER_STOPPING_THREAD) {
-            QCC_LogError(status, ("ReadReceivedMessage status = %d", status));
+            QCC_LogError(status, ("ReadReceivedMessage failed (ICECandidate=%p)", this));
         }
         return status;
     }
@@ -441,13 +441,20 @@ QStatus _ICECandidate::ReadReceivedMessage(uint32_t timeoutMsec)
                     stunActivity->stun->GetComponent()->AddCandidate(relayedCandidate);
 
                     // Set the relay IP and port in the STUN object
+                    // @@ JP HARDCODING
+#if 0
                     stunActivity->stun->SetTurnAddr(relayed.addr);
                     stunActivity->stun->SetTurnPort(relayed.port);
+#else
+                    stunActivity->stun->SetTurnAddr(IPAddress("199.1.146.143"));
+                    stunActivity->stun->SetTurnPort(3478);
+#endif
                     QCC_DbgPrintf(("Setting Relay address %s and port %d in STUN object", relayed.addr.ToString().c_str(), relayed.port));
 
                     if (sharedStunRelayedCandidate) {
                         delete sharedStunRelayedCandidate;
                     }
+
                     sharedStunRelayedCandidate = new ICECandidate(relayedCandidate); // to demux received check messages later
                 }
             }
@@ -579,7 +586,6 @@ QStatus _ICECandidate::ReadReceivedMessage(uint32_t timeoutMsec)
             // ToDo: the server MUST reject the request
             // with an error response.  This response MUST use an error code
             // of 401 (Unauthorized).
-
             goto exit;
         }
 
@@ -641,15 +647,14 @@ QStatus _ICECandidate::ReadReceivedMessage(uint32_t timeoutMsec)
             // Recall that this Stun object may be shared by multiple local
             // candidates (host, server-reflexive, relayed,) each belonging to perhaps multiple candidate pairs.
             ICECandidatePair* constructedPair = NULL;
-            if (receivedMsgWasRelayed) {
+            if (receivedMsgWasRelayed && sharedStunRelayedCandidate) {
                 constructedPair = component->GetICEStream()->MatchCheckListEndpoint((*sharedStunRelayedCandidate)->endPoint, remote);
             } else {
                 constructedPair = component->GetICEStream()->MatchCheckListEndpoint(endPoint, remote);
-                if (NULL == constructedPair) {
+                if ((NULL == constructedPair) && sharedStunServerReflexiveCandidate) {
                     constructedPair = component->GetICEStream()->MatchCheckListEndpoint((*sharedStunServerReflexiveCandidate)->endPoint, remote);
                 }
             }
-
             if (!constructedPair) {
                 // @@ JP
 #if 0

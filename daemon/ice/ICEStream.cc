@@ -41,11 +41,13 @@ void ICEStream::DumpChecklist(void)
     int count = 0;
     for (it = CheckListBegin(); it != CheckListEnd(); ++it, ++count) {
 
-        QCC_DbgPrintf(("Pair %d: local %s:%d remote %s:%d", count,
+        QCC_DbgPrintf(("Pair %d: local %s:%d (%s) remote %s:%d (%s)", count,
                        (*it)->local->GetEndpoint().addr.ToString().c_str(),
                        (*it)->local->GetEndpoint().port,
+                       (*it)->local->GetTypeString().c_str(),
                        (*it)->remote->GetEndpoint().addr.ToString().c_str(),
-                       (*it)->remote->GetEndpoint().port));
+                       (*it)->remote->GetEndpoint().port,
+                       (*it)->remote->GetTypeString().c_str()));
     }
 }
 #endif
@@ -158,6 +160,14 @@ void ICEStream::SortAndPruneCandidatePairs(void)
     ICECandidatePair* prev = NULL;
 
     for (iter = tempList.begin(); iter != tempList.end(); ++iter) {
+
+#if 0
+        if (((*iter)->local->GetType() != _ICECandidate::Relayed_Candidate) && ((*iter)->remote->GetType() != _ICECandidate::Relayed_Candidate)) {
+            checkList.remove(*iter);
+            continue;
+        }
+#endif
+
         if (prev == NULL) {
             prev = *iter;
             continue;
@@ -457,7 +467,6 @@ void ICEStream::CheckListDispatcher(void)
         //of GetActiveCheckListCount
         session->Lock();
     }
-    ;
 
     session->Unlock();
 
@@ -661,7 +670,14 @@ void ICEStream::ProcessCheckEvent(ICECandidatePair& requestPair,
                                   ICECandidatePair::CheckStatus status,
                                   IPEndpoint& mappedAddress)
 {
-    QCC_DbgTrace(("ICEStream::ProcessCheckEvent"));
+    QCC_DbgTrace(("ICEStream::ProcessCheckEvent(status=%s, local=%s:%d (%s), remote=%s:%d (%s)",
+                  requestPair.CheckStatusToString(status).c_str(),
+                  requestPair.local->GetEndpoint().addr.ToString().c_str(),
+                  requestPair.local->GetEndpoint().port,
+                  requestPair.local->GetTypeString().c_str(),
+                  requestPair.remote->GetEndpoint().addr.ToString().c_str(),
+                  requestPair.remote->GetEndpoint().port,
+                  requestPair.remote->GetTypeString().c_str()));
 
     ICECandidate peerReflexiveCandidate;
 
@@ -730,12 +746,20 @@ void ICEStream::ProcessCheckEvent(ICECandidatePair& requestPair,
 // Section 7.1.2.3 draft-ietf-mmusic-ice-19
 void ICEStream::UpdateCheckListAndTimerState(void)
 {
+    QCC_DbgTrace(("ICEStream::UpdateCheckListAndTimerState"));
+
     bool allFailedOrSucceeded = true;
 
     checkListIterator iter;
     for (iter = CheckListBegin(); iter != CheckListEnd(); ++iter) {
         if ((*iter)->state != ICECandidatePair::Failed &&
             (*iter)->state != ICECandidatePair::Succeeded) {
+            QCC_DbgPrintf(("ICEStream::UpdateTimerState: local=%s:%d, remote=%s:%d is in state %d",
+                           (*iter)->local->GetEndpoint().addr.ToString().c_str(),
+                           (*iter)->local->GetEndpoint().port,
+                           (*iter)->remote->GetEndpoint().addr.ToString().c_str(),
+                           (*iter)->remote->GetEndpoint().port,
+                           (*iter)->state));
             allFailedOrSucceeded = false;
             break;
         }
@@ -793,8 +817,7 @@ ICECandidatePair* ICEStream::MatchCheckList(IPEndpoint& remoteEndpoint, StunTran
     checkListIterator iter;
 
     for (iter = CheckListBegin(); iter != CheckListEnd(); ++iter) {
-        if (((*iter)->remote->GetEndpoint() == remoteEndpoint) &&
-            (tid == (*iter)->GetTransactionID() || (*iter)->EqualsCanceledTransactionID(tid))) {
+        if ((tid == (*iter)->GetTransactionID()) || (*iter)->EqualsCanceledTransactionID(tid)) {
             pair = (*iter);
             break;
         }
