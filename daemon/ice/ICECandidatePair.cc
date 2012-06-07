@@ -261,8 +261,6 @@ void ICECandidatePair::Check(void)
                                                         local->GetType() == _ICECandidate::Relayed_Candidate);
     }
 
-    // PPN - may need to add case for server/peer reflexive candidate
-
     delete msg;
 
 }

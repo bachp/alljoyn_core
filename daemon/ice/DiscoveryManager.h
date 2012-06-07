@@ -905,14 +905,12 @@ class DiscoveryManager : public Thread, public AlarmListener {
 
     /**
      * @internal
-     * @brief A class used to store the developer credentials of a service/client and a map of the
-     * received responses for the Advertisement and FindName from the Rendezvous Server.
+     * @brief A class used to store a list of the received responses for a FindName.
      */
-    // PPN - Make this a map if possible
     class SearchResponseInfo {
       public:
         list<RemoteDaemonServicesInfo> response; /**< list of the GUID of the Daemon from which the information was received and the
-                                                      vector of services discovered */
+                                                     vector of services discovered */
 
         //Constructor
         SearchResponseInfo() { }
