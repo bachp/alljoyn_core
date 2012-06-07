@@ -501,7 +501,6 @@ QStatus RendezvousServerConnection::SetupSockForConn(SocketFd& sockFd, ConnInter
 
     if (status == ER_OK) {
         uint32_t yes = 1;
-        // PPN - Use SO_BINDTODEVICE instead of the bind call to connect the socket to an interface
         if (setsockopt(sockFd, SOL_SOCKET, SO_REUSEADDR, reinterpret_cast<const char*>(&yes), sizeof(yes)) < 0) {
             QCC_LogError(status, ("RendezvousServerConnection::SetupSockForConn(): setsockopt(SO_REUSEADDR) failed: %d - %s",
                                   errno, strerror(errno)));

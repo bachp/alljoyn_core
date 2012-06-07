@@ -106,7 +106,6 @@ const String DaemonRegistrationUri = RendezvousServerAddress + RendezvousProtoco
 /**
  * The refresh time-expiry token call.
  */
-// PPN - Interface change
 const String TokenRefreshUri = RendezvousServerAddress + RendezvousProtocolVersion + String("/peer/%s/token");
 
 /* Buffer time to subtract from the token expiry time specified by the Rendezvous Server so that we try to get new tokens

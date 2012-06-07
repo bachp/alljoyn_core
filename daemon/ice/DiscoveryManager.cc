@@ -1667,6 +1667,7 @@ QStatus DiscoveryManager::HandleSearchMatchResponse(SearchMatchResponse response
                     map<String, RemoteDaemonStunInfo>::iterator stun_it = StunAndTurnServerInfo.find(response.peerAddr);
                     if (stun_it != StunAndTurnServerInfo.end()) {
                         stun_it->second.services.push_back(response.service);
+                        stun_it->second.stunInfo = response.STUNInfo;
                     } else {
                         RemoteDaemonStunInfo temp;
                         temp.stunInfo = response.STUNInfo;
@@ -1811,10 +1812,11 @@ QStatus DiscoveryManager::HandleMatchRevokedResponse(MatchRevokedResponse respon
                 }
             }
 
-            tempList = response.services;
             // Purge the searchMap
             map<String, SearchResponseInfo>::iterator it;
             for (it = searchMap.begin(); it != searchMap.end(); it++) {
+
+                tempList = response.services;
 
                 // Update the searchMap with the new information
                 list<RemoteDaemonServicesInfo>* remoteDaemonServicesInfo = &(it->second.response);
@@ -2958,14 +2960,13 @@ QStatus DiscoveryManager::SendDaemonRegistrationMessage(void)
 
     regMsg->daemonID = PersistentIdentifier;
     regMsg->daemonVersion = String(GetVersion());
+
     // PPN - Populate later
     regMsg->devMake = String();
     regMsg->devModel = String();
+    regMsg->osVersion = String();
 
     regMsg->osType = qcc::GetSystemOSType();
-
-    // PPN - Populate later
-    regMsg->osVersion = String();
 
     message.interfaceMessage = static_cast<InterfaceMessage*>(regMsg);
 
