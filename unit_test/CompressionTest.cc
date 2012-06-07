@@ -92,7 +92,7 @@ TEST(CompressionTest, Compression) {
     uint32_t serial;
     MyMessage msg(bus);
     Pipe stream;
-    RemoteEndpoint ep(bus, false, "", stream, "dummy", false);
+    RemoteEndpoint ep(bus, false, "", &stream, "dummy", false);
 
     bus.Start();
 
