@@ -1237,6 +1237,7 @@ qcc::ThreadReturn STDCALL AllJoynObj::JoinSessionThread::RunAttach()
                         sme.isInitializing = true;
                         foundSessionMapEntry = true;
                         ajObj.SessionMapInsert(sme);
+                        newSME = true;
                     }
                     break;
                 }
