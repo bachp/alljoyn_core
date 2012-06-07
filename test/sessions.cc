@@ -514,6 +514,7 @@ static void DoJoin(String name, SessionPort port, const SessionOpts& opts)
         s_lock.Lock(MUTEX_CONTEXT);
         s_sessionMap.insert(pair<SessionId, SessionInfo>(id, SessionInfo(id, SessionPortInfo(port, name, optsOut))));
         s_lock.Unlock(MUTEX_CONTEXT);
+        printf("JoinSession(%s, %u, ...) succeeded with id = %u\n", name.c_str(), port, id);
     } else {
         printf("JoinSession(%s, %u, ...) failed with %s\n", name.c_str(), port, QCC_StatusText(status));
     }
