@@ -1102,10 +1102,7 @@ void AllJoynObj::LeaveSession(const InterfaceDescription::Member* member, Messag
         }
 
         /* Remove entries from sessionMap */
-        BusEndpoint* senderEp = router.FindEndpoint(msg->GetSender());
-        if (senderEp) {
-            RemoveSessionRefs(*senderEp, id);
-        }
+        RemoveSessionRefs(msg->GetSender(), id);
 
         /* Remove session routes */
         router.RemoveSessionRoutes(msg->GetSender(), id);
@@ -1542,22 +1539,30 @@ qcc::ThreadReturn STDCALL AllJoynObj::JoinSessionThread::RunAttach()
     return 0;
 }
 
-void AllJoynObj::RemoveSessionRefs(BusEndpoint& endpoint, SessionId id)
+void AllJoynObj::RemoveSessionRefs(const char* epName, SessionId id)
 {
-    QCC_DbgTrace(("AllJoynObj::RemoveSessionRefs(%s, %u)", endpoint.GetUniqueName().c_str(), id));
+    QCC_DbgTrace(("AllJoynObj::RemoveSessionRefs(%s, %u)", epName, id));
 
     AcquireLocks();
-    String epName = endpoint.GetUniqueName();
+
+    BusEndpoint* endpoint = router.FindEndpoint(epName);
+
+    if (!endpoint) {
+        ReleaseLocks();
+        return;
+    }
+
+    String epNameStr = endpoint->GetUniqueName();
     vector<pair<String, SessionId> > changedSessionMembers;
     SessionMapType::iterator it = sessionMap.begin();
     /* Look through sessionMap for entries matching id */
     while (it != sessionMap.end()) {
         if (it->first.second == id) {
-            if (it->first.first == epName) {
+            if (it->first.first == epNameStr) {
                 /* Exact key matches are removed */
                 sessionMap.erase(it++);
             } else {
-                if (&endpoint == router.FindEndpoint(it->second.sessionHost)) {
+                if (endpoint == router.FindEndpoint(it->second.sessionHost)) {
                     /* Modify entry to remove matching sessionHost */
                     it->second.sessionHost.clear();
                     if (it->second.opts.isMultipoint) {
@@ -1567,7 +1572,7 @@ void AllJoynObj::RemoveSessionRefs(BusEndpoint& endpoint, SessionId id)
                     /* Remove matching session members */
                     vector<String>::iterator mit = it->second.memberNames.begin();
                     while (mit != it->second.memberNames.end()) {
-                        if (epName == *mit) {
+                        if (epNameStr == *mit) {
                             mit = it->second.memberNames.erase(mit);
                             if (it->second.opts.isMultipoint) {
                                 changedSessionMembers.push_back(it->first);
@@ -1598,7 +1603,7 @@ void AllJoynObj::RemoveSessionRefs(BusEndpoint& endpoint, SessionId id)
     /* Send MPSessionChanged for each changed session involving alias */
     vector<pair<String, SessionId> >::const_iterator csit = changedSessionMembers.begin();
     while (csit != changedSessionMembers.end()) {
-        SendMPSessionChanged(csit->second, epName.c_str(), false, csit->first.c_str());
+        SendMPSessionChanged(csit->second, epNameStr.c_str(), false, csit->first.c_str());
         csit++;
     }
 }
@@ -1973,10 +1978,7 @@ void AllJoynObj::DetachSessionSignalHandler(const InterfaceDescription::Member* 
     }
 
     /* Remove session info from sessionMap */
-    BusEndpoint* ep = router.FindEndpoint(src);
-    if (ep) {
-        RemoveSessionRefs(*ep, id);
-    }
+    RemoveSessionRefs(src, id);
 
     /* Remove session info from router */
     router.RemoveSessionRoutes(src, id);

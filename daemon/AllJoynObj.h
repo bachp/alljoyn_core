@@ -721,7 +721,7 @@ class AllJoynObj : public BusObject, public NameListener, public TransportListen
      * @param endpoint  Endpoint (virtual or remote) that has left the session.
      * @param id        Session id.
      */
-    void RemoveSessionRefs(BusEndpoint& endpoint, SessionId id);
+    void RemoveSessionRefs(const char* epName, SessionId id);
 
     /**
      * Utility function used to clean up the session map when a virtual endpoint with a
