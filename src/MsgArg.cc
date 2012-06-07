@@ -750,19 +750,13 @@ qcc::String MsgArg::Signature(const MsgArg* values, size_t numValues)
 /*
  * Note that "arry" is not a typo - Some editors tag "array" as a reserved word.
  */
-QStatus MsgArg::BuildArray(MsgArg* arry, const qcc::String& elemSig, va_list* argpIn)
+QStatus MsgArg::BuildArray(MsgArg* arry, const qcc::String elemSig, va_list* argpIn)
 {
     va_list& argp = *argpIn;
 
     QStatus status = ER_OK;
 
     size_t numElements = va_arg(argp, size_t);
-    void* elems = va_arg(argp, void*);
-
-    if (numElements && !elems) {
-        return ER_INVALID_ADDRESS;
-    }
-
     MsgArg* elements = NULL;
 
     /*
@@ -778,7 +772,10 @@ QStatus MsgArg::BuildArray(MsgArg* arry, const qcc::String& elemSig, va_list* ar
     switch (elemSig[0]) {
     case '*':
         if (numElements > 0) {
-            elements = (MsgArg*)elems;
+            elements = va_arg(argp, MsgArg*);
+            if (!elements) {
+                return ER_INVALID_ADDRESS;
+            }
             const qcc::String sig = elements[0].Signature();
             /*
              * Check elements all have same type as the first element.
@@ -806,7 +803,10 @@ QStatus MsgArg::BuildArray(MsgArg* arry, const qcc::String& elemSig, va_list* ar
     case '{':
     case 'h':
         if (numElements > 0) {
-            elements = (MsgArg*)elems;
+            elements = va_arg(argp, MsgArg*);
+            if (!elements) {
+                return ER_INVALID_ADDRESS;
+            }
             /*
              * Check elements conform to the expected signature type
              */
@@ -817,6 +817,8 @@ QStatus MsgArg::BuildArray(MsgArg* arry, const qcc::String& elemSig, va_list* ar
                     break;
                 }
             }
+        } else {
+            va_arg(argp, void*);
         }
         if (status == ER_OK) {
             status = arry->v_array.SetElements(elemSig.c_str(), numElements, elements);
@@ -826,7 +828,7 @@ QStatus MsgArg::BuildArray(MsgArg* arry, const qcc::String& elemSig, va_list* ar
     case 'o':
     case 's':
         if (numElements > 0) {
-            char** strings = (char**)elems;
+            char** strings = va_arg(argp, char**);
             String* strs = strings ? NULL : va_arg(argp, String*);
             elements = new MsgArg[numElements];
             arry->flags |= OwnsArgs;
@@ -835,13 +837,18 @@ QStatus MsgArg::BuildArray(MsgArg* arry, const qcc::String& elemSig, va_list* ar
                 elements[i].v_string.str = strings ? strings[i] : strs[i].c_str();
                 elements[i].v_string.len = strlen(elements[i].v_string.str);
             }
+        } else {
+            va_arg(argp, void*);
         }
         status = arry->v_array.SetElements(elemSig.c_str(), numElements, elements);
         break;
 
     case 'g':
         if (numElements > 0) {
-            char** strings = (char**)elems;
+            char** strings = va_arg(argp, char**);
+            if (!strings) {
+                return ER_INVALID_ADDRESS;
+            }
             elements = new MsgArg[numElements];
             arry->flags |= OwnsArgs;
             for (size_t i = 0; i < numElements; ++i) {
@@ -849,61 +856,63 @@ QStatus MsgArg::BuildArray(MsgArg* arry, const qcc::String& elemSig, va_list* ar
                 elements[i].v_signature.sig = strings[i];
                 elements[i].v_signature.len = (uint8_t)strlen(strings[i]);
             }
+        } else {
+            va_arg(argp, void*);
         }
         status = arry->v_array.SetElements(elemSig.c_str(), numElements, elements);
         break;
 
     case 'b':
         arry->typeId = ALLJOYN_BOOLEAN_ARRAY;
-        arry->v_scalarArray.v_bool = (bool*)elems;
+        arry->v_scalarArray.v_bool = va_arg(argp, bool*);
         arry->v_scalarArray.numElements = numElements;
         break;
 
     case 'd':
         arry->typeId = ALLJOYN_DOUBLE_ARRAY;
-        arry->v_scalarArray.v_double = (double*)elems;
+        arry->v_scalarArray.v_double = va_arg(argp, double*);
         arry->v_scalarArray.numElements = numElements;
         break;
 
     case 'i':
         arry->typeId = ALLJOYN_INT32_ARRAY;
-        arry->v_scalarArray.v_int32 = (int32_t*)elems;
+        arry->v_scalarArray.v_uint32 = va_arg(argp, uint32_t*);
         arry->v_scalarArray.numElements = numElements;
         break;
 
     case 'n':
         arry->typeId = ALLJOYN_INT16_ARRAY;
-        arry->v_scalarArray.v_int16 = (int16_t*)elems;
+        arry->v_scalarArray.v_int16 = va_arg(argp, int16_t*);
         arry->v_scalarArray.numElements = numElements;
         break;
 
     case 'q':
         arry->typeId = ALLJOYN_UINT16_ARRAY;
-        arry->v_scalarArray.v_uint16 = (uint16_t*)elems;
+        arry->v_scalarArray.v_uint16 = va_arg(argp, uint16_t*);
         arry->v_scalarArray.numElements = numElements;
         break;
 
     case 't':
         arry->typeId = ALLJOYN_UINT64_ARRAY;
-        arry->v_scalarArray.v_uint64 = (uint64_t*)elems;
+        arry->v_scalarArray.v_uint64 = va_arg(argp, uint64_t*);
         arry->v_scalarArray.numElements = numElements;
         break;
 
     case 'u':
         arry->typeId = ALLJOYN_UINT32_ARRAY;
-        arry->v_scalarArray.v_uint32 = (uint32_t*)elems;
+        arry->v_scalarArray.v_uint32 = va_arg(argp, uint32_t*);
         arry->v_scalarArray.numElements = numElements;
         break;
 
     case 'x':
         arry->typeId = ALLJOYN_INT64_ARRAY;
-        arry->v_scalarArray.v_int64 = (int64_t*)elems;
+        arry->v_scalarArray.v_int64 = va_arg(argp, int64_t*);
         arry->v_scalarArray.numElements = numElements;
         break;
 
     case 'y':
         arry->typeId = ALLJOYN_BYTE_ARRAY;
-        arry->v_scalarArray.v_byte = (uint8_t*)elems;
+        arry->v_scalarArray.v_byte = va_arg(argp, uint8_t*);
         arry->v_scalarArray.numElements = numElements;
         break;
 
@@ -1072,7 +1081,7 @@ QStatus MsgArg::VBuildArgs(const char*& signature, size_t sigLen, MsgArg* arg, s
             arg->typeId = ALLJOYN_STRUCT;
             status = SignatureUtils::ParseContainerSignature(*arg, signature);
             if (status == ER_OK) {
-                size_t memSigLen = signature - memberSig - 1;                 // -1 to exclude the closing ')'
+                size_t memSigLen = signature - memberSig - 1;             // -1 to exclude the closing ')'
                 arg->v_struct.members = new MsgArg[arg->v_struct.numMembers];
                 arg->flags |= OwnsArgs;
                 status = VBuildArgs(memberSig, memSigLen, arg->v_struct.members, arg->v_struct.numMembers, &argp);
@@ -1090,7 +1099,7 @@ QStatus MsgArg::VBuildArgs(const char*& signature, size_t sigLen, MsgArg* arg, s
             arg->typeId = ALLJOYN_DICT_ENTRY;
             status = SignatureUtils::ParseContainerSignature(*arg, signature);
             if (status == ER_OK) {
-                size_t memSigLen = signature - memberSig - 1;                 // -1 to exclude the closing '}'
+                size_t memSigLen = signature - memberSig - 1;             // -1 to exclude the closing '}'
                 arg->v_dictEntry.key = new MsgArg;
                 arg->v_dictEntry.val = new MsgArg;
                 arg->flags |= OwnsArgs;
