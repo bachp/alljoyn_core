@@ -1585,10 +1585,10 @@ QStatus DiscoveryManager::SendMessage(RendezvousMessage message)
                 if (ER_OK == status) {
                     QCC_DbgPrintf(("DiscoveryManager::SendMessage(): Connection->SendMessage() returned ER_OK"));
 
-                    /* If the sent message is not a GET message, then update LastOnDemandMessageSent to reflect
+                    /* If the message was sent over the On-Demand connection, then update LastOnDemandMessageSent to reflect
                      * the message that was just sent and also update the appropriate time stamp to indicate when
                      * a message was sent to the Server*/
-                    if (message.messageType != GET_MESSAGE) {
+                    if (!sendMessageOverPersistentConnection) {
                         LastOnDemandMessageSent.Clear();
                         LastOnDemandMessageSent = message;
                         OnDemandMessageSentTimeStamp = GetTimestamp();
@@ -2143,7 +2143,7 @@ void DiscoveryManager::HandlePersistentConnectionResponse(HttpConnection::HTTPRe
         if (status != ER_OK) {
             /* We do not take any action if we are not able to add the alarm to the timer as if some issue comes up with the
              * connection we handle it resetting up the connection */
-            QCC_LogError(status, ("DiscoveryManager::Run(): Unable to add InterfaceUpdateAlarm to DiscoveryManagerTimer"));
+            QCC_LogError(status, ("DiscoveryManager::HandlePersistentConnectionResponse(): Unable to add InterfaceUpdateAlarm to DiscoveryManagerTimer"));
         }
     }
 }
@@ -2496,7 +2496,7 @@ void DiscoveryManager::HandleOnDemandConnectionResponse(HttpConnection::HTTPResp
         if (status != ER_OK) {
             /* We do not take any action if we are not able to add the alarm to the timer as if some issue comes up with the
              * connection we handle it resetting up the connection */
-            QCC_LogError(status, ("DiscoveryManager::Run(): Unable to add InterfaceUpdateAlarm to DiscoveryManagerTimer"));
+            QCC_LogError(status, ("DiscoveryManager::HandleOnDemandConnectionResponse(): Unable to add InterfaceUpdateAlarm to DiscoveryManagerTimer"));
         }
     }
 

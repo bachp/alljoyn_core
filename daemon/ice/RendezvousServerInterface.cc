@@ -432,10 +432,10 @@ QStatus ParseTokenRefreshResponse(Json::Value receivedResponse, TokenRefreshResp
                 parsedResponse.pwd = String(receivedResponse[pwd].asCString());
                 QCC_DbgPrintf(("ParseTokenRefreshResponse(): pwd = %s", receivedResponse[pwd].asCString()));
 
-                parsedResponse.expiryTime = receivedResponse[expiryTime].asInt();
-                QCC_DbgPrintf(("ParseTokenRefreshResponse(): expiryTime = %d", receivedResponse[expiryTime].asInt()));
+                parsedResponse.expiryTime = ((receivedResponse[expiryTime].asInt()) - TURN_TOKEN_EXPIRY_TIME_BUFFER_IN_SECONDS) * 1000;
+                QCC_DbgPrintf(("ParseTokenRefreshResponse(): expiryTime = %d", parsedResponse.expiryTime));
 
-                parsedResponse.recvTime = GetTimestamp();;
+                parsedResponse.recvTime = GetTimestamp();
             } else {
                 status = ER_FAIL;
                 QCC_LogError(status, ("ParseTokenRefreshResponse(): Message does not seem to have a expiryTime token"));
