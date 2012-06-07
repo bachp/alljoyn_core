@@ -251,8 +251,8 @@ void ICECandidatePair::Check(void)
         local->GetStunActivity()->stun->SetTurnAddr(remote->GetEndpoint().addr);
         local->GetStunActivity()->stun->SetTurnPort(remote->GetEndpoint().port);
         local->GetStunActivity()->stun->SendStunMessage(*msg,
-                                                        local->GetEndpoint().addr,
-                                                        local->GetEndpoint().port,
+                                                        remote->GetMappedAddress().addr,
+                                                        remote->GetMappedAddress().port,
                                                         true);
     } else {
         local->GetStunActivity()->stun->SendStunMessage(*msg,

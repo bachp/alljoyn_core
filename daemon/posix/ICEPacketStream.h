@@ -31,8 +31,8 @@
 #include "StunMessage.h"
 #include "Stun.h"
 #include "StunAttribute.h"
-#include "ICECandidate.h"
 #include "ICESession.h"
+#include "ICECandidatePair.h"
 
 namespace ajn {
 
@@ -53,7 +53,7 @@ class ICEPacketStream : public PacketStream {
     ICEPacketStream();
 
     /** Constructor */
-    ICEPacketStream(ICESession& iceSession, Stun& stunPtr, _ICECandidate::ICECandidateType candidateType);
+    ICEPacketStream(ICESession& iceSession, Stun& stunPtr, const ICECandidatePair& selectedPair);
 
     /** Copy constructor */
     ICEPacketStream(const ICEPacketStream& other);
@@ -181,13 +181,6 @@ class ICEPacketStream : public PacketStream {
     uint16_t GetICERemotePort() const { return remotePort; }
 
     /**
-     * Return the ICE candidate type associated with this ICEPacketStream.
-     *
-     * @return ICECandidateType associated with this ICEPacketStream.
-     */
-    _ICECandidate::ICECandidateType GetCandidateType() const { return iceCandidateType; }
-
-    /**
      * Return the TURN server's refresh period.
      * This call returns 0 unless the candidate type is Relayed_Candidate.
      *
@@ -224,29 +217,27 @@ class ICEPacketStream : public PacketStream {
     uint32_t GetStunKeepAlivePeriod() const { return stunKeepAlivePeriod; }
 
     /**
-     * Compose a STUN message with the passed in data.
+     * Return true iff ICEPacketStream is using TURN relay.
+     * @return true iff ICEPacketStream is using TURN relay.
      */
-    static QStatus ComposeStunMessage(const void* buf, size_t numBytes, uint8_t* renderBuf, size_t& renderSize,
-                                      qcc::IPAddress destnAddress, uint16_t destnPort, String userName,
-                                      const qcc::String& key);
+    bool IsUsingTurn() const { return usingTurn; }
 
-    /**
-     * Strip STUN overhead from a received message.
-     */
-    static QStatus StripStunOverhead(uint8_t* recvBuf, size_t rcvdBytes, void* dataBuf, size_t& dataSize,
-                                     qcc::IPAddress hostAddress, uint16_t hostPort, size_t keyLen);
 
   private:
     qcc::IPAddress ipAddress;
     uint16_t port;
     qcc::IPAddress remoteAddress;
     uint16_t remotePort;
+    qcc::IPAddress mappedAddress;
+    uint16_t mappedPort;
+    qcc::IPAddress turnAddress;
+    uint16_t turnPort;
     int sock;
     qcc::Event* sourceEvent;
     qcc::Event* sinkEvent;
     size_t mtuWithStunOverhead;
     size_t interfaceMtu;
-    _ICECandidate::ICECandidateType iceCandidateType;
+    bool usingTurn;
     qcc::String hmacKey;
     qcc::String turnUsername;
     uint32_t turnRefreshPeriod;
@@ -255,6 +246,23 @@ class ICEPacketStream : public PacketStream {
     Mutex sendLock;
     uint8_t* rxRenderBuf;
     uint8_t* txRenderBuf;
+
+    /**
+     * Compose a STUN message with the passed in data.
+     */
+    QStatus ComposeStunMessage(const void* buf,
+                               size_t numBytes,
+                               const qcc::IPAddress& destnAddress,
+                               uint16_t destnPort,
+                               const String& userName,
+                               const qcc::String& key,
+                               qcc::ScatterGatherList& msgSG);
+
+    /**
+     * Strip STUN overhead from a received message.
+     */
+    QStatus StripStunOverhead(uint8_t* recvBuf, size_t rcvdBytes, void* dataBuf, size_t& dataSize,
+                              qcc::IPAddress hostAddress, uint16_t hostPort, size_t keyLen);
 };
 
 }  /* namespace */

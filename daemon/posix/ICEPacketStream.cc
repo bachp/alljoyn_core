@@ -35,9 +35,9 @@
 #include <qcc/Event.h>
 #include <qcc/Debug.h>
 #include <qcc/ScatterGatherList.h>
+#include "ICECandidatePair.h"
 #include "Stun.h"
-#include "ICECandidate.h"
-#include "posix/ICEPacketStream.h"
+#include "ICEPacketStream.h"
 
 
 #define QCC_MODULE "PACKET"
@@ -59,17 +59,21 @@ PacketDest ICEPacketStream::GetPacketDest(const IPAddress& addr, uint16_t port)
     return pd;
 }
 
-ICEPacketStream::ICEPacketStream(ICESession& iceSession, Stun& stun, _ICECandidate::ICECandidateType candidateType) :
+ICEPacketStream::ICEPacketStream(ICESession& iceSession, Stun& stun, const ICECandidatePair& selectedPair) :
     ipAddress(stun.GetLocalAddr()),
     port(stun.GetLocalPort()),
-    remoteAddress(stun.GetRemoteAddr()),
-    remotePort(stun.GetRemotePort()),
+    remoteAddress(selectedPair.remote->GetEndpoint().addr),
+    remotePort(selectedPair.remote->GetEndpoint().port),
+    mappedAddress(),
+    mappedPort(0),
+    turnAddress(stun.GetTurnAddr()),
+    turnPort(stun.GetTurnPort()),
     sock(stun.GetSocketFD()),
     sourceEvent(&Event::neverSet),
     sinkEvent(&Event::alwaysSet),
     mtuWithStunOverhead(stun.GetMtu()),
     interfaceMtu(stun.GetMtu()),
-    iceCandidateType(candidateType),
+    usingTurn((selectedPair.local->GetType() == _ICECandidate::Relayed_Candidate) || (selectedPair.remote->GetType() == _ICECandidate::Relayed_Candidate)),
     hmacKey(reinterpret_cast<const char*>(stun.GetHMACKey()), stun.GetHMACKeyLength(), stun.GetHMACKeyLength()),
     turnUsername(iceSession.GetusernameForShortTermCredential()),
     turnRefreshPeriod(iceSession.GetTURNRefreshPeriod()),
@@ -82,8 +86,20 @@ ICEPacketStream::ICEPacketStream(ICESession& iceSession, Stun& stun, _ICECandida
 
     /* Adjust the mtuWithStunOverhead size to account for the STUN header which would be added in case of communication
      * through the relay server */
-    if (iceCandidateType == _ICECandidate::Relayed_Candidate) {
-        mtuWithStunOverhead = interfaceMtu - STUN_OVERHEAD;
+    mtuWithStunOverhead = interfaceMtu - STUN_OVERHEAD;
+
+    switch (selectedPair.remote->GetType()) {
+    case _ICECandidate::Relayed_Candidate:
+    case _ICECandidate::ServerReflexive_Candidate:
+    case _ICECandidate::PeerReflexive_Candidate:
+        mappedAddress = selectedPair.remote->GetMappedAddress().addr;
+        mappedPort = selectedPair.remote->GetMappedAddress().port;
+        break;
+
+    default:
+        mappedAddress = selectedPair.remote->GetEndpoint().addr;
+        mappedPort = selectedPair.remote->GetEndpoint().port;
+        break;
     }
 }
 
@@ -99,12 +115,16 @@ ICEPacketStream::ICEPacketStream(const ICEPacketStream& other) :
     port(other.port),
     remoteAddress(other.remoteAddress),
     remotePort(other.remotePort),
+    mappedAddress(other.mappedAddress),
+    mappedPort(other.mappedPort),
+    turnAddress(other.turnAddress),
+    turnPort(other.turnPort),
     sock(other.sock),
     sourceEvent((sock == SOCKET_ERROR) ? &Event::neverSet : new qcc::Event(sock, qcc::Event::IO_READ, false)),
     sinkEvent((sock == SOCKET_ERROR) ? &Event::alwaysSet : new qcc::Event(sock, qcc::Event::IO_WRITE, false)),
     mtuWithStunOverhead(other.mtuWithStunOverhead),
     interfaceMtu(other.interfaceMtu),
-    iceCandidateType(other.iceCandidateType),
+    usingTurn(other.usingTurn),
     hmacKey(other.hmacKey),
     turnUsername(other.turnUsername),
     turnRefreshPeriod(other.turnRefreshPeriod),
@@ -156,14 +176,10 @@ QStatus ICEPacketStream::Stop()
 
 QStatus ICEPacketStream::PushPacketBytes(const void* buf, size_t numBytes, PacketDest& dest, bool controlBytes)
 {
-    size_t messageMtu = interfaceMtu;
-    bool usingTurn = (iceCandidateType == _ICECandidate::Relayed_Candidate);
-
-    if (usingTurn) {
-        messageMtu = mtuWithStunOverhead;
-    }
-
+#ifndef NDEBUG
+    size_t messageMtu = usingTurn ? mtuWithStunOverhead : interfaceMtu;
     assert(numBytes <= messageMtu);
+#endif
 
     QStatus status = ER_OK;
 
@@ -171,14 +187,18 @@ QStatus ICEPacketStream::PushPacketBytes(const void* buf, size_t numBytes, Packe
     size_t sendBytes = numBytes;
 
     sendLock.Lock();
-    if ((!controlBytes) && (usingTurn)) {
-        status = ComposeStunMessage(buf, numBytes, txRenderBuf, sendBytes, remoteAddress, remotePort, turnUsername, hmacKey);
-        sendBuf = (const void*)txRenderBuf;
-    }
-
-    if (status == ER_OK) {
+    size_t sent;
+    if (!controlBytes && usingTurn) {
+        ScatterGatherList sgList;
+        status = ComposeStunMessage(buf, numBytes, mappedAddress, mappedPort, turnUsername, hmacKey, sgList);
+        if (status == ER_OK) {
+            status = SendToSG(sock, turnAddress, turnPort, sgList, sent);
+        } else {
+            QCC_LogError(status, ("ComposeStunMessage failed"));
+        }
+    } else {
         const struct sockaddr* sa = reinterpret_cast<const struct sockaddr*>(dest.data);
-        size_t sent = sendto(sock, sendBuf, sendBytes, 0, sa, sizeof(struct sockaddr_in));
+        sent = sendto(sock, sendBuf, sendBytes, 0, sa, sizeof(struct sockaddr_in));
         status = (sent == sendBytes) ? ER_OK : ER_OS_ERROR;
         if (status != ER_OK) {
             if (sent == (size_t) -1) {
@@ -199,7 +219,6 @@ QStatus ICEPacketStream::PullPacketBytes(void* buf, size_t reqBytes, size_t& act
     QStatus status = ER_OK;
 
     size_t messageMtu = interfaceMtu;
-    bool usingTurn = (iceCandidateType == _ICECandidate::Relayed_Candidate);
 
     if (usingTurn) {
         messageMtu = mtuWithStunOverhead;
@@ -225,11 +244,9 @@ QStatus ICEPacketStream::PullPacketBytes(void* buf, size_t reqBytes, size_t& act
         QCC_LogError(status, ("recvfrom failed: %s", ::strerror(errno)));
     }
 
-#if 0
-    if (!usingHostCandidate) {
+    if (usingTurn) {
         status = StripStunOverhead(rxRenderBuf, actualBytes, buf, actualBytes, ipAddress, port, hmacKey.size());
     }
-#endif
 
     return status;
 }
@@ -244,9 +261,13 @@ String ICEPacketStream::ToString(const PacketDest& dest) const
     return ret;
 }
 
-QStatus ICEPacketStream::ComposeStunMessage(const void* buf, size_t numBytes, uint8_t* renderBuf, size_t& renderSize,
-                                            qcc::IPAddress destnAddress, uint16_t destnPort, String userName,
-                                            const String& key)
+QStatus ICEPacketStream::ComposeStunMessage(const void* buf,
+                                            size_t numBytes,
+                                            const qcc::IPAddress& destnAddress,
+                                            uint16_t destnPort,
+                                            const String& userName,
+                                            const String& key,
+                                            ScatterGatherList& msgSG)
 {
     QCC_DbgPrintf(("ICEPacketStream::ComposeStunMessage()"));
 
@@ -255,13 +276,11 @@ QStatus ICEPacketStream::ComposeStunMessage(const void* buf, size_t numBytes, ui
     QStatus status = ER_OK;
 
     ScatterGatherList sg;
-    ScatterGatherList msgSG;
 
     sg.AddBuffer(buf, numBytes);
     sg.SetDataSize(numBytes);
 
-    StunMessage msg(STUN_MSG_INDICATION_CLASS, STUN_MSG_SEND_METHOD, reinterpret_cast<const uint8_t*>(key.c_str()), key.size());
-    uint8_t* pos;
+    StunMessage msg(STUN_MSG_INDICATION_CLASS, STUN_MSG_DATA_METHOD, reinterpret_cast<const uint8_t*>(key.c_str()), key.size());
 
     status = msg.AddAttribute(new StunAttributeUsername(userName));
     if (status == ER_OK) {
@@ -277,16 +296,9 @@ QStatus ICEPacketStream::ComposeStunMessage(const void* buf, size_t numBytes, ui
         status = msg.AddAttribute(new StunAttributeFingerprint(msg));
     }
     if (status == ER_OK) {
-        renderSize = msg.RenderSize();
-
-        pos = renderBuf;
-
-        status = msg.RenderBinary(pos, renderSize, msgSG);
-
-        if (status == ER_OK) {
-            QCC_DbgPrintf(("TX: Sending %u octet app data in a %u octet STUN message.",
-                           sg.DataSize(), msgSG.DataSize()));
-        }
+        size_t renderSize = msg.RenderSize();
+        assert(renderSize <= interfaceMtu);
+        status = msg.RenderBinary(txRenderBuf, renderSize, msgSG);
     }
 
     return status;
