@@ -1761,7 +1761,7 @@ QStatus DiscoveryManager::HandleMatchRevokedResponse(MatchRevokedResponse respon
         StunAndTurnServerInfo.erase(response.peerAddr);
 
         // Remove the entries corresponding to response.peerAddr from the searchMap
-        multimap<String, SearchResponseInfo>::iterator it;
+        map<String, SearchResponseInfo>::iterator it;
         for (it = searchMap.begin(); it != searchMap.end(); it++) {
 
             list<RemoteDaemonServicesInfo>* remoteDaemonServicesInfo = &(it->second.response);
