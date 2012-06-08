@@ -135,12 +135,12 @@ class SignalTable {
     /**
      * Table iterator
      */
-    typedef std::unordered_multimap<Key, Entry, Hash, Equal>::iterator iterator;
+    typedef unordered_multimap<Key, Entry, Hash, Equal>::iterator iterator;
 
     /**
      * Const table iterator
      */
-    typedef std::unordered_multimap<Key, Entry, Hash, Equal>::const_iterator const_iterator;
+    typedef unordered_multimap<Key, Entry, Hash, Equal>::const_iterator const_iterator;
 
     /**
      * Add an entry to the signal hash table.
@@ -202,7 +202,7 @@ class SignalTable {
     qcc::Mutex lock; /**< Lock protecting the signal table */
 
     /**  The hash table */
-    std::unordered_multimap<Key, Entry, Hash, Equal> hashTable;
+    unordered_multimap<Key, Entry, Hash, Equal> hashTable;
 };
 
 }

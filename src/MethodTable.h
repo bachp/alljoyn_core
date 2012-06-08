@@ -176,7 +176,7 @@ class MethodTable {
     };
 
     /** The hash table */
-    std::unordered_map<Key, Entry*, Hash, Equal> hashTable;
+    unordered_map<Key, Entry*, Hash, Equal> hashTable;
 };
 
 }

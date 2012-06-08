@@ -366,9 +366,18 @@ class LocalEndpoint : public BusEndpoint, public qcc::AlarmListener, public Mess
     struct PathEq { bool operator()(const char* p1, const char* p2) const { return (p1 == p2) || (strcmp(p1, p2) == 0); } };
 
     /**
+     * Hash functor
+     */
+    struct Hash {
+        inline size_t operator()(const char* s) const {
+            return qcc::hash_string(s);
+        }
+    };
+
+    /**
      * Registered LocalObjects
      */
-    std::unordered_map<const char*, BusObject*, std::hash<const char*>, PathEq> localObjects;
+    unordered_map<const char*, BusObject*, Hash, PathEq> localObjects;
 
     /**
      * Map from serial numbers for outstanding method calls to response handelers.
