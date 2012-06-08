@@ -1,5 +1,5 @@
 /**
- * @file IceManager.cpp
+ * @file IceManager.cc
  *
  * IceManager is responsible for executing and coordinating ICE related network operations.
  *
@@ -79,6 +79,7 @@ ICEManager::~ICEManager(void)
 
 QStatus ICEManager::AllocateSession(bool addHostCandidates,
                                     bool addRelayedCandidates,
+                                    bool enableIpv6,
                                     ICESessionListener* listener,
                                     ICESession*& session,
                                     STUNServerInfo stunInfo)
@@ -88,7 +89,7 @@ QStatus ICEManager::AllocateSession(bool addHostCandidates,
     session = new ICESession(addHostCandidates, addRelayedCandidates, listener, stunInfo,
                              ethernetInterfaceName, wifiInterfaceName, mobileNwInterfaceName);
 
-    status = session->Init();
+    status = session->Init(enableIpv6);
 
     if (ER_OK == status) {
         lock.Lock();                // Synch with another thread potentially calling destructor.

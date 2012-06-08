@@ -1,5 +1,5 @@
 /**
- * @file ICESession.cpp
+ * @file ICESession.cc
  * ICESession is responsible for ...
  *
  */
@@ -995,9 +995,11 @@ QStatus ICESession::StartStunTurnPacingThread(void)
     return status;
 }
 
-QStatus ICESession::GatherHostCandidates(void)
+QStatus ICESession::GatherHostCandidates(bool enableIpv6)
 {
     QStatus status = ER_OK;
+
+    QCC_DbgPrintf(("ICESession::GatherHostCandidates(): enableIpv6 = %d", enableIpv6));
 
     uint16_t streamIndex = 0;
     SocketType socketType = QCC_SOCK_DGRAM;
@@ -1028,7 +1030,12 @@ QStatus ICESession::GatherHostCandidates(void)
 
         for (networkInterfaceIter = AdapterUtil::GetAdapterUtil()->Begin(); networkInterfaceIter != AdapterUtil::GetAdapterUtil()->End(); ++networkInterfaceIter) {
 
-            QCC_DbgPrintf(("network adapter = %s", networkInterfaceIter->addr.ToString().c_str()));
+            QCC_DbgPrintf(("network adapter = %s networkInterfaceIter->addr.IsIPv6() = %d", networkInterfaceIter->addr.ToString().c_str(), networkInterfaceIter->addr.IsIPv6()));
+
+            // Ignore IPv6 interfaces if IPv6 support is disabled
+            if ((!enableIpv6) && (networkInterfaceIter->addr.IsIPv6())) {
+                continue;
+            }
 
             // (This typically ignores the specified port and OS binds to ephemeral port.)
             status = component->CreateHostCandidate(socketType, networkInterfaceIter->addr, port, networkInterfaceIter->name);
@@ -1055,7 +1062,7 @@ QStatus ICESession::GatherHostCandidates(void)
     return status;
 }
 
-QStatus ICESession::Init(void)
+QStatus ICESession::Init(bool enableIpv6)
 {
     QStatus status = ER_OK;
 
@@ -1066,7 +1073,7 @@ QStatus ICESession::Init(void)
     }
 
     // Gather candidates for host
-    status = GatherHostCandidates();
+    status = GatherHostCandidates(enableIpv6);
     if (ER_OK != status) {
         QCC_LogError(status, ("GatherHostCandidates()"));
         goto exit;

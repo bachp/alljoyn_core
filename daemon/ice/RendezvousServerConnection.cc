@@ -479,23 +479,19 @@ QStatus RendezvousServerConnection::SetupSockForConn(SocketFd& sockFd, ConnInter
 
     QCC_DbgPrintf(("RendezvousServerConnection::SetupSockForConn(): connInterface = %s", PrintConnInterface(connInterface).c_str()));
 
-    if (!EnableIPv6) {
-        if (connInterface.interfaceProperties.m_family == QCC_AF_INET) {
-            status = Socket(QCC_AF_INET, QCC_SOCK_STREAM, sockFd);
-            if (status != ER_OK) {
-                QCC_LogError(status, ("RendezvousServerConnection::SetupSockForConn(): Socket(AF_INET) failed: %d - %s", errno, strerror(errno)));
-            } else {
-                QCC_DbgPrintf(("RendezvousServerConnection::SetupSockForConn(): Set up an IPv4 socket %d\n", sockFd));
-            }
+    if ((EnableIPv6) && (connInterface.interfaceProperties.m_family == QCC_AF_INET6)) {
+        status = Socket(QCC_AF_INET6, QCC_SOCK_STREAM, sockFd);
+        if (status != ER_OK) {
+            QCC_LogError(status, ("RendezvousServerConnection::SetupSockForConn(): Socket(AF_INET6) failed: %d - %s", errno, strerror(errno)));
+        } else {
+            QCC_DbgPrintf(("RendezvousServerConnection::SetupSockForConn(): Set up an IPv6 socket %d\n", sockFd));
         }
-    } else {
-        if (connInterface.interfaceProperties.m_family == QCC_AF_INET6) {
-            status = Socket(QCC_AF_INET6, QCC_SOCK_STREAM, sockFd);
-            if (status != ER_OK) {
-                QCC_LogError(status, ("RendezvousServerConnection::SetupSockForConn(): Socket(AF_INET6) failed: %d - %s", errno, strerror(errno)));
-            } else {
-                QCC_DbgPrintf(("RendezvousServerConnection::SetupSockForConn(): Set up an IPv6 socket %d\n", sockFd));
-            }
+    } else if (connInterface.interfaceProperties.m_family == QCC_AF_INET) {
+        status = Socket(QCC_AF_INET, QCC_SOCK_STREAM, sockFd);
+        if (status != ER_OK) {
+            QCC_LogError(status, ("RendezvousServerConnection::SetupSockForConn(): Socket(AF_INET) failed: %d - %s", errno, strerror(errno)));
+        } else {
+            QCC_DbgPrintf(("RendezvousServerConnection::SetupSockForConn(): Set up an IPv4 socket %d\n", sockFd));
         }
     }
 

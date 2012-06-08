@@ -50,6 +50,7 @@ static const char bundledConfig[] =
     "<busconfig>"
     "  <type>alljoyn_bundled</type>"
     "  <listen>tcp:addr=0.0.0.0,port=0,family=ipv4</listen>"
+    "  <listen>ice:</listen>"
     "  <limit name=\"auth_timeout\">5000</limit>"
     "  <limit name=\"max_incomplete_connections_tcp\">4</limit>"
     "  <limit name=\"max_completed_connections_tcp\">16</limit>"
@@ -59,6 +60,19 @@ static const char bundledConfig[] =
     "    <property enable_ipv4=\"true\"/>"
     "    <property enable_ipv6=\"true\"/>"
     "  </ip_name_service>"
+    "  <ice>"
+    "    <limit name=\"max_incomplete_connections\">16</limit>"
+    "    <limit name=\"max_completed_connections\">64</limit>"
+    "  </ice>"
+    "  <ice_discovery_manager>"
+    "    <property interfaces=\"*\"/>"
+    "    <property server=\"rdvs-test.qualcomm.com\"/>"
+    "    <property ethernetPrefix=\"eth\"/>"
+    "    <property wiFiPrefix=\"wlan\"/>"
+    "    <property mobileNwPrefix=\"ppp\"/>"
+    "    <property protocol=\"HTTP\"/>"
+    "    <property enable_ipv6=\"false\"/>"
+    "  </ice_discovery_manager>"
     "</busconfig>";
 
 class BundledDaemon : public DaemonLauncher {
