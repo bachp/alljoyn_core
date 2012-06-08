@@ -31,10 +31,12 @@
 #include "ConvertUTF.h"
 #include "Status.h"
 
-/* wstring is defined in the android NDK 8 but not defined in NDK7 
-So, defining wstring in case it is not defined */
+/*
+ * wstring is defined in the android NDK 8 but not defined in NDK7
+ * So, defining wstring in case it is not defined
+ */
 namespace std {
-    typedef basic_string<wchar_t> wstring;
+typedef basic_string<wchar_t> wstring;
 }
 
 
