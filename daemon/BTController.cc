@@ -1633,8 +1633,9 @@ void BTController::HandleConnectAddrChanged(const InterfaceDescription::Member* 
             nodeDB.Lock(MUTEX_CONTEXT);
             BTNodeInfo changedNode = nodeDB.FindNode(oldAddr);
             if (changedNode->IsValid()) {
-                nodeDB.RemoveNode(changedNode);
                 assert(newAddr.IsValid());
+
+                nodeDB.RemoveNode(changedNode);
                 changedNode->SetBusAddress(newAddr);
                 nodeDB.AddNode(changedNode);
             }
@@ -1644,7 +1645,17 @@ void BTController::HandleConnectAddrChanged(const InterfaceDescription::Member* 
             lock.Lock(MUTEX_CONTEXT);
             if (masterNode->GetBusAddress() == oldAddr) {
                 assert(newAddr.IsValid());
-                masterNode->SetBusAddress(newAddr);
+
+                foundNodeDB.Lock(MUTEX_CONTEXT);
+                bool updateFoundNodeDB = (foundNodeDB.FindNode(oldAddr) == masterNode);
+                if (updateFoundNodeDB) {
+                    foundNodeDB.RemoveNode(masterNode);
+                    masterNode->SetBusAddress(newAddr);
+                    foundNodeDB.AddNode(masterNode);
+                } else {
+                    masterNode->SetBusAddress(newAddr);
+                }
+                foundNodeDB.Unlock(MUTEX_CONTEXT);
             }
             lock.Unlock(MUTEX_CONTEXT);
         }
