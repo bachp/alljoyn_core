@@ -350,7 +350,7 @@ class ICESession {
     }
 
     // Private, used only by friend ICEManager
-    QStatus Init(void);
+    QStatus Init(bool enableIpv6);
 
     void SetState(ICESessionState state);
 
@@ -364,7 +364,7 @@ class ICESession {
     QStatus GetIPAddressFromConnectionData(String& connectionData,
                                            IPAddress& IPAddressParm);
 
-    QStatus GatherHostCandidates(void);
+    QStatus GatherHostCandidates(bool enableIpv6);
 
     QStatus StartStunTurnPacingThread(void);
 

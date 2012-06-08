@@ -123,10 +123,11 @@ static const char
     "  <ice_discovery_manager>"
     "    <property interfaces=\"*\"/>"
     "    <property server=\"rdvs-test.qualcomm.com\"/>"
-    "    <property EthernetPrefix=\"eth\"/>"
-    "    <property WiFiPrefix=\"wlan\"/>"
-    "    <property MobileNwPrefix=\"ppp\"/>"
-    "    <property Protocol=\"HTTP\"/>"
+    "    <property ethernetPrefix=\"eth\"/>"
+    "    <property wiFiPrefix=\"wlan\"/>"
+    "    <property mobileNwPrefix=\"ppp\"/>"
+    "    <property protocol=\"HTTP\"/>"
+    "    <property enable_ipv6=\"false\"/>"
     "  </ice_discovery_manager>"
     "</busconfig>";
 

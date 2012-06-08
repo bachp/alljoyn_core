@@ -50,6 +50,7 @@
 #include "DaemonConfig.h"
 #include "Transport.h"
 #include "TransportList.h"
+#include "DaemonICETransport.h"
 
 #define QCC_MODULE "ALLJOYN"
 
@@ -73,6 +74,19 @@ static const char daemonConfig[] =
     "    <property enable_ipv4=\"true\"/>"
     "    <property enable_ipv6=\"true\"/>"
     "  </ip_name_service>"
+    "  <ice>"
+    "    <limit name=\"max_incomplete_connections\">16</limit>"
+    "    <limit name=\"max_completed_connections\">64</limit>"
+    "  </ice>"
+    "  <ice_discovery_manager>"
+    "    <property interfaces=\"*\"/>"
+    "    <property server=\"rdvs-test.qualcomm.com\"/>"
+    "    <property ethernetPrefix=\"eth\"/>"
+    "    <property wiFiPrefix=\"wlan\"/>"
+    "    <property mobileNwPrefix=\"ppp\"/>"
+    "    <property protocol=\"HTTP\"/>"
+    "    <property enable_ipv6=\"false\"/>"
+    "  </ice_discovery_manager>"
     "</busconfig>";
 
 /** Static top level message bus object */
@@ -347,6 +361,7 @@ static void usage(void)
     printf("Options:\n");
     printf("   -h   = Print this help message\n");
     printf("   -b   = Disable Bluetooth transport\n");
+    printf("   -i   = Disable ICE transport (Currently ICE transport is only available for Android and Linux)\n");
     printf("   -m   = Mimic behavior of bbservice within daemon\n");
     printf("   -be  = Send messages as big endian\n");
     printf("   -le  = Send messages as little endian\n");
@@ -374,6 +389,7 @@ int main(int argc, char** argv)
     qcc::GUID128 guid;
     bool mimicBbservice = false;
     bool noBT = false;
+    bool noICE = false;
 
     printf("AllJoyn Library version: %s\n", ajn::GetVersion());
     printf("AllJoyn Library build info: %s\n", ajn::GetBuildInfo());
@@ -390,6 +406,8 @@ int main(int argc, char** argv)
             mimicBbservice = true;
         } else if (0 == strcmp("-b", argv[i])) {
             noBT = true;
+        } else if (0 == strcmp("-i", argv[i])) {
+            noICE = true;
         } else if (0 == strcmp("-le", argv[i])) {
             _Message::SetEndianess(ALLJOYN_LITTLE_ENDIAN);
         } else if (0 == strcmp("-be", argv[i])) {
@@ -418,12 +436,18 @@ int main(int argc, char** argv)
      * to be relaxed to 666 to make this work for everyday apps.  We also let
      * the tcp listen spec default to listening and multicasting on all
      * adapters. */
-    serverArgs = env->Find("BUS_SERVER_ADDRESSES", "unix:abstract=alljoyn;tcp:family=ipv4");
+    serverArgs = env->Find("BUS_SERVER_ADDRESSES", "unix:abstract=alljoyn;tcp:family=ipv4;ice:");
 #else
     if (noBT) {
         serverArgs = env->Find("BUS_SERVER_ADDRESSES", "unix:abstract=alljoyn;tcp:addr=0.0.0.0,port=9955,family=ipv4");
     } else {
         serverArgs = env->Find("BUS_SERVER_ADDRESSES", "unix:abstract=alljoyn;tcp:addr=0.0.0.0,port=9955,family=ipv4;bluetooth:");
+    }
+
+    if (noICE) {
+        serverArgs = env->Find("BUS_SERVER_ADDRESSES", "unix:abstract=alljoyn;tcp:addr=0.0.0.0,port=9955,family=ipv4");
+    } else {
+        serverArgs = env->Find("BUS_SERVER_ADDRESSES", "unix:abstract=alljoyn;tcp:addr=0.0.0.0,port=9955,family=ipv4;ice:");
     }
 #endif /* DAEMON_LIB */
 
@@ -438,6 +462,18 @@ int main(int argc, char** argv)
     TransportFactoryContainer cntr;
     cntr.Add(new TransportFactory<DaemonTransport>(DaemonTransport::TransportName, true));
     cntr.Add(new TransportFactory<TCPTransport>("tcp", false));
+
+#if defined(QCC_OS_DARWIN)
+    noICE = true;
+#endif
+
+#if defined(QCC_OS_WINDOWS)
+    noICE = true;
+#endif
+
+    if (!noICE) {
+        cntr.Add(new TransportFactory<DaemonICETransport>("ice", false));
+    }
 
 #if !defined(QCC_OS_DARWIN)
     if (!noBT) {

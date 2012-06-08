@@ -72,12 +72,15 @@ class ICEManager {
      *
      * @param addRelayedCandidates  If true, TURN server resources will be allocated .
      *
+     * @param enableIpv6            Use IPv6 interfaces also as candidates.
+     *
      * @param session               Handle for session.
      *
      * @param stunInfo              STUN server information
      */
     QStatus AllocateSession(bool addHostCandidates,
                             bool addRelayedCandidates,
+                            bool enableIpv6,
                             ICESessionListener* listener,
                             ICESession*& session,
                             STUNServerInfo stunInfo);

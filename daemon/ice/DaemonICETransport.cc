@@ -1163,7 +1163,7 @@ ThreadReturn STDCALL DaemonICETransport::AllocateICESessionThread::Run(void* arg
     }
 
     /* Gather ICE candidates */
-    status = (transportObj->m_iceManager)->AllocateSession(true, true, &iceListener, iceSession, stunInfo);
+    status = (transportObj->m_iceManager)->AllocateSession(true, true, transportObj->m_dm->GetEnableIPv6(), &iceListener, iceSession, stunInfo);
 
     if (status != ER_OK) {
         QCC_LogError(status, ("DaemonICETransport::AllocateICESessionThread::Run(): AllocateSession failed"));
@@ -1768,7 +1768,7 @@ QStatus DaemonICETransport::Connect(const char* connectSpec, const SessionOpts& 
         }
 
         /* Gather ICE candidates */
-        status = m_iceManager->AllocateSession(true, false, &iceListener, iceSession, stunInfo);
+        status = m_iceManager->AllocateSession(true, false, m_dm->GetEnableIPv6(), &iceListener, iceSession, stunInfo);
         if (status == ER_OK) {
             status = iceListener.Wait();
 

@@ -66,10 +66,11 @@ namespace ajn {
 //     <ice_discovery_manager>
 //       <property interfaces="*"/>
 //       <property server="rdvs-test.qualcomm.com"/>
-//       <property EthernetPrefix="eth"/>
-//       <property WiFiPrefix="wlan"/>
-//       <property MobileNwPrefix="ppp"/>
-//       <property Protocol="HTTP"/>
+//       <property ethernetPrefix="eth"/>
+//       <property wiFiPrefix="wlan"/>
+//       <property mobileNwPrefix="ppp"/>
+//       <property protocol="HTTP"/>
+//       <property enable_ipv6=\"false\"/>"
 //     </ice_discovery_manager>
 //   </busconfig>
 //
@@ -115,7 +116,8 @@ DiscoveryManager::DiscoveryManager(BusAttachment& bus)
     InterfaceUpdateAlarm(NULL),
     SentFirstGETMessage(false),
     userCredentials(),
-    UseHTTP(false)
+    UseHTTP(false),
+    EnableIPv6(false)
 {
     QCC_DbgPrintf(("DiscoveryManager::DiscoveryManager()\n"));
 
@@ -129,10 +131,11 @@ DiscoveryManager::DiscoveryManager(BusAttachment& bus)
     //     <ice_discovery_manager>
     //       <property interfaces="*"/>
     //       <property server="rdvs-test.qualcomm.com"/>
-    //       <property EthernetPrefix="eth"/>
-    //       <property WiFiPrefix="wlan"/>
-    //       <property MobileNwPrefix="ppp"/>
-    //       <property Protocol="HTTP"/>
+    //       <property ethernetPrefix="eth"/>
+    //       <property wiFiPrefix="wlan"/>
+    //       <property mobileNwPrefix="ppp"/>
+    //       <property protocol="HTTP"/>
+    //       <property enable_ipv6=\"false\"/>"
     //     </ice_discovery_manager>
     //   </busconfig>
     //
@@ -143,15 +146,21 @@ DiscoveryManager::DiscoveryManager(BusAttachment& bus)
     RendezvousServer = config->Get("ice_discovery_manager/property@server", "rdvs-test.qualcomm.com");
 
     /* Retrieve the connection protocol to be used */
-    if (config->Get("ice_discovery_manager/property@Protocol") == "HTTP") {
+    if (config->Get("ice_discovery_manager/property@protocol") == "HTTP") {
         QCC_DbgPrintf(("DiscoveryManager::DiscoveryManager(): Using HTTP"));
         UseHTTP = true;
     }
 
+    /* See if IPv6 interfaces are allowed to be used */
+    if (config->Get("ice_discovery_manager/property@enable_ipv6") == "true") {
+        QCC_DbgPrintf(("DiscoveryManager::DiscoveryManager(): Enabling use of IPv6 interfaces"));
+        EnableIPv6 = true;
+    }
+
     /* Retrieve the interface name prefixes from the config file */
-    ethernetInterfaceName = config->Get("ice_discovery_manager/property@EthernetPrefix", "eth");
-    wifiInterfaceName = config->Get("ice_discovery_manager/property@WiFiPrefix", "wlan");
-    mobileNwInterfaceName = config->Get("ice_discovery_manager/property@MobileNwPrefix", "ppp");
+    ethernetInterfaceName = config->Get("ice_discovery_manager/property@ethernetPrefix", "eth");
+    wifiInterfaceName = config->Get("ice_discovery_manager/property@wiFiPrefix", "wlan");
+    mobileNwInterfaceName = config->Get("ice_discovery_manager/property@mobileNwPrefix", "ppp");
 
     QCC_DbgPrintf(("DiscoveryManager::DiscoveryManager(): RendezvousServer = %s\n", RendezvousServer.c_str()));
 
@@ -940,7 +949,7 @@ QStatus DiscoveryManager::Connect(void)
         QCC_LogError(status, ("DiscoveryManager::Connect(): InterfaceFlags = NONE"));
     } else {
         if (!(Connection)) {
-            Connection = new RendezvousServerConnection(RendezvousServer, false, UseHTTP);
+            Connection = new RendezvousServerConnection(RendezvousServer, EnableIPv6, UseHTTP);
         }
 
         /* Set up or update the Persistent Connection if we have active Advertisements or Searches */

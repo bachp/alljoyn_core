@@ -708,8 +708,6 @@ exit:
     return status;
 }
 
-
-
 QStatus Stun::RecvStunMessage(StunMessage& msg, IPAddress& addr, uint16_t& port, bool& relayed, uint32_t maxMs)
 {
     Thread* selfThread = Thread::GetThread();

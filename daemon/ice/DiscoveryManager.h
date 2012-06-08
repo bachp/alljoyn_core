@@ -701,6 +701,12 @@ class DiscoveryManager : public Thread, public AlarmListener {
      */
     qcc::String GetPeerAddr(void) { return PeerAddr; };
 
+    /**
+     * @internal
+     * @brief Return the value of EnableIPv6
+     */
+    bool GetEnableIPv6(void) { return EnableIPv6; };
+
   private:
 
     /**
@@ -1161,6 +1167,10 @@ class DiscoveryManager : public Thread, public AlarmListener {
 
     /* Boolean indicating if HTTP protocol needs to be used for connection with the Server */
     bool UseHTTP;
+
+    /* Boolean indicating if IPv6 interface should be used for connections with the Server and also
+     * as probable ICE candidates */
+    bool EnableIPv6;
 };
 
 } // namespace ajn
