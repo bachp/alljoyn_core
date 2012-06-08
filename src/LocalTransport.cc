@@ -216,7 +216,7 @@ QStatus LocalEndpoint::Stop(void)
      * Unregister all registered bus objects
      */
     objectsLock.Lock(MUTEX_CONTEXT);
-    unordered_map<const char*, BusObject*, hash<const char*>, PathEq>::iterator it = localObjects.begin();
+    unordered_map<const char*, BusObject*, Hash, PathEq>::iterator it = localObjects.begin();
     while (it != localObjects.end()) {
         BusObject* obj = it->second;
         objectsLock.Unlock(MUTEX_CONTEXT);
@@ -468,7 +468,7 @@ void LocalEndpoint::UnregisterBusObject(BusObject& object)
 
 BusObject* LocalEndpoint::FindLocalObject(const char* objectPath) {
     objectsLock.Lock(MUTEX_CONTEXT);
-    unordered_map<const char*, BusObject*, hash<const char*>, PathEq>::iterator iter = localObjects.find(objectPath);
+    unordered_map<const char*, BusObject*, Hash, PathEq>::iterator iter = localObjects.find(objectPath);
     BusObject* ret = (iter == localObjects.end()) ? NULL : iter->second;
     objectsLock.Unlock(MUTEX_CONTEXT);
     return ret;
@@ -633,7 +633,7 @@ void LocalEndpoint::AlarmTriggered(const Alarm& alarm, QStatus reason)
     } else {
         /* Call ObjectRegistered for any unregistered bus object */
         objectsLock.Lock(MUTEX_CONTEXT);
-        unordered_map<const char*, BusObject*, hash<const char*>, PathEq>::iterator iter = localObjects.begin();
+        unordered_map<const char*, BusObject*, Hash, PathEq>::iterator iter = localObjects.begin();
         while (iter != localObjects.end()) {
             if (!iter->second->isRegistered) {
                 BusObject* bo = iter->second;
