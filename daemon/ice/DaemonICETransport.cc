@@ -1126,6 +1126,7 @@ ThreadReturn STDCALL DaemonICETransport::AllocateICESessionThread::Run(void* arg
     QCC_DbgHLPrintf(("DaemonICETransport::AllocateICESessionThread::Run(): clientGUID(%s)", clientGUID.c_str()));
 
     QStatus status = ER_FAIL;
+    String pktStreamKey;
 
     /*Figure out the ICE Address Candidates*/
     ICESessionListenerImpl iceListener;
@@ -1272,6 +1273,7 @@ ThreadReturn STDCALL DaemonICETransport::AllocateICESessionThread::Run(void* arg
                                             } else {
                                                 /* Wrap ICE session FD in a new ICEPacketStream */
                                                 ICEPacketStream pks(*iceSession, *stunActivityPtr->stun, *selectedCandidatePairList[0]);
+                                                pktStreamKey = connectSpec;
                                                 map<String, pair<ICEPacketStream, int32_t> >::iterator sit =
                                                     transportObj->pktStreamMap.insert(pair<String, pair<ICEPacketStream, int32_t> >(connectSpec, pair<ICEPacketStream, int32_t>(pks, 1))).first;
 
@@ -1327,6 +1329,16 @@ ThreadReturn STDCALL DaemonICETransport::AllocateICESessionThread::Run(void* arg
                 QCC_LogError(status, ("DaemonICETransport::AllocateICESessionThread::Run(): GetLocalICECandidates failed"));
             }
         }
+    }
+
+    /* Remove new packet stream if we failed */
+    if ((status != ER_OK) && !pktStreamKey.empty()) {
+        transportObj->pktStreamMapLock.Lock(MUTEX_CONTEXT);
+        ICEPacketStream* pks = transportObj->AcquireICEPacketStream(pktStreamKey);
+        if (pks) {
+            transportObj->ReleaseICEPacketStream(*pks);
+        }
+        transportObj->pktStreamMapLock.Unlock(MUTEX_CONTEXT);
     }
 
     /* Succeed or fail, this iceSession is done */
@@ -1693,6 +1705,7 @@ QStatus DaemonICETransport::Connect(const char* connectSpec, const SessionOpts& 
 
     QStatus status = ER_FAIL;
     ICESession* iceSession = NULL;
+    String pktStreamKey;
 
     /*
      * We only want to allow this call to proceed if we have a running
@@ -1861,6 +1874,7 @@ QStatus DaemonICETransport::Connect(const char* connectSpec, const SessionOpts& 
 
                                                 /* Wrap ICE session FD in a new ICEPacketStream */
                                                 ICEPacketStream pks(*iceSession, *stun, *selectedCandidatePairList[0]);
+                                                pktStreamKey = normSpec;
                                                 map<String, pair<ICEPacketStream, int32_t> >::iterator it =
                                                     pktStreamMap.insert(pair<String, pair<ICEPacketStream, int32_t> >(normSpec, pair<ICEPacketStream, int32_t>(pks, 1))).first;
 
@@ -2001,6 +2015,16 @@ QStatus DaemonICETransport::Connect(const char* connectSpec, const SessionOpts& 
         m_iceManager->DeallocateSession(iceSession);
         iceSession = NULL;
         m_dm->RemoveSessionDetailFromMap(true, std::pair<String, DiscoveryManager::SessionEntry>(argMap["guid"], entry));
+    }
+
+    /* Remove new packet stream if we failed */
+    if ((status != ER_OK) && !pktStreamKey.empty()) {
+        pktStreamMapLock.Lock(MUTEX_CONTEXT);
+        ICEPacketStream* pks = AcquireICEPacketStream(pktStreamKey);
+        if (pks) {
+            ReleaseICEPacketStream(*pks);
+        }
+        pktStreamMapLock.Unlock(MUTEX_CONTEXT);
     }
 
     /* Set caller's ep ref */
