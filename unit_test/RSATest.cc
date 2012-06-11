@@ -220,14 +220,14 @@ TEST(RSATest, encryption_decryption) {
     outLen = pkSize;
     status = pk.PublicEncrypt(in, inLen, out, outLen);
     EXPECT_EQ(ER_OK, status) << "  Actual Status: " << QCC_StatusText(status) << " PublicEncrypt failed";
-    EXPECT_EQ(64, outLen);
+    EXPECT_EQ(static_cast<size_t>(64), outLen);
 
     inLen = outLen;
     outLen = pkSize;
     memcpy(in, out, pkSize);
     status = pk.PrivateDecrypt(in, inLen, out, outLen);
     EXPECT_EQ(ER_OK, status) << "  Actual Status: " << QCC_StatusText(status) << " PrivateDecrypt failed";
-    EXPECT_EQ(12, outLen);
+    EXPECT_EQ(static_cast<size_t>(12), outLen);
     EXPECT_STREQ("hello world", reinterpret_cast<char*>(out));
 }
 
@@ -281,14 +281,14 @@ TEST(RSATest, cert_generation) {
     outLen = pkSize;
     status = pub.PublicEncrypt(in, inLen, out, outLen);
     EXPECT_EQ(ER_OK, status) << "  Actual Status: " << QCC_StatusText(status) << " PublicEncrypt failed";
-    EXPECT_EQ(64, outLen);
+    EXPECT_EQ(static_cast<size_t>(64), outLen);
 
     inLen = outLen;
     outLen = pkSize;
     memcpy(in, out, pkSize);
     status = pri.PrivateDecrypt(in, inLen, out, outLen);
     EXPECT_EQ(ER_OK, status) << "  Actual Status: " << QCC_StatusText(status) << " PublicEncrypt failed";
-    EXPECT_EQ(12, outLen);
+    EXPECT_EQ(static_cast<size_t>(12), outLen);
     EXPECT_STREQ("hello world", reinterpret_cast<char*>(out));
 }
 

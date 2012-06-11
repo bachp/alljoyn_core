@@ -183,7 +183,7 @@ QStatus ClientSetup::MethodCall(int noOfCalls, int type)
         const MsgArg*replyArgs[10];
         size_t numArgs;
         reply->GetArgs(numArgs, *replyArgs);
-        EXPECT_EQ(10, numArgs);
+        EXPECT_EQ(static_cast<size_t>(10), numArgs);
     }     // end if type == 3
     else if (type == 4) {
 
@@ -386,7 +386,7 @@ void ClientSetup::MySignalHandler2(
     EXPECT_EQ(2, numArgs);
     if (replyArgs[0]->v_uint32 == 5) {
         EXPECT_STREQ("hello", msg->GetArg(1)->v_string.str);
-        EXPECT_EQ(5, msg->GetArg(1)->v_string.len);
+        EXPECT_EQ(static_cast<uint32_t>(5), msg->GetArg(1)->v_string.len);
     } else if (msg->GetArg(1)->v_uint32 == 4096) {
         EXPECT_EQ(4096, msg->GetArg(1)->v_string.len);
         qcc::String hugeA(4096, 'a');

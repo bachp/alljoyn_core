@@ -110,7 +110,6 @@ TEST_F(DBusObjTest, RequestName_DuplicateName_Fail)
 
 TEST_F(DBusObjTest, ListQueuedOwners) {
     QStatus status = ER_OK;
-    QStatus testStatus = ER_OK;
 
     /* Create message bus */
     BusAttachment bus2("testDBusObj2", false);
@@ -160,7 +159,7 @@ TEST_F(DBusObjTest, ListQueuedOwners) {
     ASSERT_EQ(ER_OK, status) << "  Actual Status: " << QCC_StatusText(status);
 
     reply->GetArg(0)->Get("as", &las, &asArray);
-    ASSERT_EQ(las, 0);
+    ASSERT_EQ(static_cast<size_t>(0), las);
     queuedNames.clear();
     queuedNames.reserve(las);
     for (unsigned int i = 0; i < las; ++i) {
@@ -182,7 +181,7 @@ TEST_F(DBusObjTest, ListQueuedOwners) {
     ASSERT_EQ(ER_OK, status) << "  Actual Status: " << QCC_StatusText(status);
 
     reply->GetArg(0)->Get("as", &las, &asArray);
-    ASSERT_EQ(las, 0);
+    ASSERT_EQ(static_cast<size_t>(0), las);
     queuedNames.clear();
     queuedNames.reserve(las);
     for (unsigned int i = 0; i < las; ++i) {
@@ -208,7 +207,7 @@ TEST_F(DBusObjTest, ListQueuedOwners) {
 
     status = reply->GetArg(0)->Get("as", &las, &asArray);
     ASSERT_EQ(ER_OK, status) << "  Actual Status: " << QCC_StatusText(status);
-    ASSERT_EQ(2, las);
+    ASSERT_EQ(static_cast<size_t>(2), las);
     queuedNames.clear();
     queuedNames.resize(las);
     for (unsigned int i = 0; i < las; ++i) {
@@ -229,7 +228,7 @@ TEST_F(DBusObjTest, ListQueuedOwners) {
     ASSERT_EQ(ER_OK, status) << "  Actual Status: " << QCC_StatusText(status);
 
     reply->GetArg(0)->Get("as", &las, &asArray);
-    ASSERT_EQ(3, las);
+    ASSERT_EQ(static_cast<size_t>(3), las);
     queuedNames.clear();
     queuedNames.resize(las);
     for (unsigned int i = 0; i < las; ++i) {

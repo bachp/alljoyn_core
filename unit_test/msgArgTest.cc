@@ -55,56 +55,56 @@ TEST(MsgArgTest, Basic) {
 
     MsgArg arg("i", -9999);
     status = arg.Get("i", &i);
-    ASSERT_EQ(status, ER_OK);
+    ASSERT_EQ(ER_OK, status) << "  Actual Status: " << QCC_StatusText(status);
     ASSERT_EQ(i, -9999);
 
     status = arg.Set("s", "hello");
-    ASSERT_EQ(status, ER_OK);
+    ASSERT_EQ(ER_OK, status) << "  Actual Status: " << QCC_StatusText(status);
     char*str;
     status = arg.Get("s", &str);
-    ASSERT_EQ(status, ER_OK);
+    ASSERT_EQ(ER_OK, status) << "  Actual Status: " << QCC_StatusText(status);
     ASSERT_STREQ("hello", str);
 
     MsgArg argList;
     status = argList.Set("(ybnqdiuxtsoqg)", y, b, n, q, d, i, u, x, t, s, o, q, g);
-    ASSERT_EQ(status, ER_OK);
+    ASSERT_EQ(ER_OK, status) << "  Actual Status: " << QCC_StatusText(status);
     status = argList.Get("(ybnqdiuxtsoqg)", &y, &b, &n, &q, &d, &i, &u, &x, &t, &s, &o, &q, &g);
-    ASSERT_EQ(status, ER_OK);
-    ASSERT_EQ(y, 0);
-    ASSERT_EQ(b, true);
-    ASSERT_EQ(n, 42);
-    ASSERT_EQ(q, 0xBEBE);
-    ASSERT_EQ(i, -9999);
+    ASSERT_EQ(ER_OK, status) << "  Actual Status: " << QCC_StatusText(status);
+    ASSERT_EQ(0, y);
+    ASSERT_EQ(true, b);
+    ASSERT_EQ(42, n);
+    ASSERT_EQ(0xBEBE, q);
+    ASSERT_EQ(-9999, i);
 
-    ASSERT_EQ(u, 0x32323232);
-    ASSERT_EQ(x, -1LL);
-    ASSERT_EQ(t, 0x6464646464646464ULL);
-    ASSERT_STREQ(s, "this is a string");
-    ASSERT_STREQ(o, "/org/foo/bar");
-    ASSERT_EQ(q, 0xBEBE);
-    ASSERT_STREQ(g, "a{is}d(siiux)");
+    ASSERT_EQ(static_cast<uint32_t>(0x32323232), u);
+    ASSERT_EQ(-1LL, x);
+    ASSERT_EQ(0x6464646464646464ULL, t);
+    ASSERT_STREQ("this is a string", s);
+    ASSERT_STREQ("/org/foo/bar", o);
+    ASSERT_EQ(0xBEBE, q);
+    ASSERT_STREQ("a{is}d(siiux)", g);
 
     /*  Structs */
-    ASSERT_EQ(status, ER_OK);
+    ASSERT_EQ(ER_OK, status) << "  Actual Status: " << QCC_StatusText(status);
     status = argList.Set("((ydx)(its))", y, d, x, i, t, s);
-    ASSERT_EQ(status, ER_OK);
+    ASSERT_EQ(ER_OK, status) << "  Actual Status: " << QCC_StatusText(status);
     status = argList.Get("((ydx)(its))", &y, &d, &x, &i, &t, &s);
-    ASSERT_EQ(status, ER_OK);
-    EXPECT_EQ(y, 0);
-    EXPECT_EQ(x, -1LL);
-    EXPECT_EQ(i, -9999);
-    EXPECT_EQ(t, 0x6464646464646464ULL);
-    EXPECT_STREQ(s, "this is a string");
+    ASSERT_EQ(ER_OK, status) << "  Actual Status: " << QCC_StatusText(status);
+    EXPECT_EQ(0, y);
+    EXPECT_EQ(-1LL, x);
+    EXPECT_EQ(-9999, i);
+    EXPECT_EQ(0x6464646464646464ULL, t);
+    EXPECT_STREQ("this is a string", s);
 
     status = arg.Set("((iuiu)(yd)at)", i, u, i, u, y, d, sizeof(at) / sizeof(at[0]), at);
-    ASSERT_EQ(status, ER_OK);
+    ASSERT_EQ(ER_OK, status) << "  Actual Status: " << QCC_StatusText(status);
     int64_t*p64;
     size_t p64len;
     status = arg.Get("((iuiu)(yd)at)", &i, &u, &i, &u, &y, &d, &p64len, &p64);
     EXPECT_EQ(ER_OK, status) << "  Actual Status: " << QCC_StatusText(status);
-    EXPECT_EQ(i, -9999);
-    EXPECT_EQ(u, 0x32323232u);
-    EXPECT_EQ(y, 0);
+    EXPECT_EQ(-9999, i);
+    EXPECT_EQ(0x32323232u, u);
+    EXPECT_EQ(0, y);
     EXPECT_EQ(p64len, sizeof(at) / sizeof(at[0]));
     for (size_t k = 0; k < p64len; ++k) {
         EXPECT_EQ(at[k], p64[k]) << "index " << k;
@@ -132,7 +132,7 @@ TEST(MsgArgTest, Variants)
     EXPECT_EQ(ER_BUS_SIGNATURE_MISMATCH, status) << "  Actual Status: " << QCC_StatusText(status);
 
     status = arg.Set("v", new MsgArg("d", &d));
-    ASSERT_EQ(status, ER_OK);
+    ASSERT_EQ(ER_OK, status) << "  Actual Status: " << QCC_StatusText(status);
     status = arg.Get("i", &i);
     EXPECT_EQ(ER_BUS_SIGNATURE_MISMATCH, status) << "  Actual Status: " << QCC_StatusText(status);
     status = arg.Get("s", &str);
@@ -141,7 +141,7 @@ TEST(MsgArgTest, Variants)
     EXPECT_EQ(ER_OK, status) << "  Actual Status: " << QCC_StatusText(status);
 
     status = arg.Set("v", new MsgArg("s", s));
-    ASSERT_EQ(status, ER_OK);
+    ASSERT_EQ(ER_OK, status) << "  Actual Status: " << QCC_StatusText(status);
     status = arg.Get("i", &i);
     EXPECT_EQ(ER_BUS_SIGNATURE_MISMATCH, status) << "  Actual Status: " << QCC_StatusText(status);
     status = arg.Get("s", &str);
@@ -170,55 +170,55 @@ TEST(MsgArgTest, Scalars)
      */
     MsgArg arg;
     status = arg.Set("ay", sizeof(ay) / sizeof(ay[0]), ay);
-    ASSERT_EQ(status, ER_OK);
+    ASSERT_EQ(ER_OK, status) << "  Actual Status: " << QCC_StatusText(status);
     uint8_t*pay;
     size_t lay;
     status = arg.Get("ay", &lay, &pay);
-    ASSERT_EQ(status, ER_OK);
-    ASSERT_EQ(pay[1], 19);
+    ASSERT_EQ(ER_OK, status) << "  Actual Status: " << QCC_StatusText(status);
+    ASSERT_EQ(19, pay[1]);
 
     status = arg.Set("an", sizeof(an) / sizeof(an[0]), an);
-    ASSERT_EQ(status, ER_OK);
+    ASSERT_EQ(ER_OK, status) << "  Actual Status: " << QCC_StatusText(status);
     int16_t*pan;
     size_t lan;
     status = arg.Get("an", &lan, &pan);
-    ASSERT_EQ(status, ER_OK);
-    ASSERT_EQ(pan[1], -99);
+    ASSERT_EQ(ER_OK, status) << "  Actual Status: " << QCC_StatusText(status);
+    ASSERT_EQ(-99, pan[1]);
 
 
     status = arg.Set("ai", sizeof(ai) / sizeof(ai[0]), ai);
-    ASSERT_EQ(status, ER_OK);
+    ASSERT_EQ(ER_OK, status) << "  Actual Status: " << QCC_StatusText(status);
     int32_t*pai;
     size_t lai;
     status = arg.Get("ai", &lai, &pai);
-    ASSERT_EQ(status, ER_OK);
-    ASSERT_EQ(pai[1], -88);
+    ASSERT_EQ(ER_OK, status) << "  Actual Status: " << QCC_StatusText(status);
+    ASSERT_EQ(-88, pai[1]);
 
 
     status = arg.Set("ax", sizeof(ax) / sizeof(ax[0]), ax);
-    ASSERT_EQ(status, ER_OK);
+    ASSERT_EQ(ER_OK, status) << "  Actual Status: " << QCC_StatusText(status);
     int64_t*pax;
     size_t lax;
     status = arg.Get("ax", &lax, &pax);
-    ASSERT_EQ(status, ER_OK);
-    ASSERT_EQ(pax[1], -88);
+    ASSERT_EQ(ER_OK, status) << "  Actual Status: " << QCC_StatusText(status);
+    ASSERT_EQ(-88, pax[1]);
 
 
     arg.Set("ad", sizeof(ad) / sizeof(ad[0]), ad);
-    ASSERT_EQ(status, ER_OK);
+    ASSERT_EQ(ER_OK, status) << "  Actual Status: " << QCC_StatusText(status);
     double*pad;
     size_t lad;
     status = arg.Get("ad", &lad, &pad);
-    ASSERT_EQ(status, ER_OK);
-    ASSERT_EQ(pad[1], 0.01);
+    ASSERT_EQ(ER_OK, status) << "  Actual Status: " << QCC_StatusText(status);
+    ASSERT_EQ(0.01, pad[1]);
 
     arg.Set("at", sizeof(at) / sizeof(at[0]), at);
-    ASSERT_EQ(status, ER_OK);
+    ASSERT_EQ(ER_OK, status) << "  Actual Status: " << QCC_StatusText(status);
     uint64_t*pat;
     size_t lat;
     status = arg.Get("at", &lat, &pat);
-    ASSERT_EQ(status, ER_OK);
-    ASSERT_EQ(pat[1], 988);
+    ASSERT_EQ(ER_OK, status) << "  Actual Status: " << QCC_StatusText(status);
+    ASSERT_EQ(static_cast<uint64_t>(988), pat[1]);
 
 
 }
@@ -333,24 +333,24 @@ TEST(MsgArgTest, DiffStrings)
     static const char*ag[] = { "s", "sss", "as", "a(iiiiuu)" };
 
     arg.Set("as", sizeof(as) / sizeof(as[0]), as);
-    ASSERT_EQ(status, ER_OK);
+    ASSERT_EQ(ER_OK, status) << "  Actual Status: " << QCC_StatusText(status);
     MsgArg*pas;
     char*str[4];
     size_t las;
     status = arg.Get("as", &las, &pas);
-    ASSERT_EQ(status, ER_OK);
+    ASSERT_EQ(ER_OK, status) << "  Actual Status: " << QCC_StatusText(status);
     for (int k = 0; k < 4; k++) {
         pas[k].Get("s", &str[k]);
     }
     ASSERT_STREQ(str[1], "two");
 
     arg.Set("ag", sizeof(ag) / sizeof(ag[0]), ag);
-    ASSERT_EQ(status, ER_OK);
+    ASSERT_EQ(ER_OK, status) << "  Actual Status: " << QCC_StatusText(status);
     MsgArg*pag;
     char*str_ag[4];
     size_t lag;
     status = arg.Get("ag", &lag, &pag);
-    ASSERT_EQ(status, ER_OK);
+    ASSERT_EQ(ER_OK, status) << "  Actual Status: " << QCC_StatusText(status);
     for (int k = 0; k < 4; k++) {
         pag[k].Get("g", &str_ag[k]);
     }
@@ -358,12 +358,12 @@ TEST(MsgArgTest, DiffStrings)
 
 
     arg.Set("ao", sizeof(ao) / sizeof(ao[0]), ao);
-    ASSERT_EQ(status, ER_OK);
+    ASSERT_EQ(ER_OK, status) << "  Actual Status: " << QCC_StatusText(status);
     MsgArg*pao;
     char*str_ao[4];
     size_t lao;
     status = arg.Get("ao", &lao, &pao);
-    ASSERT_EQ(status, ER_OK);
+    ASSERT_EQ(ER_OK, status) << "  Actual Status: " << QCC_StatusText(status);
     for (int k = 0; k < 4; k++) {
         pao[k].Get("o", &str_ao[k]);
     }
@@ -385,12 +385,12 @@ TEST(MsgArgTest, Dictionary)
     dictEntries[3].Set("{iv}", 1, new MsgArg("(ss)", keys[3], "mellow"));
 
     QStatus status = dict.v_array.SetElements("{iv}", numEntries, dictEntries);
-    ASSERT_EQ(status, ER_OK);
+    ASSERT_EQ(ER_OK, status) << "  Actual Status: " << QCC_StatusText(status);
 
     MsgArg*entries;
     size_t num;
     status = dict.Get("a{iv}", &num, &entries);
-    ASSERT_EQ(status, ER_OK);
+    ASSERT_EQ(ER_OK, status) << "  Actual Status: " << QCC_StatusText(status);
     for (size_t i = 0; i < num; ++i) {
         char*str1;
         char*str2;
@@ -399,6 +399,6 @@ TEST(MsgArgTest, Dictionary)
         if (status == ER_BUS_SIGNATURE_MISMATCH) {
             status = entries[i].Get("{i(ss)}", &key, &str1, &str2);
         }
-        ASSERT_EQ(status, ER_OK);
+        ASSERT_EQ(ER_OK, status) << "  Actual Status: " << QCC_StatusText(status);
     }
 }

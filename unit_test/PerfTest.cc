@@ -771,7 +771,7 @@ TEST(PerfTest, JoinSession_RecordTime_Success)
     //GetTimeNow(&startTime);
     status = client_msgBus->JoinSession("org.alljoyn.test_services", 550, NULL, sessionid, qos);
     ASSERT_EQ(ER_OK, status) << "  Actual Status: " << QCC_StatusText(status);
-    EXPECT_NE(0, sessionid) << "SessionID should not be '0'";
+    EXPECT_NE(static_cast<SessionId>(0), sessionid) << "SessionID should not be '0'";
 
     //GetTimeNow(&endTime);
     //QCC_SyncPrintf("JoinSession takes %d ms\n", (endTime - startTime));
@@ -809,7 +809,7 @@ TEST(PerfTest, ClientTest_BasicDiscovery) {
     SessionOpts qos(SessionOpts::TRAFFIC_MESSAGES, false, SessionOpts::PROXIMITY_ANY, TRANSPORT_ANY);
     status = client_msgBus->JoinSession("org.alljoyn.test_services", 550, NULL, sessionid, qos);
     ASSERT_EQ(ER_OK, status) << "  Actual Status: " << QCC_StatusText(status);
-    EXPECT_NE(0, sessionid) << "SessionID should not be '0'";
+    EXPECT_NE(static_cast<SessionId>(0), sessionid) << "SessionID should not be '0'";
     /* Checking id name is on the bus */
     bool hasOwner = false;
     status = client_msgBus->NameHasOwner("org.alljoyn.test_services", hasOwner);
