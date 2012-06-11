@@ -391,11 +391,6 @@ void RendezvousServerConnection::CleanConnection(HttpConnection* httpConn, ConnI
         httpConn = NULL;
     }
 
-    /* Close the allocated socket used by the old connection */
-    if (connInterface->sockFd != -1) {
-        Close(connInterface->sockFd);
-    }
-
     /* Clear the connection interface details */
     connInterface->Clear();
     isConnected = false;

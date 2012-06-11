@@ -71,16 +71,6 @@ const char* DaemonICETransport::TransportName = "ice";
 class DaemonICEEndpoint : public RemoteEndpoint {
   public:
 
-    /* Byte sent from the service end to the client end to tell the client that the
-     * service side is ready to accept the PacketEngine connect request from the client */
-    /*PPN - Review duration*/
-    static const uint8_t ISSUE_PACKET_ENGINE_CONNECT_COMMAND = 0xAA;
-
-    /* Timeout within which the ISSUE_PACKET_ENGINE_CONNECT_COMMAND should be received by the
-     * client */
-    /*PPN - Review duration*/
-    static const uint32_t PACKET_ENGINE_CONNECT_COMMAND_RECEIVE_TIMEOUT = 30000;
-
     /* Timeout within which the Connect/Accept callback should be received after issuing
      * PacketEngine connect/accept */
     /*PPN - Review duration*/
