@@ -14,6 +14,8 @@ include $(CLEAR_VARS)
 
 LOCAL_MODULE    := daemon-jni
 LOCAL_SRC_FILES := daemon-jni.cpp
-LOCAL_LDLIBS := -L$(BUS_LIB_DIR) -lalljoyn-daemon -lalljoyn -lcrypto -llog -lgcc -lssl
+LOCAL_LDLIBS := -L$(BUS_LIB_DIR) \
+        -L$(NDK_ROOT)/sources/cxx-stl/gnu-libstdc++/libs/armeabi \
+	-lalljoyn-daemon -lalljoyn -lcrypto -llog -lgcc -lssl -lgnustl_static
 
 include $(BUILD_SHARED_LIBRARY)
