@@ -86,6 +86,7 @@ AllJoynObj::AllJoynObj(Bus& bus, BusController* busController) :
     lostAdvNameSignal(NULL),
     sessionLostSignal(NULL),
     mpSessionChangedSignal(NULL),
+    mpJoinSessionSignal(NULL),
     guid(bus.GetInternal().GetGlobalGUID()),
     exchangeNamesSignal(NULL),
     detachSessionSignal(NULL),
@@ -152,6 +153,9 @@ QStatus AllJoynObj::Init()
     lostAdvNameSignal = alljoynIntf->GetMember("LostAdvertisedName");
     sessionLostSignal = alljoynIntf->GetMember("SessionLost");
     mpSessionChangedSignal = alljoynIntf->GetMember("MPSessionChanged");
+
+    const InterfaceDescription* busSessionIntf = bus.GetInterface(org::alljoyn::Bus::Peer::Session::InterfaceName);
+    mpJoinSessionSignal = busSessionIntf->GetMember("SessionJoined");
 
     /* Make this object implement org.alljoyn.Daemon */
     daemonIface = bus.GetInterface(org::alljoyn::Daemon::InterfaceName);
@@ -606,6 +610,12 @@ ThreadReturn STDCALL AllJoynObj::JoinSessionThread::RunJoin()
                             ajObj.SessionMapInsert(joinerSme);
                             id = joinerSme.id;
                             optsOut = sme.opts;
+
+                            if (status == ER_OK) {
+                                ajObj.ReleaseLocks();
+                                ajObj.SendJoinSession(sme.sessionPort, newSessionId, sender.c_str(), sme.endpointName.c_str());
+                                ajObj.AcquireLocks();
+                            }
 
                             /* Send session changed notification */
                             if (sme.opts.isMultipoint && (status == ER_OK)) {
@@ -1304,6 +1314,9 @@ qcc::ThreadReturn STDCALL AllJoynObj::JoinSessionThread::RunAttach()
                                     status = ajObj.router.AddSessionRoute(id, *destEp, tEp, *srcEp, srcB2BEp);
                                     if (ER_OK != status) {
                                         QCC_LogError(status, ("AddSessionRoute(%u, %s, NULL, %s, %s) failed", id, dest, srcEp->GetUniqueName().c_str(), srcB2BEp ? srcB2BEp->GetUniqueName().c_str() : "NULL"));
+                                    } else {
+                                        // this call is still necessary if going to a local or bundled daemon
+                                        ajObj.SendJoinSession(sme.sessionPort, sme.id, src, sme.endpointName.c_str());
                                     }
                                 }
                             }
@@ -1800,6 +1813,31 @@ QStatus AllJoynObj::SendAttachSession(SessionPort sessionPort,
         } else {
             QCC_DbgPrintf(("Received AttachSession response: <bad_args>"));
         }
+    }
+
+    return status;
+}
+
+QStatus AllJoynObj::SendJoinSession(SessionPort sessionPort,
+                                    SessionId sessionId,
+                                    const char* joinerName,
+                                    const char* creatorName)
+{
+
+    MsgArg args[3];
+    args[0].Set("q", sessionPort);
+    args[1].Set("u", sessionId);
+    args[2].Set("s", joinerName);
+
+    QCC_DbgPrintf(("Calling JoinSession(%u, %u, %s) to %s",
+                   args[0].v_uint16,
+                   args[1].v_uint32,
+                   args[2].v_string.str,
+                   creatorName));
+
+    QStatus status = Signal(creatorName, sessionId, *mpJoinSessionSignal, args, ArraySize(args));
+    if (status != ER_OK) {
+        QCC_LogError(status, ("Failed to send SessionJoined to %s", creatorName));
     }
 
     return status;

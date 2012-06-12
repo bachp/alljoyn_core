@@ -118,6 +118,11 @@ AllJoynPeerObj::AllJoynPeerObj(BusAttachment& bus) :
         if (ifc) {
             AddInterface(*ifc);
             AddMethodHandler(ifc->GetMember("AcceptSession"), static_cast<MessageReceiver::MethodHandler>(&AllJoynPeerObj::AcceptSession));
+            bus.RegisterSignalHandler(
+                this,
+                static_cast<MessageReceiver::SignalHandler>(&AllJoynPeerObj::SessionJoined),
+                ifc->GetMember("SessionJoined"),
+                NULL);
         }
     }
 }
@@ -983,6 +988,10 @@ void AllJoynPeerObj::AlarmTriggered(const Alarm& alarm, QStatus reason)
         AcceptSession(NULL, req->msg);
         break;
 
+    case SESSION_JOINED:
+        SessionJoined(NULL, NULL, req->msg);
+        break;
+
     case EXPAND_HEADER:
         ExpandHeader(req->msg, req->data);
         break;
@@ -1097,13 +1106,60 @@ void AllJoynPeerObj::AcceptSession(const InterfaceDescription::Member* member, M
         /* Reply to AcceptSession */
         replyArg.Set("b", isAccepted);
         status = MethodReply(msg, &replyArg, 1);
+
         if ((status == ER_OK) && isAccepted) {
-            /* Let listeners know the join was successfully accepted */
-            bus.GetInternal().CallJoinedListeners(sessionPort, sessionId, joiner.c_str());
+            const uint32_t VER_250 = 33882112;
+            BusEndpoint* sender = bus.GetInternal().GetRouter().FindEndpoint(msg->GetRcvEndpointName());
+            assert(sender != NULL);
+
+            // if not REMOTE, it must be a bundled daemon, which is the same version
+            if (sender->GetEndpointType() == BusEndpoint::ENDPOINT_TYPE_REMOTE) {
+                RemoteEndpoint* rep = static_cast<RemoteEndpoint*>(sender);
+
+                // remote daemon is older than version 2.5.0; it will *NOT* send the SessionJoined signal
+                if (rep->GetRemoteAllJoynVersion() < VER_250) {
+                    bus.GetInternal().CallJoinedListeners(sessionPort, sessionId, joiner.c_str());
+                }
+            }
         }
     } else {
         MethodReply(msg, status);
     }
+}
+
+
+
+void AllJoynPeerObj::SessionJoined(const InterfaceDescription::Member* member, const char* srcPath, Message& msg)
+{
+    // dispatch to the dispatcher thread
+    QStatus status;
+    if (member) {
+        lock.Lock(MUTEX_CONTEXT);
+        if (dispatcher.IsRunning()) {
+            Request* req = new Request(msg, SESSION_JOINED, "");
+            status = bus.GetInternal().Dispatch(*this, req, 0);
+            if (status != ER_OK) {
+                delete req;
+            }
+        } else {
+            status = ER_BUS_STOPPING;
+        }
+        lock.Unlock(MUTEX_CONTEXT);
+        if (status != ER_OK) {
+            MethodReply(msg, status);
+        }
+        return;
+    }
+
+    size_t numArgs;
+    const MsgArg* args;
+
+    msg->GetArgs(numArgs, args);
+    assert(numArgs == 3);
+    const SessionPort sessionPort = args[0].v_uint16;
+    const SessionId sessionId = args[1].v_uint32;
+    const char* joiner = args[2].v_string.str;
+    bus.GetInternal().CallJoinedListeners(sessionPort, sessionId, joiner);
 }
 
 }
