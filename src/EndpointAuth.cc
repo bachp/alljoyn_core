@@ -32,6 +32,7 @@
 #include <alljoyn/DBusStd.h>
 #include <alljoyn/AllJoynStd.h>
 #include <alljoyn/Message.h>
+#include <alljoyn/version.h>
 
 #include "RemoteEndpoint.h"
 #include "EndpointAuth.h"
@@ -262,11 +263,16 @@ QStatus EndpointAuth::WaitHello()
 static const char NegotiateUnixFd[] = "NEGOTIATE_UNIX_FD";
 static const char AgreeUnixFd[] = "AGREE_UNIX_FD";
 
+static const char NegotiateVersion[] = "EXTENSION_NEGOTIATE_VERSION";
+static const char AgreeVersion[] = "EXTENSION_AGREE_VERSION";
+
+
 qcc::String EndpointAuth::SASLCallout(SASLEngine& sasl, const qcc::String& extCmd)
 {
     qcc::String rsp;
 
     if (sasl.GetRole() == AuthMechanism::RESPONDER) {
+        // step 1: client receives empty command and replies with "NEGOTIATE_UNIX_FD [<pid>]"
         if (extCmd.empty() && endpoint.features.handlePassing) {
             rsp = NegotiateUnixFd;
 #ifdef QCC_OS_WINDOWS
@@ -274,10 +280,23 @@ qcc::String EndpointAuth::SASLCallout(SASLEngine& sasl, const qcc::String& extCm
 #endif
             endpoint.features.handlePassing = false;
         } else if (extCmd.find(AgreeUnixFd) == 0) {
+            // step 3: client receives "AGREE_UNIX_FD [<pid>]" and sets options
             endpoint.features.handlePassing = true;
             endpoint.processId = qcc::StringToU32(extCmd.substr(sizeof(AgreeUnixFd) - 1), 0, -1);
+
+            // step 4: client sends "EXTENSION_NEGOTIATE_VERSION <version>"
+            rsp = NegotiateVersion;
+            rsp += " " + qcc::U32ToString(ajn::GetNumericVersion());
+        } else if (extCmd.find(AgreeVersion) == 0) {
+            // step 7: client receives negotiated version from the client
+            // pre-2.5 daemons will not send this message, leaving endpoint.alljoynVersion with default value of 0
+            const uint32_t version = qcc::StringToU32(extCmd.substr(sizeof(AgreeVersion) - 1), 0, -1);
+            endpoint.alljoynVersion = version;
+
+            // moving forward, any new steps in the SASL authentication process will go here
         }
     } else {
+        // step 2: daemon receives "NEGOTIATE_UNIX_FD [<pid>]", sets options, and replies with "AGREE_UNIX_FD [<pid>]"
         if (extCmd.find(NegotiateUnixFd) == 0) {
             rsp = AgreeUnixFd;
 #ifdef QCC_OS_WINDOWS
@@ -285,6 +304,15 @@ qcc::String EndpointAuth::SASLCallout(SASLEngine& sasl, const qcc::String& extCm
 #endif
             endpoint.features.handlePassing = true;
             endpoint.processId = qcc::StringToU32(extCmd.substr(sizeof(NegotiateUnixFd) - 1), 0, -1);
+        } else if (extCmd.find(NegotiateVersion) == 0) {
+            // step 5: daemon receives "EXTENSION_NEGOTIATE_VERSION <version>", negotiates lowest common version
+            rsp = AgreeVersion;
+            const uint32_t clientVersion = qcc::StringToU32(extCmd.substr(sizeof(NegotiateVersion) - 1), 0, -1);
+
+            // step 6: daemon responds with "EXTENSION_AGREE_VERSION <min ver>"
+            const uint32_t negotiatedVersion = std::min(clientVersion, ajn::GetNumericVersion());
+            endpoint.alljoynVersion = negotiatedVersion;
+            rsp += " " + qcc::U32ToString(negotiatedVersion);
         }
     }
     return rsp;

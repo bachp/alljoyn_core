@@ -204,6 +204,14 @@ class RemoteEndpoint : public BusEndpoint, public qcc::ThreadListener {
     uint32_t GetRemoteProtocolVersion() const { return auth.GetRemoteProtocolVersion(); }
 
     /**
+     * Get the AllJoyn version of the remote end of this endpoint
+     *
+     * @return  - The AllJoyn version use by the remote side, as returned by the function ajn::GetNumericVersion
+     *          - 0 if the remote EP predates release 2.5
+     */
+    uint32_t GetRemoteAllJoynVersion() const { return alljoynVersion; }
+
+    /**
      * Establish a connection.
      *
      * @param authMechanisms  The authentication mechanism(s) to use.
@@ -449,6 +457,7 @@ class RemoteEndpoint : public BusEndpoint, public qcc::ThreadListener {
 
     Features features;                       /**< Requested and negotiated features of this endpoint */
     uint32_t processId;                      /**< Process id of the process at the remote end of this endpoint */
+    uint32_t alljoynVersion;                 /**< AllJoyn version of the process at the remote end of this endpoint */
     int32_t refCount;                        /**< Number of active users of this remote endpoint */
     bool isSocket;                           /**< True iff this endpoint contains a SockStream as its 'stream' member */
     bool armRxPause;                         /**< Pause Rx after receiving next METHOD_REPLY message */
