@@ -215,7 +215,8 @@ class AllJoynPeerObj : public BusObject, public BusListener, public qcc::AlarmLi
         AUTH_CHALLENGE,
         EXPAND_HEADER,
         ACCEPT_SESSION,
-        SECURE_CONNECTION
+        SECURE_CONNECTION,
+        SESSION_JOINED
     } RequestType;
 
     /* Dispatcher context */
@@ -316,6 +317,14 @@ class AllJoynPeerObj : public BusObject, public BusListener, public qcc::AlarmLi
      * @param msg     The method call message
      */
     void AcceptSession(const InterfaceDescription::Member* member, Message& msg);
+
+    /**
+     * SessionJoined method handler called when the local daemon has finished setting up the session
+     *
+     * @param member  The member that was called
+     * @param msg     The method call message
+     */
+    void SessionJoined(const InterfaceDescription::Member* member, const char* srcPath, Message& message);
 
     /**
      * Add a Request to the peer object's dispatcher

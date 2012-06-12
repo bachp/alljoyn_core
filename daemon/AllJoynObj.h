@@ -372,6 +372,7 @@ class AllJoynObj : public BusObject, public NameListener, public TransportListen
     const InterfaceDescription::Member* lostAdvNameSignal; /**< org.alljoyn.Bus.LostAdvertisdName signal */
     const InterfaceDescription::Member* sessionLostSignal; /**< org.alljoyn.Bus.SessionLost signal */
     const InterfaceDescription::Member* mpSessionChangedSignal;  /**< org.alljoyn.Bus.MPSessionChanged signal */
+    const InterfaceDescription::Member* mpJoinSessionSignal;  /**< org.alljoyn.Bus.JoinSession signal */
 
     /** Map of open connectSpecs to local endpoint name(s) that require the connection. */
     std::multimap<qcc::String, qcc::String> connectMap;
@@ -586,6 +587,19 @@ class AllJoynObj : public BusObject, public NameListener, public TransportListen
                               const char* joinerName,
                               const SessionOpts& opts,
                               bool& isAccepted);
+
+    /**
+     * Utility method used to invoke JoinSession on device local endpoint.
+     *
+     * @param sessionPort      SessionPort that received the join request.
+     * @param sessionId        Id for new session (if accepted).
+     * @param creatorName      Session creator unique name.
+     * @param joinerName       Session joiner unique name.
+     */
+    QStatus SendJoinSession(SessionPort sessionPort,
+                            SessionId sessionId,
+                            const char* joinerName,
+                            const char* creatorName);
 
     /**
      * Utility method used to send SessionLost signal to locally attached endpoint.
