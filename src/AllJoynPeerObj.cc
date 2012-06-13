@@ -1110,10 +1110,9 @@ void AllJoynPeerObj::AcceptSession(const InterfaceDescription::Member* member, M
         if ((status == ER_OK) && isAccepted) {
             const uint32_t VER_250 = 33882112;
             BusEndpoint* sender = bus.GetInternal().GetRouter().FindEndpoint(msg->GetRcvEndpointName());
-            assert(sender != NULL);
 
             // if not REMOTE, it must be a bundled daemon, which is the same version
-            if (sender->GetEndpointType() == BusEndpoint::ENDPOINT_TYPE_REMOTE) {
+            if (sender && sender->GetEndpointType() == BusEndpoint::ENDPOINT_TYPE_REMOTE) {
                 RemoteEndpoint* rep = static_cast<RemoteEndpoint*>(sender);
 
                 // remote daemon is older than version 2.5.0; it will *NOT* send the SessionJoined signal
