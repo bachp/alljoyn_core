@@ -61,13 +61,13 @@ class StunCredential {
   public:
 
     StunCredential(const String& password) :
-        password(password), hmacKey(), keyLength() { ComputeShortTermKey(); }
+        password(password), hmacKey(NULL), keyLength(0) { ComputeShortTermKey(); }
 
     /**
      * Destructor for the StunCredential class.  This will delete the key, if any.
      *
      */
-    ~StunCredential(void) { delete hmacKey; }
+    ~StunCredential(void) { free(hmacKey); }
 
 
     QStatus GetKey(uint8_t* keyOut, size_t& len) const;

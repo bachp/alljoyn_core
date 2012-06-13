@@ -213,6 +213,7 @@ void _ICECandidate::AwaitRequestsAndResponses()
             uint64_t startTime = GetTimestamp64();
             while ((session->GetState() == ICESession::ICECandidatesGathered) &&
                    (session->ChecksStarted() == false) &&
+                   (!thisThread->IsStopping()) &&
                    (GetTimestamp64() < (startTime + 10000))) {
                 session->Unlock();
                 qcc::Sleep(100);
@@ -441,14 +442,8 @@ QStatus _ICECandidate::ReadReceivedMessage(uint32_t timeoutMsec)
                     stunActivity->stun->GetComponent()->AddCandidate(relayedCandidate);
 
                     // Set the relay IP and port in the STUN object
-                    // @@ JP HARDCODING
-#if 0
                     stunActivity->stun->SetTurnAddr(relayed.addr);
                     stunActivity->stun->SetTurnPort(relayed.port);
-#else
-                    stunActivity->stun->SetTurnAddr(IPAddress("199.1.146.143"));
-                    stunActivity->stun->SetTurnPort(3478);
-#endif
                     QCC_DbgPrintf(("Setting Relay address %s and port %d in STUN object", relayed.addr.ToString().c_str(), relayed.port));
 
                     if (sharedStunRelayedCandidate) {

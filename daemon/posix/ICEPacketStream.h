@@ -108,7 +108,7 @@ class ICEPacketStream : public PacketStream {
      *
      * @return MTU of PacketSource
      */
-    size_t GetSourceMTU() { return mtuWithStunOverhead; }
+    size_t GetSourceMTU() { return usingTurn ? mtuWithStunOverhead : interfaceMtu; }
 
     /**
      * Push zero or more bytes into the sink.
@@ -145,7 +145,7 @@ class ICEPacketStream : public PacketStream {
      *
      * @return MTU of PacketSink
      */
-    size_t GetSinkMTU() { return mtuWithStunOverhead; }
+    size_t GetSinkMTU() { return usingTurn ? mtuWithStunOverhead : interfaceMtu; }
 
     /**
      * Human readable form of UDPPacketDest.
@@ -228,8 +228,8 @@ class ICEPacketStream : public PacketStream {
     uint16_t port;
     qcc::IPAddress remoteAddress;
     uint16_t remotePort;
-    qcc::IPAddress mappedAddress;
-    uint16_t mappedPort;
+    qcc::IPAddress remoteMappedAddress;
+    uint16_t remoteMappedPort;
     qcc::IPAddress turnAddress;
     uint16_t turnPort;
     int sock;
@@ -261,8 +261,7 @@ class ICEPacketStream : public PacketStream {
     /**
      * Strip STUN overhead from a received message.
      */
-    QStatus StripStunOverhead(uint8_t* recvBuf, size_t rcvdBytes, void* dataBuf, size_t& dataSize,
-                              qcc::IPAddress hostAddress, uint16_t hostPort, size_t keyLen);
+    QStatus StripStunOverhead(size_t rcvdBytes, void* dataBuf, size_t dataBufLen, size_t& actualBytes);
 };
 
 }  /* namespace */

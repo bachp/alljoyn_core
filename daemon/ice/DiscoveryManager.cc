@@ -49,9 +49,6 @@
 using namespace std;
 using namespace qcc;
 
-// Disable IPv6 support for initial release
-//#define ENABLE_IPv6
-
 #define QCC_MODULE "ICE_DISCOVERY_MANAGER"
 
 namespace ajn {
@@ -196,7 +193,6 @@ DiscoveryManager::DiscoveryManager(BusAttachment& bus)
 #ifdef ENABLE_PROXIMITY_FRAMEWORK
     /* Initialize the ProximityScanEngine */
     ProximityScanner = new ProximityScanEngine(this);
-    ProximityScanner->StartScan();
 #else
     currentProximityIndex = 0;
     // This will be removed once the framework
