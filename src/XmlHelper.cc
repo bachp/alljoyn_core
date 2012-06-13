@@ -121,12 +121,7 @@ QStatus XmlHelper::ParseInterface(const XmlElement* elem, ProxyBusObject* obj)
                     } else if (argElem->GetName() == "annotation") {
                         const qcc::String& nameAtt = argElem->GetAttribute("name");
                         const qcc::String& valueAtt = argElem->GetAttribute("value");
-
-                        if (nameAtt == org::freedesktop::DBus::AnnotateDeprecated && valueAtt == "true") {
-                            annotations |= MEMBER_ANNOTATE_DEPRECATED;
-                        } else if (nameAtt == org::freedesktop::DBus::AnnotateNoReply && valueAtt == "true") {
-                            annotations |= MEMBER_ANNOTATE_NO_REPLY;
-                        }
+                        annotations[nameAtt] = valueAtt;
                     }
                 }
 

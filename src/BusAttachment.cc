@@ -386,11 +386,11 @@ QStatus BusAttachment::Connect(const char* connectSpec, BusEndpoint** newep)
                                                NULL);
             }
             if (ER_OK == status) {
-                 assert(iface);
-                 status = RegisterSignalHandler(busInternal,
-                                                static_cast<MessageReceiver::SignalHandler>(&BusAttachment::Internal::AllJoynSignalHandler),
-                                                iface->GetMember("PropertiesChanged"),
-                                                NULL);
+                assert(iface);
+                status = RegisterSignalHandler(busInternal,
+                                               static_cast<MessageReceiver::SignalHandler>(&BusAttachment::Internal::AllJoynSignalHandler),
+                                               iface->GetMember("PropertiesChanged"),
+                                               NULL);
             }
             if (ER_OK == status) {
                 Message reply(*this);
