@@ -199,7 +199,7 @@ class ICESession {
 
     uint32_t GetTURNRefreshPeriod(void) { return((TURN_PERMISSION_REFRESH_PERIOD_SECS - TURN_REFRESH_WARNING_PERIOD_SECS) * 1000); };
 
-    uint32_t GetSTUNKeepAlivePeriod(void) { return (STUN_KEEP_ALIVE_INTERVAL_IN_MILLISECS * 1000); };
+    uint32_t GetSTUNKeepAlivePeriod(void) { return STUN_KEEP_ALIVE_INTERVAL_IN_MILLISECS; };
 
     friend class ICEManager;
 

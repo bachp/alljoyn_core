@@ -1236,6 +1236,11 @@ QStatus ICESession::FormCheckLists(list<ICECandidates>& peerCandidates, String i
                         remoteMappedEndpoint.addr = peerCandidates.front().raddress;
                         remoteMappedEndpoint.port = peerCandidates.front().rport;
                         remoteCandidate->SetMappedAddress(remoteMappedEndpoint);
+                    } else if (remoteCandidateType == _ICECandidate::ServerReflexive_Candidate) {
+                        IPEndpoint remoteMappedEndpoint;
+                        remoteMappedEndpoint.addr = peerCandidates.front().address;
+                        remoteMappedEndpoint.port = peerCandidates.front().port;
+                        remoteCandidate->SetMappedAddress(remoteMappedEndpoint);
                     }
 
                     streamList[0]->AddRemoteCandidate(remoteCandidate);
@@ -1317,11 +1322,6 @@ void ICESession::EnqueueTurnCreatePermissions(ICECandidate& candidate)
     ICEStream::constRemoteListIterator iter;
 
     for (iter = stream->RemoteListBegin(); iter != stream->RemoteListEnd(); ++iter) {
-#if 0
-        if ((*iter)->GetType()  == _ICECandidate::Host_Candidate) {
-            continue;
-        }
-#endif
         IPEndpoint peerEndpoint = (*iter)->GetEndpoint();
         msg->AddAttribute(new StunAttributeXorPeerAddress(*msg, peerEndpoint.addr, peerEndpoint.port));
 
@@ -1346,12 +1346,16 @@ void ICESession::SetTurnPermissions(void)
 {
     stream_iterator streamIt;
     for (streamIt = Begin(); streamIt != End(); ++streamIt) {
-        ICEStream::const_iterator componentIt;
-        for (componentIt = (*streamIt)->Begin(); componentIt != (*streamIt)->End(); ++componentIt) {
-            Component::iterator candidateIt;
-            for (candidateIt = (*componentIt)->Begin(); candidateIt != (*componentIt)->End(); ++candidateIt) {
-                if ((*candidateIt)->GetType() == _ICECandidate::Relayed_Candidate) {
-                    EnqueueTurnCreatePermissions(*candidateIt);
+        /* We should enque the TURN create permission only if we have something to check. i.e. the
+         * checklist in the stream is non-empty */
+        if (!((*streamIt)->CheckListEmpty())) {
+            ICEStream::const_iterator componentIt;
+            for (componentIt = (*streamIt)->Begin(); componentIt != (*streamIt)->End(); ++componentIt) {
+                Component::iterator candidateIt;
+                for (candidateIt = (*componentIt)->Begin(); candidateIt != (*componentIt)->End(); ++candidateIt) {
+                    if ((*candidateIt)->GetType() == _ICECandidate::Relayed_Candidate) {
+                        EnqueueTurnCreatePermissions(*candidateIt);
+                    }
                 }
             }
         }

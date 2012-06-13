@@ -160,7 +160,9 @@ void Packet::Marshal()
     }
     uint16_t crc = 0;
     CRC16_Compute(tBuf, CRC_OFFSET, &crc);
-    CRC16_Compute(tBuf + PAYLOAD_OFFSET, payloadLen, &crc);
+    if (payloadLen) {
+        CRC16_Compute(tBuf + PAYLOAD_OFFSET, payloadLen, &crc);
+    }
     *reinterpret_cast<uint16_t*>(tBuf + CRC_OFFSET) = htole16(crc);
 }
 

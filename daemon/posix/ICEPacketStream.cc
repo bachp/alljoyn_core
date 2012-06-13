@@ -64,8 +64,8 @@ ICEPacketStream::ICEPacketStream(ICESession& iceSession, Stun& stun, const ICECa
     port(stun.GetLocalPort()),
     remoteAddress(selectedPair.remote->GetEndpoint().addr),
     remotePort(selectedPair.remote->GetEndpoint().port),
-    mappedAddress(),
-    mappedPort(0),
+    remoteMappedAddress(),
+    remoteMappedPort(0),
     turnAddress(stun.GetTurnAddr()),
     turnPort(stun.GetTurnPort()),
     sock(stun.GetSocketFD()),
@@ -88,17 +88,18 @@ ICEPacketStream::ICEPacketStream(ICESession& iceSession, Stun& stun, const ICECa
      * through the relay server */
     mtuWithStunOverhead = interfaceMtu - STUN_OVERHEAD;
 
+    /* Set remoteMappedAddress to the remote's most external address (regardless of candidate type) */
     switch (selectedPair.remote->GetType()) {
     case _ICECandidate::Relayed_Candidate:
     case _ICECandidate::ServerReflexive_Candidate:
     case _ICECandidate::PeerReflexive_Candidate:
-        mappedAddress = selectedPair.remote->GetMappedAddress().addr;
-        mappedPort = selectedPair.remote->GetMappedAddress().port;
+        remoteMappedAddress = selectedPair.remote->GetMappedAddress().addr;
+        remoteMappedPort = selectedPair.remote->GetMappedAddress().port;
         break;
 
     default:
-        mappedAddress = selectedPair.remote->GetEndpoint().addr;
-        mappedPort = selectedPair.remote->GetEndpoint().port;
+        remoteMappedAddress = selectedPair.remote->GetEndpoint().addr;
+        remoteMappedPort = selectedPair.remote->GetEndpoint().port;
         break;
     }
 }
@@ -115,8 +116,8 @@ ICEPacketStream::ICEPacketStream(const ICEPacketStream& other) :
     port(other.port),
     remoteAddress(other.remoteAddress),
     remotePort(other.remotePort),
-    mappedAddress(other.mappedAddress),
-    mappedPort(other.mappedPort),
+    remoteMappedAddress(other.remoteMappedAddress),
+    remoteMappedPort(other.remoteMappedPort),
     turnAddress(other.turnAddress),
     turnPort(other.turnPort),
     sock(other.sock),
@@ -176,6 +177,8 @@ QStatus ICEPacketStream::Stop()
 
 QStatus ICEPacketStream::PushPacketBytes(const void* buf, size_t numBytes, PacketDest& dest, bool controlBytes)
 {
+    QCC_DbgTrace(("ICEPacketStream::PushPacketBytes"));
+
 #ifndef NDEBUG
     size_t messageMtu = usingTurn ? mtuWithStunOverhead : interfaceMtu;
     assert(numBytes <= messageMtu);
@@ -190,7 +193,7 @@ QStatus ICEPacketStream::PushPacketBytes(const void* buf, size_t numBytes, Packe
     size_t sent;
     if (!controlBytes && usingTurn) {
         ScatterGatherList sgList;
-        status = ComposeStunMessage(buf, numBytes, mappedAddress, mappedPort, turnUsername, hmacKey, sgList);
+        status = ComposeStunMessage(buf, numBytes, remoteMappedAddress, remoteMappedPort, turnUsername, hmacKey, sgList);
         if (status == ER_OK) {
             status = SendToSG(sock, turnAddress, turnPort, sgList, sent);
         } else {
@@ -208,23 +211,28 @@ QStatus ICEPacketStream::PushPacketBytes(const void* buf, size_t numBytes, Packe
             }
         }
     }
+#if 0
+    printf("$$$$$$$$$$$ PushBytes(len=%d)", (int) numBytes);
+    for (size_t i = 0; i < numBytes; ++i) {
+        if ((i % 16) == 0) {
+            printf("\n");
+        }
+        uint8_t upper = *(((const uint8_t*)buf) + i) >> 4;
+        uint8_t lower = *(((const uint8_t*)buf) + i) & 0x0F;
+        printf("%c%c ", (upper > 9) ? upper + 'A' - 10 : upper + '0', (lower > 9) ? lower + 'A' - 10 : lower + '0');
+    }
+    printf("\n");
+#endif
     sendLock.Unlock();
-
     return status;
 }
 
 QStatus ICEPacketStream::PullPacketBytes(void* buf, size_t reqBytes, size_t& actualBytes,
                                          PacketDest& sender, uint32_t timeout)
 {
+    QCC_DbgTrace(("ICEPacketStream::PullPacketBytes"));
+
     QStatus status = ER_OK;
-
-    size_t messageMtu = interfaceMtu;
-
-    if (usingTurn) {
-        messageMtu = mtuWithStunOverhead;
-    }
-
-    assert(reqBytes <= messageMtu);
 
     void* recvBuf = buf;
     size_t recvBytes = reqBytes;
@@ -245,8 +253,20 @@ QStatus ICEPacketStream::PullPacketBytes(void* buf, size_t reqBytes, size_t& act
     }
 
     if (usingTurn) {
-        status = StripStunOverhead(rxRenderBuf, actualBytes, buf, actualBytes, ipAddress, port, hmacKey.size());
+        status = StripStunOverhead(actualBytes, buf, reqBytes, actualBytes);
     }
+#if 0
+    printf("$$$$$$$$$$$ PullBytes(len=%d, buf=%p)\n", (int) actualBytes, buf);
+    for (size_t i = 0; i < actualBytes; ++i) {
+        if ((i % 16) == 0) {
+            printf("\n");
+        }
+        uint8_t upper = *(((const uint8_t*)buf) + i) >> 4;
+        uint8_t lower = *(((const uint8_t*)buf) + i) & 0x0F;
+        printf("%c%c ", (upper > 9) ? upper + 'A' - 10 : upper + '0', (lower > 9) ? lower + 'A' - 10 : lower + '0');
+    }
+    printf("\n");
+#endif
 
     return status;
 }
@@ -280,7 +300,7 @@ QStatus ICEPacketStream::ComposeStunMessage(const void* buf,
     sg.AddBuffer(buf, numBytes);
     sg.SetDataSize(numBytes);
 
-    StunMessage msg(STUN_MSG_INDICATION_CLASS, STUN_MSG_DATA_METHOD, reinterpret_cast<const uint8_t*>(key.c_str()), key.size());
+    StunMessage msg(STUN_MSG_INDICATION_CLASS, STUN_MSG_SEND_METHOD, reinterpret_cast<const uint8_t*>(key.c_str()), key.size());
 
     status = msg.AddAttribute(new StunAttributeUsername(userName));
     if (status == ER_OK) {
@@ -298,41 +318,37 @@ QStatus ICEPacketStream::ComposeStunMessage(const void* buf,
     if (status == ER_OK) {
         size_t renderSize = msg.RenderSize();
         assert(renderSize <= interfaceMtu);
-        status = msg.RenderBinary(txRenderBuf, renderSize, msgSG);
+        uint8_t* _txRenderBuf = txRenderBuf;
+        status = msg.RenderBinary(_txRenderBuf, renderSize, msgSG);
     }
 
     return status;
 }
 
-QStatus ICEPacketStream::StripStunOverhead(uint8_t* recvBuf, size_t rcvdBytes, void* dataBuf, size_t& dataSize,
-                                           qcc::IPAddress hostAddress, uint16_t hostPort, size_t keyLen)
+QStatus ICEPacketStream::StripStunOverhead(size_t rcvdBytes, void* dataBuf, size_t dataBufLen, size_t& actualBytes)
 {
     QCC_DbgTrace(("ICEPacketStream::StripStunOverhead()"));
 
-    assert(recvBuf != NULL);
-    assert(dataBuf != NULL);
-
     QStatus status = ER_OK;
 
-    if (((rcvdBytes >= StunMessage::MIN_MSG_SIZE) && StunMessage::IsStunMessage(recvBuf, rcvdBytes))) {
+    if (((rcvdBytes >= StunMessage::MIN_MSG_SIZE) && StunMessage::IsStunMessage(rxRenderBuf, rcvdBytes))) {
 
         uint16_t rawMsgType = 0;
 
-        const uint8_t* buf = recvBuf;
-        size_t bufSize = rcvdBytes;
-
-        StunIOInterface::ReadNetToHost(buf, bufSize, rawMsgType);
-
-        buf = recvBuf;
-        bufSize = rcvdBytes;
+        size_t _rcvdBytes = rcvdBytes;
+        const uint8_t* _rxRenderBuf = rxRenderBuf;
+        StunIOInterface::ReadNetToHost(_rxRenderBuf, _rcvdBytes, rawMsgType);
 
         if (StunMessage::ExtractMessageMethod(rawMsgType) == STUN_MSG_DATA_METHOD) {
             // parse message and extract DATA attribute contents.
+            size_t keyLen  = hmacKey.size();
             uint8_t dummyHmac[keyLen];
             StunMessage msg("", dummyHmac, keyLen);
             QStatus status;
 
-            status = msg.Parse(buf, bufSize);
+            _rcvdBytes = rcvdBytes;
+            _rxRenderBuf = rxRenderBuf;
+            status = msg.Parse(_rxRenderBuf, _rcvdBytes);
             if (status == ER_OK) {
                 StunMessage::const_iterator iter;
 
@@ -353,26 +369,16 @@ QStatus ICEPacketStream::StripStunOverhead(uint8_t* recvBuf, size_t rcvdBytes, v
                          * copy that will involve overlapping memory
                          * regions.
                          */
-                        dataBuf = reinterpret_cast<uint8_t*>(sgiter->buf);
-                        dataSize = sgiter->len;
-                    }
-                    if ((*iter)->GetType() == STUN_ATTR_XOR_PEER_ADDRESS) {
-                        StunAttributeXorPeerAddress* sa = reinterpret_cast<StunAttributeXorPeerAddress*>(*iter);
-                        IPAddress addr;
-                        uint16_t recvPort;
-                        sa->GetAddress(addr, recvPort);
-
-                        if ((addr != hostAddress) || (recvPort != hostPort)) {
-                            status = ER_FAIL;
-                            QCC_LogError(status, ("ICEPacketStream::StripStunOverhead(): STUN message was not intended for this device"));
-                        }
+                        assert(dataBufLen >= sgiter->len);
+                        actualBytes = ::min(dataBufLen, sgiter->len);
+                        ::memcpy(dataBuf, sgiter->buf, actualBytes);
                     }
                 }
             }
         } else {
             // If there is no STUN_MSG_DATA_METHOD in the response, it means that this is a response for either a NAT keep alive request
             // or a TURN refresh request. We dont need to handle it neither do we need to send the data out to the PacketEngine
-            dataSize = 0;
+            actualBytes = 0;
         }
 
     } else {

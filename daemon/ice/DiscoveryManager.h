@@ -52,14 +52,13 @@
 
 using namespace qcc;
 
-// PPN - Disable Proximity Scanner for 8960 FC
 #if defined(QCC_OS_ANDROID)
-//#define ENABLE_PROXIMITY_FRAMEWORK
+#define ENABLE_PROXIMITY_FRAMEWORK
 #endif
 
 // PPN - Uncomment this for enabling the support to stop the proximity scanning when disconnected from the
 // Rendezvous Server and to start back the scanning when we are connected to the server
-//#define ENABLE_OPPORTUNISTIC_PROXIMITY_SCANNING
+#define ENABLE_OPPORTUNISTIC_PROXIMITY_SCANNING
 
 namespace ajn {
 

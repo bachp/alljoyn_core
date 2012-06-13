@@ -247,6 +247,11 @@ bool compareByFoundationCompIDPriority(ICECandidatePair* first, ICECandidatePair
 // lowest componentID to Waiting.  If more than one, use the one with highest priority.
 QStatus ICEStream::ActivateCheckList(void)
 {
+    /* If the pruned check list is empty, then we have nothing to do.*/
+    if (CheckListEmpty()) {
+        return ER_FAIL;
+    }
+
     SetPairsWaiting();
 
     return StartCheckListDispatcher();

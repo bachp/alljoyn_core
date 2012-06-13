@@ -93,6 +93,7 @@ QStatus StunAttributeMessageIntegrity::Parse(const uint8_t*& buf, size_t& bufSiz
     QCC_DbgRemoteData(digest, Crypto_SHA1::DIGEST_SIZE);
     QCC_DbgLocalData(compDigest, Crypto_SHA1::DIGEST_SIZE);
 
+    // @@ JP THIS IS BROKEN
 #if 0
     if (memcmp(digest, compDigest, Crypto_SHA1::DIGEST_SIZE) != 0) {
 #else

@@ -148,6 +148,7 @@ class ICEStream {
 
     checkListIterator CheckListBegin(void) { return checkList.begin(); }
     checkListIterator CheckListEnd(void) { return checkList.end(); }
+    bool CheckListEmpty(void) { return checkList.empty(); };
 
   private:
 
