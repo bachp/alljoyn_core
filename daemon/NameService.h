@@ -626,11 +626,12 @@ class NameService : public qcc::Thread {
     size_t NumAdvertisements() { return m_advertised.size(); }
 
     /**
-     * @brief Returns whether or not external network communication is enabled.
+     * @brief Returns whether or not external network communication is enabled
+     * (or enabling).
      *
      * @return Returns true if external communication is enabled, otherwise false.
      */
-    bool Enabled(void) { return m_enabled; }
+    bool Enabled(void) { return m_enabled || m_doEnable; }
 
   private:
     /**
