@@ -202,7 +202,7 @@
             {
             "AssemblyRegister" = "3:1"
             "AssemblyIsInGAC" = "11:FALSE"
-            "AssemblyAsmDisplayName" = "8:AlljoynService, Version=2.3.4.0, Culture=neutral, processorArchitecture=x86"
+            "AssemblyAsmDisplayName" = "8:AlljoynService, Version=2.3.5.0, Culture=neutral, processorArchitecture=x86"
                 "ScatterAssemblies"
                 {
                     "_2CE928D57491457F96F83CCDEB628657"
@@ -376,14 +376,14 @@
         {
         "Name" = "8:Microsoft Visual Studio"
         "ProductName" = "8:Alljoyn Daemon Service for XP"
-        "ProductCode" = "8:{C535F3B6-828A-480C-97AD-8B3E026F37B8}"
-        "PackageCode" = "8:{E3E1C439-5A04-449F-89BF-6521814DD9E2}"
+        "ProductCode" = "8:{68FDFA6B-0A13-4E49-BB9B-EBA2A94183F2}"
+        "PackageCode" = "8:{B25369C2-DA03-4E6A-9989-01902F9F5A46}"
         "UpgradeCode" = "8:{5F3CB03F-DD62-426E-9126-E5476468BCF3}"
         "RestartWWWService" = "11:FALSE"
         "RemovePreviousVersions" = "11:TRUE"
         "DetectNewerInstalledVersion" = "11:FALSE"
         "InstallAllUsers" = "11:TRUE"
-        "ProductVersion" = "8:2.3.4"
+        "ProductVersion" = "8:2.3.5"
         "Manufacturer" = "8:Alljoyn.org"
         "ARPHELPTELEPHONE" = "8:"
         "ARPHELPLINK" = "8:"
