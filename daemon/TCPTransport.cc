@@ -1806,7 +1806,7 @@ void TCPTransport::RunListenMachine(void)
          * advertisements or discovery requests.
          */
         if (m_isNsEnabled) {
-            assert(m_ns->Enabled());
+            // assert(m_ns->Enabled());
             assert(m_isAdvertising || m_isDiscovering);
             assert(m_isListening);
         }
