@@ -435,7 +435,8 @@ NameService::NameService()
     m_tRetransmit(RETRANSMIT_TIME), m_tQuestion(QUESTION_TIME),
     m_modulus(QUESTION_MODULUS), m_retries(NUMBER_RETRIES),
     m_loopback(false), m_enableIPv4(false), m_enableIPv6(false),
-    m_any(false), m_wakeEvent(), m_forceLazyUpdate(false), m_enabled(false)
+    m_any(false), m_wakeEvent(), m_forceLazyUpdate(false),
+    m_enabled(false), m_doEnable(false), m_doDisable(false)
 {
     QCC_DbgPrintf(("NameService::NameService()"));
 }
@@ -1093,14 +1094,14 @@ void NameService::LazyUpdateInterfaces(void)
 
 void NameService::Enable(void)
 {
-    m_enabled = true;
+    m_doEnable = true;
     m_forceLazyUpdate = true;
     m_wakeEvent.SetEvent();
 }
 
 void NameService::Disable(void)
 {
-    m_enabled = false;
+    m_doDisable = true;
     m_forceLazyUpdate = true;
     m_wakeEvent.SetEvent();
 }
@@ -1802,14 +1803,24 @@ void* NameService::Run(void* arg)
 
     while (!IsStopping()) {
         GetTimeNow(&tNow);
+        m_mutex.Lock();
 
         //
-        // We have a variable length number of open interfaces with their
-        // corresponding sockets to wait on.  Do this allocation here to
-        // avoid conflicts with Open- and CloseInterface and the underlying
-        // sockets and events.
+        // In order to pass the Android Compatibility Test, we need to be able
+        // to enable and disable communication with the outside world.  Enabling
+        // is straightforward enough, but when we disable, we need to be careful
+        // about turning things off before we've sent out all possibly queued
+        // packets.
         //
-        m_mutex.Lock();
+        if (m_doEnable) {
+            m_enabled = true;
+            m_doEnable = false;
+        }
+
+        if (m_doDisable && m_outbound.empty()) {
+            m_enabled = false;
+            m_doDisable = false;
+        }
 
         //
         // We need to figure out which interfaces we can send and receive
