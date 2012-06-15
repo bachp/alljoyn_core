@@ -311,7 +311,7 @@ QStatus ProxyBusObject::AddChild(const ProxyBusObject& child)
             } else {
                 ProxyBusObject ro(*bus, serviceName.c_str(), item.c_str(), sessionId);
                 ch.push_back(ro);
-                cur = &ch.back();
+                cur = ch.empty() ? NULL : &ch.back();
             }
         }
         idx = ((qcc::String::npos == end) || ((end + 1) == childPath.size())) ? qcc::String::npos : end + 1;

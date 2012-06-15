@@ -1307,7 +1307,7 @@ qcc::ThreadReturn STDCALL AllJoynObj::JoinSessionThread::RunAttach()
                                 for (size_t i = 0; i < nameVec.size(); ++i) {
                                     nameVec[i] = smEntry->memberNames[i].c_str();
                                 }
-                                replyArgs[3].Set("as", nameVec.size(), &nameVec.front());
+                                replyArgs[3].Set("as", nameVec.size(), nameVec.empty() ? NULL : &nameVec.front());
                             } else {
                                 replyCode = ALLJOYN_JOINSESSION_REPLY_FAILED;
                             }

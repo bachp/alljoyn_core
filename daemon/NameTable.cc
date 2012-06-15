@@ -305,9 +305,11 @@ void NameTable::GetUniqueNamesAndAliases(vector<pair<qcc::String, vector<qcc::St
     }
     unordered_map<qcc::String, deque<NameQueueEntry>, Hash, Equal>::const_iterator ait = aliasNames.begin();
     while (ait != aliasNames.end()) {
-        BusEndpoint* ep = FindEndpoint(ait->second.front().endpointName);
-        if (ep) {
-            epMap.insert(pair<const BusEndpoint*, qcc::String>(ep, ait->first));
+        if (!ait->second.empty()) {
+            BusEndpoint* ep = FindEndpoint(ait->second.front().endpointName);
+            if (ep) {
+                epMap.insert(pair<const BusEndpoint*, qcc::String>(ep, ait->first));
+            }
         }
         ++ait;
     }
