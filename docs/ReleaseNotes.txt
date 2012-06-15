@@ -1,4 +1,4 @@
-AllJoyn Version 2.3.4 Release Notes
+AllJoyn Version 2.3.5 Release Notes
 -----------------------------------
 
 Platform Support
@@ -14,19 +14,20 @@ Platform Support
 Features added in this release
 ------------------------------
 
-(FIXME)
+none
 
 
 Issues Addressed in this Release
 --------------------------------
 
-(FIXME)
+ALLJOYN-1103: Occasionaly missing LostAdvertisedName signals when using TCP transport.
+This issue was resolved in this release.
 
 
 Known issues and limitations with this release
 ----------------------------------------------
 
-(FIXME)
+none
 
 
 Compatibility
@@ -56,6 +57,8 @@ of AllJoyn (ALLJOYN-803).
 
 Change history
 --------------
+2.3.4 - Bug fixes.
+
 2.3.3 - Bug fixes.
 
 2.3.2 - Bug fixes.
