@@ -1275,7 +1275,7 @@ ThreadReturn STDCALL DaemonICETransport::AllocateICESessionThread::Run(void* arg
                                                 ICEPacketStream* pktStream = transportObj->AcquireICEPacketStream(connectSpec);
                                                 if (pktStream) {
                                                     /* Reuse existing pkstream rather than having two for the same destination */
-                                                    QCC_DbgPrintf(("DaemonTCPTransport::AllocateICESessionThread: Reusing existing pktStream for %s", connectSpec.c_str()));
+                                                    QCC_DbgPrintf(("DaemonICETransport::AllocateICESessionThread: Reusing existing pktStream for %s", connectSpec.c_str()));
                                                 } else {
                                                     /* Wrap ICE session FD in a new ICEPacketStream */
                                                     ICEPacketStream pks(*iceSession, *stunActivityPtr->stun, *selectedCandidatePairList[0]);

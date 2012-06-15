@@ -39,6 +39,7 @@
 #include "Transport.h"
 #include "TCPTransport.h"
 #include "NullTransport.h"
+#include "DaemonICETransport.h"
 
 #define QCC_MODULE "ALLJOYN_DAEMON"
 
@@ -136,6 +137,10 @@ QStatus BundledDaemon::Start(NullTransport* nullTransport)
          */
         TransportFactoryContainer cntr;
         cntr.Add(new TransportFactory<TCPTransport>(TCPTransport::TransportName, false));
+
+#if defined(QCC_OS_ANDROID)or defined(QCC_OS_LINUX)
+        cntr.Add(new TransportFactory<DaemonICETransport>(DaemonICETransport::TransportName, false));
+#endif
 
         ajBus = new Bus("bundled-daemon", cntr, listenSpecs.c_str());
         ajBusController = new BusController(*ajBus);
