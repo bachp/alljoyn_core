@@ -29,6 +29,17 @@ bt_srcs = [ 'BTController.cc', 'BTTransport.cc', 'BTNodeDB.cc' ]
 base_srcs = [ f for f in srcs if basename(str(f)) not in bt_srcs ]
 base_objs = env.Object(base_srcs)
 
+# Add in ICE support
+if env['OS'] == 'android' or env['OS'] =='linux':
+    ice_srcs = env.SConscript('ice/SConscript')
+    ice_srcs += [env.Glob(env['OS_GROUP'] + '/ICEPacketStream.cc') + env.Glob(env['OS_GROUP'] + '/UDPPacketStream.cc') + env.Glob(env['OS_GROUP'] + '/ProximityScanner.cc')]
+    base_objs.extend(env.Object(ice_srcs))
+    json_srcs = env.SConscript('JSON/SConscript')
+    base_objs.extend(env.Object(json_srcs))  
+    
+# Daemon library
+lib = env.StaticLibrary('ajdaemon', base_objs); 
+
 # Add in bluetooth support
 if env['OS'] == 'android_donut' or env['OS'] =="darwin":
     # bluetooth not supported on this platform
@@ -41,17 +52,7 @@ elif env['OS_GROUP'] == "windows":
 else:
     # Use BlueZ
     bt_srcs.extend(env.SConscript('bt_bluez/SConscript'))
-    daemon_objs = base_objs + env.Object(bt_srcs)
-
-# Add in ICE support
-if env['OS'] == 'android' or env['OS'] =='linux':
-    ice_srcs = env.SConscript('ice/SConscript')
-    daemon_objs.extend(env.Object(ice_srcs))
-    json_srcs = env.SConscript('JSON/SConscript')
-    daemon_objs.extend(env.Object(json_srcs))   
-
-# Daemon library
-lib = env.StaticLibrary('ajdaemon', base_objs);
+    daemon_objs = base_objs + env.Object(bt_srcs) 
     
 # AllJoyn Daemon
 progs = env.SConscript('${OS_GROUP}/SConscript', exports=['daemon_objs'])
