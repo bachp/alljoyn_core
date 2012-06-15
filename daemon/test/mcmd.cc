@@ -341,6 +341,10 @@ static MsgArg* ProcessArray(deque<AllJoynTypeId>& sigTokens, deque<const Token*>
 
 static MsgArg* ParseCallArgToken(deque<AllJoynTypeId>& sigTokens, deque<const Token*>& argTokens, GroupType groupType) {
     MsgArg* arg = NULL;
+    if (sigTokens.empty()) {
+        printf("Too few tokens for signature.\n");
+        exit(1);
+    }
     AllJoynTypeId sig = sigTokens.front();
 
     if (argTokens.empty()) {
@@ -509,7 +513,7 @@ static MsgArg* ParseCallArgToken(deque<AllJoynTypeId>& sigTokens, deque<const To
             arg->v_dictEntry.key = ParseCallArgToken(sigTokens, argTokens, GT_DICT);
             arg->v_dictEntry.val = ParseCallArgToken(sigTokens, argTokens, GT_DICT);
             // Verify and eat the closing ']'
-            if ((sigTokens.front() != ALLJOYN_DICT_ENTRY_CLOSE) ||
+            if (sigTokens.empty() || (sigTokens.front() != ALLJOYN_DICT_ENTRY_CLOSE) ||
                 (ParseCallArgToken(sigTokens, argTokens, GT_DICT) != NULL)) {
                 printf("A dict entry type may only have 2 complete types.\n");
                 exit(1);
@@ -546,7 +550,7 @@ static MsgArg* ParseCallArgToken(deque<AllJoynTypeId>& sigTokens, deque<const To
                     delete a;
                 }
                 // Verify and eat the closing ']'
-                if ((sigTokens.front() != ALLJOYN_STRUCT_CLOSE) ||
+                if (sigTokens.empty() || (sigTokens.front() != ALLJOYN_STRUCT_CLOSE) ||
                     (ParseCallArgToken(sigTokens, argTokens, GT_STRUCT) != NULL)) {
                     printf("A dict entry type may only have 2 complete types.\n");
                     exit(1);

@@ -1467,8 +1467,10 @@ void BTController::HandleSetState(const InterfaceDescription::Member* member, Me
                          masterUUIDRev,
                          self->GetBusAddress().addr.GetRaw(),
                          self->GetBusAddress().psm,
-                         nodeStateArgsStorage.size(), &nodeStateArgsStorage.front(),
-                         foundNodeArgsStorage.size(), &foundNodeArgsStorage.front());
+                         nodeStateArgsStorage.size(),
+                         nodeStateArgsStorage.empty() ? NULL : &nodeStateArgsStorage.front(),
+                         foundNodeArgsStorage.size(),
+                         foundNodeArgsStorage.empty() ? NULL : &foundNodeArgsStorage.front());
 
     if (status != ER_OK) {
         QCC_LogError(status, ("MsgArg::Set(%s)", SIG_SET_STATE_OUT));
@@ -1769,8 +1771,10 @@ void BTController::DeferredSendSetState()
                          masterUUIDRev,
                          self->GetBusAddress().addr.GetRaw(),
                          self->GetBusAddress().psm,
-                         nodeStateArgsStorage.size(), &nodeStateArgsStorage.front(),
-                         foundNodeArgsStorage.size(), &foundNodeArgsStorage.front());
+                         nodeStateArgsStorage.size(),
+                         nodeStateArgsStorage.empty() ? NULL : &nodeStateArgsStorage.front(),
+                         foundNodeArgsStorage.size(),
+                         foundNodeArgsStorage.empty() ? NULL : &foundNodeArgsStorage.front());
     lock.Unlock(MUTEX_CONTEXT);
 
     if (status != ER_OK) {
@@ -2302,7 +2306,7 @@ void BTController::SendFoundNamesChange(const BTNodeInfo& destNode,
 
     FillFoundNodesMsgArgs(nodeList, adInfo);
 
-    MsgArg arg(SIG_FOUND_NAMES, nodeList.size(), &nodeList.front());
+    MsgArg arg(SIG_FOUND_NAMES, nodeList.size(), nodeList.empty() ? NULL : &nodeList.front());
     QStatus status;
     if (lost) {
         status = Signal(destNode->GetUniqueName().c_str(), destNode->GetSessionID(),
@@ -2876,8 +2880,10 @@ void BTController::FillNodeStateMsgArgs(vector<MsgArg>& args) const
                               node->GetUniqueName().c_str(),
                               node->GetBusAddress().addr.GetRaw(),
                               node->GetBusAddress().psm,
-                              nodeAdNames.size(), &nodeAdNames.front(),
-                              nodeFindNames.size(), &nodeFindNames.front(),
+                              nodeAdNames.size(),
+                              nodeAdNames.empty() ? NULL : &nodeAdNames.front(),
+                              nodeFindNames.size(),
+                              nodeFindNames.empty() ? NULL : &nodeFindNames.front(),
                               node->IsEIRCapable()));
 
         args.back().Stabilize();
@@ -2940,7 +2946,8 @@ void BTController::FillFoundNodesMsgArgs(vector<MsgArg>& args, const BTNodeDB& a
                                              node->GetGUID().ToString().c_str(),
                                              node->GetBusAddress().addr.GetRaw(),
                                              node->GetBusAddress().psm,
-                                             nodeAdNames.size(), &nodeAdNames.front()));
+                                             nodeAdNames.size(),
+                                             nodeAdNames.empty() ? NULL : &nodeAdNames.front()));
                 adNamesArgs.back().Stabilize();
             }
 
@@ -2950,7 +2957,8 @@ void BTController::FillFoundNodesMsgArgs(vector<MsgArg>& args, const BTNodeDB& a
                                   connAddr.addr.GetRaw(),
                                   connAddr.psm,
                                   connNode->GetUUIDRev(),
-                                  adNamesArgs.size(), &adNamesArgs.front()));
+                                  adNamesArgs.size(),
+                                  adNamesArgs.empty() ? NULL : &adNamesArgs.front()));
             args.back().Stabilize();
 
         } else {
@@ -3331,7 +3339,8 @@ void BTController::AdvertiseNameArgInfo::SetArgs()
                                     node->GetGUID().ToString().c_str(),
                                     node->GetBusAddress().addr.GetRaw(),
                                     node->GetBusAddress().psm,
-                                    names.size(), &names.front()));
+                                    names.size(),
+                                    names.empty() ? NULL : &names.front()));
         adInfoArgs.back().Stabilize();
     }
 
@@ -3341,7 +3350,7 @@ void BTController::AdvertiseNameArgInfo::SetArgs()
                 bto.masterUUIDRev,
                 bto.self->GetBusAddress().addr.GetRaw(),
                 bto.self->GetBusAddress().psm,
-                adInfoArgs.size(), &adInfoArgs.front(),
+                adInfoArgs.size(), adInfoArgs.empty() ? NULL : &adInfoArgs.front(),
                 bto.RotateMinions() ? DELEGATE_TIME : (uint32_t)0);
     assert(localArgsSize == argsSize);
 
@@ -3379,7 +3388,7 @@ QStatus BTController::AdvertiseNameArgInfo::StartLocal()
     QStatus status;
     BTNodeDB adInfo;
 
-    status = ExtractAdInfo(&adInfoArgs.front(), adInfoArgs.size(), adInfo);
+    status = ExtractAdInfo(adInfoArgs.empty() ? NULL : &adInfoArgs.front(), adInfoArgs.size(), adInfo);
     if (status == ER_OK) {
         status = bto.bt.StartAdvertise(bto.masterUUIDRev, bto.self->GetBusAddress().addr, bto.self->GetBusAddress().psm, adInfo);
     }
@@ -3449,7 +3458,8 @@ void BTController::FindNameArgInfo::SetArgs()
     }
 
     MsgArg::Set(newArgs->args, localArgsSize, SIG_DELEGATE_FIND,
-                ignoreAddrsCache.size(), &ignoreAddrsCache.front(),
+                ignoreAddrsCache.size(),
+                ignoreAddrsCache.empty() ? NULL : &ignoreAddrsCache.front(),
                 bto.RotateMinions() ? DELEGATE_TIME : (uint32_t)0);
     assert(localArgsSize == argsSize);
 

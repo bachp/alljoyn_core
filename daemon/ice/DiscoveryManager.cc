@@ -2258,7 +2258,7 @@ QStatus DiscoveryManager::UpdateInformationOnServer(MessageType messageType, boo
             } else {
                 if (!tempCurrentList.empty()) {
 
-                    while (!tempCurrentList.empty()) {
+                    while (!tempCurrentList.empty() && !tempSentList.empty()) {
                         if (tempCurrentList.front() != tempSentList.front()) {
                             hasChanged = true;
                             break;
@@ -2285,7 +2285,7 @@ QStatus DiscoveryManager::UpdateInformationOnServer(MessageType messageType, boo
                 } else {
                     if (!tempCurrentBTList.empty()) {
 
-                        while (!tempCurrentBTList.empty()) {
+                        while (!tempCurrentBTList.empty() && !tempSentBTList.empty()) {
                             if (tempCurrentBTList.front() != tempSentBTList.front()) {
                                 hasChanged = true;
                                 break;

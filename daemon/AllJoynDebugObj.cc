@@ -227,7 +227,7 @@ void AllJoynDebugObj::GenericMethodHandler(const InterfaceDescription::Member* m
         QStatus status = (it->second.first->*it->second.second)(msg, replyArgs);
 
         if (status == ER_OK) {
-            MethodReply(msg, &replyArgs.front(), replyArgs.size());
+            MethodReply(msg, replyArgs.empty() ? NULL : &replyArgs.front(), replyArgs.size());
         } else {
             MethodReply(msg, "org.alljoyn.Debug.InternalError", "Failure processing method call");
         }
