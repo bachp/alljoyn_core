@@ -68,6 +68,7 @@ const char* InterfaceName = "org.alljoyn.alljoyn_test.values";
 static BusAttachment* g_msgBus = NULL;
 static Event g_discoverEvent;
 static String g_wellKnownName = ::org::alljoyn::alljoyn_test::DefaultWellKnownName;
+static TransportMask allowedTransports = TRANSPORT_ANY;
 static uint32_t findStartTime = 0;
 static uint32_t findEndTime = 0;
 static uint32_t joinStartTime = 0;
@@ -85,6 +86,11 @@ class MyBusListener : public BusListener, public SessionListener {
         findEndTime = GetTimestamp();
         QCC_SyncPrintf("FindAdvertisedName 0x%x takes %d ms \n", transport, (findEndTime - findStartTime));
         QCC_SyncPrintf("FoundAdvertisedName(name=%s, transport=0x%x, prefix=%s)\n", name, transport, namePrefix);
+
+        if (0 == (transport & allowedTransports)) {
+            QCC_SyncPrintf("Ignoring FoundAdvertised name from transport 0x%x\n", transport);
+            return;
+        }
 
         if (0 == ::strcmp(name, g_wellKnownName.c_str())) {
             /* We found a remote bus that is advertising bbservice's well-known name so connect to it */
@@ -173,6 +179,7 @@ static void usage(void)
     printf("   -s                    = Wait for SIGINT (Control-C) at the end of the tests\n");
     printf("   -be                   = Send messages as big endian\n");
     printf("   -le                   = Send messages as little endian\n");
+    printf("   -m <trans_mask>       = Transports allowed to connect to service\n");
     printf("\n");
 }
 
@@ -367,6 +374,14 @@ int main(int argc, char** argv)
             _Message::SetEndianess(ALLJOYN_LITTLE_ENDIAN);
         } else if (0 == strcmp("-be", argv[i])) {
             _Message::SetEndianess(ALLJOYN_BIG_ENDIAN);
+        } else if (0 == ::strcmp("-m", argv[i])) {
+            ++i;
+            allowedTransports = StringToU32(argv[i], 0, 0);
+            if (allowedTransports == 0) {
+                printf("Invalid value \"%s\" for option -m\n", argv[i]);
+                usage();
+                exit(1);
+            }
         } else if ((0 == strcmp("-e", argv[i])) || (0 == strcmp("-ek", argv[i]))) {
             if (!authMechs.empty()) {
                 authMechs += " ";

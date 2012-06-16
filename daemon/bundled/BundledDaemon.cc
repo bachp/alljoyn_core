@@ -137,6 +137,9 @@ QStatus BundledDaemon::Start(NullTransport* nullTransport)
          */
         TransportFactoryContainer cntr;
         cntr.Add(new TransportFactory<TCPTransport>(TCPTransport::TransportName, false));
+#ifdef QCC_OS_GROUP_POSIX
+        cntr.Add(new TransportFactory<DaemonICETransport>(DaemonICETransport::TransportName, false));
+#endif
 
 #if defined(QCC_OS_ANDROID)or defined(QCC_OS_LINUX)
         cntr.Add(new TransportFactory<DaemonICETransport>(DaemonICETransport::TransportName, false));
