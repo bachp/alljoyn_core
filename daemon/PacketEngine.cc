@@ -710,13 +710,15 @@ PacketEngine::ChannelInfo* PacketEngine::AcquireNextChannelInfo(PacketEngine::Ch
         if (it != channelInfos.end()) {
             ++it;
         }
-        ReleaseChannelInfo(*inCi);
     }
     if (it != channelInfos.end()) {
         ret = &(it->second);
         ret->useCount++;
     }
     channelInfoLock.Unlock();
+    if (inCi) {
+        ReleaseChannelInfo(*inCi);
+    }
     return ret;
 }
 
