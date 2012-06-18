@@ -34,6 +34,7 @@
 
 #include <qcc/Event.h>
 #include <qcc/Debug.h>
+#include <alljoyn/version.h>
 #include <qcc/ScatterGatherList.h>
 #include "ICECandidatePair.h"
 #include "Stun.h"
@@ -68,7 +69,7 @@ ICEPacketStream::ICEPacketStream(ICESession& iceSession, Stun& stun, const ICECa
     remoteMappedPort(0),
     turnAddress(stun.GetTurnAddr()),
     turnPort(stun.GetTurnPort()),
-    relayServerAddress(iceSession.GetRelayServerAddr()),
+    relayServerAddress(iceSession.GetRelayServerAddr().ToString()),
     relayServerPort(iceSession.GetRelayServerPort()),
     sock(stun.GetSocketFD()),
     sourceEvent(&Event::neverSet),
@@ -77,6 +78,7 @@ ICEPacketStream::ICEPacketStream(ICESession& iceSession, Stun& stun, const ICECa
     interfaceMtu(stun.GetMtu()),
     usingTurn((selectedPair.local->GetType() == _ICECandidate::Relayed_Candidate) || (selectedPair.remote->GetType() == _ICECandidate::Relayed_Candidate)),
     localTurn((selectedPair.local->GetType() == _ICECandidate::Relayed_Candidate)),
+    localHost((selectedPair.local->GetType() == _ICECandidate::Host_Candidate)),
     hmacKey(reinterpret_cast<const char*>(stun.GetHMACKey()), stun.GetHMACKeyLength(), stun.GetHMACKeyLength()),
     turnUsername(iceSession.GetusernameForShortTermCredential()),
     turnRefreshPeriod(iceSession.GetTURNRefreshPeriod()),
@@ -85,7 +87,7 @@ ICEPacketStream::ICEPacketStream(ICESession& iceSession, Stun& stun, const ICECa
     rxRenderBuf(new uint8_t[interfaceMtu]),
     txRenderBuf(new uint8_t[interfaceMtu])
 {
-    QCC_DbgTrace(("ICEPacketStream::ICEPacketStream(sock=%d)", sock));
+    QCC_DbgTrace(("ICEPacketStream::ICEPacketStream(sock=%d) relayServerAddress(%s) relayServerPort(%d)", sock, relayServerAddress.ToString().c_str(), relayServerPort));
 
     /* Adjust the mtuWithStunOverhead size to account for the STUN header which would be added in case of communication
      * through the relay server */
@@ -130,6 +132,7 @@ ICEPacketStream::ICEPacketStream(const ICEPacketStream& other) :
     interfaceMtu(other.interfaceMtu),
     usingTurn(other.usingTurn),
     localTurn(other.localTurn),
+    localHost(other.localHost),
     hmacKey(other.hmacKey),
     turnUsername(other.turnUsername),
     turnRefreshPeriod(other.turnRefreshPeriod),
@@ -179,7 +182,7 @@ QStatus ICEPacketStream::Stop()
     return ER_OK;
 }
 
-QStatus ICEPacketStream::PushPacketBytes(const void* buf, size_t numBytes, PacketDest& dest, bool controlBytes)
+QStatus ICEPacketStream::PushPacketBytes(const void* buf, size_t numBytes, PacketDest& dest, ControlMessageType messageType)
 {
     QCC_DbgTrace(("ICEPacketStream::PushPacketBytes"));
 
@@ -195,24 +198,44 @@ QStatus ICEPacketStream::PushPacketBytes(const void* buf, size_t numBytes, Packe
 
     sendLock.Lock();
     size_t sent;
-    if (!controlBytes && usingTurn) {
-        ScatterGatherList sgList;
-        status = ComposeStunMessage(buf, numBytes, remoteMappedAddress, remoteMappedPort, turnUsername, hmacKey, sgList);
-        if (status == ER_OK) {
-            status = SendToSG(sock, turnAddress, turnPort, sgList, sent);
-        } else {
-            QCC_LogError(status, ("ComposeStunMessage failed"));
-        }
-    } else {
-        const struct sockaddr* sa = reinterpret_cast<const struct sockaddr*>(dest.data);
-        sent = sendto(sock, sendBuf, sendBytes, 0, sa, sizeof(struct sockaddr_in));
-        status = (sent == sendBytes) ? ER_OK : ER_OS_ERROR;
-        if (status != ER_OK) {
-            if (sent == (size_t) -1) {
-                QCC_LogError(status, ("sendto failed: %s (%d)", ::strerror(errno), errno));
+    if (messageType == NON_CONTROL_MESSAGE) {
+        if (usingTurn) {
+            ScatterGatherList sgList;
+            status = ComposeStunMessage(buf, numBytes, remoteMappedAddress, remoteMappedPort, turnUsername, hmacKey, sgList, messageType);
+            if (status == ER_OK) {
+                status = SendToSG(sock, turnAddress, turnPort, sgList, sent);
             } else {
-                QCC_LogError(status, ("Short udp send: exp=%d, act=%d", numBytes, sent));
+                QCC_LogError(status, ("ComposeStunMessage failed for NON_CONTROL_MESSAGE"));
             }
+        } else {
+            const struct sockaddr* sa = reinterpret_cast<const struct sockaddr*>(dest.data);
+            sent = sendto(sock, sendBuf, sendBytes, 0, sa, sizeof(struct sockaddr_in));
+            status = (sent == sendBytes) ? ER_OK : ER_OS_ERROR;
+            if (status != ER_OK) {
+                if (sent == (size_t) -1) {
+                    QCC_LogError(status, ("sendto failed: %s (%d)", ::strerror(errno), errno));
+                } else {
+                    QCC_LogError(status, ("Short udp send: exp=%d, act=%d", numBytes, sent));
+                }
+            }
+        }
+    } else if (messageType == NAT_KEEPALIVE) {
+        ScatterGatherList sgList;
+        status = ComposeStunMessage(buf, numBytes, remoteMappedAddress, remoteMappedPort, turnUsername, hmacKey, sgList, messageType);
+        if (status == ER_OK) {
+            status = SendToSG(sock, remoteAddress, remotePort, sgList, sent);
+        } else {
+            QCC_LogError(status, ("ComposeStunMessage failed for NAT_KEEPALIVE"));
+        }
+    } else if (messageType == TURN_REFRESH) {
+        ScatterGatherList sgList;
+        status = ComposeStunMessage(buf, numBytes, remoteMappedAddress, remoteMappedPort, turnUsername, hmacKey, sgList, messageType);
+        if (status == ER_OK) {
+            // PPN - Fix this hack later
+            IPAddress relay = qcc::IPAddress("199.1.146.143");
+            status = SendToSG(sock, relay, 3478, sgList, sent);
+        } else {
+            QCC_LogError(status, ("ComposeStunMessage failed for TURN_REFRESH"));
         }
     }
 #if 0
@@ -285,45 +308,82 @@ String ICEPacketStream::ToString(const PacketDest& dest) const
     return ret;
 }
 
+// PPN - Clean-up this function
 QStatus ICEPacketStream::ComposeStunMessage(const void* buf,
                                             size_t numBytes,
                                             const qcc::IPAddress& destnAddress,
                                             uint16_t destnPort,
                                             const String& userName,
                                             const String& key,
-                                            ScatterGatherList& msgSG)
+                                            ScatterGatherList& msgSG,
+                                            ControlMessageType messageType)
 {
-    QCC_DbgPrintf(("ICEPacketStream::ComposeStunMessage()"));
+    QCC_DbgPrintf(("ICEPacketStream::ComposeStunMessage(): messageType(%d)", messageType));
 
     assert(buf != NULL);
 
     QStatus status = ER_OK;
 
-    ScatterGatherList sg;
+    if (messageType == NON_CONTROL_MESSAGE) {
+        ScatterGatherList sg;
+        sg.AddBuffer(buf, numBytes);
+        sg.SetDataSize(numBytes);
 
-    sg.AddBuffer(buf, numBytes);
-    sg.SetDataSize(numBytes);
+        StunMessage msg(STUN_MSG_INDICATION_CLASS, STUN_MSG_SEND_METHOD, reinterpret_cast<const uint8_t*>(key.c_str()), key.size());
 
-    StunMessage msg(STUN_MSG_INDICATION_CLASS, STUN_MSG_SEND_METHOD, reinterpret_cast<const uint8_t*>(key.c_str()), key.size());
+        status = msg.AddAttribute(new StunAttributeUsername(userName));
+        if (status == ER_OK) {
+            status = msg.AddAttribute(new StunAttributeXorPeerAddress(msg, destnAddress, destnPort));
+        }
+        if (status == ER_OK) {
+            status = msg.AddAttribute(new StunAttributeData(sg));
+        }
+        if (status == ER_OK) {
+            status = msg.AddAttribute(new StunAttributeMessageIntegrity(msg));
+        }
+        if (status == ER_OK) {
+            status = msg.AddAttribute(new StunAttributeFingerprint(msg));
+        }
+        if (status == ER_OK) {
+            size_t renderSize = msg.RenderSize();
+            assert(renderSize <= interfaceMtu);
+            uint8_t* _txRenderBuf = txRenderBuf;
+            status = msg.RenderBinary(_txRenderBuf, renderSize, msgSG);
+        }
+    } else if (messageType == NAT_KEEPALIVE) {
+        StunMessage msg(STUN_MSG_INDICATION_CLASS, STUN_MSG_BINDING_METHOD, reinterpret_cast<const uint8_t*>(key.c_str()), key.size());
+        if (status == ER_OK) {
+            size_t renderSize = msg.RenderSize();
+            assert(renderSize <= interfaceMtu);
+            uint8_t* _txRenderBuf = txRenderBuf;
+            status = msg.RenderBinary(_txRenderBuf, renderSize, msgSG);
+        }
+    } else if (messageType == TURN_REFRESH) {
 
-    status = msg.AddAttribute(new StunAttributeUsername(userName));
-    if (status == ER_OK) {
-        status = msg.AddAttribute(new StunAttributeXorPeerAddress(msg, destnAddress, destnPort));
-    }
-    if (status == ER_OK) {
-        status = msg.AddAttribute(new StunAttributeData(sg));
-    }
-    if (status == ER_OK) {
-        status = msg.AddAttribute(new StunAttributeMessageIntegrity(msg));
-    }
-    if (status == ER_OK) {
-        status = msg.AddAttribute(new StunAttributeFingerprint(msg));
-    }
-    if (status == ER_OK) {
-        size_t renderSize = msg.RenderSize();
-        assert(renderSize <= interfaceMtu);
-        uint8_t* _txRenderBuf = txRenderBuf;
-        status = msg.RenderBinary(_txRenderBuf, renderSize, msgSG);
+        StunMessage msg(STUN_MSG_REQUEST_CLASS, STUN_MSG_REFRESH_METHOD, reinterpret_cast<const uint8_t*>(key.c_str()), key.size());
+
+        status = msg.AddAttribute(new StunAttributeSoftware("AllJoyn " + String(GetVersion())));
+        if (status == ER_OK) {
+            msg.AddAttribute(new StunAttributeUsername(GetTurnUsername()));
+        }
+        if (status == ER_OK) {
+            msg.AddAttribute(new StunAttributeLifetime(ajn::TURN_PERMISSION_REFRESH_PERIOD_SECS));
+        }
+        if (status == ER_OK) {
+            msg.AddAttribute(new StunAttributeRequestedTransport(ajn::REQUESTED_TRANSPORT_TYPE_UDP));
+        }
+        if (status == ER_OK) {
+            msg.AddAttribute(new StunAttributeMessageIntegrity(msg));
+        }
+        if (status == ER_OK) {
+            msg.AddAttribute(new StunAttributeFingerprint(msg));
+        }
+        if (status == ER_OK) {
+            size_t renderSize = msg.RenderSize();
+            assert(renderSize <= interfaceMtu);
+            uint8_t* _txRenderBuf = txRenderBuf;
+            status = msg.RenderBinary(_txRenderBuf, renderSize, msgSG);
+        }
     }
 
     return status;
