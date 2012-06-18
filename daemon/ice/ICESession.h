@@ -207,6 +207,16 @@ class ICESession {
 
     String GetusernameForShortTermCredential() { return usernameForShortTermCredential; };
 
+    /**
+     * Return the address of the relay server
+     */
+    IPAddress GetRelayServerAddr() { return TurnServer.addr; };
+
+    /**
+     * Return the port of the relay server
+     */
+    uint16_t GetRelayServerPort() { return TurnServer.port; };
+
   private:
     uint8_t* hmacKey;
 

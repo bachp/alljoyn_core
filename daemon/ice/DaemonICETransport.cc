@@ -1019,6 +1019,7 @@ void DaemonICETransport::SendSTUNKeepAliveAndTURNRefreshRequest(ICEPacketStream&
     status = msg.RenderBinary(rPos, rBufSize, rMsgSG);
     if (status == ER_OK) {
         status = icePktStream.PushPacketBytes((const void*)rBuf, expectedSent, dest, true);
+        QCC_DbgPrintf(("DaemonICETransport::SendSTUNKeepAliveAndTURNRefreshRequest(): Sent NAT keep alive"));
     }
     if (status != ER_OK) {
         QCC_LogError(ER_FAIL, ("Failed to send NAT keep alive for icePktStream=%p", &icePktStream));
@@ -1026,9 +1027,12 @@ void DaemonICETransport::SendSTUNKeepAliveAndTURNRefreshRequest(ICEPacketStream&
     delete[] rBuf;
 
     /* Send TURN refresh (if needed) at slower interval */
-    if (icePktStream.IsUsingTurn()) {
+    if (icePktStream.IsLocalTurn()) {
         uint64_t now = GetTimestamp64();
+        QCC_DbgPrintf(("DaemonICETransport::SendSTUNKeepAliveAndTURNRefreshRequest(): now(0x%x) icePktStream.GetTurnRefreshTimestamp()(0x%x) diff(0x%x) icePktStream.GetTurnRefreshPeriod()(0x%x)",
+                       now, icePktStream.GetTurnRefreshTimestamp(), (now - icePktStream.GetTurnRefreshTimestamp()), icePktStream.GetTurnRefreshPeriod()));
         if ((now - icePktStream.GetTurnRefreshTimestamp()) >= icePktStream.GetTurnRefreshPeriod()) {
+            QCC_DbgPrintf(("DaemonICETransport::SendSTUNKeepAliveAndTURNRefreshRequest(): Inside diff"));
             /* Send TURN refresh */
             String hmacKey = icePktStream.GetHmacKey();
             StunMessage refreshMsg(STUN_MSG_REQUEST_CLASS, STUN_MSG_REFRESH_METHOD, reinterpret_cast<const uint8_t*>(hmacKey.c_str()), hmacKey.size());
@@ -1049,11 +1053,14 @@ void DaemonICETransport::SendSTUNKeepAliveAndTURNRefreshRequest(ICEPacketStream&
 
             status = refreshMsg.RenderBinary(rPos, rBufSize, rMsgSG);
             if (status == ER_OK) {
+                dest = icePktStream.GetTURNRefreshDestination();
                 status = icePktStream.PushPacketBytes((const void*)rBuf, expectedSent, dest, true);
+                QCC_DbgPrintf(("DaemonICETransport::SendSTUNKeepAliveAndTURNRefreshRequest(): Sent TURN refresh"));
             }
 
             if (status == ER_OK) {
                 icePktStream.SetTurnRefreshTimestamp(now);
+                QCC_DbgPrintf(("DaemonICETransport::SendSTUNKeepAliveAndTURNRefreshRequest(): updated time stamp"));
             } else {
                 QCC_LogError(status, ("Failed to send TURN refresh for icePktStream=%p", &icePktStream));
             }
@@ -1902,7 +1909,7 @@ QStatus DaemonICETransport::Connect(const char* connectSpec, const SessionOpts& 
                                                     if (status == ER_OK) {
                                                         pktStream = &(it->second.first);
 
-                                                        /* Arm the keep-alive/TURN refresh timer (immediate fire) */
+                                                        /* Arm the keep-alive (immediate fire) */
                                                         daemonICETransportTimer.AddAlarm(Alarm(0, this, 0, pktStream));
                                                     } else {
                                                         QCC_LogError(status, ("ICEPacketStream.Start or AddPacketStream failed"));

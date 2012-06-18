@@ -162,9 +162,16 @@ class ICEPacketStream : public PacketStream {
     /**
      * Get ICE destination.
      *
-     * @return ICE negociated destination
+     * @return ICE negotiated destination
      */
     PacketDest GetICEDestination() const { return GetPacketDest(remoteAddress, remotePort); }
+
+    /**
+     * Get TURN refresh destination.
+     *
+     * @return TURN refresh destination
+     */
+    PacketDest GetTURNRefreshDestination() const { return GetPacketDest(relayServerAddress, relayServerPort); }
 
     /**
      * Get ICE destination address.
@@ -217,10 +224,10 @@ class ICEPacketStream : public PacketStream {
     uint32_t GetStunKeepAlivePeriod() const { return stunKeepAlivePeriod; }
 
     /**
-     * Return true iff ICEPacketStream is using TURN relay.
-     * @return true iff ICEPacketStream is using TURN relay.
+     * Return true iff ICEPacketStream is using the local TURN relay.
+     * @return true iff ICEPacketStream is using local TURN relay.
      */
-    bool IsUsingTurn() const { return usingTurn; }
+    bool IsLocalTurn() const { return localTurn; }
 
 
   private:
@@ -232,12 +239,15 @@ class ICEPacketStream : public PacketStream {
     uint16_t remoteMappedPort;
     qcc::IPAddress turnAddress;
     uint16_t turnPort;
+    qcc::IPAddress relayServerAddress;
+    uint16_t relayServerPort;
     int sock;
     qcc::Event* sourceEvent;
     qcc::Event* sinkEvent;
     size_t mtuWithStunOverhead;
     size_t interfaceMtu;
     bool usingTurn;
+    bool localTurn;
     qcc::String hmacKey;
     qcc::String turnUsername;
     uint32_t turnRefreshPeriod;
