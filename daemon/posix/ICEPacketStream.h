@@ -46,6 +46,16 @@ class ICEPacketStream : public PacketStream {
                                           StunAttribute::ATTR_HEADER_SIZE + StunAttributeMessageIntegrity::ATTR_SIZE_WITH_HEADER +
                                           StunAttributeFingerprint::ATTR_SIZE_WITH_HEADER;
 
+    typedef enum _ControlMessageType {
+
+        NON_CONTROL_MESSAGE = 0,
+
+        NAT_KEEPALIVE,
+
+        TURN_REFRESH
+
+    } ControlMessageType;
+
     /** Construct a PacketDest from a addr,port */
     static PacketDest GetPacketDest(const qcc::IPAddress& addr, uint16_t port);
 
@@ -116,10 +126,10 @@ class ICEPacketStream : public PacketStream {
      * @param buf          Buffer containing data bytes to be sent
      * @param numBytes     Number of bytes from buf to send to sink. (Must be less that or equal to MTU of PacketSink.)
      * @param dest         Destination for packet bytes.
-     * @param controlBytes true iff buf is control data.
+     * @param messageType  specifies the type of data being sent
      * @return   ER_OK if successful.
      */
-    QStatus PushPacketBytes(const void* buf, size_t numBytes, PacketDest& dest, bool controlBytes);
+    QStatus PushPacketBytes(const void* buf, size_t numBytes, PacketDest& dest, ControlMessageType messageType);
 
     /**
      * Push zero or more bytes into the sink.
@@ -130,7 +140,7 @@ class ICEPacketStream : public PacketStream {
      * @return   ER_OK if successful.
      */
     QStatus PushPacketBytes(const void* buf, size_t numBytes, PacketDest& dest) {
-        return PushPacketBytes(buf, numBytes, dest, false);
+        return PushPacketBytes(buf, numBytes, dest, NON_CONTROL_MESSAGE);
     }
 
     /**
@@ -158,20 +168,6 @@ class ICEPacketStream : public PacketStream {
      * @return hmac key (from ICESession)
      */
     const qcc::String& GetHmacKey() const { return hmacKey; }
-
-    /**
-     * Get ICE destination.
-     *
-     * @return ICE negotiated destination
-     */
-    PacketDest GetICEDestination() const { return GetPacketDest(remoteAddress, remotePort); }
-
-    /**
-     * Get TURN refresh destination.
-     *
-     * @return TURN refresh destination
-     */
-    PacketDest GetTURNRefreshDestination() const { return GetPacketDest(relayServerAddress, relayServerPort); }
 
     /**
      * Get ICE destination address.
@@ -224,10 +220,16 @@ class ICEPacketStream : public PacketStream {
     uint32_t GetStunKeepAlivePeriod() const { return stunKeepAlivePeriod; }
 
     /**
-     * Return true iff ICEPacketStream is using the local TURN relay.
-     * @return true iff ICEPacketStream is using local TURN relay.
+     * Return true iff ICEPacketStream is using the local relay candidate.
+     * @return true iff ICEPacketStream is using local relay candidate.
      */
     bool IsLocalTurn() const { return localTurn; }
+
+    /**
+     * Return true iff ICEPacketStream is using the local host candidate.
+     * @return true iff ICEPacketStream is using the local host candidate.
+     */
+    bool IsLocalHost() const { return localHost; }
 
 
   private:
@@ -248,6 +250,7 @@ class ICEPacketStream : public PacketStream {
     size_t interfaceMtu;
     bool usingTurn;
     bool localTurn;
+    bool localHost;
     qcc::String hmacKey;
     qcc::String turnUsername;
     uint32_t turnRefreshPeriod;
@@ -266,7 +269,8 @@ class ICEPacketStream : public PacketStream {
                                uint16_t destnPort,
                                const String& userName,
                                const qcc::String& key,
-                               qcc::ScatterGatherList& msgSG);
+                               qcc::ScatterGatherList& msgSG,
+                               ControlMessageType messageType);
 
     /**
      * Strip STUN overhead from a received message.

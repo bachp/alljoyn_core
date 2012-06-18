@@ -998,82 +998,48 @@ void DaemonICETransport::SendSTUNKeepAliveAndTURNRefreshRequest(ICEPacketStream&
 
     QStatus status = ER_OK;
 
-    ScatterGatherList rMsgSG;
-    uint8_t* rBuf;
-    uint8_t* rPos;
-    size_t rBufSize;
-    size_t expectedSent = 0;
+    /* If we are using the local host candidate, we need not send NAT keepalives or TURN refreshes */
+    if (!icePktStream.IsLocalHost()) {
+        uint8_t* rBuf;
+        size_t expectedSent = 0;
+        PacketDest dest;
 
-    /* Send NAT keep-alive */
-    StunMessage msg(STUN_MSG_INDICATION_CLASS, STUN_MSG_BINDING_METHOD,
-                    reinterpret_cast<const uint8_t*>(icePktStream.GetHmacKey().c_str()), icePktStream.GetHmacKey().size());
-
-    PacketDest dest = icePktStream.GetICEDestination();
-
-    rBufSize = msg.RenderSize();
-    rBuf = new uint8_t[rBufSize];
-    rPos = rBuf;
-
-    expectedSent = msg.Size();
-
-    status = msg.RenderBinary(rPos, rBufSize, rMsgSG);
-    if (status == ER_OK) {
-        status = icePktStream.PushPacketBytes((const void*)rBuf, expectedSent, dest, true);
-        QCC_DbgPrintf(("DaemonICETransport::SendSTUNKeepAliveAndTURNRefreshRequest(): Sent NAT keep alive"));
-    }
-    if (status != ER_OK) {
-        QCC_LogError(ER_FAIL, ("Failed to send NAT keep alive for icePktStream=%p", &icePktStream));
-    }
-    delete[] rBuf;
-
-    /* Send TURN refresh (if needed) at slower interval */
-    if (icePktStream.IsLocalTurn()) {
-        uint64_t now = GetTimestamp64();
-        QCC_DbgPrintf(("DaemonICETransport::SendSTUNKeepAliveAndTURNRefreshRequest(): now(0x%x) icePktStream.GetTurnRefreshTimestamp()(0x%x) diff(0x%x) icePktStream.GetTurnRefreshPeriod()(0x%x)",
-                       now, icePktStream.GetTurnRefreshTimestamp(), (now - icePktStream.GetTurnRefreshTimestamp()), icePktStream.GetTurnRefreshPeriod()));
-        if ((now - icePktStream.GetTurnRefreshTimestamp()) >= icePktStream.GetTurnRefreshPeriod()) {
-            QCC_DbgPrintf(("DaemonICETransport::SendSTUNKeepAliveAndTURNRefreshRequest(): Inside diff"));
-            /* Send TURN refresh */
-            String hmacKey = icePktStream.GetHmacKey();
-            StunMessage refreshMsg(STUN_MSG_REQUEST_CLASS, STUN_MSG_REFRESH_METHOD, reinterpret_cast<const uint8_t*>(hmacKey.c_str()), hmacKey.size());
-
-            refreshMsg.AddAttribute(new StunAttributeSoftware("AllJoyn " + String(GetVersion())));
-
-            refreshMsg.AddAttribute(new StunAttributeUsername(icePktStream.GetTurnUsername()));
-            refreshMsg.AddAttribute(new StunAttributeLifetime(ajn::TURN_PERMISSION_REFRESH_PERIOD_SECS));
-            refreshMsg.AddAttribute(new StunAttributeRequestedTransport(ajn::REQUESTED_TRANSPORT_TYPE_UDP));
-            refreshMsg.AddAttribute(new StunAttributeMessageIntegrity(refreshMsg));
-            refreshMsg.AddAttribute(new StunAttributeFingerprint(refreshMsg));
-
-            rBufSize = refreshMsg.RenderSize();
-            rBuf = new uint8_t[rBufSize];
-            rPos = rBuf;
-
-            expectedSent = refreshMsg.Size();
-
-            status = refreshMsg.RenderBinary(rPos, rBufSize, rMsgSG);
-            if (status == ER_OK) {
-                dest = icePktStream.GetTURNRefreshDestination();
-                status = icePktStream.PushPacketBytes((const void*)rBuf, expectedSent, dest, true);
-                QCC_DbgPrintf(("DaemonICETransport::SendSTUNKeepAliveAndTURNRefreshRequest(): Sent TURN refresh"));
-            }
-
-            if (status == ER_OK) {
-                icePktStream.SetTurnRefreshTimestamp(now);
-                QCC_DbgPrintf(("DaemonICETransport::SendSTUNKeepAliveAndTURNRefreshRequest(): updated time stamp"));
-            } else {
-                QCC_LogError(status, ("Failed to send TURN refresh for icePktStream=%p", &icePktStream));
-            }
-
-            delete[] rBuf;
+        if (status == ER_OK) {
+            status = icePktStream.PushPacketBytes((const void*)rBuf, expectedSent, dest, ICEPacketStream::NAT_KEEPALIVE);
+            QCC_DbgPrintf(("DaemonICETransport::SendSTUNKeepAliveAndTURNRefreshRequest(): Sent NAT keep alive"));
         }
-    }
+        if (status != ER_OK) {
+            QCC_LogError(ER_FAIL, ("Failed to send NAT keep alive for icePktStream=%p", &icePktStream));
+        }
 
-    /* Reload the alarm */
-    Alarm keepAliveAlarm(icePktStream.GetStunKeepAlivePeriod(), this, 0, reinterpret_cast<void*>(&icePktStream));
-    status = daemonICETransportTimer.AddAlarm(keepAliveAlarm);
-    if (status != ER_OK) {
-        QCC_LogError(status, ("DaemonICEEndpoint::SendSTUNKeepAliveAndTURNRefreshRequest(): Unable to add KeepAliveAlarm to daemonICETransportTimer"));
+        /* Send TURN refresh (if needed) at slower interval */
+        if (icePktStream.IsLocalTurn()) {
+            uint64_t now = GetTimestamp64();
+            QCC_DbgPrintf(("DaemonICETransport::SendSTUNKeepAliveAndTURNRefreshRequest(): now(0x%x) icePktStream.GetTurnRefreshTimestamp()(0x%x) diff(0x%x) icePktStream.GetTurnRefreshPeriod()(0x%x)",
+                           now, icePktStream.GetTurnRefreshTimestamp(), (now - icePktStream.GetTurnRefreshTimestamp()), icePktStream.GetTurnRefreshPeriod()));
+            if ((now - icePktStream.GetTurnRefreshTimestamp()) >= icePktStream.GetTurnRefreshPeriod()) {
+                QCC_DbgPrintf(("DaemonICETransport::SendSTUNKeepAliveAndTURNRefreshRequest(): Inside diff"));
+                /* Send TURN refresh */
+                if (status == ER_OK) {
+                    status = icePktStream.PushPacketBytes((const void*)rBuf, expectedSent, dest, ICEPacketStream::TURN_REFRESH);
+                    QCC_DbgPrintf(("DaemonICETransport::SendSTUNKeepAliveAndTURNRefreshRequest(): Sent TURN refresh"));
+                }
+
+                if (status == ER_OK) {
+                    icePktStream.SetTurnRefreshTimestamp(now);
+                    QCC_DbgPrintf(("DaemonICETransport::SendSTUNKeepAliveAndTURNRefreshRequest(): Updated time stamp"));
+                } else {
+                    QCC_LogError(status, ("Failed to send TURN refresh for icePktStream=%p", &icePktStream));
+                }
+            }
+        }
+
+        /* Reload the alarm */
+        Alarm keepAliveAlarm(icePktStream.GetStunKeepAlivePeriod(), this, 0, reinterpret_cast<void*>(&icePktStream));
+        status = daemonICETransportTimer.AddAlarm(keepAliveAlarm);
+        if (status != ER_OK) {
+            QCC_LogError(status, ("DaemonICEEndpoint::SendSTUNKeepAliveAndTURNRefreshRequest(): Unable to add KeepAliveAlarm to daemonICETransportTimer"));
+        }
     }
 }
 
