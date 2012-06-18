@@ -505,6 +505,43 @@ static void DoList()
     s_lock.Unlock(MUTEX_CONTEXT);
 }
 
+class JoinCB : public BusAttachment::JoinSessionAsyncCB {
+  public:
+    const String name;
+    const SessionPort port;
+
+    JoinCB(String& name, SessionPort port) : name(name), port(port)
+    { }
+
+    void JoinSessionCB(QStatus status, SessionId id, const SessionOpts& opts, void* context)
+    {
+        if (status == ER_OK) {
+            s_lock.Lock(MUTEX_CONTEXT);
+            s_sessionMap.insert(pair<SessionId, SessionInfo>(id, SessionInfo(id, SessionPortInfo(port, name, opts))));
+            s_lock.Unlock(MUTEX_CONTEXT);
+            printf("JoinSessionCB(%s, %u, ...) succeeded with id = %u\n", name.c_str(), port, id);
+        } else {
+            printf("JoinSessionCB(%s, %u, ...) failed with %s\n", name.c_str(), port, QCC_StatusText(status));
+        }
+
+        delete this;
+    }
+};
+
+
+static void DoJoinAsync(String name, SessionPort port, const SessionOpts& opts)
+{
+    JoinCB* callback = new JoinCB(name, port);
+    QStatus status = s_bus->JoinSessionAsync(name.c_str(), port, s_busListener, opts, callback);
+
+    if (status != ER_OK) {
+        printf("DoJoinAsync(%s, %u) failed with %s (%u)\n", name.c_str(), port, QCC_StatusText(status), status);
+    } else {
+        printf("DoJoinAsync(%s, %d) OK\n", name.c_str(), port);
+    }
+
+}
+
 static void DoJoin(String name, SessionPort port, const SessionOpts& opts)
 {
     SessionId id;
@@ -545,6 +582,46 @@ static void DoSetLinkTimeout(SessionId id, uint32_t timeout)
     } else {
         printf("Link timeout for session %u is %d\n", id, timeout);
     }
+}
+
+struct AsyncTimeoutHandler : public BusAttachment::AsyncMethodCallCB {
+
+    const SessionId id;
+    const uint32_t timeout;
+
+    AsyncTimeoutHandler(SessionId id, uint32_t timeout) : id(id), timeout(timeout)
+    {   }
+
+    void MethodCallCB(MethodCallType type, Message& reply, void* context)
+    {
+        const MsgArg* replyArgs;
+        size_t na;
+        reply->GetArgs(na, replyArgs);
+        assert(na == 2);
+
+        String s  = reply->ToString();
+        printf("Reply: [%s]\n", s.c_str());
+
+        const uint32_t disposition = replyArgs[0].v_uint32;
+        if (disposition != ALLJOYN_SETLINKTIMEOUT_REPLY_SUCCESS) {
+            printf("SetLinkTimeout(%u, %u) failed with %d\n", id, timeout, disposition);
+        } else {
+            printf("Link timeout for session %u is %d\n", id, timeout);
+        }
+
+        delete this;
+    }
+};
+
+static void DoSetLinkTimeoutAsync(SessionId id, uint32_t timeout)
+{
+    QStatus status = s_bus->SetLinkTimeoutAsync(id, timeout, new AsyncTimeoutHandler(id, timeout));
+    if (status != ER_OK) {
+        printf("DoSetLinkTimeoutAsync(%u, %u) failed with %s (%u)\n", id, timeout, QCC_StatusText(status), status);
+    } else {
+        printf("SetLinkTimeoutAsync(%u, %d) OK\n", id, timeout);
+    }
+
 }
 
 int main(int argc, char** argv)
@@ -703,6 +780,19 @@ int main(int argc, char** argv)
             opts.proximity = static_cast<SessionOpts::Proximity>(StringToU32(NextTok(line), 0, 0xFF));
             opts.transports = static_cast<TransportMask>(StringToU32(NextTok(line), 0, 0xFFFF));
             DoJoin(name, port, opts);
+        } else if (cmd == "asyncjoin") {
+            String name = NextTok(line);
+            SessionPort port = static_cast<SessionPort>(StringToU32(NextTok(line), 0, 0));
+            if (name.empty() || (port == 0)) {
+                printf("Usage: join <name> <port> [isMultipoint] [traffic] [proximity] [transports]\n");
+                continue;
+            }
+            SessionOpts opts;
+            opts.isMultipoint = (NextTok(line) == "true");
+            opts.traffic = static_cast<SessionOpts::TrafficType>(StringToU32(NextTok(line), 0, 0x1));
+            opts.proximity = static_cast<SessionOpts::Proximity>(StringToU32(NextTok(line), 0, 0xFF));
+            opts.transports = static_cast<TransportMask>(StringToU32(NextTok(line), 0, 0xFFFF));
+            DoJoinAsync(name, port, opts);
         } else if (cmd == "leave") {
             SessionId id = NextTokAsSessionId(line);
             if (id == 0) {
@@ -718,6 +808,15 @@ int main(int argc, char** argv)
                 continue;
             }
             DoSetLinkTimeout(id, timeout);
+        } else if (cmd == "asynctimeout") {
+            SessionId id = NextTokAsSessionId(line);
+            uint32_t timeout = StringToU32(NextTok(line), 0, 0);
+            if (id == 0) {
+                printf("Usage: asynctimeout <sessionId> <timeout>\n");
+                continue;
+            }
+            DoSetLinkTimeoutAsync(id, timeout);
+        } else if (cmd == "chat") {
         } else if (cmd == "chat") {
             uint8_t flags = 0;
             SessionId id = NextTokAsSessionId(line);

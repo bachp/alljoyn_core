@@ -49,10 +49,32 @@ class BusEndpoint;
 class BusAttachment : public MessageReceiver {
   public:
 
+    class AsyncMethodCallCB {
+      public:
+
+        enum MethodCallType {
+            UNKNOWN = 0,
+            JOINSESSION,
+            SETLINKTIMEOUT
+        };
+
+        /** Destructor */
+        virtual ~AsyncMethodCallCB() { }
+
+        /**
+         * Called when JoinSessionAsync() completes.
+         *
+         * @param status       ER_OK if successful
+         * @param type         The method call that triggered this callback
+         * @param context      User defined context which will be passed as-is to callback.
+         */
+        virtual void MethodCallCB(MethodCallType type, Message& reply, void* context) = 0;
+    };
+
     /**
      * Pure virtual base class implemented by classes that wish to call JoinSessionAsync().
      */
-    class JoinSessionAsyncCB {
+    class JoinSessionAsyncCB : public AsyncMethodCallCB {
       public:
         /** Destructor */
         virtual ~JoinSessionAsyncCB() { }
@@ -66,6 +88,9 @@ class BusAttachment : public MessageReceiver {
          * @param context      User defined context which will be passed as-is to callback.
          */
         virtual void JoinSessionCB(QStatus status, SessionId sessionId, const SessionOpts& opts, void* context) = 0;
+
+        // implementation of above callback
+        void MethodCallCB(MethodCallType type, Message& reply, void* context);
     };
 
     /**
@@ -890,6 +915,37 @@ class BusAttachment : public MessageReceiver {
      *      - #ER_BUS_NOT_CONNECTED if the BusAttachment is not connected to the daemon
      */
     QStatus SetLinkTimeout(SessionId sessionid, uint32_t& linkTimeout);
+
+
+    /**
+     * Set the link timeout for a session.
+     *
+     * Link timeout is the maximum number of seconds that an unresponsive daemon-to-daemon connection
+     * will be monitored before declaring the session lost (via SessionLost callback). Link timeout
+     * defaults to 0 which indicates that AllJoyn link monitoring is disabled.
+     *
+     * Each transport type defines a lower bound on link timeout to avoid defeating transport
+     * specific power management algorithms.
+     *
+     * This call executes asynchronously. When the JoinSession response is received, the callback will be called.
+     *
+     * @param[in] sessionid     Id of session whose link timeout will be modified.
+     * @param[in] linkTimeout   Max number of seconds that a link can be unresponsive before being
+     *                          declared lost. 0 indicates that AllJoyn link monitoring will be disabled. On
+     *                          return, this value will be the resulting (possibly upward) adjusted linkTimeout
+     *                          value that acceptable to the underlying transport.
+     * @param[in]  callback     Called when JoinSession response is received.
+     * @param[in]  context      User defined context which will be passed as-is to callback.
+     *
+     * @return
+     *      - #ER_OK iff method call to local daemon response was was successful.
+     *      - #ER_BUS_NOT_CONNECTED if a connection has not been made with a local bus.
+     *      - Other error status codes indicating a failure.
+     */
+    QStatus SetLinkTimeoutAsync(SessionId sessionid,
+                                uint32_t linkTimeout,
+                                BusAttachment::AsyncMethodCallCB* callback,
+                                void* context = NULL);
 
     /**
      * Determine whether a given well-known name exists on the bus.

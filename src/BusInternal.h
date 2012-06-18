@@ -250,13 +250,17 @@ class BusAttachment::Internal : public MessageReceiver, public qcc::AlarmListene
     /**
      * JoinSession method_reply handler.
      */
-    void JoinSessionMethodCB(Message& message, void* context);
+    void AsyncMethodCB(Message& message, void* context);
 
     /**
      * Dispatched joinSession method_reply handler.
      */
     void DoJoinSessionMethodCB(Message& message, void* context);
 
+    /**
+     * Dispatched async method response
+     */
+    void DoAsyncMethodCB(Message& reply, void* context);
 
   private:
 
