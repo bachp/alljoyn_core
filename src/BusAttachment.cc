@@ -59,8 +59,50 @@
 
 #define QCC_MODULE "ALLJOYN"
 
+
 using namespace std;
 using namespace qcc;
+
+// declare these in the anonymous namespace so that the symbols will not be
+// visible outside this translation unit
+namespace {
+using namespace ajn;
+
+struct _JoinSessionMethodCBContext {
+    BusAttachment::JoinSessionAsyncCB* callback;
+    SessionListener* sessionListener;
+    void* context;
+    BusAttachment::Internal& internal;
+
+    _JoinSessionMethodCBContext(
+        BusAttachment::JoinSessionAsyncCB* callback,
+        SessionListener* sessionListener,
+        void* context,
+        BusAttachment::Internal& internal)
+        : callback(callback),
+        sessionListener(sessionListener),
+        context(context),
+        internal(internal)
+    { }
+};
+
+struct _AsyncMethodCBContext {
+    BusAttachment::AsyncMethodCallCB* callback;
+    void* context;
+    const BusAttachment::AsyncMethodCallCB::MethodCallType type;
+
+    _AsyncMethodCBContext(
+        BusAttachment::AsyncMethodCallCB* callback,
+        BusAttachment::AsyncMethodCallCB::MethodCallType type,
+        void* context)
+        : callback(callback),
+        context(context),
+        type(type)
+    { }
+};
+
+}
+
 
 namespace ajn {
 
@@ -1167,14 +1209,6 @@ QStatus BusAttachment::UnbindSessionPort(SessionPort sessionPort)
     return status;
 }
 
-struct _JoinSessionMethodCBContext {
-    BusAttachment::JoinSessionAsyncCB* callback;
-    SessionListener* sessionListener;
-    void* context;
-    _JoinSessionMethodCBContext(BusAttachment::JoinSessionAsyncCB* callback, SessionListener* sessionListener, void* context)
-        : callback(callback), sessionListener(sessionListener), context(context) { }
-};
-
 QStatus BusAttachment::JoinSessionAsync(const char* sessionHost, SessionPort sessionPort, SessionListener* sessionListener,
                                         const SessionOpts& opts, BusAttachment::JoinSessionAsyncCB* callback, void* context)
 {
@@ -1195,21 +1229,43 @@ QStatus BusAttachment::JoinSessionAsync(const char* sessionHost, SessionPort ses
     QStatus status = alljoynObj.MethodCallAsync(org::alljoyn::Bus::InterfaceName,
                                                 "JoinSession",
                                                 busInternal,
-                                                static_cast<MessageReceiver::ReplyHandler>(&BusAttachment::Internal::JoinSessionMethodCB),
+                                                static_cast<MessageReceiver::ReplyHandler>(&BusAttachment::Internal::AsyncMethodCB),
                                                 args,
                                                 ArraySize(args),
-                                                reinterpret_cast<void*>(new _JoinSessionMethodCBContext(callback, sessionListener, context)),
+                                                new _AsyncMethodCBContext(
+                                                    callback,
+                                                    AsyncMethodCallCB::JOINSESSION,
+                                                    new _JoinSessionMethodCBContext(
+                                                        callback,
+                                                        sessionListener,
+                                                        context,
+                                                        *busInternal)),
                                                 90000);
     return status;
 }
 
-void BusAttachment::Internal::JoinSessionMethodCB(Message& reply, void* context)
+void BusAttachment::Internal::AsyncMethodCB(Message& reply, void* context)
 {
     /* Dispatch reply */
     QStatus status = DispatchMessage(*this, reply, context);
     if (status != ER_OK) {
         QCC_LogError(status, ("DispatchMessage for JoinSessionMethodCB failed"));
     }
+}
+
+
+void BusAttachment::Internal::DoAsyncMethodCB(Message& reply, void* context)
+{
+    _AsyncMethodCBContext* ctx = static_cast<_AsyncMethodCBContext*>(context);
+    ctx->callback->MethodCallCB(ctx->type, reply, ctx->context);
+    delete ctx;
+}
+
+void BusAttachment::JoinSessionAsyncCB::MethodCallCB(MethodCallType type, Message& reply, void* context)
+{
+    _JoinSessionMethodCBContext* ctx = static_cast<_JoinSessionMethodCBContext*>(context);
+    // call to DoJoinSessionMethodCB
+    ctx->internal.DoJoinSessionMethodCB(reply, ctx);
 }
 
 void BusAttachment::Internal::DoJoinSessionMethodCB(Message& reply, void* context)
@@ -1427,6 +1483,29 @@ QStatus BusAttachment::GetSessionFd(SessionId sessionId, SocketFd& sockFd)
     return status;
 }
 
+QStatus BusAttachment::SetLinkTimeoutAsync(SessionId sessionid, uint32_t linkTimeout, BusAttachment::AsyncMethodCallCB* callback, void* context)
+{
+    if (!IsConnected()) {
+        return ER_BUS_NOT_CONNECTED;
+    }
+
+    MsgArg args[2];
+    args[0].Set("u", sessionid);
+    args[1].Set("u", linkTimeout);
+
+    const ProxyBusObject& alljoynObj = this->GetAllJoynProxyObj();
+    QStatus status = alljoynObj.MethodCallAsync(
+        org::alljoyn::Bus::InterfaceName,
+        "SetLinkTimeout",
+        busInternal,
+        static_cast<MessageReceiver::ReplyHandler>(&BusAttachment::Internal::AsyncMethodCB),
+        args,
+        ArraySize(args),
+        new _AsyncMethodCBContext(callback, AsyncMethodCallCB::SETLINKTIMEOUT, context),
+        90000);
+    return status;
+}
+
 QStatus BusAttachment::SetLinkTimeout(SessionId sessionId, uint32_t& linkTimeout)
 {
     if (!IsConnected()) {
@@ -1587,7 +1666,7 @@ void BusAttachment::Internal::AlarmTriggered(const Alarm& alarm, QStatus reason)
                 QCC_DbgPrintf(("Unrecognized signal \"%s.%s\" received", msg->GetInterface(), msg->GetMemberName()));
             }
         } else if (msg->GetType() == MESSAGE_METHOD_RET) {
-            DoJoinSessionMethodCB(msg, alarmContext->second);
+            DoAsyncMethodCB(msg, alarmContext->second);
         }
     }
     delete alarmContext;
