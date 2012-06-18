@@ -103,7 +103,7 @@ class DaemonConfig {
     /**
      * Check if the configuration has a specific key.
      */
-    bool Has(const char* key) { return !Get(key).empty(); }
+    bool Has(const char* key);
 
   private:
 
