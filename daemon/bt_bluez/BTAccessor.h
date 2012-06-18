@@ -4,7 +4,7 @@
  */
 
 /******************************************************************************
- * Copyright 2009-2011, Qualcomm Innovation Center, Inc.
+ * Copyright 2009-2012, Qualcomm Innovation Center, Inc.
  *
  *    Licensed under the Apache License, Version 2.0 (the "License");
  *    you may not use this file except in compliance with the License.
@@ -295,15 +295,17 @@ class BTTransport::BTAccessor : public MessageReceiver, public qcc::AlarmListene
 
     qcc::Alarm DispatchOperation(DispatchInfo* op, uint32_t delay = 0)
     {
-        qcc::Alarm alarm(delay, this, 0, (void*)op);
+        void* context = (void*)op;
+        qcc::Alarm alarm(delay, this, context);
         timer.AddAlarm(alarm);
         return alarm;
     }
 
     qcc::Alarm DispatchOperation(DispatchInfo* op, uint64_t triggerTime)
     {
+        void* context = (void*)op;
         qcc::Timespec ts(triggerTime);
-        qcc::Alarm alarm(ts, this, 0, (void*)op);
+        qcc::Alarm alarm(ts, this, context);
         timer.AddAlarm(alarm);
         return alarm;
     }

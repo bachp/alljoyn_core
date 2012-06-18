@@ -230,7 +230,6 @@ typedef struct {
  * Stabilize() methods can also be called to explicitly force contents of the MsgArg to be copied.
  */
 class MsgArg {
-
     friend class _Message;
     friend class MsgArgUtils;
 
@@ -660,6 +659,40 @@ class MsgArg {
      */
     MsgArg() : typeId(ALLJOYN_INVALID), flags(0) { v_invalid.unused[0] = v_invalid.unused[1] = v_invalid.unused[2] = NULL; }
 
+  protected:
+    /**
+     * Build up a MsgArg from a variable set of parameters.
+     *
+     * @param signature   The signature for MsgArg values
+     * @param sigLen      Length of the specified signature
+     * @param arg         MsgArg to initialize
+     * @param maxArgs     Maximum number of arguments to parse in parameter list, argp
+     * @param argp        List of parameters constructed from var args
+     * @param count       Out parameter that contains the number of actual parsed var args
+     *
+     * @return
+     *      - #ER_OK if the MsgArg was successfully created.
+     *      - #ER_BUS_SIGNATURE_MISMATCH if the signature did not match.
+     *      - Other error status codes indicating a failure.
+     */
+    static QStatus VBuildArgs(const char*& signature, size_t sigLen, MsgArg* arg, size_t maxArgs, va_list* argp, size_t* count = NULL);
+
+    /**
+     * Parse a MsgArg into a variable set of receiving parameters.
+     *
+     * @param signature   The signature for MsgArg values
+     * @param sigLen      Length of the specified signature
+     * @param argList     MsgArg to parse
+     * @param numArgs     Maximum number of arguments to parse in parameter list, argp
+     * @param argp        List of parameters to receive values constructed from var args
+     *
+     * @return
+     *      - #ER_OK if the MsgArg was successfully parsed.
+     *      - #ER_BUS_SIGNATURE_MISMATCH if the signature did not match.
+     *      - Other error status codes indicating a failure.
+     */
+    static QStatus VParseArgs(const char*& signature, size_t sigLen, const MsgArg* argList, size_t numArgs, va_list* argp);
+
   private:
 
     uint8_t flags;
@@ -667,10 +700,7 @@ class MsgArg {
     void SetOwnershipDeep();
     static void Clone(MsgArg& dest, const MsgArg& src);
     static QStatus BuildArray(MsgArg* arry, const qcc::String& elemSig, va_list* argp);
-    static QStatus VBuildArgs(const char*& signature, size_t sigLen, MsgArg* arg, size_t maxArgs, va_list* argp, size_t* count = NULL);
     static QStatus ParseArray(const MsgArg* arry, const char* elemSig, size_t elemSigLen, va_list* argp);
-    static QStatus VParseArgs(const char*& signature, size_t sigLen, const MsgArg* argList, size_t numArgs, va_list* argp);
-
 };
 
 }

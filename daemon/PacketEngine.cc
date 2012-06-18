@@ -260,7 +260,9 @@ QStatus PacketEngine::Connect(const PacketDest& dest, PacketStream& packetStream
     ChannelInfo* ci = CreateChannelInfo(chanId, dest, packetStream, listener, maxWindowSize);
     if (ci) {
         /* Put an entry on the callback timer */
-        ci->connectReqAlarm = Alarm(CONNECT_RETRY_TIMEOUT, this, 0, cctx);
+        uint32_t zero = 0;
+        uint32_t timeout = CONNECT_RETRY_TIMEOUT;
+        ci->connectReqAlarm = Alarm(timeout, this, cctx, zero);
         status = timer.AddAlarm(ci->connectReqAlarm);
         if (status == ER_OK) {
             /* Send connect request */
@@ -285,7 +287,7 @@ void PacketEngine::CloseChannel(ChannelInfo& ci)
 {
     /* Return early if disconnect already in progress */
     ci.txLock.Lock();
-    DisconnectReqAlarmContext* ctx = static_cast<DisconnectReqAlarmContext*>(ci.disconnectReqAlarm.GetContext());
+    DisconnectReqAlarmContext* ctx = static_cast<DisconnectReqAlarmContext*>(ci.disconnectReqAlarm->GetContext());
     if (ctx) {
         ci.txLock.Unlock();
         return;
@@ -294,7 +296,9 @@ void PacketEngine::CloseChannel(ChannelInfo& ci)
     /* Create disconnect context */
     ctx = new DisconnectReqAlarmContext(ci.id);
     ctx->disconnReq[0] = htole32(PACKET_COMMAND_DISCONNECT_REQ);
-    ci.disconnectReqAlarm = Alarm(DISCONNECT_RETRY_TIMEOUT, this, 0, ctx);
+    uint32_t timeout = DISCONNECT_RETRY_TIMEOUT;
+    uint32_t zero = 0;
+    ci.disconnectReqAlarm = Alarm(timeout, this, ctx, zero);
 
     /* Update state and send the message */
     ci.state = ChannelInfo::CLOSING;
@@ -346,7 +350,7 @@ QStatus PacketEngine::DeliverControlMsg(PacketEngine::ChannelInfo& ci, const voi
 
 void PacketEngine::AlarmTriggered(const Alarm& alarm, QStatus reason)
 {
-    AlarmContext* ctx = reinterpret_cast<AlarmContext*>(alarm.GetContext());
+    AlarmContext* ctx = reinterpret_cast<AlarmContext*>(alarm->GetContext());
     //printf("rx(%d): AlarmTriggered cctx=%d\n", (GetTimestamp() / 100) % 100000, ctx->contextType);
     switch (ctx->contextType) {
     case AlarmContext::CONTEXT_DISCONNECT_REQ:
@@ -361,7 +365,9 @@ void PacketEngine::AlarmTriggered(const Alarm& alarm, QStatus reason)
                 /* Rearm the timer and resend the disconnect request */
                 status = DeliverControlMsg(*ci, cctx->disconnReq, sizeof(cctx->disconnReq));
                 if (status == ER_OK) {
-                    ci->disconnectReqAlarm = Alarm(DISCONNECT_RETRY_TIMEOUT * cctx->retries, this, 0, ctx);
+                    uint32_t timeout = DISCONNECT_RETRY_TIMEOUT * cctx->retries;
+                    uint32_t zero = 0;
+                    ci->disconnectReqAlarm = Alarm(timeout, this, ctx, zero);
                     status = timer.AddAlarm(ci->disconnectReqAlarm);
                 }
             }
@@ -396,7 +402,9 @@ void PacketEngine::AlarmTriggered(const Alarm& alarm, QStatus reason)
                 /* Rearm the timer and resend the connect request */
                 status = DeliverControlMsg(*ci, cctx->connReq, sizeof(cctx->connReq));
                 if (status == ER_OK) {
-                    ci->connectReqAlarm = Alarm(CONNECT_RETRY_TIMEOUT * cctx->retries, this, 0, ctx);
+                    uint32_t timeout = CONNECT_RETRY_TIMEOUT * cctx->retries;
+                    uint32_t zero = 0;
+                    ci->connectReqAlarm = Alarm(timeout, this, ctx, zero);
                     status = timer.AddAlarm(ci->connectReqAlarm);
                 }
             }
@@ -421,7 +429,9 @@ void PacketEngine::AlarmTriggered(const Alarm& alarm, QStatus reason)
                 /* Rearm the timer and resend the connect response */
                 status = DeliverControlMsg(*ci, cctx->connRsp, sizeof(cctx->connRsp));
                 if (status == ER_OK) {
-                    ci->connectRspAlarm = Alarm(CONNECT_RETRY_TIMEOUT * cctx->retries, this, 0, ctx);
+                    uint32_t zero = 0;
+                    uint32_t timeout = CONNECT_RETRY_TIMEOUT * cctx->retries;
+                    ci->connectRspAlarm = Alarm(timeout, this, ctx, zero);
                     status = timer.AddAlarm(ci->connectRspAlarm);
                 }
             }
@@ -451,7 +461,8 @@ void PacketEngine::AlarmTriggered(const Alarm& alarm, QStatus reason)
                     QCC_LogError(status, ("Failed to send XON"));
                 }
                 uint32_t nextTime = GetRetryMs(*ci, cctx->retries);
-                ci->xOnAlarm = Alarm(nextTime, this, 0, ctx);
+                uint32_t zero = 0;
+                ci->xOnAlarm = Alarm(nextTime, this, ctx, zero);
                 status = timer.AddAlarm(ci->xOnAlarm);
                 //printf("rx(%d): xon retry=%d rxD=0x%x, next=%d\n", (GetTimestamp() / 100) % 100000, cctx->retries + 1, ci->rxDrain, nextTime);
             }
@@ -639,27 +650,27 @@ PacketEngine::ChannelInfo::~ChannelInfo()
         qcc::Sleep(5);
     }
 
-    AlarmContext* ac = static_cast<AlarmContext*>(connectReqAlarm.GetContext());
+    AlarmContext* ac = static_cast<AlarmContext*>(connectReqAlarm->GetContext());
     if (ac) {
         engine.timer.RemoveAlarm(connectReqAlarm);
         delete ac;
     }
-    ac = static_cast<AlarmContext*>(connectRspAlarm.GetContext());
+    ac = static_cast<AlarmContext*>(connectRspAlarm->GetContext());
     if (ac) {
         engine.timer.RemoveAlarm(connectRspAlarm);
         delete ac;
     }
-    ac = static_cast<AlarmContext*>(disconnectReqAlarm.GetContext());
+    ac = static_cast<AlarmContext*>(disconnectReqAlarm->GetContext());
     if (ac) {
         engine.timer.RemoveAlarm(disconnectReqAlarm);
         delete ac;
     }
-    ac = static_cast<AlarmContext*>(disconnectRspAlarm.GetContext());
+    ac = static_cast<AlarmContext*>(disconnectRspAlarm->GetContext());
     if (ac) {
         engine.timer.RemoveAlarm(disconnectRspAlarm);
         delete ac;
     }
-    ac = static_cast<AlarmContext*>(xOnAlarm.GetContext());
+    ac = static_cast<AlarmContext*>(xOnAlarm->GetContext());
     if (ac) {
         engine.timer.RemoveAlarm(xOnAlarm);
         delete ac;
@@ -762,7 +773,9 @@ void PacketEngine::SendAck(ChannelInfo& ci, uint16_t seqNum, bool allowDelay)
     if ((ACK_DELAY_MS > 0) && allowDelay) {
         ci.rxLock.Lock();
         if (!ci.isAckAlarmArmed) {
-            Alarm a(ACK_DELAY_MS, this, 0, ci.ackAlarmContext);
+            uint32_t zero = 0;
+            uint32_t timeout = ACK_DELAY_MS;
+            Alarm a(timeout, this, ci.ackAlarmContext, zero);
             QStatus status = timer.AddAlarm(a);
             ci.isAckAlarmArmed = (status == ER_OK);
             if (status != ER_OK) {
@@ -808,13 +821,15 @@ void PacketEngine::SendXOn(ChannelInfo& ci)
     /* Create the XON context and message */
     //printf("rx(%d): xon rF=0x%x, rD=0x%x, rA=0x%x, flowSeq=0x%x\n", (GetTimestamp() / 100) % 100000, ci.rxFill, ci.rxDrain, ci.rxAck, ci.rxFlowSeqNum);
     ci.rxLock.Lock();
-    XOnAlarmContext* cctx = static_cast<XOnAlarmContext*>(ci.xOnAlarm.GetContext());
+    XOnAlarmContext* cctx = static_cast<XOnAlarmContext*>(ci.xOnAlarm->GetContext());
     if (!cctx) {
         XOnAlarmContext* cctx = new XOnAlarmContext(ci.id);
         cctx->xon[0] = htole32(PACKET_COMMAND_XON);
         cctx->xon[1] = htole32(ci.rxAck);
         cctx->xon[2] = htole32(ci.rxDrain);
-        ci.xOnAlarm = Alarm(GetRetryMs(ci, ++cctx->retries), this, 0, cctx);
+        uint32_t zero = 0;
+        uint32_t timeout = GetRetryMs(ci, ++cctx->retries);
+        ci.xOnAlarm = Alarm(timeout, this, cctx, zero);
         QStatus status = timer.AddAlarm(ci.xOnAlarm);
         if (status == ER_OK) {
             status = DeliverControlMsg(ci, cctx->xon, sizeof(cctx->xon));
@@ -1111,7 +1126,9 @@ void PacketEngine::RxPacketThread::HandleConnectReq(Packet* p, PacketStream& pac
         cctx->connRsp[3] = htole32(ci->windowSize);
 
         /* Put an entry on the callback timer */
-        ci->connectRspAlarm = Alarm(CONNECT_RETRY_TIMEOUT, engine, 0, cctx);
+        uint32_t timeout = CONNECT_RETRY_TIMEOUT;
+        uint32_t zero = 0;
+        ci->connectRspAlarm = Alarm(timeout, engine, cctx, zero);
         QStatus status = engine->timer.AddAlarm(ci->connectRspAlarm);
 
         if (status == ER_OK) {
@@ -1144,7 +1161,7 @@ void PacketEngine::RxPacketThread::HandleConnectRsp(Packet* p)
     ChannelInfo* ci = engine->AcquireChannelInfo(p->chanId);
     QCC_DbgTrace(("PacketEngine::HandleConnectRsp(%s)", ci ? engine->ToString(ci->packetStream, p->GetSender()).c_str() : ""));
     if (ci) {
-        ConnectReqAlarmContext* ctx = static_cast<ConnectReqAlarmContext*>(ci->connectReqAlarm.GetContext());
+        ConnectReqAlarmContext* ctx = static_cast<ConnectReqAlarmContext*>(ci->connectReqAlarm->GetContext());
         if (ctx) {
             /* Disable any connectReqAlarm retry timer */
             engine->timer.RemoveAlarm(ci->connectReqAlarm);
@@ -1171,7 +1188,9 @@ void PacketEngine::RxPacketThread::HandleConnectRsp(Packet* p)
                 /* Arm the close timer if needed */
                 if (ci->state == ChannelInfo::CLOSING && !ci->closingAlarmContext) {
                     ci->closingAlarmContext = new ClosingAlarmContext(ci->id);
-                    engine->timer.AddAlarm(Alarm(CLOSING_TIMEOUT, engine, 0, ci->closingAlarmContext));
+                    uint32_t timeout = CLOSING_TIMEOUT;
+                    uint32_t zero = 0;
+                    engine->timer.AddAlarm(Alarm(timeout, engine, ci->closingAlarmContext, zero));
                 }
             } else if ((ci->state != ChannelInfo::OPEN) && (ci->state != ChannelInfo::CLOSING)) {
                 /* Only allow retry of ack if state OPEN or CLOSING */
@@ -1199,7 +1218,7 @@ void PacketEngine::RxPacketThread::HandleConnectRspAck(Packet* p)
     /* Channel for this connectRsp should already exist and should be in OPENING state */
     ChannelInfo* ci = engine->AcquireChannelInfo(p->chanId);
     QCC_DbgTrace(("PacketEngine::HandleConnectRspAck(%s)", ci ? engine->ToString(ci->packetStream, p->GetSender()).c_str() : ""));
-    ConnectRspAlarmContext* ctx = static_cast<ConnectRspAlarmContext*>(ci->connectRspAlarm.GetContext());
+    ConnectRspAlarmContext* ctx = static_cast<ConnectRspAlarmContext*>(ci->connectRspAlarm->GetContext());
     if (ci && ctx) {
         /* Disable any connect(Rsp)Alarm retry timer */
         engine->timer.RemoveAlarm(ci->connectRspAlarm);
@@ -1217,11 +1236,13 @@ void PacketEngine::RxPacketThread::HandleDisconnectReq(Packet* p)
     ChannelInfo* ci = engine->AcquireChannelInfo(p->chanId);
     if (ci) {
         /* Create disconnect response context if necessary */
-        DisconnectRspAlarmContext* ctx = static_cast<DisconnectRspAlarmContext*>(ci->disconnectRspAlarm.GetContext());
+        DisconnectRspAlarmContext* ctx = static_cast<DisconnectRspAlarmContext*>(ci->disconnectRspAlarm->GetContext());
         if (!ctx) {
             ctx = new DisconnectRspAlarmContext(ci->id);
             ctx->disconnRsp[0] = htole32(PACKET_COMMAND_DISCONNECT_RSP);
-            ci->disconnectRspAlarm = Alarm(DISCONNECT_TIMEOUT, engine, 0, ctx);
+            uint32_t timeout = DISCONNECT_TIMEOUT;
+            uint32_t zero = 0;
+            ci->disconnectRspAlarm = Alarm(timeout, engine, ctx, zero);
             engine->timer.AddAlarm(ci->disconnectRspAlarm);
             ci->state = ChannelInfo::CLOSING;
         }
@@ -1237,7 +1258,7 @@ void PacketEngine::RxPacketThread::HandleDisconnectReq(Packet* p)
 void PacketEngine::RxPacketThread::HandleDisconnectRsp(Packet* p)
 {
     ChannelInfo* ci = engine->AcquireChannelInfo(p->chanId);
-    DisconnectReqAlarmContext* ctx = static_cast<DisconnectReqAlarmContext*>(ci->disconnectReqAlarm.GetContext());
+    DisconnectReqAlarmContext* ctx = static_cast<DisconnectReqAlarmContext*>(ci->disconnectReqAlarm->GetContext());
     if (ci && ctx) {
         /* Ignore disconnect rsp that has already timed out */
         engine->timer.RemoveAlarm(ci->disconnectReqAlarm);
@@ -1417,7 +1438,7 @@ void PacketEngine::RxPacketThread::HandleXOnAck(Packet* controlPacket)
     ChannelInfo* ci = engine->AcquireChannelInfo(controlPacket->chanId);
     if (ci) {
         ci->rxLock.Lock();
-        XOnAlarmContext* cctx = static_cast<XOnAlarmContext*>(ci->xOnAlarm.GetContext());
+        XOnAlarmContext* cctx = static_cast<XOnAlarmContext*>(ci->xOnAlarm->GetContext());
         if (cctx) {
             engine->timer.RemoveAlarm(ci->xOnAlarm);
             ci->xOnAlarm = Alarm();

@@ -22,6 +22,7 @@
 #include <assert.h>
 #include <qcc/Debug.h>
 #include <qcc/SocketTypes.h>
+#include <qcc/IPAddress.h>
 
 #include "NsProtocol.h"
 
@@ -300,8 +301,9 @@ size_t IsAt::Serialize(uint8_t* buffer) const
     //
     // If the F bit is set, we need to include the IPv4 address.
     //
+
     if (m_flagF) {
-        INET_PTON(AF_INET, m_ipv4.c_str(), p);
+        qcc::IPAddress::StringToIPv4(m_ipv4, p, 4);
         QCC_DbgPrintf(("IsAt::Serialize(): IPv4: %s", m_ipv4.c_str()));
         p += 4;
         size += 4;
@@ -310,8 +312,9 @@ size_t IsAt::Serialize(uint8_t* buffer) const
     //
     // If the S bit is set, we need to include the IPv6 address.
     //
+
     if (m_flagS) {
-        INET_PTON(AF_INET6, m_ipv6.c_str(), p);
+        qcc::IPAddress::StringToIPv6(m_ipv6, p, 16);
         QCC_DbgPrintf(("IsAt::Serialize(): IPv6: %s", m_ipv6.c_str()));
         p += 16;
         size += 16;
@@ -422,14 +425,13 @@ size_t IsAt::Deserialize(uint8_t const* buffer, uint32_t bufsize)
     // If the F bit is set, we need to read off an IPv4 address; and we'd better
     // have enough buffer to read it out of.
     //
+
     if (m_flagF) {
         if (bufsize < 4) {
             QCC_DbgPrintf(("IsAt::Deserialize(): Insufficient bufsize %d", bufsize));
             return 0;
         }
-        char strbuf[INET_ADDRSTRLEN];
-        INET_NTOP(AF_INET, (void*)p, strbuf, INET_ADDRSTRLEN);
-        m_ipv4 = qcc::String(strbuf);
+        m_ipv4 = qcc::IPAddress::IPv4ToString(p);
         QCC_DbgPrintf(("IsAt::Deserialize(): IPv4: %s", m_ipv4.c_str()));
         p += 4;
         size += 4;
@@ -440,14 +442,13 @@ size_t IsAt::Deserialize(uint8_t const* buffer, uint32_t bufsize)
     // If the S bit is set, we need to read off an IPv6 address; and we'd better
     // have enough buffer to read it out of.
     //
+
     if (m_flagS) {
         if (bufsize < 16) {
             QCC_DbgPrintf(("IsAt::Deserialize(): Insufficient bufsize %d", bufsize));
             return 0;
         }
-        char strbuf[INET6_ADDRSTRLEN];
-        INET_NTOP(AF_INET6, (void*)p, strbuf, INET6_ADDRSTRLEN);
-        m_ipv6 = qcc::String(strbuf);
+        m_ipv6 = qcc::IPAddress::IPv6ToString(p);
         QCC_DbgPrintf(("IsAt::Deserialize(): IPv6: %s", m_ipv6.c_str()));
         p += 16;
         size += 16;

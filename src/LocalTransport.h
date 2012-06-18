@@ -411,6 +411,15 @@ class LocalEndpoint : public BusEndpoint, public qcc::AlarmListener, public Mess
     class ReplyContext;
 
     /**
+     * Hash functor
+     */
+    struct Hash {
+        inline size_t operator()(const char* s) const {
+            return qcc::hash_string(s);
+        }
+    };
+
+    /**
      * Equality function for matching object paths
      */
     struct PathEq { bool operator()(const char* p1, const char* p2) const { return (p1 == p2) || (strcmp(p1, p2) == 0); } };

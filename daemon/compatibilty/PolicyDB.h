@@ -30,17 +30,7 @@
 
 #include "NameTable.h"
 
-#include <qcc/STLContainer.h>
-//#if defined(__GNUC__) && !defined(ANDROID)
-//#include <ext/hash_map>
-//#include <ext/hash_set>
-//namespace std {
-//using namespace __gnu_cxx;
-//}
-//#else
-//#include <hash_map>
-//#include <hash_set>
-//#endif
+
 
 #if !defined(ALLJOYN_BUILD_POLICY_DEBUG)
 #define ALLJOYN_BUILD_POLICY_DEBUG 0

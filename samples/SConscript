@@ -15,17 +15,18 @@
 
 Import('env')
 
-# Basic Sample programs
-env.SConscript('basic/SConscript')
+if env['OS'] != 'win8':
+    # Basic Sample programs
+    env.SConscript('basic/SConscript')
 
-# Simple Sample programs
-env.SConscript('simple/SConscript')
+    # Simple Sample programs
+    env.SConscript('simple/SConscript')
 
-# Security Sample programs
-env.SConscript('secure/SConscript')
+    # Security Sample programs
+    env.SConscript('secure/SConscript')
 
-# Chat Sample program
-env.SConscript('chat/SConscript')
+    # Chat Sample program
+    env.SConscript('chat/SConscript')
 
 # Install readme
 if env['OS_CONF'] == 'windows':

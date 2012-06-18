@@ -206,6 +206,12 @@ QStatus KeyStore::SetListener(KeyStoreListener& listener)
     }
 }
 
+QStatus KeyStore::SetDefaultListener()
+{
+    this->listener = new ProtectedKeyStoreListener(defaultListener);
+    return ER_OK;
+}
+
 QStatus KeyStore::Init(const char* fileName, bool isShared)
 {
     if (storeState == UNAVAILABLE) {

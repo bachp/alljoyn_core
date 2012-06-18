@@ -40,9 +40,7 @@
 #include "DaemonTransport.h"
 
 #if defined(QCC_OS_DARWIN)
-#warning "Bluetooth transport not implemented on Darwin"
-#elif defined(QCC_OS_WINDOWS)
-//warning "Bluetooth transport currently not supported on Windows"
+#warning "Bluetooth transport not implemented on DarwinQ"
 #else
 #include "BTTransport.h"
 #endif
@@ -75,16 +73,6 @@ static const char daemonConfig[] =
     "    <property enable_ipv4=\"true\"/>"
     "    <property enable_ipv6=\"true\"/>"
     "  </ip_name_service>"
-    "  <ice>"
-    "    <limit name=\"max_incomplete_connections\">16</limit>"
-    "    <limit name=\"max_completed_connections\">64</limit>"
-    "  </ice>"
-    "  <ice_discovery_manager>"
-    "    <property interfaces=\"*\"/>"
-    "    <property server=\"rdvs.alljoyn.org\"/>"
-    "    <property protocol=\"HTTP\"/>"
-    "    <property enable_ipv6=\"false\"/>"
-    "  </ice_discovery_manager>"
     "</busconfig>";
 
 /** Static top level message bus object */
@@ -440,7 +428,6 @@ int main(int argc, char** argv)
     } else {
         serverArgs = env->Find("BUS_SERVER_ADDRESSES", "unix:abstract=alljoyn;tcp:addr=0.0.0.0,port=9955,family=ipv4;bluetooth:");
     }
-
 #endif /* DAEMON_LIB */
 
 #endif /* !QCC_OS_GROUP_WINDOWS */
@@ -456,11 +443,9 @@ int main(int argc, char** argv)
     cntr.Add(new TransportFactory<TCPTransport>("tcp", false));
 
 #if !defined(QCC_OS_DARWIN)
-#if !defined(QCC_OS_WINDOWS)
     if (!noBT) {
         cntr.Add(new TransportFactory<BTTransport>("bluetooth", false));
     }
-#endif
 #endif
 
     /* Create message bus with support for alternate transports */

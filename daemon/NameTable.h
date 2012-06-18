@@ -38,15 +38,7 @@
 #include "BusEndpoint.h"
 #include "VirtualEndpoint.h"
 
-#include <qcc/STLContainer.h>
-//#if defined(__GNUC__) && !defined(ANDROID)
-//#include <ext/hash_map>
-//namespace std {
-//using namespace __gnu_cxx;
-//}
-//#else
-//#include <hash_map>
-//#endif
+
 namespace ajn {
 
 /** @internal Forward reference */

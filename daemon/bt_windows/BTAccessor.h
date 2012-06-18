@@ -461,7 +461,8 @@ class BTTransport::BTAccessor : public MessageReceiver, public qcc::AlarmListene
 
     qcc::Alarm DispatchOperation(DispatchInfo* op, uint32_t delay = 0)
     {
-        qcc::Alarm alarm(delay, this, 0, (void*)op);
+        void* context = (void*)op;
+        qcc::Alarm alarm(delay, this, context);
         winBus.GetInternal().GetDispatcher().AddAlarm(alarm);
         return alarm;
     }

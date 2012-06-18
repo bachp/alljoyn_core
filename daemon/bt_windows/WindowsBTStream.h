@@ -32,7 +32,6 @@
 
 #include "BTAccessor.h"
 
-using namespace qcc;
 
 namespace ajn {
 
@@ -73,7 +72,7 @@ class WindowsBTStream : public qcc::Stream {
     virtual QStatus PullBytes(void* buf,
                               size_t reqBytes,
                               size_t& actualBytes,
-                              uint32_t timeout = Event::WAIT_FOREVER);
+                              uint32_t timeout = qcc::Event::WAIT_FOREVER);
 
     /**
      * Push zero or more bytes into the sink.
@@ -90,7 +89,7 @@ class WindowsBTStream : public qcc::Stream {
      *
      * @return Event that is signaled when data is available.
      */
-    virtual Event& GetSourceEvent() { return dataAvailable; }
+    virtual qcc::Event& GetSourceEvent() { return dataAvailable; }
 
     /**
      * Get the BTAccessor which created this stream.
@@ -136,7 +135,7 @@ class WindowsBTStream : public qcc::Stream {
     L2CAP_CHANNEL_HANDLE channelHandle;
     volatile size_t sourceBytesWaiting;
     volatile QStatus connectionStatus;
-    Event dataAvailable;
+    qcc::Event dataAvailable;
 };
 
 } /* namespace */

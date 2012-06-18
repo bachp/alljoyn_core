@@ -2885,7 +2885,7 @@ void TCPTransport::DoStartListen(qcc::String& normSpec)
      * minutes while the endpoint is in TIME_WAIT if we crash (or control-C).
      */
     status = qcc::SetReuseAddress(listenFd, true);
-    if (status != ER_OK) {
+    if (status != ER_OK && status != ER_NOT_IMPLEMENTED) {
         m_listenFdsLock.Unlock(MUTEX_CONTEXT);
         QCC_LogError(status, ("TCPTransport::DoStartListen(): SetReuseAddress() failed"));
         qcc::Close(listenFd);
@@ -2928,7 +2928,7 @@ void TCPTransport::DoStartListen(qcc::String& normSpec)
             qcc::GetLocalAddress(listenFd, listenAddr, listenPort);
             normSpec = "tcp:addr=" + argMap["addr"] + "," + argMap["family"] + ",port=" + U32ToString(listenPort);
         }
-        status = qcc::Listen(listenFd, SOMAXCONN);
+        status = qcc::Listen(listenFd, MAX_LISTEN_CONNECTIONS);
         if (status == ER_OK) {
             QCC_DbgPrintf(("TCPTransport::DoStartListen(): Listening on %s/%d", argMap["addr"].c_str(), listenPort));
             m_listenFds.push_back(pair<qcc::String, SocketFd>(normSpec, listenFd));

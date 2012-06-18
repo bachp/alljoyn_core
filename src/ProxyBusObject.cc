@@ -708,8 +708,9 @@ QStatus ProxyBusObject::IntrospectRemoteObjectAsync(ProxyBusObject::Listener* li
 void ProxyBusObject::IntrospectMethodCB(Message& msg, void* context)
 {
     QStatus status;
-    QCC_DbgPrintf(("Introspection XML: %s", msg->GetArg(0)->v_string.str));
-
+    if (NULL != msg->GetArg(0)) {
+        QCC_DbgPrintf(("Introspection XML: %s", msg->GetArg(0)->v_string.str));
+    }
     _IntrospectMethodCBContext* ctx = reinterpret_cast<_IntrospectMethodCBContext*>(context);
 
     if (msg->GetType() == MESSAGE_METHOD_RET) {

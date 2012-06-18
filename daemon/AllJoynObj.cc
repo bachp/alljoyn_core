@@ -60,6 +60,7 @@ using namespace qcc;
 
 namespace ajn {
 
+void* AllJoynObj::NameMapEntry::truthiness = reinterpret_cast<void*>(true);
 int AllJoynObj::JoinSessionThread::jstCount = 0;
 
 void AllJoynObj::AcquireLocks()
@@ -90,7 +91,6 @@ AllJoynObj::AllJoynObj(Bus& bus, BusController* busController) :
     guid(bus.GetInternal().GetGlobalGUID()),
     exchangeNamesSignal(NULL),
     detachSessionSignal(NULL),
-    nameMapReaper(this),
     isStopping(false),
     busController(busController)
 {
@@ -230,11 +230,6 @@ QStatus AllJoynObj::Init()
     if (ER_OK == status) {
         TransportList& transList = bus.GetInternal().GetTransportList();
         status = transList.RegisterListener(this);
-    }
-
-    /* Start the name reaper */
-    if (ER_OK == status) {
-        status = nameMapReaper.Start();
     }
 
     if (ER_OK == status) {
@@ -751,7 +746,7 @@ ThreadReturn STDCALL AllJoynObj::JoinSessionThread::RunJoin()
             }
 
             /* Step 2: Wait for the new b2b endpoint to have a virtual ep for nextController */
-            uint32_t startTime = GetTimestamp();
+            uint64_t startTime = GetTimestamp64();
             b2bEp = static_cast<RemoteEndpoint*>(ajObj.router.FindEndpoint(b2bEpName));
             while (replyCode == ALLJOYN_JOINSESSION_REPLY_SUCCESS) {
                 /* Do we route through b2bEp? If so, we're done */
@@ -767,8 +762,8 @@ ThreadReturn STDCALL AllJoynObj::JoinSessionThread::RunJoin()
                 }
 
                 /* Otherwise wait */
-                uint32_t now = GetTimestamp();
-                if (now > (startTime + 30000)) {
+                uint64_t now = GetTimestamp64();
+                if (now > (startTime + 30000LL)) {
                     replyCode = ALLJOYN_JOINSESSION_REPLY_FAILED;
                     QCC_LogError(ER_FAIL, ("JoinSession timed out waiting for %s to appear on %s",
                                            sessionHost, b2bEp->GetUniqueName().c_str()));
@@ -1377,7 +1372,7 @@ qcc::ThreadReturn STDCALL AllJoynObj::JoinSessionThread::RunAttach()
                 if ((status == ER_OK) && (replyCode == ALLJOYN_JOINSESSION_REPLY_SUCCESS)) {
 
                     /* Wait for dest to appear with a route through b2bEp */
-                    uint32_t startTime = GetTimestamp();
+                    uint64_t startTime = GetTimestamp64();
                     VirtualEndpoint* vDestEp = NULL;
                     while (replyCode == ALLJOYN_JOINSESSION_REPLY_SUCCESS) {
                         /* Does vSessionEp route through b2bEp? If so, we're done */
@@ -1392,8 +1387,8 @@ qcc::ThreadReturn STDCALL AllJoynObj::JoinSessionThread::RunAttach()
                             break;
                         }
                         /* Otherwise wait */
-                        uint32_t now = GetTimestamp();
-                        if (now > (startTime + 30000)) {
+                        uint64_t now = GetTimestamp64();
+                        if (now > (startTime + 30000LL)) {
                             replyCode = ALLJOYN_JOINSESSION_REPLY_FAILED;
                             QCC_LogError(ER_FAIL, ("AttachSession timed out waiting for destination to appear"));
                             break;
@@ -2042,8 +2037,8 @@ void AllJoynObj::GetSessionFd(const InterfaceDescription::Member* member, Messag
     AcquireLocks();
     SessionMapEntry* smEntry = SessionMapFind(msg->GetSender(), id);
     if (smEntry && (smEntry->opts.traffic != SessionOpts::TRAFFIC_MESSAGES)) {
-        uint32_t ts = GetTimestamp();
-        while (smEntry && ((sockFd = smEntry->fd) == -1) && ((ts + 5000) > GetTimestamp())) {
+        uint64_t ts = GetTimestamp64();
+        while (smEntry && ((sockFd = smEntry->fd) == -1) && ((ts + 5000LL) > GetTimestamp64())) {
             ReleaseLocks();
             qcc::Sleep(5);
             AcquireLocks();
@@ -3283,6 +3278,7 @@ void AllJoynObj::FoundNames(const qcc::String& busAddr,
                 NameMapEntry& nme = it->second;
                 if ((nme.guid == guid) && (nme.busAddr == busAddr)) {
                     lostNameSet.insert(it->first);
+                    timer.RemoveAlarm(nme.alarm, false);
                     nameMap.erase(it++);
                 } else {
                     it++;
@@ -3292,6 +3288,7 @@ void AllJoynObj::FoundNames(const qcc::String& busAddr,
     } else {
         /* Generate a list of name deltas */
         vector<String>::const_iterator nit = names->begin();
+        bool notimers = true;
         while (nit != names->end()) {
             multimap<String, NameMapEntry>::iterator it = nameMap.find(*nit);
             bool isNew = true;
@@ -3308,8 +3305,21 @@ void AllJoynObj::FoundNames(const qcc::String& busAddr,
                     nameMap.insert(pair<String, NameMapEntry>(*nit, NameMapEntry(busAddr,
                                                                                  guid,
                                                                                  transport,
-                                                                                 (ttl == numeric_limits<uint8_t>::max()) ? numeric_limits<uint32_t>::max() : (1000 * ttl))));
-
+                                                                                 (ttl == numeric_limits<uint8_t>::max()) ? numeric_limits<uint64_t>::max() : (1000LL * ttl),
+                                                                                 this)));
+                    // Don't schedule an alarm which will never expire or multiple timers for the same set
+                    if (notimers && (ttl != numeric_limits<uint8_t>::max())) {
+                        multimap<String, NameMapEntry>::iterator ait = nameMap.find(*nit);
+                        if (ait != nameMap.end()) {
+                            NameMapEntry& nme = ait->second;
+                            QStatus status = timer.AddAlarm(nme.alarm);
+                            if (ER_OK != status && ER_TIMER_EXITING != status) {
+                                QCC_LogError(status, ("Failed to add alarm"));
+                            } else {
+                                notimers = false;
+                            }
+                        }
+                    }
                     /* Send FoundAdvertisedName to anyone who is discovering *nit */
                     if (0 < discoverMap.size()) {
                         multimap<String, String>::const_iterator dit = discoverMap.begin();
@@ -3343,15 +3353,33 @@ void AllJoynObj::FoundNames(const qcc::String& busAddr,
                      * and don't tell clients about this alternate way to connect to the name
                      * since it will look like a duplicate to the client (that doesn't receive busAddr).
                      */
-                    if (busAddr == it->second.busAddr) {
-                        it->second.timestamp = GetTimestamp();
+                    if (notimers && (busAddr == it->second.busAddr)) {
+                        NameMapEntry& nme = it->second;
+                        nme.timestamp = GetTimestamp64();
+                        QStatus status = timer.ReplaceAlarm(nme.alarm, nme.alarm, false);
+                        if (ER_OK != status) {
+                            // This is expected if a prior name set changed in any way (order, removed entry, etc)
+                            status = timer.AddAlarm(nme.alarm);
+                            if (ER_OK != status && ER_TIMER_EXITING != status) {
+                                QCC_LogError(status, ("Failed to update alarm"));
+                            } else {
+                                notimers = false;
+                            }
+                        } else {
+                            notimers = false;
+                        }
+                    } else if (!notimers) {
+                        NameMapEntry& nme = it->second;
+                        // Just in case ordering changed, remove any spurious timer
+                        timer.RemoveAlarm(nme.alarm, false);
                     }
                 }
-                nameMapReaper.Alert();
             } else {
                 /* 0 == ttl means flush the record */
                 if (!isNew) {
+                    NameMapEntry& nme = it->second;
                     lostNameSet.insert(it->first);
+                    timer.RemoveAlarm(nme.alarm, false);
                     nameMap.erase(it);
                 }
             }
@@ -3429,48 +3457,28 @@ QStatus AllJoynObj::SendLostAdvertisedName(const String& name, TransportMask tra
     return status;
 }
 
-ThreadReturn STDCALL AllJoynObj::NameMapReaperThread::Run(void* arg)
+void AllJoynObj::AlarmTriggered(const Alarm& alarm, QStatus reason)
 {
-    uint32_t waitTime(Event::WAIT_FOREVER);
-    Event evt(waitTime);
-    while (!IsStopping()) {
-        ajnObj->AcquireLocks();
-        multimap<String, NameMapEntry>::iterator it = ajnObj->nameMap.begin();
-        uint32_t now = GetTimestamp();
-        waitTime = Event::WAIT_FOREVER;
-        while (it != ajnObj->nameMap.end()) {
-            // it->second.timestamp is an absolute time value
-            // it->second.ttl is a relative time value relative to it->second.timestamp
-            // now is an absolute time value for "right now" - may have rolled over relative to it->second.timestamp
-
-            uint32_t timeSinceTimestamp = now - it->second.timestamp;     // relative time value - 2's compliment math solves rollover
-
-            if (timeSinceTimestamp >= it->second.ttl) {
-                QCC_DbgPrintf(("Expiring discovered name %s for guid %s", it->first.c_str(), it->second.guid.c_str()));
-                ajnObj->SendLostAdvertisedName(it->first, it->second.transport);
-                ajnObj->nameMap.erase(it++);
-            } else {
-                if (it->second.ttl != numeric_limits<uint32_t>::max()) {
-                    // The TTL for this name map entry is less than infinte so we need to consider it
-
-                    uint32_t nextTime = it->second.ttl - timeSinceTimestamp;     // relative time when name map entry expires
-                    if (nextTime < waitTime) {
-                        // This name map entry expires before the time in waitTime so update waitTime.
-                        waitTime = nextTime;
-                    }
+    if (ER_OK == reason) {
+        AcquireLocks();
+        if ((bool)alarm->GetContext()) {
+            multimap<String, NameMapEntry>::iterator it = nameMap.begin();
+            uint64_t now = GetTimestamp64();
+            while (it != nameMap.end()) {
+                NameMapEntry& nme = it->second;
+                if ((now - nme.timestamp) >= nme.ttl) {
+                    QCC_DbgPrintf(("Expiring discovered name %s for guid %s", it->first.c_str(), nme.guid.c_str()));
+                    SendLostAdvertisedName(it->first, nme.transport);
+                    timer.RemoveAlarm(nme.alarm);
+                    nme.alarm->SetContext((void*)false);
+                    nameMap.erase(it++);
+                } else {
+                    ++it;
                 }
-                ++it;
             }
         }
-        ajnObj->ReleaseLocks();
-
-        evt.ResetTime(waitTime, 0);
-        QStatus status = Event::Wait(evt);
-        if (status == ER_ALERTED_THREAD) {
-            stopEvent.ResetEvent();
-        }
+        ReleaseLocks();
     }
-    return 0;
 }
 
 void AllJoynObj::BusConnectionLost(const qcc::String& busAddr)

@@ -13,7 +13,7 @@
 #    limitations under the License.
 # 
 
-Import('env')
+Import('env', 'common_objs', 'alljoyn_core_objs')
 from os.path import basename
 
 if env['OS'] == "darwin":
@@ -24,6 +24,12 @@ else:
 
 # bluetooth source files
 bt_srcs = [ 'BTController.cc', 'BTTransport.cc', 'BTNodeDB.cc' ]
+
+# Filter out bluetooth sources on unsupported platforms (unix specific files are filtered upstream for windows)
+if env['OS'] == "darwin" or env['OS_GROUP']=='winrt':
+    srcs = [ f for f in srcs if basename(str(f)) not in bt_srcs ]
+else:
+    srcs = [ f for f in srcs ]
 
 # basic daemon objects (excluding bluetooth)
 base_srcs = [ f for f in srcs if basename(str(f)) not in bt_srcs ]
@@ -37,14 +43,14 @@ if env['OS_GROUP'] == 'posix':
     base_objs.extend(env.Object(json_srcs))   
 
 # Add in bluetooth support
-if env['OS'] == 'android_donut' or env['OS'] =="darwin" or env['OS_GROUP'] == "windows":
+if env['OS'] == 'android_donut' or env['OS'] =="darwin" or env['OS_GROUP']=='winrt':
     # bluetooth not supported on this platform
     daemon_objs = base_objs;
     pass
-#elif env['OS_GROUP'] == "windows":
-#    bt_srcs.extend(env.SConscript('bt_windows/SConscript'))
-#    daemon_objs = base_objs + env.Object(bt_srcs)
-#    env.AppendUnique(LIBS = ['Bthprops'])
+elif env['OS_GROUP'] == "windows":
+    bt_srcs.extend(env.SConscript('bt_windows/SConscript'))
+    daemon_objs = base_objs + env.Object(bt_srcs)
+    env.AppendUnique(LIBS = ['Bthprops'])
 else:
     # Use BlueZ
     bt_srcs.extend(env.SConscript('bt_bluez/SConscript'))
@@ -55,12 +61,35 @@ progs, os_objs = env.SConscript('${OS_GROUP}/SConscript', exports=['daemon_objs'
 base_objs.extend(os_objs)
 if env['OS'] != 'darwin':
     daemon_objs.extend(os_objs)
+# Add in ICE support
+if env['OS'] == 'android' or env['OS'] =='linux':
+    ice_srcs = env.SConscript('ice/SConscript')
+    daemon_objs.extend(env.Object(ice_srcs))
+    json_srcs = env.SConscript('JSON/SConscript')
+    daemon_objs.extend(env.Object(json_srcs))   
 
 # Daemon library
-lib  = env.StaticLibrary('ajdaemon', base_objs);
+if env['OS_GROUP']!='winrt':
+    lib = env.StaticLibrary('ajdaemon', base_objs);
+else:
+    lib = []
+	
+# Daemon Static Lib
+if env['OS'] == "win8_nt":
+    daemon_lib = env.StaticLibrary('daemon', daemon_objs + common_objs + alljoyn_core_objs)
+    env.Install('$DISTDIR/lib', daemon_lib) #put the *.lib file in the lib folder
     
+# Bundled daemon object file
+bdobj = env.SConscript('bundled/SConscript')	
+	
+# AllJoyn Daemon
+progs = env.SConscript('${OS_GROUP}/SConscript', exports=['daemon_objs', 'common_objs', 'alljoyn_core_objs', 'bdobj'])
+
 # AllJoyn Daemon test programs
-tests = env.SConscript('test/SConscript', exports=['daemon_objs'])
+if env['OS_GROUP'] != 'winrt':
+    tests = env.SConscript('test/SConscript', exports=['daemon_objs'])
+else:
+    tests = []
 
 # Bundled daemon object file
 bdobj = env.SConscript('bundled/SConscript')

@@ -15,6 +15,7 @@
 
 Import('env')
 Import('common_objs')
+from os.path import basename
 
 # AllJoyn Sources
 srcs = [ f for f in env.Glob('*.cc') + env.Glob('*.c')
@@ -37,7 +38,14 @@ version_cc = env.GenVersion('version')
 env.Depends(version_cc, objs)
 objs.append(env.Object(version_cc))
 
-# AllJoyn Static Library
-liballjoyn = env.StaticLibrary('alljoyn', objs)
+alljoyn_core_objs.append(env.Object(version_cc))
 
-Return('liballjoyn')
+if env['OS_GROUP'] == 'winrt':
+    liballjoyn=None
+    # winrt-specific build step
+    alljoyn_core_objs.append(env.SConscript(env['OS_GROUP'] + '/SConscript'));
+else:
+    # AllJoyn Static Library
+    liballjoyn = env.StaticLibrary('alljoyn', objs)
+
+Return ('liballjoyn','alljoyn_core_objs')

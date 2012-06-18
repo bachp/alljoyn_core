@@ -3083,7 +3083,7 @@ void BTController::JoinSessionNodeComplete()
 void BTController::AlarmTriggered(const Alarm& alarm, QStatus reason)
 {
     QCC_DbgTrace(("BTController::AlarmTriggered(alarm = <>, reasons = %s)", QCC_StatusText(reason)));
-    DispatchInfo* op = static_cast<DispatchInfo*>(alarm.GetContext());
+    DispatchInfo* op = static_cast<DispatchInfo*>(alarm->GetContext());
     assert(op);
 
     if (reason == ER_OK) {

@@ -24,7 +24,6 @@
 #include <unistd.h>
 
 #include <map>
-#include <hash_set>
 #include <vector>
 
 #include <qcc/GUID.h>

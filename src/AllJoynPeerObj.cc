@@ -907,8 +907,7 @@ QStatus AllJoynPeerObj::DispatchRequest(Message& msg, RequestType reqType, const
     lock.Lock(MUTEX_CONTEXT);
     if (dispatcher.IsRunning()) {
         Request* req = new Request(msg, reqType, data);
-        Alarm alarm(0, this, 0, reinterpret_cast<void*>(req));
-        status = dispatcher.AddAlarm(alarm);
+        status = dispatcher.AddAlarm(Alarm(this, req));
         if (status != ER_OK) {
             delete req;
         }
@@ -924,7 +923,7 @@ void AllJoynPeerObj::AlarmTriggered(const Alarm& alarm, QStatus reason)
     QStatus status;
 
     QCC_DbgHLPrintf(("AllJoynPeerObj::AlarmTriggered"));
-    Request* req = static_cast<Request*>(alarm.GetContext());
+    Request* req = static_cast<Request*>(alarm->GetContext());
 
     switch (req->reqType) {
     case AUTHENTICATE_PEER:

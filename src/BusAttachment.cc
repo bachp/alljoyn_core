@@ -632,6 +632,11 @@ QStatus BusAttachment::RegisterKeyStoreListener(KeyStoreListener& listener)
     return busInternal->keyStore.SetListener(listener);
 }
 
+QStatus BusAttachment::UnregisterKeyStoreListener()
+{
+    return busInternal->keyStore.SetDefaultListener();
+}
+
 void BusAttachment::ClearKeyStore()
 {
     busInternal->keyStore.Clear();

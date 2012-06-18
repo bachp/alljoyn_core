@@ -1145,7 +1145,7 @@ void BTTransport::BTAccessor::DefaultAdapterChanged(const char* adapterObjPath)
 
 void BTTransport::BTAccessor::AlarmTriggered(const Alarm& alarm, QStatus reason)
 {
-    DispatchInfo* op = static_cast<DispatchInfo*>(alarm.GetContext());
+    DispatchInfo* op = static_cast<DispatchInfo*>(alarm->GetContext());
 
     if (reason == ER_OK) {
         switch (op->operation) {

@@ -22,7 +22,7 @@
 
 #include <errno.h>
 #include <sys/types.h>
-#if !defined(QCC_OS_WINDOWS)
+#if !defined(QCC_OS_GROUP_WINDOWS) && !defined(QCC_OS_GROUP_WINRT)
 #include <pwd.h>
 #endif
 
@@ -147,7 +147,7 @@ bool ConfigDB::DB::ParseFile(qcc::String fileName, bool ignore_missing)
 
     /* Check if the file path contains tilde (~) */
     if (fileName[0] == '~') {
-#if !defined(QCC_OS_WINDOWS)
+#if !defined(QCC_OS_GROUP_WINDOWS) && !defined(QCC_OS_GROUP_WINRT)
         qcc::String home(getenv("HOME"));
         /* If HOME is not set get the user from the present working directory */
         if (home.empty()) {

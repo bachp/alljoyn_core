@@ -939,7 +939,7 @@ class NameService : public qcc::Thread {
      */
     std::list<Header> m_outbound;
 
-#if defined(QCC_OS_WINDOWS)
+#if defined(QCC_OS_GROUP_WINDOWS)
     /**
      * @internal @brief A socket to hold to keep winsock initialized
      * as long as the name service is alive.

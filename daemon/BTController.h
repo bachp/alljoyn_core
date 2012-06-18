@@ -436,7 +436,8 @@ class BTController :
         void StartAlarm()
         {
             assert(!bto.dispatcher.HasAlarm(alarm));
-            alarm = qcc::Alarm(BTController::DELEGATE_TIME * 1000, this, 0, this);
+            uint32_t delay = BTController::DELEGATE_TIME * 1000;
+            alarm = qcc::Alarm(delay, this, this);
             bto.dispatcher.AddAlarm(alarm);
         }
         void StopAlarm() { bto.dispatcher.RemoveAlarm(alarm); }
@@ -813,7 +814,8 @@ class BTController :
 
     qcc::Alarm DispatchOperation(DispatchInfo* op, uint32_t delay = 0)
     {
-        qcc::Alarm alarm(delay, this, 0, (void*)op);
+        void* context = (void*)op;
+        qcc::Alarm alarm(delay, this, context);
         dispatcher.AddAlarm(alarm);
         return alarm;
     }
@@ -821,8 +823,9 @@ class BTController :
 
     qcc::Alarm DispatchOperation(DispatchInfo* op, uint64_t dispatchTime)
     {
+        void* context = (void*)op;
         qcc::Timespec ts(dispatchTime);
-        qcc::Alarm alarm(ts, this, 0, (void*)op);
+        qcc::Alarm alarm(ts, this, context);
         dispatcher.AddAlarm(alarm);
         return alarm;
     }

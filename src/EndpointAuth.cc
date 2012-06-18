@@ -274,7 +274,7 @@ qcc::String EndpointAuth::SASLCallout(SASLEngine& sasl, const qcc::String& extCm
         // step 1: client receives empty command and replies with "NEGOTIATE_UNIX_FD [<pid>]"
         if (extCmd.empty() && endpoint.features.handlePassing) {
             rsp = NegotiateUnixFd;
-#ifdef QCC_OS_WINDOWS
+#ifdef QCC_OS_GROUP_WINDOWS
             rsp += " " + qcc::U32ToString(qcc::GetPid());
 #endif
             endpoint.features.handlePassing = false;
@@ -298,7 +298,7 @@ qcc::String EndpointAuth::SASLCallout(SASLEngine& sasl, const qcc::String& extCm
         // step 2: daemon receives "NEGOTIATE_UNIX_FD [<pid>]", sets options, and replies with "AGREE_UNIX_FD [<pid>]"
         if (extCmd.find(NegotiateUnixFd) == 0) {
             rsp = AgreeUnixFd;
-#ifdef QCC_OS_WINDOWS
+#ifdef QCC_OS_GROUP_WINDOWS
             rsp += " " + qcc::U32ToString(qcc::GetPid());
 #endif
             endpoint.features.handlePassing = true;

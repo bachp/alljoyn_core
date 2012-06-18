@@ -74,6 +74,22 @@ class AuthListener {
         Credentials() : mask(0) { }
 
         /**
+         * Copy constructor
+         *
+         * @param other  Credentials to copy
+         */
+        Credentials(const Credentials& other)
+        {
+            this->mask = other.mask;
+            this->expiration = other.expiration;
+            this->pwd = other.pwd;
+            this->userName = other.userName;
+            this->certChain = other.certChain;
+            this->pk = other.pk;
+            this->logonEntry = other.logonEntry;
+        }
+
+        /**
          * Tests if one or more credentials are set.
          *
          * @param creds  A logical or of the credential bit values.

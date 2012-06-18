@@ -21,8 +21,12 @@ env['_ALLJOYNCORE_'] = True
 
 # Dependent Projects
 common_hdrs, common_objs = env.SConscript(['../common/SConscript'])
-#if env['OS_GROUP'] == 'windows' or env['OS'] == 'android':
-#    env.SConscript(['../stlport/SConscript'])
+
+#  Platforms that require STLPORT
+if env['OS'] == 'android' or (env['OS'] == 'win7' and env['STLPORT'] == 'true') or env['OS'] == 'winxp':
+    env.SConscript(['../stlport/SConscript']);
+elif env['OS_GROUP'] != 'posix':
+    env.Append(CPPDEFINES=['QCC_NO_STLPORT'])
 
 if(not(env.has_key('BULLSEYE_BIN'))):
     print('BULLSEYE_BIN not specified')
@@ -30,8 +34,14 @@ else:
     env.PrependENVPath('PATH', env.get('BULLSEYE_BIN'))
 
 # manually add dependencies for xml to h, and for files included in the xml
-env.Depends('inc/Status.h', 'src/Status.xml');
-env.Depends('inc/Status.h', '../common/src/Status.xml');
+env.Depends('inc/Status.h', 'src/Status.xml')
+env.Depends('inc/Status.h', '../common/src/Status.xml')
+
+if env['OS_GROUP'] == 'winrt':
+    env.Depends('inc/Status_CPP0x.h', 'src/Status.xml')
+    env.Depends('inc/Status_CPP0x.h', '../common/src/Status.xml')
+    env.AppendUnique(CFLAGS=['/D_WINRT_DLL'])
+    env.AppendUnique(CXXFLAGS=['/D_WINRT_DLL'])
 
 # Add support for multiple build targets in the same workset
 env.VariantDir('$OBJDIR', 'src', duplicate = 0)
@@ -45,6 +55,8 @@ env.Install('$OBJDIR', env.File('src/Status.xml'))
 env.Status('$OBJDIR/Status')
 env.Install('$DISTDIR/inc', env.File('inc/Status.h'))
 env.Install('$DISTDIR/inc/alljoyn', env.Glob('inc/alljoyn/*.h'))
+if env['OS_GROUP'] == 'winrt':
+    env.Install('$DISTDIR/inc', env.File('inc/Status_CPP0x.h'))
 for d,h in common_hdrs.items():
     env.Install('$DISTDIR/inc/%s' % d, h)
 
@@ -55,7 +67,8 @@ env.Append(CPPPATH = [env.Dir('inc')])
 env.Append(CPPPATH = [env.Dir('src')])
 
 # AllJoyn Libraries
-libs = env.SConscript('$OBJDIR/SConscript', exports = ['common_objs'])
+(libs,alljoyn_core_objs) = env.SConscript('$OBJDIR/SConscript', exports = ['common_objs'])
+
 ajlib = env.Install('$DISTDIR/lib', libs)
 env.Append(LIBPATH = [env.Dir('$DISTDIR/lib')])
 
@@ -63,7 +76,7 @@ env.Append(LIBPATH = [env.Dir('$DISTDIR/lib')])
 env.Prepend(LIBS = ajlib)
 
 # AllJoyn Daemon, daemon library, and bundled daemon object file
-daemon_progs, bdlib, bdobj = env.SConscript('$OBJDIR/daemon/SConscript')
+daemon_progs, bdlib, bdobj = env.SConscript('$OBJDIR/daemon/SConscript', exports = ['common_objs', 'alljoyn_core_objs'])
 daemon_lib = env.Install('$DISTDIR/lib', bdlib)
 daemon_obj = env.Install('$DISTDIR/lib', bdobj)
 env.Install('$DISTDIR/bin', daemon_progs)
@@ -92,6 +105,14 @@ env.Install('$DISTDIR/bin/samples', progs)
 # Android daemon runner
 progs = env.SConscript('$OBJDIR/alljoyn_android/SConscript')
 env.Install('$DISTDIR/bin/alljoyn_android', progs)
+
+# Test programs built with bundled daemon
+bdenv = env.Clone()
+bdenv.Prepend(LIBS = daemon_lib)
+bdenv.Prepend(LIBS = daemon_obj)
+bdenv.VariantDir('$OBJDIR/bundled', 'test', duplicate = 0)
+bdprogs = bdenv.SConscript('$OBJDIR/bundled/SConscript', exports={'env':bdenv})
+bdenv.Install('$DISTDIR/bin/bundled', bdprogs)
 
 # Release notes and misc. legals
 env.Install('$DISTDIR', 'docs/ReleaseNotes.txt')

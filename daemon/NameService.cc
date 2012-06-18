@@ -25,13 +25,11 @@
 #include <ctype.h>
 #include <algorithm>
 
-#if defined(QCC_OS_WINDOWS)
-
+#if defined(QCC_OS_GROUP_WINDOWS)
 #define close closesocket
 #include <winsock2.h>
 #include <ws2tcpip.h>
 #include <iphlpapi.h>
-
 #endif
 
 #include <qcc/Debug.h>
@@ -983,7 +981,7 @@ void NameService::LazyUpdateInterfaces(void)
         // back onto SO_REUSEADDR if not.
         //
         status = qcc::SetReusePort(sockFd, true);
-        if (status != ER_OK) {
+        if (status != ER_OK && status != ER_NOT_IMPLEMENTED) {
             QCC_LogError(status, ("NameService::LazyUpdateInterfaces(): SetReusePort() failed"));
             qcc::Close(sockFd);
             continue;
@@ -1001,7 +999,7 @@ void NameService::LazyUpdateInterfaces(void)
             // Restrict the scope of the sent muticast packets to the local subnet.
             //
             status = qcc::SetMulticastHops(sockFd, entries[i].m_family, 1);
-            if (status != ER_OK) {
+            if (status != ER_OK && status != ER_NOT_IMPLEMENTED) {
                 QCC_LogError(status, ("NameService::LazyUpdateInterfaces(): SetMulticastHops() failed"));
                 qcc::Close(sockFd);
             }
@@ -1013,7 +1011,7 @@ void NameService::LazyUpdateInterfaces(void)
             // using IPv4 or IPv6.
             //
             status = qcc::SetMulticastInterface(sockFd, entries[i].m_family, entries[i].m_name);
-            if (status != ER_OK) {
+            if (status != ER_OK && status != ER_NOT_IMPLEMENTED) {
                 QCC_LogError(status, ("NameService::LazyUpdateInterfaces(): SetMulticastInterface() failed"));
                 qcc::Close(sockFd);
                 continue;

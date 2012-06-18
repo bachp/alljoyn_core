@@ -40,14 +40,7 @@
 //using namespace tr1; // add the tr1 to std, to allow line 139 to compile
 //}
 
-//#if defined(__GNUC__) && !defined(ANDROID)
-//#include <ext/hash_map>
-//namespace std {
-//using namespace __gnu_cxx;
-//}
-//#else
-//#include <hash_map>
-//#endif
+#endif
 
 namespace ajn {
 

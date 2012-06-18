@@ -149,9 +149,9 @@ QStatus _ServiceDB::BusStartService(const char* serviceName, ServiceStartListene
         if ((status == ER_OK) && (bus && cb)) {
             it->second.lock.Lock(MUTEX_CONTEXT);
             if (it->second.waiting.empty()) {
-                Alarm timeout(config->GetLimit("service_start_timeout"), this, 0, new qcc::String(serviceName));
-
-                timer.AddAlarm(timeout);
+                uint32_t startTO = config->GetLimit("service_start_timeout");
+                void* context = (void*)(new qcc::String(serviceName));
+                timer.AddAlarm(Alarm(startTO, this, context));
             }
             it->second.waiting.push_back(cb);
             it->second.lock.Unlock(MUTEX_CONTEXT);
@@ -244,7 +244,7 @@ void _ServiceDB::NameOwnerChanged(const qcc::String& alias,
 
 void _ServiceDB::AlarmTriggered(const Alarm& alarm, QStatus reason)
 {
-    qcc::String* serviceName(reinterpret_cast<qcc::String*>(alarm.GetContext()));
+    qcc::String* serviceName(reinterpret_cast<qcc::String*>(alarm->GetContext()));
 
     map<StringMapKey, ServiceInfo>::iterator it(serviceMap.find(*serviceName));
     if (it != serviceMap.end()) {

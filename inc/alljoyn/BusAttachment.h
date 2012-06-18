@@ -569,6 +569,15 @@ class BusAttachment : public MessageReceiver {
     QStatus RegisterKeyStoreListener(KeyStoreListener& listener);
 
     /**
+     * Set a key store listener to listen for key store load and store requests.
+     * This overrides the internal key store listener.
+     *
+     * @return
+     *      - #ER_OK if the default key store was set
+     */
+    QStatus UnregisterKeyStoreListener();
+
+    /**
      * Reloads the key store for this bus attachment. This function would normally only be called in
      * the case where a single key store is shared between multiple bus attachments, possibly by different
      * applications. It is up to the applications to coordinate how and when the shared key store is
