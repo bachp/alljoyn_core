@@ -185,6 +185,39 @@ void BusObject::GetProp(const InterfaceDescription::Member* member, Message& msg
     }
 }
 
+void BusObject::EmitPropChanged(const char* ifcName, const char* propName, MsgArg& val, SessionId id)
+{
+    const InterfaceDescription* ifc = bus.GetInterface(ifcName);
+
+    qcc::String emitsChanged;
+    if (ifc->GetPropertyAnnotation(propName, org::freedesktop::DBus::AnnotateEmitsChanged, emitsChanged)) {
+        if (emitsChanged == "true") {
+            const InterfaceDescription* bus_ifc = bus.GetInterface(org::freedesktop::DBus::InterfaceName);
+            const InterfaceDescription::Member* propChanged = bus_ifc->GetMember("PropertiesChanged");
+
+            MsgArg args[3];
+            args[0].Set("s", ifcName);
+            MsgArg str("{sv}", propName, &val);
+            args[1].Set("a{sv}", 1, &str);
+            args[2].Set("as", 0, NULL);
+
+            Signal(NULL, id, *propChanged, args, ArraySize(args));
+        } else if (emitsChanged == "invalidates") {
+            const InterfaceDescription* bus_ifc = bus.GetInterface(org::freedesktop::DBus::InterfaceName);
+            const InterfaceDescription::Member* propChanged = bus_ifc->GetMember("PropertiesChanged");
+
+            // EMPTY array, followed by array of strings
+            MsgArg args[3];
+            args[0].Set("s", ifcName);
+            args[1].Set("a{sv}", 0, NULL);
+            args[2].Set("as", 1, &propName);
+
+            Signal(NULL, id, *propChanged, args, ArraySize(args));
+        }
+    }
+}
+
+
 void BusObject::SetProp(const InterfaceDescription::Member* member, Message& msg)
 {
     QStatus status = ER_BUS_NO_SUCH_PROPERTY;
@@ -210,31 +243,6 @@ void BusObject::SetProp(const InterfaceDescription::Member* member, Message& msg
                 } else if (prop->access & PROP_ACCESS_WRITE) {
                     // set the value, then inform bus listeners via Signal
                     status = Set(iface->v_string.str, property->v_string.str, *(val->v_variant.val));
-
-                    // TODO: check if property org::freedesktop::DBus::AnnotateEmitsChanged is set
-                    // if 'invalidates', emit a signal
-                    // if 'true' emit a signal with the new value
-
-                    qcc::String emitsChanged;
-                    if (!status && ifc->GetPropertyAnnotation(property->v_string.str, org::freedesktop::DBus::AnnotateEmitsChanged, emitsChanged)) {
-                        if (emitsChanged == "true") {
-                            const InterfaceDescription::Member* propChanged = ifc->GetMember("PropertiesChanged");
-                            MsgArg entryStruct("{sv}", property->v_string.str, val->v_variant.val);
-                            MsgArg entry(ALLJOYN_ARRAY);
-                            entry.v_array.SetElements("a{sv}", 1, &entryStruct);
-                            MsgArg changedArg("sa{sv}as", iface->v_string.str, 1, &entry, 0, NULL);
-                            Signal(NULL, 0, *propChanged, &changedArg, 1, 0, ALLJOYN_FLAG_GLOBAL_BROADCAST);
-
-                        } else if (emitsChanged == "invalidates") {
-                            const InterfaceDescription::Member* propChanged = ifc->GetMember("PropertiesChanged");
-                            // EMPTY array, followed by array of strings
-                            MsgArg entryString("s", property->v_string.str);
-                            MsgArg entry(ALLJOYN_ARRAY);
-                            entry.v_array.SetElements("as", 1, &entryString);
-                            MsgArg changedArg("sa{sv}as", iface->v_string.str, 0, NULL, 1, &entry);
-                            Signal(NULL, 0, *propChanged, &changedArg, 1, 0, ALLJOYN_FLAG_GLOBAL_BROADCAST);
-                        }
-                    }
                 } else {
                     QCC_DbgPrintf(("No write access on property %s", property->v_string.str));
                     status = ER_BUS_PROPERTY_ACCESS_DENIED;

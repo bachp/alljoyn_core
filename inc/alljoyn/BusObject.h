@@ -256,6 +256,16 @@ class BusObject : public MessageReceiver {
     virtual void ObjectUnregistered(void) { isRegistered = false; }
 
     /**
+     * Emit PropertiesChanged to signal the bus that this property has been updated
+     *
+     * @param ifcName   The name of the interface
+     * @param propName  The name of the property being changed
+     * @param val       The new value of the property
+     * @param SessionId Id of the session we broadcast the signal to (0 for all)
+     */
+    void EmitPropChanged(const char* ifcName, const char* propName, MsgArg& val, SessionId id = 0);
+
+    /**
      * Default handler for a bus attempt to read a property value.
      * @remark
      * A derived class can override this function to provide a custom handler for the GetProp method
