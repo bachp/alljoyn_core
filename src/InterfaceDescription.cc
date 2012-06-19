@@ -313,7 +313,7 @@ bool InterfaceDescription::GetPropertyAnnotation(const qcc::String& p_name, cons
     }
 
     const Property& property = pit->second;
-    AnnotationsMap::const_iterator ait = property.annotations.find(StringMapKey(p_name));
+    AnnotationsMap::const_iterator ait = property.annotations.find(StringMapKey(name));
     return (ait != property.annotations.end() ? value = ait->second, true : false);
 }
 
