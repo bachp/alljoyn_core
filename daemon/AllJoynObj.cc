@@ -643,6 +643,11 @@ ThreadReturn STDCALL AllJoynObj::JoinSessionThread::RunJoin()
                                 ajObj.SessionMapInsert(sme2);
                                 id = sme2.id;
                                 optsOut = sme.opts;
+
+                                // send joined signal
+                                ajObj.ReleaseLocks();
+                                ajObj.SendJoinSession(sme2.sessionPort, id, sender.c_str(), sme.endpointName.c_str());
+                                ajObj.AcquireLocks();
                             } else {
                                 qcc::Close(fds[0]);
                                 qcc::Close(fds[1]);
@@ -1823,7 +1828,6 @@ QStatus AllJoynObj::SendJoinSession(SessionPort sessionPort,
                                     const char* joinerName,
                                     const char* creatorName)
 {
-
     MsgArg args[3];
     args[0].Set("q", sessionPort);
     args[1].Set("u", sessionId);
