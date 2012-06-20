@@ -179,7 +179,7 @@ void ICESession::ComposeAndEnqueueStunRequest(Stun* stun, Retransmit* gatherRetr
                    msg->MessageClassToString(msg->GetTypeClass()).c_str(),
                    tid.ToString().c_str()));
 
-    msg->AddAttribute(new StunAttributeSoftware("AllJoyn " + String(GetVersion())));
+    msg->AddAttribute(new StunAttributeSoftware(String("AllJoyn ") + String(GetVersion())));
 
     msg->AddAttribute(new StunAttributeUsername(usernameForShortTermCredential));
 
@@ -229,7 +229,7 @@ void ICESession::EnqueueTurnRefresh(StunActivity* stunActivity)
                               tid);
     }
 
-    msg->AddAttribute(new StunAttributeSoftware("AllJoyn " + String(GetVersion())));
+    msg->AddAttribute(new StunAttributeSoftware(String("AllJoyn ") + String(GetVersion())));
 
     if (retransmit.GetState() == Retransmit::ReceivedAuthenticateResponse) {
         msg->AddAttribute(new StunAttributeUsername(usernameForShortTermCredential));

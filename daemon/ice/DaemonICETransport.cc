@@ -998,13 +998,8 @@ void DaemonICETransport::SendSTUNKeepAliveAndTURNRefreshRequest(ICEPacketStream&
 
     QStatus status = ER_OK;
 
-    uint8_t* rBuf;
-    size_t expectedSent = 0;
-    PacketDest dest;
-
     if (status == ER_OK) {
-        status = icePktStream.PushPacketBytes((const void*)rBuf, expectedSent, dest, ICEPacketStream::NAT_KEEPALIVE);
-        QCC_DbgPrintf(("DaemonICETransport::SendSTUNKeepAliveAndTURNRefreshRequest(): Sent NAT keep alive"));
+        status = icePktStream.SendNATKeepAlive();
     }
     if (status != ER_OK) {
         QCC_LogError(ER_FAIL, ("Failed to send NAT keep alive for icePktStream=%p", &icePktStream));
@@ -1018,13 +1013,10 @@ void DaemonICETransport::SendSTUNKeepAliveAndTURNRefreshRequest(ICEPacketStream&
 
             /* Send TURN refresh */
             if (status == ER_OK) {
-                status = icePktStream.PushPacketBytes((const void*)rBuf, expectedSent, dest, ICEPacketStream::TURN_REFRESH);
-                QCC_DbgPrintf(("DaemonICETransport::SendSTUNKeepAliveAndTURNRefreshRequest(): Sent TURN refresh"));
+                status = icePktStream.SendTURNRefresh(now);
             }
 
-            if (status == ER_OK) {
-                icePktStream.SetTurnRefreshTimestamp(now);
-            } else {
+            if (status != ER_OK) {
                 QCC_LogError(status, ("Failed to send TURN refresh for icePktStream=%p", &icePktStream));
             }
         }

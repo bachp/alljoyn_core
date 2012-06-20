@@ -46,16 +46,6 @@ class ICEPacketStream : public PacketStream {
                                           StunAttribute::ATTR_HEADER_SIZE + StunAttributeMessageIntegrity::ATTR_SIZE_WITH_HEADER +
                                           StunAttributeFingerprint::ATTR_SIZE_WITH_HEADER;
 
-    typedef enum _ControlMessageType {
-
-        NON_CONTROL_MESSAGE = 0,
-
-        NAT_KEEPALIVE,
-
-        TURN_REFRESH
-
-    } ControlMessageType;
-
     /** Construct a PacketDest from a addr,port */
     static PacketDest GetPacketDest(const qcc::IPAddress& addr, uint16_t port);
 
@@ -126,22 +116,9 @@ class ICEPacketStream : public PacketStream {
      * @param buf          Buffer containing data bytes to be sent
      * @param numBytes     Number of bytes from buf to send to sink. (Must be less that or equal to MTU of PacketSink.)
      * @param dest         Destination for packet bytes.
-     * @param messageType  specifies the type of data being sent
      * @return   ER_OK if successful.
      */
-    QStatus PushPacketBytes(const void* buf, size_t numBytes, PacketDest& dest, ControlMessageType messageType);
-
-    /**
-     * Push zero or more bytes into the sink.
-     *
-     * @param buf          Buffer containing data bytes to be sent
-     * @param numBytes     Number of bytes from buf to send to sink. (Must be less that or equal to MTU of PacketSink.)
-     * @param dest         Destination for packet bytes.
-     * @return   ER_OK if successful.
-     */
-    QStatus PushPacketBytes(const void* buf, size_t numBytes, PacketDest& dest) {
-        return PushPacketBytes(buf, numBytes, dest, NON_CONTROL_MESSAGE);
-    }
+    QStatus PushPacketBytes(const void* buf, size_t numBytes, PacketDest& dest);
 
     /**
      * Get the Event that indicates when data can be pushed to sink.
@@ -199,13 +176,6 @@ class ICEPacketStream : public PacketStream {
     uint64_t GetTurnRefreshTimestamp() const { return turnRefreshTimestamp; }
 
     /**
-     * Set the timestamp of the last TURN server's refresh.
-     *
-     * @param time  64-bit timestamp of last TURN refresh.
-     */
-    void SetTurnRefreshTimestamp(uint64_t time)  { turnRefreshTimestamp = time; }
-
-    /**
      * Return the username used for TURN server authentication.
      *
      * @return TURN server username
@@ -230,6 +200,17 @@ class ICEPacketStream : public PacketStream {
      * @return true iff ICEPacketStream is using the local host candidate.
      */
     bool IsLocalHost() const { return localHost; }
+
+    /**
+     * Compose and send a NAT keepalive message.
+     */
+    QStatus SendNATKeepAlive(void);
+
+    /**
+     * Compose and send a TURN refresh message.
+     * @param time  64-bit timestamp.
+     */
+    QStatus SendTURNRefresh(uint64_t time);
 
 
   private:
@@ -265,8 +246,7 @@ class ICEPacketStream : public PacketStream {
      */
     QStatus ComposeStunMessage(const void* buf,
                                size_t numBytes,
-                               qcc::ScatterGatherList& msgSG,
-                               ControlMessageType messageType);
+                               qcc::ScatterGatherList& msgSG);
 
     /**
      * Strip STUN overhead from a received message.
