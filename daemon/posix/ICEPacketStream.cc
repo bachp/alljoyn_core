@@ -69,7 +69,7 @@ ICEPacketStream::ICEPacketStream(ICESession& iceSession, Stun& stun, const ICECa
     remoteMappedPort(0),
     turnAddress(stun.GetTurnAddr()),
     turnPort(stun.GetTurnPort()),
-    relayServerAddress(iceSession.GetRelayServerAddr().ToString()),
+    relayServerAddress(iceSession.GetRelayServerAddr()),
     relayServerPort(iceSession.GetRelayServerPort()),
     sock(stun.GetSocketFD()),
     sourceEvent(&Event::neverSet),
@@ -87,7 +87,7 @@ ICEPacketStream::ICEPacketStream(ICESession& iceSession, Stun& stun, const ICECa
     rxRenderBuf(new uint8_t[interfaceMtu]),
     txRenderBuf(new uint8_t[interfaceMtu])
 {
-    QCC_DbgTrace(("ICEPacketStream::ICEPacketStream(sock=%d) relayServerAddress(%s) relayServerPort(%d)", sock, relayServerAddress.ToString().c_str(), relayServerPort));
+    QCC_DbgTrace(("ICEPacketStream::ICEPacketStream(sock=%d)", sock));
 
     /* Adjust the mtuWithStunOverhead size to account for the STUN header which would be added in case of communication
      * through the relay server */
@@ -125,6 +125,8 @@ ICEPacketStream::ICEPacketStream(const ICEPacketStream& other) :
     remoteMappedPort(other.remoteMappedPort),
     turnAddress(other.turnAddress),
     turnPort(other.turnPort),
+    relayServerAddress(other.relayServerAddress),
+    relayServerPort(other.relayServerPort),
     sock(other.sock),
     sourceEvent((sock == SOCKET_ERROR) ? &Event::neverSet : new qcc::Event(sock, qcc::Event::IO_READ, false)),
     sinkEvent((sock == SOCKET_ERROR) ? &Event::alwaysSet : new qcc::Event(sock, qcc::Event::IO_WRITE, false)),
@@ -201,7 +203,7 @@ QStatus ICEPacketStream::PushPacketBytes(const void* buf, size_t numBytes, Packe
     if (messageType == NON_CONTROL_MESSAGE) {
         if (usingTurn) {
             ScatterGatherList sgList;
-            status = ComposeStunMessage(buf, numBytes, remoteMappedAddress, remoteMappedPort, turnUsername, hmacKey, sgList, messageType);
+            status = ComposeStunMessage(buf, numBytes, sgList, messageType);
             if (status == ER_OK) {
                 status = SendToSG(sock, turnAddress, turnPort, sgList, sent);
             } else {
@@ -221,7 +223,7 @@ QStatus ICEPacketStream::PushPacketBytes(const void* buf, size_t numBytes, Packe
         }
     } else if (messageType == NAT_KEEPALIVE) {
         ScatterGatherList sgList;
-        status = ComposeStunMessage(buf, numBytes, remoteMappedAddress, remoteMappedPort, turnUsername, hmacKey, sgList, messageType);
+        status = ComposeStunMessage(buf, numBytes, sgList, messageType);
         if (status == ER_OK) {
             status = SendToSG(sock, remoteAddress, remotePort, sgList, sent);
         } else {
@@ -229,11 +231,9 @@ QStatus ICEPacketStream::PushPacketBytes(const void* buf, size_t numBytes, Packe
         }
     } else if (messageType == TURN_REFRESH) {
         ScatterGatherList sgList;
-        status = ComposeStunMessage(buf, numBytes, remoteMappedAddress, remoteMappedPort, turnUsername, hmacKey, sgList, messageType);
+        status = ComposeStunMessage(buf, numBytes, sgList, messageType);
         if (status == ER_OK) {
-            // PPN - Fix this hack later
-            IPAddress relay = qcc::IPAddress("199.1.146.143");
-            status = SendToSG(sock, relay, 3478, sgList, sent);
+            status = SendToSG(sock, relayServerAddress, relayServerPort, sgList, sent);
         } else {
             QCC_LogError(status, ("ComposeStunMessage failed for TURN_REFRESH"));
         }
@@ -308,13 +308,8 @@ String ICEPacketStream::ToString(const PacketDest& dest) const
     return ret;
 }
 
-// PPN - Clean-up this function
 QStatus ICEPacketStream::ComposeStunMessage(const void* buf,
                                             size_t numBytes,
-                                            const qcc::IPAddress& destnAddress,
-                                            uint16_t destnPort,
-                                            const String& userName,
-                                            const String& key,
                                             ScatterGatherList& msgSG,
                                             ControlMessageType messageType)
 {
@@ -329,11 +324,11 @@ QStatus ICEPacketStream::ComposeStunMessage(const void* buf,
         sg.AddBuffer(buf, numBytes);
         sg.SetDataSize(numBytes);
 
-        StunMessage msg(STUN_MSG_INDICATION_CLASS, STUN_MSG_SEND_METHOD, reinterpret_cast<const uint8_t*>(key.c_str()), key.size());
+        StunMessage msg(STUN_MSG_INDICATION_CLASS, STUN_MSG_SEND_METHOD, reinterpret_cast<const uint8_t*>(hmacKey.c_str()), hmacKey.size());
 
-        status = msg.AddAttribute(new StunAttributeUsername(userName));
+        status = msg.AddAttribute(new StunAttributeUsername(turnUsername));
         if (status == ER_OK) {
-            status = msg.AddAttribute(new StunAttributeXorPeerAddress(msg, destnAddress, destnPort));
+            status = msg.AddAttribute(new StunAttributeXorPeerAddress(msg, remoteMappedAddress, remoteMappedPort));
         }
         if (status == ER_OK) {
             status = msg.AddAttribute(new StunAttributeData(sg));
@@ -350,33 +345,37 @@ QStatus ICEPacketStream::ComposeStunMessage(const void* buf,
             uint8_t* _txRenderBuf = txRenderBuf;
             status = msg.RenderBinary(_txRenderBuf, renderSize, msgSG);
         }
+
     } else if (messageType == NAT_KEEPALIVE) {
-        StunMessage msg(STUN_MSG_INDICATION_CLASS, STUN_MSG_BINDING_METHOD, reinterpret_cast<const uint8_t*>(key.c_str()), key.size());
+
+        StunMessage msg(STUN_MSG_INDICATION_CLASS, STUN_MSG_BINDING_METHOD, reinterpret_cast<const uint8_t*>(hmacKey.c_str()), hmacKey.size());
         if (status == ER_OK) {
             size_t renderSize = msg.RenderSize();
             assert(renderSize <= interfaceMtu);
             uint8_t* _txRenderBuf = txRenderBuf;
             status = msg.RenderBinary(_txRenderBuf, renderSize, msgSG);
         }
+
     } else if (messageType == TURN_REFRESH) {
 
-        StunMessage msg(STUN_MSG_REQUEST_CLASS, STUN_MSG_REFRESH_METHOD, reinterpret_cast<const uint8_t*>(key.c_str()), key.size());
+        StunMessage msg(STUN_MSG_REQUEST_CLASS, STUN_MSG_REFRESH_METHOD, reinterpret_cast<const uint8_t*>(hmacKey.c_str()), hmacKey.size());
 
-        status = msg.AddAttribute(new StunAttributeSoftware("AllJoyn " + String(GetVersion())));
+        status = msg.AddAttribute(new StunAttributeUsername(turnUsername));
+
         if (status == ER_OK) {
-            msg.AddAttribute(new StunAttributeUsername(GetTurnUsername()));
+            status = msg.AddAttribute(new StunAttributeSoftware("AllJoyn " + String(GetVersion())));
         }
         if (status == ER_OK) {
-            msg.AddAttribute(new StunAttributeLifetime(ajn::TURN_PERMISSION_REFRESH_PERIOD_SECS));
+            status = msg.AddAttribute(new StunAttributeLifetime(ajn::TURN_PERMISSION_REFRESH_PERIOD_SECS));
         }
         if (status == ER_OK) {
-            msg.AddAttribute(new StunAttributeRequestedTransport(ajn::REQUESTED_TRANSPORT_TYPE_UDP));
+            status = msg.AddAttribute(new StunAttributeRequestedTransport(ajn::REQUESTED_TRANSPORT_TYPE_UDP));
         }
         if (status == ER_OK) {
-            msg.AddAttribute(new StunAttributeMessageIntegrity(msg));
+            status = msg.AddAttribute(new StunAttributeMessageIntegrity(msg));
         }
         if (status == ER_OK) {
-            msg.AddAttribute(new StunAttributeFingerprint(msg));
+            status = msg.AddAttribute(new StunAttributeFingerprint(msg));
         }
         if (status == ER_OK) {
             size_t renderSize = msg.RenderSize();
@@ -384,6 +383,7 @@ QStatus ICEPacketStream::ComposeStunMessage(const void* buf,
             uint8_t* _txRenderBuf = txRenderBuf;
             status = msg.RenderBinary(_txRenderBuf, renderSize, msgSG);
         }
+
     }
 
     return status;

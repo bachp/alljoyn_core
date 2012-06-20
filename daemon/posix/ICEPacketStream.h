@@ -265,10 +265,6 @@ class ICEPacketStream : public PacketStream {
      */
     QStatus ComposeStunMessage(const void* buf,
                                size_t numBytes,
-                               const qcc::IPAddress& destnAddress,
-                               uint16_t destnPort,
-                               const String& userName,
-                               const qcc::String& key,
                                qcc::ScatterGatherList& msgSG,
                                ControlMessageType messageType);
 
