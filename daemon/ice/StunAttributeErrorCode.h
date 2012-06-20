@@ -64,18 +64,6 @@ class StunAttributeErrorCode : public StunAttributeStringBase {
         error(error)
     { }
 
-    /**
-     * This constructor sets the attribute type to STUN_ATTR_ERROR_CODE and
-     * initializes the error code and reason phrase.
-     *
-     * @param error     The error code.
-     * @param reason    The reason phrase as a std::wstring.
-     */
-    StunAttributeErrorCode(StunErrorCodes error, const std::wstring& reason) :
-        StunAttributeStringBase(STUN_ATTR_ERROR_CODE, "ERROR-CODE", reason),
-        error(error)
-    { }
-
 
     QStatus Parse(const uint8_t*& buf, size_t& bufSize);
     QStatus RenderBinary(uint8_t*& buf, size_t& bufSize, ScatterGatherList& sg) const;
@@ -98,36 +86,12 @@ class StunAttributeErrorCode : public StunAttributeStringBase {
     }
 
     /**
-     * @overload
-     *
-     * @param error  OUT: A reference to where to copy the error code.
-     * @param reason OUT: A reference to where to copy the reason std::string.
-     */
-    void GetError(StunErrorCodes& error, std::wstring& reason) const
-    {
-        error = this->error;
-        GetStr(reason);
-    }
-
-    /**
      * Set the error information.
      *
      * @param error  The error code.
      * @param reason A reference to the reason std::string.
      */
     void SetError(StunErrorCodes error, const String& reason)
-    {
-        this->error = error;
-        SetStr(reason);
-    }
-
-    /**
-     * @overload
-     *
-     * @param error  The error code.
-     * @param reason A reference to the reason std::string.
-     */
-    void SetError(StunErrorCodes error, const std::wstring& reason)
     {
         this->error = error;
         SetStr(reason);

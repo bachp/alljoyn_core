@@ -395,12 +395,15 @@ QStatus ICEPacketStream::StripStunOverhead(size_t rcvdBytes, void* dataBuf, size
 
     QStatus status = ER_OK;
 
-    if (((rcvdBytes >= StunMessage::MIN_MSG_SIZE) && StunMessage::IsStunMessage(rxRenderBuf, rcvdBytes))) {
+    size_t _rcvdBytes = rcvdBytes;
+    const uint8_t* _rxRenderBuf = rxRenderBuf;
+
+    if (((_rcvdBytes >= StunMessage::MIN_MSG_SIZE) && StunMessage::IsStunMessage(_rxRenderBuf, _rcvdBytes))) {
 
         uint16_t rawMsgType = 0;
 
-        size_t _rcvdBytes = rcvdBytes;
-        const uint8_t* _rxRenderBuf = rxRenderBuf;
+        _rcvdBytes = rcvdBytes;
+        _rxRenderBuf = rxRenderBuf;
         StunIOInterface::ReadNetToHost(_rxRenderBuf, _rcvdBytes, rawMsgType);
 
         if (StunMessage::ExtractMessageMethod(rawMsgType) == STUN_MSG_DATA_METHOD) {

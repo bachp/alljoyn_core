@@ -69,16 +69,6 @@ class StunAttributeStringBase : public StunAttribute {
     }
 
     /**
-     * @overload
-     *
-     * @param str OUT: A reference to where to copy the str.
-     */
-    void GetStr(std::wstring& str) const
-    {
-        ConvertUTF(this->str, str);
-    }
-
-    /**
      * Sets the UTF-8 str.
      *
      * @param str A reference the str.
@@ -87,17 +77,6 @@ class StunAttributeStringBase : public StunAttribute {
     {
         QCC_DbgTrace(("StunAttributeStringBase::SetStr(string str = %s)", str.c_str()));
         this->str = str;
-    }
-
-    /**
-     * @overload
-     *
-     * @param str A reference the str.
-     */
-    void SetStr(const std::wstring& str)
-    {
-        ConvertUTF(str, this->str);
-        QCC_DbgTrace(("StunAttributeStringBase::SetStr(wstring str = %s)", this->str.c_str()));
     }
 
 
@@ -125,21 +104,6 @@ class StunAttributeStringBase : public StunAttribute {
         str(str)
     {
         QCC_DbgTrace(("StunAttributeStringBase::StunAttributeStringBase(attrType, attrName = %s, string str = %s)", attrName, str.c_str()));
-    }
-
-    /**
-     * This constructor just sets the attribute type to STUN_ATTR_USERNAME.
-     *
-     * @param attrType  Attribute Type
-     * @param attrName  Attribute Name
-     * @param str       The str as std::string.
-     */
-    StunAttributeStringBase(StunAttrType attrType, const char* const attrName,
-                            const std::wstring& str) :
-        StunAttribute(attrType, attrName)
-    {
-        ConvertUTF(str, this->str);
-        QCC_DbgTrace(("StunAttributeStringBase::StunAttributeStringBase(attrType, attrName = %s, wstring str = %s)", attrName, this->str.c_str()));
     }
 
     QStatus Parse(const uint8_t*& buf, size_t& bufSize);
