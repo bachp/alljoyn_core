@@ -1319,10 +1319,13 @@ qcc::ThreadReturn STDCALL AllJoynObj::JoinSessionThread::RunAttach()
                                     status = ajObj.router.AddSessionRoute(id, *destEp, tEp, *srcEp, srcB2BEp);
                                     if (ER_OK != status) {
                                         QCC_LogError(status, ("AddSessionRoute(%u, %s, NULL, %s, %s) failed", id, dest, srcEp->GetUniqueName().c_str(), srcB2BEp ? srcB2BEp->GetUniqueName().c_str() : "NULL"));
-                                    } else {
-                                        // this call is still necessary if going to a local or bundled daemon
-                                        ajObj.SendJoinSession(sme.sessionPort, sme.id, src, sme.endpointName.c_str());
                                     }
+                                }
+
+                                if (ER_OK == status) {
+                                    ajObj.ReleaseLocks();
+                                    ajObj.SendJoinSession(sme.sessionPort, sme.id, src, sme.endpointName.c_str());
+                                    ajObj.AcquireLocks();
                                 }
                             }
                         } else {
