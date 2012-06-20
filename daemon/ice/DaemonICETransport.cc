@@ -998,48 +998,43 @@ void DaemonICETransport::SendSTUNKeepAliveAndTURNRefreshRequest(ICEPacketStream&
 
     QStatus status = ER_OK;
 
-    /* If we are using the local host candidate, we need not send NAT keepalives or TURN refreshes */
-    if (!icePktStream.IsLocalHost()) {
-        uint8_t* rBuf;
-        size_t expectedSent = 0;
-        PacketDest dest;
+    uint8_t* rBuf;
+    size_t expectedSent = 0;
+    PacketDest dest;
 
-        if (status == ER_OK) {
-            status = icePktStream.PushPacketBytes((const void*)rBuf, expectedSent, dest, ICEPacketStream::NAT_KEEPALIVE);
-            QCC_DbgPrintf(("DaemonICETransport::SendSTUNKeepAliveAndTURNRefreshRequest(): Sent NAT keep alive"));
-        }
-        if (status != ER_OK) {
-            QCC_LogError(ER_FAIL, ("Failed to send NAT keep alive for icePktStream=%p", &icePktStream));
-        }
+    if (status == ER_OK) {
+        status = icePktStream.PushPacketBytes((const void*)rBuf, expectedSent, dest, ICEPacketStream::NAT_KEEPALIVE);
+        QCC_DbgPrintf(("DaemonICETransport::SendSTUNKeepAliveAndTURNRefreshRequest(): Sent NAT keep alive"));
+    }
+    if (status != ER_OK) {
+        QCC_LogError(ER_FAIL, ("Failed to send NAT keep alive for icePktStream=%p", &icePktStream));
+    }
 
-        /* Send TURN refresh (if needed) at slower interval */
-        if (icePktStream.IsLocalTurn()) {
-            uint64_t now = GetTimestamp64();
-            QCC_DbgPrintf(("DaemonICETransport::SendSTUNKeepAliveAndTURNRefreshRequest(): now(0x%x) icePktStream.GetTurnRefreshTimestamp()(0x%x) diff(0x%x) icePktStream.GetTurnRefreshPeriod()(0x%x)",
-                           now, icePktStream.GetTurnRefreshTimestamp(), (now - icePktStream.GetTurnRefreshTimestamp()), icePktStream.GetTurnRefreshPeriod()));
-            if ((now - icePktStream.GetTurnRefreshTimestamp()) >= icePktStream.GetTurnRefreshPeriod()) {
-                QCC_DbgPrintf(("DaemonICETransport::SendSTUNKeepAliveAndTURNRefreshRequest(): Inside diff"));
-                /* Send TURN refresh */
-                if (status == ER_OK) {
-                    status = icePktStream.PushPacketBytes((const void*)rBuf, expectedSent, dest, ICEPacketStream::TURN_REFRESH);
-                    QCC_DbgPrintf(("DaemonICETransport::SendSTUNKeepAliveAndTURNRefreshRequest(): Sent TURN refresh"));
-                }
+    /* Send TURN refresh (if needed) at slower interval */
+    if (icePktStream.IsLocalTurn()) {
+        uint64_t now = GetTimestamp64();
 
-                if (status == ER_OK) {
-                    icePktStream.SetTurnRefreshTimestamp(now);
-                    QCC_DbgPrintf(("DaemonICETransport::SendSTUNKeepAliveAndTURNRefreshRequest(): Updated time stamp"));
-                } else {
-                    QCC_LogError(status, ("Failed to send TURN refresh for icePktStream=%p", &icePktStream));
-                }
+        if ((now - icePktStream.GetTurnRefreshTimestamp()) >= icePktStream.GetTurnRefreshPeriod()) {
+
+            /* Send TURN refresh */
+            if (status == ER_OK) {
+                status = icePktStream.PushPacketBytes((const void*)rBuf, expectedSent, dest, ICEPacketStream::TURN_REFRESH);
+                QCC_DbgPrintf(("DaemonICETransport::SendSTUNKeepAliveAndTURNRefreshRequest(): Sent TURN refresh"));
+            }
+
+            if (status == ER_OK) {
+                icePktStream.SetTurnRefreshTimestamp(now);
+            } else {
+                QCC_LogError(status, ("Failed to send TURN refresh for icePktStream=%p", &icePktStream));
             }
         }
+    }
 
-        /* Reload the alarm */
-        Alarm keepAliveAlarm(icePktStream.GetStunKeepAlivePeriod(), this, 0, reinterpret_cast<void*>(&icePktStream));
-        status = daemonICETransportTimer.AddAlarm(keepAliveAlarm);
-        if (status != ER_OK) {
-            QCC_LogError(status, ("DaemonICEEndpoint::SendSTUNKeepAliveAndTURNRefreshRequest(): Unable to add KeepAliveAlarm to daemonICETransportTimer"));
-        }
+    /* Reload the alarm */
+    Alarm keepAliveAlarm(icePktStream.GetStunKeepAlivePeriod(), this, 0, reinterpret_cast<void*>(&icePktStream));
+    status = daemonICETransportTimer.AddAlarm(keepAliveAlarm);
+    if (status != ER_OK) {
+        QCC_LogError(status, ("DaemonICEEndpoint::SendSTUNKeepAliveAndTURNRefreshRequest(): Unable to add KeepAliveAlarm to daemonICETransportTimer"));
     }
 }
 
@@ -1271,8 +1266,11 @@ ThreadReturn STDCALL DaemonICETransport::AllocateICESessionThread::Run(void* arg
                                                     if (status == ER_OK) {
                                                         pktStream = &(sit->second.first);
 
-                                                        /* Arm the keep-alive/TURN refresh timer (immediate fire) */
-                                                        transportObj->daemonICETransportTimer.AddAlarm(Alarm(0, transportObj, 0, pktStream));
+                                                        /* If we are using the local host candidate, we need not send NAT keepalives or TURN refreshes */
+                                                        if (!pktStream->IsLocalHost()) {
+                                                            /* Arm the keep-alive/TURN refresh timer (immediate fire) */
+                                                            transportObj->daemonICETransportTimer.AddAlarm(Alarm(0, transportObj, 0, pktStream));
+                                                        }
                                                     } else {
                                                         QCC_LogError(status, ("ICEPacketStream.Start or AddPacketStream failed"));
                                                         transportObj->pktStreamMap.erase(sit);
@@ -1875,8 +1873,11 @@ QStatus DaemonICETransport::Connect(const char* connectSpec, const SessionOpts& 
                                                     if (status == ER_OK) {
                                                         pktStream = &(it->second.first);
 
-                                                        /* Arm the keep-alive (immediate fire) */
-                                                        daemonICETransportTimer.AddAlarm(Alarm(0, this, 0, pktStream));
+                                                        /* If we are using the local host candidate, we need not send NAT keepalives or TURN refreshes */
+                                                        if (!pktStream->IsLocalHost()) {
+                                                            /* Arm the keep-alive (immediate fire) */
+                                                            daemonICETransportTimer.AddAlarm(Alarm(0, this, 0, pktStream));
+                                                        }
                                                     } else {
                                                         QCC_LogError(status, ("ICEPacketStream.Start or AddPacketStream failed"));
                                                         pktStreamMap.erase(it);
