@@ -58,15 +58,6 @@ class StunAttributeUsername : public StunAttributeStringBase {
     { }
 
     /**
-     * This constructor just sets the attribute type to STUN_ATTR_USERNAME.
-     *
-     * @param username  The username as std::wstring.
-     */
-    StunAttributeUsername(const std::wstring& username) :
-        StunAttributeStringBase(STUN_ATTR_USERNAME, "USERNAME", username)
-    { }
-
-    /**
      * Retrieves the parsed UTF-8 username.
      *
      * @param username OUT: A reference to where to copy the username.
@@ -74,25 +65,11 @@ class StunAttributeUsername : public StunAttributeStringBase {
     void GetUsername(String& username) const { GetStr(username); }
 
     /**
-     * @overload
-     *
-     * @param username OUT: A reference to where to copy the username.
-     */
-    void GetUsername(std::wstring& username) const { GetStr(username); }
-
-    /**
      * Sets the UTF-8 username.
      *
      * @param username A reference the username.
      */
     void SetUsername(const String& username) { SetStr(username); }
-
-    /**
-     * @overload
-     *
-     * @param username A reference the username.
-     */
-    void SetUsername(const std::wstring& username) { SetStr(username); }
 };
 
 

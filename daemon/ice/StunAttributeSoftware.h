@@ -59,15 +59,6 @@ class StunAttributeSoftware : public StunAttributeStringBase {
     { }
 
     /**
-     * This constructor just sets the attribute type to STUN_ATTR_SOFTWARE.
-     *
-     * @param software  The software description as std::wstring.
-     */
-    StunAttributeSoftware(const std::wstring& software) :
-        StunAttributeStringBase(STUN_ATTR_SOFTWARE, "SOFTWARE", software)
-    { }
-
-    /**
      * Retrieve the software.
      *
      * @param software  OUT: A copy the software std::string.
@@ -75,25 +66,11 @@ class StunAttributeSoftware : public StunAttributeStringBase {
     void GetSoftware(String& software) const { GetStr(software); }
 
     /**
-     * @overload
-     *
-     * @param software  OUT: A copy the software std::wstring.
-     */
-    void GetSoftware(std::wstring& software) const { GetStr(software); }
-
-    /**
      * Set the software.
      *
      * @param software A reference to the software std::string.
      */
     void SetSoftware(const String& software) { SetStr(software); }
-
-    /**
-     * @overload
-     *
-     * @param software A reference to the software std::wstring.
-     */
-    void SetSoftware(const std::wstring& software) { SetStr(software); }
 };
 
 
