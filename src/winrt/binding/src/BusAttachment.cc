@@ -1454,7 +1454,7 @@ void _BusAttachment::DispatchCallback(Windows::UI::Core::DispatchedHandler ^ cal
         // If we are an UI thread, but in the wrong UI thread (a different STA compartment) this will propagate an error.
         // This is correct behavior. It is an error to mix objects between STA compartments.
         Windows::Foundation::IAsyncAction ^ op = _dispatcher->RunAsync(Windows::UI::Core::CoreDispatcherPriority::Normal,
-                                                                       ref new Windows::UI::Core::DispatchedHandler([&] () {
+                                                                       ref new Windows::UI::Core::DispatchedHandler([callback] () {
                                                                                                                         callback();
                                                                                                                     }));
         concurrency::task<void> dispatcherOp(op);

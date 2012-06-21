@@ -232,6 +232,11 @@ QStatus AllJoynObj::Init()
         status = transList.RegisterListener(this);
     }
 
+    /* Start the name reaper */
+    if (ER_OK == status) {
+        status = timer.Start();
+    }
+
     if (ER_OK == status) {
         status = bus.RegisterBusObject(*this);
     }
