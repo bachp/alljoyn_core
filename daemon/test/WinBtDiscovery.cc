@@ -31,7 +31,10 @@
 #include <stdlib.h>
 #include <strsafe.h>
 #include <conio.h>
+#pragma warning( push )
+#pragma warning( disable : 4068)
 #include <BluetoothAPIs.h>
+#pragma warning( pop )
 #include <Winsock2.h>
 #include <Ws2bth.h>
 #include <Setupapi.h>
