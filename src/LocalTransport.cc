@@ -44,10 +44,7 @@
 #include "AllJoynPeerObj.h"
 #include "BusUtil.h"
 #include "BusInternal.h"
-
-#if defined(QCC_OS_ANDROID)
-#include "PermissionDB.h"
-#endif
+#include "PeerPermission.h"
 
 #define QCC_MODULE "LOCAL_TRANSPORT"
 
@@ -188,11 +185,6 @@ QStatus LocalEndpoint::Start()
         running = true;
         bus.GetInternal().GetRouter().RegisterEndpoint(*this, true);
     }
-#if defined(QCC_OS_ANDROID)
-    if (!bus.GetInternal().GetRouter().IsDaemon()) {
-        permVerifyThread.Start(this, NULL);
-    }
-#endif
     return status;
 }
 
@@ -229,9 +221,6 @@ QStatus LocalEndpoint::Stop(void)
     }
     objectsLock.Unlock(MUTEX_CONTEXT);
     DecrementAndFetch(&refCount);
-#if defined(QCC_OS_ANDROID)
-    permVerifyThread.Stop();
-#endif
     return ER_OK;
 }
 
@@ -243,9 +232,6 @@ QStatus LocalEndpoint::Join(void)
     if (peerObj) {
         peerObj->Join();
     }
-#if defined(QCC_OS_ANDROID)
-    permVerifyThread.Join();
-#endif
     return ER_OK;
 }
 
@@ -715,81 +701,47 @@ QStatus LocalEndpoint::HandleMethodCall(Message& message)
     if (status == ER_OK) {
         /* Call the method handler */
         if (entry) {
-            if (bus.GetInternal().GetRouter().IsDaemon() || entry->member->accessPerms.size() == 0) {
-                /*
-                 * We cannot make method calls coming in from the local endpoint
-                 * on another thread since our code depends on using recursive
-                 * mutexes in our locks.  Introducing a new thread into that mix
-                 * creates necessary and sufficient conditions for deadlock.
-                 */
-                if (isLocalSender) {
-                    entry->object->CallMethodHandler(entry->handler, entry->member, message, entry->context);
-                } else {
-                    Ptr<MethodCallRunnable> runnable = NewPtr<MethodCallRunnable>(this, entry, message);
-                    for (;;) {
-                        status = threadPool->WaitForAvailableThread();
-                        if (status != ER_OK) {
-                            break;
-                        }
-
-                        status = threadPool->Execute(runnable);
-                        if (status == ER_THREADPOOL_EXHAUSTED) {
-                            continue;
-                        } else {
-                            break;
-                        }
+            if (entry->member->accessPerms.size() > 0) {
+                PeerPermission::PeerPermStatus pps = PeerPermission::CanPeerDoCall(message, entry->member->accessPerms);
+                if (pps == PeerPermission::PP_DENIED) {
+                    if (message->GetType() == MESSAGE_METHOD_CALL && !(message->GetFlags() & ALLJOYN_FLAG_NO_REPLY_EXPECTED)) {
+                        qcc::String errStr;
+                        qcc::String errMsg;
+                        errStr += "org.alljoyn.Bus.";
+                        errStr += QCC_StatusText(ER_ALLJOYN_ACCESS_PERMISSION_ERROR);
+                        errMsg = message->Description();
+                        message->ErrorMsg(message, errStr.c_str(), errMsg.c_str());
                     }
+                    return status;
+                } else if (pps == PeerPermission::PP_PENDING) {
+                    PeerPermission::PeerAuthAndHandleMethodCall(message, this, entry, threadPool, entry->member->accessPerms);
+                    return status;
                 }
+            }
+
+            /*
+             * We cannot make method calls coming in from the local endpoint
+             * on another thread since our code depends on using recursive
+             * mutexes in our locks.  Introducing a new thread into that mix
+             * creates necessary and sufficient conditions for deadlock.
+             */
+            if (isLocalSender) {
+                entry->object->CallMethodHandler(entry->handler, entry->member, message, entry->context);
             } else {
-#if defined(QCC_OS_ANDROID)
-                QCC_DbgPrintf(("Method(%s::%s) requires permission %s", message->GetInterface(), message->GetMemberName(), entry->member->accessPerms.c_str()));
-                chkMsgListLock.Lock(MUTEX_CONTEXT);
-                PermCheckedEntry permChkEntry(message->GetSender(), message->GetObjectPath(), message->GetInterface(), message->GetMemberName());
-                std::map<PermCheckedEntry, bool>::const_iterator it = permCheckedCallMap.find(permChkEntry);
-                if (it != permCheckedCallMap.end()) {
-                    if (permCheckedCallMap[permChkEntry]) {
-                        /* Don't multithread method calls originating locally.  See comment in similar code above */
-                        if (isLocalSender) {
-                            entry->object->CallMethodHandler(entry->handler, entry->member, message, entry->context);
-                        } else {
-                            Ptr<MethodCallRunnable> runnable = NewPtr<MethodCallRunnable>(this, entry, message);
-                            for (;;) {
-                                status = threadPool->WaitForAvailableThread();
-                                if (status != ER_OK) {
-                                    break;
-                                }
-
-                                status = threadPool->Execute(runnable);
-                                if (status == ER_THREADPOOL_EXHAUSTED) {
-                                    continue;
-                                } else {
-                                    break;
-                                }
-                            }
-                        }
-
-                    } else {
-                        QCC_LogError(ER_ALLJOYN_ACCESS_PERMISSION_ERROR, ("Endpoint(%s) has no permission to call method (%s::%s)",
-                                                                          message->GetSender(), message->GetInterface(), message->GetMemberName()));
-                        if (!(message->GetFlags() & ALLJOYN_FLAG_NO_REPLY_EXPECTED)) {
-                            qcc::String errStr;
-                            qcc::String errMsg;
-                            errStr += "org.alljoyn.Bus.";
-                            errStr += QCC_StatusText(ER_ALLJOYN_ACCESS_PERMISSION_ERROR);
-                            errMsg = message->Description();
-                            message->ErrorMsg(message, errStr.c_str(), errMsg.c_str());
-                            bus.GetInternal().GetRouter().PushMessage(message, *this);
-                        }
+                Ptr<MethodCallRunnable> runnable = NewPtr<MethodCallRunnable>(this, entry, message);
+                for (;;) {
+                    status = threadPool->WaitForAvailableThread();
+                    if (status != ER_OK) {
+                        break;
                     }
-                } else {
-                    ChkPendingMsg msgInfo(message, entry, entry->member->accessPerms);
-                    chkPendingMsgList.push_back(msgInfo);
-                    wakeEvent.SetEvent();
+
+                    status = threadPool->Execute(runnable);
+                    if (status == ER_THREADPOOL_EXHAUSTED) {
+                        continue;
+                    } else {
+                        break;
+                    }
                 }
-                chkMsgListLock.Unlock(MUTEX_CONTEXT);
-#else
-                QCC_LogError(ER_FAIL, ("Peer permission verification is not Supported!"));
-#endif
             }
         }
     } else if (message->GetType() == MESSAGE_METHOD_CALL && !(message->GetFlags() & ALLJOYN_FLAG_NO_REPLY_EXPECTED)) {
@@ -914,79 +866,41 @@ QStatus LocalEndpoint::HandleSignal(Message& message)
         }
     } else {
         list<SignalTable::Entry>::const_iterator first = callList.begin();
-        if (bus.GetInternal().GetRouter().IsDaemon() || first->member->accessPerms.size() == 0) {
-            list<SignalTable::Entry>::const_iterator callit;
-            for (callit = callList.begin(); callit != callList.end(); ++callit) {
-                /* Don't multithread signals originating locally.  See comment in similar code in MethodCallHandler */
-                if (isLocalSender) {
-                    (callit->object->*callit->handler)(callit->member, message->GetObjectPath(), message);
-                } else {
-                    Ptr<SignalCallRunnable> runnable = NewPtr<SignalCallRunnable>(callit->object,
-                                                                                  callit->handler,
-                                                                                  callit->member,
-                                                                                  message);
-                    for (;;) {
-                        status = threadPool->WaitForAvailableThread();
-                        if (status != ER_OK) {
-                            break;
-                        }
 
-                        status = threadPool->Execute(runnable);
-                        if (status == ER_THREADPOOL_EXHAUSTED) {
-                            continue;
-                        } else {
-                            break;
-                        }
-                    }
-                }
+        if (first->member->accessPerms.size() > 0) {
+            PeerPermission::PeerPermStatus pps = PeerPermission::CanPeerDoCall(message, first->member->accessPerms);
+            if (pps == PeerPermission::PP_DENIED) {
+                return status;
+            } else if (pps == PeerPermission::PP_PENDING) {
+                PeerPermission::PeerAuthAndHandleSignalCall(message, this, callList, threadPool, first->member->accessPerms);
+                return status;
             }
-        } else {
-#if defined(QCC_OS_ANDROID)
-            QCC_DbgPrintf(("Signal(%s::%s) requires permission %s", message->GetInterface(), message->GetMemberName(), first->member->accessPerms.c_str()));
-            PermCheckedEntry permChkEntry(message->GetSender(), message->GetObjectPath(), message->GetInterface(), message->GetMemberName());
-            chkMsgListLock.Lock(MUTEX_CONTEXT);
-            std::map<PermCheckedEntry, bool>::const_iterator it = permCheckedCallMap.find(permChkEntry);
-            if (it == permCheckedCallMap.end()) {
-                ChkPendingMsg msgInfo(message, callList, first->member->accessPerms);
-                chkPendingMsgList.push_back(msgInfo);
-                wakeEvent.SetEvent();
+        }
+
+        list<SignalTable::Entry>::const_iterator callit;
+        for (callit = callList.begin(); callit != callList.end(); ++callit) {
+            /* Don't multithread signals originating locally.  See comment in similar code in MethodCallHandler */
+            if (isLocalSender) {
+                (callit->object->*callit->handler)(callit->member, message->GetObjectPath(), message);
             } else {
-                if (permCheckedCallMap[permChkEntry]) {
-                    list<SignalTable::Entry>::const_iterator callit;
-                    for (callit = callList.begin(); callit != callList.end(); ++callit) {
-                        /* Don't multithread signals originating locally.  See comment in similar code in MethodCallHandler */
-                        if (isLocalSender) {
-                            (callit->object->*callit->handler)(callit->member, message->GetObjectPath(), message);
-                        } else {
-                            Ptr<SignalCallRunnable> runnable = NewPtr<SignalCallRunnable>(callit->object,
-                                                                                          callit->handler,
-                                                                                          callit->member,
-                                                                                          message);
-                            for (;;) {
-                                status = threadPool->WaitForAvailableThread();
-                                if (status != ER_OK) {
-                                    break;
-                                }
-
-                                status = threadPool->Execute(runnable);
-                                if (status == ER_THREADPOOL_EXHAUSTED) {
-                                    continue;
-                                } else {
-                                    break;
-                                }
-                            }
-                        }
+                Ptr<SignalCallRunnable> runnable = NewPtr<SignalCallRunnable>(callit->object,
+                                                                              callit->handler,
+                                                                              callit->member,
+                                                                              message);
+                for (;;) {
+                    status = threadPool->WaitForAvailableThread();
+                    if (status != ER_OK) {
+                        break;
                     }
-                } else {
-                    /* Do not return Error message because signal does not require reply */
-                    QCC_LogError(ER_ALLJOYN_ACCESS_PERMISSION_ERROR, ("Endpoint(%s) has no permission to issue signal (%s::%s)",
-                                                                      message->GetSender(), message->GetInterface(), message->GetMemberName()));
+
+                    status = threadPool->Execute(runnable);
+                    if (status == ER_THREADPOOL_EXHAUSTED) {
+                        continue;
+                    } else {
+                        break;
+                    }
                 }
             }
-            chkMsgListLock.Unlock(MUTEX_CONTEXT);
-#else
-            QCC_LogError(ER_FAIL, ("Peer permission verification is not Supported!"));
-#endif
         }
     }
     return status;
@@ -1060,121 +974,6 @@ void LocalEndpoint::BusIsConnected()
     }
 }
 
-#if defined(QCC_OS_ANDROID)
-void*  LocalEndpoint::PermVerifyThread::Run(void* arg)
-{
-    QStatus status = ER_OK;
-    LocalEndpoint* localEp = reinterpret_cast<LocalEndpoint*>(arg);
-    vector<Event*> checkEvents, signaledEvents;
-    checkEvents.push_back(&stopEvent);
-    checkEvents.push_back(&(localEp->wakeEvent));
-    const uint32_t MAX_PERM_CHECKEDCALL_SIZE = 500;
-    while (!IsStopping()) {
-        signaledEvents.clear();
-        status = Event::Wait(checkEvents, signaledEvents);
-        if (ER_OK != status) {
-            QCC_LogError(status, ("Event::Wait failed"));
-            break;
-        }
-
-        for (vector<Event*>::iterator i = signaledEvents.begin(); i != signaledEvents.end(); ++i) {
-            (*i)->ResetEvent();
-            if (*i == &stopEvent) {
-                continue;
-            }
-
-            while (!localEp->chkPendingMsgList.empty()) {
-                localEp->chkMsgListLock.Lock(MUTEX_CONTEXT);
-                ChkPendingMsg& msgInfo = localEp->chkPendingMsgList.front();
-                Message& message = msgInfo.msg;
-                qcc::String& permsStr = msgInfo.perms;
-
-                /* Split permissions that are concated by ";". The permission string is in form of "PERM0;PERM1;..." */
-                std::set<qcc::String> permsReq;
-                size_t pos;
-                while ((pos = permsStr.find_first_of(";")) != String::npos) {
-                    qcc::String tmp = permsStr.substr(0, pos);
-                    permsReq.insert(tmp);
-                    permsStr.erase(0, pos + 1);
-                }
-                if (permsStr.size() > 0) {
-                    permsReq.insert(permsStr);
-                }
-
-                bool allowed = true;
-                uint32_t userId = -1;
-                /* Ask daemon about the user id of the sender */
-                MsgArg arg("s", message->GetSender());
-                Message reply(localEp->GetBus());
-                status = localEp->GetDBusProxyObj().MethodCall(org::freedesktop::DBus::InterfaceName,
-                                                               "GetConnectionUnixUser",
-                                                               &arg,
-                                                               1,
-                                                               reply);
-
-                if (status == ER_OK) {
-                    userId = reply->GetArg(0)->v_uint32;
-                }
-                /* The permission check is only required for UnixEndpoint */
-                if (userId != (uint32_t)-1) {
-                    allowed = PermissionDB::GetDB().VerifyPeerPermissions(userId, permsReq);
-                }
-
-                QCC_DbgPrintf(("VerifyPeerPermissions result: allowed = %d", allowed));
-                localEp->chkMsgListLock.Lock(MUTEX_CONTEXT);
-                /* Be defensive. Limit the map cache size to be no more than MAX_PERM_CHECKEDCALL_SIZE */
-                if (localEp->permCheckedCallMap.size() > MAX_PERM_CHECKEDCALL_SIZE) {
-                    localEp->permCheckedCallMap.clear();
-                }
-                PermCheckedEntry permChkEntry(message->GetSender(), message->GetObjectPath(), message->GetInterface(), message->GetMemberName());
-                localEp->permCheckedCallMap[permChkEntry] = allowed; /* Cache the result */
-                localEp->chkMsgListLock.Unlock(MUTEX_CONTEXT);
-
-                /* Handle the message based on the message type. */
-                AllJoynMessageType msgType = message->GetType();
-                if (msgType == MESSAGE_METHOD_CALL) {
-                    if (allowed) {
-                        const MethodTable::Entry* entry = msgInfo.methodEntry;
-                        /* Don't run on concurrency threadpool since we are separate thread anyway */
-                        entry->object->CallMethodHandler(entry->handler, entry->member, msgInfo.msg, entry->context);
-                    } else {
-                        QCC_LogError(ER_ALLJOYN_ACCESS_PERMISSION_ERROR, ("Endpoint(%s) has no permission to call method (%s::%s)",
-                                                                          message->GetSender(), message->GetInterface(), message->GetMemberName()));
-                        if (!(message->GetFlags() & ALLJOYN_FLAG_NO_REPLY_EXPECTED)) {
-                            status = ER_ALLJOYN_ACCESS_PERMISSION_ERROR;
-                            qcc::String errStr;
-                            qcc::String errMsg;
-                            errStr += "org.alljoyn.Bus.";
-                            errStr += QCC_StatusText(status);
-                            errMsg = message->Description();
-                            message->ErrorMsg(message, errStr.c_str(), errMsg.c_str());
-                            localEp->bus.GetInternal().GetRouter().PushMessage(message, *localEp);
-                        }
-                    }
-                } else if (msgType == MESSAGE_SIGNAL) {
-                    if (allowed) {
-                        list<SignalTable::Entry>& callList = msgInfo.signalCallList;
-                        list<SignalTable::Entry>::const_iterator callit;
-                        for (callit = callList.begin(); callit != callList.end(); ++callit) {
-                            /* Don't run on concurrency threadpool since we are separate thread anyway */
-                            (callit->object->*callit->handler)(callit->member, (msgInfo.msg)->GetObjectPath(), message);
-                        }
-                    } else {
-                        QCC_LogError(ER_ALLJOYN_ACCESS_PERMISSION_ERROR, ("Endpoint(%s) has no permission to issue signal (%s::%s)",
-                                                                          message->GetSender(), message->GetInterface(), message->GetMemberName()));
-                    }
-                } else {
-                    QCC_LogError(status, ("PermVerifyThread::Wrong Message Type %d", msgType));
-                }
-                localEp->chkPendingMsgList.pop_front();
-                localEp->chkMsgListLock.Unlock(MUTEX_CONTEXT);
-            }
-        }
-    }
-    return (void*)status;
-}
-#endif
-
 const ProxyBusObject& LocalEndpoint::GetAllJoynDebugObj() {
     if (!alljoynDebugObj) {
         /* Register well known org.alljoyn.Bus.Debug remote object */
@@ -1193,5 +992,10 @@ const ProxyBusObject& LocalEndpoint::GetAllJoynDebugObj() {
     return *alljoynDebugObj;
 }
 
+void LocalEndpoint::SendErrMessage(Message& message, qcc::String errStr, qcc::String description)
+{
+    message->ErrorMsg(message, errStr.c_str(), description.c_str());
+    bus.GetInternal().GetRouter().PushMessage(message, *this);
+}
 
 }

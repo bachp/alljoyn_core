@@ -384,53 +384,6 @@ class LocalEndpoint : public BusEndpoint, public qcc::AlarmListener, public Mess
      */
     std::map<uint32_t, ReplyContext> replyMap;
 
-#if defined(QCC_OS_ANDROID)
-    /**
-     * Type definition for a message pending for permission check.
-     */
-    typedef struct ChkPendingMsg {
-        Message msg;                                /**< The message pending for permission check */
-        const MethodTable::Entry* methodEntry;      /**< Method handler */
-        std::list<SignalTable::Entry> signalCallList;    /**< List of signal handlers */
-        qcc::String perms;                          /**< The required permissions */
-        ChkPendingMsg(Message& msg, const MethodTable::Entry* methodEntry, const qcc::String& perms) : msg(msg), methodEntry(methodEntry), perms(perms) { }
-        ChkPendingMsg(Message& msg, std::list<SignalTable::Entry>& signalCallList, const qcc::String& perms) : msg(msg), signalCallList(signalCallList), perms(perms) { }
-    } ChkPendingMsg;
-
-    /**
-     * Type definition for a permission-checked method or signal call.
-     */
-    typedef struct PermCheckedEntry {
-      public:
-        const qcc::String sender;                        /**< The endpoint name that issues the call */
-        const qcc::String sourcePath;                    /**< The object path of the call */
-        const qcc::String iface;                         /**< The interface name of the call */
-        const qcc::String signalName;                    /**< The method or signal name of the call */
-        PermCheckedEntry(const qcc::String& sender, const qcc::String& sourcePath, const qcc::String& iface, const qcc::String& signalName) : sender(sender), sourcePath(sourcePath), iface(iface), signalName(signalName) { }
-        bool operator<(const PermCheckedEntry& other) const {
-            return (sender < other.sender) || ((sender == other.sender) && (sourcePath < other.sourcePath))
-                   || ((sourcePath == other.sourcePath) && (iface < other.iface))
-                   || ((iface == other.iface) && (signalName < other.signalName));
-        }
-    } PermCheckedEntry;
-
-    /**
-     * Type definition for a thread that does the permission verification on the message calls
-     */
-    class PermVerifyThread : public qcc::Thread {
-        qcc::ThreadReturn STDCALL Run(void* arg);
-
-      public:
-        PermVerifyThread() : Thread("PermVerifyThread") { }
-    };
-
-    PermVerifyThread permVerifyThread;             /**< The permission verification thread */
-    std::list<ChkPendingMsg> chkPendingMsgList;    /**< List of messages pending for permission check */
-    std::map<PermCheckedEntry, bool> permCheckedCallMap;  /**< Map of a permission-checked method/signal call to the verification result */
-    qcc::Mutex chkMsgListLock;                     /**< Mutex protecting the pending message list and the verification result cache map */
-    qcc::Event wakeEvent;                          /**< Event to notify the permission verification thread of new pending messages */
-#endif
-
     bool running;                      /**< Is the local endpoint up and running */
     int32_t refCount;                  /**< Reference count for local transport */
     MethodTable methodTable;           /**< Hash table of BusObject methods */
@@ -503,6 +456,7 @@ class LocalEndpoint : public BusEndpoint, public qcc::AlarmListener, public Mess
     QStatus DoRegisterBusObject(BusObject& object, BusObject* parent, bool isPlaceholder);
 
     friend class MethodCallRunnable;
+    friend class MethodCallRunnableAuth;
     /**
      * A function to allow a method call closure to call into the transport in
      * order to, in turn, call into a bus object in order to actually dispatch
@@ -515,6 +469,8 @@ class LocalEndpoint : public BusEndpoint, public qcc::AlarmListener, public Mess
     {
         entry->object->CallMethodHandler(entry->handler, entry->member, message, entry->context);
     }
+
+    void SendErrMessage(Message& message, qcc::String errStr, qcc::String description);
 };
 
 /**

@@ -22,7 +22,10 @@
 #define _ALLJOYN_PERMISSION_DB_H
 
 #include "BusEndpoint.h"
-
+#include <qcc/String.h>
+#include <qcc/Mutex.h>
+#include <set>
+#include <map>
 namespace ajn {
 
 class PermissionDB {
