@@ -164,33 +164,46 @@ BusAttachment::Internal::~Internal()
     router = NULL;
 }
 
-class LocalTransportFactoryContainer : public TransportFactoryContainer {
+/*
+ * Transport factory container for transports this bus attachment uses to communicate with the daemon.
+ */
+static class ClientTransportFactoryContainer : public TransportFactoryContainer {
   public:
+
+    ClientTransportFactoryContainer() : transportInit(0) { }
+
     void Init()
     {
-        if (ClientTransport::IsAvailable()) {
-            Add(new TransportFactory<ClientTransport>(ClientTransport::TransportName, true));
-        }
-        if (NullTransport::IsAvailable()) {
-            Add(new TransportFactory<NullTransport>(NullTransport::TransportName, true));
+        /*
+         * Registration of transport factories is a one time operation.
+         */
+        if (IncrementAndFetch(&transportInit) == 1) {
+            if (ClientTransport::IsAvailable()) {
+                Add(new TransportFactory<ClientTransport>(ClientTransport::TransportName, true));
+            }
+            if (NullTransport::IsAvailable()) {
+                Add(new TransportFactory<NullTransport>(NullTransport::TransportName, true));
+            }
+        } else {
+            DecrementAndFetch(&transportInit);
         }
     }
-} localTransportsContainer;
-volatile int32_t transportContainerInit = 0;
+
+  private:
+    volatile int32_t transportInit;
+
+} clientTransportsContainer;
+
 
 BusAttachment::BusAttachment(const char* applicationName, bool allowRemoteMessages, uint32_t concurrency) :
     hasStarted(false),
     isStarted(false),
     isStopping(false),
     concurrency(concurrency),
-    busInternal(new Internal(applicationName, *this, localTransportsContainer, NULL, allowRemoteMessages, NULL)),
+    busInternal(new Internal(applicationName, *this, clientTransportsContainer, NULL, allowRemoteMessages, NULL)),
     joinObj(this)
 {
-    if (IncrementAndFetch(&transportContainerInit) == 1) {
-        localTransportsContainer.Init();
-    } else {
-        DecrementAndFetch(&transportContainerInit);         // adjust the count
-    }
+    clientTransportsContainer.Init();
     QCC_DbgTrace(("BusAttachment client constructor (%p)", this));
 }
 
@@ -202,11 +215,7 @@ BusAttachment::BusAttachment(Internal* busInternal, uint32_t concurrency) :
     busInternal(busInternal),
     joinObj(this)
 {
-    if (IncrementAndFetch(&transportContainerInit) == 1) {
-        localTransportsContainer.Init();
-    } else {
-        DecrementAndFetch(&transportContainerInit);         // adjust the count
-    }
+    clientTransportsContainer.Init();
     QCC_DbgTrace(("BusAttachment daemon constructor"));
 }
 
