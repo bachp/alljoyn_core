@@ -29,6 +29,7 @@
 #include <qcc/StringSource.h>
 #include <qcc/StringUtil.h>
 #include <qcc/FileStream.h>
+#include <qcc/Mutex.h>
 
 #include <alljoyn/BusAttachment.h>
 
@@ -80,7 +81,7 @@ static const char bundledConfig[] =
     "  </ice_discovery_manager>"
     "</busconfig>";
 
-class BundledDaemon : public DaemonLauncher {
+class BundledDaemon : public DaemonLauncher, public TransportFactoryContainer {
 
   public:
 
@@ -103,9 +104,11 @@ class BundledDaemon : public DaemonLauncher {
 
   private:
 
-    int32_t refCount;
+    bool transportsInitialized;
+    volatile int32_t refCount;
     Bus* ajBus;
     BusController* ajBusController;
+    Mutex lock;
 
 };
 
@@ -123,7 +126,7 @@ bool ExistFile(const char* fileName) {
  */
 static BundledDaemon bundledDaemon;
 
-BundledDaemon::BundledDaemon() : refCount(0), ajBus(NULL), ajBusController(NULL)
+BundledDaemon::BundledDaemon() : transportsInitialized(false), refCount(0), ajBus(NULL), ajBusController(NULL)
 {
     NullTransport::RegisterDaemonLauncher(this);
 }
@@ -131,9 +134,16 @@ BundledDaemon::BundledDaemon() : refCount(0), ajBus(NULL), ajBusController(NULL)
 QStatus BundledDaemon::Start(NullTransport* nullTransport)
 {
     QStatus status = ER_OK;
+    printf("BundledDaemon::Start\n");
+
+    /*
+     * Need a mutex around this to prevent *more than one BusAttachment from bringing up the
+     * bundled daemon at the same time we need to serialize the operation.
+     */
+    lock.Lock();
+
     if (IncrementAndFetch(&refCount) == 1) {
         LoggerSetting::GetLoggerSetting("bundled-daemon", LOG_DEBUG, false, stdout);
-
         /*
          * Load the configuration
          */
@@ -168,7 +178,7 @@ QStatus BundledDaemon::Start(NullTransport* nullTransport)
         vector<String> listenList = config->GetList("listen");
         String listenSpecs = StringVectorToString(&listenList, ";");
         /*
-         * Add the transports
+         * Register the transport factories - this is a one time operation
          */
         TransportFactoryContainer cntr;
         cntr.Add(new TransportFactory<TCPTransport>(TCPTransport::TransportName, false));
@@ -183,11 +193,6 @@ QStatus BundledDaemon::Start(NullTransport* nullTransport)
         if (ER_OK != status) {
             goto ErrorExit;
         }
-        /*
-         * TODO - until we figure out why the daemon doesn't cleanly restart bump the refCount once
-         * more so the bundled daemon doesn't ever get released.
-         */
-        IncrementAndFetch(&refCount);
     }
     /*
      * Use the null transport to link the daemon and client bus together
@@ -197,6 +202,8 @@ QStatus BundledDaemon::Start(NullTransport* nullTransport)
         goto ErrorExit;
     }
 
+    lock.Unlock();
+    printf("BundledDaemon::Start exit OK\n");
     return ER_OK;
 
 ErrorExit:
@@ -207,11 +214,15 @@ ErrorExit:
         delete ajBus;
         ajBus = NULL;
     }
+    lock.Unlock();
+    printf("BundledDaemon::Start exit %s\n", QCC_StatusText(status));
     return status;
 }
 
 void BundledDaemon::Join()
 {
+    printf("BundledDaemon::Join\n");
+    lock.Lock();
     if (refCount == 0) {
         if (ajBus) {
             ajBus->Join();
@@ -221,10 +232,13 @@ void BundledDaemon::Join()
         delete ajBus;
         ajBus = NULL;
     }
+    lock.Unlock();
 }
 
 QStatus BundledDaemon::Stop()
 {
+    printf("BundledDaemon::Stop\n");
+    lock.Lock();
     int32_t rc = DecrementAndFetch(&refCount);
     assert(rc >= 0);
     if (rc == 0) {
@@ -234,5 +248,6 @@ QStatus BundledDaemon::Stop()
             return ER_OK;
         }
     }
+    lock.Unlock();
     return ER_OK;
 }
