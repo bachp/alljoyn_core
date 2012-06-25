@@ -383,12 +383,12 @@ void ClientSetup::MySignalHandler2(
     const MsgArg*replyArgs[2];
     size_t numArgs;
     msg->GetArgs(numArgs, *replyArgs);
-    EXPECT_EQ(2, numArgs);
+    EXPECT_EQ(static_cast<size_t>(2), numArgs);
     if (replyArgs[0]->v_uint32 == 5) {
         EXPECT_STREQ("hello", msg->GetArg(1)->v_string.str);
         EXPECT_EQ(static_cast<uint32_t>(5), msg->GetArg(1)->v_string.len);
     } else if (msg->GetArg(1)->v_uint32 == 4096) {
-        EXPECT_EQ(4096, msg->GetArg(1)->v_string.len);
+        EXPECT_EQ(static_cast<uint32_t>(4096), msg->GetArg(1)->v_string.len);
         qcc::String hugeA(4096, 'a');
         EXPECT_STREQ(hugeA.c_str(), msg->GetArg(1)->v_string.str);
     } else {

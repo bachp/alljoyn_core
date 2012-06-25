@@ -57,26 +57,26 @@ TEST(NamesTest, Maximum_length) {
     char buf[512];
 
     PadTo(buf, ":1.0.", 255, '0');
-    EXPECT_EQ(255, strlen(buf));
+    EXPECT_EQ(static_cast<size_t>(255), strlen(buf));
     EXPECT_TRUE(IsLegalUniqueName(buf));
 
     PadTo(buf, "abc.def.hij.", 255, '-');
-    EXPECT_EQ(255, strlen(buf));
+    EXPECT_EQ(static_cast<size_t>(255), strlen(buf));
     EXPECT_TRUE(IsLegalBusName(buf));
 
     PadTo(buf, "abc.def.hij.", 255, '_');
-    EXPECT_EQ(255, strlen(buf));
+    EXPECT_EQ(static_cast<size_t>(255), strlen(buf));
     EXPECT_TRUE(IsLegalInterfaceName(buf));
 
     PadTo(buf, "member", 255, '_');
-    EXPECT_EQ(255, strlen(buf));
+    EXPECT_EQ(static_cast<size_t>(255), strlen(buf));
     EXPECT_TRUE(IsLegalMemberName(buf));
 
     /*
      * There is no maximum length for object paths
      */
     PadTo(buf, "/object/path/long/", 500, '_');
-    EXPECT_EQ(500, strlen(buf));
+    EXPECT_EQ(static_cast<size_t>(500), strlen(buf));
     EXPECT_TRUE(IsLegalObjectPath(buf));
 }
 
@@ -87,19 +87,19 @@ TEST(NamesTest, Beyond_Maximum_length) {
     char buf[512];
 
     PadTo(buf, ":1.0.", 256, '0');
-    EXPECT_EQ(256, strlen(buf));
+    EXPECT_EQ(static_cast<size_t>(256), strlen(buf));
     EXPECT_FALSE(IsLegalUniqueName(buf));
 
     PadTo(buf, "abc.def.hij.", 256, '-');
-    EXPECT_EQ(256, strlen(buf));
+    EXPECT_EQ(static_cast<size_t>(256), strlen(buf));
     EXPECT_FALSE(IsLegalBusName(buf));
 
     PadTo(buf, "abc.def.hij.", 256, '_');
-    EXPECT_EQ(256, strlen(buf));
+    EXPECT_EQ(static_cast<size_t>(256), strlen(buf));
     EXPECT_FALSE(IsLegalInterfaceName(buf));
 
     PadTo(buf, "member", 256, '_');
-    EXPECT_EQ(256, strlen(buf));
+    EXPECT_EQ(static_cast<size_t>(256), strlen(buf));
     EXPECT_FALSE(IsLegalMemberName(buf));
 }
 

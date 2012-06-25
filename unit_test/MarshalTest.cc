@@ -153,7 +153,7 @@ TEST(MarshalTest, ComplexSignatures) {
             "\nIncomplete type \"" << qcc::String(start, sig - start).c_str() << "\"";
         }
         /* If the string is successfully parsed, then its length must be 0. */
-        ASSERT_EQ(0, ::strlen(sig));
+        ASSERT_EQ(static_cast<size_t>(0), ::strlen(sig));
     }
 
 }
