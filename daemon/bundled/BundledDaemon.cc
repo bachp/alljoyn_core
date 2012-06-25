@@ -55,7 +55,6 @@ static const char bundledConfig[] =
     "<busconfig>"
     "  <type>alljoyn_bundled</type>"
     "  <listen>tcp:addr=0.0.0.0,port=0,family=ipv4</listen>"
-    "  <listen>ice:</listen>"
     "  <limit name=\"auth_timeout\">5000</limit>"
     "  <limit name=\"max_incomplete_connections_tcp\">4</limit>"
     "  <limit name=\"max_completed_connections_tcp\">16</limit>"
@@ -65,6 +64,8 @@ static const char bundledConfig[] =
     "    <property enable_ipv4=\"true\"/>"
     "    <property enable_ipv6=\"true\"/>"
     "  </ip_name_service>"
+#if defined(QCC_OS_ANDROID) || defined(QCC_OS_LINUX)
+    "  <listen>ice:</listen>"
     "  <ice>"
     "    <limit name=\"max_incomplete_connections\">16</limit>"
     "    <limit name=\"max_completed_connections\">64</limit>"
@@ -78,6 +79,7 @@ static const char bundledConfig[] =
     "    <property protocol=\"HTTP\"/>"
     "    <property enable_ipv6=\"false\"/>"
     "  </ice_discovery_manager>"
+#endif
     "</busconfig>";
 
 class BundledDaemon : public DaemonLauncher, public TransportFactoryContainer {
@@ -118,7 +120,6 @@ static BundledDaemon bundledDaemon;
 
 BundledDaemon::BundledDaemon() : transportsInitialized(false), refCount(0), ajBus(NULL), ajBusController(NULL)
 {
-    printf("Registering bundled daemon\n");
     NullTransport::RegisterDaemonLauncher(this);
 }
 
@@ -126,7 +127,7 @@ QStatus BundledDaemon::Start(NullTransport* nullTransport)
 {
     QStatus status = ER_OK;
 
-    printf("BundledDaemon::Start\n");
+    printf("Using BundledDaemon\n");
 
     /*
      * Need a mutex around this to prevent *more than one BusAttachment from bringing up the
@@ -149,7 +150,6 @@ QStatus BundledDaemon::Start(NullTransport* nullTransport)
          * Register the transport factories - this is a one time operation
          */
         if (!transportsInitialized) {
-            printf("BundledDaemon::Start adding transports\n");
             Add(new TransportFactory<TCPTransport>(TCPTransport::TransportName, false));
 #if defined(QCC_OS_ANDROID) || defined(QCC_OS_LINUX)
             Add(new TransportFactory<DaemonICETransport>(DaemonICETransport::TransportName, false));
@@ -175,7 +175,6 @@ QStatus BundledDaemon::Start(NullTransport* nullTransport)
     }
 
     lock.Unlock();
-    printf("BundledDaemon::Start exit OK\n");
     return ER_OK;
 
 ErrorExit:
@@ -187,13 +186,11 @@ ErrorExit:
         ajBus = NULL;
     }
     lock.Unlock();
-    printf("BundledDaemon::Start exit %s\n", QCC_StatusText(status));
     return status;
 }
 
 void BundledDaemon::Join()
 {
-    printf("BundledDaemon::Join\n");
     lock.Lock();
     if (refCount == 0) {
         if (ajBus) {
@@ -209,7 +206,6 @@ void BundledDaemon::Join()
 
 QStatus BundledDaemon::Stop()
 {
-    printf("BundledDaemon::Stop\n");
     lock.Lock();
     int32_t rc = DecrementAndFetch(&refCount);
     assert(rc >= 0);
