@@ -237,14 +237,11 @@ QStatus BundledDaemon::Stop()
     printf("BundledDaemon::Stop\n");
     lock.Lock();
     int32_t rc = DecrementAndFetch(&refCount);
+    QStatus status = ER_OK;
     assert(rc >= 0);
-    if (rc == 0) {
-        if (ajBus) {
-            return ajBus->Stop();
-        } else {
-            return ER_OK;
-        }
+    if (rc == 0 && ajBus) {
+        status = ajBus->Stop();
     }
     lock.Unlock();
-    return ER_OK;
+    return status;
 }
