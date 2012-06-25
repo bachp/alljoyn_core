@@ -48,10 +48,15 @@ class BusEndpoint;
  */
 class BusAttachment : public MessageReceiver {
   public:
-
+    /**
+     * Pure virtual base class implemented by classes that wish to make an async method call
+     */
     class AsyncMethodCallCB {
       public:
 
+        /**
+         * Enumeration of the different types of method calls.  Currently only JoinSession and SetLinkTimeout are supported
+         */
         enum MethodCallType {
             UNKNOWN = 0,
             JOINSESSION,
@@ -64,8 +69,8 @@ class BusAttachment : public MessageReceiver {
         /**
          * Called when JoinSessionAsync() completes.
          *
-         * @param status       ER_OK if successful
          * @param type         The method call that triggered this callback
+         * @param reply        A message containing the reply to the method
          * @param context      User defined context which will be passed as-is to callback.
          */
         virtual void MethodCallCB(MethodCallType type, Message& reply, void* context) = 0;
