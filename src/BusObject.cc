@@ -190,7 +190,7 @@ void BusObject::EmitPropChanged(const char* ifcName, const char* propName, MsgAr
     const InterfaceDescription* ifc = bus.GetInterface(ifcName);
 
     qcc::String emitsChanged;
-    if (ifc->GetPropertyAnnotation(propName, org::freedesktop::DBus::AnnotateEmitsChanged, emitsChanged)) {
+    if (ifc && ifc->GetPropertyAnnotation(propName, org::freedesktop::DBus::AnnotateEmitsChanged, emitsChanged)) {
         if (emitsChanged == "true") {
             const InterfaceDescription* bus_ifc = bus.GetInterface(org::freedesktop::DBus::InterfaceName);
             const InterfaceDescription::Member* propChanged = bus_ifc->GetMember("PropertiesChanged");
@@ -243,6 +243,9 @@ void BusObject::SetProp(const InterfaceDescription::Member* member, Message& msg
                 } else if (prop->access & PROP_ACCESS_WRITE) {
                     // set the value, then inform bus listeners via Signal
                     status = Set(iface->v_string.str, property->v_string.str, *(val->v_variant.val));
+                    // notify all session members that this property has changed
+                    const SessionId id = msg->hdrFields.field[ALLJOYN_HDR_FIELD_SESSION_ID].v_uint32;
+                    EmitPropChanged(iface->v_string.str, property->v_string.str, *(val->v_variant.val), id);
                 } else {
                     QCC_DbgPrintf(("No write access on property %s", property->v_string.str));
                     status = ER_BUS_PROPERTY_ACCESS_DENIED;

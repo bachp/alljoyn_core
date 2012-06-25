@@ -80,6 +80,21 @@ class BusObject : public MessageReceiver {
      */
     virtual ~BusObject();
 
+    /**
+     * Emit PropertiesChanged to signal the bus that this property has been updated
+     *
+     *  This is protected because JNI needs to be able to call it
+     *
+     * @param ifcName   The name of the interface
+     * @param propName  The name of the property being changed
+     * @param val       The new value of the property
+     * @param SessionId Id of the session we broadcast the signal to (0 for all)
+     */
+    void EmitPropChanged(const char* ifcName, const char* propName, MsgArg& val, SessionId id = 0);
+
+    const BusAttachment& GetBusAttachment() const
+    { return bus; }
+
   protected:
 
     /**
@@ -254,16 +269,6 @@ class BusObject : public MessageReceiver {
      * This base class implementation @b must be called explicitly by any overriding derived class.
      */
     virtual void ObjectUnregistered(void) { isRegistered = false; }
-
-    /**
-     * Emit PropertiesChanged to signal the bus that this property has been updated
-     *
-     * @param ifcName   The name of the interface
-     * @param propName  The name of the property being changed
-     * @param val       The new value of the property
-     * @param SessionId Id of the session we broadcast the signal to (0 for all)
-     */
-    void EmitPropChanged(const char* ifcName, const char* propName, MsgArg& val, SessionId id = 0);
 
     /**
      * Default handler for a bus attempt to read a property value.
