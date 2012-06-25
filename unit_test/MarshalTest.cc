@@ -295,6 +295,7 @@ static bool nobig = false;
 static bool bigArray = false;
 static bool quiet = false;
 static qcc::String errString;
+static BusAttachment* fuzzingBus;
 
 
 /* BYTE */
@@ -498,16 +499,13 @@ static qcc::SocketFd MakeHandle()
  */
 static QStatus TestMarshal(const MsgArg* argList, size_t numArgs, const char* exception = NULL)
 {
-    BusAttachment*bus = new BusAttachment("TestMsgUnPack", false);
-    bus->Start();
-
     QStatus status;
     TestPipe stream;
-    MyMessage msg(*bus);
+    MyMessage msg(*fuzzingBus);
     uint32_t serial;
     errString.clear();
 
-    RemoteEndpoint ep(*bus, false, "", &stream, "dummy", false);
+    RemoteEndpoint ep(*fuzzingBus, false, "", &stream, "dummy", false);
     ep.GetFeatures().handlePassing = true;
 
     if (numArgs == 0) {
@@ -572,8 +570,6 @@ static QStatus TestMarshal(const MsgArg* argList, size_t numArgs, const char* ex
         else errString += "Unmarshal: argList\n" + static_cast<qcc::String>(outargList.c_str()) + "\n";
         status = ER_FAIL;
     }
-    bus->Stop();
-    bus->Join();
     return status;
 }
 
@@ -1373,23 +1369,34 @@ QStatus MarshalTests()
 }
 
 TEST(MarshalTest, noFuzzing) {
+    fuzzingBus = new BusAttachment("TestMsgUnPack", false);
+    fuzzingBus->Start();
+
     fuzzing = false;
     nobig = false;
     quiet = true;
     QStatus status = MarshalTests();
     EXPECT_EQ(ER_OK, status) << "  Actual Status: " << QCC_StatusText(status) << errString.c_str();
+    fuzzingBus->Stop();
+    fuzzingBus->Join();
+    fuzzingBus = NULL;
 }
 TEST(MarshalTest, fuzzing) {
     printf("The Fuzzing tests are meant to run thousands of times.\n");
     printf("To run this test multiple times add commandline option:\n");
     printf("\t--gtest_filter=MarshalTest.fuzzing --gtest_repeat=[COUNT]\n");
     printf("\nNOTE: This Test Produces a large amount of errors.\n\n");
+    fuzzingBus = new BusAttachment("TestMsgUnPack", false);
+    fuzzingBus->Start();
     fuzzing = true;
     nobig = true;
     quiet = true;
     QStatus status;
     status = MarshalTests();
     EXPECT_TRUE(foundExpectedFuzzingStatus(status)) << "Actual Status: " << QCC_StatusText(status) << errString.c_str();
+    fuzzingBus->Stop();
+    fuzzingBus->Join();
+    fuzzingBus = NULL;
 
 }
 
