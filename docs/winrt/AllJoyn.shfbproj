@@ -30,7 +30,7 @@
     <FeedbackEMailAddress>maintainers%40alljoyn.org</FeedbackEMailAddress>
     <SyntaxFilters>CSharp, VisualBasic, CPlusPlus, JavaScript</SyntaxFilters>
     <ProductTitle>AllJoyn</ProductTitle>
-    <CopyrightText>&amp;#169%3b 2012 Qualcomm Innovation Center, Inc. All Rights Reserved</CopyrightText>
+    <CopyrightText>&amp;#169%3b 2012 Qualcomm Innovation Center, Inc.</CopyrightText>
     <ApiFilter>
       <Filter entryType="Namespace" fullName="" isExposed="False" xmlns="" />
       <Filter entryType="Namespace" fullName="AllJoyn" isExposed="True" xmlns="">
