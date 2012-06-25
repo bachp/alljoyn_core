@@ -29,6 +29,7 @@
 #include <qcc/StringSource.h>
 #include <qcc/StringUtil.h>
 #include <qcc/Mutex.h>
+#include <qcc/ScopedMutexLock.h>
 
 #include <alljoyn/BusAttachment.h>
 
@@ -206,7 +207,7 @@ void BundledDaemon::Join()
 
 QStatus BundledDaemon::Stop()
 {
-    lock.Lock();
+    ScopedMutexLock guard(lock);
     int32_t rc = DecrementAndFetch(&refCount);
     assert(rc >= 0);
     if (rc == 0) {
@@ -216,6 +217,5 @@ QStatus BundledDaemon::Stop()
             return ER_OK;
         }
     }
-    lock.Unlock();
     return ER_OK;
 }
