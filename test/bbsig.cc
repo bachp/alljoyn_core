@@ -103,6 +103,14 @@ class MyBusListener : public BusListener, public SessionListener {
         }
     }
 
+    void LostAdvertisedName(const char* name, TransportMask transport, const char* namePrefix)
+    {
+        QCC_SyncPrintf("LostAdvertisedName(name=%s, transport=0x%x, prefix=%s)\n", name, transport, namePrefix);
+        if (0 == strcmp(name, g_wellKnownName.c_str())) {
+            g_discoverEvent.ResetEvent();
+        }
+    }
+
     void NameOwnerChanged(const char* name, const char* previousOwner, const char* newOwner)
     {
         QCC_SyncPrintf("NameOwnerChanged(%s, %s, %s)\n",
@@ -621,6 +629,12 @@ int main(int argc, char** argv)
         }
 
         if (discoverRemote) {
+            /*
+             * Make sure the event is cleared so we don't pick up a stale event from the previous
+             * iteration when running the stress test.
+             */
+            g_discoverEvent.ResetEvent();
+
             /* Begin discovery on the well-known name of the service to be called */
             Message reply(*g_msgBus);
             const ProxyBusObject& alljoynObj = g_msgBus->GetAllJoynProxyObj();
