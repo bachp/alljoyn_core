@@ -458,7 +458,7 @@ TEST(PerfTest, AsyncMethodCallTest_SimpleCall) {
             break;
         }
     }
-    ASSERT_EQ(1000, testclient.getSignalFlag());
+    EXPECT_EQ(1000, testclient.getSignalFlag());
 
 }
 
