@@ -664,7 +664,7 @@ QStatus AllJoynPeerObj::AuthenticatePeer(AllJoynMessageType msgType, const qcc::
          * propogated to the caller from this context.
          */
         if (status == ER_BUS_REPLY_IS_ERROR_MESSAGE) {
-            if (strcmp(replyMsg->GetErrorName(), "org.freedesktop.DBus.Error.ServiceUnknown") == 0) {
+            if (replyMsg->GetErrorName() != NULL && strcmp(replyMsg->GetErrorName(), "org.freedesktop.DBus.Error.ServiceUnknown") == 0) {
                 status = ER_BUS_NO_SUCH_OBJECT;
             } else {
                 status = ER_AUTH_FAIL;
