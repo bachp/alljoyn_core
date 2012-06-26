@@ -83,7 +83,7 @@ QStatus EndpointAuth::Hello(qcc::String& redirection)
             return status;
         }
         qcc::String msg;
-        if (strcmp(response->GetErrorName(&msg), RedirectError) == 0) {
+        if (response->GetErrorName(&msg) != NULL && strcmp(response->GetErrorName(&msg), RedirectError) == 0) {
             QCC_DbgPrintf(("Endpoint redirected: %s", msg.c_str()));
             redirection = msg;
             return ER_BUS_ENDPOINT_REDIRECTED;
