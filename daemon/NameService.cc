@@ -820,7 +820,7 @@ void NameService::LazyUpdateInterfaces(void)
     // m_any mode that means match all real IfConfig entries, we need to walk
     // the real IfConfig entries.
     //
-    for (uint32_t i = 0; i < entries.size(); ++i) {
+    for (uint32_t i = 0; (m_state == IMPL_RUNNING) && (i < entries.size()); ++i) {
         //
         // We expect that every device in the system must have a name.
         // It might be some crazy random GUID in Windows, but it will have
@@ -1801,7 +1801,7 @@ void* NameService::Run(void* arg)
     qcc::Timespec tNow, tLastLazyUpdate;
     GetTimeNow(&tLastLazyUpdate);
 
-    while (!IsStopping()) {
+    while (m_state == IMPL_RUNNING) {
         GetTimeNow(&tNow);
         m_mutex.Lock();
 
@@ -1871,7 +1871,7 @@ void* NameService::Run(void* arg)
         // We know what interfaces can be currently used to send messages
         // over, so now send any messages we have queued for transmission.
         //
-        while (m_outbound.size()) {
+        while (m_outbound.size() && (m_state == IMPL_RUNNING)) {
 
             //
             // The header contains a number of "questions" and "answers".
@@ -1904,7 +1904,7 @@ void* NameService::Run(void* arg)
             // Walk the list of live interfaces and send the protocol message
             // out each one.
             //
-            for (uint32_t i = 0; i < m_liveInterfaces.size(); ++i) {
+            for (uint32_t i = 0; (m_state == IMPL_RUNNING) && (i < m_liveInterfaces.size()); ++i) {
                 qcc::SocketFd sockFd = m_liveInterfaces[i].m_sockFd;
                 qcc::IPAddress interfaceAddress = m_liveInterfaces[i].m_address;
                 uint32_t interfaceAddressPrefixLen = m_liveInterfaces[i].m_prefixlen;
@@ -2033,6 +2033,7 @@ void* NameService::Run(void* arg)
                 // server loop when we run through it again (above).
                 //
                 stopEvent.ResetEvent();
+                break;
             } else if (*i == &timerEvent) {
                 // QCC_DbgPrintf(("NameService::Run(): Timer event fired"));
                 //
@@ -2115,7 +2116,7 @@ void NameService::Retry(void)
     //
     // use Meyers' idiom to keep iterators sane.
     //
-    for (list<Header>::iterator i = m_retry.begin(); i != m_retry.end();) {
+    for (list<Header>::iterator i = m_retry.begin(); (m_state == IMPL_RUNNING) && (i != m_retry.end());) {
         uint32_t retryTick = (*i).GetRetryTick();
 
         //
@@ -2153,6 +2154,13 @@ void NameService::Retry(void)
 void NameService::Retransmit(void)
 {
     QCC_DbgPrintf(("NameService::Retransmit()"));
+
+    //
+    // Check we are still in a running state
+    //
+    if (m_state != IMPL_RUNNING) {
+        return;
+    }
 
     //
     // We need a valid port before we send something out to the local subnet.
@@ -2477,6 +2485,16 @@ void NameService::HandleProtocolMessage(uint8_t const* buffer, uint32_t nbytes, 
             HandleProtocolAnswer(isAt, header.GetTimer(), address);
         }
     }
+}
+
+
+QStatus NameService::Stop()
+{
+    QStatus status = Thread::Stop();
+    if (m_state != IMPL_SHUTDOWN) {
+        m_state = IMPL_STOPPING;
+    }
+    return status;
 }
 
 } // namespace ajn

@@ -899,6 +899,20 @@ QStatus TCPTransport::Stop(void)
      */
     if (m_ns) {
         m_ns->SetCallback(NULL);
+        /*
+         * The use model for TCPTransport is that it works like a thread.
+         * There is a call to Start() that spins up the server accept loop in order
+         * to get it running.  When someone wants to tear down the transport, they
+         * call Stop() which requests the transport to stop.  This is followed by
+         * Join() which waits for all of the threads to actually stop.
+         *
+         * The name service should play by those rules as well.  We allocate and
+         * initialize it in Start(), which will spin up the main thread there.
+         * We need to Stop() the name service here and Join its thread in
+         * TCPTransport::Join().  If someone just deletes the transport
+         * there is an implied Stop() and Join() so it behaves correctly.
+         */
+        m_ns->Stop();
     }
 
     /*
@@ -937,23 +951,6 @@ QStatus TCPTransport::Stop(void)
     }
 
     m_endpointListLock.Unlock(MUTEX_CONTEXT);
-
-    /*
-     * The use model for TCPTransport is that it works like a thread.
-     * There is a call to Start() that spins up the server accept loop in order
-     * to get it running.  When someone wants to tear down the transport, they
-     * call Stop() which requests the transport to stop.  This is followed by
-     * Join() which waits for all of the threads to actually stop.
-     *
-     * The name service should play by those rules as well.  We allocate and
-     * initialize it in Start(), which will spin up the main thread there.
-     * We need to Stop() the name service here and Join its thread in
-     * TCPTransport::Join().  If someone just deletes the transport
-     * there is an implied Stop() and Join() so it behaves correctly.
-     */
-    if (m_ns) {
-        m_ns->Stop();
-    }
 
     return ER_OK;
 }

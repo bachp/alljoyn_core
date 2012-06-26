@@ -633,6 +633,11 @@ class NameService : public qcc::Thread {
      */
     bool Enabled(void) { return m_enabled || m_doEnable; }
 
+    /**
+     * Stop the name service and the underlying thread
+     */
+    QStatus Stop();
+
   private:
     /**
      * @brief Copying a NameService object is forbidden.
@@ -698,6 +703,7 @@ class NameService : public qcc::Thread {
         IMPL_SHUTDOWN,          /**< Nothing is running and object may be destroyed */
         IMPL_INITIALIZING,      /**< Object is in the process of coming up and may be inconsistent */
         IMPL_RUNNING,           /**< Object is running and ready to go */
+        IMPL_STOPPING,          /**< Object is stopping */
     };
 
     /**
