@@ -717,7 +717,7 @@ QStatus BusAttachment::UnregisterAllHandlers(MessageReceiver* receiver)
 }
 
 bool BusAttachment::IsConnected() const {
-    return busInternal->router->IsBusRunning();
+    return busInternal->router && busInternal->router->IsBusRunning();
 }
 
 QStatus BusAttachment::RegisterBusObject(BusObject& obj) {
