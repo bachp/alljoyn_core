@@ -449,9 +449,9 @@ void ProximityScanEngine::StartScan() {
 
     uint32_t relativeTime = 5000;
     uint32_t periodMs = 0;
-    //AlarmListener*myListener = this;
     myListener = this;
-    Alarm tScan(relativeTime, myListener, periodMs);
+    void* vptr = NULL;
+    Alarm tScan(relativeTime, myListener, vptr, periodMs);
 
     // Add the alarm to the timer
     this->tScan = &tScan;
@@ -473,8 +473,9 @@ void ProximityScanEngine::StartScan() {
 void ProximityScanEngine::AddAlarm(uint32_t delay) {
 
     uint32_t periodMs = 0;
-    AlarmListener*myListener = this;
-    Alarm tScan(delay, myListener, periodMs);
+    AlarmListener* myListener = this;
+    void* vptr = NULL;
+    Alarm tScan(delay, myListener, vptr, periodMs);
     mainTimer.AddAlarm(tScan);
 }
 

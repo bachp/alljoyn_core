@@ -49,7 +49,7 @@
 #include "Transport.h"
 
 #include <qcc/STLContainer.h>
-
+#include "PermissionDB.h"
 namespace ajn {
 
 class BusAttachment;

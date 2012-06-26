@@ -1012,7 +1012,10 @@ void DaemonICETransport::SendSTUNKeepAliveAndTURNRefreshRequest(ICEPacketStream&
     }
 
     /* Reload the alarm */
-    Alarm keepAliveAlarm(icePktStream.GetStunKeepAlivePeriod(), this, 0, reinterpret_cast<void*>(&icePktStream));
+    uint32_t zero = 0;
+    uint32_t period = icePktStream.GetStunKeepAlivePeriod();
+    void* packetStream = reinterpret_cast<void*>(&icePktStream);
+    Alarm keepAliveAlarm(period, this, packetStream, zero);
     status = daemonICETransportTimer.AddAlarm(keepAliveAlarm);
     if (status != ER_OK) {
         QCC_LogError(status, ("DaemonICEEndpoint::SendSTUNKeepAliveAndTURNRefreshRequest(): Unable to add KeepAliveAlarm to daemonICETransportTimer"));

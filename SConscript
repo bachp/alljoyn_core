@@ -111,8 +111,6 @@ bdenv = env.Clone()
 bdenv.Prepend(LIBS = daemon_lib)
 bdenv.Prepend(LIBS = daemon_obj)
 bdenv.VariantDir('$OBJDIR/bundled', 'test', duplicate = 0)
-bdprogs = bdenv.SConscript('$OBJDIR/bundled/SConscript', exports={'env':bdenv})
-bdenv.Install('$DISTDIR/bin/bundled', bdprogs)
 
 # Release notes and misc. legals
 env.Install('$DISTDIR', 'docs/ReleaseNotes.txt')
