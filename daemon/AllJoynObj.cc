@@ -1263,13 +1263,7 @@ qcc::ThreadReturn STDCALL AllJoynObj::JoinSessionThread::RunAttach()
                                 id = smEntry->id;
                                 destIsLocal = true;
                                 creatorName = creatorEp->GetUniqueName();
-
-                                /* AttachSession response will contain list of members */
-                                vector<const char*> nameVec(smEntry->memberNames.size());
-                                for (size_t i = 0; i < nameVec.size(); ++i) {
-                                    nameVec[i] = smEntry->memberNames[i].c_str();
-                                }
-                                replyArgs[3].Set("as", nameVec.size(), nameVec.empty() ? NULL : &nameVec.front());
+                                replyArgs[3].Set("a$", smEntry->memberNames.size(), &smEntry->memberNames.front());
                             } else {
                                 replyCode = ALLJOYN_JOINSESSION_REPLY_FAILED;
                             }
@@ -1687,7 +1681,7 @@ void AllJoynObj::GetSessionInfo(const InterfaceDescription::Member* member, Mess
     if (busAddrs.empty()) {
         status = MethodReply(msg, ER_BUS_NO_SESSION);
     } else {
-        MsgArg replyArg("as", busAddrs.size(), NULL, &busAddrs[0]);
+        MsgArg replyArg("a$", busAddrs.size(), &busAddrs[0]);
         status = MethodReply(msg, &replyArg, 1);
     }
 

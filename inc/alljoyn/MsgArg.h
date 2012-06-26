@@ -6,7 +6,7 @@
  */
 
 /******************************************************************************
- * Copyright 2009-2011, Qualcomm Innovation Center, Inc.
+ * Copyright 2009-2012, Qualcomm Innovation Center, Inc.
  *
  *    Licensed under the Apache License, Version 2.0 (the "License");
  *    you may not use this file except in compliance with the License.
@@ -379,15 +379,16 @@ class MsgArg {
      *
      *  - @c 'a'  The array length followed by:
      *            - If the element type is a basic type a pointer to an array of values of that type.
-     *            - If the element type is string a pointer to array of const char*, if array length is
-     *              non-zero, and the char* pointer is NULL, the NULL must be followed by a pointer to
-     *              an array of const qcc::String.
+     *            - If the element type is string a pointer to array of const char*,
      *            - If the element type is an @ref ALLJOYN_ARRAY "ARRAY", @ref ALLJOYN_STRUCT "STRUCT",
      *              @ref ALLJOYN_DICT_ENTRY "DICT_ENTRY" or @ref ALLJOYN_VARIANT "VARIANT" a pointer to an
      *              array of MsgArgs where each MsgArg has the signature specified by the element type.
      *            - If the element type is specified using the wildcard character '*', a pointer to
      *              an  array of MsgArgs. The array element type is determined from the type of the
      *              first MsgArg in the array, all the elements must have the same type.
+     *            - If the element type is specified using a '$' character, a pointer to an array of
+     *              qcc::String. This is a convenience case for initializing a string array, actual
+     *              signature "as" from a qcc::String array.
      *  - @c 'b'  A bool value
      *  - @c 'd'  A double (64 bits)
      *  - @c 'g'  A pointer to a NUL terminated string (pointer must remain valid for lifetime of the MsgArg)
@@ -665,7 +666,7 @@ class MsgArg {
 
     void SetOwnershipDeep();
     static void Clone(MsgArg& dest, const MsgArg& src);
-    static QStatus BuildArray(MsgArg* arry, const qcc::String elemSig, va_list* argp);
+    static QStatus BuildArray(MsgArg* arry, const qcc::String& elemSig, va_list* argp);
     static QStatus VBuildArgs(const char*& signature, size_t sigLen, MsgArg* arg, size_t maxArgs, va_list* argp, size_t* count = NULL);
     static QStatus ParseArray(const MsgArg* arry, const char* elemSig, size_t elemSigLen, va_list* argp);
     static QStatus VParseArgs(const char*& signature, size_t sigLen, const MsgArg* argList, size_t numArgs, va_list* argp);

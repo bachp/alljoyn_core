@@ -571,6 +571,27 @@ QStatus MarshalTests()
         }
     }
     /*
+     * Special case for arrays of qcc::String
+     */
+    if (fuzzing || (status == ER_OK)) {
+        qcc::String strs[ArraySize(as)];
+        for (size_t i = 0; i < ArraySize(as); ++i) {
+            strs[i] = as[i];
+        }
+        MsgArg arg;
+        status = arg.Set("a$", ArraySize(as), strs);
+        if (status == ER_OK) {
+            status = TestMarshal(&arg, 1);
+        }
+        if (status == ER_OK) {
+            /* Deprecated form */
+            status = arg.Set("as", ArraySize(as), NULL, strs);
+            if (status == ER_OK) {
+                status = TestMarshal(&arg, 1);
+            }
+        }
+    }
+    /*
      * Arrays of arrays
      */
     if (fuzzing || (status == ER_OK)) {
