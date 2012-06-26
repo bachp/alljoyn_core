@@ -40,10 +40,7 @@
 #include "RemoteEndpoint.h"
 #include "Transport.h"
 #include "VirtualEndpoint.h"
-
-#if defined(QCC_OS_ANDROID)
-#include "PermissionDB.h"
-#endif
+#include "PermissionMgr.h"
 
 namespace ajn {
 
@@ -507,14 +504,6 @@ class AllJoynObj : public BusObject, public NameListener, public TransportListen
      * Release AllJoynObj locks.
      */
     void ReleaseLocks();
-
-    /**
-     * Called to check whether have enough permissions to use designated transports.
-     * @param   sender        The sender's well-known name string
-     * @param   transports    The transport mask
-     * @param   callerName    The caller that invokes this check
-     */
-    QStatus CheckTransportsPermission(const qcc::String& sender, TransportMask& transports, const char* callerName);
 
     /**
      * Utility function used to send a single FoundName signal.

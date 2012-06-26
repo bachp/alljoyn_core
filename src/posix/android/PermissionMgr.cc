@@ -1,7 +1,6 @@
 /**
  * @file
- * This class is to impose permission verification on a peer when it tries to invoke a method/signal call
- * This only applies to the scenario that two peers on the same device connecting to the same pre-installed alljoyn daemon.
+ * This class is to manage the permission of an endpoint on using transports or invoking method/signal calls on another peer
  */
 
 /******************************************************************************
@@ -19,17 +18,18 @@
  *    See the License for the specific language governing permissions and
  *    limitations under the License.
  ******************************************************************************/
+#include "PermissionMgr.h"
 #include "PermissionDB.h"
-#include "PeerPermission.h"
 #include <qcc/String.h>
 #include <qcc/Mutex.h>
 #include <qcc/String.h>
 #include <alljoyn/DBusStd.h>
+#include <alljoyn/AllJoynStd.h>
 #include <map>
 
 using namespace qcc;
 
-#define QCC_MODULE "PEER_PERMISSION"
+#define QCC_MODULE "PERMISSION_MGR"
 
 namespace ajn {
 
@@ -112,7 +112,7 @@ PeerPermission::PeerPermStatus PeerPermission::CanPeerDoCall(Message& message, c
     PermCheckedEntry permChkEntry(message->GetSender(), message->GetObjectPath(), message->GetInterface(), message->GetMemberName());
     std::map<PermCheckedEntry, bool>::const_iterator it = permCheckedCallMap.find(permChkEntry);
     if (it != permCheckedCallMap.end()) {
-        if (!permCheckedCallMap[permChkEntry]) {
+        if (permCheckedCallMap[permChkEntry]) {
             pps = PP_ALLOWED;
         } else {
             pps = PP_DENIED;
@@ -194,7 +194,7 @@ class SignalCallRunnableAuth : public Runnable {
 
 QStatus PeerPermission::PeerAuthAndHandleMethodCall(Message& message, LocalEndpoint* localEp, const MethodTable::Entry* entry, ThreadPool* threadPool, const qcc::String& permStr)
 {
-    QCC_DbgHLPrintf(("PeerPermission::PeerAuthAndHandleMethodCall(permStr=%s), permStr.c_str()"));
+    QCC_DbgHLPrintf(("PeerPermission::PeerAuthAndHandleMethodCall(permStr=%s)", permStr.c_str()));
     QStatus status = ER_OK;
     Ptr<MethodCallRunnableAuth> runnable = NewPtr<MethodCallRunnableAuth>(localEp, entry, message, permStr);
     for (;;) {
@@ -215,7 +215,7 @@ QStatus PeerPermission::PeerAuthAndHandleMethodCall(Message& message, LocalEndpo
 
 QStatus PeerPermission::PeerAuthAndHandleSignalCall(Message& message, LocalEndpoint* localEp, std::list<SignalTable::Entry>& callList, ThreadPool* threadPool, const qcc::String& permStr)
 {
-    QCC_DbgHLPrintf(("PeerPermission::PeerAuthAndHandleSignalCall(permStr=%s), permStr.c_str()"));
+    QCC_DbgHLPrintf(("PeerPermission::PeerAuthAndHandleSignalCall(permStr=%s)", permStr.c_str()));
     QStatus status = ER_OK;
     std::list<SignalTable::Entry>::const_iterator callit;
     for (callit = callList.begin(); callit != callList.end(); ++callit) {
@@ -243,5 +243,91 @@ QStatus PeerPermission::PeerAuthAndHandleSignalCall(Message& message, LocalEndpo
     return status;
 }
 
+QStatus TransportPermission::FilterTransports(BusEndpoint* srcEp, const qcc::String& sender, TransportMask& transports, const char* callerName)
+{
+    QCC_DbgPrintf(("TransportPermission::FilterTransports() callerName(%s)", callerName));
+    QStatus status = ER_OK;
+    if (srcEp != NULL) {
+        if (transports & TRANSPORT_BLUETOOTH) {
+            bool allowed = PermissionDB::GetDB().IsBluetoothAllowed(*srcEp);
+            if (!allowed) {
+                transports ^= TRANSPORT_BLUETOOTH;
+                QCC_LogError(ER_ALLJOYN_ACCESS_PERMISSION_WARNING, ("AllJoynObj::%s() WARNING: No permission to use Bluetooth", (callerName == NULL) ? "" : callerName));
+            }
+        }
+        if (transports & TRANSPORT_WLAN) {
+            bool allowed = PermissionDB::GetDB().IsWifiAllowed(*srcEp);
+            if (!allowed) {
+                transports ^= TRANSPORT_WLAN;
+                QCC_LogError(ER_ALLJOYN_ACCESS_PERMISSION_WARNING, ("AllJoynObj::%s() WARNING: No permission to use Wifi", ((callerName == NULL) ? "" : callerName)));
+            }
+        }
+        if (transports & TRANSPORT_ICE) {
+            bool allowed = PermissionDB::GetDB().IsWifiAllowed(*srcEp);
+            if (!allowed) {
+                transports ^= TRANSPORT_ICE;
+                QCC_LogError(ER_ALLJOYN_ACCESS_PERMISSION_WARNING, ("AllJoynObj::%s() WARNING: No permission to use Wifi for ICE", ((callerName == NULL) ? "" : callerName)));
+            }
+        }
+        if (transports == 0) {
+            status = ER_BUS_NO_TRANSPORTS;
+        }
+    } else {
+        status = ER_BUS_NO_ENDPOINT;
+        QCC_LogError(ER_BUS_NO_ENDPOINT, ("AllJoynObj::CheckTransportsPermission No Bus Endpoint found for Sender %s", sender.c_str()));
+    }
+    return status;
+}
+
+void TransportPermission::GetForbiddenTransports(BusEndpoint* srcEp, TransportList& transList, TransportMask& transForbidden, const char* callerName)
+{
+    QCC_DbgHLPrintf(("TransportPermission::GetForbiddenTransports() callerName(%s)", callerName));
+    for (size_t i = 0; i < transList.GetNumTransports(); ++i) {
+        Transport* trans = transList.GetTransport(i);
+        if (trans && srcEp) {
+            if (trans->GetTransportMask() & TRANSPORT_BLUETOOTH && !PermissionDB::GetDB().IsBluetoothAllowed(*srcEp)) {
+                QCC_LogError(ER_ALLJOYN_ACCESS_PERMISSION_WARNING, ("TransportPermission: (Func %s) WARNING: No permission to use Bluetooth", callerName));
+                transForbidden |= TRANSPORT_BLUETOOTH;
+                continue;
+            }
+            if (trans->GetTransportMask() & TRANSPORT_WLAN && !PermissionDB::GetDB().IsWifiAllowed(*srcEp)) {
+                QCC_LogError(ER_ALLJOYN_ACCESS_PERMISSION_WARNING, ("TransportPermission: (Func %s) WARNING: No permission to use Wifi", callerName));
+                transForbidden |= TRANSPORT_WLAN;
+                continue;
+            }
+        }
+    }
+}
+
+uint32_t PermissionMgr::AddAliasUnixUser(BusEndpoint* srcEp, qcc::String& sender, uint32_t origUID, uint32_t aliasUID)
+{
+    QCC_DbgHLPrintf(("PermissionMgr::AddAliasUnixUser() origUID(%d), aliasUID(%d)", origUID, aliasUID));
+    QStatus status = ER_OK;
+    uint32_t replyCode = ALLJOYN_ALIASUNIXUSER_REPLY_SUCCESS;
+    if (!srcEp) {
+        status = ER_BUS_NO_ENDPOINT;
+        QCC_LogError(status, ("AliasUnixUser Failed to find endpoint for sender=%s", sender.c_str()));
+        replyCode = ALLJOYN_ALIASUNIXUSER_REPLY_FAILED;
+    } else {
+        origUID = srcEp->GetUserId();
+        if (origUID == (uint32_t)-1 || aliasUID == (uint32_t)-1) {
+            QCC_LogError(ER_FAIL, ("AliasUnixUser Invalid user id origUID=%d aliasUID=%d", origUID, aliasUID));
+            replyCode = ALLJOYN_ALIASUNIXUSER_REPLY_FAILED;
+        }
+    }
+
+    if (replyCode == ALLJOYN_ALIASUNIXUSER_REPLY_SUCCESS) {
+        if (PermissionDB::GetDB().AddAliasUnixUser(origUID, aliasUID) != ER_OK) {
+            replyCode = ALLJOYN_ALIASUNIXUSER_REPLY_FAILED;
+        }
+    }
+    return replyCode;
+}
+
+QStatus PermissionMgr::CleanPermissionCache(BusEndpoint& endpoint)
+{
+    QCC_DbgHLPrintf(("PermissionMgr::CleanPermissionCache()"));
+    return PermissionDB::GetDB().RemovePermissionCache(endpoint);
+}
 
 } // namespace ajn {

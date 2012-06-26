@@ -32,7 +32,7 @@
 #include "PermissionDB.h"
 #include "BusEndpoint.h"
 
-#define QCC_MODULE "ALLJOYN_PERMISSION"
+#define QCC_MODULE "PERMISSION_MGR"
 
 using namespace std;
 using namespace qcc;
@@ -115,14 +115,12 @@ bool PermissionDB::IsBluetoothAllowed(BusEndpoint& endpoint)
     QCC_DbgTrace(("PermissionDB::IsBluetoothAllowed(endpoint = %s)", endpoint.GetUniqueName().c_str()));
     bool allowed = true;
 
-#if defined(QCC_OS_ANDROID)
     uint32_t userId = UniqueUserID(endpoint.GetUserId());
     std::set<qcc::String> permsReq;
     // For Android app, permissions "android.permission.BLUETOOTH" and "android.permission.BLUETOOTH_ADMIN" are required for usage of bluetooth
     permsReq.insert("android.permission.BLUETOOTH");
     permsReq.insert("android.permission.BLUETOOTH_ADMIN");
     allowed = VerifyPermsOnAndroid(userId, permsReq);
-#endif
 
     return allowed;
 }
@@ -132,24 +130,19 @@ bool PermissionDB::IsWifiAllowed(BusEndpoint& endpoint)
     QCC_DbgTrace(("PermissionDB::IsWifiAllowed(endpoint = %s)", endpoint.GetUniqueName().c_str()));
     bool allowed = true;
 
-#if defined(QCC_OS_ANDROID)
     // For Android app, permissions "android.permission.INTERNET" and "android.permission.CHANGE_WIFI_MULTICAST_STATE" are required for usage of wifi.
     uint32_t userId = UniqueUserID(endpoint.GetUserId());
     std::set<qcc::String> permsReq;
     permsReq.insert("android.permission.INTERNET");
     permsReq.insert("android.permission.CHANGE_WIFI_MULTICAST_STATE");
     allowed = VerifyPermsOnAndroid(userId, permsReq);
-#endif
-
     return allowed;
 }
 
 bool PermissionDB::VerifyPeerPermissions(const uint32_t uid, const std::set<qcc::String>& permsReq) {
     bool pass = true;
-#if defined(QCC_OS_ANDROID)
     uint32_t userId = UniqueUserID(uid);
     pass = VerifyPermsOnAndroid(userId, permsReq);
-#endif
     return pass;
 }
 
@@ -157,12 +150,11 @@ QStatus PermissionDB::AddAliasUnixUser(uint32_t origUID, uint32_t aliasUID)
 {
     QCC_DbgTrace(("PermissionDB::AddAliasUnixUser(origUID = %d -> aliasUID = %d)", origUID, aliasUID));
     QStatus status = ER_OK;
-#if defined(QCC_OS_ANDROID)
     /* It is not allowed to use user id 0 (root user), BLUETOOTH_UID (bluetooth user) as alias*/
     if (aliasUID == 0 || aliasUID == BLUETOOTH_UID) {
         status = ER_FAIL;
     }
-#endif
+
     /* If the same, then do nothing*/
     if (status == ER_OK && UniqueUserID(aliasUID) != origUID) {
         permissionDbLock.Lock(MUTEX_CONTEXT);
@@ -276,7 +268,7 @@ static bool GetPermsAssignedByAndroid(uint32_t uid, std::set<qcc::String>& permi
                                         map<qcc::String, qcc::String>::const_iterator itemAttrIt;
                                         for (itemAttrIt = itemAttrs.begin(); itemAttrIt != itemAttrs.end(); ++itemAttrIt) {
                                             if (itemAttrIt->first.compare("name") == 0) {
-                                                QCC_DbgPrintf(("Xml Tag %s", "name"));
+                                                QCC_DbgPrintf(("Xml Tag %s = (%s)", "name", itemAttrIt->second.c_str()));
                                                 permissions.insert(itemAttrIt->second);
                                             }
                                         }
@@ -331,7 +323,7 @@ static bool GetPermsBySharedUserId(const char* sharedUid, std::set<qcc::String>&
                             map<qcc::String, qcc::String>::const_iterator itemAttrIt;
                             for (itemAttrIt = itemAttrs.begin(); itemAttrIt != itemAttrs.end(); ++itemAttrIt) {
                                 if (itemAttrIt->first.compare("name") == 0) {
-                                    QCC_DbgPrintf(("Xml Tag %s", "name"));
+                                    QCC_DbgPrintf(("Xml Tag %s = (%s)", "name", itemAttrIt->second.c_str()));
                                     permissions.insert(itemAttrIt->second);
                                 }
                             }

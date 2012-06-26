@@ -44,7 +44,7 @@
 #include "AllJoynPeerObj.h"
 #include "BusUtil.h"
 #include "BusInternal.h"
-#include "PeerPermission.h"
+#include "PermissionMgr.h"
 
 #define QCC_MODULE "LOCAL_TRANSPORT"
 
@@ -711,6 +711,7 @@ QStatus LocalEndpoint::HandleMethodCall(Message& message)
                         errStr += QCC_StatusText(ER_ALLJOYN_ACCESS_PERMISSION_ERROR);
                         errMsg = message->Description();
                         message->ErrorMsg(message, errStr.c_str(), errMsg.c_str());
+                        status = bus.GetInternal().GetRouter().PushMessage(message, *this);
                     }
                     return status;
                 } else if (pps == PeerPermission::PP_PENDING) {

@@ -363,9 +363,7 @@ void DaemonRouter::UnregisterEndpoint(BusEndpoint& endpoint)
         /* Remove endpoint from names and rules */
         nameTable.RemoveUniqueName(uniqueName);
         RemoveAllRules(endpoint);
-#if defined(QCC_OS_ANDROID)
-        PermissionDB::GetDB().RemovePermissionCache(endpoint);
-#endif
+        PermissionMgr::CleanPermissionCache(endpoint);
     }
 
     /* Unregister static endpoints */
