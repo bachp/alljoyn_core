@@ -64,46 +64,81 @@ class _InterfaceMember {
 
 public ref class InterfaceMember sealed {
   public:
+    ///<summary>
+    /// constructor
+    ///</summary>
+    ///<param name="iface">Interface that this member belongs to</param>
+    ///<param name="memberType">Member type</param>
+    ///<param name="name">Member name</param>
+    ///<param name="signature">Method call IN arguments (NULL for signals)</param>
+    ///<param name="returnSignature">Signal or method call OUT arguments</param>
+    ///<param name="argNames">Comma separated list of argument names - can be NULL</param>
+    ///<param name="annotation">Exclusive OR of flags MEMBER_ANNOTATE_NO_REPLY and MEMBER_ANNOTATE_DEPRECATED</param>
+    ///<param name="accessParams">Required permissions to invoke this call</param>
     InterfaceMember(InterfaceDescription ^ iface, AllJoynMessageType type, Platform::String ^ name,
                     Platform::String ^ signature, Platform::String ^ returnSignature, Platform::String ^ argNames,
                     uint8_t annotation, Platform::String ^ accessPerms);
     InterfaceMember::~InterfaceMember();
 
+    ///<summary>
+    ///Interface that this member belongs to
+    ///</summary>
     property InterfaceDescription ^ Interface
     {
         InterfaceDescription ^ get();
     }
 
+    ///<summary>
+    ///Member type
+    ///</summary>
     property AllJoynMessageType MemberType
     {
         AllJoynMessageType get();
     }
 
+    ///<summary>
+    ///Member name
+    ///</summary>
     property Platform::String ^ Name
     {
         Platform::String ^ get();
     }
 
+    ///<summary>
+    ///Method call IN arguments (NULL for signals)
+    ///</summary>
     property Platform::String ^ Signature
     {
         Platform::String ^ get();
     }
 
+    ///<summary>
+    ///Signal or method call OUT arguments
+    ///</summary>
     property Platform::String ^ ReturnSignature
     {
         Platform::String ^ get();
     }
 
+    ///<summary>
+    ///Comma separated list of argument names - can be NULL
+    ///</summary>
     property Platform::String ^ ArgNames
     {
         Platform::String ^ get();
     }
 
+    ///<summary>
+    ///Exclusive OR of flags MEMBER_ANNOTATE_NO_REPLY and MEMBER_ANNOTATE_DEPRECATED
+    ///</summary>
     property uint8_t Annotation
     {
         uint8_t get();
     }
 
+    ///<summary>
+    ///Required permissions to invoke this call
+    ///</summary>
     property Platform::String ^ AccessPerms
     {
         Platform::String ^ get();

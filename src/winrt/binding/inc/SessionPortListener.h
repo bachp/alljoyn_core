@@ -29,7 +29,32 @@ namespace AllJoyn {
 ref class SessionOpts;
 ref class BusAttachment;
 
+///<summary>
+///Accept or reject an incoming JoinSession request. The session does not exist until
+///after this function returns.
+///</summary>
+///<remarks>
+///This callback is only used by session creators. Therefore it is only called on listeners
+///passed to BusAttachment::BindSessionPort.
+///</remarks>
+///<param name="sessionPort">Session port that was joined.</param>
+///<param name="joiner">Unique name of potential joiner.</param>
+///<param name="opts">Session options requested by the joiner.</param>
+///<returns>
+///Return true if JoinSession request is accepted. false if rejected.
+///</returns>
 public delegate bool SessionPortListenerAcceptSessionJoinerHandler(ajn::SessionPort sessionPort, Platform::String ^ joiner, SessionOpts ^ opts);
+
+///<summary>
+///Called by the bus when a session has been successfully joined. The session is now fully up.
+///</summary>
+///<remarks>
+///This callback is only used by session creators. Therefore it is only called on listeners
+///passed to BusAttachment::BindSessionPort.
+///</remarks>
+///<param name="sessionPort">Session port that was joined.</param>
+///<param name="id">Id of session.</param>
+///<param name="joiner">Unique name of the joiner.</param>
 public delegate void SessionPortListenerSessionJoinedHandler(ajn::SessionPort sessionPort, ajn::SessionId id, Platform::String ^ joiner);
 
 ref class __SessionPortListener {
@@ -65,6 +90,7 @@ public ref class SessionPortListener sealed {
     SessionPortListener(BusAttachment ^ bus);
     ~SessionPortListener();
 
+    ///<summary>Called when the a JoinSession request has been made.</summary>
     event SessionPortListenerAcceptSessionJoinerHandler ^ AcceptSessionJoiner
     {
         Windows::Foundation::EventRegistrationToken add(SessionPortListenerAcceptSessionJoinerHandler ^ handler);
@@ -72,6 +98,7 @@ public ref class SessionPortListener sealed {
         bool raise(ajn::SessionPort sessionPort, Platform::String ^ joiner, SessionOpts ^ opts);
     }
 
+    ///<summary>Called when the session has been successfully joined.</summary>
     event SessionPortListenerSessionJoinedHandler ^ SessionJoined
     {
         Windows::Foundation::EventRegistrationToken add(SessionPortListenerSessionJoinedHandler ^ handler);
@@ -79,6 +106,7 @@ public ref class SessionPortListener sealed {
         void raise(ajn::SessionPort sessionPort, ajn::SessionId id, Platform::String ^ joiner);
     }
 
+    ///<summary>Retrieve the <c>BusAttachment</c> object related to this <c>SessionPortListener</c>.</summary>
     property BusAttachment ^ Bus
     {
         BusAttachment ^ get();

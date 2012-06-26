@@ -20,7 +20,8 @@ from os.path import basename
 locenv = env.Clone()
 
 # We want to generate documentation for the winrt binding
-locenv.Append(CXXFLAGS='/doc');
+# ${TARGET} places the .xdc files next to the .obj files.
+locenv.Append(CXXFLAGS='/doc${TARGET}.xdc');
 
 # Platform specific sources
 srcs = [ f for f in locenv.Glob('binding/src/*.cc') ]
@@ -30,7 +31,22 @@ objs = locenv.Object(srcs);
 # Header file includes
 locenv.Prepend(CPPPATH = 'binding/inc')
 
-# Add support for multiple build targets in the same workset
-locenv.VariantDir('$OBJDIR', '.', duplicate = 0)
+## Add support for multiple build targets in the same workset
+#locenv.VariantDir('$OBJDIR', '.', duplicate = 0)
+
+
+# put the AllJoyn.xml file next to the AllJoyn.winmd file in the dist directory
+XDCSourceDir = Dir('.').abspath
+XMLFileName = locenv.Dir('$DISTDIR\\bin\\AllJoyn').abspath
+locenv.Command('AllJoyn.xml',
+               None,
+               ''.join(['xdcmake.exe /old ', XMLFileName, ' /nologo /Fr', XDCSourceDir,'\\*.xdc'])
+               )
+
+# run the transform script on the xml file
+locenv.Command(Dir('${DISTDIR}'),
+               'AllJoyn.xml',
+               ''.join(['TransformXDCOutput.py ', XMLFileName, '.xml'])
+               )
 
 Return('objs')
