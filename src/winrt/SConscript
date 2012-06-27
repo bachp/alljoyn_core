@@ -38,12 +38,14 @@ locenv.Prepend(CPPPATH = 'binding/inc')
 # put the AllJoyn.xml file next to the AllJoyn.winmd file in the dist directory
 XDCSourceDir = Dir('.').abspath
 XMLFileName = locenv.Dir('$DISTDIR\\bin\\AllJoyn').abspath
+
+# run this after AllJoyn.dll has been built, and create AllJoyn.xml
 locenv.Command('AllJoyn.xml',
-               None,
+               '$DISTDIR\\bin\\AllJoyn.dll',
                ''.join(['xdcmake.exe /old ', XMLFileName, ' /nologo /Fr', XDCSourceDir,'\\*.xdc'])
                )
 
-# run the transform script on the xml file
+# run the transform script on the xml file after it is done
 locenv.Command(Dir('${DISTDIR}'),
                'AllJoyn.xml',
                ''.join(['TransformXDCOutput.py ', XMLFileName, '.xml'])
