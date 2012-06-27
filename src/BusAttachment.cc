@@ -86,25 +86,22 @@ struct _JoinSessionMethodCBContext {
     { }
 };
 
-struct _AsyncMethodCBContext {
-    BusAttachment::AsyncMethodCallCB* callback;
-    void* context;
-    const BusAttachment::AsyncMethodCallCB::MethodCallType type;
-
-    _AsyncMethodCBContext(
-        BusAttachment::AsyncMethodCallCB* callback,
-        BusAttachment::AsyncMethodCallCB::MethodCallType type,
-        void* context)
-        : callback(callback),
-        context(context),
-        type(type)
-    { }
-};
-
 }
 
 
 namespace ajn {
+
+struct BusAttachment::_AsyncMethodCBContext {
+    BusAttachment::AsyncMethodCallCB* callback;
+    void* context;
+
+    _AsyncMethodCBContext(
+        BusAttachment::AsyncMethodCallCB* callback,
+        void* context)
+        : callback(callback),
+        context(context)
+    { }
+};
 
 BusAttachment::Internal::Internal(const char* appName,
                                   BusAttachment& bus,
@@ -1234,7 +1231,6 @@ QStatus BusAttachment::JoinSessionAsync(const char* sessionHost, SessionPort ses
                                                 ArraySize(args),
                                                 new _AsyncMethodCBContext(
                                                     callback,
-                                                    AsyncMethodCallCB::JOINSESSION,
                                                     new _JoinSessionMethodCBContext(
                                                         callback,
                                                         sessionListener,
@@ -1257,15 +1253,55 @@ void BusAttachment::Internal::AsyncMethodCB(Message& reply, void* context)
 void BusAttachment::Internal::DoAsyncMethodCB(Message& reply, void* context)
 {
     _AsyncMethodCBContext* ctx = static_cast<_AsyncMethodCBContext*>(context);
-    ctx->callback->MethodCallCB(ctx->type, reply, ctx->context);
+    ctx->callback->MethodCallCB(reply, ctx);
     delete ctx;
 }
 
-void BusAttachment::JoinSessionAsyncCB::MethodCallCB(MethodCallType type, Message& reply, void* context)
+void BusAttachment::JoinSessionAsyncCB::MethodCallCB(Message& reply, void* context)
 {
-    _JoinSessionMethodCBContext* ctx = static_cast<_JoinSessionMethodCBContext*>(context);
+    _AsyncMethodCBContext* ctx = static_cast<_AsyncMethodCBContext*>(context);
+    _JoinSessionMethodCBContext* join_ctx = static_cast<_JoinSessionMethodCBContext*>(ctx->context);
     // call to DoJoinSessionMethodCB
-    ctx->internal.DoJoinSessionMethodCB(reply, ctx);
+    join_ctx->internal.DoJoinSessionMethodCB(reply, join_ctx);
+    // DO NOT delete anything here!
+}
+
+void BusAttachment::SetLinkTimeoutAsyncCB::MethodCallCB(Message& reply, void* context)
+{
+    _AsyncMethodCBContext* ctx = static_cast<_AsyncMethodCBContext*>(context);
+    QStatus status = ER_OK;
+    uint32_t timeout = 0;
+
+    if (reply->GetType() == MESSAGE_METHOD_RET) {
+        const MsgArg* replyArgs;
+        size_t na;
+        reply->GetArgs(na, replyArgs);
+        assert(na == 2);
+
+        switch (replyArgs[0].v_uint32) {
+            case ALLJOYN_SETLINKTIMEOUT_REPLY_SUCCESS:
+                timeout = replyArgs[1].v_uint32;
+                break;
+
+            case ALLJOYN_SETLINKTIMEOUT_REPLY_NO_DEST_SUPPORT:
+                status = ER_ALLJOYN_SETLINKTIMEOUT_REPLY_NO_DEST_SUPPORT;
+                break;
+
+            case ALLJOYN_SETLINKTIMEOUT_REPLY_NO_SESSION:
+                status = ER_BUS_NO_SESSION;
+                break;
+
+            default:
+            case ALLJOYN_SETLINKTIMEOUT_REPLY_FAILED:
+                status = ER_ALLJOYN_SETLINKTIMEOUT_REPLY_FAILED;
+                break;
+        }
+    } else if (reply->GetType() == MESSAGE_ERROR) {
+        status = ER_BUS_REPLY_IS_ERROR_MESSAGE;
+        QCC_LogError(status, ("%s.JoinSession returned ERROR_MESSAGE (error=%s)", org::alljoyn::Bus::InterfaceName, reply->GetErrorDescription().c_str()));
+    }
+
+    SetLinkTimeoutCB(status, timeout, ctx->context);
 }
 
 void BusAttachment::Internal::DoJoinSessionMethodCB(Message& reply, void* context)
@@ -1501,7 +1537,7 @@ QStatus BusAttachment::SetLinkTimeoutAsync(SessionId sessionid, uint32_t linkTim
         static_cast<MessageReceiver::ReplyHandler>(&BusAttachment::Internal::AsyncMethodCB),
         args,
         ArraySize(args),
-        new _AsyncMethodCBContext(callback, AsyncMethodCallCB::SETLINKTIMEOUT, context),
+        new _AsyncMethodCBContext(callback, context),
         90000);
     return status;
 }
