@@ -1279,22 +1279,22 @@ void BusAttachment::SetLinkTimeoutAsyncCB::MethodCallCB(Message& reply, void* co
         assert(na == 2);
 
         switch (replyArgs[0].v_uint32) {
-            case ALLJOYN_SETLINKTIMEOUT_REPLY_SUCCESS:
-                timeout = replyArgs[1].v_uint32;
-                break;
+        case ALLJOYN_SETLINKTIMEOUT_REPLY_SUCCESS:
+            timeout = replyArgs[1].v_uint32;
+            break;
 
-            case ALLJOYN_SETLINKTIMEOUT_REPLY_NO_DEST_SUPPORT:
-                status = ER_ALLJOYN_SETLINKTIMEOUT_REPLY_NO_DEST_SUPPORT;
-                break;
+        case ALLJOYN_SETLINKTIMEOUT_REPLY_NO_DEST_SUPPORT:
+            status = ER_ALLJOYN_SETLINKTIMEOUT_REPLY_NO_DEST_SUPPORT;
+            break;
 
-            case ALLJOYN_SETLINKTIMEOUT_REPLY_NO_SESSION:
-                status = ER_BUS_NO_SESSION;
-                break;
+        case ALLJOYN_SETLINKTIMEOUT_REPLY_NO_SESSION:
+            status = ER_BUS_NO_SESSION;
+            break;
 
-            default:
-            case ALLJOYN_SETLINKTIMEOUT_REPLY_FAILED:
-                status = ER_ALLJOYN_SETLINKTIMEOUT_REPLY_FAILED;
-                break;
+        default:
+        case ALLJOYN_SETLINKTIMEOUT_REPLY_FAILED:
+            status = ER_ALLJOYN_SETLINKTIMEOUT_REPLY_FAILED;
+            break;
         }
     } else if (reply->GetType() == MESSAGE_ERROR) {
         status = ER_BUS_REPLY_IS_ERROR_MESSAGE;
