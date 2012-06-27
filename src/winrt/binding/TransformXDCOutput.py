@@ -44,4 +44,4 @@ for line in inFile:
 inFile.close()
 outFile.close()
 os.remove(filename)
-os.rename(filename+".new", fname)
+os.rename(filename+".new", filename)

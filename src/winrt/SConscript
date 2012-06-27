@@ -45,10 +45,13 @@ locenv.Command('AllJoyn.xml',
                ''.join(['xdcmake.exe /old ', XMLFileName, ' /nologo /Fr', XDCSourceDir,'\\*.xdc'])
                )
 
+# get the source location of the transform script
+XDCTransformToolDir = locenv.Dir('binding').srcnode().abspath
+
 # run the transform script on the xml file after it is done
-locenv.Command(Dir('${DISTDIR}'),
+locenv.Command('AllJoyn.xml.new',
                'AllJoyn.xml',
-               ''.join(['TransformXDCOutput.py ', XMLFileName, '.xml'])
+               ''.join([XDCTransformToolDir, '\\TransformXDCOutput.py ', XMLFileName, '.xml'])
                )
 
 Return('objs')
