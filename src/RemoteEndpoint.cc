@@ -465,6 +465,8 @@ void* RemoteEndpoint::TxThread::Run(void* arg)
 
 QStatus RemoteEndpoint::PushMessage(Message& msg)
 {
+    QCC_DbgTrace(("RemoteEndpoint::PushMessage(serial=%d)", msg->GetCallSerial()));
+
     static const size_t MAX_TX_QUEUE_SIZE = 30;
 
     QStatus status = ER_OK;

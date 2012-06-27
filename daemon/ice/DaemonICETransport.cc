@@ -474,7 +474,7 @@ QStatus DaemonICEEndpoint::PacketEngineConnect(const IPAddress& addr, uint16_t p
         return status;
     }
 
-    status = Event::Wait(waitEvt, PACKET_ENGINE_CONNECT_AND_ACCEPT_TIMEOUT);
+    status = Event::Wait(waitEvt);
     if (status != ER_OK) {
         m_authState = AUTH_FAILED;
         QCC_LogError(status, ("DaemonICEEndpoint::AuthThread::Run(): Timed-out or failed wait on m_pktEngineConnectEvent"));
@@ -845,11 +845,14 @@ QStatus DaemonICETransport::Join(void)
      * authentication threads in a previously required Stop().  We need to
      * Join() all of these auth threads here.
      */
-    for (list<DaemonICEEndpoint*>::iterator i = m_authList.begin(); i != m_authList.end(); ++i) {
-        (*i)->AuthJoin();
-        delete *i;
+    while (!m_authList.empty()) {
+        DaemonICEEndpoint* ep = m_authList.front();
+        m_authList.pop_front();
+        m_endpointListLock.Unlock(MUTEX_CONTEXT);
+        ep->AuthJoin();
+        delete ep;
+        m_endpointListLock.Lock(MUTEX_CONTEXT);
     }
-    m_authList.clear();
 
     /*
      * Any running endpoints have been asked it their threads in a previously
@@ -857,11 +860,14 @@ QStatus DaemonICETransport::Join(void)
      * Join() will wait on the endpoint rx and tx threads to exit as opposed to
      * the joining of the auth thread we did above.
      */
-    for (list<DaemonICEEndpoint*>::iterator i = m_endpointList.begin(); i != m_endpointList.end(); ++i) {
-        (*i)->Join();
-        delete *i;
+    while (!m_endpointList.empty()) {
+        DaemonICEEndpoint* ep = m_endpointList.front();
+        m_endpointList.pop_front();
+        m_endpointListLock.Unlock(MUTEX_CONTEXT);
+        ep->Join();
+        delete ep;
+        m_endpointListLock.Lock();
     }
-    m_endpointList.clear();
 
     m_endpointListLock.Unlock(MUTEX_CONTEXT);
 
@@ -915,7 +921,6 @@ void DaemonICETransport::PacketEngineConnectCB(PacketEngine& engine,
 
     ep->m_packetEngineReturnStatus = status;
     ep->m_connectWaitEvent->SetEvent();
-    ep->DecrementRef();
 }
 
 bool DaemonICETransport::PacketEngineAcceptCB(PacketEngine& engine, const PacketEngineStream& stream, const PacketDest& dest)
@@ -1927,8 +1932,6 @@ QStatus DaemonICETransport::Connect(const char* connectSpec, const SessionOpts& 
     if (pktStream) {
         conn = new DaemonICEEndpoint(this, m_bus, false, normSpec, *pktStream);
         /* Setup the PacketEngine connection */
-        /* Increment endpoint ref count so it will stay alive until PacketEngineConnectCB is called */
-        conn->IncrementRef();
         status = conn->PacketEngineConnect(pktStream->GetICERemoteAddr(), pktStream->GetICERemotePort());
         if (status == ER_OK) {
             /*
