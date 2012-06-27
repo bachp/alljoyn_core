@@ -47,34 +47,17 @@ class BusEndpoint;
  * %BusAttachment is the top-level object responsible for connecting to and optionally managing a message bus.
  */
 class BusAttachment : public MessageReceiver {
-  public:
-    /**
-     * Pure virtual base class implemented by classes that wish to make an async method call
-     */
     class AsyncMethodCallCB {
       public:
-
-        /**
-         * Enumeration of the different types of method calls.  Currently only JoinSession and SetLinkTimeout are supported
-         */
-        enum MethodCallType {
-            UNKNOWN = 0,
-            JOINSESSION,
-            SETLINKTIMEOUT
-        };
-
         /** Destructor */
         virtual ~AsyncMethodCallCB() { }
 
-        /**
-         * Called when JoinSessionAsync() completes.
-         *
-         * @param type         The method call that triggered this callback
-         * @param reply        A message containing the reply to the method
-         * @param context      User defined context which will be passed as-is to callback.
-         */
-        virtual void MethodCallCB(MethodCallType type, Message& reply, void* context) = 0;
+        virtual void MethodCallCB(Message& reply, void* context) = 0;
     };
+
+    struct _AsyncMethodCBContext;
+
+  public:
 
     /**
      * Pure virtual base class implemented by classes that wish to call JoinSessionAsync().
@@ -94,8 +77,31 @@ class BusAttachment : public MessageReceiver {
          */
         virtual void JoinSessionCB(QStatus status, SessionId sessionId, const SessionOpts& opts, void* context) = 0;
 
+      private:
         // implementation of above callback
-        void MethodCallCB(MethodCallType type, Message& reply, void* context);
+        void MethodCallCB(Message& reply, void* context);
+    };
+
+    /**
+     * Pure virtual base class implemented by classes that wish to call SetLinkTimeoutAsync().
+     */
+    class SetLinkTimeoutAsyncCB : public AsyncMethodCallCB {
+      public:
+        /** Destructor */
+        virtual ~SetLinkTimeoutAsyncCB() { }
+
+        /**
+         * Called when SetLinkTimeoutAsync() completes.
+         *
+         * @param status       ER_OK if successful
+         * @param timeout      Timeout value
+         * @param context      User defined context which will be passed as-is to callback.
+         */
+        virtual void SetLinkTimeoutCB(QStatus status, uint32_t timeout, void* context) = 0;
+
+      private:
+        // implementation of above callback
+        void MethodCallCB(Message& reply, void* context);
     };
 
     /**

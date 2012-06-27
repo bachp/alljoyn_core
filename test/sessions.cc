@@ -584,7 +584,7 @@ static void DoSetLinkTimeout(SessionId id, uint32_t timeout)
     }
 }
 
-struct AsyncTimeoutHandler : public BusAttachment::AsyncMethodCallCB {
+struct AsyncTimeoutHandler : public BusAttachment::SetLinkTimeoutAsyncCB {
 
     const SessionId id;
     const uint32_t timeout;
@@ -592,19 +592,10 @@ struct AsyncTimeoutHandler : public BusAttachment::AsyncMethodCallCB {
     AsyncTimeoutHandler(SessionId id, uint32_t timeout) : id(id), timeout(timeout)
     {   }
 
-    void MethodCallCB(MethodCallType type, Message& reply, void* context)
+    void SetLinkTimeoutCB(QStatus status, uint32_t timeout, void* context)
     {
-        const MsgArg* replyArgs;
-        size_t na;
-        reply->GetArgs(na, replyArgs);
-        assert(na == 2);
-
-        String s  = reply->ToString();
-        printf("Reply: [%s]\n", s.c_str());
-
-        const uint32_t disposition = replyArgs[0].v_uint32;
-        if (disposition != ALLJOYN_SETLINKTIMEOUT_REPLY_SUCCESS) {
-            printf("SetLinkTimeout(%u, %u) failed with %d\n", id, timeout, disposition);
+        if (status != ER_OK) {
+            printf("SetLinkTimeout(%u, %u) failed with %s\n", id, timeout, QCC_StatusText(status));
         } else {
             printf("Link timeout for session %u is %d\n", id, timeout);
         }
@@ -816,7 +807,6 @@ int main(int argc, char** argv)
                 continue;
             }
             DoSetLinkTimeoutAsync(id, timeout);
-        } else if (cmd == "chat") {
         } else if (cmd == "chat") {
             uint8_t flags = 0;
             SessionId id = NextTokAsSessionId(line);
