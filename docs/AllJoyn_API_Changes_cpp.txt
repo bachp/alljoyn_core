@@ -271,6 +271,12 @@ ajn::BusObject.CallMethodHandler(MessageReceiver::MethodHandler handler,
     [param] context - NULL or a private context passed in when the method handler 
                       was registered.
 
+NEW METHOD 
+ajn::_Message::GetErrorDescription() const
+    Returns a complete description of an error by concatenating the error name and the error
+    message together.
+    
+
 NEW METHOD
 ajn::_Message.SetEndianess(const char endian)
     Set the endianess for outgoing messages. This is mainly for testing purposes.
@@ -282,6 +288,22 @@ ajn::_Message.SetEndianess(const char endian)
 NEW BIT MASK
 TRANSPORT_ICE value = 0x0020
     TrasportMask identifying transport ICE protocol
+
+NEW METHOD
+qcc::String.append(const char c)
+    Append a single character to string.
+
+    [param] c - Character to append to string.
+
+NEW METHOD
+qcc::String.operator+=(const char c)
+    Append a character.
+
+    [param] c - Character to append to string.
+ 
+NEW CONSTANT
+qcc::String.Empty
+    Returns a reference to the empty string
 
 -------------------------------------------------------------------------------
 AllJoyn API Changes between v2.2.0 and v2.3.0 (C++ API)
