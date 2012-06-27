@@ -86,6 +86,8 @@ PacketEngineStream::~PacketEngineStream()
 
 QStatus PacketEngineStream::PullBytes(void* buf, size_t reqBytes, size_t& actualBytes, uint32_t timeout)
 {
+    QCC_DbgTrace(("PacketEngineStream::PullBytes(<>, reqBytes=%d, <>, timeout=%d)", reqBytes, timeout));
+
     PacketEngine::ChannelInfo* ci = engine->AcquireChannelInfo(chanId);
     if (!ci) {
         return ER_SOCK_OTHER_END_CLOSED;
@@ -194,6 +196,8 @@ QStatus PacketEngineStream::PullBytes(void* buf, size_t reqBytes, size_t& actual
 
 QStatus PacketEngineStream::PushBytes(const void* buf, size_t numBytes, size_t& numSent, uint32_t ttl)
 {
+    QCC_DbgTrace(("PacketEngineStream::PushBytes(<>, numBytes=%d, <>, ttl=%d)", numBytes, ttl));
+
     PacketEngine::ChannelInfo* ci = engine->AcquireChannelInfo(chanId);
     if (!ci) {
         return ER_SOCK_OTHER_END_CLOSED;
