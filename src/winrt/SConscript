@@ -49,7 +49,7 @@ locenv.Command('AllJoyn.xml',
 XDCTransformToolDir = locenv.Dir('binding').srcnode().abspath
 
 # run the transform script on the xml file after it is done
-locenv.Command('AllJoyn.xml.new',
+locenv.Command(Dir('${DISTDIR}'),
                'AllJoyn.xml',
                ''.join([XDCTransformToolDir, '\\TransformXDCOutput.py ', XMLFileName, '.xml'])
                )
