@@ -87,6 +87,7 @@ bool LocalTransport::IsRunning()
 
 LocalEndpoint::LocalEndpoint(BusAttachment& bus) :
     BusEndpoint(BusEndpoint::ENDPOINT_TYPE_LOCAL),
+    dispatcher(this),
     running(false),
     refCount(1),
     bus(bus),
@@ -95,8 +96,7 @@ LocalEndpoint::LocalEndpoint(BusAttachment& bus) :
     dbusObj(NULL),
     alljoynObj(NULL),
     alljoynDebugObj(NULL),
-    peerObj(NULL),
-    threadPool(NULL)
+    peerObj(NULL)
 {
 }
 
@@ -131,19 +131,15 @@ LocalEndpoint::~LocalEndpoint()
         delete peerObj;
         peerObj = NULL;
     }
-
-    if (threadPool) {
-        delete threadPool;
-        threadPool = NULL;
-    }
 }
 
 QStatus LocalEndpoint::Start()
 {
-    assert(threadPool == NULL);
-    threadPool = new ThreadPool("LocalEndpoint Callout ThreadPool", bus.GetConcurrency());
-
     QStatus status = ER_OK;
+
+    /* Start the dispatcher */
+    status = dispatcher.Start();
+
     /* Set the local endpoint's unique name */
     SetUniqueName(bus.GetInternal().GetRouter().GenerateUniqueName());
 
@@ -200,10 +196,6 @@ QStatus LocalEndpoint::Stop(void)
 
     IncrementAndFetch(&refCount);
 
-    if (threadPool) {
-        threadPool->Stop();
-    }
-
     /*
      * Unregister all registered bus objects
      */
@@ -220,18 +212,20 @@ QStatus LocalEndpoint::Stop(void)
         peerObj->Stop();
     }
     objectsLock.Unlock(MUTEX_CONTEXT);
+
+    /* Stop the dispatcher */
+    dispatcher.Stop();
+
     DecrementAndFetch(&refCount);
     return ER_OK;
 }
 
 QStatus LocalEndpoint::Join(void)
 {
-    if (threadPool) {
-        threadPool->Join();
-    }
     if (peerObj) {
         peerObj->Join();
     }
+    dispatcher.Join();
     return ER_OK;
 }
 
@@ -282,7 +276,45 @@ QStatus LocalEndpoint::PeerInterface(Message& message)
     return ER_BUS_OBJECT_NO_SUCH_MEMBER;
 }
 
+LocalEndpoint::Dispatcher::Dispatcher(LocalEndpoint* endpoint) :
+    Timer("lepDisp", true, 4, true),
+    AlarmListener(),
+    endpoint(endpoint)
+{
+}
+
+QStatus LocalEndpoint::Dispatcher::DispatchMessage(Message& msg)
+{
+    return AddAlarm(Alarm(0, this, 0, new Message(msg)));
+}
+
+void LocalEndpoint::Dispatcher::AlarmTriggered(const Alarm& alarm, QStatus reason)
+{
+    Message* msg = static_cast<Message*>(alarm.GetContext());
+    if (msg) {
+        if (reason == ER_OK) {
+            QStatus status = endpoint->DoPushMessage(*msg);
+            if (status != ER_OK) {
+                QCC_LogError(status, ("LocalEndpoint::DoPushMessage failed"));
+            }
+        }
+        delete msg;
+    }
+}
+
 QStatus LocalEndpoint::PushMessage(Message& message)
+{
+    /* Determine if the source of this message is local to the process */
+    bool isLocalSender = bus.GetInternal().GetRouter().FindEndpoint(message->GetSender()) == this;
+
+    if (isLocalSender) {
+        return DoPushMessage(message);
+    } else {
+        return dispatcher.DispatchMessage(message);
+    }
+}
+
+QStatus LocalEndpoint::DoPushMessage(Message& message)
 {
     QStatus status = ER_OK;
 
@@ -641,40 +673,9 @@ void LocalEndpoint::AlarmTriggered(const Alarm& alarm, QStatus reason)
     }
 }
 
-/*
- * A class to package up a call to a method handler for future execution
- * by a thread pool (i.e., a closure).
- *
- * Instead of calling the method handler directly, we have to indirect back
- * through the LocalEndpoint which is the friend of the BusObject that can
- * actually make the call.
- */
-class MethodCallRunnable : public Runnable {
-  public:
-    MethodCallRunnable(LocalEndpoint* ep, const MethodTable::Entry* entry, Message message)
-        : ep(ep), entry(entry), message(message)
-    {
-        QCC_DbgHLPrintf(("MethodCallRunnable::MethodCallRunnable(): New closure for method call"));
-    }
-
-    virtual void Run(void)
-    {
-        QCC_DbgHLPrintf(("MethodCallRunnable::Run(): Firing closure for method call"));
-        ep->DoCallMethodHandler(entry, message);
-    }
-
-  private:
-    LocalEndpoint* ep;
-    const MethodTable::Entry* entry;
-    Message message;
-};
-
 QStatus LocalEndpoint::HandleMethodCall(Message& message)
 {
     QStatus status = ER_OK;
-
-    /* Determine if the source of this message is local to the process */
-    bool isLocalSender = bus.GetInternal().GetRouter().FindEndpoint(message->GetSender()) == this;
 
     /* Look up the member */
     const MethodTable::Entry* entry = methodTable.Find(message->GetObjectPath(),
@@ -701,6 +702,8 @@ QStatus LocalEndpoint::HandleMethodCall(Message& message)
     if (status == ER_OK) {
         /* Call the method handler */
         if (entry) {
+            // Disabled Peer permissions since not useful in bundled daemon use case
+#if 0
             if (entry->member->accessPerms.size() > 0) {
                 PeerPermission::PeerPermStatus pps = PeerPermission::CanPeerDoCall(message, entry->member->accessPerms);
                 if (pps == PeerPermission::PP_DENIED) {
@@ -719,31 +722,8 @@ QStatus LocalEndpoint::HandleMethodCall(Message& message)
                     return status;
                 }
             }
-
-            /*
-             * We cannot make method calls coming in from the local endpoint
-             * on another thread since our code depends on using recursive
-             * mutexes in our locks.  Introducing a new thread into that mix
-             * creates necessary and sufficient conditions for deadlock.
-             */
-            if (isLocalSender) {
-                entry->object->CallMethodHandler(entry->handler, entry->member, message, entry->context);
-            } else {
-                Ptr<MethodCallRunnable> runnable = NewPtr<MethodCallRunnable>(this, entry, message);
-                for (;;) {
-                    status = threadPool->WaitForAvailableThread();
-                    if (status != ER_OK) {
-                        break;
-                    }
-
-                    status = threadPool->Execute(runnable);
-                    if (status == ER_THREADPOOL_EXHAUSTED) {
-                        continue;
-                    } else {
-                        break;
-                    }
-                }
-            }
+#endif
+            entry->object->CallMethodHandler(entry->handler, entry->member, message, entry->context);
         }
     } else if (message->GetType() == MESSAGE_METHOD_CALL && !(message->GetFlags() & ALLJOYN_FLAG_NO_REPLY_EXPECTED)) {
         /* We are rejecting a method call that expects a response so reply with an error message. */
@@ -791,40 +771,9 @@ QStatus LocalEndpoint::HandleMethodCall(Message& message)
     return status;
 }
 
-/*
- * A class to package up a call to a signal handler for future execution
- * by a thread pool (i.e., a closure).
- */
-class SignalCallRunnable : public Runnable {
-  public:
-    SignalCallRunnable(MessageReceiver* object,
-                       MessageReceiver::SignalHandler handler,
-                       const InterfaceDescription::Member* member,
-                       Message message)
-        : object(object), handler(handler), member(member), message(message)
-    {
-        QCC_DbgHLPrintf(("SignalCallRunnable::SignalCallRunnable(): New closure for signal call"));
-    }
-
-    virtual void Run(void)
-    {
-        QCC_DbgHLPrintf(("SignalCallRunnable::Run(): Firing closure for signal call"));
-        (object->*handler)(member, message->GetObjectPath(), message);
-    }
-
-  private:
-    MessageReceiver* object;
-    MessageReceiver::SignalHandler handler;
-    const InterfaceDescription::Member* member;
-    Message message;
-};
-
 QStatus LocalEndpoint::HandleSignal(Message& message)
 {
     QStatus status = ER_OK;
-
-    /* Determine if the source of this message is local to the process */
-    bool isLocalSender = bus.GetInternal().GetRouter().FindEndpoint(message->GetSender()) == this;
 
     signalTable.Lock();
 
@@ -867,7 +816,8 @@ QStatus LocalEndpoint::HandleSignal(Message& message)
         }
     } else {
         list<SignalTable::Entry>::const_iterator first = callList.begin();
-
+        // Disabled Access perms because not useful with bundled daemon
+#if 0
         if (first->member->accessPerms.size() > 0) {
             PeerPermission::PeerPermStatus pps = PeerPermission::CanPeerDoCall(message, first->member->accessPerms);
             if (pps == PeerPermission::PP_DENIED) {
@@ -877,31 +827,10 @@ QStatus LocalEndpoint::HandleSignal(Message& message)
                 return status;
             }
         }
-
+#endif
         list<SignalTable::Entry>::const_iterator callit;
         for (callit = callList.begin(); callit != callList.end(); ++callit) {
-            /* Don't multithread signals originating locally.  See comment in similar code in MethodCallHandler */
-            if (isLocalSender) {
-                (callit->object->*callit->handler)(callit->member, message->GetObjectPath(), message);
-            } else {
-                Ptr<SignalCallRunnable> runnable = NewPtr<SignalCallRunnable>(callit->object,
-                                                                              callit->handler,
-                                                                              callit->member,
-                                                                              message);
-                for (;;) {
-                    status = threadPool->WaitForAvailableThread();
-                    if (status != ER_OK) {
-                        break;
-                    }
-
-                    status = threadPool->Execute(runnable);
-                    if (status == ER_THREADPOOL_EXHAUSTED) {
-                        continue;
-                    } else {
-                        break;
-                    }
-                }
-            }
+            (callit->object->*callit->handler)(callit->member, message->GetObjectPath(), message);
         }
     }
     return status;

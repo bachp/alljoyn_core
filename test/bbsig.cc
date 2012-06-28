@@ -83,6 +83,9 @@ class MyBusListener : public BusListener, public SessionListener {
     {
         QCC_SyncPrintf("FoundAdvertisedName(name=%s, transport=0x%x, prefix=%s)\n", name, transport, namePrefix);
 
+        /* We must enable concurrent callbacks since some of the calls below are blocking */
+        g_msgBus->EnableConcurrentCallbacks();
+
         if (0 == strcmp(name, g_wellKnownName.c_str())) {
             /* We found a remote bus that is advertising the well-known name so connect to it */
             SessionOpts opts(SessionOpts::TRAFFIC_MESSAGES, true, SessionOpts::PROXIMITY_ANY, transport);
