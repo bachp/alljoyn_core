@@ -56,15 +56,15 @@ using namespace qcc;
 // receive the candidates from the Service on the remote daemon.
 // Units in ms
 // PPN - Need to review this time
-const uint32_t ICE_CLIENT_SESSION_WAIT_TIMEOUT = 300000;
+const uint32_t ICE_CLIENT_SESSION_WAIT_TIMEOUT = 15000;
 
 // Maximum time in milli seconds that the DaemonICETransport will wait for the ICESession to allocate an ICE session
 // PPN - Need to review this time
-const uint32_t ICE_ALLOCATE_SESSION_WAIT_TIMEOUT = 300000;
+const uint32_t ICE_ALLOCATE_SESSION_WAIT_TIMEOUT = 15000;
 
 // Maximum time in milli seconds that the DaemonICETransport will wait to receive the new refreshed tokens
 // PPN - Need to review this time
-const uint32_t ICE_REFRESH_TOKENS_WAIT_TIMEOUT = 300000;
+const uint32_t ICE_REFRESH_TOKENS_WAIT_TIMEOUT = 15000;
 
 namespace ajn {
 
