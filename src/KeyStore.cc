@@ -615,7 +615,7 @@ QStatus KeyStore::GetKey(const qcc::GUID128& guid, KeyBlob& key, uint8_t accessR
     if (keys->find(guid) != keys->end()) {
         KeyRecord& keyRec = (*keys)[guid];
         key = keyRec.key;
-        memcpy(accessRights, &keyRec.accessRights, sizeof(accessRights));
+        memcpy(accessRights, &keyRec.accessRights, sizeof(accessRights) / sizeof(accessRights[0]));
         QCC_DbgPrintf(("AccessRights %1x%1x%1x%1x", accessRights[0], accessRights[1], accessRights[2], accessRights[3]));
         status = ER_OK;
     } else {
@@ -648,7 +648,7 @@ QStatus KeyStore::AddKey(const qcc::GUID128& guid, const KeyBlob& key, const uin
     keyRec.revision = revision + 1;
     keyRec.key = key;
     QCC_DbgPrintf(("AccessRights %1x%1x%1x%1x", accessRights[0], accessRights[1], accessRights[2], accessRights[3]));
-    memcpy(&keyRec.accessRights, accessRights, sizeof(accessRights));
+    memcpy(&keyRec.accessRights, accessRights, sizeof(accessRights) / sizeof(accessRights[0]));
     storeState = MODIFIED;
     deletions.erase(guid);
     lock.Unlock(MUTEX_CONTEXT);

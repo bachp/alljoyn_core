@@ -601,7 +601,7 @@ PacketEngine::ChannelInfo::ChannelInfo(const ChannelInfo& other) :
     }
     rxMaskSize = windowSize / 8;
     rxMask = new uint32_t[rxMaskSize / sizeof(uint32_t)];
-    ::memset(rxMask, 0, sizeof(rxMask));
+    ::memset(rxMask, 0, rxMaskSize - (rxMaskSize % sizeof(uint32_t)));
 
     /* create ack response buffer */
     ackResp = new uint32_t[3 + rxMaskSize / sizeof(uint32_t)];
