@@ -988,7 +988,7 @@ QStatus _Message::Unmarshal(RemoteEndpoint& endpoint, bool checkSender, bool ped
         /*
          * An invalid field type is an error
          */
-        if ((fieldId == ALLJOYN_HDR_FIELD_INVALID)) {
+        if (fieldId == ALLJOYN_HDR_FIELD_INVALID) {
             status = ER_BUS_BAD_HEADER_FIELD;
             goto ExitUnmarshal;
         }
