@@ -31,11 +31,7 @@ def repl(m):
     return d[m.group(0)]
 
 filename = sys.argv[1]
-print 'codecs.open ' + filename
-time.sleep(0.5)
 inFile = codecs.open(filename, "r", "utf-8") 
-print 'codecs.open ' + filename + '.new'
-time.sleep(0.5)
 outFile = codecs.open(filename + ".new", "w", "utf-8") 
 for line in inFile: 
     newline = p.sub(repl, line)
@@ -47,9 +43,5 @@ for line in inFile:
     outFile.write(newline) 
 inFile.close()
 outFile.close()
-print 'remove ' + filename
-time.sleep(0.5)
 os.remove(filename)
-print 'rename ' + filename + '.new ' + filename
-time.sleep(0.5)
 os.rename(filename+".new", filename)
