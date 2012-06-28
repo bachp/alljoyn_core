@@ -1098,6 +1098,16 @@ class BusAttachment : public MessageReceiver {
      */
     QStatus TryConnect(const char* connectSpec, BusEndpoint** newep);
 
+    /**
+     * Validate the response to SetLinkTimeout
+     */
+    QStatus GetLinkTimeoutResponse(Message& reply, uint32_t& timeout);
+
+    /**
+     * Validate the response to JoinSession
+     */
+    QStatus GetJoinSessionResponse(Message& reply, SessionId& sessionId, SessionOpts& opts);
+
     qcc::String connectSpec;  /**< The connect spec used to connect to the bus */
     bool hasStarted;          /**< Indicates if the bus has ever been started */
     bool isStarted;           /**< Indicates if the bus has been started */

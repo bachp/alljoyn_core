@@ -94,12 +94,15 @@ namespace ajn {
 struct BusAttachment::_AsyncMethodCBContext {
     BusAttachment::AsyncMethodCallCB* callback;
     void* context;
+    BusAttachment::Internal& internal;
 
     _AsyncMethodCBContext(
         BusAttachment::AsyncMethodCallCB* callback,
-        void* context)
+        void* context,
+        BusAttachment::Internal& internal)
         : callback(callback),
-        context(context)
+        context(context),
+        internal(internal)
     { }
 };
 
@@ -1260,7 +1263,8 @@ QStatus BusAttachment::JoinSessionAsync(const char* sessionHost, SessionPort ses
                                                         callback,
                                                         sessionListener,
                                                         context,
-                                                        *busInternal)),
+                                                        *busInternal),
+                                                    *busInternal),
                                                 90000);
     return status;
 }
@@ -1288,45 +1292,52 @@ void BusAttachment::JoinSessionAsyncCB::MethodCallCB(Message& reply, void* conte
     _JoinSessionMethodCBContext* join_ctx = static_cast<_JoinSessionMethodCBContext*>(ctx->context);
     // call to DoJoinSessionMethodCB
     join_ctx->internal.DoJoinSessionMethodCB(reply, join_ctx);
-    // DO NOT delete anything here!
 }
 
 void BusAttachment::SetLinkTimeoutAsyncCB::MethodCallCB(Message& reply, void* context)
 {
     _AsyncMethodCBContext* ctx = static_cast<_AsyncMethodCBContext*>(context);
-    QStatus status = ER_OK;
     uint32_t timeout = 0;
 
+    QStatus status = ER_OK;
     if (reply->GetType() == MESSAGE_METHOD_RET) {
-        const MsgArg* replyArgs;
-        size_t na;
-        reply->GetArgs(na, replyArgs);
-        assert(na == 2);
-
-        switch (replyArgs[0].v_uint32) {
-        case ALLJOYN_SETLINKTIMEOUT_REPLY_SUCCESS:
-            timeout = replyArgs[1].v_uint32;
-            break;
-
-        case ALLJOYN_SETLINKTIMEOUT_REPLY_NO_DEST_SUPPORT:
-            status = ER_ALLJOYN_SETLINKTIMEOUT_REPLY_NO_DEST_SUPPORT;
-            break;
-
-        case ALLJOYN_SETLINKTIMEOUT_REPLY_NO_SESSION:
-            status = ER_BUS_NO_SESSION;
-            break;
-
-        default:
-        case ALLJOYN_SETLINKTIMEOUT_REPLY_FAILED:
-            status = ER_ALLJOYN_SETLINKTIMEOUT_REPLY_FAILED;
-            break;
-        }
+        QStatus status = ctx->internal.bus.GetLinkTimeoutResponse(reply, timeout);
     } else if (reply->GetType() == MESSAGE_ERROR) {
         status = ER_BUS_REPLY_IS_ERROR_MESSAGE;
         QCC_LogError(status, ("%s.JoinSession returned ERROR_MESSAGE (error=%s)", org::alljoyn::Bus::InterfaceName, reply->GetErrorDescription().c_str()));
     }
 
     SetLinkTimeoutCB(status, timeout, ctx->context);
+}
+
+QStatus BusAttachment::GetLinkTimeoutResponse(Message& reply, uint32_t& timeout)
+{
+    QStatus status = ER_OK;
+    const MsgArg* replyArgs;
+    size_t na;
+    reply->GetArgs(na, replyArgs);
+    assert(na == 2);
+
+    switch (replyArgs[0].v_uint32) {
+    case ALLJOYN_SETLINKTIMEOUT_REPLY_SUCCESS:
+        timeout = replyArgs[1].v_uint32;
+        break;
+
+    case ALLJOYN_SETLINKTIMEOUT_REPLY_NO_DEST_SUPPORT:
+        status = ER_ALLJOYN_SETLINKTIMEOUT_REPLY_NO_DEST_SUPPORT;
+        break;
+
+    case ALLJOYN_SETLINKTIMEOUT_REPLY_NO_SESSION:
+        status = ER_BUS_NO_SESSION;
+        break;
+
+    default:
+    case ALLJOYN_SETLINKTIMEOUT_REPLY_FAILED:
+        status = ER_ALLJOYN_SETLINKTIMEOUT_REPLY_FAILED;
+        break;
+    }
+
+    return status;
 }
 
 void BusAttachment::Internal::DoJoinSessionMethodCB(Message& reply, void* context)
@@ -1337,51 +1348,7 @@ void BusAttachment::Internal::DoJoinSessionMethodCB(Message& reply, void* contex
     SessionId sessionId = 0;
     SessionOpts opts;
     if (reply->GetType() == MESSAGE_METHOD_RET) {
-        const MsgArg* replyArgs;
-        size_t na;
-        reply->GetArgs(na, replyArgs);
-        assert(na == 3);
-        uint32_t disposition = replyArgs[0].v_uint32;
-        sessionId = replyArgs[1].v_uint32;
-        status = GetSessionOpts(replyArgs[2], opts);
-        if (status == ER_OK) {
-            switch (disposition) {
-            case ALLJOYN_JOINSESSION_REPLY_SUCCESS:
-                break;
-
-            case ALLJOYN_JOINSESSION_REPLY_NO_SESSION:
-                status = ER_ALLJOYN_JOINSESSION_REPLY_NO_SESSION;
-                break;
-
-            case ALLJOYN_JOINSESSION_REPLY_UNREACHABLE:
-                status = ER_ALLJOYN_JOINSESSION_REPLY_UNREACHABLE;
-                break;
-
-            case ALLJOYN_JOINSESSION_REPLY_CONNECT_FAILED:
-                status = ER_ALLJOYN_JOINSESSION_REPLY_CONNECT_FAILED;
-                break;
-
-            case ALLJOYN_JOINSESSION_REPLY_REJECTED:
-                status = ER_ALLJOYN_JOINSESSION_REPLY_REJECTED;
-                break;
-
-            case ALLJOYN_JOINSESSION_REPLY_BAD_SESSION_OPTS:
-                status = ER_ALLJOYN_JOINSESSION_REPLY_BAD_SESSION_OPTS;
-                break;
-
-            case ALLJOYN_JOINSESSION_REPLY_ALREADY_JOINED:
-                status = ER_ALLJOYN_JOINSESSION_REPLY_ALREADY_JOINED;
-                break;
-
-            case ALLJOYN_JOINSESSION_REPLY_FAILED:
-                status = ER_ALLJOYN_JOINSESSION_REPLY_FAILED;
-                break;
-
-            default:
-                status = ER_BUS_UNEXPECTED_DISPOSITION;
-                break;
-            }
-        }
+        status = bus.GetJoinSessionResponse(reply, sessionId, opts);
     } else if (reply->GetType() == MESSAGE_ERROR) {
         status = ER_BUS_REPLY_IS_ERROR_MESSAGE;
         QCC_LogError(status, ("%s.JoinSession returned ERROR_MESSAGE (error=%s)", org::alljoyn::Bus::InterfaceName, reply->GetErrorDescription().c_str()));
@@ -1394,7 +1361,61 @@ void BusAttachment::Internal::DoJoinSessionMethodCB(Message& reply, void* contex
 
     /* Call the callback */
     ctx->callback->JoinSessionCB(status, sessionId, opts, ctx->context);
-    delete ctx;
+    //delete ctx;
+}
+
+QStatus BusAttachment::GetJoinSessionResponse(Message& reply, SessionId& sessionId, SessionOpts& opts)
+{
+    QStatus status = ER_OK;
+    const MsgArg* replyArgs;
+    size_t na;
+    reply->GetArgs(na, replyArgs);
+    assert(na == 3);
+    uint32_t disposition = replyArgs[0].v_uint32;
+    sessionId = replyArgs[1].v_uint32;
+    status = GetSessionOpts(replyArgs[2], opts);
+    if (status != ER_OK) {
+        sessionId = 0;
+    } else {
+        switch (disposition) {
+        case ALLJOYN_JOINSESSION_REPLY_SUCCESS:
+            break;
+
+        case ALLJOYN_JOINSESSION_REPLY_NO_SESSION:
+            status = ER_ALLJOYN_JOINSESSION_REPLY_NO_SESSION;
+            break;
+
+        case ALLJOYN_JOINSESSION_REPLY_UNREACHABLE:
+            status = ER_ALLJOYN_JOINSESSION_REPLY_UNREACHABLE;
+            break;
+
+        case ALLJOYN_JOINSESSION_REPLY_CONNECT_FAILED:
+            status = ER_ALLJOYN_JOINSESSION_REPLY_CONNECT_FAILED;
+            break;
+
+        case ALLJOYN_JOINSESSION_REPLY_REJECTED:
+            status = ER_ALLJOYN_JOINSESSION_REPLY_REJECTED;
+            break;
+
+        case ALLJOYN_JOINSESSION_REPLY_BAD_SESSION_OPTS:
+            status = ER_ALLJOYN_JOINSESSION_REPLY_BAD_SESSION_OPTS;
+            break;
+
+        case ALLJOYN_JOINSESSION_REPLY_ALREADY_JOINED:
+            status = ER_ALLJOYN_JOINSESSION_REPLY_ALREADY_JOINED;
+            break;
+
+        case ALLJOYN_JOINSESSION_REPLY_FAILED:
+            status = ER_ALLJOYN_JOINSESSION_REPLY_FAILED;
+            break;
+
+        default:
+            status = ER_BUS_UNEXPECTED_DISPOSITION;
+            break;
+        }
+    }
+
+    return status;
 }
 
 QStatus BusAttachment::JoinSession(const char* sessionHost, SessionPort sessionPort, SessionListener* listener, SessionId& sessionId, SessionOpts& opts)
@@ -1411,64 +1432,18 @@ QStatus BusAttachment::JoinSession(const char* sessionHost, SessionPort sessionP
     size_t numArgs = 2;
 
     MsgArg::Set(args, numArgs, "sq", sessionHost, sessionPort);
-
     SetSessionOpts(opts, args[2]);
 
     const ProxyBusObject& alljoynObj = this->GetAllJoynProxyObj();
-
     QStatus status = alljoynObj.MethodCall(org::alljoyn::Bus::InterfaceName, "JoinSession", args, ArraySize(args), reply);
+
     if (ER_OK == status) {
-        const MsgArg* replyArgs;
-        size_t na;
-        reply->GetArgs(na, replyArgs);
-        assert(na == 3);
-        uint32_t disposition = replyArgs[0].v_uint32;
-        sessionId = replyArgs[1].v_uint32;
-        status = GetSessionOpts(replyArgs[2], opts);
-        if (status != ER_OK) {
-            sessionId = 0;
-        } else {
-            switch (disposition) {
-            case ALLJOYN_JOINSESSION_REPLY_SUCCESS:
-                break;
-
-            case ALLJOYN_JOINSESSION_REPLY_NO_SESSION:
-                status = ER_ALLJOYN_JOINSESSION_REPLY_NO_SESSION;
-                break;
-
-            case ALLJOYN_JOINSESSION_REPLY_UNREACHABLE:
-                status = ER_ALLJOYN_JOINSESSION_REPLY_UNREACHABLE;
-                break;
-
-            case ALLJOYN_JOINSESSION_REPLY_CONNECT_FAILED:
-                status = ER_ALLJOYN_JOINSESSION_REPLY_CONNECT_FAILED;
-                break;
-
-            case ALLJOYN_JOINSESSION_REPLY_REJECTED:
-                status = ER_ALLJOYN_JOINSESSION_REPLY_REJECTED;
-                break;
-
-            case ALLJOYN_JOINSESSION_REPLY_BAD_SESSION_OPTS:
-                status = ER_ALLJOYN_JOINSESSION_REPLY_BAD_SESSION_OPTS;
-                break;
-
-            case ALLJOYN_JOINSESSION_REPLY_ALREADY_JOINED:
-                status = ER_ALLJOYN_JOINSESSION_REPLY_ALREADY_JOINED;
-                break;
-
-            case ALLJOYN_JOINSESSION_REPLY_FAILED:
-                status = ER_ALLJOYN_JOINSESSION_REPLY_FAILED;
-                break;
-
-            default:
-                status = ER_BUS_UNEXPECTED_DISPOSITION;
-                break;
-            }
-        }
+        status = GetJoinSessionResponse(reply, sessionId, opts);
     } else {
         sessionId = 0;
         QCC_LogError(status, ("%s.JoinSession returned ERROR_MESSAGE (error=%s)", org::alljoyn::Bus::InterfaceName, reply->GetErrorDescription().c_str()));
     }
+
     if (listener && (status == ER_OK)) {
         busInternal->sessionListenersLock.Lock(MUTEX_CONTEXT);
         busInternal->sessionListeners[sessionId] = new ProtectedSessionListener(listener);
@@ -1573,7 +1548,7 @@ QStatus BusAttachment::SetLinkTimeoutAsync(SessionId sessionid, uint32_t linkTim
         static_cast<MessageReceiver::ReplyHandler>(&BusAttachment::Internal::AsyncMethodCB),
         args,
         ArraySize(args),
-        new _AsyncMethodCBContext(callback, context),
+        new _AsyncMethodCBContext(callback, context, *busInternal),
         90000);
     return status;
 }
@@ -1591,34 +1566,14 @@ QStatus BusAttachment::SetLinkTimeout(SessionId sessionId, uint32_t& linkTimeout
     args[1].Set("u", linkTimeout);
 
     QStatus status = this->GetAllJoynProxyObj().MethodCall(org::alljoyn::Bus::InterfaceName, "SetLinkTimeout", args, ArraySize(args), reply);
-    if (status != ER_OK) {
+
+    if (status == ER_OK) {
+        status = GetLinkTimeoutResponse(reply, linkTimeout);
+    } else {
         QCC_LogError(status, ("%s.SetLinkTimeout returned ERROR_MESSAGE (error=%s)", org::alljoyn::Bus::InterfaceName, reply->GetErrorDescription().c_str()));
         status = ER_ALLJOYN_SETLINKTIMEOUT_REPLY_NOT_SUPPORTED;
-    } else {
-        uint32_t disposition;
-        uint32_t replyLinkTimeout = 0;
-        status = reply->GetArgs("uu", &disposition, &replyLinkTimeout);
-        if (status == ER_OK) {
-            switch (disposition) {
-            case ALLJOYN_SETLINKTIMEOUT_REPLY_SUCCESS:
-                linkTimeout = replyLinkTimeout;
-                break;
-
-            case ALLJOYN_SETLINKTIMEOUT_REPLY_NO_DEST_SUPPORT:
-                status = ER_ALLJOYN_SETLINKTIMEOUT_REPLY_NO_DEST_SUPPORT;
-                break;
-
-            case ALLJOYN_SETLINKTIMEOUT_REPLY_NO_SESSION:
-                status = ER_BUS_NO_SESSION;
-                break;
-
-            default:
-            case ALLJOYN_SETLINKTIMEOUT_REPLY_FAILED:
-                status = ER_ALLJOYN_SETLINKTIMEOUT_REPLY_FAILED;
-                break;
-            }
-        }
     }
+
     return status;
 }
 
