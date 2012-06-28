@@ -155,6 +155,9 @@ class MyAuthListener : public AuthListener {
 
         printf("RequestCredentials for authenticating %s using mechanism %s\n", authPeer, authMechanism);
 
+        /* Enable concurrent callbacks since some of the calls below could block */
+        g_msgBus->EnableConcurrentCallbacks();
+
         qcc::String guid;
         g_msgBus->GetPeerGUID(authPeer, guid);
         printf("Peer guid %s\n", guid.c_str());
@@ -268,6 +271,10 @@ class MyBusListener : public SessionPortListener, public SessionListener {
     void SessionJoined(SessionPort sessionPort, SessionId sessionId, const char* joiner)
     {
         QCC_SyncPrintf("Session Established: joiner=%s, sessionId=%08x\n", joiner, sessionId);
+
+        /* Enable concurrent callbacks since some of the calls below could block */
+        g_msgBus->EnableConcurrentCallbacks();
+
         QStatus status = bus.SetSessionListener(sessionId, this);
         if (status != ER_OK) {
             QCC_LogError(status, ("SetSessionListener failed"));
@@ -294,6 +301,9 @@ class MyBusListener : public SessionPortListener, public SessionListener {
 
     void SessionLost(SessionId sessionId) {
         QCC_SyncPrintf("SessionLost(%08x) was called\n", sessionId);
+
+        /* Enable concurrent callbacks since some of the calls below could block */
+        g_msgBus->EnableConcurrentCallbacks();
 
         if (g_cancelAdvertise) {
             QStatus status = bus.AdvertiseName(g_wellKnownName.c_str(), opts.transports);
@@ -398,7 +408,6 @@ class LocalTestObject : public BusObject {
         static DelayedResponse* thread;
         static multimap<uint64_t, DelayedResponseInfo*> delayedResponses;
         static Mutex delayedResponseLock;
-
     };
 
 
@@ -451,6 +460,9 @@ class LocalTestObject : public BusObject {
         QStatus status;
         Message reply(bus);
 
+        /* Enable concurrent callbacks since some of the calls below could block */
+        g_msgBus->EnableConcurrentCallbacks();
+
         /*
          * Bind a well-known session port for incoming client connections. This must be done before
          * we request or start advertising a well known name because a client can try to connect
@@ -484,6 +496,9 @@ class LocalTestObject : public BusObject {
                        const char* sourcePath,
                        Message& msg)
     {
+        /* Enable concurrent signal handling */
+        g_msgBus->EnableConcurrentCallbacks();
+
         if ((++rxCounts[sourcePath] % reportInterval) == 0) {
             QCC_SyncPrintf("RxSignal: %s - %u\n", sourcePath, rxCounts[sourcePath]);
             if (msg->IsEncrypted()) {
@@ -504,17 +519,19 @@ class LocalTestObject : public BusObject {
         if (g_ping_back) {
             MsgArg pingArg("s", "pingback");
             const InterfaceDescription* ifc = bus.GetInterface(::org::alljoyn::alljoyn_test::InterfaceName);
-            const InterfaceDescription::Member* pingMethod = ifc->GetMember("my_ping");
+            if (ifc) {
+                const InterfaceDescription::Member* pingMethod = ifc->GetMember("my_ping");
 
-            ProxyBusObject remoteObj;
-            remoteObj = ProxyBusObject(bus, msg->GetSender(), ::org::alljoyn::alljoyn_test::ObjectPath, msg->GetSessionId());
-            remoteObj.AddInterface(*ifc);
-            /*
-             * Make a fire-and-forget method call. If the signal was encrypted encrypt the ping
-             */
-            QStatus status = remoteObj.MethodCall(*pingMethod, &pingArg, 1, msg->IsEncrypted() ? ALLJOYN_FLAG_ENCRYPTED : 0);
-            if (status != ER_OK) {
-                QCC_LogError(status, ("MethodCall on %s.%s failed", ::org::alljoyn::alljoyn_test::InterfaceName, pingMethod->name.c_str()));
+                ProxyBusObject remoteObj;
+                remoteObj = ProxyBusObject(bus, msg->GetSender(), ::org::alljoyn::alljoyn_test::ObjectPath, msg->GetSessionId());
+                remoteObj.AddInterface(*ifc);
+                /*
+                 * Make a fire-and-forget method call. If the signal was encrypted encrypt the ping
+                 */
+                QStatus status = remoteObj.MethodCall(*pingMethod, &pingArg, 1, msg->IsEncrypted() ? ALLJOYN_FLAG_ENCRYPTED : 0);
+                if (status != ER_OK) {
+                    QCC_LogError(status, ("MethodCall on %s.%s failed", ::org::alljoyn::alljoyn_test::InterfaceName, pingMethod->name.c_str()));
+                }
             }
         }
     }
@@ -537,6 +554,8 @@ class LocalTestObject : public BusObject {
 
     void DelayedPing(const InterfaceDescription::Member* member, Message& msg)
     {
+        /* Enable concurrent callbacks since some of the calls take a long time to execute */
+        g_msgBus->EnableConcurrentCallbacks();
 
         /* Reply with same string that was sent to us */
         uint32_t delay(msg->GetArg(1)->v_uint32);

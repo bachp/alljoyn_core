@@ -33,7 +33,6 @@
 #include <qcc/Mutex.h>
 #include <qcc/StringMapKey.h>
 #include <qcc/Timer.h>
-#include <qcc/ThreadPool.h>
 #include <qcc/Util.h>
 
 #include <alljoyn/BusObject.h>
@@ -336,7 +335,32 @@ class LocalEndpoint : public BusEndpoint, public qcc::AlarmListener, public Mess
      */
     bool AllowRemoteMessages() { return true; }
 
+    /**
+     * Get the method dispatcher
+     */
+    qcc::Timer& GetDispatcher() { return dispatcher; }
+
   private:
+
+    /** Signal/Method dispatcher */
+    class Dispatcher : public qcc::Timer, public qcc::AlarmListener {
+      public:
+        Dispatcher(LocalEndpoint* ep);
+
+        QStatus DispatchMessage(Message& msg);
+
+        void AlarmTriggered(const qcc::Alarm& alarm, QStatus reason);
+
+      private:
+        LocalEndpoint* endpoint;
+    };
+
+    Dispatcher dispatcher;
+
+    /**
+     * PushMessage worker.
+     */
+    QStatus DoPushMessage(Message& msg);
 
     /**
      * Assignment operator is private - LocalEndpoints cannot be assigned.
@@ -463,13 +487,6 @@ class LocalEndpoint : public BusEndpoint, public qcc::AlarmListener, public Mess
      */
     AllJoynPeerObj* peerObj;
 
-    /**
-     * A thread pool to use when executing concurrent methods and signals.  This
-     * cannot be a member variable due to a consructor ordering catch-22 between
-     * BusAttachment and BusAttachment::Internal.
-     */
-    qcc::ThreadPool* threadPool;
-
     /** Helper to diagnose misses in the methodTable */
     QStatus Diagnose(Message& msg);
 
@@ -502,19 +519,6 @@ class LocalEndpoint : public BusEndpoint, public qcc::AlarmListener, public Mess
      */
     QStatus DoRegisterBusObject(BusObject& object, BusObject* parent, bool isPlaceholder);
 
-    friend class MethodCallRunnable;
-    /**
-     * A function to allow a method call closure to call into the transport in
-     * order to, in turn, call into a bus object in order to actually dispatch
-     * the method.  We don't do this directly from the closure since the caller
-     * needs to be a friend of the bus object and we don't want to litter our
-     * bus objects with a bunch of seemingly random friends.  This is a private
-     * method so we have to be friends with the closure (see immediately above).
-     */
-    void DoCallMethodHandler(const MethodTable::Entry* entry, Message& message)
-    {
-        entry->object->CallMethodHandler(entry->handler, entry->member, message, entry->context);
-    }
 };
 
 /**

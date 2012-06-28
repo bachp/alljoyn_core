@@ -83,6 +83,9 @@ class MyBusListener : public BusListener, public SessionListener {
     {
         QCC_SyncPrintf("FoundAdvertisedName(name=%s, transport=0x%x, prefix=%s)\n", name, transport, namePrefix);
 
+        /* We must enable concurrent callbacks since some of the calls below are blocking */
+        g_msgBus->EnableConcurrentCallbacks();
+
         if (0 == strcmp(name, g_wellKnownName.c_str())) {
             /* We found a remote bus that is advertising the well-known name so connect to it */
             SessionOpts opts(SessionOpts::TRAFFIC_MESSAGES, true, SessionOpts::PROXIMITY_ANY, transport);
@@ -100,6 +103,14 @@ class MyBusListener : public BusListener, public SessionListener {
             } else {
                 QCC_LogError(status, ("JoinSession failed (status=%s)", QCC_StatusText(status)));
             }
+        }
+    }
+
+    void LostAdvertisedName(const char* name, TransportMask transport, const char* namePrefix)
+    {
+        QCC_SyncPrintf("LostAdvertisedName(name=%s, transport=0x%x, prefix=%s)\n", name, transport, namePrefix);
+        if (0 == strcmp(name, g_wellKnownName.c_str())) {
+            g_discoverEvent.ResetEvent();
         }
     }
 
@@ -151,13 +162,14 @@ class LocalTestObject : public BusObject {
         /* Add org.alljoyn.alljoyn_test interface */
         InterfaceDescription* testIntf = NULL;
         status = bus.CreateInterface(::org::alljoyn::alljoyn_test::InterfaceName, testIntf);
-        if (ER_OK == status) {
+        if ((ER_OK == status) && testIntf) {
             testIntf->AddSignal("my_signal", "a{ys}", NULL, 0);
             testIntf->AddMethod("my_ping", "s", "s", "outStr,inStr", 0);
             testIntf->Activate();
             AddInterface(*testIntf);
         } else {
             QCC_LogError(status, ("Failed to create interface %s", ::org::alljoyn::alljoyn_test::InterfaceName));
+            return;
         }
 
         /* Get my_signal member */
@@ -620,6 +632,12 @@ int main(int argc, char** argv)
         }
 
         if (discoverRemote) {
+            /*
+             * Make sure the event is cleared so we don't pick up a stale event from the previous
+             * iteration when running the stress test.
+             */
+            g_discoverEvent.ResetEvent();
+
             /* Begin discovery on the well-known name of the service to be called */
             Message reply(*g_msgBus);
             const ProxyBusObject& alljoynObj = g_msgBus->GetAllJoynProxyObj();

@@ -48,22 +48,12 @@ class BusEndpoint;
  */
 class BusAttachment : public MessageReceiver {
 
-    class AsyncMethodCallCB {
-      public:
-        /** Destructor */
-        virtual ~AsyncMethodCallCB() { }
-
-        virtual void MethodCallCB(Message& reply, void* context) = 0;
-    };
-
-    struct _AsyncMethodCBContext;
-
   public:
 
     /**
      * Pure virtual base class implemented by classes that wish to call JoinSessionAsync().
      */
-    class JoinSessionAsyncCB : public AsyncMethodCallCB {
+    class JoinSessionAsyncCB {
       public:
         /** Destructor */
         virtual ~JoinSessionAsyncCB() { }
@@ -77,16 +67,12 @@ class BusAttachment : public MessageReceiver {
          * @param context      User defined context which will be passed as-is to callback.
          */
         virtual void JoinSessionCB(QStatus status, SessionId sessionId, const SessionOpts& opts, void* context) = 0;
-
-      private:
-        // implementation of above callback
-        void MethodCallCB(Message& reply, void* context);
     };
 
     /**
      * Pure virtual base class implemented by classes that wish to call SetLinkTimeoutAsync().
      */
-    class SetLinkTimeoutAsyncCB : public AsyncMethodCallCB {
+    class SetLinkTimeoutAsyncCB {
       public:
         /** Destructor */
         virtual ~SetLinkTimeoutAsyncCB() { }
@@ -95,14 +81,10 @@ class BusAttachment : public MessageReceiver {
          * Called when SetLinkTimeoutAsync() completes.
          *
          * @param status       ER_OK if successful
-         * @param timeout      Timeout value
+         * @param timeout      Timeout value (possibly adjusted from original request).
          * @param context      User defined context which will be passed as-is to callback.
          */
         virtual void SetLinkTimeoutCB(QStatus status, uint32_t timeout, void* context) = 0;
-
-      private:
-        // implementation of above callback
-        void MethodCallCB(Message& reply, void* context);
     };
 
     /**
@@ -123,6 +105,13 @@ class BusAttachment : public MessageReceiver {
      * @return The maximum number of concurrent method and signal handlers.
      */
     uint32_t GetConcurrency();
+
+    /**
+     * Allow the currently executing method/signal handler to enable concurrent callbacks
+     * during the scope of the handler's execution.
+     *
+     */
+    void EnableConcurrentCallbacks();
 
     /**
      * Create an interface description with a given name.
@@ -946,7 +935,7 @@ class BusAttachment : public MessageReceiver {
      *                          declared lost. 0 indicates that AllJoyn link monitoring will be disabled. On
      *                          return, this value will be the resulting (possibly upward) adjusted linkTimeout
      *                          value that acceptable to the underlying transport.
-     * @param[in]  callback     Called when JoinSession response is received.
+     * @param[in]  callback     Called when SetLinkTimeout response is received.
      * @param[in]  context      User defined context which will be passed as-is to callback.
      *
      * @return
@@ -956,7 +945,7 @@ class BusAttachment : public MessageReceiver {
      */
     QStatus SetLinkTimeoutAsync(SessionId sessionid,
                                 uint32_t linkTimeout,
-                                BusAttachment::AsyncMethodCallCB* callback,
+                                BusAttachment::SetLinkTimeoutAsyncCB* callback,
                                 void* context = NULL);
 
     /**
@@ -1098,6 +1087,16 @@ class BusAttachment : public MessageReceiver {
      * Try connect to the daemon with the spec.
      */
     QStatus TryConnect(const char* connectSpec, BusEndpoint** newep);
+
+    /**
+     * Validate the response to SetLinkTimeout
+     */
+    QStatus GetLinkTimeoutResponse(Message& reply, uint32_t& timeout);
+
+    /**
+     * Validate the response to JoinSession
+     */
+    QStatus GetJoinSessionResponse(Message& reply, SessionId& sessionId, SessionOpts& opts);
 
     qcc::String connectSpec;  /**< The connect spec used to connect to the bus */
     bool hasStarted;          /**< Indicates if the bus has ever been started */
