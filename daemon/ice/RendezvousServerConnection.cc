@@ -393,7 +393,7 @@ void RendezvousServerConnection::CleanConnection(HttpConnection* httpConn, ConnI
 
     /* Clear the connection interface details */
     connInterface->Clear();
-    isConnected = false;
+    *isConnected = false;
 }
 
 QStatus RendezvousServerConnection::SetupConnOverInterface(ConnInterface connInterface, SocketFd& sockFd,
