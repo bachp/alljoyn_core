@@ -37,14 +37,14 @@ if env['OS_GROUP'] == 'posix':
     base_objs.extend(env.Object(json_srcs))   
 
 # Add in bluetooth support
-if env['OS'] == 'android_donut' or env['OS'] =="darwin":
+if env['OS'] == 'android_donut' or env['OS'] =="darwin" or env['OS_GROUP'] == "windows":
     # bluetooth not supported on this platform
     daemon_objs = base_objs;
     pass
-elif env['OS_GROUP'] == "windows":
-    bt_srcs.extend(env.SConscript('bt_windows/SConscript'))
-    daemon_objs = base_objs + env.Object(bt_srcs)
-    env.AppendUnique(LIBS = ['Bthprops'])
+#elif env['OS_GROUP'] == "windows":
+#    bt_srcs.extend(env.SConscript('bt_windows/SConscript'))
+#    daemon_objs = base_objs + env.Object(bt_srcs)
+#    env.AppendUnique(LIBS = ['Bthprops'])
 else:
     # Use BlueZ
     bt_srcs.extend(env.SConscript('bt_bluez/SConscript'))
