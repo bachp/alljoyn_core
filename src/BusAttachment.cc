@@ -493,11 +493,11 @@ QStatus BusAttachment::StopInternal(bool blockUntilStopped)
         busInternal->listenersLock.Lock(MUTEX_CONTEXT);
         Internal::ListenerSet::iterator it = busInternal->listeners.begin();
         while (it != busInternal->listeners.end()) {
-            ProtectedBusListener* cur = *it;
+            Internal::ProtectedBusListener l = *it;
             busInternal->listenersLock.Unlock(MUTEX_CONTEXT);
-            (*it++)->BusStopping();
+            (*l)->BusStopping();
             busInternal->listenersLock.Lock(MUTEX_CONTEXT);
-            it = busInternal->listeners.upper_bound(cur);
+            it = busInternal->listeners.upper_bound(l);
         }
         busInternal->listenersLock.Unlock(MUTEX_CONTEXT);
         /* Stop the timer thread */
@@ -553,26 +553,11 @@ void BusAttachment::WaitStopInternal()
             isStarted = false;
             isStopping = false;
 
-            Internal::ListenerSet::iterator it = busInternal->listeners.begin();
-            while (it != busInternal->listeners.end()) {
-                ProtectedBusListener* listener = *(it++);
-                delete listener;
-            }
             busInternal->listeners.clear();
             busInternal->listenerMap.clear();
 
-            std::map<SessionPort, ProtectedSessionPortListener*>::iterator pspit = busInternal->sessionPortListeners.begin();
-            while (pspit != busInternal->sessionPortListeners.end()) {
-                delete pspit->second;
-                ++pspit;
-            }
             busInternal->sessionPortListeners.clear();
 
-            Internal::SessionListenerMap::iterator sit = busInternal->sessionListeners.begin();
-            while (sit != busInternal->sessionListeners.end()) {
-                delete sit->second;
-                ++sit;
-            }
             busInternal->sessionListeners.clear();
         }
 
@@ -1046,7 +1031,8 @@ void BusAttachment::RegisterBusListener(BusListener& listener)
 {
     busInternal->listenersLock.Lock(MUTEX_CONTEXT);
     // push front so that we can easily get an iterator pointing to the new element
-    busInternal->listeners.insert(new ProtectedBusListener(&listener));
+    BusListener* pListener = &listener;
+    busInternal->listeners.insert(Internal::ProtectedBusListener(pListener));
     busInternal->listenerMap[&listener] = busInternal->listeners.begin();
 
     /* Let listener know which bus attachment it has been registered on */
@@ -1066,12 +1052,21 @@ void BusAttachment::UnregisterBusListener(BusListener& listener)
         busInternal->listenerMap.erase(mit);
     }
 
+    /* Wait for all refs to ProtectedBusListener to exit */
+    while ((it != busInternal->listeners.end()) && (it->GetRefCount() > 1)) {
+        Internal::ProtectedBusListener l = *it;
+        busInternal->listenersLock.Unlock(MUTEX_CONTEXT);
+        qcc::Sleep(5);
+        busInternal->listenersLock.Lock(MUTEX_CONTEXT);
+        it = busInternal->listeners.find(l);
+    }
+
+    /* Delete the listeners entry and call user's callback (unlocked) */
     if (it != busInternal->listeners.end()) {
-        ProtectedBusListener* l = *it;
+        Internal::ProtectedBusListener l = *it;
         busInternal->listeners.erase(it);
         busInternal->listenersLock.Unlock(MUTEX_CONTEXT);
-        listener.ListenerUnregistered();
-        delete l;
+        (*l)->ListenerUnregistered();
     } else {
         busInternal->listenersLock.Unlock(MUTEX_CONTEXT);
     }
@@ -1156,7 +1151,8 @@ QStatus BusAttachment::BindSessionPort(SessionPort& sessionPort, const SessionOp
         }
         if (status == ER_OK) {
             busInternal->sessionListenersLock.Lock(MUTEX_CONTEXT);
-            pair<SessionPort, ProtectedSessionPortListener*> elem(sessionPort, new ProtectedSessionPortListener(&listener));
+            SessionPortListener* pListener = &listener;
+            pair<SessionPort, Internal::ProtectedSessionPortListener> elem(sessionPort, Internal::ProtectedSessionPortListener(pListener));
             busInternal->sessionPortListeners.insert(elem);
             busInternal->sessionListenersLock.Unlock(MUTEX_CONTEXT);
         }
@@ -1199,14 +1195,17 @@ QStatus BusAttachment::UnbindSessionPort(SessionPort sessionPort)
         }
         if (status == ER_OK) {
             busInternal->sessionListenersLock.Lock(MUTEX_CONTEXT);
-            map<SessionPort, ProtectedSessionPortListener*>::iterator it =
+            Internal::SessionPortListenerMap::iterator it =
                 busInternal->sessionPortListeners.find(sessionPort);
 
             if (it != busInternal->sessionPortListeners.end()) {
-                delete it->second;
+                while (it->second.GetRefCount() > 1) {
+                    busInternal->sessionListenersLock.Unlock(MUTEX_CONTEXT);
+                    qcc::Sleep(5);
+                    busInternal->sessionListenersLock.Lock(MUTEX_CONTEXT);
+                }
                 busInternal->sessionPortListeners.erase(sessionPort);
             }
-
             busInternal->sessionListenersLock.Unlock(MUTEX_CONTEXT);
         }
     }
@@ -1262,7 +1261,7 @@ void BusAttachment::Internal::JoinSessionAsyncCB(Message& reply, void* context)
     }
     if (ctx->sessionListener && (status == ER_OK)) {
         sessionListenersLock.Lock(MUTEX_CONTEXT);
-        sessionListeners[sessionId] = new ProtectedSessionListener(ctx->sessionListener);
+        sessionListeners[sessionId] = ProtectedSessionListener(ctx->sessionListener);
         sessionListenersLock.Unlock(MUTEX_CONTEXT);
     }
 
@@ -1353,7 +1352,7 @@ QStatus BusAttachment::JoinSession(const char* sessionHost, SessionPort sessionP
 
     if (listener && (status == ER_OK)) {
         busInternal->sessionListenersLock.Lock(MUTEX_CONTEXT);
-        busInternal->sessionListeners[sessionId] = new ProtectedSessionListener(listener);
+        busInternal->sessionListeners[sessionId] = Internal::ProtectedSessionListener(listener);
         busInternal->sessionListenersLock.Unlock(MUTEX_CONTEXT);
     }
     return status;
@@ -1398,7 +1397,6 @@ QStatus BusAttachment::LeaveSession(const SessionId& sessionId)
         busInternal->sessionListenersLock.Lock(MUTEX_CONTEXT);
         Internal::SessionListenerMap::iterator it = busInternal->sessionListeners.find(sessionId);
         if (it != busInternal->sessionListeners.end()) {
-            delete it->second;
             busInternal->sessionListeners.erase(it);
         }
         busInternal->sessionListenersLock.Unlock(MUTEX_CONTEXT);
@@ -1541,11 +1539,11 @@ void BusAttachment::Internal::LocalEndpointDisconnected()
     listenersLock.Lock(MUTEX_CONTEXT);
     ListenerSet::iterator it = listeners.begin();
     while (it != listeners.end()) {
-        ProtectedBusListener* cur = *it;
+        ProtectedBusListener l = *it;
         listenersLock.Unlock(MUTEX_CONTEXT);
-        (*it)->BusDisconnected();
+        (*l)->BusDisconnected();
         listenersLock.Lock(MUTEX_CONTEXT);
-        it = listeners.upper_bound(cur);
+        it = listeners.upper_bound(l);
     }
     listenersLock.Unlock(MUTEX_CONTEXT);
 }
@@ -1569,32 +1567,34 @@ void BusAttachment::Internal::AllJoynSignalHandler(const InterfaceDescription::M
             listenersLock.Lock(MUTEX_CONTEXT);
             ListenerSet::iterator it = listeners.begin();
             while (it != listeners.end()) {
-                ProtectedBusListener* cur = *it;
+                ProtectedBusListener pl = *it;
                 listenersLock.Unlock(MUTEX_CONTEXT);
-                cur->FoundAdvertisedName(args[0].v_string.str, args[1].v_uint16, args[2].v_string.str);
+                (*pl)->FoundAdvertisedName(args[0].v_string.str, args[1].v_uint16, args[2].v_string.str);
                 listenersLock.Lock(MUTEX_CONTEXT);
-                it = listeners.upper_bound(cur);
+                it = listeners.upper_bound(pl);
             }
             listenersLock.Unlock(MUTEX_CONTEXT);
         } else if (0 == strcmp("LostAdvertisedName", msg->GetMemberName())) {
             listenersLock.Lock(MUTEX_CONTEXT);
             ListenerSet::iterator it = listeners.begin();
             while (it != listeners.end()) {
-                ProtectedBusListener* cur = *it;
+                ProtectedBusListener pl = *it;
                 listenersLock.Unlock(MUTEX_CONTEXT);
-                cur->LostAdvertisedName(args[0].v_string.str, args[1].v_uint16, args[2].v_string.str);
+                (*pl)->LostAdvertisedName(args[0].v_string.str, args[1].v_uint16, args[2].v_string.str);
                 listenersLock.Lock(MUTEX_CONTEXT);
-                it = listeners.upper_bound(cur);
+                it = listeners.upper_bound(pl);
             }
             listenersLock.Unlock(MUTEX_CONTEXT);
         } else if (0 == strcmp("SessionLost", msg->GetMemberName())) {
             sessionListenersLock.Lock(MUTEX_CONTEXT);
             SessionId id = static_cast<SessionId>(args[0].v_uint32);
             SessionListenerMap::iterator slit = sessionListeners.find(id);
-            if ((slit != sessionListeners.end()) && slit->second) {
-                ProtectedSessionListener* cur = slit->second;
+            if (slit != sessionListeners.end()) {
+                ProtectedSessionListener pl = slit->second;
                 sessionListenersLock.Unlock(MUTEX_CONTEXT);
-                cur->SessionLost(id);
+                if (*pl) {
+                    (*pl)->SessionLost(id);
+                }
             } else {
                 sessionListenersLock.Unlock(MUTEX_CONTEXT);
             }
@@ -1602,13 +1602,13 @@ void BusAttachment::Internal::AllJoynSignalHandler(const InterfaceDescription::M
             listenersLock.Lock(MUTEX_CONTEXT);
             ListenerSet::iterator it = listeners.begin();
             while (it != listeners.end()) {
-                ProtectedBusListener* cur = *it;
+                ProtectedBusListener pl = *it;
                 listenersLock.Unlock(MUTEX_CONTEXT);
-                cur->NameOwnerChanged(args[0].v_string.str,
-                                      (0 < args[1].v_string.len) ? args[1].v_string.str : NULL,
-                                      (0 < args[2].v_string.len) ? args[2].v_string.str : NULL);
+                (*pl)->NameOwnerChanged(args[0].v_string.str,
+                                        (0 < args[1].v_string.len) ? args[1].v_string.str : NULL,
+                                        (0 < args[2].v_string.len) ? args[2].v_string.str : NULL);
                 listenersLock.Lock(MUTEX_CONTEXT);
-                it = listeners.upper_bound(cur);
+                it = listeners.upper_bound(pl);
             }
             listenersLock.Unlock(MUTEX_CONTEXT);
         } else if (0 == strcmp("MPSessionChanged", msg->GetMemberName())) {
@@ -1616,13 +1616,15 @@ void BusAttachment::Internal::AllJoynSignalHandler(const InterfaceDescription::M
             const char* member = args[1].v_string.str;
             sessionListenersLock.Lock(MUTEX_CONTEXT);
             SessionListenerMap::iterator slit = sessionListeners.find(id);
-            if ((slit != sessionListeners.end()) && slit->second) {
-                ProtectedSessionListener* cur = slit->second;
+            if (slit != sessionListeners.end()) {
+                ProtectedSessionListener pl = slit->second;
                 sessionListenersLock.Unlock(MUTEX_CONTEXT);
-                if (args[2].v_bool) {
-                    cur->SessionMemberAdded(id, member);
-                } else {
-                    cur->SessionMemberRemoved(id, member);
+                if (*pl) {
+                    if (args[2].v_bool) {
+                        (*pl)->SessionMemberAdded(id, member);
+                    } else {
+                        (*pl)->SessionMemberRemoved(id, member);
+                    }
                 }
             } else {
                 sessionListenersLock.Unlock(MUTEX_CONTEXT);
@@ -1663,16 +1665,15 @@ bool BusAttachment::Internal::CallAcceptListeners(SessionPort sessionPort, const
 
     /* Call sessionPortListener */
     sessionListenersLock.Lock(MUTEX_CONTEXT);
-    map<SessionPort, ProtectedSessionPortListener*>::iterator it = sessionPortListeners.find(sessionPort);
-    ProtectedSessionPortListener* listener = (it != sessionPortListeners.end()) ? it->second : NULL;
-    sessionListenersLock.Unlock(MUTEX_CONTEXT);
-
-    if (listener) {
-        isAccepted = listener->AcceptSessionJoiner(sessionPort, joiner, opts);
+    Internal::SessionPortListenerMap::iterator it = sessionPortListeners.find(sessionPort);
+    if (it != sessionPortListeners.end()) {
+        ProtectedSessionPortListener listener = it->second;
+        sessionListenersLock.Unlock(MUTEX_CONTEXT);
+        isAccepted = (*listener)->AcceptSessionJoiner(sessionPort, joiner, opts);
     } else {
+        sessionListenersLock.Unlock(MUTEX_CONTEXT);
         QCC_LogError(ER_FAIL, ("Unable to find sessionPortListener for port=%d", sessionPort));
     }
-
     return isAccepted;
 }
 
@@ -1680,16 +1681,17 @@ void BusAttachment::Internal::CallJoinedListeners(SessionPort sessionPort, Sessi
 {
     /* Call sessionListener */
     sessionListenersLock.Lock(MUTEX_CONTEXT);
-    map<SessionPort, ProtectedSessionPortListener*>::iterator it = sessionPortListeners.find(sessionPort);
+    SessionPortListenerMap::iterator it = sessionPortListeners.find(sessionPort);
     if (it != sessionPortListeners.end()) {
         /* Add entry to sessionListeners */
         if (sessionListeners.find(sessionId) == sessionListeners.end()) {
-            sessionListeners[sessionId] = NULL;
+            SessionListener* np = 0;
+            sessionListeners.insert(pair<SessionId, ProtectedSessionListener>(sessionId, ProtectedSessionListener(np)));
         }
         /* Notify user */
-        ProtectedSessionPortListener* cur = it->second;
+        ProtectedSessionPortListener cur = it->second;
         sessionListenersLock.Unlock(MUTEX_CONTEXT);
-        cur->SessionJoined(sessionPort, sessionId, joiner);
+        (*cur)->SessionJoined(sessionPort, sessionId, joiner);
     } else {
         sessionListenersLock.Unlock(MUTEX_CONTEXT);
         QCC_LogError(ER_FAIL, ("Unable to find sessionPortListener for port=%d", sessionPort));
@@ -1702,8 +1704,7 @@ QStatus BusAttachment::Internal::SetSessionListener(SessionId id, SessionListene
     sessionListenersLock.Lock(MUTEX_CONTEXT);
     SessionListenerMap::iterator it = sessionListeners.find(id);
     if (it != sessionListeners.end()) {
-        delete it->second;
-        it->second = new ProtectedSessionListener(listener);
+        it->second = ProtectedSessionListener(listener);
         status = ER_OK;
     }
     sessionListenersLock.Unlock(MUTEX_CONTEXT);
