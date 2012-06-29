@@ -18,6 +18,8 @@ Import('env', 'daemon_objs')
 # OS specific objects for daemon
 os_objs = []
 
+env.Append(CPPPATH=[env.Dir('../../daemon').srcnode()])
+
 # Build the Windows daemon.
 daemon_libs = env.SharedLibrary('daemonlib', ['daemon-service.cc', 'daemon-main.cc'] + daemon_objs)
 env.Install('$DISTDIR/lib', daemon_libs[1]) #put the *.lib file in the lib folder
