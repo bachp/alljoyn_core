@@ -2399,6 +2399,16 @@ QStatus AllJoynObj::ProcCancelAdvertise(const qcc::String& sender, const qcc::St
                 QCC_LogError(ER_BUS_TRANSPORT_NOT_AVAILABLE, ("NULL transport pointer found in transportList"));
             }
         }
+
+        if (discoverMap.empty() && advertiseMap.empty()) {
+            multimap<String, NameMapEntry>::iterator it = nameMap.begin();
+            while (it != nameMap.end()) {
+
+                FoundNames(it->second.busAddr, it->second.guid, it->second.transport, NULL, 0);
+                it++;
+            }
+        }
+
     } else if (!foundAdvert) {
         status = ER_FAIL;
     }
@@ -2592,6 +2602,16 @@ QStatus AllJoynObj::ProcCancelFindName(const qcc::String& sender, const qcc::Str
                 QCC_LogError(ER_BUS_TRANSPORT_NOT_AVAILABLE, ("NULL transport pointer found in transportList"));
             }
         }
+
+        if (discoverMap.empty() && advertiseMap.empty()) {
+            multimap<String, NameMapEntry>::iterator it = nameMap.begin();
+            while (it != nameMap.end()) {
+
+                FoundNames(it->second.busAddr, it->second.guid, it->second.transport, NULL, 0);
+                it++;
+            }
+        }
+
     } else if (!foundNamePrefix) {
         status = ER_FAIL;
     }
