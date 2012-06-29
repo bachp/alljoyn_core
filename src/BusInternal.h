@@ -30,6 +30,7 @@
 #include <qcc/String.h>
 #include <qcc/Event.h>
 #include <qcc/atomic.h>
+#include <qcc/ManagedObj.h>
 
 #include <alljoyn/BusAttachment.h>
 #include <alljoyn/InterfaceDescription.h>
@@ -41,9 +42,6 @@
 #include "Transport.h"
 #include "TransportList.h"
 #include "CompressionRules.h"
-#include "ProtectedBusListener.h"
-#include "ProtectedSessionListener.h"
-#include "ProtectedSessionPortListener.h"
 
 #include <Status.h>
 
@@ -241,8 +239,10 @@ class BusAttachment::Internal : public MessageReceiver {
 
     qcc::String application;              /* Name of the that owns the BusAttachment application */
     BusAttachment& bus;                   /* Reference back to the bus attachment that owns this state */
-    qcc::Mutex listenersLock;             /* Mutex that protects BusListeners vector */
-    typedef std::set<ProtectedBusListener*> ListenerSet;
+
+    qcc::Mutex listenersLock;             /* Mutex that protects BusListeners container (set) */
+    typedef qcc::ManagedObj<BusListener*> ProtectedBusListener;
+    typedef std::set<ProtectedBusListener> ListenerSet;
     ListenerSet listeners;               /* List of registered BusListeners */
 
     typedef std::map<BusListener*, ListenerSet::iterator> ListenerMap;
@@ -265,10 +265,15 @@ class BusAttachment::Internal : public MessageReceiver {
     qcc::Mutex stopLock;                  /* Protects BusAttachement::Stop from being reentered */
     int32_t stopCount;                    /* Number of caller's blocked in BusAttachment::Stop() */
 
-    std::map<SessionPort, ProtectedSessionPortListener*> sessionPortListeners;  /* Lookup SessionPortListener by session port */
-    typedef std::map<SessionId, ProtectedSessionListener*> SessionListenerMap;
-    SessionListenerMap sessionListeners;            /* Lookup SessionListener by session id */
-    qcc::Mutex sessionListenersLock;                                   /* Lock protecting sessionListners maps */
+    typedef qcc::ManagedObj<SessionPortListener*> ProtectedSessionPortListener;
+    typedef std::map<SessionPort, ProtectedSessionPortListener> SessionPortListenerMap;
+    SessionPortListenerMap sessionPortListeners;  /* Lookup SessionPortListener by session port */
+
+    typedef qcc::ManagedObj<SessionListener*> ProtectedSessionListener;
+    typedef std::map<SessionId, ProtectedSessionListener> SessionListenerMap;
+    SessionListenerMap sessionListeners;   /* Lookup SessionListener by session id */
+
+    qcc::Mutex sessionListenersLock;       /* Lock protecting sessionListners maps */
 };
 
 }
