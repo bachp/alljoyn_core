@@ -155,6 +155,12 @@ QStatus AllJoynObj::Init()
     mpSessionChangedSignal = alljoynIntf->GetMember("MPSessionChanged");
 
     const InterfaceDescription* busSessionIntf = bus.GetInterface(org::alljoyn::Bus::Peer::Session::InterfaceName);
+    if (!busSessionIntf) {
+        status = ER_BUS_NO_SUCH_INTERFACE;
+        QCC_LogError(status, ("Failed to get %s interface", org::alljoyn::Bus::Peer::Session::InterfaceName));
+        return status;
+    }
+
     mpJoinSessionSignal = busSessionIntf->GetMember("SessionJoined");
 
     /* Make this object implement org.alljoyn.Daemon */
