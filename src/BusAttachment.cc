@@ -1067,10 +1067,11 @@ void BusAttachment::UnregisterBusListener(BusListener& listener)
     }
 
     if (it != busInternal->listeners.end()) {
-        delete *it;
+        ProtectedBusListener* l = *it;
         busInternal->listeners.erase(it);
         busInternal->listenersLock.Unlock(MUTEX_CONTEXT);
         listener.ListenerUnregistered();
+        delete l;
     } else {
         busInternal->listenersLock.Unlock(MUTEX_CONTEXT);
     }
