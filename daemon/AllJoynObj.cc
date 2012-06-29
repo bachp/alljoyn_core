@@ -490,9 +490,24 @@ ThreadReturn STDCALL AllJoynObj::JoinSessionThread::RunJoin()
     }
 
     ajObj.AcquireLocks();
+
+    // do not let a session creator join itself
+    SessionMapType::iterator it = ajObj.SessionMapLowerBound(sender, 0);
+    while ((it != ajObj.sessionMap.end()) && (it->first.first == sender) && (it->first.second == 0)) {
+        if (it->second.sessionPort == sessionPort) {
+            QCC_DbgTrace(("JoinSession(): cannot join your own session"));
+            replyCode = ALLJOYN_JOINSESSION_REPLY_ALREADY_JOINED;
+            break;
+        }
+        ++it;
+    }
+
+
     if (status != ER_OK) {
-        replyCode = ALLJOYN_JOINSESSION_REPLY_FAILED;
-        QCC_DbgTrace(("JoinSession(<bad_args>"));
+        if (replyCode != ALLJOYN_JOINSESSION_REPLY_SUCCESS) {
+            replyCode = ALLJOYN_JOINSESSION_REPLY_FAILED;
+            QCC_DbgTrace(("JoinSession(<bad_args>"));
+        }
     } else {
         QCC_DbgTrace(("JoinSession(%d, <%u, 0x%x, 0x%x>)", sessionPort, optsIn.traffic, optsIn.proximity, optsIn.transports));
 
