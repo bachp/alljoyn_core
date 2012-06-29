@@ -79,7 +79,7 @@ static const int ICE_CREDENTIAL_PWD_CHAR_LENGTH = (128 / 8);
 static const uint32_t TURN_PERMISSION_REFRESH_PERIOD_SECS = 300;
 
 // Refresh a little before the expiration.
-static const uint32_t TURN_REFRESH_WARNING_PERIOD_SECS = 60;
+static const uint32_t TURN_REFRESH_WARNING_PERIOD_SECS = 15;
 
 // Interval at which to send the NAT keepalives
 static const uint32_t STUN_KEEP_ALIVE_INTERVAL_IN_MILLISECS = 15000;

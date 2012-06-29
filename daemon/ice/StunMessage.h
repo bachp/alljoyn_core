@@ -172,16 +172,6 @@ class StunMessage : public StunIOInterface {
     }
 
     /**
-     * Determines if the message type is valid.
-     *
-     * @param rawMsgType    Value to determine if it is a valid message type or not.
-     *
-     * @return  "true" if the passed in message type is valid.
-     */
-    static bool IsTypeOK(uint16_t rawMsgType);
-
-
-    /**
      * StunAttributeFingerprint::Parse needs access to the entire raw message
      * buffer to compute a CRC-32 value for comparison.
      *
@@ -246,6 +236,16 @@ class StunMessage : public StunIOInterface {
                                                                ScatterGatherList& sg) const;
 
   public:
+
+    /**
+     * Determines if the message type is valid.
+     *
+     * @param rawMsgType    Value to determine if it is a valid message type or not.
+     *
+     * @return  "true" if the passed in message type is valid.
+     */
+    static bool IsTypeOK(uint16_t rawMsgType);
+
     /**
      * STUN Message constructor intended for receiving STUN messages.
      *

@@ -81,7 +81,7 @@ ICEPacketStream::ICEPacketStream(ICESession& iceSession, Stun& stun, const ICECa
     localHost((selectedPair.local->GetType() == _ICECandidate::Host_Candidate)),
     hmacKey(reinterpret_cast<const char*>(stun.GetHMACKey()), stun.GetHMACKeyLength(), stun.GetHMACKeyLength()),
     turnUsername(iceSession.GetusernameForShortTermCredential()),
-    turnRefreshPeriod(iceSession.GetTURNRefreshPeriod()),
+    turnRefreshPeriod((selectedPair.local->GetAllocationLifetimeSeconds() - ajn::TURN_REFRESH_WARNING_PERIOD_SECS) * 1000),
     turnRefreshTimestamp(0),
     stunKeepAlivePeriod(iceSession.GetSTUNKeepAlivePeriod()),
     rxRenderBuf(new uint8_t[interfaceMtu]),
@@ -429,7 +429,10 @@ QStatus ICEPacketStream::StripStunOverhead(size_t rcvdBytes, void* dataBuf, size
         StunIOInterface::ReadNetToHost(_rxRenderBuf, _rcvdBytes, rawMsgType);
 
         if (StunMessage::ExtractMessageMethod(rawMsgType) == STUN_MSG_DATA_METHOD) {
-            // parse message and extract DATA attribute contents.
+
+            QCC_DbgPrintf(("%s: Received STUN_MSG_DATA_METHOD", __FUNCTION__));
+
+            // Parse message and extract DATA attribute contents.
             size_t keyLen  = hmacKey.size();
             uint8_t dummyHmac[keyLen];
             StunMessage msg("", dummyHmac, keyLen);
@@ -465,9 +468,74 @@ QStatus ICEPacketStream::StripStunOverhead(size_t rcvdBytes, void* dataBuf, size
                 }
             }
         } else {
+
+            QCC_DbgPrintf(("%s: Received NAT keepalive or TURN refresh response", __FUNCTION__));
+
             // If there is no STUN_MSG_DATA_METHOD in the response, it means that this is a response for either a NAT keep alive request
-            // or a TURN refresh request. We dont need to handle it neither do we need to send the data out to the PacketEngine
+            // or a TURN refresh request. We dont need to handle if the response was for a NAT keepalive. Whereas if it is a TURN
+            // refresh response, it will have the lifetime attribute. We need to update the turnRefreshPeriod according to the value
+            // of the lifetime attribute. In either case, we dont need to pass on any data to the PacketEngine. So actualBytes
+            // should be set to 0.
             actualBytes = 0;
+
+            uint16_t rawMsgType = 0;  // Initializer to make GCC 4.3.2 happy.
+            uint16_t rawMsgSize = 0;
+            uint32_t magicCookie;
+
+            _rcvdBytes = rcvdBytes;
+            _rxRenderBuf = rxRenderBuf;
+
+            StunIOInterface::ReadNetToHost(_rxRenderBuf, _rcvdBytes, rawMsgType);
+            StunIOInterface::ReadNetToHost(_rxRenderBuf, _rcvdBytes, rawMsgSize);
+            StunIOInterface::ReadNetToHost(_rxRenderBuf, _rcvdBytes, magicCookie);
+
+            if (StunMessage::IsTypeOK(rawMsgType)) {
+                QCC_DbgPrintf(("%s: StunMessage::IsTypeOK() successful", __FUNCTION__));
+                // Check to ensure that we have indeed received a STUN response
+                if (StunMessage::ExtractMessageClass(rawMsgType) == STUN_MSG_RESPONSE_CLASS) {
+                    QCC_DbgPrintf(("%s: Received a STUN response message", __FUNCTION__));
+
+                    // Parse message and extract Lifetime attribute contents.
+                    size_t keyLen  = hmacKey.size();
+                    uint8_t dummyHmac[keyLen];
+                    StunMessage msg("", dummyHmac, keyLen);
+                    QStatus status;
+
+                    _rcvdBytes = rcvdBytes;
+                    _rxRenderBuf = rxRenderBuf;
+                    status = msg.Parse(_rxRenderBuf, _rcvdBytes);
+
+                    if (status == ER_OK) {
+                        StunMessage::const_iterator iter;
+
+                        for (iter = msg.Begin(); iter != msg.End(); ++iter) {
+                            if ((*iter)->GetType() == STUN_ATTR_LIFETIME) {
+                                const StunAttributeLifetime& sa = *reinterpret_cast<StunAttributeLifetime*>(*iter);
+
+                                turnRefreshPeriodUpdateLock.Lock();
+                                turnRefreshPeriod = ((sa.GetLifetime() - ajn::TURN_REFRESH_WARNING_PERIOD_SECS) * 1000);
+                                turnRefreshPeriodUpdateLock.Unlock();
+
+                                QCC_DbgPrintf(("%s: Found Lifetime attribute(%d) in the received STUN response", __FUNCTION__, sa.GetLifetime()));
+
+                                /* Break out of the for loop if we have found the Lifetime attribute as we are not interested
+                                 * in any other attribute in this section */
+                                break;
+                            }
+                        }
+                    }
+
+                } else {
+                    QCC_DbgPrintf(("%s: Received message is not a STUN response", __FUNCTION__));
+                }
+            } else {
+                QCC_DbgPrintf(("%s: Invalid STUN message type: %04x (%s, %s)",
+                               __FUNCTION__,
+                               rawMsgType,
+                               StunMessage::MessageClassToString(StunMessage::ExtractMessageClass(rawMsgType)).c_str(),
+                               StunMessage::MessageMethodToString(StunMessage::ExtractMessageMethod(rawMsgType)).c_str()));
+            }
+
         }
 
     } else {

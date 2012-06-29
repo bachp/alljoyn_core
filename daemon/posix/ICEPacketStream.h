@@ -166,7 +166,14 @@ class ICEPacketStream : public PacketStream {
      *
      * @return TURN server refresh period in milliseconds.
      */
-    uint32_t GetTurnRefreshPeriod() const { return turnRefreshPeriod; }
+    uint32_t GetTurnRefreshPeriod()
+    {
+        uint32_t refreshPeriod;
+        turnRefreshPeriodUpdateLock.Lock();
+        refreshPeriod = turnRefreshPeriod;
+        turnRefreshPeriodUpdateLock.Unlock();
+        return refreshPeriod;
+    }
 
     /**
      * Return the timestamp of the last TURN server's refresh.
@@ -234,6 +241,7 @@ class ICEPacketStream : public PacketStream {
     bool localHost;
     qcc::String hmacKey;
     qcc::String turnUsername;
+    Mutex turnRefreshPeriodUpdateLock;
     uint32_t turnRefreshPeriod;
     uint64_t turnRefreshTimestamp;
     uint32_t stunKeepAlivePeriod;
