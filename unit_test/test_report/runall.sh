@@ -196,7 +196,7 @@ done
 if $start_daemon
 then
 	sleep 5
-	killall -v alljoyn-daemon || :ok
+	killall -v alljoyn-daemon || : ok
 	sleep 5
 fi
 
