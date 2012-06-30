@@ -340,6 +340,15 @@ class LocalEndpoint : public BusEndpoint, public qcc::AlarmListener, public Mess
      */
     qcc::Timer& GetDispatcher() { return dispatcher; }
 
+    /** Internal utility method needed (only) by PermissionMsg */
+    void SendErrMessage(Message& message, qcc::String errStr, qcc::String description);
+
+    /** Internal utility function needed (only) by PermissionMgr */
+    void DoCallMethodHandler(const MethodTable::Entry* entry, Message& message)
+    {
+        entry->object->CallMethodHandler(entry->handler, entry->member, message, entry->context);
+    }
+
   private:
 
     /** Signal/Method dispatcher */
@@ -472,7 +481,6 @@ class LocalEndpoint : public BusEndpoint, public qcc::AlarmListener, public Mess
      */
     QStatus DoRegisterBusObject(BusObject& object, BusObject* parent, bool isPlaceholder);
 
-    void SendErrMessage(Message& message, qcc::String errStr, qcc::String description);
 };
 
 /**
