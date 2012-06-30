@@ -554,7 +554,6 @@ void BusAttachment::WaitStopInternal()
             isStopping = false;
 
             busInternal->listeners.clear();
-            busInternal->listenerMap.clear();
 
             busInternal->sessionPortListeners.clear();
 
@@ -1032,24 +1031,25 @@ void BusAttachment::RegisterBusListener(BusListener& listener)
     busInternal->listenersLock.Lock(MUTEX_CONTEXT);
     // push front so that we can easily get an iterator pointing to the new element
     BusListener* pListener = &listener;
-    busInternal->listeners.insert(Internal::ProtectedBusListener(pListener));
-    busInternal->listenerMap[&listener] = busInternal->listeners.begin();
+    Internal::ProtectedBusListener protectedListener(pListener);
+    busInternal->listeners.insert(protectedListener);
 
     /* Let listener know which bus attachment it has been registered on */
     busInternal->listenersLock.Unlock(MUTEX_CONTEXT);
-    listener.ListenerRegistered(this);
+    (*protectedListener)->ListenerRegistered(this);
 }
 
 void BusAttachment::UnregisterBusListener(BusListener& listener)
 {
     busInternal->listenersLock.Lock(MUTEX_CONTEXT);
 
-    Internal::ListenerSet::iterator it =  busInternal->listeners.end();
-    Internal::ListenerMap::iterator mit = busInternal->listenerMap.find(&listener);
-
-    if (mit != busInternal->listenerMap.end()) {
-        it = mit->second;
-        busInternal->listenerMap.erase(mit);
+    /* Look for listener on ListenerSet */
+    Internal::ListenerSet::iterator it = busInternal->listeners.begin();
+    while (it != busInternal->listeners.end()) {
+        if (**it == &listener) {
+            break;
+        }
+        ++it;
     }
 
     /* Wait for all refs to ProtectedBusListener to exit */

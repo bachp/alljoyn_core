@@ -245,9 +245,6 @@ class BusAttachment::Internal : public MessageReceiver {
     typedef std::set<ProtectedBusListener> ListenerSet;
     ListenerSet listeners;               /* List of registered BusListeners */
 
-    typedef std::map<BusListener*, ListenerSet::iterator> ListenerMap;
-    ListenerMap listenerMap;
-
     TransportList transportList;          /* List of active transports */
     KeyStore keyStore;                    /* The key store for the bus attachment */
     AuthManager authManager;              /* The authentication manager for the bus attachment */
