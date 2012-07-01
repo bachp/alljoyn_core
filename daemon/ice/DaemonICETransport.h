@@ -264,6 +264,17 @@ class DaemonICETransport : public Transport, public RemoteEndpoint::EndpointList
     QStatus Connect(const char* connectSpec, const SessionOpts& opts, BusEndpoint** newep);
 
     /**
+     * Disconnect from a specified AllJoyn/DBus address.
+     *
+     * @param connectSpec    The connectSpec used in Connect.
+     *
+     * @return
+     *      - ER_OK if successful.
+     *      - an error status otherwise.
+     */
+    QStatus Disconnect(const char* connectSpec);
+
+    /**
      * Start listening for incomming connections on a specified bus address.
      *
      * @param listenSpec  Transport specific key/value arguments that specify the physical interface to listen on.

@@ -687,8 +687,7 @@ QStatus DaemonICETransport::Start()
 
     /*
      * Start up an instance of the lightweight Discovery Manager and tell it what
-     * GUID we think we are and the credentials to use for the TCP connection with the
-     * Rendezvous Server.
+     * GUID we think we are.
      */
 
     m_dm = new DiscoveryManager(m_bus);
@@ -2005,6 +2004,72 @@ QStatus DaemonICETransport::Connect(const char* connectSpec, const SessionOpts& 
         }
     }
 
+    return status;
+}
+
+QStatus DaemonICETransport::Disconnect(const char* connectSpec)
+{
+    QCC_DbgHLPrintf(("DaemonICETransport::Disconnect(): %s", connectSpec));
+
+    /*
+     * We only want to allow this call to proceed if we have a Run
+     * thread that isn't in the process of shutting down.  We use the
+     * thread response from IsRunning to give us an idea of what our
+     * (Run) thread is doing, and by extension the endpoint threads which
+     * must be running to properly clean up.  See the comment in Start() for
+     * details about what IsRunning actually means, which might be subtly
+     * different from your intuitition.
+     *
+     * If we see IsRunning(), the thread might actually have gotten a Stop(),
+     * but has not yet exited its Run routine and become STOPPING.  To plug this
+     * hole, we need to check IsRunning() and also m_stopping, which is set in
+     * our Stop() method.
+     */
+    if (IsRunning() == false || m_stopping == true) {
+        QCC_LogError(ER_BUS_TRANSPORT_NOT_STARTED, ("DaemonICETransport::Disconnect(): Not running or stopping; exiting"));
+        return ER_BUS_TRANSPORT_NOT_STARTED;
+    }
+
+    /*
+     * If we pass the IsRunning() gate above, we must have a Run
+     * thread spinning up or shutting down but not yet joined.  Since the discovery
+     * manager is created before the Run thread is spun up, and
+     * deleted after it is joined, we must have a valid discovery manager or someone
+     * isn't playing by the rules; so an assert is appropriate here.
+     */
+    assert(m_dm);
+
+    /*
+     * Higher level code tells us which connection is refers to by giving us the
+     * same connect spec it used in the Connect() call.
+     */
+    qcc::String normSpec;
+    map<qcc::String, qcc::String> argMap;
+    QStatus status = NormalizeTransportSpec(connectSpec, normSpec, argMap);
+    if (ER_OK != status) {
+        QCC_LogError(status, ("DaemonICETransport::Disconnect(): Invalid ICE connect spec \"%s\"", connectSpec));
+        return status;
+    }
+
+    /*
+     * Stop the remote endpoint.  Be careful here since calling Stop() on the
+     * DaemonICEEndpoint is going to cause the transmit and receive threads of the
+     * underlying RemoteEndpoint to exit, which will cause our EndpointExit()
+     * to be called, which will walk the list of endpoints and delete the one
+     * we are stopping.  Once we poke ep->Stop(), the pointer to ep must be
+     * considered dead.
+     */
+    status = ER_BUS_BAD_TRANSPORT_ARGS;
+    m_endpointListLock.Lock(MUTEX_CONTEXT);
+    for (list<DaemonICEEndpoint*>::iterator i = m_endpointList.begin(); i != m_endpointList.end(); ++i) {
+        if ((*i)->GetConnectSpec() == connectSpec) {
+            DaemonICEEndpoint* ep = *i;
+            ep->SetSuddenDisconnect(false);
+            m_endpointListLock.Unlock(MUTEX_CONTEXT);
+            return ep->Stop();
+        }
+    }
+    m_endpointListLock.Unlock(MUTEX_CONTEXT);
     return status;
 }
 
