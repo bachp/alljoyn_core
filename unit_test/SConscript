@@ -104,3 +104,6 @@ else:
         
     unittest_prog = unittest_env.Program('ajtest', obj)
     unittest_env.Install('$TESTDIR/bin', unittest_prog)
+
+    #install gtest utilities
+    env.Install('$TESTDIR/bin', Dir('test_report').srcnode())
