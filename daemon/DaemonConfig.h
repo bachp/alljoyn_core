@@ -109,6 +109,11 @@ class DaemonConfig {
 
     DaemonConfig();
 
+    /*
+     * Copy constructor private and undefined
+     */
+    DaemonConfig(const DaemonConfig& other);
+
     ~DaemonConfig();
 
     qcc::XmlElement* config;
