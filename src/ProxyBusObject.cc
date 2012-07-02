@@ -556,12 +556,13 @@ QStatus ProxyBusObject::MethodCall(const InterfaceDescription::Member& method,
          * Synchronous calls are really asynchronous calls that block waiting for a builtin
          * reply handler to be called.
          */
+        ManagedObj<SyncReplyContext>* heapCtx = new ManagedObj<SyncReplyContext>(ctxt);
         status = localEndpoint.RegisterReplyHandler(const_cast<MessageReceiver*>(static_cast<const MessageReceiver* const>(this)),
                                                     static_cast<MessageReceiver::ReplyHandler>(&ProxyBusObject::SyncReplyHandler),
                                                     method,
                                                     serial,
                                                     (flags & ALLJOYN_FLAG_ENCRYPTED) != 0,
-                                                    new ManagedObj<SyncReplyContext>(ctxt),
+                                                    heapCtx,
                                                     timeout);
         if (status == ER_OK) {
             if (b2bEp) {
@@ -569,6 +570,9 @@ QStatus ProxyBusObject::MethodCall(const InterfaceDescription::Member& method,
             } else {
                 status = bus->GetInternal().GetRouter().PushMessage(msg, localEndpoint);
             }
+        } else {
+            delete heapCtx;
+            heapCtx = NULL;
         }
 
         Thread* thisThread = Thread::GetThread();
@@ -600,7 +604,11 @@ QStatus ProxyBusObject::MethodCall(const InterfaceDescription::Member& method,
             status = ER_BUS_METHOD_CALL_ABORTED;
             goto MethodCallExit;
         } else {
-            localEndpoint.UnregisterReplyHandler(serial);
+            if (localEndpoint.UnregisterReplyHandler(serial)) {
+                if (heapCtx) {
+                    delete heapCtx;
+                }
+            }
         }
     }
 
