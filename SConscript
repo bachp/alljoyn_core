@@ -106,12 +106,6 @@ env.Install('$DISTDIR/bin/samples', progs)
 progs = env.SConscript('$OBJDIR/alljoyn_android/SConscript')
 env.Install('$DISTDIR/bin/alljoyn_android', progs)
 
-# Test programs built with bundled daemon
-bdenv = env.Clone()
-bdenv.Prepend(LIBS = daemon_lib)
-bdenv.Prepend(LIBS = daemon_obj)
-bdenv.VariantDir('$OBJDIR/bundled', 'test', duplicate = 0)
-
 # Release notes and misc. legals
 env.Install('$DISTDIR', 'docs/ReleaseNotes.txt')
 env.Install('$DISTDIR', 'docs/AllJoyn_API_Changes_cpp.txt')
