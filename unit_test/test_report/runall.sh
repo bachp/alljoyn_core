@@ -84,7 +84,8 @@ then
 elif test -z "$alljoyn_dist"
 then
 	alljoyn_dist="$alljoyn_test/../dist"
-else
+elif test -z "$alljoyn_test"
+then
 	alljoyn_test="$alljoyn_dist/../test"
 fi
 
