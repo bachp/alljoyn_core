@@ -152,7 +152,6 @@ QStatus BundledDaemon::Start(NullTransport* nullTransport)
          * Load the configuration
          */
         DaemonConfig* config = NULL;
-        bool useInternal = true;
 #ifndef NDEBUG
         qcc::String configFile = qcc::String::Empty;
     #if defined(QCC_OS_ANDROID)
@@ -167,14 +166,21 @@ QStatus BundledDaemon::Start(NullTransport* nullTransport)
             FileSource fs(configFile);
             if (fs.IsValid()) {
                 config = DaemonConfig::Load(fs);
-                if (config) {
-                    useInternal = false;
+                if (!config) {
+                    status = ER_BUS_BAD_XML;
+                    QCC_LogError(status, ("Error parsing configuration from %s", configFile.c_str()));
+                    goto ErrorExit;
                 }
             }
         }
 #endif
-        if (useInternal) {
+        if (!config) {
             config = DaemonConfig::Load(bundledConfig);
+        }
+        if (!config) {
+            status = ER_BUS_BAD_XML;
+            QCC_LogError(status, ("Error parsing configuration"));
+            goto ErrorExit;
         }
         /*
          * Extract the listen specs
