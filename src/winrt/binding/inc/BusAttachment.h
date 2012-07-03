@@ -43,19 +43,11 @@ ref class ProxyBusObject;
 ref class AuthListener;
 ref class KeyStoreListener;
 
-///<summary>Event for reporting that a session has been joined</summary>
-///<param name="status">ER_OK if successful</param>
-///<param name="sessionId">Unique identifier for session.</param>
-///<param name="opts">Session options.</param>
-///<param name="context">User defined context which will be passed as-is to callback.</param>
 public delegate void BusAttachmentJoinSessionHandler(QStatus status, ajn::SessionId sessionId, SessionOpts ^ opts, Platform::Object ^ context);
 
 public enum class RequestNameType {
-    ///<summary>Allow others to take ownership of this name</summary>
     DBUS_NAME_ALLOW_REPLACEMENT = DBUS_NAME_FLAG_ALLOW_REPLACEMENT,
-    ///<summary> Attempt to take ownership of name if already taken </summary>
     DBUS_NAME_REPLACE_EXISTING = DBUS_NAME_FLAG_REPLACE_EXISTING,
-    ///<summary> Fail if name cannot be immediately obtained  </summary>
     DBUS_NAME_DO_NOT_QUEUE = DBUS_NAME_FLAG_DO_NOT_QUEUE
 };
 
@@ -141,8 +133,6 @@ public ref class BusAttachment sealed {
     /// <param name="allowRemoteMessages">True if this attachment is allowed to receive messages from remote devices.</param>
     /// <param name="concurrency">The maximum number of concurrent method and signal handlers locally executing.</param>
     BusAttachment(Platform::String ^ applicationName, bool allowRemoteMessages);
-
-    ~BusAttachment();
 
     /// <summary>
     /// Create an interface description with a given name.
@@ -988,6 +978,7 @@ public ref class BusAttachment sealed {
     friend class _SessionListener;
     friend class _SessionPortListener;
     BusAttachment(void* busattachment, bool isManaged);
+    ~BusAttachment();
 
     qcc::ManagedObj<_BusAttachment>* _mBusAttachment;
     _BusAttachment* _busAttachment;

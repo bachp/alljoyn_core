@@ -22,7 +22,7 @@
 #include <alljoyn/BusAttachment.h>
 #include <alljoyn/ProxyBusObject.h>
 #include <qcc/ManagedObj.h>
-#include "MessageReceiver.h"
+#include <MessageReceiver.h>
 #include <qcc/Mutex.h>
 #include <map>
 
@@ -34,10 +34,6 @@ ref class InterfaceDescription;
 ref class InterfaceMember;
 class _ProxyBusObject;
 
-///<summary>Callback registered with IntrospectRemoteObjectAsync()</summary>
-///<param name="status">ER_OK if successful</param>
-///<param name="obj">Remote bus object that was introspected</param>
-///<param name="context">Context passed in IntrospectRemoteObjectAsync()</param>
 public delegate QStatus IntrospectRemoteObjectHandler(QStatus status, ProxyBusObject ^ obj, Platform::Object ^ context);
 
 class IntrospectCBCtx {
@@ -132,11 +128,6 @@ class _ProxyBusObject : protected ajn::ProxyBusObject {
     qcc::Mutex _mutex;
 };
 
-///<summary>
-///Each <c>ProxyBusObject</c>instance represents a single DBus/AllJoyn object registered
-///somewhere on the bus. <c>ProxyBusObject</c>s are used to make method calls on these
-///remotely located DBus objects.
-///</summary>
 public ref class ProxyBusObject sealed {
   public:
 
@@ -158,7 +149,6 @@ public ref class ProxyBusObject sealed {
     /// <param name="path">The absolute (non-relative) object path for the remote object.</param>
     /// <param name="sessionId">The session id the be used for communicating with remote object.</param>
     ProxyBusObject(BusAttachment ^ bus, Platform::String ^ service, Platform::String ^ path, ajn::SessionId sessionId);
-    ~ProxyBusObject();
 
     /// <summary>
     /// Query the remote object on the bus to determine the interfaces and
@@ -174,11 +164,10 @@ public ref class ProxyBusObject sealed {
     /// callbacks.
     /// </remarks>
     /// <param name="context">User defined context which will be passed as-is to callback.</param>
-    ///<exception cref="Platform::COMException">
-    /// HRESULT will contain the AllJoyn error status code for the error.
+    /// <returns>
     /// - #ER_OK if successful.
     /// - An error status otherwise
-    ///</exception>
+    /// </returns>
     void IntrospectRemoteObjectAsync(Platform::Object ^ context);
 
     /// <summary>
@@ -186,13 +175,12 @@ public ref class ProxyBusObject sealed {
     /// </summary>
     /// <param name="iface">Name of interface to retrieve property from.</param>
     /// <param name="property">The name of the property to get.</param>
-    /// <param name="value">  Property value.</param>
-    ///<exception cref="Platform::COMException">
-    /// HRESULT will contain the AllJoyn error status code for the error.
+    /// <param name="value"  Property value.</param>
+    /// <returns>
     /// - #ER_OK if the property was obtained.
     /// - #ER_BUS_OBJECT_NO_SUCH_INTERFACE if the no such interface on this remote object.
     /// - #ER_BUS_NO_SUCH_PROPERTY if the property does not exist
-    ///</exception>
+    /// </returns>
     void GetProperty(Platform::String ^ iface, Platform::String ^ property, Platform::WriteOnlyArray<MsgArg ^> ^ value);
 
 
@@ -201,12 +189,11 @@ public ref class ProxyBusObject sealed {
     /// </summary>
     /// <param name="iface">Name of interface to retrieve all properties from.</param>
     /// <param name="values">Property values returned as an array of dictionary entries, signature "a{sv}".</param>
-    /// <exception cref="Platform::COMException">
-    /// HRESULT will contain the AllJoyn error status code for the error.
+    /// <returns>
     /// - #ER_OK if the property was obtained.
     /// - #ER_BUS_OBJECT_NO_SUCH_INTERFACE if the no such interface on this remote object.
     /// - #ER_BUS_NO_SUCH_PROPERTY if the property does not exist
-    /// </exception>
+    /// </returns>
     void GetAllProperties(Platform::String ^ iface, Platform::WriteOnlyArray<MsgArg ^> ^ values);
 
 
@@ -216,12 +203,11 @@ public ref class ProxyBusObject sealed {
     /// <param name="iface">Interface that holds the property</param>
     /// <param name="property">The name of the property to set</param>
     /// <param name="value">The value to set</param>
-    /// <exception cref="Platform::COMException">
-    /// HRESULT will contain the AllJoyn error status code for the error.
+    /// <returns>
     /// - #ER_OK if the property was set
     /// - #ER_BUS_OBJECT_NO_SUCH_INTERFACE if the no such interface on this remote object.
     /// - #ER_BUS_NO_SUCH_PROPERTY if the property does not exist
-    /// </exception>
+    /// </returns>
     void SetProperty(Platform::String ^ iface, Platform::String ^ property, MsgArg ^ value);
 
 
@@ -269,22 +255,20 @@ public ref class ProxyBusObject sealed {
     /// Bus. (i.e. it must have come from a call to Bus GetInterface ).
     /// </remarks>
     /// <param name="iface">The interface to add to this object. Must come from Bus  GetInterface .</param>
-    ///<exception cref="Platform::COMException">
-    /// HRESULT will contain the AllJoyn error status code for the error.
+    /// <returns>
     /// - #ER_OK if successful.
     /// - An error status otherwise
-    ///</exception>
+    /// </returns>
     void AddInterface(InterfaceDescription ^ iface);
 
     /// <summary>
     /// Add an existing interface to this object using the interface's name.
     /// </summary>
     /// <param name="name">Name of existing interface to add to this object.</param>
-    ///<exception cref="Platform::COMException">
-    /// HRESULT will contain the AllJoyn error status code for the error.
+    /// <returns>
     /// - #ER_OK if successful.
     /// - An error status otherwise.
-    ///</exception>
+    /// </returns>
     void AddInterface(Platform::String ^ name);
 
     /// <summary>
@@ -323,25 +307,22 @@ public ref class ProxyBusObject sealed {
     /// - It is an error to try to add a child that has an object path that is not a descendant of this object's path.
     /// </remarks>
     /// <param name="child">Child ProxyBusObject</param>
-    ///<exception cref="Platform::COMException">
-    /// HRESULT will contain the AllJoyn error status code for the error.
+    /// <returns>
     /// - #ER_OK if successful.
     /// - #ER_BUS_BAD_CHILD_PATH if the path is a bad path
     /// - #ER_BUS_OBJ_ALREADY_EXISTS the the object already exists on the ProxyBusObject
-    ///</exception>
+    /// </returns>
     void AddChild(ProxyBusObject ^ child);
 
     /// <summary>
     /// Remove a child object and any descendants it may have.
     /// </summary>
     /// <param name="path">Absolute or relative (to this ProxyBusObject) object path.</param>
-    /// <exception cref="Platform::COMException">
-    /// HRESULT will contain the AllJoyn error status code for the error.
+    /// <returns>
     /// - #ER_OK if successful.
     /// - #ER_BUS_BAD_CHILD_PATH if the path given was not a valid path
     /// - #ER_BUS_OBJ_NOT_FOUND if the Child object was not found
-    /// - #ER_FAIL any other unexpected error.
-    /// </exception>
+    /// - #ER_FAIL any other unexpected error.</returns>
     void RemoveChild(Platform::String ^ path);
 
     /// <summary>
@@ -359,11 +340,9 @@ public ref class ProxyBusObject sealed {
     /// - If #ALLJOYN_FLAG_ENCRYPTED is set the message is authenticated and the payload if any is encrypted.
     /// - If #ALLJOYN_FLAG_COMPRESSED is set the header is compressed for destinations that can handle header compression.
     /// - If #ALLJOYN_FLAG_AUTO_START is set the bus will attempt to start a service if it is not running.</param>
-    /// <exception cref="Platform::COMException">
-    /// HRESULT will contain the AllJoyn error status code for the error.
+    /// <returns>
     /// - ER_OK if successful
-    /// - An error status otherwise
-    /// </exception>
+    /// - An error status otherwise</returns>
     void MethodCallAsync(InterfaceMember ^ method,
                          MessageReceiver ^ receiver,
                          const Platform::Array<MsgArg ^> ^ args,
@@ -385,11 +364,9 @@ public ref class ProxyBusObject sealed {
     /// - If #ALLJOYN_FLAG_ENCRYPTED is set the message is authenticated and the payload if any is encrypted.
     /// - If #ALLJOYN_FLAG_COMPRESSED is set the header is compressed for destinations that can handle header compression.
     /// - If #ALLJOYN_FLAG_AUTO_START is set the bus will attempt to start a service if it is not running.</param>
-    /// <exception cref="Platform::COMException">
-    /// HRESULT will contain the AllJoyn error status code for the error.
+    /// <returns>
     /// - ER_OK if successful
-    /// - An error status otherwise
-    /// </exception>
+    /// - An error status otherwise</returns>
     void MethodCallAsync(Platform::String ^ ifaceName,
                          Platform::String ^ methodName,
                          MessageReceiver ^ receiver,
@@ -414,11 +391,9 @@ public ref class ProxyBusObject sealed {
     /// </summary>
     /// <param name="xml">An XML string in DBus introspection format.</param>
     /// <param name="identifier">An optional identifying string to include in error logging messages.</param>
-    ///<exception cref="Platform::COMException">
-    /// HRESULT will contain the AllJoyn error status code for the error.
+    /// <returns>
     /// - #ER_OK if parsing is completely successful.
-    /// - An error status otherwise.
-    ///</exception>
+    /// - An error status otherwise.</returns>
     void ParseXml(Platform::String ^ xml, Platform::String ^ identifier);
 
     /// <summary>
@@ -431,12 +406,11 @@ public ref class ProxyBusObject sealed {
     /// </summary>
     /// <param name="forceAuth">If true, forces an re-authentication even if the peer connection is already
     /// authenticated.</param>
-    /// <exception cref="Platform::COMException">
-    /// HRESULT will contain the AllJoyn error status code for the error.
+    /// <returns>
     /// - #ER_OK if securing could begin.
     /// - #ER_BUS_NO_AUTHENTICATION_MECHANISM if BusAttachment::EnablePeerSecurity() has not been called.
     /// - Other error status codes indicating a failure.
-    ///</exception>
+    /// </returns>
     void SecureConnectionAsync(bool forceAuth);
 
     /// <summary>
@@ -445,7 +419,6 @@ public ref class ProxyBusObject sealed {
     /// <returns>true if a valid proxy bus object, false otherwise.</returns>
     bool IsValid();
 
-    /// <summary>Called when the remote object introspection has completed</summary>
     event IntrospectRemoteObjectHandler ^ IntrospectRemoteObject
     {
         Windows::Foundation::EventRegistrationToken add(IntrospectRemoteObjectHandler ^ handler);
@@ -453,33 +426,38 @@ public ref class ProxyBusObject sealed {
         QStatus raise(QStatus status, ProxyBusObject ^ obj, Platform::Object ^ context);
     }
 
-    /// <summary>The bus attachment for the remote object.</summary>
     property BusAttachment ^ Bus
     {
         BusAttachment ^ get();
     }
 
-    /// <summary>The absolute object path for the remote object.</summary>
+    /// <summary>
+    /// Return the absolute object path for the remote object.
+    /// </summary>
+    /// <returns>Object path</returns>
     property Platform::String ^ Path
     {
         Platform::String ^ get();
     }
 
-    /// <summary>The remote service name for this object.
-    /// (typically a well-known service name but may be a unique name)
+    /// <summary>
+    /// Return the remote service name for this object.
     /// </summary>
+    /// <returns>Service name (typically a well-known service name but may be a unique name)</returns>
     property Platform::String ^ Name
     {
         Platform::String ^ get();
     }
 
-    /// <summary>The MessageReceiver for this object.</summary>
     property MessageReceiver ^ Receiver
     {
         MessageReceiver ^ get();
     }
 
-    /// <summary>The SessionId for this object.</summary>
+    /// <summary>
+    /// Return the session Id for this object.
+    /// </summary>
+    /// <returns>Session Id</returns>
     property ajn::SessionId SessionId
     {
         ajn::SessionId get();
@@ -489,6 +467,7 @@ public ref class ProxyBusObject sealed {
     friend ref class BusAttachment;
     ProxyBusObject(BusAttachment ^ bus, void* proxybusobject);
     ProxyBusObject(void* proxybusobject, bool isManaged);
+    ~ProxyBusObject();
 
     qcc::ManagedObj<_ProxyBusObject>* _mProxyBusObject;
     _ProxyBusObject* _proxyBusObject;

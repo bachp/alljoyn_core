@@ -42,29 +42,8 @@ ref class BusAttachment;
 ref class BusObject;
 ref class ProxyBusObject;
 
-///<summary>
-///MethodHandlers are %MessageReceiver methods which are called by AllJoyn library
-///to forward AllJoyn method_calls to AllJoyn library users.
-///</summary>
-///<param name="member">Method interface member entry.</param>
-///<param name="message">The received method call message.</param>
 public delegate void MessageReceiverMethodHandler(InterfaceMember ^ member, Message ^ message);
-
-///<summary>
-///ReplyHandlers are %MessageReceiver methods which are called by AllJoyn library
-///to forward AllJoyn method_reply and error responses to AllJoyn library users.
-///</summary>
-///<param name="message">The received message.</param>
-///<param name="context">User-defined context passed to MethodCall and returned upon reply.</param>
 public delegate void MessageReceiverReplyHandler(Message ^ message, Platform::Object ^ context);
-
-///<summary>
-///SignalHandlers are %MessageReceiver methods which are called by AllJoyn library
-///to forward AllJoyn received signals to AllJoyn library users.
-///</summary>
-///<param name="member">Method or signal interface member entry.</param>
-///<param name="srcPath">Object path of signal emitter.</param>
-///<param name="message">The received message.</param>
 public delegate void MessageReceiverSignalHandler(InterfaceMember ^ member, Platform::String ^ srcPath, Message ^ message);
 
 ref class __MessageReceiver {
@@ -275,16 +254,6 @@ public ref class MessageReceiver sealed {
         }
     }
 
-    ~MessageReceiver()
-    {
-        if (NULL != _mReceiver) {
-            delete _mReceiver;
-            _mReceiver = NULL;
-            _receiver = NULL;
-        }
-    }
-
-    ///<summary>Called when a method has been received</summary>
     event MessageReceiverMethodHandler ^ MethodHandler
     {
         Windows::Foundation::EventRegistrationToken add(MessageReceiverMethodHandler ^ handler)
@@ -303,7 +272,6 @@ public ref class MessageReceiver sealed {
         }
     }
 
-    ///<summary>Called when a method reply has been received</summary>
     event MessageReceiverReplyHandler ^ ReplyHandler
     {
         Windows::Foundation::EventRegistrationToken add(MessageReceiverReplyHandler ^ handler)
@@ -322,7 +290,6 @@ public ref class MessageReceiver sealed {
         }
     }
 
-    ///<summary>Called when a signal has received</summary>
     event MessageReceiverSignalHandler ^ SignalHandler
     {
         Windows::Foundation::EventRegistrationToken add(MessageReceiverSignalHandler ^ handler)
@@ -377,6 +344,15 @@ public ref class MessageReceiver sealed {
 
         if (ER_OK != status) {
             QCC_THROW_EXCEPTION(status);
+        }
+    }
+
+    ~MessageReceiver()
+    {
+        if (NULL != _mReceiver) {
+            delete _mReceiver;
+            _mReceiver = NULL;
+            _receiver = NULL;
         }
     }
 

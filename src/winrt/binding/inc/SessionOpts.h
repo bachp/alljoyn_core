@@ -31,11 +31,8 @@ public enum class ProximityType {
 };
 
 public enum class TrafficType {
-    ///<summary>Session carries message traffic</summary>
     TRAFFIC_MESSAGES       = ajn::SessionOpts::TRAFFIC_MESSAGES,
-    ///<summary>Session carries an unreliable (lossy) byte stream</summary>
     TRAFFIC_RAW_UNRELIABLE = ajn::SessionOpts::TRAFFIC_RAW_UNRELIABLE,
-    ///<summary>Session carries a reliable byte stream</summary>
     TRAFFIC_RAW_RELIABLE   = ajn::SessionOpts::TRAFFIC_RAW_RELIABLE
 };
 
@@ -72,48 +69,26 @@ class _SessionOpts : protected ajn::SessionOpts {
 public ref class SessionOpts sealed {
   public:
     SessionOpts();
-
-    ///<summary>Construct a SessionOpts with specific parameters.</summary>
-    ///<param name="traffic">Type of traffic.</param>
-    ///<param name="isMultipoint">true iff session supports multipoint (greater than two endpoints).</param>
-    ///<param name="proximity">Proximity constraint bitmask.</param>
-    ///<param name="transports">Allowed transport types bitmask.</param>
     SessionOpts(TrafficType traffic, bool isMultipoint, ProximityType proximity, TransportMaskType transports);
-    ~SessionOpts();
 
-    ///<summary>
-    ///Traffic accesses the <c>TrafficType</c> value of the <c>SessionOpts</c> object.
-    ///</summary>
     property TrafficType Traffic
     {
         TrafficType get();
         void set(TrafficType value);
     }
 
-    ///<summary>
-    ///Multi-point session capable.
-    ///A session is multi-point if it can be joined multiple times to form a single
-    ///session with multi (greater than 2) endpoints. When false, each join attempt
-    ///creates a new point-to-point session.
-    ///</summary>
     property bool IsMultipoint
     {
         bool get();
         void set(bool value);
     }
 
-    ///<summary>
-    ///Proximity accesses the <c>ProximityType</c> value of the <c>SessionOpts</c> object.
-    ///</summary>
     property ProximityType Proximity
     {
         ProximityType get();
         void set(ProximityType value);
     }
 
-    ///<summary>
-    ///TransportMask accesses the <c>TransportMaskType</c> value of the <c>SessionOpts</c> object.
-    ///</summary>
     property TransportMaskType TransportMask
     {
         TransportMaskType get();
@@ -125,6 +100,7 @@ public ref class SessionOpts sealed {
     friend class _SessionPortListener;
     friend class _BusAttachment;
     SessionOpts(void* sessionopts, bool isManaged);
+    ~SessionOpts();
 
     qcc::ManagedObj<_SessionOpts>* _mSessionOpts;
     _SessionOpts* _sessionOpts;

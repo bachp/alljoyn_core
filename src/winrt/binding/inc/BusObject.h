@@ -33,74 +33,12 @@ ref class MessageReceiver;
 ref class Message;
 ref class InterfaceMember;
 
-/// <summary>
-/// Handle a bus request to read a property from this object.
-/// BusObjects that implement properties should override this method.
-/// The default version simply returns ER_BUS_NO_SUCH_PROPERTY
-/// </summary>
-/// <param name="ifcName">Identifies the interface that the property is defined on</param>
-/// <param name="propName">Identifies the the property to get</param>
-/// <param>name="val">Returns the property value. The type of this value is the actual value type.</param>
-/// <returns>#ER_BUS_NO_SUCH_PROPERTY (Should be changed by user implementation of BusObject)</returns>
 public delegate QStatus BusObjectGetHandler(Platform::String ^ ifcName, Platform::String ^ propName, Platform::WriteOnlyArray<MsgArg ^> ^ val);
-
-/// <summary>
-/// Handle a bus attempt to write a property value to this object.
-/// BusObjects that implement properties should override this method.
-/// This default version just replies with ER_BUS_NO_SUCH_PROPERTY
-/// </summary>
-/// <param name="ifcName">Identifies the interface that the property is defined on</param>
-/// <param name="propName">Identifies the the property to set</param>
-/// <param name="val">The property value to set. The type of this value is the actual value type.</param>
-/// <returns>#ER_BUS_NO_SUCH_PROPERTY (Should be changed by user implementation of BusObject)</returns>
 public delegate QStatus BusObjectSetHandler(Platform::String ^ ifcName, Platform::String ^ propName, MsgArg ^ val);
-
-/// <summary>
-/// Returns a description of the object in the D-Bus introspection XML format.
-/// This method can be overridden by derived classes in order to customize the
-/// introspection XML presented to remote nodes. Note that to DTD description and
-/// the root element are not generated.
-/// </summary>
-/// <param name="deep">Include XML for all descendants rather than stopping at direct children.</param>
-/// <param name="indent">Number of characters to indent the XML</param>
-/// <returns>Description of the object in D-Bus introspection XML format</returns>
 public delegate Platform::String ^ BusObjectGenerateIntrospectionHandler(bool deep, uint32_t indent);
-
-/// <summary>
-/// Called by the message bus when the object has been successfully registered. The object can
-/// perform any initialization such as adding match rules at this time.
-/// </summary>
 public delegate void BusObjectObjectRegisteredHandler(void);
-
-/// <summary>
-/// Called by the message bus when the object has been successfully unregistered
-/// </summary>
-/// <remarks>
-/// This base class implementation @b must be called explicitly by any overriding derived class.
-/// </remarks>
 public delegate void BusObjectObjectUnregisteredHandler(void);
-
-/// <summary>
-/// Default handler for a bus attempt to read all properties on an interface.
-/// </summary>
-/// <remarks>
-/// A derived class can override this function to provide a custom handler for the GetAllProps
-/// method call. If overridden the custom handler must compose an appropriate reply message
-/// listing all properties on this object.
-/// </remarks>
-/// <param name="member">Identifies the org.freedesktop.DBus.Properties.GetAll method.</param>
-/// <param name="msg">The Properties.GetAll request.</param>
 public delegate void BusObjectGetAllPropsHandler(InterfaceMember ^ member, Message ^ msg);
-
-/// <summary>
-/// Default handler for a bus attempt to read the object's introspection data.
-/// </summary>
-/// <remarks>
-/// A derived class can override this function to provide a custom handler for the GetProp method
-/// call. If overridden the custom handler must compose an appropriate reply message.
-/// </remarks>
-/// <param name="member">Identifies the Introspect method.</param>
-/// <param name="msg">The Introspectable.Introspect request.</param>
 public delegate void BusObjectIntrospectHandler(InterfaceMember ^ member, Message ^ msg);
 
 ref class __BusObject {
@@ -113,9 +51,23 @@ ref class __BusObject {
     event BusObjectGetHandler ^ Get;
     event BusObjectSetHandler ^ Set;
     event BusObjectGenerateIntrospectionHandler ^ GenerateIntrospection;
+    /// <summary>
+    ///  Event for reporting that a BusObject has been registered
+    /// </summary>
     event BusObjectObjectRegisteredHandler ^ ObjectRegistered;
+
+    /// <summary>
+    ///  Event for reporting that a BusObject has been unregistered
+    /// </summary>
     event BusObjectObjectUnregisteredHandler ^ ObjectUnregistered;
+
+    /// <summary>
+    ///  Event for reporting that GetAllProps has been requested
+    /// </summary>
     event BusObjectGetAllPropsHandler ^ GetAllProps;
+    /// <summary>
+    ///  Event for reporting that introspection has been requested
+    /// </summary>
     event BusObjectIntrospectHandler ^ Introspect;
     property BusAttachment ^ Bus;
     property Platform::String ^ Name;
@@ -164,7 +116,6 @@ public ref class BusObject sealed {
     /// <param name="isPlaceholder">Place-holder objects are created by the bus itself and serve only
     /// as parent objects (in the object path sense) to other objects.</param>
     BusObject(BusAttachment ^ bus, Platform::String ^ path, bool isPlaceholder);
-    ~BusObject();
 
     /// <summary>
     /// Reply to a method call.
@@ -172,11 +123,10 @@ public ref class BusObject sealed {
     /// <param name="msg">The method call message</param>
     /// <param name="args">The reply arguments (can be NULL)</param>
     /// <param name="numArgs">The number of arguments</param>
-    /// <exception cref="Platform::COMException">
-    /// HRESULT will contain the AllJoyn error status code for the error.
+    /// <returns>
     /// - #ER_OK if successful
     /// - An error status otherwise
-    /// </exception>
+    /// </returns>
     void MethodReply(Message ^ msg, const Platform::Array<MsgArg ^> ^ args);
 
     /// <summary>
@@ -185,11 +135,10 @@ public ref class BusObject sealed {
     /// <param name="msg ">The method call message</param>
     /// <param name="error">The name of the error</param>
     /// <param name="errorMessage">An error message string</param>
-    /// <exception cref="Platform::COMException">
-    /// HRESULT will contain the AllJoyn error status code for the error.
+    /// <returns>
     /// - #ER_OK if successful
     /// - An error status otherwise
-    /// </exception>
+    /// </returns>
     void MethodReply(Message ^ msg, Platform::String ^ error, Platform::String ^ errorMessage);
 
     /// <summary>
@@ -197,11 +146,10 @@ public ref class BusObject sealed {
     /// </summary>
     /// <param name="msg">The method call message</param>
     /// <param name="status">The status code for the error</param>
-    /// <exception cref="Platform::COMException">
-    /// HRESULT will contain the AllJoyn error status code for the error.
+    /// <returns>
     /// - #ER_OK if successful
     /// - An error status otherwise
-    /// </exception>
+    /// </returns>
     void MethodReply(Message ^ msg, QStatus s);
 
     /// <summary>
@@ -220,11 +168,10 @@ public ref class BusObject sealed {
     /// - If ::ALLJOYN_FLAG_GLOBAL_BROADCAST is set broadcast signal (null destination) will be forwarded across bus-to-bus connections.
     /// - If ::ALLJOYN_FLAG_COMPRESSED is set the header is compressed for destinations that can handle header compression.
     /// - If ::ALLJOYN_FLAG_ENCRYPTED is set the message is authenticated and the payload if any is encrypted.</param>
-    /// <exception cref="Platform::COMException">
-    /// HRESULT will contain the AllJoyn error status code for the error.
+    /// <returns>
     /// - #ER_OK if successful
     /// - An error status otherwise
-    /// </exception>
+    /// </returns>
     void Signal(Platform::String ^ destination,
                 ajn::SessionId sessionId,
                 InterfaceMember ^ signal,
@@ -242,12 +189,11 @@ public ref class BusObject sealed {
     /// Once an object is registered, it should not add any additional interfaces. Doing so would
     /// confuse remote objects that may have already introspected this object.
     /// <param name="iface">The interface to add</param>
-    /// <exception cref="Platform::COMException">
-    /// HRESULT will contain the AllJoyn error status code for the error.
+    /// <returns>
     /// - #ER_OK if the interface was successfully added.
     /// - #ER_BUS_IFACE_ALREADY_EXISTS if the interface already exists.
     /// - An error status otherwise
-    /// </exception>
+    /// </returns>
     void AddInterface(InterfaceDescription ^ iface);
 
     /// <summary>
@@ -258,16 +204,22 @@ public ref class BusObject sealed {
     /// <param name="handler">Method handler.</param>
     /// <param name="context">An optional context. This is mainly intended for implementing language
     /// bindings and should normally be NULL.</param>
-    /// <exception cref="Platform::COMException">
-    /// HRESULT will contain the AllJoyn error status code for the error.
+    /// <returns>
     /// - #ER_OK if the method handler was added.
     /// - An error status otherwise
-    /// </exception>
+    /// </returns>
     void AddMethodHandler(InterfaceMember ^ member, MessageReceiver ^ receiver);
 
     /// <summary>
-    /// Called when a bus request to read a property from this object.
+    /// Handle a bus request to read a property from this object.
+    /// BusObjects that implement properties should override this method.
+    /// The default version simply returns ER_BUS_NO_SUCH_PROPERTY
     /// </summary>
+    /// <param name="ifcName">Identifies the interface that the property is defined on</param>
+    /// <param name="propName">Identifies the the property to get</param>
+    /// @param[out] val        Returns the property value. The type of this value is the actual value
+    /// type.
+    /// <returns>#ER_BUS_NO_SUCH_PROPERTY (Should be changed by user implementation of BusObject)</returns>
     event BusObjectGetHandler ^ Get
     {
         Windows::Foundation::EventRegistrationToken add(BusObjectGetHandler ^ handler);
@@ -276,8 +228,15 @@ public ref class BusObject sealed {
     }
 
     /// <summary>
-    /// Called when a bus attempts to write a property value to this object.
+    /// Handle a bus attempt to write a property value to this object.
+    /// BusObjects that implement properties should override this method.
+    /// This default version just replies with ER_BUS_NO_SUCH_PROPERTY
     /// </summary>
+    /// <param name="ifcName">Identifies the interface that the property is defined on</param>
+    /// <param name="propName">Identifies the the property to set</param>
+    /// <param name="val">The property value to set. The type of this value is the actual value</param>
+    /// type.
+    /// <returns>#ER_BUS_NO_SUCH_PROPERTY (Should be changed by user implementation of BusObject)</returns>
     event BusObjectSetHandler ^ Set
     {
         Windows::Foundation::EventRegistrationToken add(BusObjectSetHandler ^ handler);
@@ -286,8 +245,14 @@ public ref class BusObject sealed {
     }
 
     /// <summary>
-    /// Called when a bus requests a description of the object in the D-Bus introspection XML format.
+    /// Returns a description of the object in the D-Bus introspection XML format.
+    /// This method can be overridden by derived classes in order to customize the
+    /// introspection XML presented to remote nodes. Note that to DTD description and
+    /// the root element are not generated.
     /// </summary>
+    /// <param name="deep">Include XML for all descendants rather than stopping at direct children.</param>
+    /// <param name="indent">Number of characters to indent the XML</param>
+    /// <returns>Description of the object in D-Bus introspection XML format</returns>
     event BusObjectGenerateIntrospectionHandler ^ GenerateIntrospection
     {
         Windows::Foundation::EventRegistrationToken add(BusObjectGenerateIntrospectionHandler ^ handler);
@@ -296,7 +261,8 @@ public ref class BusObject sealed {
     }
 
     /// <summary>
-    /// Called when the object has been successfully registered.
+    /// Called by the message bus when the object has been successfully registered. The object can
+    /// perform any initialization such as adding match rules at this time.
     /// </summary>
     event BusObjectObjectRegisteredHandler ^ ObjectRegistered
     {
@@ -306,8 +272,11 @@ public ref class BusObject sealed {
     }
 
     /// <summary>
-    /// Called when the object has been successfully unregistered
+    /// Called by the message bus when the object has been successfully unregistered
     /// </summary>
+    /// <remarks>
+    /// This base class implementation @b must be called explicitly by any overriding derived class.
+    /// </remarks>
     event BusObjectObjectUnregisteredHandler ^ ObjectUnregistered
     {
         Windows::Foundation::EventRegistrationToken add(BusObjectObjectUnregisteredHandler ^ handler);
@@ -316,8 +285,15 @@ public ref class BusObject sealed {
     }
 
     /// <summary>
-    /// Called when a bus attempts to read all properties on an interface.
+    /// Default handler for a bus attempt to read all properties on an interface.
     /// </summary>
+    /// <remarks>
+    /// A derived class can override this function to provide a custom handler for the GetAllProps
+    /// method call. If overridden the custom handler must compose an appropriate reply message
+    /// listing all properties on this object.
+    /// </remarks>
+    /// <param name="member">Identifies the org.freedesktop.DBus.Properties.GetAll method.</param>
+    /// <param name="msg">The Properties.GetAll request.</param>
     event BusObjectGetAllPropsHandler ^ GetAllProps
     {
         Windows::Foundation::EventRegistrationToken add(BusObjectGetAllPropsHandler ^ handler);
@@ -326,8 +302,14 @@ public ref class BusObject sealed {
     }
 
     /// <summary>
-    /// Fired when a bus attempts to read the object's introspection data.
+    /// Default handler for a bus attempt to read the object's introspection data.
     /// </summary>
+    /// <remarks>
+    /// A derived class can override this function to provide a custom handler for the GetProp method
+    /// call. If overridden the custom handler must compose an appropriate reply message.
+    /// </remarks>
+    /// <param name="member">Identifies the @c org.freedesktop.DBus.Introspectable.Introspect method.</param>
+    /// <param name="msg">The Introspectable.Introspect request.</param>
     event BusObjectIntrospectHandler ^ Introspect
     {
         Windows::Foundation::EventRegistrationToken add(BusObjectIntrospectHandler ^ handler);
@@ -335,7 +317,6 @@ public ref class BusObject sealed {
         void raise(InterfaceMember ^ member, Message ^ msg);
     }
 
-    /// <summary>Return the BussAttachment for the object</summary>
     property BusAttachment ^ Bus
     {
         BusAttachment ^ get();
@@ -351,15 +332,15 @@ public ref class BusObject sealed {
         Platform::String ^ get();
     }
 
-    /// <summary>Return the path for the object</summary>
+    /// <summary>
+    /// Return the path for the object
+    /// </summary>
     /// <returns>Object path</returns>
     property Platform::String ^ Path
     {
         Platform::String ^ get();
     }
 
-    /// <summary>Return the receiver for the object</summary>
-    /// <returns>A MessageReceiver</returns>
     property MessageReceiver ^ Receiver
     {
         MessageReceiver ^ get();
@@ -368,6 +349,7 @@ public ref class BusObject sealed {
   private:
     friend ref class BusAttachment;
     BusObject(void* listener, bool isManaged);
+    ~BusObject();
 
     qcc::ManagedObj<_BusObject>* _mBusObject;
     _BusObject* _busObject;

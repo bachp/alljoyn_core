@@ -62,7 +62,6 @@ class _KeyStoreListener : protected ajn::KeyStoreListener {
 public ref class KeyStoreListener sealed {
   public:
     KeyStoreListener(BusAttachment ^ bus);
-    ~KeyStoreListener();
 
     event KeyStoreListenerGetKeysHandler ^ GetKeys
     {
@@ -93,6 +92,7 @@ public ref class KeyStoreListener sealed {
   private:
     friend ref class BusAttachment;
     KeyStoreListener(void* listener, bool isManaged);
+    ~KeyStoreListener();
 
     qcc::ManagedObj<_KeyStoreListener>* _mListener;
     _KeyStoreListener* _listener;
