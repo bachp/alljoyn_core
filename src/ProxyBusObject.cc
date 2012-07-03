@@ -496,6 +496,13 @@ QStatus ProxyBusObject::MethodCall(const InterfaceDescription::Member& method,
     Message msg(*bus);
     LocalEndpoint& localEndpoint = bus->GetInternal().GetLocalEndpoint();
 
+    // if we're being called from the LocalEndpoint (callback) thread, do not allow
+    // blocking calls unless BusAttachment::EnableConcurrentCallbacks has been called first
+    if (localEndpoint.GetDispatcher().ThreadHoldsLock()) {
+        status = ER_BUS_BLOCKING_CALL_NOT_ALLOWED;
+        goto MethodCallExit;
+    }
+
     if (!ImplementsInterface(method.iface->GetName())) {
         status = ER_BUS_OBJECT_NO_SUCH_INTERFACE;
         QCC_LogError(status, ("Object %s does not implement %s", path.c_str(), method.iface->GetName()));
