@@ -458,7 +458,7 @@ class DaemonICETransport : public Transport, public RemoteEndpoint::EndpointList
 
     BusAttachment& m_bus;                                          /**< The message bus for this transport */
     DiscoveryManager* m_dm;                                        /**< The Discovery Manager used for discovery */
-    ICEManager* m_iceManager;                                      /**< The ICE Manager used for managing ICE operations */
+    ICEManager m_iceManager;                                       /**< The ICE Manager used for managing ICE operations */
     bool m_stopping;                                               /**< True if Stop() has been called but endpoints still exist */
     TransportListener* m_listener;                                 /**< Registered TransportListener */
     std::list<DaemonICEEndpoint*> m_authList;                      /**< List of authenticating endpoints */

@@ -36,26 +36,6 @@ using namespace qcc;
 
 namespace ajn {
 
-ICEManager* ICEManager::GetInstance()
-{
-    static Mutex singletonLock;
-    static ICEManager* singleton = 0;
-
-    singletonLock.Lock();
-    if (0 == singleton) {
-        singleton = new ICEManager();
-
-        // Feature: With current implementation, STUN request pacing is
-        // handled within each Session.  It would be more consistent with
-        // the spirit of ICE if pacing were a 'machine-wide' behavior instead.
-        // To make such a change, here would be a good place to start the
-        // thread which will perform keepalives, and periodic ICE-checks.
-    }
-    singletonLock.Unlock();
-
-    return singleton;
-}
-
 ICEManager::ICEManager() :
     ethernetInterfaceName(),
     wifiInterfaceName(),
