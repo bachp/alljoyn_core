@@ -2401,12 +2401,7 @@ QStatus AllJoynObj::ProcCancelAdvertise(const qcc::String& sender, const qcc::St
         }
 
         if (discoverMap.empty() && advertiseMap.empty()) {
-            multimap<String, NameMapEntry>::iterator it = nameMap.begin();
-            while (it != nameMap.end()) {
-
-                FoundNames(it->second.busAddr, it->second.guid, it->second.transport, NULL, 0);
-                it++;
-            }
+            nameMap.clear();
         }
 
     } else if (!foundAdvert) {
@@ -2604,12 +2599,7 @@ QStatus AllJoynObj::ProcCancelFindName(const qcc::String& sender, const qcc::Str
         }
 
         if (discoverMap.empty() && advertiseMap.empty()) {
-            multimap<String, NameMapEntry>::iterator it = nameMap.begin();
-            while (it != nameMap.end()) {
-
-                FoundNames(it->second.busAddr, it->second.guid, it->second.transport, NULL, 0);
-                it++;
-            }
+            nameMap.clear();
         }
 
     } else if (!foundNamePrefix) {
