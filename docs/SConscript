@@ -42,3 +42,46 @@ elif env['DOCS'] == 'pdf':
     Command('./latex/quic.sty','./quic.sty',Copy("$TARGET", "$SOURCE"))
     env.PDF('./latex/refman.pdf', './latex/refman.tex')
     env.Clean('Doxygen_pdf', Dir('latex'))
+elif env['DOCS'] == 'chm':
+    chm_env = env.Clone();
+
+    # import the envrionment variable from the system
+    shfbroot = chm_env.Dir(os.environ['SHFBROOT'])
+
+    # choose the correct build flavor
+    if chm_env['OS'] == 'win8' or chm_env['OS'] == 'win8_nt':
+        if chm_env['CPU'] == 'x86':
+            platform = 'Win32'
+        elif chm_env['CPU'] == 'x86_64':
+            platform = 'x64'
+        elif chm_env['CPU'] == 'arm':
+            platform = 'ARM'
+
+        if chm_env['VARIANT'] == 'debug':
+            variant = 'Debug'
+        else:
+            variant = 'Release'
+
+        # Because SHFB expects a dll filename instead of the winmd,
+        # make a copy, build the doc, then delete the temporary file
+        chm_cmd = chm_env.Command('winrt/Help/AllJoyn.chm',
+                            ['$DISTDIR/bin/AllJoyn.winmd', '$DISTDIR/bin/AllJoyn.xml'],
+                            [
+                            Copy('${SOURCE}.dll','${SOURCE}'),
+                            ''.join([
+                                    'cd alljoyn_core\\docs\\winrt && ',
+                                    'msbuild.exe AllJoyn.shfbproj /t:Rebuild /p:',
+                                    'Configuration=', variant,
+                                    ';Platform=', platform,
+                                    ';SHFBROOT="', shfbroot.path, '"'
+                                    ]),
+                            Delete('${SOURCE}.dll')
+                            ]
+                            )
+
+        chm_install = chm_env.Install('$DISTDIR/bin', 'winrt/Help/AllJoyn.chm')
+
+        # make sure the chm file is built before trying to install it.
+        Depends(chm_install, chm_cmd)
+
+        print env.Dump()

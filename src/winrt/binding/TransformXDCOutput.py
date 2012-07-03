@@ -31,26 +31,19 @@ def repl(m):
     return d[m.group(0)]
 
 filename = sys.argv[1]
-newfilename = filename + ".new"
-inFile = codecs.open(filename, "r", "utf-8") 
-outFile = codecs.open(newfilename, "w", "utf-8") 
-for line in inFile: 
+filenameOut = sys.argv[2]
+inFile = codecs.open(filename, "r", "utf-8")
+outFile = codecs.open(filenameOut, "w", "utf-8")
+for line in inFile:
     newline = p.sub(repl, line)
     
     #Replace some of the more complicated expressions directly
     newline = re.sub('Platform\.Array\&lt\;(.*)\&gt\;', '\\1[]', newline)
     newline = re.sub('Platform\.WriteOnlyArray\&lt\;(.*)\&gt\;', '\\1[]', newline)
     newline = re.sub('\!System\.Runtime\.CompilerServices\.IsConst', '', newline)
-    outFile.write(newline) 
+    outFile.write(newline)
 print sys.argv[0] + ": closing " + filename
 inFile.close()
 
 print sys.argv[0] + ": closing " + newfilename
 outFile.close()
-
-print sys.argv[0] + ": removing " + filename
-os.remove(filename)
-
-print sys.argv[0] + ": renaming " + newfilename + " to " + filename
-os.rename(newfilename, filename)
-print sys.argv[0] + ": renamed " + newfilename + " to " + filename

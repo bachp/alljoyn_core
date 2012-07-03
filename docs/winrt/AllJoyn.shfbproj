@@ -19,10 +19,9 @@
     <HtmlHelpName>AllJoyn</HtmlHelpName>
     <Language>en-US</Language>
     <HelpTitle>AllJoyn Framework APIs</HelpTitle>
-    <PresentationStyle>hana</PresentationStyle>
     <DocumentationSources>
-      <DocumentationSource sourceFile="..\..\..\build\win8\x86_64\debug\dist\bin\winmd.dll" />
-      <DocumentationSource sourceFile="..\..\..\build\win8\x86_64\debug\dist\bin\AllJoyn.xml" />
+      <DocumentationSource sourceFile="..\..\..\build\win8\x86\$(Configuration)\dist\bin\AllJoyn.winmd.dll" />
+      <DocumentationSource sourceFile="..\..\..\build\win8\x86\$(Configuration)\dist\bin\AllJoyn.xml" />
     </DocumentationSources>
     <SandcastlePath>c:\program files (x86)\Sandcastle\</SandcastlePath>
     <VisibleItems>InheritedMembers, InheritedFrameworkMembers, Protected, SealedProtected</VisibleItems>
@@ -106,7 +105,7 @@
       </PlugInConfig>
     </PlugInConfigurations>
     <CppCommentsFixup>True</CppCommentsFixup>
-    <RootNamespaceTitle>A cross-platform application  framework for proximity-based peer-to-peer networking</RootNamespaceTitle>
+    <RootNamespaceTitle>A cross-platform application framework for proximity-based peer-to-peer networking</RootNamespaceTitle>
     <CopyrightHref>http:\\www.alljoyn.org</CopyrightHref>
   </PropertyGroup>
   <!-- There are no properties for these groups.  AnyCPU needs to appear in
@@ -117,16 +116,40 @@
   <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Release|AnyCPU' ">
   </PropertyGroup>
   <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Debug|x86' ">
+    <DocumentationSources>
+      <DocumentationSource sourceFile="..\..\..\build\win8\x86\$(Configuration)\dist\bin\AllJoyn.winmd.dll" />
+      <DocumentationSource sourceFile="..\..\..\build\win8\x86\$(Configuration)\dist\bin\AllJoyn.xml" />
+    </DocumentationSources>
   </PropertyGroup>
   <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Release|x86' ">
+    <DocumentationSources>
+      <DocumentationSource sourceFile="..\..\..\build\win8\x86\$(Configuration)\dist\bin\AllJoyn.winmd.dll" />
+      <DocumentationSource sourceFile="..\..\..\build\win8\x86\$(Configuration)\dist\bin\AllJoyn.xml" />
+    </DocumentationSources>
   </PropertyGroup>
   <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Debug|x64' ">
+    <DocumentationSources>
+      <DocumentationSource sourceFile="..\..\..\build\win8\x86_64\$(Configuration)\dist\bin\AllJoyn.winmd.dll" />
+      <DocumentationSource sourceFile="..\..\..\build\win8\x86_64\$(Configuration)\dist\bin\AllJoyn.xml" />
+    </DocumentationSources>
   </PropertyGroup>
   <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Release|x64' ">
+    <DocumentationSources>
+      <DocumentationSource sourceFile="..\..\..\build\win8\x86_64\$(Configuration)\dist\bin\AllJoyn.winmd.dll" />
+      <DocumentationSource sourceFile="..\..\..\build\win8\x86_64\$(Configuration)\dist\bin\AllJoyn.xml" />
+    </DocumentationSources>
   </PropertyGroup>
   <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Debug|Win32' ">
+    <DocumentationSources>
+      <DocumentationSource sourceFile="..\..\..\build\win8\x86\$(Configuration)\dist\bin\AllJoyn.winmd.dll" />
+      <DocumentationSource sourceFile="..\..\..\build\win8\x86\$(Configuration)\dist\bin\AllJoyn.xml" />
+    </DocumentationSources>
   </PropertyGroup>
   <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Release|Win32' ">
+    <DocumentationSources>
+      <DocumentationSource sourceFile="..\..\..\build\win8\x86\$(Configuration)\dist\bin\AllJoyn.winmd.dll" />
+      <DocumentationSource sourceFile="..\..\..\build\win8\x86\$(Configuration)\dist\bin\AllJoyn.xml" />
+    </DocumentationSources>
   </PropertyGroup>
   <ItemGroup>
     <Reference Include="Windows">
