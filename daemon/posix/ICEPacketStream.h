@@ -58,6 +58,7 @@ class ICEPacketStream : public PacketStream {
     /** Copy constructor */
     ICEPacketStream(const ICEPacketStream& other);
 
+    /* Assignment */
     ICEPacketStream& operator=(const ICEPacketStream& other);
 
     /** Destructor */
@@ -72,6 +73,12 @@ class ICEPacketStream : public PacketStream {
      * Stop the PacketStream.
      */
     QStatus Stop();
+
+    /**
+     * Return true iff ICEPacketStream has a usable socket.
+     * @return true iff ICEPacketStream has a usable socket.
+     */
+    bool HasSocket() { return sock != SOCKET_ERROR; }
 
     /**
      * Get UDP port.

@@ -1086,7 +1086,6 @@ ThreadReturn STDCALL DaemonICETransport::AllocateICESessionThread::Run(void* arg
     QCC_DbgHLPrintf(("DaemonICETransport::AllocateICESessionThread::Run(): clientGUID(%s)", clientGUID.c_str()));
 
     QStatus status = ER_FAIL;
-    String pktStreamKey;
 
     /*Figure out the ICE Address Candidates*/
     ICESessionListenerImpl iceListener;
@@ -1236,7 +1235,6 @@ ThreadReturn STDCALL DaemonICETransport::AllocateICESessionThread::Run(void* arg
                                                 } else {
                                                     /* Wrap ICE session FD in a new ICEPacketStream */
                                                     ICEPacketStream pks(*iceSession, *stunActivityPtr->stun, *selectedCandidatePairList[0]);
-                                                    pktStreamKey = connectSpec;
                                                     map<String, pair<ICEPacketStream, int32_t> >::iterator sit =
                                                         transportObj->pktStreamMap.insert(pair<String, pair<ICEPacketStream, int32_t> >(connectSpec, pair<ICEPacketStream, int32_t>(pks, 1))).first;
                                                     pktStream = &(sit->second.first);
@@ -1660,7 +1658,6 @@ QStatus DaemonICETransport::Connect(const char* connectSpec, const SessionOpts& 
 
     QStatus status = ER_FAIL;
     ICESession* iceSession = NULL;
-    String pktStreamKey;
 
     /*
      * We only want to allow this call to proceed if we have a running
@@ -1702,8 +1699,17 @@ QStatus DaemonICETransport::Connect(const char* connectSpec, const SessionOpts& 
         return status;
     }
 
+    pktStreamMapLock.Lock();
     ICEPacketStream* pktStream = AcquireICEPacketStream(normSpec);
     if (!pktStream) {
+        /*
+         * No pktStream exists. Put a dummy one on the pktStreamMap so other join attempts for the
+         * same destination (normSpec) will wait for this join's ICE dance to complete.
+         */
+        ICEPacketStream pks;
+        pktStreamMap.insert(pair<String, pair<ICEPacketStream, int32_t> >(normSpec, pair<ICEPacketStream, int32_t>(pks, 1))).first;
+        pktStreamMapLock.Unlock();
+
         /*
          * Figure out the ICE Address Candidates
          */
@@ -1823,20 +1829,16 @@ QStatus DaemonICETransport::Connect(const char* connectSpec, const SessionOpts& 
                                                  */
                                                 pktStreamMapLock.Lock(MUTEX_CONTEXT);
                                                 pktStream = AcquireICEPacketStream(normSpec);
-                                                if (!pktStream) {
+                                                if (!pktStream || !pktStream->HasSocket()) {
                                                     /* Stop the STUN RxThread and claim its file descriptor as our own */
                                                     Stun* stun = selectedCandidatePairList[0]->local->GetStunActivity()->stun;
 
-                                                    /* Wrap ICE session FD in a new ICEPacketStream */
-                                                    ICEPacketStream pks(*iceSession, *stun, *selectedCandidatePairList[0]);
-                                                    pktStreamKey = normSpec;
-                                                    map<String, pair<ICEPacketStream, int32_t> >::iterator it =
-                                                        pktStreamMap.insert(pair<String, pair<ICEPacketStream, int32_t> >(normSpec, pair<ICEPacketStream, int32_t>(pks, 1))).first;
-
-                                                    pktStream = &(it->second.first);
+                                                    /* Wrap ICE session FD in a new ICEPacketStream (and reset ref count) */
+                                                    pktStreamMap[normSpec] = pair<ICEPacketStream, int32_t>(ICEPacketStream(*iceSession, *stun, *selectedCandidatePairList[0]), 1);
+                                                    pktStream = &pktStreamMap[normSpec].first;
 
                                                     /* Start ICEPacketStream */
-                                                    status = it->second.first.Start();
+                                                    status = pktStream->Start();
 
                                                     /* Make Stun give up ownership of its fd */
                                                     stun->ReleaseFD();
@@ -1848,7 +1850,7 @@ QStatus DaemonICETransport::Connect(const char* connectSpec, const SessionOpts& 
 
                                                     /* Make the packetEngine listen on icePktStream */
                                                     if (status == ER_OK) {
-                                                        status = m_packetEngine.AddPacketStream(it->second.first, *this);
+                                                        status = m_packetEngine.AddPacketStream(*pktStream, *this);
                                                     }
 
                                                     if (status == ER_OK) {
@@ -1905,6 +1907,17 @@ QStatus DaemonICETransport::Connect(const char* connectSpec, const SessionOpts& 
             }
         } else {
             QCC_LogError(status, ("DaemonICETransport::Connect(): AllocateSession failed"));
+        }
+    } else {
+        /*
+         * Attempt to reuse existing pktStream.
+         * pktStream may still be initializing from a different session's ICE dance.
+         * Wait for a fully functional pktStream or until it disappears.
+         */
+        pktStreamMapLock.Unlock();
+        while (pktStream && !pktStream->HasSocket()) {
+            qcc::Sleep(5);
+            pktStream = AcquireICEPacketStream(normSpec);
         }
     }
 
