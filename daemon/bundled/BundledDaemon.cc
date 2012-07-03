@@ -24,12 +24,13 @@
 #include <qcc/platform.h>
 #include <qcc/Debug.h>
 #include <qcc/Logger.h>
-
+#include <qcc/Log.h>
 #include <qcc/String.h>
 #include <qcc/StringSource.h>
 #include <qcc/StringUtil.h>
 #include <qcc/Mutex.h>
 #include <qcc/ScopedMutexLock.h>
+#include <qcc/FileStream.h>
 
 #include <alljoyn/BusAttachment.h>
 
@@ -141,7 +142,29 @@ QStatus BundledDaemon::Start(NullTransport* nullTransport)
         /*
          * Load the configuration
          */
-        DaemonConfig* config = DaemonConfig::Load(bundledConfig);
+        DaemonConfig* config = NULL;
+        bool useInternal = true;
+#ifndef NDEBUG
+        qcc::String configFile = qcc::String::Empty;
+    #if defined(QCC_OS_ANDROID)
+        configFile = "/mnt/sdcard/.alljoyn/config.xml";
+    #endif
+
+    #if defined(QCC_OS_LINUX) || defined(QCC_OS_WINDOWS)
+        configFile = "./config.xml";
+    #endif
+
+        if (!configFile.empty()) {
+            FileSource fs(configFile);
+            if (fs.IsValid()) {
+                config = DaemonConfig::Load(fs);
+                useInternal = false;
+            }
+        }
+#endif
+        if (useInternal) {
+            config = DaemonConfig::Load(bundledConfig);
+        }
         /*
          * Extract the listen specs
          */
