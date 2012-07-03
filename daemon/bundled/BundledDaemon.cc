@@ -109,6 +109,15 @@ class BundledDaemon : public DaemonLauncher {
 
 };
 
+bool ExistFile(const char* fileName) {
+    FILE* file = NULL;
+    if (fileName && (file = fopen(fileName, "r"))) {
+        fclose(file);
+        return true;
+    }
+    return false;
+}
+
 /*
  * Create the singleton bundled daemon instance.
  */
@@ -140,11 +149,13 @@ QStatus BundledDaemon::Start(NullTransport* nullTransport)
         configFile = "./config.xml";
     #endif
 
-        if (!configFile.empty()) {
+        if (!configFile.empty() && ExistFile(configFile.c_str())) {
             FileSource fs(configFile);
             if (fs.IsValid()) {
                 config = DaemonConfig::Load(fs);
-                useInternal = false;
+                if (config) {
+                    useInternal = false;
+                }
             }
         }
 #endif
