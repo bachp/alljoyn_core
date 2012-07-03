@@ -500,7 +500,7 @@ ThreadReturn STDCALL AllJoynObj::JoinSessionThread::RunJoin()
     // do not let a session creator join itself
     SessionMapType::iterator it = ajObj.SessionMapLowerBound(sender, 0);
     while ((it != ajObj.sessionMap.end()) && (it->first.first == sender) && (it->first.second == 0)) {
-        if (it->second.sessionPort == sessionPort) {
+        if (it->second.sessionPort == sessionPort && it->second.sessionHost == sessionHost) {
             QCC_DbgTrace(("JoinSession(): cannot join your own session"));
             replyCode = ALLJOYN_JOINSESSION_REPLY_ALREADY_JOINED;
             break;
