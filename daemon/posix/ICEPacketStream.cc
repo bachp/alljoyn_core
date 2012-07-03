@@ -110,7 +110,29 @@ ICEPacketStream::ICEPacketStream(ICESession& iceSession, Stun& stun, const ICECa
 }
 
 ICEPacketStream::ICEPacketStream() :
+    ipAddress(),
+    port(0),
+    remoteAddress(),
+    remotePort(0),
+    remoteMappedAddress(),
+    remoteMappedPort(),
+    turnAddress(),
+    turnPort(0),
+    relayServerAddress(),
+    relayServerPort(),
     sock(SOCKET_ERROR),
+    sourceEvent(&Event::neverSet),
+    sinkEvent(&Event::alwaysSet),
+    mtuWithStunOverhead(0),
+    interfaceMtu(0),
+    usingTurn(false),
+    localTurn(false),
+    localHost(),
+    hmacKey(),
+    turnUsername(),
+    turnRefreshPeriod(0),
+    turnRefreshTimestamp(0),
+    stunKeepAlivePeriod(0),
     rxRenderBuf(NULL),
     txRenderBuf(NULL)
 {
@@ -140,9 +162,48 @@ ICEPacketStream::ICEPacketStream(const ICEPacketStream& other) :
     turnRefreshPeriod(other.turnRefreshPeriod),
     turnRefreshTimestamp(other.turnRefreshTimestamp),
     stunKeepAlivePeriod(other.stunKeepAlivePeriod),
-    rxRenderBuf(new uint8_t[interfaceMtu]),
-    txRenderBuf(new uint8_t[interfaceMtu])
+    rxRenderBuf((sock == SOCKET_ERROR) ? NULL : new uint8_t[interfaceMtu]),
+    txRenderBuf((sock == SOCKET_ERROR) ? NULL : new uint8_t[interfaceMtu])
 {
+}
+
+ICEPacketStream& ICEPacketStream::operator=(const ICEPacketStream& other)
+{
+    ipAddress = other.ipAddress;
+    port = other.port;
+    remoteAddress = other.remoteAddress;
+    remotePort = other.remotePort;
+    remoteMappedAddress = other.remoteMappedAddress;
+    remoteMappedPort = other.remoteMappedPort;
+    turnAddress = other.turnAddress;
+    turnPort = other.turnPort;
+    relayServerAddress = other.relayServerAddress;
+    relayServerPort = other.relayServerPort;
+    sock = other.sock;
+    mtuWithStunOverhead = other.mtuWithStunOverhead;
+    interfaceMtu = other.interfaceMtu;
+    usingTurn = other.usingTurn;
+    localTurn = other.localTurn;
+    localHost = other.localHost;
+    hmacKey = other.hmacKey;
+    turnUsername = other.turnUsername;
+    turnRefreshPeriod = other.turnRefreshPeriod;
+    turnRefreshTimestamp = other.turnRefreshTimestamp;
+    stunKeepAlivePeriod = other.stunKeepAlivePeriod;
+
+    if (sock == SOCKET_ERROR) {
+        sourceEvent = &Event::neverSet;
+        sinkEvent = &Event::alwaysSet;
+        rxRenderBuf = NULL;
+        txRenderBuf = NULL;
+    } else {
+        sourceEvent = new Event(sock, Event::IO_READ, false);
+        sinkEvent = new Event(sock, Event::IO_WRITE, false);
+        rxRenderBuf = new uint8_t[interfaceMtu];
+        txRenderBuf = new uint8_t[interfaceMtu];
+    }
+
+    return *this;
 }
 
 ICEPacketStream::~ICEPacketStream()
