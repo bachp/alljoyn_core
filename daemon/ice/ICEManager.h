@@ -43,8 +43,8 @@ class ICESessionListener;
 class ICEManager {
   public:
 
-    /** ICEManager accessor. */
-    static ICEManager* GetInstance();
+    /** constructor */
+    ICEManager();
 
     /**
      * Destructor.  This will deallocate sessions and terminate
@@ -101,9 +101,6 @@ class ICEManager {
     list<ICESession*> sessions;     ///< List of allocated ICESessions.
 
     Mutex lock;                    ///< Synchronizes multiple threads
-
-    /** Private constructor */
-    ICEManager();
 
     /** Private copy constructor */
     ICEManager(const ICEManager&);

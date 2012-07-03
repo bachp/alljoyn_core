@@ -507,10 +507,11 @@ QStatus DaemonICEEndpoint::PacketEngineConnect(const IPAddress& addr, uint16_t p
 }
 
 
-DaemonICETransport::DaemonICETransport(BusAttachment& bus)
-    : Thread("DaemonICETransport"),
+DaemonICETransport::DaemonICETransport(BusAttachment& bus) :
+    Thread("DaemonICETransport"),
     m_bus(bus),
     m_dm(0),
+    m_iceManager(),
     m_stopping(false),
     m_listener(0),
     m_packetEngine("ice_packet_engine"),
@@ -524,11 +525,6 @@ DaemonICETransport::DaemonICETransport(BusAttachment& bus)
      * router.  This is assumed elsewhere.
      */
     assert(m_bus.GetInternal().GetRouter().IsDaemon());
-
-    /*
-     * Instantiate the ICE Manager
-     */
-    m_iceManager = ICEManager::GetInstance();
 
     /* Start the daemonICETransportTimer which is used to handle all the alarms */
     daemonICETransportTimer.Start();
@@ -563,10 +559,6 @@ DaemonICETransport::~DaemonICETransport()
         ++pit;
     }
     pktStreamMapLock.Unlock();
-
-    /* Deallocate the ICE manager */
-    delete m_iceManager;
-    m_iceManager = NULL;
 
     delete m_dm;
     m_dm = NULL;
@@ -719,7 +711,7 @@ QStatus DaemonICETransport::Start()
     m_dm->GetInterfaceNamePrefixes(ethernetInterfaceName, wifiInterfaceName, mobileNwInterfaceName);
 
     /* Set the interface name prefixes in the ICEManager*/
-    m_iceManager->SetInterfaceNamePrefixes(ethernetInterfaceName, wifiInterfaceName, mobileNwInterfaceName);
+    m_iceManager.SetInterfaceNamePrefixes(ethernetInterfaceName, wifiInterfaceName, mobileNwInterfaceName);
 
     /*
      * Start the DaemonICETransport Run loop through the thread base class
@@ -1133,7 +1125,7 @@ ThreadReturn STDCALL DaemonICETransport::AllocateICESessionThread::Run(void* arg
     }
 
     /* Gather ICE candidates */
-    status = (transportObj->m_iceManager)->AllocateSession(true, true, transportObj->m_dm->GetEnableIPv6(), &iceListener, iceSession, stunInfo);
+    status = transportObj->m_iceManager.AllocateSession(true, true, transportObj->m_dm->GetEnableIPv6(), &iceListener, iceSession, stunInfo);
 
     if (status != ER_OK) {
         QCC_LogError(status, ("DaemonICETransport::AllocateICESessionThread::Run(): AllocateSession failed"));
@@ -1312,7 +1304,7 @@ ThreadReturn STDCALL DaemonICETransport::AllocateICESessionThread::Run(void* arg
 
     /* Succeed or fail, this iceSession is done */
     if (iceSession) {
-        transportObj->m_iceManager->DeallocateSession(iceSession);
+        transportObj->m_iceManager.DeallocateSession(iceSession);
         iceSession = NULL;
         (transportObj->m_dm)->RemoveSessionDetailFromMap(false, std::pair<String, DiscoveryManager::SessionEntry>(clientGUID, entry));
     }
@@ -1695,7 +1687,6 @@ QStatus DaemonICETransport::Connect(const char* connectSpec, const SessionOpts& 
      * deleted after it is joined, we must have a valid name service or someone
      * isn't playing by the rules; so an assert is appropriate here.
      */
-    assert(m_iceManager);
     assert(m_dm);
 
     DiscoveryManager::SessionEntry entry;
@@ -1744,7 +1735,7 @@ QStatus DaemonICETransport::Connect(const char* connectSpec, const SessionOpts& 
         }
 
         /* Gather ICE candidates */
-        status = m_iceManager->AllocateSession(true, false, m_dm->GetEnableIPv6(), &iceListener, iceSession, stunInfo);
+        status = m_iceManager.AllocateSession(true, false, m_dm->GetEnableIPv6(), &iceListener, iceSession, stunInfo);
         if (status == ER_OK) {
             status = iceListener.Wait();
 
@@ -1851,7 +1842,7 @@ QStatus DaemonICETransport::Connect(const char* connectSpec, const SessionOpts& 
                                                     stun->ReleaseFD();
 
                                                     /* Deallocate the iceSession. This must be done BEFORE the packetEngine starts using stun's fd */
-                                                    m_iceManager->DeallocateSession(iceSession);
+                                                    m_iceManager.DeallocateSession(iceSession);
                                                     iceSession = NULL;
                                                     m_dm->RemoveSessionDetailFromMap(true, std::pair<String, DiscoveryManager::SessionEntry>(argMap["guid"], entry));
 
@@ -1983,7 +1974,7 @@ QStatus DaemonICETransport::Connect(const char* connectSpec, const SessionOpts& 
 
     /* Clean up iceSession if it hasnt been already */
     if (iceSession) {
-        m_iceManager->DeallocateSession(iceSession);
+        m_iceManager.DeallocateSession(iceSession);
         iceSession = NULL;
         m_dm->RemoveSessionDetailFromMap(true, std::pair<String, DiscoveryManager::SessionEntry>(argMap["guid"], entry));
     }
