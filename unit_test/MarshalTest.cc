@@ -1373,7 +1373,7 @@ TEST(MarshalTest, noFuzzing) {
     fuzzingBus->Start();
 
     fuzzing = false;
-    nobig = false;
+    nobig = true;
     quiet = true;
     QStatus status = MarshalTests();
     EXPECT_EQ(ER_OK, status) << "  Actual Status: " << QCC_StatusText(status) << errString.c_str();
