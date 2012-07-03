@@ -84,4 +84,3 @@ elif env['DOCS'] == 'chm':
         # make sure the chm file is built before trying to install it.
         Depends(chm_install, chm_cmd)
 
-        print env.Dump()

@@ -39,7 +39,7 @@ locenv.Prepend(CPPPATH = 'binding/inc')
 XDCSourceDir = Dir('.').abspath
 XMLFileRoot = locenv.Dir('$DISTDIR\\bin\\AllJoyn').abspath
 XMLFile = locenv.File(XMLFileRoot+'.xml').abspath
-
+XDCTransformToolDir = locenv.Dir('binding').srcnode().abspath
 
 # run this after AllJoyn.dll has been built, and create AllJoyn.xml
 xml_file = locenv.Command(XMLFile,
