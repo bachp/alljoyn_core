@@ -24,10 +24,11 @@
 #include <qcc/platform.h>
 #include <qcc/Debug.h>
 #include <qcc/Logger.h>
-
+#include <qcc/Log.h>
 #include <qcc/String.h>
 #include <qcc/StringSource.h>
 #include <qcc/StringUtil.h>
+#include <qcc/FileStream.h>
 
 #include <alljoyn/BusAttachment.h>
 
@@ -115,21 +116,41 @@ static BundledDaemon bundledDaemon;
 
 BundledDaemon::BundledDaemon() : refCount(0), ajBus(NULL), ajBusController(NULL)
 {
-    printf("Registering bundled daemon\n");
     NullTransport::RegisterDaemonLauncher(this);
 }
 
 QStatus BundledDaemon::Start(NullTransport* nullTransport)
 {
     QStatus status = ER_OK;
-
     if (IncrementAndFetch(&refCount) == 1) {
         LoggerSetting::GetLoggerSetting("bundled-daemon", LOG_DEBUG, false, stdout);
 
         /*
          * Load the configuration
          */
-        DaemonConfig* config = DaemonConfig::Load(bundledConfig);
+        DaemonConfig* config = NULL;
+        bool useInternal = true;
+#ifndef NDEBUG
+        qcc::String configFile = qcc::String::Empty;
+    #if defined(QCC_OS_ANDROID)
+        configFile = "/mnt/sdcard/.alljoyn/config.xml";
+    #endif
+
+    #if defined(QCC_OS_LINUX) || defined(QCC_OS_WINDOWS)
+        configFile = "./config.xml";
+    #endif
+
+        if (!configFile.empty()) {
+            FileSource fs(configFile);
+            if (fs.IsValid()) {
+                config = DaemonConfig::Load(fs);
+                useInternal = false;
+            }
+        }
+#endif
+        if (useInternal) {
+            config = DaemonConfig::Load(bundledConfig);
+        }
         /*
          * Extract the listen specs
          */
