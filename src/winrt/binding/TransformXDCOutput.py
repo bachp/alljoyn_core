@@ -45,5 +45,5 @@ for line in inFile:
 print sys.argv[0] + ": closing " + filename
 inFile.close()
 
-print sys.argv[0] + ": closing " + newfilename
+print sys.argv[0] + ": closing " + filenameOut
 outFile.close()
