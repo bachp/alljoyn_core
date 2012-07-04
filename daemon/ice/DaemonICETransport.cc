@@ -20,6 +20,9 @@
  ******************************************************************************/
 
 #include <qcc/platform.h>
+
+#include <list>
+
 #include <qcc/IPAddress.h>
 #include <qcc/Socket.h>
 #include <qcc/SocketStream.h>
@@ -581,7 +584,7 @@ void DaemonICETransport::Authenticated(DaemonICEEndpoint* conn)
      */
     m_endpointListLock.Lock(MUTEX_CONTEXT);
 
-    list<DaemonICEEndpoint*>::iterator i = find(m_authList.begin(), m_authList.end(), conn);
+    set<DaemonICEEndpoint*>::iterator i = m_authList.find(conn);
     assert(i != m_authList.end() && "DaemonICETransport::Authenticated(): Conn not on m_authList");
 
     /*
@@ -590,7 +593,7 @@ void DaemonICETransport::Authenticated(DaemonICEEndpoint* conn)
      * and the endpoint can be on the endpointList and not the authList.
      */
     m_authList.erase(i);
-    m_endpointList.push_back(conn);
+    m_endpointList.insert(conn);
 
     m_endpointListLock.Unlock(MUTEX_CONTEXT);
 
@@ -745,7 +748,6 @@ QStatus DaemonICETransport::Stop(void)
     QStatus status = Thread::Stop();
     if (status != ER_OK) {
         QCC_LogError(status, ("DaemonICETransport::Stop(): Failed to Stop() DaemonICETransport Run thread"));
-        return status;
     }
 
     m_endpointListLock.Lock(MUTEX_CONTEXT);
@@ -757,7 +759,7 @@ QStatus DaemonICETransport::Stop(void)
      * data structure.  We call Stop() to stop that thread from running.  The
      * endpoint Rx and Tx threads will not be running yet.
      */
-    for (list<DaemonICEEndpoint*>::iterator i = m_authList.begin(); i != m_authList.end(); ++i) {
+    for (set<DaemonICEEndpoint*>::iterator i = m_authList.begin(); i != m_authList.end(); ++i) {
         (*i)->AuthStop();
     }
 
@@ -769,7 +771,7 @@ QStatus DaemonICETransport::Stop(void)
      * the connnection is on the m_endpointList, we know that the authentication
      * thread has handed off responsibility.
      */
-    for (list<DaemonICEEndpoint*>::iterator i = m_endpointList.begin(); i != m_endpointList.end(); ++i) {
+    for (set<DaemonICEEndpoint*>::iterator i = m_endpointList.begin(); i != m_endpointList.end(); ++i) {
         (*i)->Stop();
     }
 
@@ -836,13 +838,15 @@ QStatus DaemonICETransport::Join(void)
      * authentication threads in a previously required Stop().  We need to
      * Join() all of these auth threads here.
      */
-    while (!m_authList.empty()) {
-        DaemonICEEndpoint* ep = m_authList.front();
-        m_authList.pop_front();
+    set<DaemonICEEndpoint*>::iterator it = m_authList.begin();
+    while (it != m_authList.end()) {
+        DaemonICEEndpoint* ep = *it;
+        m_authList.erase(it);
         m_endpointListLock.Unlock(MUTEX_CONTEXT);
         ep->AuthJoin();
         delete ep;
         m_endpointListLock.Lock(MUTEX_CONTEXT);
+        it = m_authList.upper_bound(ep);
     }
 
     /*
@@ -851,13 +855,15 @@ QStatus DaemonICETransport::Join(void)
      * Join() will wait on the endpoint rx and tx threads to exit as opposed to
      * the joining of the auth thread we did above.
      */
-    while (!m_endpointList.empty()) {
-        DaemonICEEndpoint* ep = m_endpointList.front();
-        m_endpointList.pop_front();
+    it = m_endpointList.begin();
+    while (it != m_endpointList.end()) {
+        DaemonICEEndpoint* ep = *it;
+        m_endpointList.erase(it);
         m_endpointListLock.Unlock(MUTEX_CONTEXT);
         ep->Join();
         delete ep;
-        m_endpointListLock.Lock();
+        m_endpointListLock.Lock(MUTEX_CONTEXT);
+        it = m_endpointList.upper_bound(ep);
     }
 
     m_endpointListLock.Unlock(MUTEX_CONTEXT);
@@ -940,13 +946,21 @@ bool DaemonICETransport::PacketEngineAcceptCB(PacketEngine& engine, const Packet
          * pitch the connection.
          */
         m_endpointListLock.Lock(MUTEX_CONTEXT);
-        m_authList.push_front(conn);
+        m_authList.insert(conn);
+        m_endpointListLock.Unlock(MUTEX_CONTEXT);
+
         status = conn->Authenticate();
         if (status != ER_OK) {
-            m_authList.pop_front();
-            delete conn;
+            m_endpointListLock.Lock(MUTEX_CONTEXT);
+            set<DaemonICEEndpoint*>::iterator eit = m_authList.find(conn);
+            if (eit != m_authList.end()) {
+                m_authList.erase(eit);
+                m_endpointListLock.Unlock(MUTEX_CONTEXT);
+                delete conn;
+            } else {
+                m_endpointListLock.Unlock(MUTEX_CONTEXT);
+            }
         }
-        m_endpointListLock.Unlock(MUTEX_CONTEXT);
     }
 
     bool ret = (status == ER_OK);
@@ -963,7 +977,7 @@ void DaemonICETransport::PacketEngineDisconnectCB(PacketEngine& engine, const Pa
     /* Find endpoint that uses stream and stop it */
     m_endpointListLock.Lock(MUTEX_CONTEXT);
     bool foundEp = false;
-    list<DaemonICEEndpoint*>::iterator it = m_endpointList.begin();
+    set<DaemonICEEndpoint*>::iterator it = m_endpointList.begin();
     while (it != m_endpointList.end()) {
         if ((*it)->m_stream == stream) {
             (*it)->Stop();
@@ -978,9 +992,7 @@ void DaemonICETransport::PacketEngineDisconnectCB(PacketEngine& engine, const Pa
         it = m_authList.begin();
         while (it != m_authList.end()) {
             if ((*it)->m_stream == stream) {
-                delete *it;
-                m_authList.erase(it);
-                break;
+                (*it)->Stop();
             }
             ++it;
         }
@@ -1341,7 +1353,7 @@ void DaemonICETransport::ManageEndpoints(Timespec tTimeout)
      * any that are no longer running or are taking too long to authenticate
      * (we assume a denial of service attack in this case).
      */
-    list<DaemonICEEndpoint*>::iterator i = m_authList.begin();
+    set<DaemonICEEndpoint*>::iterator i = m_authList.begin();
     while (i != m_authList.end()) {
         DaemonICEEndpoint* ep = *i;
         DaemonICEEndpoint::AuthState authState = ep->GetAuthState();
@@ -1354,9 +1366,12 @@ void DaemonICETransport::ManageEndpoints(Timespec tTimeout)
              * as we Join() the (failed) authentication thread.
              */
             QCC_DbgHLPrintf(("DaemonICETransport::ManageEndpoints(): Scavenging failed authenticator"));
+            m_authList.erase(i);
+            m_endpointListLock.Unlock(MUTEX_CONTEXT);
             ep->AuthJoin();
-            i = m_authList.erase(i);
             delete ep;
+            m_endpointListLock.Lock(MUTEX_CONTEXT);
+            i = m_authList.upper_bound(ep);
             continue;
         }
 
@@ -1414,8 +1429,11 @@ void DaemonICETransport::ManageEndpoints(Timespec tTimeout)
              * the state.
              */
             QCC_DbgHLPrintf(("DaemonICETransport::ManageEndpoints(): Scavenging failed authenticator"));
+            m_endpointListLock.Unlock(MUTEX_CONTEXT);
             ep->AuthJoin();
             ep->SetAuthDone();
+            m_endpointListLock.Lock(MUTEX_CONTEXT);
+            i = m_endpointList.upper_bound(ep);
             continue;
         }
 
@@ -1428,8 +1446,11 @@ void DaemonICETransport::ManageEndpoints(Timespec tTimeout)
          * joined.
          */
         if (endpointState == DaemonICEEndpoint::EP_FAILED) {
-            i = m_endpointList.erase(i);
+            m_endpointList.erase(i);
+            m_endpointListLock.Unlock(MUTEX_CONTEXT);
             delete ep;
+            m_endpointListLock.Lock(MUTEX_CONTEXT);
+            i = m_endpointList.upper_bound(ep);
             continue;
         }
 
@@ -1446,9 +1467,12 @@ void DaemonICETransport::ManageEndpoints(Timespec tTimeout)
          * the endpoint AuthJoin() to join the auth thread.
          */
         if (endpointState == DaemonICEEndpoint::EP_STOPPING) {
+            m_endpointList.erase(i);
+            m_endpointListLock.Unlock(MUTEX_CONTEXT);
             ep->Join();
-            i = m_endpointList.erase(i);
             delete ep;
+            m_endpointListLock.Lock(MUTEX_CONTEXT);
+            i = m_endpointList.upper_bound(ep);
             continue;
         }
         ++i;
@@ -1939,7 +1963,7 @@ QStatus DaemonICETransport::Connect(const char* connectSpec, const SessionOpts& 
             conn->SetActive();
             conn->SetAuthenticating();
             m_endpointListLock.Lock(MUTEX_CONTEXT);
-            m_endpointList.push_back(conn);
+            m_endpointList.insert(conn);
             m_endpointListLock.Unlock(MUTEX_CONTEXT);
 
             /* Initialized the features for this endpoint */
@@ -1976,7 +2000,7 @@ QStatus DaemonICETransport::Connect(const char* connectSpec, const SessionOpts& 
             QCC_LogError(status, ("DaemonICETransport::Connect(): Start DaemonICEEndpoint failed"));
 
             m_endpointListLock.Lock(MUTEX_CONTEXT);
-            list<DaemonICEEndpoint*>::iterator i = find(m_endpointList.begin(), m_endpointList.end(), conn);
+            set<DaemonICEEndpoint*>::iterator i = m_endpointList.find(conn);
             if (i != m_endpointList.end()) {
                 m_endpointList.erase(i);
             }
@@ -2065,7 +2089,7 @@ QStatus DaemonICETransport::Disconnect(const char* connectSpec)
      */
     status = ER_BUS_BAD_TRANSPORT_ARGS;
     m_endpointListLock.Lock(MUTEX_CONTEXT);
-    for (list<DaemonICEEndpoint*>::iterator i = m_endpointList.begin(); i != m_endpointList.end(); ++i) {
+    for (set<DaemonICEEndpoint*>::iterator i = m_endpointList.begin(); i != m_endpointList.end(); ++i) {
         if ((*i)->GetConnectSpec() == connectSpec) {
             DaemonICEEndpoint* ep = *i;
             ep->SetSuddenDisconnect(false);
