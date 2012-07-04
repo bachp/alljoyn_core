@@ -27,8 +27,10 @@
 #error Only include DaemonICETransport.h in C++ code.
 #endif
 
-
 #include <qcc/platform.h>
+
+#include <set>
+
 #include <qcc/String.h>
 #include <qcc/Mutex.h>
 #include <qcc/Thread.h>
@@ -461,8 +463,8 @@ class DaemonICETransport : public Transport, public RemoteEndpoint::EndpointList
     ICEManager m_iceManager;                                       /**< The ICE Manager used for managing ICE operations */
     bool m_stopping;                                               /**< True if Stop() has been called but endpoints still exist */
     TransportListener* m_listener;                                 /**< Registered TransportListener */
-    std::list<DaemonICEEndpoint*> m_authList;                      /**< List of authenticating endpoints */
-    std::list<DaemonICEEndpoint*> m_endpointList;                  /**< List of active endpoints */
+    std::set<DaemonICEEndpoint*> m_authList;                       /**< Set of authenticating endpoints */
+    std::set<DaemonICEEndpoint*> m_endpointList;                   /**< Set of active endpoints */
     Mutex m_endpointListLock;                                      /**< Mutex that protects the endpoint and auth lists */
 
     ///< Event that indicates that a new AllocateICESession request has been received.
