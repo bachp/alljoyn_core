@@ -114,7 +114,9 @@ DiscoveryManager::DiscoveryManager(BusAttachment& bus)
     SentFirstGETMessage(false),
     userCredentials(),
     UseHTTP(false),
-    EnableIPv6(false)
+    EnableIPv6(false),
+    ServerConnectThread(NULL),
+    ConnectEvent()
 {
     QCC_DbgPrintf(("DiscoveryManager::DiscoveryManager()\n"));
 
@@ -230,23 +232,26 @@ DiscoveryManager::~DiscoveryManager()
     DiscoveryManagerTimer.Stop();
 
     //
-    // Stop the worker thread to get things calmed down.
+    // Send a delete all message to the Rendezvous Server if we are still
+    // connected to the Server
     //
-    if (IsRunning()) {
-        Stop();
-        Join();
+    if (Connection) {
+        SendMessage(RendezvousSessionDeleteMessage);
     }
-
-    //
-    // Send a delete all message to the Rendezvous Server
-    //
-    SendMessage(RendezvousSessionDeleteMessage);
 
     //
     // We may have an active connection with the Rendezvous Server.
     // We need to tear it down
     //
     Disconnect();
+
+    //
+    // Stop the worker thread to get things calmed down.
+    //
+    if (IsRunning()) {
+        Stop();
+        Join();
+    }
 
     //
     // Delete any callbacks that a user of this class may have set.
@@ -1031,8 +1036,50 @@ void* DiscoveryManager::Run(void* arg)
                      * lock up the mutex for the time that it takes for the DNS lookup on the server address.
                      **/
                     DiscoveryManagerMutex.Unlock(MUTEX_CONTEXT);
-                    /* Connect to the Server */
-                    status = Connect();
+
+                    /* Kill the connect thread if it already running */
+                    if (ServerConnectThread) {
+                        ServerConnectThread->Kill();
+                        delete ServerConnectThread;
+                        ServerConnectThread = NULL;
+                    }
+
+                    /* Reset the ConnectEvent */
+                    ConnectEvent.ResetEvent();
+
+                    /* Initialize and start the connect thread */
+                    ServerConnectThread = new ConnectThread(this);
+
+                    if (ServerConnectThread) {
+                        status = ServerConnectThread->Start();
+
+                        if (status == ER_OK) {
+
+                            /* Wait on the ConnectEvent until RENDEZVOUS_SERVER_CONNECT_TIMEOUT_IN_MS */
+                            status = Event::Wait(ConnectEvent, RENDEZVOUS_SERVER_CONNECT_TIMEOUT_IN_MS);
+
+                            QCC_DbgPrintf(("%s: Wait on connect status = %s", __FUNCTION__, QCC_StatusText(status)));
+
+                            /* Retrieve the status of the connect */
+                            status = ServerConnectThread->GetStatus();
+
+                            QCC_DbgPrintf(("%s: Server connect thread return status = %s", __FUNCTION__, QCC_StatusText(status)));
+
+                            /* Clean up the connect thread */
+                            if (ServerConnectThread) {
+                                ServerConnectThread->Kill();
+                                delete ServerConnectThread;
+                                ServerConnectThread = NULL;
+                            }
+
+                        } else {
+                            QCC_LogError(status, ("%s: Unable to start the ServerConnectThread", __FUNCTION__));
+                        }
+                    } else {
+                        status = ER_FAIL;
+                        QCC_LogError(status, ("%s: Unable to initialize the ServerConnectThread", __FUNCTION__));
+                    }
+
                     DiscoveryManagerMutex.Lock(MUTEX_CONTEXT);
 
                     LastSentUpdateMessage = INVALID_MESSAGE;
@@ -1112,6 +1159,12 @@ void* DiscoveryManager::Run(void* arg)
                                     SentFirstGETMessage = true;
                                 }
                             }
+                        }
+                    } else {
+                        if (Connection) {
+                            /* Call Disconnect to cleanup any intermediate state */
+                            Connection->Disconnect();
+                            Connection = NULL;
                         }
                     }
 
@@ -3176,6 +3229,83 @@ void DiscoveryManager::ComposeAndQueueTokenRefreshMessage(TokenRefreshMessage re
     DiscoveryManagerMutex.Lock(MUTEX_CONTEXT);
     QueueMessage(message);
     DiscoveryManagerMutex.Unlock(MUTEX_CONTEXT);
+}
+
+ThreadReturn STDCALL DiscoveryManager::ConnectThread::Run(void* arg)
+{
+    QCC_DbgHLPrintf(("DiscoveryManager::ConnectThread::Run()"));
+
+    QStatus localStatus = ER_FAIL;
+
+    if (discoveryManager) {
+        localStatus = discoveryManager->Connect();
+    }
+
+    statusLock.Lock(MUTEX_CONTEXT);
+    status = localStatus;
+    statusLock.Unlock(MUTEX_CONTEXT);
+
+    /* Tell the DiscoveryManager Run() thread that we are done */
+    (discoveryManager->ConnectEvent).SetEvent();
+
+    return 0;
+}
+
+QStatus STDCALL DiscoveryManager::ConnectThread::GetStatus(void)
+{
+    QCC_DbgHLPrintf(("DiscoveryManager::ConnectThread::GetStatus()"));
+
+    QStatus localStatus;
+
+    statusLock.Lock(MUTEX_CONTEXT);
+    localStatus = status;
+    statusLock.Unlock(MUTEX_CONTEXT);
+
+    return localStatus;
+}
+
+void DiscoveryManager::ConnectThread::ThreadExit(Thread* thread)
+{
+    return;
+}
+
+QStatus DiscoveryManager::Stop(void)
+{
+
+    /* Kill the ServerConnectThread if it is running and set the ConnectEvent so that
+       the Run() thread can complete and join */
+    if (ServerConnectThread) {
+        ServerConnectThread->Kill();
+    }
+
+    /* Set the ConnectEvent to make the Run() thread come out of the wait on ConnectEvent */
+    ConnectEvent.SetEvent();
+
+    /*
+     * Tell the Run() thread to shut down through the thread
+     * base class.
+     */
+    QStatus status = Thread::Stop();
+    if (status != ER_OK) {
+        QCC_LogError(status, ("DiscoveryManager::Stop(): Failed to Stop() Run() thread"));
+        return status;
+    }
+
+    return ER_OK;
+}
+
+QStatus DiscoveryManager::Join(void)
+{
+    /*
+     * Wait for the Run() thread to exit.
+     */
+    QStatus status = Thread::Join();
+    if (status != ER_OK) {
+        QCC_LogError(status, ("DiscoveryManager::Join(): Failed to Join() Run() thread"));
+        return status;
+    }
+
+    return ER_OK;
 }
 
 } // namespace ajn
