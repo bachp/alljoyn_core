@@ -577,6 +577,21 @@ QStatus _Message::UnmarshalArgs(const qcc::String& expectedSignature, const char
             return status;
         }
     }
+    /*
+     * Check we don't have two or more threads trying to unmarshall the message args at the same
+     * time. Unlikely but definitely possible with broadcast signals and the bundled daemon.
+     */
+    if (IncrementAndFetch(&busy) > 1) {
+        DecrementAndFetch(&busy);
+        qcc::Sleep(1);
+    }
+    /*
+     * Nothing to do if message args have already been unmarshalled.
+     */
+    if (msgArgs) {
+        DecrementAndFetch(&busy);
+        return ER_OK;
+    }
     if (msgHeader.flags & ALLJOYN_FLAG_ENCRYPTED) {
         bool broadcast = (hdrFields.field[ALLJOYN_HDR_FIELD_DESTINATION].typeId == ALLJOYN_INVALID);
         size_t hdrLen = bodyPtr - (uint8_t*)msgBuf;
@@ -654,6 +669,7 @@ ExitUnmarshalArgs:
     } else {
         QCC_LogError(status, ("UnmarshalArgs failed"));
     }
+    DecrementAndFetch(&busy);
     return status;
 }
 
