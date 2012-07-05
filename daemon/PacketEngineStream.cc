@@ -66,11 +66,13 @@ PacketEngineStream::PacketEngineStream(const PacketEngineStream& other) :
 
 PacketEngineStream& PacketEngineStream::operator=(const PacketEngineStream& other)
 {
-    engine = other.engine;
-    chanId = other.chanId;
-    sourceEvent = other.sourceEvent;
-    sinkEvent = other.sinkEvent;
-    sendTimeout = other.sendTimeout;
+    if (&other != this) {
+        engine = other.engine;
+        chanId = other.chanId;
+        sourceEvent = other.sourceEvent;
+        sinkEvent = other.sinkEvent;
+        sendTimeout = other.sendTimeout;
+    }
     return *this;
 }
 
