@@ -110,13 +110,13 @@ bool PermissionDB::VerifyPermsOnAndroid(const uint32_t userId, const std::set<qc
     return pass;
 }
 
-bool PermissionDB::IsBluetoothAllowed(BusEndpoint& endpoint)
+bool PermissionDB::IsBluetoothAllowed(uint32_t uid)
 {
-    QCC_DbgTrace(("PermissionDB::IsBluetoothAllowed(endpoint = %s)", endpoint.GetUniqueName().c_str()));
+    QCC_DbgTrace(("PermissionDB::IsBluetoothAllowed(uid = %u)", uid));
     bool allowed = true;
 
 #if defined(QCC_OS_ANDROID)
-    uint32_t userId = UniqueUserID(endpoint.GetUserId());
+    uint32_t userId = UniqueUserID(uid);
     std::set<qcc::String> permsReq;
     // For Android app, permissions "android.permission.BLUETOOTH" and "android.permission.BLUETOOTH_ADMIN" are required for usage of bluetooth
     permsReq.insert("android.permission.BLUETOOTH");
@@ -127,14 +127,14 @@ bool PermissionDB::IsBluetoothAllowed(BusEndpoint& endpoint)
     return allowed;
 }
 
-bool PermissionDB::IsWifiAllowed(BusEndpoint& endpoint)
+bool PermissionDB::IsWifiAllowed(uint32_t uid)
 {
-    QCC_DbgTrace(("PermissionDB::IsWifiAllowed(endpoint = %s)", endpoint.GetUniqueName().c_str()));
+    QCC_DbgTrace(("PermissionDB::IsWifiAllowed(uid = %u)", uid));
     bool allowed = true;
 
 #if defined(QCC_OS_ANDROID)
     // For Android app, permissions "android.permission.INTERNET" and "android.permission.CHANGE_WIFI_MULTICAST_STATE" are required for usage of wifi.
-    uint32_t userId = UniqueUserID(endpoint.GetUserId());
+    uint32_t userId = UniqueUserID(uid);
     std::set<qcc::String> permsReq;
     permsReq.insert("android.permission.INTERNET");
     permsReq.insert("android.permission.CHANGE_WIFI_MULTICAST_STATE");

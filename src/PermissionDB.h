@@ -35,17 +35,17 @@ class PermissionDB {
 
     /**
      * Check whether the endpoint is allowed to use Bluetooth
-     * @param endponit The endpoint to be checked
+     * @param uid   UserId to be checked
      * @return true if allowed
      */
-    bool IsBluetoothAllowed(BusEndpoint& endpoint);
+    bool IsBluetoothAllowed(uint32_t uid);
 
     /**
      * Check whether the endpoint is allowed to use WIFI
-     * @param endpoint The endpoint to be checked
+     * @param uid    UserId to be checked
      * @return true if allowed
      */
-    bool IsWifiAllowed(BusEndpoint& endpoint);
+    bool IsWifiAllowed(uint32_t uid);
 
     /**
      * Check whether the endpoint owns the required permissions
