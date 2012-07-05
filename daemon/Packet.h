@@ -70,8 +70,17 @@ class Packet {
     uint64_t sendTs;       /* Timestampe when packet was last sent */
     uint16_t sendAttempts; /* Number of times this packet has been sent */
     bool fastRetransmit;   /* true iff packet has been fast retransmitted */
+
+    /** Constructor */
     Packet(size_t mtu);
 
+    /** Copy constructor */
+    Packet(const Packet& other);
+
+    /** Assignment operator */
+    Packet& operator=(const Packet& other);
+
+    /** Destructor */
     ~Packet();
 
     size_t SetPayload(const void* payload, size_t payloadLen);

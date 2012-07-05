@@ -161,6 +161,10 @@ class PacketEngine : public qcc::AlarmListener {
         uint32_t protocolVersion;
         uint16_t windowSize;
         bool wasOpen;
+
+      private:
+        /** Private assignment operator */
+        ChannelInfo& operator=(const ChannelInfo& other);
     };
 
     class RxPacketThread : public qcc::Thread {
