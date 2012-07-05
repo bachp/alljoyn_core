@@ -111,10 +111,10 @@ class NullEndpoint : public BusEndpoint {
 
     const qcc::String& GetUniqueName() const { return uniqueName; }
 
-    uint32_t GetUserId() const { return -1; }
-    uint32_t GetGroupId() const { return -1; }
-    uint32_t GetProcessId() const { return -1; }
-    bool SupportsUnixIDs() const { return false; }
+    uint32_t GetUserId() const { return qcc::GetUid(); }
+    uint32_t GetGroupId() const { return qcc::GetGid(); }
+    uint32_t GetProcessId() const { return qcc::GetPid(); }
+    bool SupportsUnixIDs() const { return true; }
     bool AllowRemoteMessages() { return true; }
 
     bool clientReady;
