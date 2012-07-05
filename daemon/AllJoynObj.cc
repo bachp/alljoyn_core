@@ -2377,6 +2377,7 @@ void AllJoynObj::FindAdvertisedName(const InterfaceDescription::Member* member, 
     replyCode = ALLJOYN_FINDADVERTISEDNAME_REPLY_SUCCESS;
     AcquireLocks();
     BusEndpoint* srcEp = router.FindEndpoint(sender);
+    uint32_t uid = srcEp ? srcEp->GetUserId() : -1;
     multimap<qcc::String, qcc::String>::const_iterator it = discoverMap.find(namePrefix);
     while ((it != discoverMap.end()) && (it->first == namePrefix)) {
         if (it->second == sender) {
@@ -2392,13 +2393,19 @@ void AllJoynObj::FindAdvertisedName(const InterfaceDescription::Member* member, 
         /* Add to discover map */
         discoverMap.insert(pair<String, String>(namePrefix, sender));
 
-        /* Find name  on all remote transports */
+        /* Add entry to denote that the sender is not allowed to discover the service over the forbidden transports*/
+        if (transForbidden) {
+            transForbidMap.insert(pair<qcc::String, pair<TransportMask, qcc::String> >(namePrefix, pair<TransportMask, String>(transForbidden, sender)));
+        }
+
+        /* Find name on all remote transports */
+        ReleaseLocks();
         if (notifyTransports) {
             TransportList& transList = bus.GetInternal().GetTransportList();
-            TransportPermission::GetForbiddenTransports(srcEp, transList, transForbidden, "AllJoynObj::FindAdvertisedName");
+            TransportPermission::GetForbiddenTransports(uid, transList, transForbidden, "AllJoynObj::FindAdvertisedName");
             for (size_t i = 0; i < transList.GetNumTransports(); ++i) {
                 Transport* trans = transList.GetTransport(i);
-                if (trans && (srcEp != NULL)) {
+                if (trans && (uid != static_cast<uint32_t>(-1))) {
                     if (transForbidden & trans->GetTransportMask()) {
                         continue;
                     }
@@ -2408,15 +2415,11 @@ void AllJoynObj::FindAdvertisedName(const InterfaceDescription::Member* member, 
                 }
             }
         }
-
-        /* Add entry to denote that the sender is not allowed to discover the service over the forbidden transports*/
-        if (transForbidden) {
-            transForbidMap.insert(pair<qcc::String, pair<TransportMask, qcc::String> >(namePrefix, pair<TransportMask, String>(transForbidden, sender)));
-        }
+    } else {
+        ReleaseLocks();
     }
 
     /* Reply to request */
-    ReleaseLocks();
     MsgArg replyArg("u", replyCode);
     QStatus status = MethodReply(msg, &replyArg, 1);
     QCC_DbgPrintf(("AllJoynObj::FindAdvertisedName(%s) returned %d (status=%s)", namePrefix.c_str(), replyCode, QCC_StatusText(status)));

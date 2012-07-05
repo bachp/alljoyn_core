@@ -45,7 +45,7 @@ QStatus TransportPermission::FilterTransports(BusEndpoint* srcEp, const qcc::Str
     return ER_OK;
 }
 
-void TransportPermission::GetForbiddenTransports(BusEndpoint* srcEp, TransportList& transList, TransportMask& transForbidden, const char* callerName)
+void TransportPermission::GetForbiddenTransports(uint32_t uid, TransportList& transList, TransportMask& transForbidden, const char* callerName)
 {
     transForbidden = 0;
 }
