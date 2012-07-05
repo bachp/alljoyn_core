@@ -17,11 +17,11 @@
  *****************************************************************************/
 
 #include "ObjectReference.h"
-
 #include <AllJoynException.h>
 
+namespace AllJoyn {
 
-void AllJoyn::AddObjectReference(qcc::Mutex* mtx, Platform::Object ^ key, std::map<void*, void*>* map)
+void AddObjectReference(qcc::Mutex* mtx, Platform::Object ^ key, std::map<void*, void*>* map)
 {
     if (NULL != mtx) {
         mtx->Lock();
@@ -38,7 +38,7 @@ void AllJoyn::AddObjectReference(qcc::Mutex* mtx, Platform::Object ^ key, std::m
     }
 }
 
-void AllJoyn::RemoveObjectReference(qcc::Mutex* mtx, Platform::Object ^ key, std::map<void*, void*>* map)
+void RemoveObjectReference(qcc::Mutex* mtx, Platform::Object ^ key, std::map<void*, void*>* map)
 {
     if (NULL != mtx) {
         mtx->Lock();
@@ -55,7 +55,7 @@ void AllJoyn::RemoveObjectReference(qcc::Mutex* mtx, Platform::Object ^ key, std
     }
 }
 
-void AllJoyn::AddObjectReference2(qcc::Mutex* mtx, void* key, Platform::Object ^ val, std::map<void*, void*>* map)
+void AddObjectReference2(qcc::Mutex* mtx, void* key, Platform::Object ^ val, std::map<void*, void*>* map)
 {
     if (NULL != mtx) {
         mtx->Lock();
@@ -72,7 +72,7 @@ void AllJoyn::AddObjectReference2(qcc::Mutex* mtx, void* key, Platform::Object ^
     }
 }
 
-void AllJoyn::RemoveObjectReference2(qcc::Mutex* mtx, void* key, std::map<void*, void*>* map)
+void RemoveObjectReference2(qcc::Mutex* mtx, void* key, std::map<void*, void*>* map)
 {
     if (NULL != mtx) {
         mtx->Lock();
@@ -88,7 +88,7 @@ void AllJoyn::RemoveObjectReference2(qcc::Mutex* mtx, void* key, std::map<void*,
     }
 }
 
-void AllJoyn::ClearObjectMap(qcc::Mutex* mtx, std::map<void*, void*>* m)
+void ClearObjectMap(qcc::Mutex* mtx, std::map<void*, void*>* m)
 {
     if (NULL != mtx) {
         mtx->Lock();
@@ -105,7 +105,7 @@ void AllJoyn::ClearObjectMap(qcc::Mutex* mtx, std::map<void*, void*>* m)
     }
 }
 
-void AllJoyn::AddIdReference(qcc::Mutex* mtx, ajn::SessionPort key, Platform::Object ^ val, std::map<ajn::SessionId, std::map<void*, void*>*>* m)
+void AddIdReference(qcc::Mutex* mtx, ajn::SessionPort key, Platform::Object ^ val, std::map<ajn::SessionId, std::map<void*, void*>*>* m)
 {
     if (NULL != mtx) {
         mtx->Lock();
@@ -135,7 +135,7 @@ void AllJoyn::AddIdReference(qcc::Mutex* mtx, ajn::SessionPort key, Platform::Ob
     }
 }
 
-void AllJoyn::RemoveIdReference(qcc::Mutex* mtx, ajn::SessionPort key, std::map<ajn::SessionId, std::map<void*, void*>*>* m)
+void RemoveIdReference(qcc::Mutex* mtx, ajn::SessionPort key, std::map<ajn::SessionId, std::map<void*, void*>*>* m)
 {
     if (NULL != mtx) {
         mtx->Lock();
@@ -158,7 +158,7 @@ void AllJoyn::RemoveIdReference(qcc::Mutex* mtx, ajn::SessionPort key, std::map<
     }
 }
 
-void AllJoyn::ClearIdMap(qcc::Mutex* mtx, std::map<ajn::SessionId, std::map<void*, void*>*>* m)
+void ClearIdMap(qcc::Mutex* mtx, std::map<ajn::SessionId, std::map<void*, void*>*>* m)
 {
     if (NULL != mtx) {
         mtx->Lock();
@@ -183,7 +183,7 @@ void AllJoyn::ClearIdMap(qcc::Mutex* mtx, std::map<ajn::SessionId, std::map<void
     }
 }
 
-void AllJoyn::AddPortReference(qcc::Mutex* mtx, ajn::SessionPort key, Platform::Object ^ val, std::map<ajn::SessionPort, std::map<void*, void*>*>* m)
+void AddPortReference(qcc::Mutex* mtx, ajn::SessionPort key, Platform::Object ^ val, std::map<ajn::SessionPort, std::map<void*, void*>*>* m)
 {
     if (NULL != mtx) {
         mtx->Lock();
@@ -213,7 +213,7 @@ void AllJoyn::AddPortReference(qcc::Mutex* mtx, ajn::SessionPort key, Platform::
     }
 }
 
-void AllJoyn::RemovePortReference(qcc::Mutex* mtx, ajn::SessionPort key, std::map<ajn::SessionPort, std::map<void*, void*>*>* m)
+void RemovePortReference(qcc::Mutex* mtx, ajn::SessionPort key, std::map<ajn::SessionPort, std::map<void*, void*>*>* m)
 {
     if (NULL != mtx) {
         mtx->Lock();
@@ -236,7 +236,7 @@ void AllJoyn::RemovePortReference(qcc::Mutex* mtx, ajn::SessionPort key, std::ma
     }
 }
 
-void AllJoyn::ClearPortMap(qcc::Mutex* mtx, std::map<ajn::SessionPort, std::map<void*, void*>*>* m)
+void ClearPortMap(qcc::Mutex* mtx, std::map<ajn::SessionPort, std::map<void*, void*>*>* m)
 {
     if (NULL != mtx) {
         mtx->Lock();
@@ -259,4 +259,23 @@ void AllJoyn::ClearPortMap(qcc::Mutex* mtx, std::map<ajn::SessionPort, std::map<
     if (NULL != mtx) {
         mtx->Unlock();
     }
+}
+
+uint32_t QueryReferenceCount(Platform::Object ^ obj)
+{
+    __abi_IUnknown* pUnk = reinterpret_cast<__abi_IUnknown*>(obj);
+    pUnk->__abi_AddRef();
+    uint32_t count = pUnk->__abi_Release();
+    // Adjust for the assignment
+    return count - 1;
+}
+
+bool IsDestructedRefCount(Platform::Object ^ obj)
+{
+    __abi_IUnknown* pUnk = reinterpret_cast<__abi_IUnknown*>(obj);
+    pUnk->__abi_AddRef();
+    int32_t count = (int32_t)pUnk->__abi_Release();
+    return -1 == count;
+}
+
 }

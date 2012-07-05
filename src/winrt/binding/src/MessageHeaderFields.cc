@@ -19,6 +19,7 @@
 #include "MessageHeaderFields.h"
 
 #include <qcc/winrt/utility.h>
+#include <ObjectReference.h>
 #include <AllJoynException.h>
 
 namespace AllJoyn {
@@ -64,6 +65,11 @@ MessageHeaderFields::MessageHeaderFields(void* messageheaders, bool isManaged)
 
 MessageHeaderFields::~MessageHeaderFields()
 {
+    // Make sure consumers are following the documentation
+    if (!IsDestructedRefCount(this)) {
+        QCC_THROW_EXCEPTION(ER_FAIL);
+    }
+
     if (NULL != _mMessageHeaderFields) {
         delete _mMessageHeaderFields;
         _mMessageHeaderFields = NULL;

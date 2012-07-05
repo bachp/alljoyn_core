@@ -58,5 +58,9 @@ void RemovePortReference(qcc::Mutex* mtx, ajn::SessionPort key, std::map<ajn::Se
 
 void ClearPortMap(qcc::Mutex* mtx, std::map<ajn::SessionPort, std::map<void*, void*>*>* m);
 
+uint32_t QueryReferenceCount(Platform::Object ^ obj);
+
+bool IsDestructedRefCount(Platform::Object ^ obj);
+
 }
 // ObjectReference.h

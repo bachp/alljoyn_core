@@ -22,6 +22,7 @@
 #include <BusAttachment.h>
 #include <qcc/String.h>
 #include <qcc/winrt/utility.h>
+#include <ObjectReference.h>
 #include <AllJoynException.h>
 
 namespace AllJoyn {
@@ -135,6 +136,11 @@ InterfaceMember::InterfaceMember(void* interfaceMember)
 
 InterfaceMember::~InterfaceMember()
 {
+    // Make sure consumers are following the documentation
+    if (!IsDestructedRefCount(this)) {
+        QCC_THROW_EXCEPTION(ER_FAIL);
+    }
+
     if (NULL != _mMember) {
         delete _mMember;
         _mMember = NULL;

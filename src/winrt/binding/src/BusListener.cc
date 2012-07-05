@@ -21,6 +21,7 @@
 #include <qcc/String.h>
 #include <BusAttachment.h>
 #include <qcc/winrt/utility.h>
+#include <ObjectReference.h>
 #include <AllJoynException.h>
 #include <ctxtcall.h>
 #include <ppltasks.h>
@@ -85,6 +86,11 @@ BusListener::BusListener(void* listener, bool isManaged)
 
 BusListener::~BusListener()
 {
+    // Make sure consumers are following the documentation
+    if (!IsDestructedRefCount(this)) {
+        QCC_THROW_EXCEPTION(ER_FAIL);
+    }
+
     if (NULL != _mListener) {
         delete _mListener;
         _mListener = NULL;

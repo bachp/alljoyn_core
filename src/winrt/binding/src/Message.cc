@@ -21,6 +21,7 @@
 #include <MsgArg.h>
 #include <MessageHeaderFields.h>
 #include <qcc/winrt/utility.h>
+#include <ObjectReference.h>
 #include <AllJoynException.h>
 
 namespace AllJoyn {
@@ -60,6 +61,11 @@ Message::Message(void* message, bool isManaged)
 
 Message::~Message()
 {
+    // Make sure consumers are following the documentation
+    if (!IsDestructedRefCount(this)) {
+        QCC_THROW_EXCEPTION(ER_FAIL);
+    }
+
     if (NULL != _mMessage) {
         delete _mMessage;
         _mMessage = NULL;

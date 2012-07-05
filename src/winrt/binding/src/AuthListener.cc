@@ -23,6 +23,7 @@
 #include <Message.h>
 #include <BusAttachment.h>
 #include <Credentials.h>
+#include <ObjectReference.h>
 #include <AllJoynException.h>
 
 namespace AllJoyn {
@@ -85,6 +86,11 @@ AuthListener::AuthListener(void* listener, bool isManaged)
 
 AuthListener::~AuthListener()
 {
+    // Make sure consumers are following the documentation
+    if (!IsDestructedRefCount(this)) {
+        QCC_THROW_EXCEPTION(ER_FAIL);
+    }
+
     if (NULL != _mListener) {
         delete _mListener;
         _mListener = NULL;

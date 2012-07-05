@@ -19,6 +19,7 @@
 #include "SessionPortListener.h"
 
 #include <SessionOpts.h>
+#include <ObjectReference.h>
 #include <AllJoynException.h>
 #include <BusAttachment.h>
 #include <Status.h>
@@ -83,6 +84,11 @@ SessionPortListener::SessionPortListener(void* listener, bool isManaged)
 
 SessionPortListener::~SessionPortListener()
 {
+    // Make sure consumers are following the documentation
+    if (!IsDestructedRefCount(this)) {
+        QCC_THROW_EXCEPTION(ER_FAIL);
+    }
+
     if (NULL != _mListener) {
         delete _mListener;
         _mListener = NULL;

@@ -20,6 +20,7 @@
 
 #include <qcc/String.h>
 #include <qcc/winrt/utility.h>
+#include <ObjectReference.h>
 #include <AllJoynException.h>
 
 namespace AllJoyn {
@@ -91,6 +92,11 @@ Credentials::Credentials(void* creds, bool isManaged)
 
 Credentials::~Credentials()
 {
+    // Make sure consumers are following the documentation
+    if (!IsDestructedRefCount(this)) {
+        QCC_THROW_EXCEPTION(ER_FAIL);
+    }
+
     if (NULL != _mCredentials) {
         delete _mCredentials;
         _mCredentials = NULL;

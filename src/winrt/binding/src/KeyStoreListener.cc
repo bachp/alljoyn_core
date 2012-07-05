@@ -21,6 +21,7 @@
 #include <BusAttachment.h>
 #include <qcc/String.h>
 #include <qcc/winrt/utility.h>
+#include <ObjectReference.h>
 #include <AllJoynException.h>
 
 namespace AllJoyn {
@@ -83,6 +84,11 @@ KeyStoreListener::KeyStoreListener(void* listener, bool isManaged)
 
 KeyStoreListener::~KeyStoreListener()
 {
+    // Make sure consumers are following the documentation
+    if (!IsDestructedRefCount(this)) {
+        QCC_THROW_EXCEPTION(ER_FAIL);
+    }
+
     if (NULL != _mListener) {
         delete _mListener;
         _mListener = NULL;

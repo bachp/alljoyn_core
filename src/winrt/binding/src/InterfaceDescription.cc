@@ -23,6 +23,7 @@
 #include <BusAttachment.h>
 #include <qcc/String.h>
 #include <qcc/winrt/utility.h>
+#include <ObjectReference.h>
 #include <AllJoynException.h>
 
 namespace AllJoyn {
@@ -68,6 +69,11 @@ InterfaceDescription::InterfaceDescription(void* interfaceDescr, bool isManaged)
 
 InterfaceDescription::~InterfaceDescription()
 {
+    // Make sure consumers are following the documentation
+    if (!IsDestructedRefCount(this)) {
+        QCC_THROW_EXCEPTION(ER_FAIL);
+    }
+
     if (NULL != _mInterfaceDescr) {
         delete _mInterfaceDescr;
         _mInterfaceDescr = NULL;

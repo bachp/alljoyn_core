@@ -22,6 +22,7 @@
 #include <qcc/winrt/utility.h>
 #include <alljoyn/Session.h>
 #include <Status.h>
+#include <ObjectReference.h>
 #include <AllJoynException.h>
 
 namespace AllJoyn {
@@ -115,6 +116,11 @@ SessionOpts::SessionOpts(void* sessionopts, bool isManaged)
 
 SessionOpts::~SessionOpts()
 {
+    // Make sure consumers are following the documentation
+    if (!IsDestructedRefCount(this)) {
+        QCC_THROW_EXCEPTION(ER_FAIL);
+    }
+
     if (NULL != _mSessionOpts) {
         delete _mSessionOpts;
         _mSessionOpts = NULL;

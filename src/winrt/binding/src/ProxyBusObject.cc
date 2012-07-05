@@ -139,6 +139,11 @@ ProxyBusObject::ProxyBusObject(void* proxybusobject, bool isManaged)
 
 ProxyBusObject::~ProxyBusObject()
 {
+    // Make sure consumers are following the documentation
+    if (!IsDestructedRefCount(this)) {
+        QCC_THROW_EXCEPTION(ER_FAIL);
+    }
+
     if (NULL != _mProxyBusObject) {
         delete _mProxyBusObject;
         _mProxyBusObject = NULL;
