@@ -309,52 +309,11 @@ _Message::_Message(BusAttachment& bus) :
     ttl(0),
     handles(NULL),
     numHandles(0),
-    encrypt(false)
+    encrypt(false),
+    busy(0)
 {
     msgHeader.msgType = MESSAGE_INVALID;
     msgHeader.endian = myEndian;
-}
-
-_Message::_Message(const _Message& other) :
-    bus(other.bus),
-    endianSwap(other.endianSwap),
-    msgHeader(other.msgHeader),
-    _msgBuf(other.msgBuf ? new uint8_t[other.bufSize + 7] : NULL),
-    msgBuf(_msgBuf ? (uint64_t*)((uintptr_t)(_msgBuf + 7) & ~7) : NULL),
-    msgArgs((other.numMsgArgs && other.msgArgs) ? new MsgArg[other.numMsgArgs] : NULL),
-    numMsgArgs(other.numMsgArgs),
-    bufSize(other.bufSize),
-    bufEOD((other.msgBuf && other.bufEOD) ? ((uint8_t*)msgBuf) + (other.bufEOD - ((uint8_t*)other.msgBuf)) : NULL),
-    bufPos((other.msgBuf && other.bufPos) ? ((uint8_t*)msgBuf) + (other.bufPos - ((uint8_t*)other.msgBuf)) : NULL),
-    bodyPtr((other.msgBuf && other.bodyPtr) ? ((uint8_t*)msgBuf) + (other.bodyPtr - ((uint8_t*)other.msgBuf)) : NULL),
-    ttl(other.ttl),
-    timestamp(other.timestamp),
-    replySignature(other.replySignature),
-    authMechanism(other.authMechanism),
-    rcvEndpointName(other.rcvEndpointName),
-    handles(other.numHandles ? new qcc::SocketFd[other.numHandles] : NULL),
-    numHandles(other.numHandles),
-    encrypt(other.encrypt),
-    hdrFields(other.hdrFields)
-{
-    // Copy msgBuf
-    if (msgBuf) {
-        ::memcpy(msgBuf, other.msgBuf, bufSize);
-    }
-
-    // Copy msgArgs
-    if (msgArgs) {
-        for (size_t i = 0; i < numMsgArgs; ++i) {
-            msgArgs[i] = other.msgArgs[i];
-        }
-    }
-
-    // Copy handles
-    if (handles) {
-        for (size_t i = 0; i < numHandles; ++i) {
-            SocketDup(other.handles[i], handles[i]);
-        }
-    }
 }
 
 _Message::~_Message(void)

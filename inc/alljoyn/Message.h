@@ -185,13 +185,6 @@ class _Message {
     _Message(BusAttachment& bus);
 
     /**
-     * Copy constructor for a message
-     *
-     * @param other  Message to copy from.
-     */
-    _Message(const _Message& other);
-
-    /**
      * Determine if message is a broadcast signal.
      *
      * @return  Return true if this is a broadcast signal.
@@ -687,9 +680,12 @@ class _Message {
   private:
 
     /**
-     * Assignment operator.
-     *
-     * @param other   RHS of assignment.
+     * Copy constructor is disallowed.
+     */
+    _Message(const _Message& other);
+
+    /**
+     * Message assignment is disallowed.
      */
     _Message operator=(const _Message& other);
 
@@ -790,6 +786,7 @@ class _Message {
     qcc::SocketFd* handles;      ///< Array of file/socket descriptors.
     size_t numHandles;           ///< Number of handles in the handles array
     bool encrypt;                ///< True if the message is to be encrypted
+    volatile int32_t busy;       ///< Non-zero while the message is being modified
 
     /**
      * The header fields for this message. Which header fields are present depends on the message
