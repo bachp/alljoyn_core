@@ -21,6 +21,7 @@
 #include <vector>
 
 #include <qcc/String.h>
+#include <qcc/Util.h>
 
 #include <alljoyn/BusAttachment.h>
 #include <alljoyn/DBusStd.h>
@@ -53,7 +54,10 @@ class DBusObjTest : public testing::Test {
         ASSERT_EQ(ER_OK, status) << "  Actual Status: " << QCC_StatusText(status);
     }
 
-    //virtual void TearDown() {}
+    virtual void TearDown() {
+        bus.Stop();
+        bus.Join();
+    }
 
 };
 
@@ -245,8 +249,50 @@ TEST_F(DBusObjTest, ListQueuedOwners) {
     bus3.ReleaseName("com.test.foo");
     bus4.ReleaseName("com.test.foo");
 
-    bus.Stop();
     bus2.Stop();
     bus3.Stop();
     bus4.Stop();
+}
+
+TEST_F(DBusObjTest, GetConnectionUnixUser) {
+    QStatus status = ER_FAIL;
+    const char* name = "org.alljoyn.bus.ifaces.testGetConnctionUnixUser";
+    uint32_t flags = 0;
+    status = bus.RequestName(name, flags);
+    EXPECT_EQ(ER_OK, status) << "  Actual Status: " << QCC_StatusText(status);
+
+    ProxyBusObject dbusObj(bus.GetDBusProxyObj());
+
+    MsgArg arg("s", name);
+    Message reply(bus);
+    status = dbusObj.MethodCall("org.freedesktop.DBus", "GetConnectionUnixUser", &arg, 1, reply);
+    ASSERT_EQ(ER_OK, status) << "  Actual Status: " << QCC_StatusText(status);
+    uint32_t uid = 0;
+    const MsgArg* uidArg = reply->GetArg(0);
+    uidArg->Get("u", &uid);
+
+    EXPECT_EQ(qcc::GetUid(), uid);
+
+    status = bus.ReleaseName(name);
+    EXPECT_EQ(ER_OK, status) << "  Actual Status: " << QCC_StatusText(status);
+}
+
+TEST_F(DBusObjTest, GetConnectionUnixProcessID) {
+    QStatus status = ER_FAIL;
+    const char* name = "org.alljoyn.bus.ifaces.testGetConnectionUnixProcessID";
+    uint32_t flags = 0;
+    status = bus.RequestName(name, flags);
+    EXPECT_EQ(ER_OK, status) << "  Actual Status: " << QCC_StatusText(status)  << "\n\t" << name;;
+
+    ProxyBusObject dbusObj(bus.GetDBusProxyObj());
+    MsgArg arg("s", name);
+    Message reply(bus);
+    status = dbusObj.MethodCall("org.freedesktop.DBus", "GetConnectionUnixProcessID", &arg, 1, reply);
+    ASSERT_EQ(ER_OK, status) << "  Actual Status: " << QCC_StatusText(status);
+    uint32_t pid = 0;
+    reply->GetArg(0)->Get("u", &pid);
+    EXPECT_EQ(qcc::GetPid(), pid);
+
+    status = bus.ReleaseName(name);
+    EXPECT_EQ(ER_OK, status) << "  Actual Status: " << QCC_StatusText(status);
 }
