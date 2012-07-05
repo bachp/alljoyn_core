@@ -65,26 +65,6 @@ class RendezvousServerConnection {
 
     /**
      * @internal
-     * @brief Class specifying the properties used to describe an interface.
-     */
-    class ConnInterface {
-      public:
-        qcc::IfConfigEntry interfaceProperties; /* Interface specific properties*/
-        SocketFd sockFd; /**< The socket we are using for connection to the Rendezvous Server */
-
-        void Clear() {
-            interfaceProperties.m_name = String();
-            interfaceProperties.m_addr = String();
-            interfaceProperties.m_family = QCC_AF_UNSPEC;
-            interfaceProperties.m_flags = 0;
-            interfaceProperties.m_index = 0;
-            interfaceProperties.m_mtu = 0;
-            sockFd = -1;
-        }
-    };
-
-    /**
-     * @internal
      * @brief Constructor.
      */
     RendezvousServerConnection(String rdvzServer, bool enableIPv6, bool useHttp);
@@ -117,19 +97,11 @@ class RendezvousServerConnection {
 
     /**
      * @internal
-     * @brief Returns if the interface is still live
+     * @brief Returns if the interface with the specified IPAddress is still live
      *
      * @return None
      */
-    bool IsInterfaceLive(ConnInterface interface);
-
-    /**
-     * @internal
-     * @brief Connect to the Rendezvous Server over any available live interface
-     *
-     * @return ER_OK or ER_FAIL
-     */
-    QStatus ConnectOverAnyInterface(ConnInterface* connInterface, SocketFd& sockFd, HttpConnection** httpConn);
+    bool IsInterfaceLive(IPAddress interfaceAddr);
 
     /**
      * @internal
@@ -137,9 +109,7 @@ class RendezvousServerConnection {
      *
      * @return None
      */
-    void UpdateConnectionDetails(SocketFd sockFd,
-                                 HttpConnection** oldHttpConn, HttpConnection* newHttpConn,
-                                 ConnInterface* oldConnInterface, ConnInterface* newConnInterface,
+    void UpdateConnectionDetails(HttpConnection** oldHttpConn, HttpConnection* newHttpConn,
                                  bool* isConnected, bool* connectionChangedFlag);
 
     /**
@@ -148,16 +118,15 @@ class RendezvousServerConnection {
      *
      * @return None
      */
-    void CleanConnection(HttpConnection* httpConn, ConnInterface* connInterface, bool* isConnected);
+    void CleanConnection(HttpConnection* httpConn, bool* isConnected);
 
     /**
      * @internal
-     * @brief Set up a HTTP connection over a specified interface
+     * @brief Set up a HTTP connection
      *
      * @return ER_OK or ER_FAIL
      */
-    QStatus SetupConnOverInterface(ConnInterface connInterface, SocketFd& sockFd,
-                                   HttpConnection** httpConn);
+    QStatus SetupNewConnection(SocketFd& sockFd, HttpConnection** httpConn);
 
     /**
      * @internal
@@ -165,7 +134,7 @@ class RendezvousServerConnection {
      *
      * @return ER_OK or ER_FAIL
      */
-    QStatus SetupHTTPConn(SocketFd sockFd, HttpConnection** httpConn, String localIPAddress);
+    QStatus SetupHTTPConn(SocketFd sockFd, HttpConnection** httpConn);
 
     /**
      * @internal
@@ -173,30 +142,17 @@ class RendezvousServerConnection {
      *
      * @return ER_OK or ER_FAIL
      */
-    QStatus SetupSockForConn(SocketFd& sockFd, ConnInterface connInterface);
+    QStatus SetupSockForConn(SocketFd& sockFd);
 
     /**
      * @internal
      * @brief Set up a HTTP connection with the Rendezvous Server
      *
      * @param connFlag - Flag specifying the type of connection to be set up
-     * @param useCurrentInterface - Boolean indicating is the interface type used for the other connection
      *
      * @return ER_OK or ER_FAIL
      */
-    QStatus SetupConnection(ConnectionFlag connFlag, bool useConnectedInterface);
-
-    /**
-     * @internal
-     * @brief Utility function to print the interface details.
-     */
-    String PrintConnInterface(ConnInterface interface);
-
-    /**
-     * @internal
-     * @brief Utility function that checks if the two interface specs passed in are the same.
-     */
-    bool IsSameInterface(ConnInterface* interface, ConnInterface* otherInterface);
+    QStatus SetupConnection(ConnectionFlag connFlag);
 
     /**
      * @internal
@@ -259,18 +215,6 @@ class RendezvousServerConnection {
      * @internal
      * @brief Return onDemandConn
      */
-    HttpConnection* GetOnDemandConn() { return onDemandConn; };
-
-    /**
-     * @internal
-     * @brief Return persistentConn
-     */
-    HttpConnection* GetPersistentConn() { return persistentConn; };
-
-    /**
-     * @internal
-     * @brief Return onDemandConn
-     */
     Event& GetOnDemandSourceEvent() { return onDemandConn->GetResponseSource().GetSourceEvent(); };
 
     /**
@@ -281,15 +225,11 @@ class RendezvousServerConnection {
 
     /**
      * @internal
-     * @brief Return On Demand connection socket
+     * @brief Return IPAddresses of the interfaces
+     * over which the Persistent and the On Demand connections have
+     * been setup with the Rendezvous Server.
      */
-    SocketFd GetOnDemandConnSocket() { return onDemandInterface.sockFd; };
-
-    /**
-     * @internal
-     * @brief Return Persistent connection socket
-     */
-    SocketFd GetPersistentConnSocket() { return persistentInterface.sockFd; };
+    void GetRendezvousConnIPAddresses(IPAddress& onDemandAddress, IPAddress& persistentAddress);
 
   private:
 
@@ -338,20 +278,6 @@ class RendezvousServerConnection {
      * @brief Interface object used to get the network information from the kernel.
      */
     NetworkInterface* networkInterface;
-
-    /**
-     * @internal
-     * @brief Information about the interface that is currently being used for on demand connection with
-     * the Rendezvous Server.
-     */
-    ConnInterface onDemandInterface;
-
-    /**
-     * @internal
-     * @brief Information about the interface that is currently being used for persistent connection with
-     * the Rendezvous Server.
-     */
-    ConnInterface persistentInterface;
 
     /**
      * @internal

@@ -99,10 +99,10 @@ void Component::AddToStunActivityList(StunActivity* stunActivity)
 }
 
 
-QStatus Component::CreateHostCandidate(qcc::SocketType socketType, const qcc::IPAddress& addr, uint16_t port, qcc::String interfaceName)
+QStatus Component::CreateHostCandidate(qcc::SocketType socketType, const qcc::IPAddress& addr, uint16_t port)
 {
     QStatus status = ER_OK;
-    QCC_DbgTrace(("Component::CreateHostCandidate(socketType = %d, &addr = %s, port = %d interfaceName = %s)", socketType, addr.ToString().c_str(), port, interfaceName.c_str()));
+    QCC_DbgTrace(("Component::CreateHostCandidate(socketType = %d, &addr = %s, port = %d)", socketType, addr.ToString().c_str(), port));
 
     this->socketType = socketType;
 
@@ -122,7 +122,7 @@ QStatus Component::CreateHostCandidate(qcc::SocketType socketType, const qcc::IP
         AddToStunActivityList(stunActivity);
 
         _ICECandidate::ICECandidateType type = _ICECandidate::Host_Candidate;
-        ICECandidate candidate(type, host, host, this, socketType, stunActivity, interfaceName);
+        ICECandidate candidate(type, host, host, this, socketType, stunActivity);
         status = AddCandidate(candidate);
 
         if (ER_OK == status) {

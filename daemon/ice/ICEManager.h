@@ -77,13 +77,21 @@ class ICEManager {
      * @param session               Handle for session.
      *
      * @param stunInfo              STUN server information
+     *
+     * @param onDemandAddress       IP address of the interface over which the on demand connection
+     *                                                          has been set up with the Rendezvous Server.
+     *
+     * @param persistentAddress     IP address of the interface over which the persistent connection
+     *                                                          has been set up with the Rendezvous Server.
      */
     QStatus AllocateSession(bool addHostCandidates,
                             bool addRelayedCandidates,
                             bool enableIpv6,
                             ICESessionListener* listener,
                             ICESession*& session,
-                            STUNServerInfo stunInfo);
+                            STUNServerInfo stunInfo,
+                            IPAddress onDemandAddress,
+                            IPAddress persistentAddress);
 
 
     /**
@@ -93,8 +101,6 @@ class ICEManager {
      * @param session   ICESession to deallocate.
      */
     QStatus DeallocateSession(ICESession*& session);
-
-    void SetInterfaceNamePrefixes(String ethPrefix, String wifiPrefix, String mobileNwPrefix);
 
   private:
 
@@ -107,15 +113,6 @@ class ICEManager {
 
     /** Private assignment operator */
     ICEManager& operator=(const ICEManager&);
-
-    /*Ethernet interface name prefix. For eg. eth */
-    String ethernetInterfaceName;
-
-    /* Wi-Fi interface name prefix. For eg. wlan */
-    String wifiInterfaceName;
-
-    /* Mobile Network interface name prefix. For eg. ppp */
-    String mobileNwInterfaceName;
 
 };
 

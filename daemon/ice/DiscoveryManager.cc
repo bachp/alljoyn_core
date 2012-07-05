@@ -63,9 +63,6 @@ namespace ajn {
 //     <ice_discovery_manager>
 //       <property interfaces="*"/>
 //       <property server="rdvs.qualcomm.com"/>
-//       <property ethernetPrefix="eth"/>
-//       <property wiFiPrefix="wlan"/>
-//       <property mobileNwPrefix="ppp"/>
 //       <property protocol="HTTP"/>
 //       <property enable_ipv6=\"false\"/>"
 //     </ice_discovery_manager>
@@ -130,9 +127,6 @@ DiscoveryManager::DiscoveryManager(BusAttachment& bus)
     //     <ice_discovery_manager>
     //       <property interfaces="*"/>
     //       <property server="rdvs.qualcomm.com"/>
-    //       <property ethernetPrefix="eth"/>
-    //       <property wiFiPrefix="wlan"/>
-    //       <property mobileNwPrefix="ppp"/>
     //       <property protocol="HTTP"/>
     //       <property enable_ipv6=\"false\"/>"
     //     </ice_discovery_manager>
@@ -154,11 +148,6 @@ DiscoveryManager::DiscoveryManager(BusAttachment& bus)
         QCC_DbgPrintf(("DiscoveryManager::DiscoveryManager(): Enabling use of IPv6 interfaces"));
         EnableIPv6 = true;
     }
-
-    /* Retrieve the interface name prefixes from the config file */
-    ethernetInterfaceName = config->Get("ice_discovery_manager/property@ethernetPrefix", "eth");
-    wifiInterfaceName = config->Get("ice_discovery_manager/property@wiFiPrefix", "wlan");
-    mobileNwInterfaceName = config->Get("ice_discovery_manager/property@mobileNwPrefix", "ppp");
 
     QCC_DbgPrintf(("DiscoveryManager::DiscoveryManager(): RendezvousServer = %s\n", RendezvousServer.c_str()));
 
@@ -200,14 +189,6 @@ DiscoveryManager::DiscoveryManager(BusAttachment& bus)
     // to derive proximity information from the kernel is available.
     InitializeProximity();
 #endif
-}
-
-void DiscoveryManager::GetInterfaceNamePrefixes(String& ethPrefix, String& wifiPrefix, String& mobileNwPrefix)
-{
-    QCC_DbgPrintf(("DiscoveryManager::GetInterfaceNamePrefixes()\n"));
-    ethPrefix = ethernetInterfaceName;
-    wifiPrefix = wifiInterfaceName;
-    mobileNwPrefix = mobileNwInterfaceName;
 }
 
 DiscoveryManager::~DiscoveryManager()
@@ -3305,6 +3286,16 @@ QStatus DiscoveryManager::Join(void)
     }
 
     return ER_OK;
+}
+
+void DiscoveryManager::GetRendezvousConnIPAddresses(IPAddress& onDemandAddress, IPAddress& persistentAddress)
+{
+    if (Connection) {
+        QCC_DbgPrintf(("DiscoveryManager::GetRendezvousConnIPAddresses(): Connected to the Server"));
+        Connection->GetRendezvousConnIPAddresses(onDemandAddress, persistentAddress);
+    } else {
+        QCC_DbgPrintf(("DiscoveryManager::GetRendezvousConnIPAddresses(): Not connected to the Server"));
+    }
 }
 
 } // namespace ajn

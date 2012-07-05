@@ -217,6 +217,12 @@ QStatus HttpConnection::Connect(SocketFd sock)
             SocketStream* sockStream = new SocketStream(sock);
             stream = sockStream;
             status = sockStream->Connect(hostIPAddress, port);
+
+            /* Retrieve the interface details over which the OS has
+             * set up the socket to talk to the Server */
+            uint16_t localPort;
+            qcc::GetLocalAddress(sockStream->GetSocketFd(), localIPAddress, localPort);
+
             httpSource.Reset(*stream);
             break;
         }
@@ -227,14 +233,21 @@ QStatus HttpConnection::Connect(SocketFd sock)
                 port = 443;
             }
 
-            SslSocket* sslSocket = new SslSocket(localIPAddress, host);
+            SslSocket* sslSocket = new SslSocket(host);
             stream = sslSocket;
             status = sslSocket->Connect(hostIPAddress, port);
+
+            /* Retrieve the interface details over which the OS has
+             * set up the socket to talk to the Server */
+            uint16_t localPort;
+            qcc::GetLocalAddress(sslSocket->GetSocketFd(), localIPAddress, localPort);
+
             httpSource.Reset(*stream);
 
             break;
         }
         }
+
     } else {
         QCC_DbgPrintf(("A connection with the Server already exists."));
     }

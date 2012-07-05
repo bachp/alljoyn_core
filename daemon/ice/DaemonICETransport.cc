@@ -74,16 +74,6 @@ const char* DaemonICETransport::TransportName = "ice";
 class DaemonICEEndpoint : public RemoteEndpoint {
   public:
 
-    /* Timeout within which the Connect/Accept callback should be received after issuing
-     * PacketEngine connect/accept */
-    /*PPN - Review duration*/
-    static const uint32_t PACKET_ENGINE_CONNECT_AND_ACCEPT_TIMEOUT = 60000;
-
-    /* Timeout within which the packet engine disconnect callback should be received after issuing
-     * PacketEngine disconnect */
-    /*PPN - Review duration*/
-    static const uint32_t PACKET_ENGINE_DISCONNECT_TIMEOUT = 8000;
-
     /**
      * There are three threads that can be running around in this data
      * structure.  An auth thread is run before the endpoint is started in order
@@ -518,10 +508,7 @@ DaemonICETransport::DaemonICETransport(BusAttachment& bus) :
     m_stopping(false),
     m_listener(0),
     m_packetEngine("ice_packet_engine"),
-    m_iceCallback(m_listener, this),
-    ethernetInterfaceName(),
-    wifiInterfaceName(),
-    mobileNwInterfaceName()
+    m_iceCallback(m_listener, this)
 {
     /*
      * We know we are daemon code, so we'd better be running with a daemon
@@ -709,12 +696,6 @@ QStatus DaemonICETransport::Start()
     m_dm->SetCallback(
         new CallbackImpl<ICECallback, void, ajn::DiscoveryManager::CallbackType, const String&, const vector<String>*, uint8_t>
             (&m_iceCallback, &ICECallback::ICE));
-
-    /* Get the interface name prefixes from the Discovery Manager */
-    m_dm->GetInterfaceNamePrefixes(ethernetInterfaceName, wifiInterfaceName, mobileNwInterfaceName);
-
-    /* Set the interface name prefixes in the ICEManager*/
-    m_iceManager.SetInterfaceNamePrefixes(ethernetInterfaceName, wifiInterfaceName, mobileNwInterfaceName);
 
     /*
      * Start the DaemonICETransport Run loop through the thread base class
@@ -1135,8 +1116,12 @@ ThreadReturn STDCALL DaemonICETransport::AllocateICESessionThread::Run(void* arg
         }
     }
 
+    IPAddress onDemandAddress, persistentAddress;
+    transportObj->m_dm->GetRendezvousConnIPAddresses(onDemandAddress, persistentAddress);
+
     /* Gather ICE candidates */
-    status = transportObj->m_iceManager.AllocateSession(true, true, transportObj->m_dm->GetEnableIPv6(), &iceListener, iceSession, stunInfo);
+    status = transportObj->m_iceManager.AllocateSession(true, true, transportObj->m_dm->GetEnableIPv6(), &iceListener, iceSession, stunInfo,
+                                                        onDemandAddress, persistentAddress);
 
     if (status != ER_OK) {
         QCC_LogError(status, ("DaemonICETransport::AllocateICESessionThread::Run(): AllocateSession failed"));
@@ -1764,8 +1749,12 @@ QStatus DaemonICETransport::Connect(const char* connectSpec, const SessionOpts& 
             }
         }
 
+        IPAddress onDemandAddress, persistentAddress;
+        m_dm->GetRendezvousConnIPAddresses(onDemandAddress, persistentAddress);
+
         /* Gather ICE candidates */
-        status = m_iceManager.AllocateSession(true, false, m_dm->GetEnableIPv6(), &iceListener, iceSession, stunInfo);
+        status = m_iceManager.AllocateSession(true, false, m_dm->GetEnableIPv6(), &iceListener, iceSession, stunInfo,
+                                              onDemandAddress, persistentAddress);
         if (status == ER_OK) {
             status = iceListener.Wait();
 

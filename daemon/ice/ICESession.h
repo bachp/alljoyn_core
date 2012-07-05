@@ -302,14 +302,17 @@ class ICESession {
 
     STUNServerInfo STUNInfo;
 
+    IPAddress OnDemandAddress;
+
+    IPAddress PersistentAddress;
+
     // Private ctor, used only by friend ICEManager
     ICESession(bool addHostCandidates,
                bool addRelayedCandidates,
                ICESessionListener* listener,
                STUNServerInfo stunInfo,
-               String ethPrefix,
-               String wifiPrefix,
-               String mobileNwPrefix) :
+               IPAddress onDemandAddress,
+               IPAddress persistentAddress) :
         hmacKeyLen(0),
         TurnServerAvailable(false),
         terminating(false),
@@ -329,9 +332,8 @@ class ICESession {
         checksStarted(false),
         listenerNotifiedOnSuccessOrFailure(false),
         STUNInfo(stunInfo),
-        ethernetInterfaceName(ethPrefix),
-        wifiInterfaceName(wifiPrefix),
-        mobileNwInterfaceName(mobileNwPrefix) {
+        OnDemandAddress(onDemandAddress),
+        PersistentAddress(persistentAddress) {
 
         usernameForShortTermCredential = STUNInfo.acct;
 
@@ -401,7 +403,7 @@ class ICESession {
 
     void AssignPriorities(void);
 
-    uint32_t AssignPriority(uint16_t componentID, const ICECandidate& IceCandidate, _ICECandidate::ICECandidateType candidateType, String interfaceName);
+    uint32_t AssignPriority(uint16_t componentID, const ICECandidate& IceCandidate, _ICECandidate::ICECandidateType candidateType);
 
     void AssignPrioritiesPerICEStream(const ICEStream* stream);
 
@@ -447,16 +449,6 @@ class ICESession {
     QStatus DeallocateTurn(Stun* stun);
 
     bool RelayedCandidateActivityIsStale(StunActivity* stunActivity);
-
-    /*Ethernet interface name prefix. For eg. eth */
-    String ethernetInterfaceName;
-
-    /* Wi-Fi interface name prefix. For eg. wlan */
-    String wifiInterfaceName;
-
-    /* Mobile Network interface name prefix. For eg. ppp */
-    String mobileNwInterfaceName;
-
 };
 
 } //namespace ajn

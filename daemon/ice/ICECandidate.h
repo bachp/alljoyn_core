@@ -136,7 +136,7 @@ class _ICECandidate {
      */
 
     // Local Host/Server-Reflexive/Peer-Reflexive
-    _ICECandidate(ICECandidateType type, IPEndpoint endPoint, IPEndpoint base, Component* component, SocketType transportProtocol, StunActivity* stunActivity, String interfaceName);
+    _ICECandidate(ICECandidateType type, IPEndpoint endPoint, IPEndpoint base, Component* component, SocketType transportProtocol, StunActivity* stunActivity);
 
     // Local Relayed Candidate
     _ICECandidate(IPEndpoint endPoint, IPEndpoint base, IPEndpoint mappedAddress, uint32_t grantedAllocationLifetimeSecs,
@@ -195,9 +195,6 @@ class _ICECandidate {
     QStatus StartListener(void);
 
     QStatus StopCheckListener(void);
-
-    String GetInterfaceName(void) const { return InterfaceName; };
-
 
   private:
     /** Candiate type */
@@ -277,10 +274,6 @@ class _ICECandidate {
     QStatus ReadReceivedMessage(uint32_t timeoutMsec);
 
     QStatus SendResponse(uint16_t checkStatus, IPEndpoint& dest, bool usingTurn, StunTransactionID tid);
-
-
-    String InterfaceName;
-
 };
 
 } // namespace ajn

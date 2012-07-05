@@ -44,8 +44,7 @@ _ICECandidate::_ICECandidate(_ICECandidate::ICECandidateType type,
                              IPEndpoint base,
                              Component* component,
                              SocketType transportProtocol,
-                             StunActivity* stunActivity,
-                             String interfaceName) :
+                             StunActivity* stunActivity) :
     type(type),
     priority(),
     endPoint(endPoint),
@@ -60,8 +59,7 @@ _ICECandidate::_ICECandidate(_ICECandidate::ICECandidateType type,
     terminating(false),
     sharedStunRelayedCandidate(NULL),
     sharedStunServerReflexiveCandidate(NULL),
-    candidateThread(NULL),
-    InterfaceName(interfaceName)
+    candidateThread(NULL)
 {
     QCC_DbgTrace(("ICECandidate::ICECandidate1(%p, type=%d)", this, type));
     stunActivity->SetCandidate(ICECandidate(this));
@@ -376,8 +374,7 @@ QStatus _ICECandidate::ReadReceivedMessage(uint32_t timeoutMsec)
                                                                    base,
                                                                    component,
                                                                    sockType,
-                                                                   reflexiveCandidateStunActivity,
-                                                                   InterfaceName);
+                                                                   reflexiveCandidateStunActivity);
 
                     // store server_reflexive candidate (reuse host candidate's stun object)
                     stunActivity->stun->GetComponent()->AddCandidate(reflexiveCandidate);
