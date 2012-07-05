@@ -362,9 +362,9 @@ void ICESession::AssignPriorities(void)
 
 uint32_t ICESession::AssignPriority(uint16_t componentID,
                                     const ICECandidate& IceCandidate,
-                                    _ICECandidate::ICECandidateType candidateType,
-                                    String interfaceName)
+                                    _ICECandidate::ICECandidateType candidateType)
 {
+    QCC_DbgPrintf(("ICESession::AssignPriority(): OnDemandAddress(%s) PersistentAddress(%s)", OnDemandAddress.ToString().c_str(), PersistentAddress.ToString().c_str()));
     uint16_t typePreference = 0;
     uint16_t localPreference = 0;
 
@@ -410,16 +410,13 @@ uint32_t ICESession::AssignPriority(uint16_t componentID,
             }
         }
 
-        // Update localPreference based on interface type in the following priority order
-        // Ethernet
-        // Wi-Fi
-        // Mobile Network
-        if (interfaceName.find(ethernetInterfaceName) != String::npos) {
+        // Bump up the priority of the interfaces that have been used for connection with the Rendezvous
+        // Server
+        if ((IceCandidate->GetBase().addr == OnDemandAddress) ||
+            (IceCandidate->GetBase().addr == PersistentAddress)) {
+            QCC_DbgPrintf(("ICESession::AssignPriority(): Bumping up the priority of candidate with IP Addr %s as it is "
+                           "used in the Rendezvous Connection", IceCandidate->GetBase().addr.ToString().c_str()));
             localPreference += 25535;
-        } else if (interfaceName.find(wifiInterfaceName) != String::npos) {
-            localPreference += 20000;
-        } else if (interfaceName.find(mobileNwInterfaceName) != String::npos) {
-            localPreference += 0;
         }
     }
 
@@ -437,7 +434,7 @@ void ICESession::AssignPrioritiesPerICEStream(const ICEStream* stream)
 
         Component::iterator candidateIt;
         for (candidateIt = (*componentIt)->Begin(); candidateIt != (*componentIt)->End(); ++candidateIt) {
-            (*candidateIt)->SetPriority(AssignPriority((*componentIt)->GetID(), *candidateIt, (*candidateIt)->GetType(), (*candidateIt)->GetInterfaceName()));
+            (*candidateIt)->SetPriority(AssignPriority((*componentIt)->GetID(), *candidateIt, (*candidateIt)->GetType()));
         }
     }
 }
@@ -1038,7 +1035,7 @@ QStatus ICESession::GatherHostCandidates(bool enableIpv6)
             }
 
             // (This typically ignores the specified port and OS binds to ephemeral port.)
-            status = component->CreateHostCandidate(socketType, networkInterfaceIter->addr, port, networkInterfaceIter->name);
+            status = component->CreateHostCandidate(socketType, networkInterfaceIter->addr, port);
 
             if (status != ER_OK) {
                 QCC_LogError(status, ("component->CreateHostCandidate"));
@@ -1047,7 +1044,7 @@ QStatus ICESession::GatherHostCandidates(bool enableIpv6)
 
             if (NULL != implicitComponent) {
                 // (This typically ignores the specified port and OS binds to ephemeral port.)
-                status = implicitComponent->CreateHostCandidate(socketType, networkInterfaceIter->addr, port + 1, networkInterfaceIter->name);
+                status = implicitComponent->CreateHostCandidate(socketType, networkInterfaceIter->addr, port + 1);
 
                 if (status != ER_OK) {
                     QCC_LogError(status, ("implicitComponent->CreateHostCandidate"));
@@ -1257,7 +1254,7 @@ QStatus ICESession::FormCheckLists(list<ICECandidates>& peerCandidates, String i
                 uint64_t controlTieBreaker = 0;
                 Crypto_GetRandomBytes(reinterpret_cast<uint8_t*>(&controlTieBreaker), sizeof(controlTieBreaker));
 
-                uint32_t bindRequestPriority = AssignPriority(localCandidate->GetComponent()->GetID(), localCandidate, _ICECandidate::PeerReflexive_Candidate, localCandidate->GetInterfaceName());
+                uint32_t bindRequestPriority = AssignPriority(localCandidate->GetComponent()->GetID(), localCandidate, _ICECandidate::PeerReflexive_Candidate);
                 status = pair->InitChecker(controlTieBreaker, useAggressiveNomination, bindRequestPriority);
                 if (ER_OK != status) {
                     delete pair;

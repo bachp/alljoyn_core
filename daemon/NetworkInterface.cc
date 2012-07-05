@@ -102,18 +102,10 @@ QStatus NetworkInterface::UpdateNetworkInterfaces(void)
     /* Filter out the unwanted entries and populate valid entries into liveInterfaces */
     for (std::vector<IfConfigEntry>::const_iterator j = entries.begin(); j != entries.end(); ++j) {
 
-        /* Skip processing the entry if it does not have an IP Address*/
-        if ((*j).m_family == QCC_AF_UNSPEC) {
-            continue;
-        }
-
-        /* Skip processing the entry if IPv6 is not enabled and the entry at hand is IPv6*/
-        if ((!EnableIPV6) && ((*j).m_family == QCC_AF_INET6)) {
-            continue;
-        }
-
-        /* Skip the loopback interface */
-        if ((*j).m_addr == String("127.0.0.1")) {
+        if (((*j).m_family == QCC_AF_UNSPEC) ||
+            ((!EnableIPV6) && ((*j).m_family == QCC_AF_INET6)) ||
+            (((*j).m_flags & qcc::IfConfigEntry::UP) == 0) ||
+            (((*j).m_flags & qcc::IfConfigEntry::LOOPBACK) != 0)) {
             continue;
         }
 

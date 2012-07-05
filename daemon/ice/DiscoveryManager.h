@@ -77,11 +77,6 @@ class DiscoveryManager : public Thread, public AlarmListener {
     BusAttachment& bus;
 
     /**
-     * @brief Returns the interface name prefixes.
-     */
-    void GetInterfaceNamePrefixes(String& ethPrefix, String& wifiPrefix, String& mobileNwPrefix);
-
-    /**
      * @internal
      *
      * @brief Construct a Discovery Manager object.
@@ -719,6 +714,14 @@ class DiscoveryManager : public Thread, public AlarmListener {
      */
     QStatus Join();
 
+    /**
+     * @internal
+     * @brief Return IPAddresses of the interfaces
+     * over which the Persistent and the On Demand connections have
+     * been setup with the Rendezvous Server.
+     */
+    void GetRendezvousConnIPAddresses(IPAddress& onDemandAddress, IPAddress& persistentAddress);
+
   private:
 
     /**
@@ -1153,15 +1156,6 @@ class DiscoveryManager : public Thread, public AlarmListener {
 
     /* Flag indicating if a GET message was sent after the Persistent connection was set up */
     bool SentFirstGETMessage;
-
-    /*Ethernet interface name prefix. For eg. eth */
-    String ethernetInterfaceName;
-
-    /* Wi-Fi interface name prefix. For eg. wlan */
-    String wifiInterfaceName;
-
-    /* Mobile Network interface name prefix. For eg. ppp */
-    String mobileNwInterfaceName;
 
     /* User Credentials */
     UserCredentials userCredentials;

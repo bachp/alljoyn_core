@@ -646,14 +646,12 @@ bool ICEStream::DiscoverPeerReflexive(IPEndpoint& mappedAddress, ICECandidatePai
         Component* component = pair->local->GetComponent();
         IPEndpoint base = pair->local->GetBase();
         SocketType sockType = pair->local->GetTransportProtocol();
-        String ifaceName = pair->local->GetInterfaceName();
         peerReflexiveCandidate = ICECandidate(type,
                                               mappedAddress,
                                               base,
                                               component,
                                               sockType,
-                                              reflexiveCandidateStunActivity,
-                                              ifaceName);
+                                              reflexiveCandidateStunActivity);
         peerReflexiveCandidate->SetPriority(pair->GetBindRequestPriority());
         String foundation;
         session->DeterminePeerReflexiveFoundation(mappedAddress.addr,

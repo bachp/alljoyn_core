@@ -628,15 +628,6 @@ class DaemonICETransport : public Transport, public RemoteEndpoint::EndpointList
      */
     static const uint32_t ALLJOYN_MAX_COMPLETED_CONNECTIONS_ICE_DEFAULT = 50;
 
-    /*Ethernet interface name prefix. For eg. eth */
-    String ethernetInterfaceName;
-
-    /* Wi-Fi interface name prefix. For eg. wlan */
-    String wifiInterfaceName;
-
-    /* Mobile Network interface name prefix. For eg. ppp */
-    String mobileNwInterfaceName;
-
     /* Timer used to handle the alarms */
     Timer daemonICETransportTimer;
 

@@ -81,7 +81,7 @@ class Component {
 
     QStatus AddCandidate(const ICECandidate& candidate);
 
-    QStatus CreateHostCandidate(qcc::SocketType socketType, const qcc::IPAddress& addr, uint16_t port, qcc::String interfaceName);
+    QStatus CreateHostCandidate(qcc::SocketType socketType, const qcc::IPAddress& addr, uint16_t port);
 
     QStatus RemoveCandidate(ICECandidate& candidate);
 

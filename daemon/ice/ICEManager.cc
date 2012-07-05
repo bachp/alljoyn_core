@@ -36,10 +36,7 @@ using namespace qcc;
 
 namespace ajn {
 
-ICEManager::ICEManager() :
-    ethernetInterfaceName(),
-    wifiInterfaceName(),
-    mobileNwInterfaceName()
+ICEManager::ICEManager()
 {
 }
 
@@ -62,12 +59,13 @@ QStatus ICEManager::AllocateSession(bool addHostCandidates,
                                     bool enableIpv6,
                                     ICESessionListener* listener,
                                     ICESession*& session,
-                                    STUNServerInfo stunInfo)
+                                    STUNServerInfo stunInfo,
+                                    IPAddress onDemandAddress,
+                                    IPAddress persistentAddress)
 {
     QStatus status = ER_OK;
 
-    session = new ICESession(addHostCandidates, addRelayedCandidates, listener, stunInfo,
-                             ethernetInterfaceName, wifiInterfaceName, mobileNwInterfaceName);
+    session = new ICESession(addHostCandidates, addRelayedCandidates, listener, stunInfo, onDemandAddress, persistentAddress);
 
     status = session->Init(enableIpv6);
 
@@ -102,14 +100,6 @@ QStatus ICEManager::DeallocateSession(ICESession*& session)
     delete session;
 
     return status;
-}
-
-void ICEManager::SetInterfaceNamePrefixes(String ethPrefix, String wifiPrefix, String mobileNwPrefix)
-{
-    QCC_DbgPrintf(("ICEManager::SetInterfaceNamePrefixes()\n"));
-    ethernetInterfaceName = ethPrefix;
-    wifiInterfaceName = wifiPrefix;
-    mobileNwInterfaceName = mobileNwPrefix;
 }
 
 } //namespace ajn

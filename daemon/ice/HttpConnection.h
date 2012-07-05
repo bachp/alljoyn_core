@@ -207,15 +207,14 @@ class HttpConnection {
     };
 
     /** Default Constructor */
-    HttpConnection(String ipAddress) : stream(0),
+    HttpConnection() : stream(0),
         httpSource(),
         host("127.0.0.1"),
         port(0),
         protocol(PROTO_HTTP),
         httpStatus(HTTP_STATUS_INVALID),
         isMultipartForm(false),
-        isApplicationJson(false),
-        localIPAddress(ipAddress)
+        isApplicationJson(false)
     {
     }
 
@@ -377,23 +376,26 @@ class HttpConnection {
         return (httpSource.GetContentLength() == 0);
     }
 
+    /** Returns the IPAddress of the local interface over which the HTTP connection exists */
+    IPAddress GetLocalInterfaceAddress(void) { return localIPAddress; };
+
   private:
-    Stream* stream;                                  /**< HTTP response stream */
-    HttpResponseSource httpSource;                        /**< Source wrapper */
-    String host;                                     /**< Destination host */
-    String hostIPAddress;                         /**< Destination host IP Address*/
-    uint16_t port;                                        /**< Destination port */
-    Protocol protocol;                                    /**< Protocol */
-    Method method;                                        /**< HTTP method */
-    String urlPath;                                  /**< File path portion of request URL */
-    String query;                                    /**< Query string portion of request URL */
-    HttpStatus httpStatus;                                /**< Status returned from HTTP server */
-    String requestBody;                              /**< Request body (used for POST) */
-    bool isMultipartForm;                                 /**< true iff request is a multipart form post */
-    bool isApplicationJson;                          /**< true iff request is a application/json format */
-    std::map<String, String> requestHeaders;    /**< HTTP headers sent in request */
-    std::map<String, String> responseHeaders;   /**< HTTP headers sent in response */
-    String localIPAddress;                      /**< IP address of the local interface to be used for connection*/
+    Stream* stream;                           /**< HTTP response stream */
+    HttpResponseSource httpSource;            /**< Source wrapper */
+    String host;                              /**< Destination host */
+    String hostIPAddress;                     /**< Destination host IP Address*/
+    uint16_t port;                            /**< Destination port */
+    Protocol protocol;                        /**< Protocol */
+    Method method;                            /**< HTTP method */
+    String urlPath;                           /**< File path portion of request URL */
+    String query;                             /**< Query string portion of request URL */
+    HttpStatus httpStatus;                    /**< Status returned from HTTP server */
+    String requestBody;                       /**< Request body (used for POST) */
+    bool isMultipartForm;                     /**< true iff request is a multipart form post */
+    bool isApplicationJson;                   /**< true iff request is a application/json format */
+    std::map<String, String> requestHeaders;  /**< HTTP headers sent in request */
+    std::map<String, String> responseHeaders; /**< HTTP headers sent in response */
+    IPAddress localIPAddress;                 /**< IP address of the local interface to be used for connection*/
 };
 
 #endif
