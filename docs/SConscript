@@ -43,6 +43,10 @@ elif env['DOCS'] == 'pdf':
     env.PDF('./latex/refman.pdf', './latex/refman.tex')
     env.Clean('Doxygen_pdf', Dir('latex'))
 elif env['DOCS'] == 'chm':
+    if not os.environ.has_key('SHFBROOT'):
+        print 'Missing required environment build variable SHFBROOT'
+        Exit()
+
     chm_env = env.Clone();
 
     # import the envrionment variable from the system
