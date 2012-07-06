@@ -266,13 +266,15 @@ TEST_F(DBusObjTest, GetConnectionUnixUser) {
     MsgArg arg("s", name);
     Message reply(bus);
     status = dbusObj.MethodCall("org.freedesktop.DBus", "GetConnectionUnixUser", &arg, 1, reply);
+#if defined(QCC_OS_WINDOWS)
+    EXPECT_EQ(ER_BUS_REPLY_IS_ERROR_MESSAGE, status);
+#else
     ASSERT_EQ(ER_OK, status) << "  Actual Status: " << QCC_StatusText(status);
     uint32_t uid = 0;
     const MsgArg* uidArg = reply->GetArg(0);
     uidArg->Get("u", &uid);
-
     EXPECT_EQ(qcc::GetUid(), uid);
-
+#endif
     status = bus.ReleaseName(name);
     EXPECT_EQ(ER_OK, status) << "  Actual Status: " << QCC_StatusText(status);
 }
@@ -288,11 +290,14 @@ TEST_F(DBusObjTest, GetConnectionUnixProcessID) {
     MsgArg arg("s", name);
     Message reply(bus);
     status = dbusObj.MethodCall("org.freedesktop.DBus", "GetConnectionUnixProcessID", &arg, 1, reply);
+#if defined(QCC_OS_WINDOWS)
+    EXPECT_EQ(ER_BUS_REPLY_IS_ERROR_MESSAGE, status);
+#else
     ASSERT_EQ(ER_OK, status) << "  Actual Status: " << QCC_StatusText(status);
     uint32_t pid = 0;
     reply->GetArg(0)->Get("u", &pid);
     EXPECT_EQ(qcc::GetPid(), pid);
-
+#endif
     status = bus.ReleaseName(name);
     EXPECT_EQ(ER_OK, status) << "  Actual Status: " << QCC_StatusText(status);
 }
