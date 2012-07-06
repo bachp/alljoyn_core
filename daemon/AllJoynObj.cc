@@ -295,23 +295,24 @@ QStatus AllJoynObj::CheckTransportsPermission(const qcc::String& sender, Transpo
 #if defined(QCC_OS_ANDROID)
     AcquireLocks();
     BusEndpoint* srcEp = router.FindEndpoint(sender);
+    uint32_t uid = srcEp ? srcEp->GetUserId() : -1;
     if (srcEp != NULL) {
-        if (transports & TRANSPORT_BLUETOOTH) {
-            bool allowed = PermissionDB::GetDB().IsBluetoothAllowed(*srcEp);
+        if (transports & TRANSPORT_BLUETOOTH && (uid != static_cast<uint32_t>(-1))) {
+            bool allowed = PermissionDB::GetDB().IsBluetoothAllowed(uid);
             if (!allowed) {
                 transports ^= TRANSPORT_BLUETOOTH;
                 QCC_LogError(ER_ALLJOYN_ACCESS_PERMISSION_WARNING, ("AllJoynObj::%s() WARNING: No permission to use Bluetooth", (callerName == NULL) ? "" : callerName));
             }
         }
-        if (transports & TRANSPORT_WLAN) {
-            bool allowed = PermissionDB::GetDB().IsWifiAllowed(*srcEp);
+        if (transports & TRANSPORT_WLAN && (uid != static_cast<uint32_t>(-1))) {
+            bool allowed = PermissionDB::GetDB().IsWifiAllowed(uid);
             if (!allowed) {
                 transports ^= TRANSPORT_WLAN;
                 QCC_LogError(ER_ALLJOYN_ACCESS_PERMISSION_WARNING, ("AllJoynObj::%s() WARNING: No permission to use Wifi", ((callerName == NULL) ? "" : callerName)));
             }
         }
-        if (transports & TRANSPORT_ICE) {
-            bool allowed = PermissionDB::GetDB().IsWifiAllowed(*srcEp);
+        if (transports & TRANSPORT_ICE && (uid != static_cast<uint32_t>(-1))) {
+            bool allowed = PermissionDB::GetDB().IsWifiAllowed(uid);
             if (!allowed) {
                 transports ^= TRANSPORT_ICE;
                 QCC_LogError(ER_ALLJOYN_ACCESS_PERMISSION_WARNING, ("AllJoynObj::%s() WARNING: No permission to use Wifi for ICE", ((callerName == NULL) ? "" : callerName)));
