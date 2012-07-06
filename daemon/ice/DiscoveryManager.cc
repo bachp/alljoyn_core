@@ -62,7 +62,7 @@ namespace ajn {
 //   <busconfig>
 //     <ice_discovery_manager>
 //       <property interfaces="*"/>
-//       <property server="rdvs-test.qualcomm.com"/>
+//       <property server="rdvs.qualcomm.com"/>
 //       <property ethernetPrefix="eth"/>
 //       <property wiFiPrefix="wlan"/>
 //       <property mobileNwPrefix="ppp"/>
@@ -129,7 +129,7 @@ DiscoveryManager::DiscoveryManager(BusAttachment& bus)
     //   <busconfig>
     //     <ice_discovery_manager>
     //       <property interfaces="*"/>
-    //       <property server="rdvs-test.qualcomm.com"/>
+    //       <property server="rdvs.qualcomm.com"/>
     //       <property ethernetPrefix="eth"/>
     //       <property wiFiPrefix="wlan"/>
     //       <property mobileNwPrefix="ppp"/>
@@ -141,8 +141,7 @@ DiscoveryManager::DiscoveryManager(BusAttachment& bus)
     DaemonConfig* config = DaemonConfig::Access();
 
     /* Retrieve the Rendezvous Server address from the config file */
-    // TODO PPN - Change this to deployment server before release
-    RendezvousServer = config->Get("ice_discovery_manager/property@server", "rdvs-test.qualcomm.com");
+    RendezvousServer = config->Get("ice_discovery_manager/property@server", "rdvs.qualcomm.com");
 
     /* Retrieve the connection protocol to be used */
     if (config->Get("ice_discovery_manager/property@protocol") == "HTTP") {

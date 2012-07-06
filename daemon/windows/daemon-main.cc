@@ -92,7 +92,7 @@ static const char defaultConfig[] =
     "  </ice>"
     "  <ice_discovery_manager>"
     "    <property interfaces=\"*\"/>"
-    "    <property server=\"rdvs-test.qualcomm.com\"/>"
+    "    <property server=\"rdvs.qualcomm.com\"/>"
     "    <property ethernetPrefix=\"eth\"/>"
     "    <property wiFiPrefix=\"wlan\"/>"
     "    <property mobileNwPrefix=\"ppp\"/>"

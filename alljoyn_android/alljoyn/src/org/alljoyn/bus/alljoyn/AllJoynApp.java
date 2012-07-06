@@ -116,7 +116,7 @@ public class AllJoynApp extends Application {
             "  </alljoyn>" +
             "  <alljoyn module=\"icedm\">" +
             "    <property interfaces=\"*\"/>" +
-            "    <property server=\"rdvs-test.qualcomm.com\"/>" +
+            "    <property server=\"rdvs.qualcomm.com\"/>" +
             "    <property EthernetPrefix=\"eth\"/>" +
             "    <property WiFiPrefix=\"wlan\"/>" +
             "    <property MobileNwPrefix=\"ppp\"/>" +
