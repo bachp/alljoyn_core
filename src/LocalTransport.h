@@ -49,14 +49,6 @@
 #include "Transport.h"
 
 #include <qcc/STLContainer.h>
-//#if defined(__GNUCC__) || defined (QCC_OS_DARWIN)
-//#include <ext/hash_map>
-//namespace std {
-//using namespace __gnu_cxx;
-//}
-//#else
-//#include <hash_map>
-//#endif
 
 namespace ajn {
 
