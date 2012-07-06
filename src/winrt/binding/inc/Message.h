@@ -40,6 +40,7 @@ public enum class AllJoynMessageType {
     MESSAGE_SIGNAL      = ajn::AllJoynMessageType::MESSAGE_SIGNAL
 };
 
+[Platform::Metadata::Flags]
 public enum class AllJoynFlagType {
     ///<summary>No reply is expected</summary>
     ALLJOYN_FLAG_NO_REPLY_EXPECTED  = ajn::ALLJOYN_FLAG_NO_REPLY_EXPECTED,

@@ -21,6 +21,7 @@
 namespace AllJoyn {
 
 ///<summary>Bitmask of all transport types</summary>
+[Platform::Metadata::Flags]
 public enum class TransportMaskType {
     ///<summary>no transports</summary>
     TRANSPORT_NONE      = ajn::TRANSPORT_NONE,
