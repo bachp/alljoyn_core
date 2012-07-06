@@ -43,11 +43,19 @@ ref class ProxyBusObject;
 ref class AuthListener;
 ref class KeyStoreListener;
 
+///<summary>Event for reporting that a session has been joined</summary>
+///<param name="status">ER_OK if successful</param>
+///<param name="sessionId">Unique identifier for session.</param>
+///<param name="opts">Session options.</param>
+///<param name="context">User defined context which will be passed as-is to callback.</param>
 public delegate void BusAttachmentJoinSessionHandler(QStatus status, ajn::SessionId sessionId, SessionOpts ^ opts, Platform::Object ^ context);
 
 public enum class RequestNameType {
+    ///<summary>Allow others to take ownership of this name</summary>
     DBUS_NAME_ALLOW_REPLACEMENT = DBUS_NAME_FLAG_ALLOW_REPLACEMENT,
+    ///<summary> Attempt to take ownership of name if already taken </summary>
     DBUS_NAME_REPLACE_EXISTING = DBUS_NAME_FLAG_REPLACE_EXISTING,
+    ///<summary> Fail if name cannot be immediately obtained  </summary>
     DBUS_NAME_DO_NOT_QUEUE = DBUS_NAME_FLAG_DO_NOT_QUEUE
 };
 

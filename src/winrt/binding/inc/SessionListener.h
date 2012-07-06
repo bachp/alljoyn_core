@@ -26,8 +26,24 @@ namespace AllJoyn {
 
 ref class BusAttachment;
 
+///<summary>
+///Called by the bus when an existing session becomes disconnected.
+///</summary>
+///<param name="sessionId">Id of session that was lost.</param>
 public delegate void SessionListenerSessionLostHandler(ajn::SessionId sessionId);
+
+///<summary>
+/// Called by the bus when a member of a multipoint session is added.
+///</summary>
+///<param name="sessionId">Id of session whose member(s) changed.</param>
+///<param name="uniqueName">Unique name of member who was added.</param>
 public delegate void SessionListenerSessionMemberAddedHandler(ajn::SessionId sessionId, Platform::String ^ uniqueName);
+
+///<summary>
+/// Called by the bus when a member of a multipoint session is removed.
+///</summary>
+///<param name="sessionId">Id of session whose member(s) changed.</param>
+///<param name="uniqueName">Unique name of member who was removed.</param>
 public delegate void SessionListenerSessionMemberRemovedHandler(ajn::SessionId sessionId, Platform::String ^ uniqueName);
 
 ref class __SessionListener {
@@ -65,6 +81,7 @@ public ref class SessionListener sealed {
   public:
     SessionListener(BusAttachment ^ bus);
 
+    ///<summary>Called by the bus when an existing session becomes disconnected.</summary>
     event SessionListenerSessionLostHandler ^ SessionLost
     {
         Windows::Foundation::EventRegistrationToken add(SessionListenerSessionLostHandler ^ handler);
@@ -72,6 +89,7 @@ public ref class SessionListener sealed {
         void raise(ajn::SessionId sessionId);
     }
 
+    ///<summary>Called by the bus when a member of a multipoint session is added.</summary>
     event SessionListenerSessionMemberAddedHandler ^ SessionMemberAdded
     {
         Windows::Foundation::EventRegistrationToken add(SessionListenerSessionMemberAddedHandler ^ handler);
@@ -79,6 +97,7 @@ public ref class SessionListener sealed {
         void raise(ajn::SessionId sessionId, Platform::String ^ uniqueName);
     }
 
+    ///<summary>Called by the bus when a member of a multipoint session is removed.</summary>
     event SessionListenerSessionMemberRemovedHandler ^ SessionMemberRemoved
     {
         Windows::Foundation::EventRegistrationToken add(SessionListenerSessionMemberRemovedHandler ^ handler);

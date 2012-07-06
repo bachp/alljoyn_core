@@ -51,18 +51,25 @@ class _InterfaceProperty {
 
 public ref class InterfaceProperty sealed {
   public:
+    ///<summary>Constructor</summary>
+    ///<param name="name">Name of the property</param>
+    ///<param name="signature">Signature of the property</param>
+    ///<param name="access">Access flags for the property</param>
     InterfaceProperty(Platform::String ^ name, Platform::String ^ signature, uint8_t access);
 
+    ///<summary>Name of the property</summary>
     property Platform::String ^ Name
     {
         Platform::String ^  get();
     }
 
+    ///<summary>Signature of the property</summary>
     property Platform::String ^ Signature
     {
         Platform::String ^  get();
     }
 
+    ///<summary>Access flags for the property</summary>
     property uint8_t Access
     {
         uint8_t get();
