@@ -1617,12 +1617,15 @@ void AllJoynObj::RemoveSessionRefs(const char* epName, SessionId id)
                 }
                 /* Session is lost when members + sessionHost together contain only one entry */
                 if ((it->second.fd == -1) && (it->second.memberNames.empty() || ((it->second.memberNames.size() == 1) && it->second.sessionHost.empty()))) {
-                    SendSessionLost(it->second);
+                    SessionMapEntry tsme = it->second;
+                    pair<String, SessionId> key = it->first;
                     if (!it->second.isInitializing) {
-                        sessionMap.erase(it++);
-                    } else {
-                        ++it;
+                        sessionMap.erase(it);
                     }
+                    ReleaseLocks();
+                    SendSessionLost(tsme);
+                    AcquireLocks();
+                    it = sessionMap.upper_bound(key);
                 } else {
                     ++it;
                 }
@@ -1685,12 +1688,15 @@ void AllJoynObj::RemoveSessionRefs(const VirtualEndpoint& vep, const RemoteEndpo
                 }
                 /* A session with only one member and no sessionHost or only a sessionHost are "lost" */
                 if ((it->second.fd == -1) && (it->second.memberNames.empty() || ((it->second.memberNames.size() == 1) && it->second.sessionHost.empty()))) {
-                    SendSessionLost(it->second);
+                    SessionMapEntry tsme = it->second;
+                    pair<String, SessionId> key = it->first;
                     if (!it->second.isInitializing) {
-                        sessionMap.erase(it++);
-                    } else {
-                        ++it;
+                        sessionMap.erase(it);
                     }
+                    ReleaseLocks();
+                    SendSessionLost(tsme);
+                    AcquireLocks();
+                    it = sessionMap.upper_bound(key);
                 } else {
                     ++it;
                 }
@@ -3123,12 +3129,15 @@ void AllJoynObj::NameOwnerChanged(const qcc::String& alias, const qcc::String* o
                  */
                 bool noRawSession = (it->second.fd == -1);
                 if ((noMemberSingleHost || singleMemberNoHost) && noRawSession) {
-                    SendSessionLost(it->second);
+                    SessionMapEntry tsme = it->second;
+                    pair<String, SessionId> key = it->first;
                     if (!it->second.isInitializing) {
-                        sessionMap.erase(it++);
-                    } else {
-                        ++it;
+                        sessionMap.erase(it);
                     }
+                    ReleaseLocks();
+                    SendSessionLost(tsme);
+                    AcquireLocks();
+                    it = sessionMap.upper_bound(key);
                 } else {
                     ++it;
                 }
