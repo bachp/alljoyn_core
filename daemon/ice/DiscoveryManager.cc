@@ -1493,13 +1493,13 @@ void* DiscoveryManager::Run(void* arg)
 
                 DisconnectEvent.ResetEvent();
 
-            } else if (*i == OnDemandResponseEvent) {
+            } else if (Connection) {
+                if ((Connection->IsOnDemandConnUp()) && (*i == OnDemandResponseEvent)) {
 
-                QCC_DbgPrintf(("DiscoveryManager::Run(): OnDemandResponseEvent fired\n"));
+                    QCC_DbgPrintf(("DiscoveryManager::Run(): OnDemandResponseEvent fired\n"));
 
-                HttpConnection::HTTPResponse response;
+                    HttpConnection::HTTPResponse response;
 
-                if (Connection) {
                     /* Fetch the response */
                     status = Connection->FetchResponse(true, response);
 
@@ -1517,15 +1517,13 @@ void* DiscoveryManager::Run(void* arg)
                         ForceInterfaceUpdateFlag = true;
 
                     }
-                }
 
-            } else if (*i == PersistentResponseEvent) {
+                } else if ((Connection->IsPersistentConnUp()) && (*i == PersistentResponseEvent)) {
 
-                QCC_DbgPrintf(("DiscoveryManager::Run(): PersistentResponseEvent fired\n"));
+                    QCC_DbgPrintf(("DiscoveryManager::Run(): PersistentResponseEvent fired\n"));
 
-                HttpConnection::HTTPResponse response;
+                    HttpConnection::HTTPResponse response;
 
-                if (Connection) {
                     /* Fetch the response */
                     status = Connection->FetchResponse(false, response);
 
