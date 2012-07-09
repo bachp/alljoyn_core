@@ -1072,6 +1072,7 @@ void AllJoynObj::LeaveSession(const InterfaceDescription::Member* member, Messag
     SessionMapEntry* smEntry = SessionMapFind(msg->GetSender(), id);
     if (!smEntry || (id == 0)) {
         replyCode = ALLJOYN_LEAVESESSION_REPLY_NO_SESSION;
+        ReleaseLocks();
     } else {
         /* Send DetachSession signal to daemons of all session participants */
         MsgArg detachSessionArgs[2];
@@ -1089,13 +1090,15 @@ void AllJoynObj::LeaveSession(const InterfaceDescription::Member* member, Messag
             qcc::Close(smEntry->fd);
         }
 
+        /* Locks must be released before calling RemoveSessionRefs since that method calls out to user (SessionLost) */
+        ReleaseLocks();
+
         /* Remove entries from sessionMap */
         RemoveSessionRefs(msg->GetSender(), id);
 
         /* Remove session routes */
         router.RemoveSessionRoutes(msg->GetSender(), id);
     }
-    ReleaseLocks();
 
     /* Reply to request */
     MsgArg replyArgs[1];
@@ -1599,12 +1602,24 @@ void AllJoynObj::RemoveSessionRefs(const char* epName, SessionId id)
     }
 }
 
-void AllJoynObj::RemoveSessionRefs(const VirtualEndpoint& vep, const RemoteEndpoint& b2bEp)
+void AllJoynObj::RemoveSessionRefs(const String& vepName, const String& b2bEpName)
 {
-    QCC_DbgTrace(("AllJoynObj::RemoveSessionRefs(%s, %s)",  vep.GetUniqueName().c_str(), b2bEp.GetUniqueName().c_str()));
+    QCC_DbgTrace(("AllJoynObj::RemoveSessionRefs(%s, %s)",  vepName.c_str(), b2bEpName.c_str()));
 
     AcquireLocks();
-    const String& vepName = vep.GetUniqueName();
+    const VirtualEndpoint* vep = static_cast<const VirtualEndpoint*>(router.FindEndpoint(vepName));
+    const RemoteEndpoint* b2bEp = static_cast<const RemoteEndpoint*>(router.FindEndpoint(b2bEpName));
+
+    if (!vep) {
+        QCC_LogError(ER_FAIL, ("Virtual endpoint %s disappeared during RemoveSessionRefs", vepName.c_str()));
+        return;
+    }
+    if (!b2bEp) {
+        QCC_LogError(ER_FAIL, ("B2B endpoint %s disappeared during RemoveSessionRefs", b2bEpName.c_str()));
+        return;
+    }
+
+
     vector<pair<String, SessionId> > changedSessionMembers;
     SessionMapType::iterator it = sessionMap.begin();
     while (it != sessionMap.end()) {
@@ -1616,12 +1631,12 @@ void AllJoynObj::RemoveSessionRefs(const VirtualEndpoint& vep, const RemoteEndpo
         }
         /* Examine sessions with ids that are affected by removal of vep through b2bep */
         /* Only sessions that route through a single (matching) b2bEp are affected */
-        if ((vep.GetBusToBusEndpoint(it->first.second, &count) == &b2bEp) && (count == 1)) {
+        if ((vep->GetBusToBusEndpoint(it->first.second, &count) == b2bEp) && (count == 1)) {
             if (it->first.first == vepName) {
                 /* Key matches can be removed from sessionMap */
                 sessionMap.erase(it++);
             } else {
-                if (&vep == router.FindEndpoint(it->second.sessionHost)) {
+                if (vep == router.FindEndpoint(it->second.sessionHost)) {
                     /* If the session's sessionHost is vep, then clear it out of the session */
                     it->second.sessionHost.clear();
                     if (it->second.opts.isMultipoint) {
@@ -2575,6 +2590,7 @@ void AllJoynObj::RemoveBusToBusEndpoint(RemoteEndpoint& endpoint)
      * and doing it in the opposite order invites deadlock
      */
     AcquireLocks();
+    String b2bEpName = endpoint.GetUniqueName();
 
     /* Get session ids affected by loss of this B2B endpoint */
     set<SessionId> idSet;
@@ -2589,8 +2605,18 @@ void AllJoynObj::RemoveBusToBusEndpoint(RemoteEndpoint& endpoint)
     while (it != virtualEndpoints.end()) {
         /* Clean sessionMap and report lost sessions */
 
-        /* Remove the sessionMap entries involving endpoint */
-        RemoveSessionRefs(*it->second, endpoint);
+        /*
+         * Remove the sessionMap entries involving endpoint
+         * This call must be made without holding locks since it can trigger LostSession callback
+         */
+        String vepName = it->first;
+        ReleaseLocks();
+        RemoveSessionRefs(vepName, b2bEpName);
+        AcquireLocks();
+        it = virtualEndpoints.find(vepName);
+        if (it == virtualEndpoints.end()) {
+            break;
+        }
 
         /* Remove endpoint (b2b) reference from this vep */
         if (it->second->RemoveBusToBusEndpoint(endpoint)) {

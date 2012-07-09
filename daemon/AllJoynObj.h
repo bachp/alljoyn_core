@@ -734,11 +734,11 @@ class AllJoynObj : public BusObject, public NameListener, public TransportListen
      * need to clean any virtual endpoints that might have been using that b2b ep
      * from the sessionMap
      *
-     * @param vep       Virtual that should be cleaned from sessionMap if it routes
-     *                  through b2bEp for a given session.
-     * @param b2bEp     B2B endpoint that vep must route through in order to be cleaned.
+     * @param vepName       Virtual that should be cleaned from sessionMap if it routes
+     *                      through b2bEp for a given session.
+     * @param b2bEpName     B2B endpoint that vep must route through in order to be cleaned.
      */
-    void RemoveSessionRefs(const VirtualEndpoint& vep, const RemoteEndpoint& b2bEp);
+    void RemoveSessionRefs(const qcc::String& vepName, const qcc::String& b2bEpName);
 };
 
 }
