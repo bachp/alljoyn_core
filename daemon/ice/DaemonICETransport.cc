@@ -2510,6 +2510,7 @@ void DaemonICETransport::ReleaseICEPacketStream(const ICEPacketStream& icePktStr
             found = true;
             break;
         }
+        ++it;
     }
     pktStreamMapLock.Unlock(MUTEX_CONTEXT);
     if (!found) {
