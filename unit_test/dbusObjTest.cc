@@ -267,14 +267,7 @@ TEST_F(DBusObjTest, GetConnectionUnixUser) {
     Message reply(bus);
     status = dbusObj.MethodCall("org.freedesktop.DBus", "GetConnectionUnixUser", &arg, 1, reply);
 #if defined(QCC_OS_WINDOWS)
-    //If we are running on windows there is no guarantee that GetConnectionUnixUser will work
-    if (status != ER_BUS_REPLY_IS_ERROR_MESSAGE) {
-        ASSERT_EQ(ER_OK, status) << "  Actual Status: " << QCC_StatusText(status);
-        uint32_t uid = 0;
-        const MsgArg* uidArg = reply->GetArg(0);
-        uidArg->Get("u", &uid);
-        EXPECT_EQ(qcc::GetUid(), uid);
-    }
+    EXPECT_EQ(ER_BUS_REPLY_IS_ERROR_MESSAGE, status);
 #else
     ASSERT_EQ(ER_OK, status) << "  Actual Status: " << QCC_StatusText(status);
     uint32_t uid = 0;
@@ -298,13 +291,7 @@ TEST_F(DBusObjTest, GetConnectionUnixProcessID) {
     Message reply(bus);
     status = dbusObj.MethodCall("org.freedesktop.DBus", "GetConnectionUnixProcessID", &arg, 1, reply);
 #if defined(QCC_OS_WINDOWS)
-    //If we are running on windows there is no guarantee that GetConnectionUnixProcessID will work
-    if (status != ER_BUS_REPLY_IS_ERROR_MESSAGE) {
-        ASSERT_EQ(ER_OK, status) << "  Actual Status: " << QCC_StatusText(status);
-        uint32_t pid = 0;
-        reply->GetArg(0)->Get("u", &pid);
-        EXPECT_EQ(qcc::GetPid(), pid);
-    }
+    EXPECT_EQ(ER_BUS_REPLY_IS_ERROR_MESSAGE, status);
 #else
     ASSERT_EQ(ER_OK, status) << "  Actual Status: " << QCC_StatusText(status);
     uint32_t pid = 0;
