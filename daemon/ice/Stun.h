@@ -276,7 +276,7 @@ class Stun {
      *
      * @return Indication of success or failure.
      */
-    QStatus AppRecvSG(struct ScatterGatherList& sg, size_t& received);
+    QStatus AppRecvSG(ScatterGatherList& sg, size_t& received);
 
     /**
      * Get the underlying socket file descriptor for use in poll() or

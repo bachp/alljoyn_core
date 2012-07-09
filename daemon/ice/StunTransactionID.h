@@ -53,7 +53,7 @@ class StunTransactionID : public StunIOInterface {
 
     QStatus Parse(const uint8_t*& buf, size_t& bufSize);
     QStatus RenderBinary(uint8_t*& buf, size_t& bufSize, ScatterGatherList& sg) const;
-    String ToString(void);
+    String ToString(void) const;
     size_t Size(void) const { return SIZE; }
     size_t RenderSize(void) const { return Size(); }
 

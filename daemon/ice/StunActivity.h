@@ -31,7 +31,8 @@
 
 namespace ajn {
 
-struct StunActivity {
+class StunActivity {
+  public:
 
     StunActivity(Stun* stun);
 

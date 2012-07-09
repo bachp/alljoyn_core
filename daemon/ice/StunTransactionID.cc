@@ -66,7 +66,7 @@ QStatus StunTransactionID::RenderBinary(uint8_t*& buf, size_t& bufSize,
     return ER_OK;
 }
 
-String StunTransactionID::ToString(void)
+String StunTransactionID::ToString(void) const
 {
     if (value.empty()) {
         value = BytesToHexString(id, SIZE, true);
