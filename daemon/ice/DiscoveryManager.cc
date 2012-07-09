@@ -62,7 +62,7 @@ namespace ajn {
 //   <busconfig>
 //     <ice_discovery_manager>
 //       <property interfaces="*"/>
-//       <property server="rdvs.qualcomm.com"/>
+//       <property server="rdvs.alljoyn.org"/>
 //       <property protocol="HTTP"/>
 //       <property enable_ipv6=\"false\"/>"
 //     </ice_discovery_manager>
@@ -126,7 +126,7 @@ DiscoveryManager::DiscoveryManager(BusAttachment& bus)
     //   <busconfig>
     //     <ice_discovery_manager>
     //       <property interfaces="*"/>
-    //       <property server="rdvs.qualcomm.com"/>
+    //       <property server="rdvs.alljoyn.org"/>
     //       <property protocol="HTTP"/>
     //       <property enable_ipv6=\"false\"/>"
     //     </ice_discovery_manager>
@@ -135,7 +135,7 @@ DiscoveryManager::DiscoveryManager(BusAttachment& bus)
     DaemonConfig* config = DaemonConfig::Access();
 
     /* Retrieve the Rendezvous Server address from the config file */
-    RendezvousServer = config->Get("ice_discovery_manager/property@server", "rdvs.qualcomm.com");
+    RendezvousServer = config->Get("ice_discovery_manager/property@server", "rdvs.alljoyn.org");
 
     /* Retrieve the connection protocol to be used */
     if (config->Get("ice_discovery_manager/property@protocol") == "HTTP") {
