@@ -115,7 +115,7 @@ public class AllJoynApp extends Application {
         	    "  </ice>" +
         	    "  <ice_discovery_manager>" +
         	    "    <property interfaces=\"*\"/>" +
-        	    "    <property server=\"rdvs.qualcomm.com\"/>" +
+        	    "    <property server=\"rdvs.alljoyn.org\"/>" +
         	    "    <property protocol=\"HTTP\"/>" +
         	    "    <property enable_ipv6=\"false\"/>" +
         	    "  </ice_discovery_manager>" +
