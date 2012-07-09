@@ -120,12 +120,6 @@ class DiscoveryManager : public Thread, public AlarmListener {
     QStatus OpenInterface(const String& name);
 
     /**
-     * @brief Tell the Discovery Manager to disconnect from the Rendezvous Server
-     * if connected over the specified interface.
-     */
-    QStatus CloseInterface(const String& name);
-
-    /**
      * @internal
      * @brief An internal enum used to specify the type of callback.
      */
