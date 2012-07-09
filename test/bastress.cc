@@ -94,11 +94,12 @@ class ThreadClass : public Thread {
 
 static void usage(void)
 {
-    printf("Usage: bastress [-i <iterations>] [-t <threads>]\n\n");
+    printf("Usage: bastress [-s] [-i <iterations>] [-t <threads>]\n\n");
     printf("Options:\n");
-    printf("   -i                    = Print this help message\n");
-    printf("   -n                    = Number of iterations, default is 1000\n");
+    printf("   -h                    = Print this help message\n");
+    printf("   -i                    = Number of iterations, default is 1000\n");
     printf("   -t                    = Number of threads, default is 5\n");
+    printf("   -s                    = Stop the threads before joining them\n");
 }
 
 /** Main entry point */
@@ -107,6 +108,7 @@ int main(int argc, char**argv)
     QStatus status = ER_OK;
     uint32_t iterations = 1000;
     uint32_t threads = 5;
+    bool stop = false;
 
     /* Parse command line args */
     for (int i = 1; i < argc; ++i) {
@@ -128,6 +130,8 @@ int main(int argc, char**argv)
             } else {
                 threads = strtoul(argv[i], NULL, 10);
             }
+        } else if (0 == strcmp("-s", argv[i])) {
+            stop = true;
         } else {
             usage();
             exit(1);
@@ -146,14 +150,15 @@ int main(int argc, char**argv)
             threadList[i]->Start();
         }
 
-        /*
-         * Sleep a random time so threads are in different states of up and running
-         */
-        qcc::Sleep(qcc::Rand8() * 2);
-
-        QCC_SyncPrintf("stopping threads... \n");
-        for (int i = 0; i < threads; i++) {
-            threadList[i]->Stop();
+        if (stop) {
+            /*
+             * Sleep a random time before stopping of bus attachments is tested at different states of up and running
+             */
+            qcc::Sleep(qcc::Rand8() / 4);
+            QCC_SyncPrintf("stopping threads... \n");
+            for (int i = 0; i < threads; i++) {
+                threadList[i]->Stop();
+            }
         }
 
         QCC_SyncPrintf("deleting threads... \n");
