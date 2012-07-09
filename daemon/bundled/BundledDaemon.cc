@@ -144,7 +144,12 @@ QStatus BundledDaemon::Start(NullTransport* nullTransport)
     ScopedMutexLock guard(lock);
 
     if (IncrementAndFetch(&refCount) == 1) {
+#if defined(QCC_OS_ANDROID)
+        LoggerSetting::GetLoggerSetting("bundled-daemon", LOG_DEBUG, true, NULL);
+#else
         LoggerSetting::GetLoggerSetting("bundled-daemon", LOG_DEBUG, false, stdout);
+#endif
+
         /*
          * Load the configuration
          */
