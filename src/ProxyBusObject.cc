@@ -508,14 +508,7 @@ QStatus ProxyBusObject::MethodCall(const InterfaceDescription::Member& method,
         QCC_LogError(status, ("Object %s does not implement %s", path.c_str(), method.iface->GetName()));
         goto MethodCallExit;
     }
-    /*
-     * Check if the current thread allows blocking on the current bus.
-     */
-    if (!(flags & ALLJOYN_FLAG_NO_REPLY_EXPECTED) && !Thread::GetThread()->CanBlock(&bus)) {
-        status = ER_BUS_BLOCKING_CALL_NOT_ALLOWED;
-        QCC_LogError(status, ("A sychronous method call from inside a handler is not allowed"));
-        goto MethodCallExit;
-    }
+
     /*
      * If the interface is secure or encryption is explicitly requested the method call must be encrypted.
      */

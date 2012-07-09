@@ -327,9 +327,6 @@ QStatus LocalEndpoint::DoPushMessage(Message& message)
 
             QCC_DbgPrintf(("Pushing %s into local endpoint", message->Description().c_str()));
 
-            /* Cannot allow synchronous method calls on this thread. */
-            thread->SetNoBlock(&bus);
-
             switch (message->GetType()) {
             case MESSAGE_METHOD_CALL:
                 status = HandleMethodCall(message);
@@ -348,8 +345,6 @@ QStatus LocalEndpoint::DoPushMessage(Message& message)
                 status = ER_FAIL;
                 break;
             }
-
-            thread->SetNoBlock(NULL);
         }
         DecrementAndFetch(&refCount);
     }
