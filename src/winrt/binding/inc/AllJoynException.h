@@ -20,8 +20,13 @@
 
 #include <qcc/platform.h>
 #include <Status_CPP0x.h>
+#include <qcc/winrt/utility.h>
 
 namespace AllJoyn {
+
+#ifndef NDEBUG
+extern const char* QCC_StatusComment(uint32_t status);
+#endif
 
 public ref class AllJoynException sealed {
   public:
@@ -29,6 +34,12 @@ public ref class AllJoynException sealed {
     {
         return (QStatus)(hresult & 0x7FFFFFFF);
     }
+#ifndef NDEBUG
+    static Platform::String ^ GetExceptionMessage(int hresult)
+    {
+        return MultibyteToPlatformString(QCC_StatusComment(hresult & 0x7FFFFFFF));
+    }
+#endif
 };
 
 }
