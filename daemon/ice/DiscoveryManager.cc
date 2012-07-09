@@ -220,18 +220,18 @@ DiscoveryManager::~DiscoveryManager()
     }
 
     //
-    // We may have an active connection with the Rendezvous Server.
-    // We need to tear it down
-    //
-    Disconnect();
-
-    //
     // Stop the worker thread to get things calmed down.
     //
     if (IsRunning()) {
         Stop();
         Join();
     }
+
+    //
+    // We may have an active connection with the Rendezvous Server.
+    // We need to tear it down
+    //
+    Disconnect();
 
     //
     // Delete any callbacks that a user of this class may have set.
@@ -249,6 +249,7 @@ void DiscoveryManager::Disconnect(void)
     if (Connection) {
 
         Connection->Disconnect();
+        delete Connection;
         Connection = NULL;
 
         LastOnDemandMessageSent.Clear();
@@ -318,47 +319,6 @@ QStatus DiscoveryManager::OpenInterface(const String& name)
 
     ForceInterfaceUpdateFlag = true;
     QCC_DbgPrintf(("DiscoveryManager::OpenInterface: Set the wake event\n"));
-    WakeEvent.SetEvent();
-
-    DiscoveryManagerMutex.Unlock(MUTEX_CONTEXT);
-
-    return ER_OK;
-}
-
-QStatus DiscoveryManager::CloseInterface(const String& name)
-{
-    QCC_DbgPrintf(("DiscoveryManager::CloseInterface(%s)\n", name.c_str()));
-
-    //
-    // Can only call CloseInterface() if the object is running.
-    //
-    if (DiscoveryManagerState != IMPL_RUNNING) {
-        QCC_DbgPrintf(("DiscoveryManager::CloseInterface(): Not running\n"));
-        return ER_FAIL;
-    }
-
-    //
-    // There are at least two threads that can wander through the vector below
-    // so we need to protect access to the list with a convenient DiscoveryManagerMutex.
-    //
-    DiscoveryManagerMutex.Lock(MUTEX_CONTEXT);
-
-    //
-    // If the user specifies the wildcard interface name, this trumps everything
-    // else.
-    //
-    if (name == INTERFACES_WILDCARD) {
-        InterfaceFlags = NetworkInterface::NONE;
-        //
-        // Tear down any existing connection
-        //
-        Disconnect();
-    } else {
-        InterfaceFlags = NetworkInterface::ANY;
-    }
-
-    ForceInterfaceUpdateFlag = true;
-    QCC_DbgPrintf(("DiscoveryManager::CloseInterface: Set the wake event\n"));
     WakeEvent.SetEvent();
 
     DiscoveryManagerMutex.Unlock(MUTEX_CONTEXT);
@@ -945,7 +905,7 @@ QStatus DiscoveryManager::Connect(void)
                 status = ER_UNABLE_TO_CONNECT_TO_RENDEZVOUS_SERVER;
                 QCC_LogError(status, ("DiscoveryManager::Connect(): %s", QCC_StatusText(status)));
 
-                Disconnect();
+                DisconnectEvent.SetEvent();
             }
         }
     }
@@ -2634,8 +2594,8 @@ void DiscoveryManager::HandleUnsuccessfulClientAuthentication(SASLError error)
         ClientAuthenticationFailed = true;
     }
 
-    // Set the DisconnectEvent to disconnect from the server
-    DisconnectEvent.SetEvent();
+    // Disconnect from rendezvous
+    Disconnect();
 }
 
 QStatus DiscoveryManager::HandleUpdatesToServer(void)
