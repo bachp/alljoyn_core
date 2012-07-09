@@ -38,7 +38,7 @@ namespace ajn {
  * %ClientRouter is responsible for routing Bus messages between a single remote
  * endpoint and a single local endpoint
  */
-class ClientRouter : public Router, public qcc::AlarmListener {
+class ClientRouter : public Router {
     friend class TCPEndpoint;
     friend class UnixEndpoint;
     friend class LocalEndpoint;
@@ -132,11 +132,6 @@ class ClientRouter : public Router, public qcc::AlarmListener {
   private:
     LocalEndpoint* localEndpoint;   /**< Local endpoint */
     BusEndpoint* nonLocalEndpoint;  /**< Last non-local enpoint to register */
-
-    /*
-     * Used to report connection is up.
-     */
-    void AlarmTriggered(const qcc::Alarm& alarm, QStatus reason);
 
 };
 

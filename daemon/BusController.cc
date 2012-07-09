@@ -53,6 +53,8 @@ BusController::~BusController()
 {
     DaemonRouter& router(reinterpret_cast<DaemonRouter&>(bus.GetInternal().GetRouter()));
     router.SetBusController(NULL);
+    bus.Stop();
+    bus.Join();
 }
 
 QStatus BusController::Init(const qcc::String& listenSpecs)

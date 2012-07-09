@@ -5,7 +5,7 @@
  */
 
 /******************************************************************************
- * Copyright 2009-2011, Qualcomm Innovation Center, Inc.
+ * Copyright 2009-2012, Qualcomm Innovation Center, Inc.
  *
  *    Licensed under the Apache License, Version 2.0 (the "License");
  *    you may not use this file except in compliance with the License.
@@ -40,13 +40,6 @@ using namespace std;
 using namespace qcc;
 
 namespace ajn {
-
-void ClientRouter::AlarmTriggered(const qcc::Alarm& alarm, QStatus reason)
-{
-    if (localEndpoint && nonLocalEndpoint) {
-        localEndpoint->BusIsConnected();
-    }
-}
 
 QStatus ClientRouter::PushMessage(Message& msg, BusEndpoint& sender)
 {
@@ -86,10 +79,9 @@ QStatus ClientRouter::RegisterEndpoint(BusEndpoint& endpoint, bool isLocal)
         localEndpoint->SetUniqueName(nonLocalEndpoint->GetUniqueName());
     }
 
-    /* Notify local endpoint via an alarm if we have both a local and at least one non-local endpoint */
+    /* Notify local endpoint we have both a local and at least one non-local endpoint */
     if (localEndpoint && nonLocalEndpoint && (isLocal || !hadNonLocal)) {
-        Alarm connectAlarm(0, this, 0, NULL);
-        localEndpoint->GetBus().GetInternal().GetTimer().AddAlarm(connectAlarm);
+        localEndpoint->OnBusConnected();
     }
     return ER_OK;
 }

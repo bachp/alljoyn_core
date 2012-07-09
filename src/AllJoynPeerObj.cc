@@ -137,6 +137,7 @@ QStatus AllJoynPeerObj::Start()
 QStatus AllJoynPeerObj::Stop()
 {
     dispatcher.Stop();
+    bus.UnregisterBusListener(*this);
     return ER_OK;
 }
 
@@ -152,7 +153,6 @@ QStatus AllJoynPeerObj::Join()
     lock.Unlock(MUTEX_CONTEXT);
 
     dispatcher.Join();
-    bus.UnregisterBusListener(*this);
     return ER_OK;
 }
 

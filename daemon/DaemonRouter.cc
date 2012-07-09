@@ -307,7 +307,7 @@ QStatus DaemonRouter::RegisterEndpoint(BusEndpoint& endpoint, bool isLocal)
 
     /* Notify local endpoint that it is connected */
     if (&endpoint == localEndpoint) {
-        localEndpoint->BusIsConnected();
+        localEndpoint->OnBusConnected();
     }
 
     return status;

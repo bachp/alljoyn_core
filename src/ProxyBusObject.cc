@@ -508,7 +508,6 @@ QStatus ProxyBusObject::MethodCall(const InterfaceDescription::Member& method,
         QCC_LogError(status, ("Object %s does not implement %s", path.c_str(), method.iface->GetName()));
         goto MethodCallExit;
     }
-
     /*
      * If the interface is secure or encryption is explicitly requested the method call must be encrypted.
      */

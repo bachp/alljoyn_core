@@ -30,6 +30,7 @@
 #include <qcc/Debug.h>
 #include <qcc/Util.h>
 #include <qcc/String.h>
+#include <qcc/ScopedMutexLock.h>
 #include <qcc/Mutex.h>
 #include <alljoyn/DBusStd.h>
 #include <alljoyn/AllJoynStd.h>
@@ -500,6 +501,7 @@ QStatus BusObject::MethodReply(const Message& msg, QStatus status)
 
 void BusObject::AddChild(BusObject& child)
 {
+    //ScopedMutexLock(bus.GetInternal().GetLocalEndpoint().objectsLock, MUTEX_CONTEXT);
     QCC_DbgPrintf(("AddChild %s to object with path = \"%s\"", child.GetPath(), GetPath()));
     child.parent = this;
     components->children.push_back(&child);
@@ -507,6 +509,7 @@ void BusObject::AddChild(BusObject& child)
 
 QStatus BusObject::RemoveChild(BusObject& child)
 {
+    //ScopedMutexLock(bus.GetInternal().GetLocalEndpoint().objectsLock, MUTEX_CONTEXT);
     QStatus status = ER_BUS_NO_SUCH_OBJECT;
     vector<BusObject*>::iterator it = find(components->children.begin(), components->children.end(), &child);
     if (it != components->children.end()) {
@@ -521,6 +524,7 @@ QStatus BusObject::RemoveChild(BusObject& child)
 
 BusObject* BusObject::RemoveChild()
 {
+    //ScopedMutexLock(bus.GetInternal().GetLocalEndpoint().objectsLock, MUTEX_CONTEXT);
     size_t sz = components->children.size();
     if (sz > 0) {
         BusObject* child = components->children[sz - 1];
@@ -535,6 +539,7 @@ BusObject* BusObject::RemoveChild()
 
 void BusObject::Replace(BusObject& object)
 {
+    //ScopedMutexLock(bus.GetInternal().GetLocalEndpoint().objectsLock, MUTEX_CONTEXT);
     QCC_DbgPrintf(("Replacing object with path = \"%s\"", GetPath()));
     object.components->children = components->children;
     vector<BusObject*>::iterator it = object.components->children.begin();

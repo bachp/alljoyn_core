@@ -64,6 +64,7 @@ class LocalEndpoint : public BusEndpoint, public qcc::AlarmListener, public Mess
     friend class TCPTransport;
     friend class LocalTransport;
     friend class UnixTransport;
+    friend class BusObject;
 
   public:
 
@@ -245,7 +246,7 @@ class LocalEndpoint : public BusEndpoint, public qcc::AlarmListener, public Mess
     /**
      * Notify local endpoint that a bus connection has been made.
      */
-    void BusIsConnected();
+    void OnBusConnected();
 
     /**
      * Get the org.freedesktop.DBus remote object.
@@ -359,6 +360,22 @@ class LocalEndpoint : public BusEndpoint, public qcc::AlarmListener, public Mess
     Dispatcher dispatcher;
 
     /**
+     * Performs operations that were deferred until the bus is connected such
+     * as object registration callbacks
+     */
+    class DeferredCallbacks : public qcc::AlarmListener {
+      public:
+        DeferredCallbacks(LocalEndpoint* ep) : endpoint(ep) { }
+
+        void AlarmTriggered(const qcc::Alarm& alarm, QStatus reason);
+
+      private:
+        LocalEndpoint* endpoint;
+    };
+
+    DeferredCallbacks deferredCallbacks;
+
+    /**
      * PushMessage worker.
      */
     QStatus DoPushMessage(Message& msg);
@@ -410,13 +427,12 @@ class LocalEndpoint : public BusEndpoint, public qcc::AlarmListener, public Mess
     std::map<uint32_t, ReplyContext> replyMap;
 
     bool running;                      /**< Is the local endpoint up and running */
-    int32_t refCount;                  /**< Reference count for local transport */
     MethodTable methodTable;           /**< Hash table of BusObject methods */
     SignalTable signalTable;           /**< Hash table of BusObject signal handlers */
     BusAttachment& bus;                /**< Message bus */
     qcc::Mutex objectsLock;            /**< Mutex protecting Objects hash table */
     qcc::Mutex replyMapLock;           /**< Mutex protecting replyMap */
-    qcc::GUID128 guid;                    /**< GUID to uniquely identify a local endpoint */
+    qcc::GUID128 guid;                 /**< GUID to uniquely identify a local endpoint */
     qcc::String uniqueName;            /**< Unique name for endpoint */
 
     std::vector<BusObject*> defaultObjects;  /**< Auto-generated, heap allocated parent objects */

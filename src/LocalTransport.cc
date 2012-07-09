@@ -88,8 +88,8 @@ bool LocalTransport::IsRunning()
 LocalEndpoint::LocalEndpoint(BusAttachment& bus) :
     BusEndpoint(BusEndpoint::ENDPOINT_TYPE_LOCAL),
     dispatcher(this),
+    deferredCallbacks(this),
     running(false),
-    refCount(1),
     bus(bus),
     objectsLock(),
     replyMapLock(),
@@ -106,15 +106,18 @@ LocalEndpoint::~LocalEndpoint()
 
     running = false;
 
-    assert(refCount > 0);
     /*
-     * We can't complete the destruction if we have calls out the application.
+     * Unregister all application registered bus objects
      */
-    if (DecrementAndFetch(&refCount) != 0) {
-        while (refCount) {
-            qcc::Sleep(1);
-        }
+    unordered_map<const char*, BusObject*, Hash, PathEq>::iterator it = localObjects.begin();
+    while (it != localObjects.end()) {
+        BusObject* obj = it->second;
+        UnregisterBusObject(*obj);
+        it = localObjects.begin();
     }
+    /*
+     * Unregister AllJoyn registered bus objects
+     */
     if (dbusObj) {
         delete dbusObj;
         dbusObj = NULL;
@@ -194,29 +197,12 @@ QStatus LocalEndpoint::Stop(void)
     /* Local endpoint not longer running */
     running = false;
 
-    IncrementAndFetch(&refCount);
-
-    /*
-     * Unregister all registered bus objects
-     */
-    objectsLock.Lock(MUTEX_CONTEXT);
-    unordered_map<const char*, BusObject*, Hash, PathEq>::iterator it = localObjects.begin();
-    while (it != localObjects.end()) {
-        BusObject* obj = it->second;
-        objectsLock.Unlock(MUTEX_CONTEXT);
-        UnregisterBusObject(*obj);
-        objectsLock.Lock(MUTEX_CONTEXT);
-        it = localObjects.begin();
-    }
     if (peerObj) {
         peerObj->Stop();
     }
-    objectsLock.Unlock(MUTEX_CONTEXT);
-
     /* Stop the dispatcher */
     dispatcher.Stop();
 
-    DecrementAndFetch(&refCount);
     return ER_OK;
 }
 
@@ -322,31 +308,26 @@ QStatus LocalEndpoint::DoPushMessage(Message& message)
         status = ER_BUS_STOPPING;
         QCC_DbgHLPrintf(("Local transport not running discarding %s", message->Description().c_str()));
     } else {
-        if (IncrementAndFetch(&refCount) > 1) {
-            Thread* thread = Thread::GetThread();
+        QCC_DbgPrintf(("Pushing %s into local endpoint", message->Description().c_str()));
 
-            QCC_DbgPrintf(("Pushing %s into local endpoint", message->Description().c_str()));
+        switch (message->GetType()) {
+        case MESSAGE_METHOD_CALL:
+            status = HandleMethodCall(message);
+            break;
 
-            switch (message->GetType()) {
-            case MESSAGE_METHOD_CALL:
-                status = HandleMethodCall(message);
-                break;
+        case MESSAGE_SIGNAL:
+            status = HandleSignal(message);
+            break;
 
-            case MESSAGE_SIGNAL:
-                status = HandleSignal(message);
-                break;
+        case MESSAGE_METHOD_RET:
+        case MESSAGE_ERROR:
+            status = HandleMethodReply(message);
+            break;
 
-            case MESSAGE_METHOD_RET:
-            case MESSAGE_ERROR:
-                status = HandleMethodReply(message);
-                break;
-
-            default:
-                status = ER_FAIL;
-                break;
-            }
+        default:
+            status = ER_FAIL;
+            break;
         }
-        DecrementAndFetch(&refCount);
     }
     return status;
 }
@@ -427,9 +408,14 @@ QStatus LocalEndpoint::DoRegisterBusObject(BusObject& object, BusObject* parent,
         /* Register handler for the object's methods */
         methodTable.AddAll(&object);
 
-        /* Notify object of registration. Defer if we are not connected yet. */
+        /*
+         * If the bus is already running schedule call backs to report
+         * that the objects are registered. If the bus is not running
+         * the callbacks will be made later when the client router calls
+         * OnBusConnected().
+         */
         if (bus.GetInternal().GetRouter().IsBusRunning()) {
-            BusIsConnected();
+            OnBusConnected();
         }
     }
 
@@ -620,52 +606,21 @@ QStatus LocalEndpoint::UnregisterAllHandlers(MessageReceiver* receiver)
     return ER_OK;
 }
 
+/*
+ * Alarm handler for method calls that have not received a response within the timeout period.
+ */
 void LocalEndpoint::AlarmTriggered(const Alarm& alarm, QStatus reason)
 {
-    /*
-     * Alarms are used for two unrelated purposes within LocalEnpoint:
-     *
-     * When context is non-NULL, the alarm indicates that a method call
-     * with serial == *context has timed out.
-     *
-     * When context is NULL, the alarm indicates that the BusAttachment that this
-     * LocalEndpoint is a part of is connected to a daemon and any previously
-     * unregistered BusObjects should be registered
-     */
-    if (NULL != alarm.GetContext()) {
-        uint32_t serial = reinterpret_cast<uintptr_t>(alarm.GetContext());
-        Message msg(bus);
-        QCC_DbgPrintf(("Timed out waiting for METHOD_REPLY with serial %d", serial));
+    uint32_t serial = reinterpret_cast<uintptr_t>(alarm.GetContext());
+    Message msg(bus);
+    QCC_DbgPrintf(("Timed out waiting for METHOD_REPLY with serial %d", serial));
 
-        if (reason == ER_TIMER_EXITING) {
-            msg->ErrorMsg("org.alljoyn.Bus.Exiting", serial);
-        } else {
-            msg->ErrorMsg("org.alljoyn.Bus.Timeout", serial);
-        }
-        HandleMethodReply(msg);
+    if (reason == ER_TIMER_EXITING) {
+        msg->ErrorMsg("org.alljoyn.Bus.Exiting", serial);
     } else {
-        /* Call ObjectRegistered for any unregistered bus object */
-        objectsLock.Lock(MUTEX_CONTEXT);
-        unordered_map<const char*, BusObject*, Hash, PathEq>::iterator iter = localObjects.begin();
-        while (iter != localObjects.end()) {
-            if (!iter->second->isRegistered) {
-                BusObject* bo = iter->second;
-                bo->isRegistered = true;
-                bo->InUseIncrement();
-                objectsLock.Unlock(MUTEX_CONTEXT);
-                bo->ObjectRegistered();
-                objectsLock.Lock(MUTEX_CONTEXT);
-                bo->InUseDecrement();
-                iter = localObjects.begin();
-            } else {
-                ++iter;
-            }
-        }
-        objectsLock.Unlock(MUTEX_CONTEXT);
-
-        /* Decrement refcount to indicate we are done calling out */
-        DecrementAndFetch(&refCount);
+        msg->ErrorMsg("org.alljoyn.Bus.Timeout", serial);
     }
+    HandleMethodReply(msg);
 }
 
 QStatus LocalEndpoint::HandleMethodCall(Message& message)
@@ -884,19 +839,42 @@ QStatus LocalEndpoint::HandleMethodReply(Message& message)
     return status;
 }
 
-void LocalEndpoint::BusIsConnected()
+void LocalEndpoint::DeferredCallbacks::AlarmTriggered(const qcc::Alarm& alarm, QStatus reason)
 {
-    if (!bus.GetInternal().GetTimer().HasAlarm(Alarm(0, this))) {
-        if (IncrementAndFetch(&refCount) > 1) {
-            /* Call ObjectRegistered callbacks on another thread */
-            QStatus status = bus.GetInternal().GetTimer().AddAlarm(Alarm(0, this));
-            if (status != ER_OK) {
-                DecrementAndFetch(&refCount);
+    if (reason == ER_OK) {
+        /*
+         * Allow synchronous method calls from within the object registration callbacks
+         */
+        endpoint->bus.EnableConcurrentCallbacks();
+        /*
+         * Call ObjectRegistered for any unregistered bus objects
+         */
+        endpoint->objectsLock.Lock(MUTEX_CONTEXT);
+        unordered_map<const char*, BusObject*, Hash, PathEq>::iterator iter = endpoint->localObjects.begin();
+        while (endpoint->running && (iter != endpoint->localObjects.end())) {
+            if (!iter->second->isRegistered) {
+                BusObject* bo = iter->second;
+                bo->isRegistered = true;
+                bo->InUseIncrement();
+                endpoint->objectsLock.Unlock(MUTEX_CONTEXT);
+                bo->ObjectRegistered();
+                endpoint->objectsLock.Lock(MUTEX_CONTEXT);
+                bo->InUseDecrement();
+                iter = endpoint->localObjects.begin();
+            } else {
+                ++iter;
             }
-        } else {
-            DecrementAndFetch(&refCount);
         }
+        endpoint->objectsLock.Unlock(MUTEX_CONTEXT);
     }
+}
+
+void LocalEndpoint::OnBusConnected()
+{
+    /*
+     * Use the local endpoint's dispatcher to call back to report the object registrations.
+     */
+    dispatcher.AddAlarm(Alarm(0, &deferredCallbacks));
 }
 
 const ProxyBusObject& LocalEndpoint::GetAllJoynDebugObj() {
