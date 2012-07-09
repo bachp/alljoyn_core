@@ -1601,6 +1601,7 @@ void BTController::HandleFoundDeviceChange(const InterfaceDescription::Member* m
     QStatus status = msg->GetArgs(SIG_FOUND_DEV, &adBdAddrRaw, &uuidRev, &eirCapable);
 
     if (status == ER_OK) {
+        bus.EnableConcurrentCallbacks();
         BDAddress adBdAddr(adBdAddrRaw);
         ProcessDeviceChange(adBdAddr, uuidRev, eirCapable);
     }
