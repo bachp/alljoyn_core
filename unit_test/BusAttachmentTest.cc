@@ -53,9 +53,30 @@ class BusAttachmentTest : public testing::Test {
         ASSERT_EQ(ER_OK, status) << "  Actual Status: " << QCC_StatusText(status);
     }
 
-    //virtual void TearDown() {}
+    virtual void TearDown() {
+        bus.Stop();
+    }
 
 };
+
+// disabled for mbus-1215
+TEST_F(BusAttachmentTest, DISABLED_FindName_Same_Name)
+{
+    QStatus status = ER_OK;
+
+    const char* requestedName = "org.alljoyn.bus.BusAttachmentTest.advertise";
+
+    /* flag indicates that Fail if name cannot be immediatly obtained */
+    status = bus.FindAdvertisedName(requestedName);
+    EXPECT_EQ(ER_OK, status) << "  Actual Status: " << QCC_StatusText(status);
+
+    status = bus.FindAdvertisedName(requestedName);
+    EXPECT_EQ(ER_ALLJOYN_FINDADVERTISEDNAME_REPLY_ALREADY_DISCOVERING, status) << "  Actual Status: " << QCC_StatusText(status);
+
+
+    status = bus.CancelFindAdvertisedName(requestedName);
+    EXPECT_EQ(ER_OK, status) << "  Actual Status: " << QCC_StatusText(status);
+}
 
 TEST_F(BusAttachmentTest, FindName_Null_Name)
 {
@@ -66,7 +87,4 @@ TEST_F(BusAttachmentTest, FindName_Null_Name)
     /* flag indicates that Fail if name cannot be immediatly obtained */
     status = bus.FindAdvertisedName(requestedName);
     EXPECT_EQ(ER_BAD_ARG_1, status) << "  Actual Status: " << QCC_StatusText(status);
-
-    /* Cleanup */
-    bus.ReleaseName(requestedName);
 }
