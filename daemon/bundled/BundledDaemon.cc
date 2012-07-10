@@ -138,10 +138,10 @@ QStatus BundledDaemon::Start(NullTransport* nullTransport)
     printf("Using BundledDaemon\n");
 
     /*
-     * Need a mutex around this to prevent *more than one BusAttachment from bringing up the
-     * bundled daemon at the same time we need to serialize the operation.
+     * Need a mutex around this to prevent more than one BusAttachment from bringing up the
+     * bundled daemon at the same time.
      */
-    lock.Lock();
+    ScopedMutexLock guard(lock);
 
     if (IncrementAndFetch(&refCount) == 1) {
         LoggerSetting::GetLoggerSetting("bundled-daemon", LOG_DEBUG, false, stdout);
@@ -194,6 +194,7 @@ QStatus BundledDaemon::Start(NullTransport* nullTransport)
 #endif
             transportsInitialized = true;
         }
+        QCC_DbgPrintf(("Starting bundled daemon bus attachment"));
         /*
          * Create and start the daemon
          */
@@ -212,7 +213,6 @@ QStatus BundledDaemon::Start(NullTransport* nullTransport)
         goto ErrorExit;
     }
 
-    lock.Unlock();
     return ER_OK;
 
 ErrorExit:
@@ -223,15 +223,15 @@ ErrorExit:
         delete ajBus;
         ajBus = NULL;
     }
-    lock.Unlock();
     return status;
 }
 
 void BundledDaemon::Join()
 {
-    lock.Lock();
+    ScopedMutexLock guard(lock);
     if (refCount == 0) {
         if (ajBus) {
+            QCC_DbgPrintf(("Joining bundled daemon bus attachment"));
             ajBus->Join();
         }
         delete ajBusController;
@@ -239,7 +239,6 @@ void BundledDaemon::Join()
         delete ajBus;
         ajBus = NULL;
     }
-    lock.Unlock();
 }
 
 QStatus BundledDaemon::Stop()
@@ -247,12 +246,10 @@ QStatus BundledDaemon::Stop()
     ScopedMutexLock guard(lock);
     int32_t rc = DecrementAndFetch(&refCount);
     assert(rc >= 0);
-    if (rc == 0) {
-        if (ajBus) {
-            return ajBus->Stop();
-        } else {
-            return ER_OK;
-        }
+
+    if ((rc == 0) && ajBus) {
+        QCC_DbgPrintf(("Stopping bundled daemon bus attachment"));
+        return ajBus->Stop();
     }
     return ER_OK;
 }
