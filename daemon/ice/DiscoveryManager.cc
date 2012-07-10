@@ -904,8 +904,6 @@ QStatus DiscoveryManager::Connect(void)
             } else {
                 status = ER_UNABLE_TO_CONNECT_TO_RENDEZVOUS_SERVER;
                 QCC_LogError(status, ("DiscoveryManager::Connect(): %s", QCC_StatusText(status)));
-
-                DisconnectEvent.SetEvent();
             }
         }
     }
@@ -1104,6 +1102,7 @@ void* DiscoveryManager::Run(void* arg)
                         if (Connection) {
                             /* Call Disconnect to cleanup any intermediate state */
                             Connection->Disconnect();
+                            delete Connection;
                             Connection = NULL;
                         }
                     }
