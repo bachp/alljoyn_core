@@ -34,7 +34,7 @@ using namespace qcc;
 /** @internal */
 #define QCC_MODULE "STUNRETRY"
 
-static const uint8_t MAX_SEND_ATTEMPTS = 6;
+static const uint8_t MAX_SEND_ATTEMPTS = 9;
 
 class CheckRetry {
   public:
