@@ -867,6 +867,10 @@ QStatus BusAttachment::FindAdvertisedName(const char* namePrefix)
         return ER_BUS_NOT_CONNECTED;
     }
 
+    if (!namePrefix) {
+        return ER_BAD_ARG_1;
+    }
+
     Message reply(*this);
     MsgArg args[1];
     size_t numArgs = ArraySize(args);
