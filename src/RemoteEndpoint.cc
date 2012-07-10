@@ -358,6 +358,11 @@ void* RemoteEndpoint::RxThread::Run(void* arg)
                 }
                 break;
 
+            case ER_ALERTED_THREAD:
+                GetStopEvent().ResetEvent();
+                status = ER_OK;
+                break;
+
             default:
                 break;
             }
