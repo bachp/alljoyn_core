@@ -197,9 +197,11 @@ DiscoveryManager::~DiscoveryManager()
 
 #ifdef ENABLE_PROXIMITY_FRAMEWORK
     /* Stop the ProximityScanEngine */
-    ProximityScanner->StopScan();
-    delete ProximityScanner;
-    ProximityScanner = NULL;
+    if (ProximityScanner) {
+        ProximityScanner->StopScan();
+        delete ProximityScanner;
+        ProximityScanner = NULL;
+    }
 #endif
 
     /* Delete all the active alarms */
@@ -254,7 +256,7 @@ void DiscoveryManager::Disconnect(void)
 
         LastOnDemandMessageSent.Clear();
 
-#ifdef ENABLE_OPPORTUNISTIC_PROXIMITY_SCANNING
+#ifdef ENABLE_PROXIMITY_FRAMEWORK
         if (ProximityScanner) {
             ProximityScanner->StopScan();
         }
@@ -859,7 +861,9 @@ void DiscoveryManager::ComposeProximityMessage(HttpConnection::Method httpMethod
     }
 
     /* Get the current Proximity information */
-    *proximityMsg = ProximityScanner->GetScanResults(currentBSSIDList, currentBTMACList);
+    if (ProximityScanner) {
+        *proximityMsg = ProximityScanner->GetScanResults(currentBSSIDList, currentBTMACList);
+    }
 #else
     *proximityMsg = proximity[currentProximityIndex];
     currentProximityIndex = ((currentProximityIndex + 1) % 3);
@@ -1024,8 +1028,10 @@ void* DiscoveryManager::Run(void* arg)
 
                     if (status == ER_OK) {
 
-#ifdef ENABLE_OPPORTUNISTIC_PROXIMITY_SCANNING
+#ifdef ENABLE_PROXIMITY_FRAMEWORK
                         if (ProximityScanner) {
+                            /* Stop the proximity scan before start to rule out any race conditions */
+                            ProximityScanner->StopScan();
                             ProximityScanner->StartScan();
                         }
 #endif
@@ -1140,7 +1146,7 @@ void* DiscoveryManager::Run(void* arg)
                         QCC_LogError(status, ("DiscoveryManager::Run(): Unable to add InterfaceUpdateAlarm to DiscoveryManagerTimer"));
                     }
 
-#ifdef ENABLE_OPPORTUNISTIC_PROXIMITY_SCANNING
+#ifdef ENABLE_PROXIMITY_FRAMEWORK
                     if (ProximityScanner) {
                         ProximityScanner->StopScan();
                     }
@@ -2214,12 +2220,14 @@ QStatus DiscoveryManager::UpdateInformationOnServer(MessageType messageType, boo
     } else if (messageType == PROXIMITY) {
 #ifdef ENABLE_PROXIMITY_FRAMEWORK
         /* Get the current Proximity information */
-        ProximityScanner->GetScanResults(currentBSSIDList, currentBTMACList);
+        if (ProximityScanner) {
+            ProximityScanner->GetScanResults(currentBSSIDList, currentBTMACList);
 
-        tempSentList = lastSentBSSIDList;
-        tempCurrentList = currentBSSIDList;
-        tempSentBTList = lastSentBTMACList;
-        tempCurrentBTList = currentBTMACList;
+            tempSentList = lastSentBSSIDList;
+            tempCurrentList = currentBSSIDList;
+            tempSentBTList = lastSentBTMACList;
+            tempCurrentBTList = currentBTMACList;
+        }
 #endif
     } else {
         status = ER_FAIL;
