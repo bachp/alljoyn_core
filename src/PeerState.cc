@@ -22,6 +22,7 @@
 #include <qcc/platform.h>
 
 #include <algorithm>
+#include <limits>
 
 #include <qcc/Debug.h>
 #include <qcc/Crypto.h>
@@ -64,6 +65,9 @@ uint32_t _PeerState::EstimateTimestamp(uint32_t remote)
     return remote + static_cast<uint32_t>(clockOffset);
 }
 
+#define IN_RANGE(val, start, sz) ((((start) <= ((start) + (sz))) && ((val) >= (start)) && ((val) < ((start) + (sz)))) || \
+                                  (((start) > ((start) + (sz))) && !(((val) >= ((start) + (sz))) && ((val) < (start)))))
+
 bool _PeerState::IsValidSerial(uint32_t serial, bool secure, bool unreliable)
 {
     bool ret = false;
@@ -73,7 +77,7 @@ bool _PeerState::IsValidSerial(uint32_t serial, bool secure, bool unreliable)
     if (serial != 0) {
         const size_t winSize = sizeof(window) / sizeof(window[0]);
         uint32_t* entry = window + (serial % winSize);
-        if ((*entry != serial) && (serial > window[0])) {
+        if ((*entry != serial) && IN_RANGE(serial, *entry, numeric_limits<uint32_t>::max() / 2)) {
             *entry = serial;
             ret = true;
         }
