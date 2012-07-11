@@ -2362,7 +2362,14 @@ QStatus AllJoynObj::ProcCancelAdvertise(const qcc::String& sender, const qcc::St
         }
 
         if (discoverMap.empty() && advertiseMap.empty()) {
-            nameMap.clear();
+            std::multimap<qcc::String, NameMapEntry>::iterator nmit = nameMap.begin();
+            while (nmit != nameMap.end()) {
+                if ((*nmit).second.transport != TRANSPORT_BLUETOOTH) {
+                    nameMap.erase(nmit++);
+                } else {
+                    ++nmit;
+                }
+            }
         }
 
     } else if (!foundAdvert) {
@@ -2555,7 +2562,14 @@ QStatus AllJoynObj::ProcCancelFindName(const qcc::String& sender, const qcc::Str
         }
 
         if (discoverMap.empty() && advertiseMap.empty()) {
-            nameMap.clear();
+            std::multimap<qcc::String, NameMapEntry>::iterator nmit = nameMap.begin();
+            while (nmit != nameMap.end()) {
+                if ((*nmit).second.transport != TRANSPORT_BLUETOOTH) {
+                    nameMap.erase(nmit++);
+                } else {
+                    ++nmit;
+                }
+            }
         }
 
     } else if (!foundNamePrefix) {
