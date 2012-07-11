@@ -109,7 +109,6 @@ ProximityScanEngine::ProximityScanEngine(DiscoveryManager*dm) : bus(dm->bus) {
 
     QCC_DbgTrace(("ProximityScanEngine::ProximityScanEngine() called"));
     tadd_count = 1;
-    isFirstScanComplete = false;
     wifiapDroppped = false;
     wifiapAdded = false;
     request_scan = true;
@@ -123,6 +122,9 @@ ProximityScanEngine::ProximityScanEngine(DiscoveryManager*dm) : bus(dm->bus) {
 
 ProximityScanEngine::~ProximityScanEngine() {
     QCC_DbgTrace(("ProximityScanEngine::~ProximityScanEngine() called"));
+
+    StopScan();
+
     delete proximityScanner;
     proximityScanner = NULL;
 }
@@ -268,13 +270,6 @@ void ProximityScanEngine::ProcessScanResults() {
     } else {
         request_scan = false;
     }
-
-
-    if (!isFirstScanComplete) {
-        QCC_DbgPrintf(("First scan ------- COMPLETE"));
-        isFirstScanComplete = true;
-    }
-
 
 /*
     // Extract the SSID corresponding to the BSSID since the tokenizing code did not look nice we do it in two iterations
@@ -443,10 +438,6 @@ void ProximityScanEngine::StartScan() {
     QCC_DbgTrace(("ProximityScanEngine::StartScan() called"));
 
     request_scan = true;
-
-    if (isFirstScanComplete) {
-        return;
-    }
 
     map<qcc::String, qcc::String>::iterator it;
 
