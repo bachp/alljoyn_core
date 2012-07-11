@@ -86,7 +86,7 @@ AllJoynObj::AllJoynObj(Bus& bus, BusController* busController) :
     lostAdvNameSignal(NULL),
     sessionLostSignal(NULL),
     mpSessionChangedSignal(NULL),
-    mpJoinSessionSignal(NULL),
+    mpSessionJoinedSignal(NULL),
     guid(bus.GetInternal().GetGlobalGUID()),
     exchangeNamesSignal(NULL),
     detachSessionSignal(NULL),
@@ -161,7 +161,7 @@ QStatus AllJoynObj::Init()
         return status;
     }
 
-    mpJoinSessionSignal = busSessionIntf->GetMember("SessionJoined");
+    mpSessionJoinedSignal = busSessionIntf->GetMember("SessionJoined");
 
     /* Make this object implement org.alljoyn.Daemon */
     daemonIface = bus.GetInterface(org::alljoyn::Daemon::InterfaceName);
@@ -500,13 +500,17 @@ ThreadReturn STDCALL AllJoynObj::JoinSessionThread::RunJoin()
 
     // do not let a session creator join itself
     SessionMapType::iterator it = ajObj.SessionMapLowerBound(sender, 0);
-    while ((it != ajObj.sessionMap.end()) && (it->first.first == sender) && (it->first.second == 0)) {
-        if (it->second.sessionPort == sessionPort && it->second.sessionHost == sessionHost) {
-            QCC_DbgTrace(("JoinSession(): cannot join your own session"));
-            replyCode = ALLJOYN_JOINSESSION_REPLY_ALREADY_JOINED;
-            break;
+    BusEndpoint* hostEp = ajObj.router.FindEndpoint(sessionHost);
+    if (hostEp != NULL) {
+        while ((it != ajObj.sessionMap.end()) && (it->first.first == sender) && (it->first.second == 0)) {
+            BusEndpoint* sessionEp = ajObj.router.FindEndpoint(it->second.sessionHost);
+            if (hostEp == sessionEp) {
+                QCC_DbgTrace(("JoinSession(): cannot join your own session"));
+                replyCode = ALLJOYN_JOINSESSION_REPLY_ALREADY_JOINED;
+                break;
+            }
+            ++it;
         }
-        ++it;
     }
 
 
@@ -1884,7 +1888,7 @@ QStatus AllJoynObj::SendJoinSession(SessionPort sessionPort,
                    args[2].v_string.str,
                    creatorName));
 
-    QStatus status = Signal(creatorName, sessionId, *mpJoinSessionSignal, args, ArraySize(args));
+    QStatus status = Signal(creatorName, sessionId, *mpSessionJoinedSignal, args, ArraySize(args));
     if (status != ER_OK) {
         QCC_LogError(status, ("Failed to send SessionJoined to %s", creatorName));
     }
