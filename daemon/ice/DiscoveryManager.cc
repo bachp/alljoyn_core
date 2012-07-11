@@ -980,7 +980,6 @@ void* DiscoveryManager::Run(void* arg)
                     /* Kill the connect thread if it already running */
                     if (ServerConnectThread) {
                         ServerConnectThread->Kill();
-                        delete ServerConnectThread;
                         ServerConnectThread = NULL;
                     }
 
@@ -991,7 +990,7 @@ void* DiscoveryManager::Run(void* arg)
                     ServerConnectThread = new ConnectThread(this);
 
                     if (ServerConnectThread) {
-                        status = ServerConnectThread->Start();
+                        status = ServerConnectThread->Start(NULL, ServerConnectThread);
 
                         if (status == ER_OK) {
 
@@ -1008,7 +1007,6 @@ void* DiscoveryManager::Run(void* arg)
                             /* Clean up the connect thread */
                             if (ServerConnectThread) {
                                 ServerConnectThread->Kill();
-                                delete ServerConnectThread;
                                 ServerConnectThread = NULL;
                             }
 
@@ -3358,11 +3356,7 @@ ThreadReturn STDCALL DiscoveryManager::ConnectThread::Run(void* arg)
 {
     QCC_DbgHLPrintf(("DiscoveryManager::ConnectThread::Run()"));
 
-    QStatus localStatus = ER_FAIL;
-
-    if (discoveryManager) {
-        localStatus = discoveryManager->Connect();
-    }
+    QStatus localStatus = discoveryManager->Connect();
 
     statusLock.Lock(MUTEX_CONTEXT);
     status = localStatus;
@@ -3389,7 +3383,7 @@ QStatus STDCALL DiscoveryManager::ConnectThread::GetStatus(void)
 
 void DiscoveryManager::ConnectThread::ThreadExit(Thread* thread)
 {
-    return;
+    delete this;
 }
 
 QStatus DiscoveryManager::Stop(void)
@@ -3399,6 +3393,7 @@ QStatus DiscoveryManager::Stop(void)
        the Run() thread can complete and join */
     if (ServerConnectThread) {
         ServerConnectThread->Kill();
+        ServerConnectThread = NULL;
     }
 
     /* Set the ConnectEvent to make the Run() thread come out of the wait on ConnectEvent */
