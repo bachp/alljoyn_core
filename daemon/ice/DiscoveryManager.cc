@@ -195,15 +195,6 @@ DiscoveryManager::~DiscoveryManager()
 {
     QCC_DbgPrintf(("DiscoveryManager::~DiscoveryManager()\n"));
 
-#ifdef ENABLE_PROXIMITY_FRAMEWORK
-    /* Stop the ProximityScanEngine */
-    if (ProximityScanner) {
-        ProximityScanner->StopScan();
-        delete ProximityScanner;
-        ProximityScanner = NULL;
-    }
-#endif
-
     /* Delete all the active alarms */
     if (InterfaceUpdateAlarm) {
         DiscoveryManagerTimer.RemoveAlarm(*InterfaceUpdateAlarm);
@@ -236,6 +227,19 @@ DiscoveryManager::~DiscoveryManager()
     Disconnect();
 
     //
+    // We should delete the ProximityScanner object here to avoid a race condition
+    // because the Run() thread may still be using it. So we delete the ProximityScanner
+    // after the Run() thread has joined
+    //
+#ifdef ENABLE_PROXIMITY_FRAMEWORK
+    if (ProximityScanner) {
+        ProximityScanner->StopScan();
+        delete ProximityScanner;
+        ProximityScanner = NULL;
+    }
+#endif
+
+    //
     // Delete any callbacks that a user of this class may have set.
     //
     delete iceCallback;
@@ -255,12 +259,6 @@ void DiscoveryManager::Disconnect(void)
         Connection = NULL;
 
         LastOnDemandMessageSent.Clear();
-
-#ifdef ENABLE_PROXIMITY_FRAMEWORK
-        if (ProximityScanner) {
-            ProximityScanner->StopScan();
-        }
-#endif
     }
 }
 
@@ -1029,11 +1027,16 @@ void* DiscoveryManager::Run(void* arg)
                     if (status == ER_OK) {
 
 #ifdef ENABLE_PROXIMITY_FRAMEWORK
+                        /* Release and acquire back the DiscoveryManagerMutex before call to StopScan and
+                         * StartScan to ensure that there is no deadlock between the ProximityScanEngine
+                         * and DiscoveryManager*/
+                        DiscoveryManagerMutex.Unlock(MUTEX_CONTEXT);
                         if (ProximityScanner) {
                             /* Stop the proximity scan before start to rule out any race conditions */
                             ProximityScanner->StopScan();
                             ProximityScanner->StartScan();
                         }
+                        DiscoveryManagerMutex.Lock(MUTEX_CONTEXT);
 #endif
 
                         /* If the On Demand connection has been newly setup, create a response event for the same
@@ -1098,6 +1101,17 @@ void* DiscoveryManager::Run(void* arg)
                                     /* Disconnect from the Server and set skipForceInterfaceUpdateFlagReset so that we dont end up resetting
                                      * the ForceInterfaceUpdateFlag */
                                     Disconnect();
+#ifdef ENABLE_PROXIMITY_FRAMEWORK
+                                    /* Release and acquire back the DiscoveryManagerMutex before call to StopScan
+                                     * to ensure that there is no deadlock between the ProximityScanEngine
+                                     * and DiscoveryManager*/
+                                    DiscoveryManagerMutex.Unlock(MUTEX_CONTEXT);
+                                    if (ProximityScanner) {
+                                        /* Stop the proximity scan before start to rule out any race conditions */
+                                        ProximityScanner->StopScan();
+                                    }
+                                    DiscoveryManagerMutex.Lock(MUTEX_CONTEXT);
+#endif
                                     skipForceInterfaceUpdateFlagReset = true;
                                 } else {
                                     SentFirstGETMessage = true;
@@ -1147,9 +1161,14 @@ void* DiscoveryManager::Run(void* arg)
                     }
 
 #ifdef ENABLE_PROXIMITY_FRAMEWORK
+                    /* Release and acquire back the DiscoveryManagerMutex before call to StopScan
+                     * to ensure that there is no deadlock between the ProximityScanEngine
+                     * and DiscoveryManager*/
+                    DiscoveryManagerMutex.Unlock(MUTEX_CONTEXT);
                     if (ProximityScanner) {
                         ProximityScanner->StopScan();
                     }
+                    DiscoveryManagerMutex.Lock(MUTEX_CONTEXT);
 #endif
 
                 } else {
@@ -1165,6 +1184,17 @@ void* DiscoveryManager::Run(void* arg)
 
                                     /* Disconnect from the Server and set ForceInterfaceUpdateFlag */
                                     Disconnect();
+#ifdef ENABLE_PROXIMITY_FRAMEWORK
+                                    /* Release and acquire back the DiscoveryManagerMutex before call to StopScan
+                                     * to ensure that there is no deadlock between the ProximityScanEngine
+                                     * and DiscoveryManager*/
+                                    DiscoveryManagerMutex.Unlock(MUTEX_CONTEXT);
+                                    if (ProximityScanner) {
+                                        /* Stop the proximity scan before start to rule out any race conditions */
+                                        ProximityScanner->StopScan();
+                                    }
+                                    DiscoveryManagerMutex.Lock(MUTEX_CONTEXT);
+#endif
 
                                     ForceInterfaceUpdateFlag = true;
 
@@ -1181,6 +1211,17 @@ void* DiscoveryManager::Run(void* arg)
                                 if (status != ER_OK) {
                                     /* Disconnect from the Server and set ForceInterfaceUpdateFlag */
                                     Disconnect();
+#ifdef ENABLE_PROXIMITY_FRAMEWORK
+                                    /* Release and acquire back the DiscoveryManagerMutex before call to StopScan
+                                     * to ensure that there is no deadlock between the ProximityScanEngine
+                                     * and DiscoveryManager*/
+                                    DiscoveryManagerMutex.Unlock(MUTEX_CONTEXT);
+                                    if (ProximityScanner) {
+                                        /* Stop the proximity scan before start to rule out any race conditions */
+                                        ProximityScanner->StopScan();
+                                    }
+                                    DiscoveryManagerMutex.Lock(MUTEX_CONTEXT);
+#endif
                                     ForceInterfaceUpdateFlag = true;
                                 } else {
                                     SentFirstGETMessage = true;
@@ -1195,6 +1236,18 @@ void* DiscoveryManager::Run(void* arg)
 
                                     /* Disconnect from the Server and set ForceInterfaceUpdateFlag */
                                     Disconnect();
+
+#ifdef ENABLE_PROXIMITY_FRAMEWORK
+                                    /* Release and acquire back the DiscoveryManagerMutex before call to StopScan
+                                     * to ensure that there is no deadlock between the ProximityScanEngine
+                                     * and DiscoveryManager*/
+                                    DiscoveryManagerMutex.Unlock(MUTEX_CONTEXT);
+                                    if (ProximityScanner) {
+                                        /* Stop the proximity scan before start to rule out any race conditions */
+                                        ProximityScanner->StopScan();
+                                    }
+                                    DiscoveryManagerMutex.Lock(MUTEX_CONTEXT);
+#endif
 
                                     ForceInterfaceUpdateFlag = true;
 
@@ -1232,6 +1285,18 @@ void* DiscoveryManager::Run(void* arg)
                                         /* Disconnect from the Server and set ForceInterfaceUpdateFlag */
                                         Disconnect();
 
+#ifdef ENABLE_PROXIMITY_FRAMEWORK
+                                        /* Release and acquire back the DiscoveryManagerMutex before call to StopScan
+                                         * to ensure that there is no deadlock between the ProximityScanEngine
+                                         * and DiscoveryManager*/
+                                        DiscoveryManagerMutex.Unlock(MUTEX_CONTEXT);
+                                        if (ProximityScanner) {
+                                            /* Stop the proximity scan before start to rule out any race conditions */
+                                            ProximityScanner->StopScan();
+                                        }
+                                        DiscoveryManagerMutex.Lock(MUTEX_CONTEXT);
+#endif
+
                                         ForceInterfaceUpdateFlag = true;
                                     }
 
@@ -1260,6 +1325,18 @@ void* DiscoveryManager::Run(void* arg)
 
                                                 /* Disconnect from the Server and set ForceInterfaceUpdateFlag */
                                                 Disconnect();
+
+#ifdef ENABLE_PROXIMITY_FRAMEWORK
+                                                /* Release and acquire back the DiscoveryManagerMutex before call to StopScan
+                                                 * to ensure that there is no deadlock between the ProximityScanEngine
+                                                 * and DiscoveryManager*/
+                                                DiscoveryManagerMutex.Unlock(MUTEX_CONTEXT);
+                                                if (ProximityScanner) {
+                                                    /* Stop the proximity scan before start to rule out any race conditions */
+                                                    ProximityScanner->StopScan();
+                                                }
+                                                DiscoveryManagerMutex.Lock(MUTEX_CONTEXT);
+#endif
 
                                                 ForceInterfaceUpdateFlag = true;
 
@@ -1302,6 +1379,18 @@ void* DiscoveryManager::Run(void* arg)
                 // So we disconnect from the Rendezvous Server if connected.
                 //
                 Disconnect();
+
+#ifdef ENABLE_PROXIMITY_FRAMEWORK
+                /* Release and acquire back the DiscoveryManagerMutex before call to StopScan
+                 * to ensure that there is no deadlock between the ProximityScanEngine
+                 * and DiscoveryManager*/
+                DiscoveryManagerMutex.Unlock(MUTEX_CONTEXT);
+                if (ProximityScanner) {
+                    /* Stop the proximity scan before start to rule out any race conditions */
+                    ProximityScanner->StopScan();
+                }
+                DiscoveryManagerMutex.Lock(MUTEX_CONTEXT);
+#endif
 
                 // Reset the Persistent and On Demand Time Stamps and the SentMessageOverOnDemandConnection flag
                 PersistentMessageSentTimeStamp = 0;
@@ -1391,9 +1480,14 @@ void* DiscoveryManager::Run(void* arg)
             QCC_DbgPrintf(("DiscoveryManager::Run(): Wait failed or timed out: waitTimeout = %d, status = %s \n", waitTimeout, QCC_StatusText(status)));
 
             /* If Wait fails or times out, Disconnect and reconnect to the Server */
-            DiscoveryManagerMutex.Lock(MUTEX_CONTEXT);
             Disconnect();
-            DiscoveryManagerMutex.Unlock(MUTEX_CONTEXT);
+
+#ifdef ENABLE_PROXIMITY_FRAMEWORK
+            if (ProximityScanner) {
+                /* Stop the proximity scan before start to rule out any race conditions */
+                ProximityScanner->StopScan();
+            }
+#endif
 
             ForceInterfaceUpdateFlag = true;
 
@@ -1411,10 +1505,14 @@ void* DiscoveryManager::Run(void* arg)
                 //
                 // Disconnect from the Rendezvous Server if connected.
                 //
-
-                DiscoveryManagerMutex.Lock(MUTEX_CONTEXT);
                 Disconnect();
-                DiscoveryManagerMutex.Unlock(MUTEX_CONTEXT);
+
+#ifdef ENABLE_PROXIMITY_FRAMEWORK
+                if (ProximityScanner) {
+                    /* Stop the proximity scan before start to rule out any race conditions */
+                    ProximityScanner->StopScan();
+                }
+#endif
 
                 //
                 // We heard the stop event, so reset it.  We'll pop out of the
@@ -1436,9 +1534,14 @@ void* DiscoveryManager::Run(void* arg)
                 //
                 QCC_DbgPrintf(("DiscoveryManager::Run(): HTTP reset event fired\n"));
 
-                DiscoveryManagerMutex.Lock(MUTEX_CONTEXT);
                 Disconnect();
-                DiscoveryManagerMutex.Unlock(MUTEX_CONTEXT);
+
+#ifdef ENABLE_PROXIMITY_FRAMEWORK
+                if (ProximityScanner) {
+                    /* Stop the proximity scan before start to rule out any race conditions */
+                    ProximityScanner->StopScan();
+                }
+#endif
 
                 // We just set ForceInterfaceUpdateFlag to true so that the loop handles the
                 // setting up of a new connection
@@ -1452,9 +1555,14 @@ void* DiscoveryManager::Run(void* arg)
                 //
                 QCC_DbgPrintf(("DiscoveryManager::Run(): HTTP disconnect event fired\n"));
 
-                DiscoveryManagerMutex.Lock(MUTEX_CONTEXT);
                 Disconnect();
-                DiscoveryManagerMutex.Unlock(MUTEX_CONTEXT);
+
+#ifdef ENABLE_PROXIMITY_FRAMEWORK
+                if (ProximityScanner) {
+                    /* Stop the proximity scan before start to rule out any race conditions */
+                    ProximityScanner->StopScan();
+                }
+#endif
 
                 DisconnectEvent.ResetEvent();
 
@@ -1475,9 +1583,15 @@ void* DiscoveryManager::Run(void* arg)
                     } else {
 
                         /* Something has gone wrong. So we disconnect and set the ForceInterfaceUpdateFlag */
-                        DiscoveryManagerMutex.Lock(MUTEX_CONTEXT);
+
                         Disconnect();
-                        DiscoveryManagerMutex.Unlock(MUTEX_CONTEXT);
+
+#ifdef ENABLE_PROXIMITY_FRAMEWORK
+                        if (ProximityScanner) {
+                            /* Stop the proximity scan before start to rule out any race conditions */
+                            ProximityScanner->StopScan();
+                        }
+#endif
 
                         ForceInterfaceUpdateFlag = true;
 
@@ -1499,9 +1613,14 @@ void* DiscoveryManager::Run(void* arg)
                     } else {
 
                         /* Something has gone wrong. So we disconnect and set the ForceInterfaceUpdateFlag */
-                        DiscoveryManagerMutex.Lock(MUTEX_CONTEXT);
                         Disconnect();
-                        DiscoveryManagerMutex.Unlock(MUTEX_CONTEXT);
+
+#ifdef ENABLE_PROXIMITY_FRAMEWORK
+                        if (ProximityScanner) {
+                            /* Stop the proximity scan before start to rule out any race conditions */
+                            ProximityScanner->StopScan();
+                        }
+#endif
 
                         ForceInterfaceUpdateFlag = true;
 
@@ -2085,9 +2204,14 @@ void DiscoveryManager::HandlePersistentConnectionResponse(HttpConnection::HTTPRe
             status = HandlePersistentMessageResponse(response.payload);
 
             if (status != ER_OK) {
-                DiscoveryManagerMutex.Lock(MUTEX_CONTEXT);
                 Disconnect();
-                DiscoveryManagerMutex.Unlock(MUTEX_CONTEXT);
+
+#ifdef ENABLE_PROXIMITY_FRAMEWORK
+                if (ProximityScanner) {
+                    /* Stop the proximity scan before start to rule out any race conditions */
+                    ProximityScanner->StopScan();
+                }
+#endif
 
                 ForceInterfaceUpdateFlag = true;
             }
@@ -2101,9 +2225,14 @@ void DiscoveryManager::HandlePersistentConnectionResponse(HttpConnection::HTTPRe
             status = ER_UNABLE_TO_SEND_MESSAGE_TO_RENDEZVOUS_SERVER;
             QCC_LogError(status, ("DiscoveryManager::HandlePersistentConnectionResponse(): %s", QCC_StatusText(status)));
 
-            DiscoveryManagerMutex.Lock(MUTEX_CONTEXT);
             Disconnect();
-            DiscoveryManagerMutex.Unlock(MUTEX_CONTEXT);
+
+#ifdef ENABLE_PROXIMITY_FRAMEWORK
+            if (ProximityScanner) {
+                /* Stop the proximity scan before start to rule out any race conditions */
+                ProximityScanner->StopScan();
+            }
+#endif
 
             ForceInterfaceUpdateFlag = true;
         }
@@ -2115,12 +2244,18 @@ void DiscoveryManager::HandlePersistentConnectionResponse(HttpConnection::HTTPRe
 
         if (!ClientAuthenticationRequiredFlag) {
             /* Disconnect */
-            DiscoveryManagerMutex.Lock(MUTEX_CONTEXT);
             Disconnect();
+
+#ifdef ENABLE_PROXIMITY_FRAMEWORK
+            if (ProximityScanner) {
+                /* Stop the proximity scan before start to rule out any race conditions */
+                ProximityScanner->StopScan();
+            }
+#endif
+
             /* We need to re-authenticate with the Server */
             ClientAuthenticationRequiredFlag = true;
             ForceInterfaceUpdateFlag = true;
-            DiscoveryManagerMutex.Unlock(MUTEX_CONTEXT);
         }
 
     } else {
@@ -2129,9 +2264,14 @@ void DiscoveryManager::HandlePersistentConnectionResponse(HttpConnection::HTTPRe
         QCC_LogError(status, ("DiscoveryManager::HandlePersistentConnectionResponse(): %s", QCC_StatusText(status)));
 
         /* If any other http status code is received, we just disconnect and reconnect after INTERFACE_UPDATE_MIN_INTERVAL */
-        DiscoveryManagerMutex.Lock(MUTEX_CONTEXT);
         Disconnect();
-        DiscoveryManagerMutex.Unlock(MUTEX_CONTEXT);
+
+#ifdef ENABLE_PROXIMITY_FRAMEWORK
+        if (ProximityScanner) {
+            /* Stop the proximity scan before start to rule out any race conditions */
+            ProximityScanner->StopScan();
+        }
+#endif
 
         if (InterfaceUpdateAlarm) {
             DiscoveryManagerTimer.RemoveAlarm(*InterfaceUpdateAlarm);
@@ -2407,9 +2547,14 @@ void DiscoveryManager::HandleOnDemandConnectionResponse(HttpConnection::HTTPResp
                 status = HandleClientLoginResponse(response.payload);
 
                 if (status != ER_OK) {
-                    DiscoveryManagerMutex.Lock(MUTEX_CONTEXT);
                     Disconnect();
-                    DiscoveryManagerMutex.Unlock(MUTEX_CONTEXT);
+
+#ifdef ENABLE_PROXIMITY_FRAMEWORK
+                    if (ProximityScanner) {
+                        /* Stop the proximity scan before start to rule out any race conditions */
+                        ProximityScanner->StopScan();
+                    }
+#endif
 
                     ForceInterfaceUpdateFlag = true;
                 }
@@ -2417,19 +2562,30 @@ void DiscoveryManager::HandleOnDemandConnectionResponse(HttpConnection::HTTPResp
                 status = HandleTokenRefreshResponse(response.payload);
 
                 if (status != ER_OK) {
-                    DiscoveryManagerMutex.Lock(MUTEX_CONTEXT);
                     Disconnect();
+
+#ifdef ENABLE_PROXIMITY_FRAMEWORK
+                    if (ProximityScanner) {
+                        /* Stop the proximity scan before start to rule out any race conditions */
+                        ProximityScanner->StopScan();
+                    }
+#endif
+
                     ForceInterfaceUpdateFlag = true;
-                    DiscoveryManagerMutex.Unlock(MUTEX_CONTEXT);
                 }
             } else {
 
                 status = HandleOnDemandMessageResponse(response.payload);
 
                 if (status != ER_OK) {
-                    DiscoveryManagerMutex.Lock(MUTEX_CONTEXT);
                     Disconnect();
-                    DiscoveryManagerMutex.Unlock(MUTEX_CONTEXT);
+
+#ifdef ENABLE_PROXIMITY_FRAMEWORK
+                    if (ProximityScanner) {
+                        /* Stop the proximity scan before start to rule out any race conditions */
+                        ProximityScanner->StopScan();
+                    }
+#endif
 
                     ForceInterfaceUpdateFlag = true;
                 }
@@ -2447,10 +2603,16 @@ void DiscoveryManager::HandleOnDemandConnectionResponse(HttpConnection::HTTPResp
 
                 /* All HTTP_STATUS_OK responses over the On Demand connection must have a payload. If we get a HTTP_STATUS_OK response
                  * without a payload, there is an issue. So we re-setup the connection */
-                DiscoveryManagerMutex.Lock(MUTEX_CONTEXT);
                 Disconnect();
+
+#ifdef ENABLE_PROXIMITY_FRAMEWORK
+                if (ProximityScanner) {
+                    /* Stop the proximity scan before start to rule out any race conditions */
+                    ProximityScanner->StopScan();
+                }
+#endif
+
                 ForceInterfaceUpdateFlag = true;
-                DiscoveryManagerMutex.Unlock(MUTEX_CONTEXT);
             }
         }
 
@@ -2461,8 +2623,14 @@ void DiscoveryManager::HandleOnDemandConnectionResponse(HttpConnection::HTTPResp
 
         if (!ClientAuthenticationRequiredFlag) {
             /* Disconnect */
-            DiscoveryManagerMutex.Lock(MUTEX_CONTEXT);
             Disconnect();
+
+#ifdef ENABLE_PROXIMITY_FRAMEWORK
+            if (ProximityScanner) {
+                /* Stop the proximity scan before start to rule out any race conditions */
+                ProximityScanner->StopScan();
+            }
+#endif
 
             /* We need to re-authenticate with the Server */
             ClientAuthenticationRequiredFlag = true;
@@ -2474,8 +2642,6 @@ void DiscoveryManager::HandleOnDemandConnectionResponse(HttpConnection::HTTPResp
 
             InterfaceUpdateAlarm = new Alarm(INTERFACE_UPDATE_MIN_INTERVAL, this, 0, NULL);
             status = DiscoveryManagerTimer.AddAlarm(*InterfaceUpdateAlarm);
-
-            DiscoveryManagerMutex.Unlock(MUTEX_CONTEXT);
         }
 
     } else {
@@ -2484,9 +2650,14 @@ void DiscoveryManager::HandleOnDemandConnectionResponse(HttpConnection::HTTPResp
         QCC_LogError(status, ("DiscoveryManager::HandleOnDemandConnectionResponse(): %s", QCC_StatusText(status)));
 
         /* If any other http status code is received, we just disconnect and reconnect after INTERFACE_UPDATE_MIN_INTERVAL */
-        DiscoveryManagerMutex.Lock(MUTEX_CONTEXT);
         Disconnect();
-        DiscoveryManagerMutex.Unlock(MUTEX_CONTEXT);
+
+#ifdef ENABLE_PROXIMITY_FRAMEWORK
+        if (ProximityScanner) {
+            /* Stop the proximity scan before start to rule out any race conditions */
+            ProximityScanner->StopScan();
+        }
+#endif
 
         if (InterfaceUpdateAlarm) {
             DiscoveryManagerTimer.RemoveAlarm(*InterfaceUpdateAlarm);
@@ -2603,6 +2774,13 @@ void DiscoveryManager::HandleUnsuccessfulClientAuthentication(SASLError error)
 
     // Disconnect from rendezvous
     Disconnect();
+
+#ifdef ENABLE_PROXIMITY_FRAMEWORK
+    if (ProximityScanner) {
+        /* Stop the proximity scan before start to rule out any race conditions */
+        ProximityScanner->StopScan();
+    }
+#endif
 }
 
 QStatus DiscoveryManager::HandleUpdatesToServer(void)
