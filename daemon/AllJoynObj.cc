@@ -1307,7 +1307,8 @@ qcc::ThreadReturn STDCALL AllJoynObj::JoinSessionThread::RunAttach()
                                     }
                                 }
 
-                                if (ER_OK == status) {
+                                // only send to creator!
+                                if (ER_OK == status && creatorEp && (destEp == creatorEp)) {
                                     ajObj.ReleaseLocks();
                                     ajObj.SendJoinSession(sme.sessionPort, sme.id, src, sme.endpointName.c_str());
                                     ajObj.AcquireLocks();
@@ -1871,9 +1872,10 @@ QStatus AllJoynObj::SendAcceptSession(SessionPort sessionPort,
     const InterfaceDescription* sessionIntf = bus.GetInterface(org::alljoyn::Bus::Peer::Session::InterfaceName);
     assert(sessionIntf);
     peerObj.AddInterface(*sessionIntf);
-    QCC_DbgPrintf(("Calling AcceptSession(%d, %s, %s, <%x, %x, %x> to %s",
+
+    QCC_DbgPrintf(("Calling AcceptSession(%d, %u, %s, <%x, %x, %x> to %s",
                    acceptArgs[0].v_uint16,
-                   acceptArgs[1].v_string.str,
+                   acceptArgs[1].v_uint32,
                    acceptArgs[2].v_string.str,
                    inOpts.proximity, inOpts.traffic, inOpts.transports,
                    creatorName));
