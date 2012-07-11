@@ -53,7 +53,7 @@
 using namespace qcc;
 
 #if defined(QCC_OS_ANDROID)
-//#define ENABLE_PROXIMITY_FRAMEWORK
+#define ENABLE_PROXIMITY_FRAMEWORK
 #endif
 
 namespace ajn {
