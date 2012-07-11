@@ -6,7 +6,7 @@
 LOCAL_PATH := $(call my-dir)
 
 # AllJoyn specifics
-#ALLJOYN_DIST := /home/nikhil/quic_rc/alljoyn_core/build/android/arm/debug/dist
+#ALLJOYN_DIST := /home/nikhil/checkin_2.5/alljoyn_core/build/android/arm/debug/dist
 ALLJOYN_DIST := ../../
 
 # The CLEAR_VARS variable is provided by the build system and points to a
@@ -75,8 +75,9 @@ LOCAL_SRC_FILES := \
 #
 LOCAL_LDLIBS := \
 	-L$(NDK_PLATFORMS_ROOT)/$(TARGET_PLATFORM)/arch-arm/usr/lib -L$(ALLJOYN_DIST)/lib -L$(ANDROID_SRC)/out/target/product/generic/system/lib \
-	-llog -lz -ldl -lalljoyn -lm -lc -lstdc++ -lcrypto -lgcc
-
+	-L$(NDK_ROOT)/sources/cxx-stl/gnu-libstdc++/libs/armeabi \
+	-llog -lz -ldl -lalljoyn -lm -lc -lstdc++ -lcrypto -lgcc -lgnustl_static
+	
 # By default, ARM target binaries will be generated in 'thumb' mode, where
 # each instruction are 16-bit wide. You can define this variable to 'arm'
 # if you want to force the generation of the module's object files in

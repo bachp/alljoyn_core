@@ -295,7 +295,7 @@ JNIEXPORT jint JNICALL Java_org_alljoyn_jni_AllJoynAndroidExt_jniOnCreate(JNIEnv
                         /* Connect to the daemon */
                         status = s_bus->Connect(daemonAddr);
                         if (ER_OK != status) {
-                            LOGE("BusAttachment::Connect(\"%s\") failed (%s)", daemonAddr, QCC_StatusText(status));
+                            //LOGE("BusAttachment::Connect(\"%s\") failed (%s)", daemonAddr, QCC_StatusText(status));
                             s_bus->Disconnect(daemonAddr);
                             s_bus->UnregisterBusObject(*s_obj);
                             delete s_obj;
@@ -307,9 +307,9 @@ JNIEXPORT jint JNICALL Java_org_alljoyn_jni_AllJoynAndroidExt_jniOnCreate(JNIEnv
                 }
             }
         }
-        LOGD("Sleeping before trying to reconnect to the daemon");
+        //LOGD("Sleeping before trying to reconnect to the daemon");
         sleep(5);
-        LOGD("Up from sleep");
+        //LOGD("Up from sleep");
     }
 
 
