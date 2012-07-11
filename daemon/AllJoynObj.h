@@ -369,7 +369,7 @@ class AllJoynObj : public BusObject, public NameListener, public TransportListen
     const InterfaceDescription::Member* lostAdvNameSignal; /**< org.alljoyn.Bus.LostAdvertisdName signal */
     const InterfaceDescription::Member* sessionLostSignal; /**< org.alljoyn.Bus.SessionLost signal */
     const InterfaceDescription::Member* mpSessionChangedSignal;  /**< org.alljoyn.Bus.MPSessionChanged signal */
-    const InterfaceDescription::Member* mpJoinSessionSignal;  /**< org.alljoyn.Bus.JoinSession signal */
+    const InterfaceDescription::Member* mpSessionJoinedSignal;  /**< org.alljoyn.Bus.JoinSession signal */
 
     /** Map of open connectSpecs to local endpoint name(s) that require the connection. */
     std::multimap<qcc::String, qcc::String> connectMap;
