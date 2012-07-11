@@ -149,9 +149,6 @@ ICEPacketStream::ICEPacketStream(const ICEPacketStream& other) :
     turnPort(other.turnPort),
     relayServerAddress(other.relayServerAddress),
     relayServerPort(other.relayServerPort),
-    sock(other.sock),
-    sourceEvent((sock == SOCKET_ERROR) ? &Event::neverSet : new qcc::Event(sock, qcc::Event::IO_READ, false)),
-    sinkEvent((sock == SOCKET_ERROR) ? &Event::alwaysSet : new qcc::Event(sock, qcc::Event::IO_WRITE, false)),
     mtuWithStunOverhead(other.mtuWithStunOverhead),
     interfaceMtu(other.interfaceMtu),
     usingTurn(other.usingTurn),
@@ -161,46 +158,84 @@ ICEPacketStream::ICEPacketStream(const ICEPacketStream& other) :
     turnUsername(other.turnUsername),
     turnRefreshPeriod(other.turnRefreshPeriod),
     turnRefreshTimestamp(other.turnRefreshTimestamp),
-    stunKeepAlivePeriod(other.stunKeepAlivePeriod),
-    rxRenderBuf((sock == SOCKET_ERROR) ? NULL : new uint8_t[interfaceMtu]),
-    txRenderBuf((sock == SOCKET_ERROR) ? NULL : new uint8_t[interfaceMtu])
+    stunKeepAlivePeriod(other.stunKeepAlivePeriod)
 {
-}
-
-ICEPacketStream& ICEPacketStream::operator=(const ICEPacketStream& other)
-{
-    ipAddress = other.ipAddress;
-    port = other.port;
-    remoteAddress = other.remoteAddress;
-    remotePort = other.remotePort;
-    remoteMappedAddress = other.remoteMappedAddress;
-    remoteMappedPort = other.remoteMappedPort;
-    turnAddress = other.turnAddress;
-    turnPort = other.turnPort;
-    relayServerAddress = other.relayServerAddress;
-    relayServerPort = other.relayServerPort;
-    sock = other.sock;
-    mtuWithStunOverhead = other.mtuWithStunOverhead;
-    interfaceMtu = other.interfaceMtu;
-    usingTurn = other.usingTurn;
-    localTurn = other.localTurn;
-    localHost = other.localHost;
-    hmacKey = other.hmacKey;
-    turnUsername = other.turnUsername;
-    turnRefreshPeriod = other.turnRefreshPeriod;
-    turnRefreshTimestamp = other.turnRefreshTimestamp;
-    stunKeepAlivePeriod = other.stunKeepAlivePeriod;
-
-    if (sock == SOCKET_ERROR) {
+    if (other.sock == SOCKET_ERROR) {
+        sock = SOCKET_ERROR;
         sourceEvent = &Event::neverSet;
         sinkEvent = &Event::alwaysSet;
         rxRenderBuf = NULL;
         txRenderBuf = NULL;
     } else {
-        sourceEvent = new Event(sock, Event::IO_READ, false);
-        sinkEvent = new Event(sock, Event::IO_WRITE, false);
-        rxRenderBuf = new uint8_t[interfaceMtu];
-        txRenderBuf = new uint8_t[interfaceMtu];
+        QStatus status = SocketDup(other.sock, sock);
+        if (status == ER_OK) {
+            sourceEvent = new Event(sock, Event::IO_READ, false);
+            sinkEvent = new Event(sock, Event::IO_WRITE, false);
+            rxRenderBuf = new uint8_t[interfaceMtu];
+            txRenderBuf = new uint8_t[interfaceMtu];
+        } else {
+            QCC_LogError(status, ("SocketDup failed"));
+            sock = SOCKET_ERROR;
+            sourceEvent = &Event::neverSet;
+            sinkEvent = &Event::alwaysSet;
+            rxRenderBuf = txRenderBuf = NULL;
+        }
+    }
+}
+
+ICEPacketStream& ICEPacketStream::operator=(const ICEPacketStream& other)
+{
+    if (this != &other) {
+        ipAddress = other.ipAddress;
+        port = other.port;
+        remoteAddress = other.remoteAddress;
+        remotePort = other.remotePort;
+        remoteMappedAddress = other.remoteMappedAddress;
+        remoteMappedPort = other.remoteMappedPort;
+        turnAddress = other.turnAddress;
+        turnPort = other.turnPort;
+        relayServerAddress = other.relayServerAddress;
+        relayServerPort = other.relayServerPort;
+        mtuWithStunOverhead = other.mtuWithStunOverhead;
+        interfaceMtu = other.interfaceMtu;
+        usingTurn = other.usingTurn;
+        localTurn = other.localTurn;
+        localHost = other.localHost;
+        hmacKey = other.hmacKey;
+        turnUsername = other.turnUsername;
+        turnRefreshPeriod = other.turnRefreshPeriod;
+        turnRefreshTimestamp = other.turnRefreshTimestamp;
+        stunKeepAlivePeriod = other.stunKeepAlivePeriod;
+
+        if (sock != SOCKET_ERROR) {
+            ::close(sock);
+            delete sourceEvent;
+            delete sinkEvent;
+            delete [] rxRenderBuf;
+            delete [] txRenderBuf;
+        }
+
+        if (other.sock == SOCKET_ERROR) {
+            sock = SOCKET_ERROR;
+            sourceEvent = &Event::neverSet;
+            sinkEvent = &Event::alwaysSet;
+            rxRenderBuf = NULL;
+            txRenderBuf = NULL;
+        } else {
+            QStatus status = SocketDup(other.sock, sock);
+            if (status == ER_OK) {
+                sourceEvent = new Event(sock, Event::IO_READ, false);
+                sinkEvent = new Event(sock, Event::IO_WRITE, false);
+                rxRenderBuf = new uint8_t[interfaceMtu];
+                txRenderBuf = new uint8_t[interfaceMtu];
+            } else {
+                QCC_LogError(status, ("SocketDup failed"));
+                sock = SOCKET_ERROR;
+                sourceEvent = &Event::neverSet;
+                sinkEvent = &Event::alwaysSet;
+                rxRenderBuf = txRenderBuf = NULL;
+            }
+        }
     }
 
     return *this;
@@ -208,6 +243,7 @@ ICEPacketStream& ICEPacketStream::operator=(const ICEPacketStream& other)
 
 ICEPacketStream::~ICEPacketStream()
 {
+    Stop();
     if (sourceEvent != &Event::neverSet) {
         delete sourceEvent;
         sourceEvent = &Event::neverSet;
@@ -222,7 +258,9 @@ ICEPacketStream::~ICEPacketStream()
     if (txRenderBuf) {
         delete[] txRenderBuf;
     }
-    Stop();
+    if (sock != SOCKET_ERROR) {
+        ::close(sock);
+    }
 }
 
 QStatus ICEPacketStream::Start()
