@@ -1163,7 +1163,7 @@ class DiscoveryManager : public Thread, public AlarmListener {
         ConnectThread(DiscoveryManager* discMgr)
             : Thread("ConnectThread"), discoveryManager(discMgr), status(ER_FAIL) { }
 
-        void ThreadExit(Thread* thread);
+        void ThreadExit(Thread* thread) { return; }
 
         QStatus GetStatus(void);
 
@@ -1173,7 +1173,6 @@ class DiscoveryManager : public Thread, public AlarmListener {
       private:
         DiscoveryManager* discoveryManager;
         QStatus status;
-        Mutex statusLock;
     };
 
     /* Pointer to the instance of the Connect thread */
