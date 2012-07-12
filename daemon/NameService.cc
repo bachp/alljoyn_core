@@ -1094,6 +1094,9 @@ void NameService::LazyUpdateInterfaces(void)
 
 void NameService::Enable(void)
 {
+    // If the previous disable request has not yet been serviced,
+    // remove the request. Only the latest request must be serviced.
+    m_doDisable = false;
     m_doEnable = true;
     m_forceLazyUpdate = true;
     m_wakeEvent.SetEvent();
@@ -1101,6 +1104,9 @@ void NameService::Enable(void)
 
 void NameService::Disable(void)
 {
+    // If the previous enable request has not yet been serviced,
+    // remove the request. Only the latest request must be serviced.
+    m_doEnable = false;
     m_doDisable = true;
     m_forceLazyUpdate = true;
     m_wakeEvent.SetEvent();
