@@ -25,6 +25,8 @@ Windows 8 machines in order to test your application.
 
 The RSA provider is broken; don't use it.
 
+BusObject SetProperty() and GetProperty() block on WinJS, so don't use them.
+
 Setup
 -----
 
