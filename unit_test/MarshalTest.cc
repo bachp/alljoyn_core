@@ -589,6 +589,7 @@ bool foundExpectedFuzzingStatus(QStatus status) {
             ER_BUS_BAD_SIGNATURE == status ||
             ER_BUS_BAD_VALUE_TYPE == status ||
             ER_BUS_HANDLES_MISMATCH == status ||
+            ER_BUS_INVALID_HEADER_SERIAL == status ||
             ER_BUS_MEMBER_MISSING == status ||
             ER_BUS_NO_SUCH_HANDLE == status ||
             ER_BUS_PATH_MISSING == status ||
