@@ -60,7 +60,7 @@ class BusAttachmentTest : public testing::Test {
 };
 
 // disabled for mbus-1215
-TEST_F(BusAttachmentTest, DISABLED_FindName_Same_Name)
+TEST_F(BusAttachmentTest, FindName_Same_Name)
 {
     QStatus status = ER_OK;
 

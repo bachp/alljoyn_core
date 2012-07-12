@@ -646,7 +646,7 @@ Mutex LocalTestObject::DelayedResponse::delayedResponseLock;
 
 static void usage(void)
 {
-    printf("Usage: bbservice [-h <name>] [-m] [-e] [-x] [-i #] [-n <name>] [-b] [t] [-l]\n\n");
+    printf("Usage: bbservice [-h <name>] [-m] [-e] [-x] [-i #] [-n <name>] [-b] [-t] [-r] [-l]\n\n");
     printf("Options:\n");
     printf("   -h                    = Print this help message\n");
     printf("   -k <key store name>   = The key store file name\n");
@@ -659,6 +659,7 @@ static void usage(void)
     printf("   -b                    = Advertise over Bluetooth (enables selective advertising)\n");
     printf("   -t                    = Advertise over TCP (enables selective advertising)\n");
     printf("   -l                    = Advertise locally (enables selective advertising)\n");
+    printf("   -r                    = Advertise using the Rendezvous Server (enables selective advertising)\n");
     printf("   -a                    = Cancel advertising while servicing a single client (causes rediscovery between iterations)\n");
     printf("   -p                    = Respond to an incoming signal by pinging back to the sender\n");
 }
@@ -745,6 +746,8 @@ int main(int argc, char** argv)
             opts.transports |= TRANSPORT_WLAN;
         } else if (0 == strcmp("-l", argv[i])) {
             opts.transports |= TRANSPORT_LOCAL;
+        } else if (0 == strcmp("-r", argv[i])) {
+            opts.transports |= TRANSPORT_ICE;
         } else if (0 == strcmp("-a", argv[i])) {
             g_cancelAdvertise = true;
         } else {
@@ -759,6 +762,8 @@ int main(int argc, char** argv)
     if (opts.transports == 0) {
         opts.transports = TRANSPORT_ANY;
     }
+
+    QCC_SyncPrintf("opts.transports = 0x%x\n", opts.transports);
 
     /* Get env vars */
     Environ* env = Environ::GetAppEnviron();
