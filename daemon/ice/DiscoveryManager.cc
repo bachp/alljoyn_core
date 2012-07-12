@@ -1001,7 +1001,11 @@ void* DiscoveryManager::Run(void* arg)
                             QCC_DbgPrintf(("%s: Wait on connect status = %s", __FUNCTION__, QCC_StatusText(status)));
 
                             /* Retrieve the status of the connect */
-                            status = ServerConnectThread->GetStatus();
+                            if (ServerConnectThread) {
+                                status = ServerConnectThread->GetStatus();
+                            } else {
+                                status = ER_FAIL;
+                            }
 
                             QCC_DbgPrintf(("%s: Server connect thread return status = %s", __FUNCTION__, QCC_StatusText(status)));
 
@@ -3364,9 +3368,7 @@ ThreadReturn STDCALL DiscoveryManager::ConnectThread::Run(void* arg)
         localStatus = discoveryManager->Connect();
     }
 
-    statusLock.Lock(MUTEX_CONTEXT);
     status = localStatus;
-    statusLock.Unlock(MUTEX_CONTEXT);
 
     /* Tell the DiscoveryManager Run() thread that we are done */
     (discoveryManager->ConnectEvent).SetEvent();
@@ -3378,23 +3380,12 @@ QStatus STDCALL DiscoveryManager::ConnectThread::GetStatus(void)
 {
     QCC_DbgHLPrintf(("DiscoveryManager::ConnectThread::GetStatus()"));
 
-    QStatus localStatus;
-
-    statusLock.Lock(MUTEX_CONTEXT);
-    localStatus = status;
-    statusLock.Unlock(MUTEX_CONTEXT);
-
-    return localStatus;
-}
-
-void DiscoveryManager::ConnectThread::ThreadExit(Thread* thread)
-{
-    QCC_DbgHLPrintf(("DiscoveryManager::ConnectThread::ThreadExit()"));
-    return;
+    return status;
 }
 
 QStatus DiscoveryManager::Stop(void)
 {
+
     QCC_DbgHLPrintf(("DiscoveryManager::Stop()"));
     /* Set the ConnectEvent to make the Run() thread come out of the wait on ConnectEvent.
      * We should not kill the ServerConnectThread here because during joining, if the Run
