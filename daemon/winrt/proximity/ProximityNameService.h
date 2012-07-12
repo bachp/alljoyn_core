@@ -32,6 +32,7 @@
 #include <qcc/String.h>
 #include <qcc/Mutex.h>
 #include <qcc/Debug.h>
+#include <qcc/GUID.h>
 
 #include "NsProtocol.h"
 #include "ProximityListener.h"
@@ -45,17 +46,18 @@ ref class ProximityNameService sealed {
 
   private:
     friend class ProximityTransport;
-    static const uint32_t MAX_DISPLAYNAME_SIZE = 49;
-    static const uint32_t MAX_CONNECT_RETRY = 3;
-    static const uint32_t TRANSMIT_INTERVAL = 10 * 1000;
-    static const uint32_t DEFAULT_DURATION = (120);
+    static Platform::String ^ PROXIMITY_ALT_ID_ALLJOYN;             /**< The Alt ID for AllJoyn. Two devices have the same Alt ID will rendezvous. The length limit is 127 unicode charaters */
+    static const uint32_t MAX_DISPLAYNAME_SIZE = 49;         /**< The maximum number of unicode charaters that DisplayName property of PeerFinder allows */
+    static const uint32_t MAX_CONNECT_RETRY = 3;             /**< The number of retry when connecting to a peer */
+    static const uint32_t TRANSMIT_INTERVAL = 10 * 1000;     /**< The default interval of transmitting well-known name advertisement */
+    static const uint32_t DEFAULT_DURATION = (12);           /**< The default lifetime of a found well-known name */
 
     enum ProximState {
-        PROXIM_DISCONNECTED,
-        PROXIM_BROWSING,
-        PROXIM_CONNECTING,
-        PROXIM_ACCEPTING,
-        PROXIM_CONNECTED,
+        PROXIM_DISCONNECTED,                                 /**< Not connected to a peer */
+        PROXIM_BROWSING,                                     /**< Browsing peers */
+        PROXIM_CONNECTING,                                   /**< Connecting to a peer */
+        PROXIM_ACCEPTING,                                    /**< Accepting connection from a peer */
+        PROXIM_CONNECTED,                                    /**< Connected to a peer */
     };
 
     ProximityNameService(const qcc::String & guid);
@@ -64,19 +66,11 @@ ref class ProximityNameService sealed {
     void DisableDiscovery(const qcc::String& namePrefix);
     void EnableAdvertisement(const qcc::String& name);
     void DisableAdvertisement(std::vector<qcc::String>& wkns);
-    QStatus GetEndpoints(qcc::String& ipv6address, uint16_t& port)
-    {
-        QStatus status = ER_OK;
-        if (!m_listenAddr.empty()) {
-            ipv6address = m_listenAddr;
-            port = m_port;
-        } else {
-            status = ER_FAIL;
-        }
-        return status;
-    }
-    void SetEndpoints(const qcc::String& ipv6address, const uint16_t port);
 
+    /**
+     * @internal
+     * @brief Send the protocol message over the proximity connection.
+     */
     void SendProtocolMessage(Header& header);
     /**
      * @internal
@@ -96,59 +90,114 @@ ref class ProximityNameService sealed {
      */
     void HandleProtocolAnswer(IsAt isAt, uint32_t timer, qcc::IPAddress address);
 
+    /**
+     * Start Proximity name service
+     */
     void Start();
-    void Stop() { }
+    /**
+     * Stop Proximity name service
+     */
+    void Stop();
+    /**
+     * Browse proximity peers to discover service
+     */
     void BrowsePeers();
+    /**
+     * Connect to a proximity peer
+     */
     QStatus Connect(Windows::Networking::Proximity::PeerInformation ^ peerInfo);
-    QStatus Listen();
+    /**
+     * Reset the current proximity connection
+     */
     void Reset();
+    /**
+     * Reset the current proximity connection and re-browse proximity peers
+     */
     void Restart();
+    /**
+     * Start the loop to read data over the created proximity connection
+     */
     void StartReader();
+    /**
+     * Handle errors of the proximity stream socket
+     */
     void SocketError(qcc::String& errMsg);
-    uint32_t IncreaseOverlayTCPConnection() { return ++m_tcpConnCount; }
-    uint32_t DecreaseOverlayTCPConnection() { return --m_tcpConnCount; }
+
+    QStatus GetEndpoints(qcc::String& ipv6address, uint16_t& port);
+    void SetEndpoints(const qcc::String& ipv6address, const uint16_t port);
+    /**
+     * Increase the number of overlay TCP connections that depends on the current proximity connection
+     */
+    int32_t IncreaseOverlayTCPConnection();
+    /**
+     * Decrease the number of overlay TCP connections that depends on the current proximity connection
+     */
+    int32_t DecreaseOverlayTCPConnection();
     bool IsConnected() { return m_currentState == PROXIM_CONNECTED; }
     ProximState GetCurrentState() { return m_currentState; }
-    void RegisterProximityListener(ProximityListener* listener) { m_listeners.push_back(listener); }
-    void UnRegisterProximityListener(ProximityListener* listener) { m_listeners.remove(listener); }
+    void RegisterProximityListener(ProximityListener* listener);
+    void UnRegisterProximityListener(ProximityListener* listener);
+    /**
+     * Notify the proximity listeners when the proximity connection is broken
+     */
     void NotifyDisconnected();
 
+    /**
+     * Start a timer that triggers periodically to transmit well-known names to peers
+     */
     void StartMaintainanceTimer();
     void TimerCallback(Windows::System::Threading::ThreadPoolTimer ^ timer);
-    void Locate(const qcc::String& wkn);
+    /**
+     * Transmit well-known names to peers
+     */
     void TransmitMyWKNs();
-    Callback<void, const qcc::String&, const qcc::String&, std::vector<qcc::String>&, uint8_t>* m_callback;
+    /**
+     * Inquire a connected peer to discover service
+     */
+    void Locate(const qcc::String& namePrefix);
 
     bool IsBrowseConnectSupported();
     bool IsTriggeredConnectSupported();
+    /**
+     * Encode advertised well-known names into a string given the limit of the length of PeerFinder::DisplayName property
+     */
     Platform::String ^ EncodeWknAdvertisement();
+    /**
+     * Check whether should browse peers for service discovery
+     */
     bool ShouldDoDiscovery();
+    /**
+     * Check whether a found well-known name matches the prefix
+     */
     bool MatchNamePrefix(qcc::String wkn);
 
-    Windows::Foundation::Collections::IVectorView<Windows::Networking::Proximity::PeerInformation ^> ^ m_peerInformationList;
-    Windows::Networking::Proximity::PeerInformation ^ m_requestingPeer;
-    Windows::Networking::Sockets::StreamSocket ^ m_socket;
-    Windows::Storage::Streams::DataReader ^ m_dataReader;
-    Windows::Storage::Streams::DataWriter ^ m_dataWriter;
-    Windows::System::Threading::ThreadPoolTimer ^ m_timer;
+    Windows::Foundation::Collections::IVectorView<Windows::Networking::Proximity::PeerInformation ^> ^ m_peerInformationList;  /** The list of peers already found */
+    Windows::Networking::Proximity::PeerInformation ^ m_requestingPeer;   /**< The peer that has requested connection */
+    Windows::Networking::Sockets::StreamSocket ^ m_socket;        /**< The current proximity stream socket connection if connnected to a peer */
+    Windows::Storage::Streams::DataReader ^ m_dataReader;         /**< The data reader associated with the current proximity stream socket connection */
+    Windows::Storage::Streams::DataWriter ^ m_dataWriter;         /**< The data writer associated with the current proximity stream socket connection */
+    Windows::System::Threading::ThreadPoolTimer ^ m_timer;        /**< The periodical timer for transmitting well-name */
+    Windows::Foundation::EventRegistrationToken m_token;          /**< The token used to remove ConnectionRequested event handler */
 
-    bool m_triggeredConnectSupported;
-    bool m_browseConnectSupported;
-    bool m_peerFinderStarted;
-    bool m_socketClosed;
-    std::set<qcc::String> m_namePrefixs;
-    std::set<qcc::String> m_advertised;
-    qcc::String m_guid;
-    bool m_locateStarted;
-    ProximState m_currentState;
-    bool m_doDiscovery;
-    uint32_t m_connectRetries;
+    Callback<void, const qcc::String&, const qcc::String&, std::vector<qcc::String>&, uint8_t>* m_callback;      /**< The callback to notify the proximity transport about the found name */
+    bool m_triggeredConnectSupported;                             /**< Does this device support triggered mode (NFC) */
+    bool m_browseConnectSupported;                                /**< Does this device support browse mode (WIFI-Direct) */
+    bool m_peerFinderStarted;                                     /**< Whether PeerFinder::Start() is called */
+    bool m_socketClosed;                                          /**< Whether the proximity stream socket is closed */
+    std::set<qcc::String> m_namePrefixs;                          /**< The name prefixs the daemon tried to discover */
+    std::set<qcc::String> m_advertised;                           /**< The well-known names the daemon advertised */
+    qcc::String m_guid;                                           /**< The daemon GUID string */
+    qcc::String m_sguid;                                               /**< The daemon GUID short string */
+    bool m_locateStarted;                                         /**< Whether already being browsing peers */
+    ProximState m_currentState;                                   /**< The current proximity connection state */
+    bool m_doDiscovery;                                           /**< Whether PeerFinder should browse peers to discover well-known name */
+    uint32_t m_connectRetries;                                    /**< The number of tried connecting to a found peer */
     qcc::Mutex m_mutex;
-    uint16_t m_port;
-    uint32_t m_tDuration;
-    qcc::String m_listenAddr;
-    uint32_t m_tcpConnCount;
-    std::list<ProximityListener*> m_listeners;
+    uint16_t m_port;                                              /**< The port associated with the name service */
+    uint32_t m_tDuration;                                         /**< The lifetime of a found advertised well-known nmae */
+    qcc::String m_listenAddr;                                     /**< The listen address */
+    int32_t m_tcpConnCount;                                      /**< Number of overlay TCP connections that depend on current proximity connection */
+    std::list<ProximityListener*> m_listeners;                    /**< List of ProximityListeners */
 };
 
 } // namespace ajn

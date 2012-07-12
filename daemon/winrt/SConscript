@@ -19,11 +19,12 @@ Import('env', 'daemon_objs', 'common_objs', 'alljoyn_core_objs', 'bdobj')
 # TODO: Fix our dependencies so they don't "bleed" all over
 env.Append(CPPPATH=['..'])
 
+proximity_objs = SConscript('proximity/SConscript')
 winmdswitch = '\"/WINMDFILE:%s\"' % os.path.abspath('AllJoyn.winmd')
 env.Append(LINKFLAGS=['/MANIFEST:NO', '/SUBSYSTEM:CONSOLE', '/TLBID:1', '/APPCONTAINER', '/WINMD', winmdswitch])
 
 # Build the Windows daemon.
-alljoyn_libs = env.SharedLibrary('AllJoyn', daemon_objs + common_objs + alljoyn_core_objs)
+alljoyn_libs = env.SharedLibrary('AllJoyn', daemon_objs + common_objs + alljoyn_core_objs + proximity_objs)
 env.Install('$DISTDIR/lib', alljoyn_libs[1]) #put the *.lib file in the lib folder
 env.Install('$DISTDIR/bin', 'AllJoyn.winmd') #put the *.winmd file in the bin folder
 

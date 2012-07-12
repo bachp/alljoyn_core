@@ -281,7 +281,7 @@ class ProximityTransport : public Transport, public RemoteEndpoint::EndpointList
   private:
     ProximityTransport(const ProximityTransport& other);
     ProximityTransport& operator =(const ProximityTransport& other);
-    virtual void OnProximityDisconnected() { }
+    virtual void OnProximityDisconnected();
 
     BusAttachment& m_bus;                                          /**< The message bus for this transport */
     ProximityNameService ^ m_pns;                                  /**< The name service used for bus name discovery */

@@ -20,37 +20,32 @@
  ******************************************************************************/
 
 #include <qcc/IPAddress.h>
-#include <qcc/Socket.h>
-#include <qcc/SocketStream.h>
 #include <qcc/platform.h>
 #include <qcc/String.h>
 #include <qcc/Debug.h>
+#include <qcc/Thread.h>
+#include <qcc/Util.h>
 #include <qcc/winrt/utility.h>
 
-#include <alljoyn/BusAttachment.h>
-
 #include "ProximityNameService.h"
-#include "RemoteEndpoint.h"
 #include "ppltasks.h"
 
 #define QCC_MODULE "PROXIMITY_NAME_SERVICE"
 
 using namespace std;
 using namespace qcc;
+using namespace Platform;
 using namespace Windows::Networking::Proximity;
 using namespace Windows::Networking::Sockets;
 using namespace Windows::System;
 using namespace Windows::Foundation;
 using namespace Windows::Foundation::Collections;
-using namespace Platform;
 using namespace Windows::Storage::Streams;
 using namespace Windows::System::Threading;
 
 namespace ajn {
 
-class NameService;
-
-#define PROXIMITY_ALT_ID_ALLJOYN "alljoyn"
+Platform::String ^ ProximityNameService::PROXIMITY_ALT_ID_ALLJOYN = L"alljoyn";
 
 ProximityNameService::ProximityNameService(const qcc::String& guid) :
     m_requestingPeer(nullptr),
@@ -72,11 +67,13 @@ ProximityNameService::ProximityNameService(const qcc::String& guid) :
     m_tcpConnCount(0)
 {
     GUID128 id(guid);
-    m_guid = id.ToShortString();
+    m_guid = id.ToString();
+    m_sguid = id.ToShortString();
 }
 
 ProximityNameService::~ProximityNameService()
 {
+    QCC_DbgPrintf(("ProximityNameService::~ProximityNameService()"));
     Reset();
     if (m_timer != nullptr) {
         m_timer->Cancel();
@@ -121,14 +118,27 @@ bool ProximityNameService::ShouldDoDiscovery()
 
 void ProximityNameService::Start()
 {
+    QCC_DbgPrintf(("ProximityNameService::Start()"));
     Reset();
-    PeerFinder::ConnectionRequested += ref new TypedEventHandler<Platform::Object ^, Windows::Networking::Proximity::ConnectionRequestedEventArgs ^>(this, \
-                                                                                                                                                     &ProximityNameService::ConnectionRequestedEventHandler, CallbackContext::Same);
+    Windows::Foundation::EventRegistrationToken m_token = PeerFinder::ConnectionRequested += ref new TypedEventHandler<Platform::Object ^, Windows::Networking::Proximity::ConnectionRequestedEventArgs ^>(this, \
+                                                                                                                                                                                                           &ProximityNameService::ConnectionRequestedEventHandler, CallbackContext::Same);
+}
+
+void ProximityNameService::Stop()
+{
+    QCC_DbgPrintf(("ProximityNameService::Stop()"));
+    if (m_tcpConnCount > 0) {
+        NotifyDisconnected();
+    }
+    Reset();
+    m_currentState = PROXIM_DISCONNECTED;
+
+    PeerFinder::ConnectionRequested -= m_token;
 }
 
 void ProximityNameService::ConnectionRequestedEventHandler(Platform::Object ^ sender, ConnectionRequestedEventArgs ^ TriggeredConnectionStateChangedEventArgs)
 {
-    QCC_DbgPrintf(("ConnectionRequestedEventHandler() m_currentState(%d)", m_currentState));
+    QCC_DbgPrintf(("ProximityNameService::ConnectionRequestedEventHandler() m_currentState(%d)", m_currentState));
     if (m_currentState == PROXIM_CONNECTING) {
         return;
     }
@@ -177,11 +187,12 @@ bool ProximityNameService::IsBrowseConnectSupported()
 
 void ProximityNameService::EnableAdvertisement(const qcc::String& name)
 {
-    QCC_DbgPrintf(("EnableAdvertisement (%s)", name.c_str()));
+    QCC_DbgPrintf(("ProximityNameService::EnableAdvertisement (%s)", name.c_str()));
+    m_mutex.Lock(MUTEX_CONTEXT);
     try {
         if (IsBrowseConnectSupported()) {
-            if (!PeerFinder::AlternateIdentities->HasKey("Browse")) {
-                PeerFinder::AlternateIdentities->Insert("Browse", PROXIMITY_ALT_ID_ALLJOYN);
+            if (!PeerFinder::AlternateIdentities->HasKey(L"Browse")) {
+                PeerFinder::AlternateIdentities->Insert(L"Browse", PROXIMITY_ALT_ID_ALLJOYN);
             }
 
             m_advertised.insert(name);
@@ -190,6 +201,7 @@ void ProximityNameService::EnableAdvertisement(const qcc::String& name)
             if (IsConnected()) {
                 QCC_DbgPrintf(("EnableAdvertisement() already connected, TransmitMyWKNs Immidiately"));
                 TransmitMyWKNs();
+                m_mutex.Unlock(MUTEX_CONTEXT);
                 return;
             }
 
@@ -202,11 +214,13 @@ void ProximityNameService::EnableAdvertisement(const qcc::String& name)
     } catch (Exception ^ e) {
         QCC_LogError(ER_FAIL, ("EnableAdvertisement() Error (%s)", PlatformToMultibyteString(e->Message).c_str()));
     }
+    m_mutex.Unlock(MUTEX_CONTEXT);
 }
 
 void ProximityNameService::DisableAdvertisement(vector<qcc::String>& wkns)
 {
-    QCC_DbgPrintf(("DisableAdvertisement()"));
+    QCC_DbgPrintf(("ProximityNameService::DisableAdvertisement()"));
+    m_mutex.Lock(MUTEX_CONTEXT);
     try {
         if (IsBrowseConnectSupported()) {
             Platform::String ^ updatedName;
@@ -219,16 +233,18 @@ void ProximityNameService::DisableAdvertisement(vector<qcc::String>& wkns)
                 }
             }
             if (!changed) {
+                m_mutex.Unlock(MUTEX_CONTEXT);
                 return;
             }
             m_doDiscovery = ShouldDoDiscovery();
             if (IsConnected()) {
                 QCC_DbgPrintf(("DisableAdvertisement() already connected, TransmitMyWKNs Immidiately"));
                 TransmitMyWKNs();
+                m_mutex.Unlock(MUTEX_CONTEXT);
                 return;
             }
             if (m_advertised.size() == 0) {
-                updatedName = "NA";
+                updatedName = L"NA";
             } else {
                 updatedName = EncodeWknAdvertisement();
             }
@@ -241,11 +257,13 @@ void ProximityNameService::DisableAdvertisement(vector<qcc::String>& wkns)
     } catch (Exception ^ e) {
         QCC_LogError(ER_FAIL, ("DisableAdvertisement() Error (%s)", PlatformToMultibyteString(e->Message).c_str()));
     }
+    m_mutex.Unlock(MUTEX_CONTEXT);
 }
 
 void ProximityNameService::EnableDiscovery(const qcc::String& namePrefix)
 {
-    QCC_DbgPrintf(("EnableDiscovery (%s)", namePrefix.c_str()));
+    QCC_DbgPrintf(("ProximityNameService::EnableDiscovery (%s)", namePrefix.c_str()));
+    m_mutex.Lock(MUTEX_CONTEXT);
     try {
         if (IsBrowseConnectSupported()) {
             qcc::String actualPrefix;
@@ -260,20 +278,22 @@ void ProximityNameService::EnableDiscovery(const qcc::String& namePrefix)
             if (IsConnected()) {
                 QCC_DbgPrintf(("EnableDiscovery() already connected, Locate() Immidiately"));
                 Locate(namePrefix);
+                m_mutex.Unlock(MUTEX_CONTEXT);
                 return;
             }
 
             if (m_locateStarted) {
+                m_mutex.Unlock(MUTEX_CONTEXT);
                 return;
             } else {
                 m_locateStarted = true;
             }
 
-            if (!PeerFinder::AlternateIdentities->HasKey("Browse")) {
-                PeerFinder::AlternateIdentities->Insert("Browse", PROXIMITY_ALT_ID_ALLJOYN);
+            if (!PeerFinder::AlternateIdentities->HasKey(L"Browse")) {
+                PeerFinder::AlternateIdentities->Insert(L"Browse", PROXIMITY_ALT_ID_ALLJOYN);
             }
             if (!m_peerFinderStarted) {
-                PeerFinder::DisplayName = "NA";
+                PeerFinder::DisplayName = L"NA";
                 Windows::Networking::Proximity::PeerFinder::Start();
                 m_peerFinderStarted = true;
             }
@@ -284,18 +304,21 @@ void ProximityNameService::EnableDiscovery(const qcc::String& namePrefix)
     } catch (Exception ^ e) {
         QCC_LogError(ER_FAIL, ("EnableDiscovery() Error (%s)", PlatformToMultibyteString(e->Message).c_str()));
     }
+    m_mutex.Unlock(MUTEX_CONTEXT);
 }
 
 void ProximityNameService::DisableDiscovery(const qcc::String& namePrefix)
 {
-    QCC_DbgPrintf(("DisableDiscovery (%s)", namePrefix.c_str()));
+    QCC_DbgPrintf(("ProximityNameService::DisableDiscovery (%s)", namePrefix.c_str()));
+    m_mutex.Lock(MUTEX_CONTEXT);
     m_namePrefixs.erase(namePrefix);
     m_doDiscovery = ShouldDoDiscovery();
+    m_mutex.Unlock(MUTEX_CONTEXT);
 }
 
 void ProximityNameService::BrowsePeers()
 {
-    QCC_DbgPrintf(("BrowsePeers()"));
+    QCC_DbgPrintf(("ProximityNameService::BrowsePeers()"));
     if (!IsBrowseConnectSupported()) {
         m_currentState = PROXIM_DISCONNECTED;
         return;
@@ -327,6 +350,7 @@ void ProximityNameService::BrowsePeers()
                                               continue;
                                           }
 #ifdef ENCODE_SHORT_GUID
+                                          QCC_DbgPrintf(("Parse short GUID string"));
                                           // short version, 48-bit (8 bytes)
                                           assert(pos == GUID128::SHORT_SIZE);
                                           qcc::String guidStr = mbStr.substr(0, GUID128::SHORT_SIZE);
@@ -456,6 +480,7 @@ void ProximityNameService::Reset()
             m_socket = nullptr;
             m_dataReader = nullptr;
             m_dataWriter = nullptr;
+            m_listenAddr = qcc::String::Empty;
         }
     }
 }
@@ -464,7 +489,8 @@ Platform::String ^ ProximityNameService::EncodeWknAdvertisement()
 {
     qcc::String encodedStr;
 #ifdef ENCODE_SHORT_GUID
-    encodedStr.append(m_guid);
+    QCC_DbgPrintf(("Encode short GUID string"));
+    encodedStr.append(m_sguid);
     encodedStr.append(";");
 #endif
     // encode the number of local well-known names
@@ -503,6 +529,7 @@ bool ProximityNameService::MatchNamePrefix(qcc::String wkn)
 
 void ProximityNameService::StartMaintainanceTimer()
 {
+    QCC_DbgPrintf(("ProximityNameService::StartMaintainanceTimer(interval = %d)", TRANSMIT_INTERVAL));
     #define HUNDRED_NANOSECONDS_PER_MILLISECOND 10000
     Windows::Foundation::TimeSpan ts = { TRANSMIT_INTERVAL* HUNDRED_NANOSECONDS_PER_MILLISECOND };
     m_timer = ThreadPoolTimer::CreatePeriodicTimer(ref new TimerElapsedHandler([&] (ThreadPoolTimer ^ timer) {
@@ -570,7 +597,10 @@ void ProximityNameService::StartReader()
 void ProximityNameService::SocketError(qcc::String& errMsg)
 {
     QCC_LogError(ER_FAIL, ("ProximityNameService::SocketError (%s)", errMsg.c_str()));
-    // TODO Should hook to notify the actual alljoyn connectioin?
+    if (m_tcpConnCount > 0) {
+        NotifyDisconnected();
+    }
+
     if (!m_socketClosed) {
         m_socketClosed = true;
         delete m_socket;
@@ -578,6 +608,22 @@ void ProximityNameService::SocketError(qcc::String& errMsg)
         m_listenAddr = qcc::String::Empty;
         m_currentState = PROXIM_DISCONNECTED;
     }
+
+    // TODO Should re-browser peers for connection?
+}
+
+QStatus ProximityNameService::GetEndpoints(qcc::String& ipv6address, uint16_t& port)
+{
+    QCC_DbgPrintf(("ProximityNameService::GetEndpoints()"));
+    QStatus status = ER_OK;
+    if (!m_listenAddr.empty()) {
+        ipv6address = m_listenAddr;
+        port = m_port;
+    } else {
+        status = ER_FAIL;
+        QCC_LogError(status, ("The listen address is empy"));
+    }
+    return status;
 }
 
 void ProximityNameService::SetEndpoints(const qcc::String& ipv6address, const uint16_t port)
@@ -586,8 +632,34 @@ void ProximityNameService::SetEndpoints(const qcc::String& ipv6address, const ui
     m_port = port;
 }
 
+int32_t ProximityNameService::IncreaseOverlayTCPConnection()
+{
+    ++m_tcpConnCount;
+    QCC_DbgPrintf(("ProximityNameService::IncreaseOverlayTCPConnection(%d)", m_tcpConnCount));
+    return m_tcpConnCount;
+}
+
+int32_t ProximityNameService::DecreaseOverlayTCPConnection() {
+    --m_tcpConnCount;
+    QCC_DbgPrintf(("ProximityNameService::DecreaseOverlayTCPConnection(%d)", m_tcpConnCount));
+    return m_tcpConnCount;
+}
+
+void ProximityNameService::RegisterProximityListener(ProximityListener* listener)
+{
+    QCC_DbgPrintf(("ProximityNameService::RegisterProximityListener(%p)", listener));
+    m_listeners.push_back(listener);
+}
+
+void ProximityNameService::UnRegisterProximityListener(ProximityListener* listener)
+{
+    QCC_DbgPrintf(("ProximityNameService::UnRegisterProximityListener(%p)", listener));
+    m_listeners.remove(listener);
+}
+
 void ProximityNameService::NotifyDisconnected()
 {
+    QCC_DbgPrintf(("ProximityNameService::NotifyDisconnected()"));
     std::list<ProximityListener*>::iterator it = m_listeners.begin();
     for (; it != m_listeners.end(); it++) {
         (*it)->OnProximityDisconnected();
@@ -596,9 +668,9 @@ void ProximityNameService::NotifyDisconnected()
 
 extern bool WildcardMatch(qcc::String str, qcc::String pat);
 
-void ProximityNameService::Locate(const qcc::String& wkn)
+void ProximityNameService::Locate(const qcc::String& namePrefix)
 {
-    QCC_DbgHLPrintf(("ProximityNameService::Locate(): %s", wkn.c_str()));
+    QCC_DbgHLPrintf(("ProximityNameService::Locate(): %s", namePrefix.c_str()));
 
     //
     // Send a request to the network over our multicast channel,
@@ -607,7 +679,7 @@ void ProximityNameService::Locate(const qcc::String& wkn)
     WhoHas whoHas;
     whoHas.SetTcpFlag(true);
     whoHas.SetIPv6Flag(true);
-    whoHas.AddName(wkn);
+    whoHas.AddName(namePrefix);
 
     Header header;
     header.SetVersion(0);

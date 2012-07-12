@@ -835,6 +835,9 @@ void ProximityTransport::EndpointExit(RemoteEndpoint* ep)
      * Wake up the server accept loop so that it deals with our passing immediately.
      */
     Alert();
+    if (m_pns != nullptr) {
+        m_pns->DecreaseOverlayTCPConnection();
+    }
 }
 
 void ProximityTransport::ManageEndpoints(Timespec tTimeout)
@@ -921,6 +924,9 @@ void ProximityTransport::ManageEndpoints(Timespec tTimeout)
             QCC_DbgHLPrintf(("ProximityTransport::ManageEndpoints(): Scavenging failed authenticator"));
             ep->AuthJoin();
             ep->SetAuthDone();
+            if (m_pns != nullptr) {
+                m_pns->IncreaseOverlayTCPConnection();
+            }
             continue;
         }
 
@@ -2048,6 +2054,9 @@ QStatus ProximityTransport::Connect(const char* connectSpec, const SessionOpts& 
             conn->SetListener(this);
             status = conn->Start();
             if (status == ER_OK) {
+                if (m_pns != nullptr) {
+                    m_pns->IncreaseOverlayTCPConnection();
+                }
                 conn->SetEpStarted();
                 conn->SetAuthDone();
             } else {
@@ -2171,6 +2180,18 @@ QStatus ProximityTransport::Disconnect(const char* connectSpec)
     }
     m_endpointListLock.Unlock(MUTEX_CONTEXT);
     return status;
+}
+
+void ProximityTransport::OnProximityDisconnected()
+{
+    QCC_DbgPrintf(("ProximityTransport::OnProximityDisconnected()"));
+    m_endpointListLock.Lock(MUTEX_CONTEXT);
+    for (list<ProximityEndpoint*>::iterator i = m_endpointList.begin(); i != m_endpointList.end(); ++i) {
+        ProximityEndpoint* ep = *i;
+        ep->SetSuddenDisconnect(false);
+        ep->Stop();
+    }
+    m_endpointListLock.Unlock(MUTEX_CONTEXT);
 }
 
 QStatus ProximityTransport::StartListen(const char* listenSpec)
