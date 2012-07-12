@@ -1,5 +1,5 @@
-AllJoyn Version 2.4.0 Beta Metro Release Notes
-----------------------------------------------
+Alljoyn 2.4.0 (Beta) for Windows Metro Release Notes
+----------------------------------------------------
 
 Platform Support
 ----------------
