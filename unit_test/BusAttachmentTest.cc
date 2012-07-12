@@ -88,8 +88,7 @@ TEST_F(BusAttachmentTest, FindName_Join_Self)
     EXPECT_EQ(ER_ALLJOYN_JOINSESSION_REPLY_ALREADY_JOINED, status) << "  Actual Status: " << QCC_StatusText(status);
 }
 
-// disabled for ALLJOYN 1215
-TEST_F(BusAttachmentTest, DISABLED_FindName_Same_Name)
+TEST_F(BusAttachmentTest, FindName_Same_Name)
 {
     QStatus status = ER_OK;
 
