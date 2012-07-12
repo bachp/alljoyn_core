@@ -41,6 +41,7 @@
 #include "Transport.h"
 #include "RemoteEndpoint.h"
 #include "ProximityNameService.h"
+#include "ProximityListener.h"
 
 namespace ajn {
 
@@ -55,7 +56,7 @@ class ProximityEndpoint;
  * versions revolves around routing and discovery. This class provides a
  * specialization of class Transport for use by daemons.
  */
-class ProximityTransport : public Transport, public RemoteEndpoint::EndpointListener, public qcc::Thread {
+class ProximityTransport : public Transport, public RemoteEndpoint::EndpointListener, public qcc::Thread, public ProximityListener {
     friend class ProximityEndpoint;
 
   public:
@@ -280,6 +281,7 @@ class ProximityTransport : public Transport, public RemoteEndpoint::EndpointList
   private:
     ProximityTransport(const ProximityTransport& other);
     ProximityTransport& operator =(const ProximityTransport& other);
+    virtual void OnProximityDisconnected() { }
 
     BusAttachment& m_bus;                                          /**< The message bus for this transport */
     ProximityNameService ^ m_pns;                                  /**< The name service used for bus name discovery */

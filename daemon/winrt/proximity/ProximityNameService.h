@@ -34,6 +34,7 @@
 #include <qcc/Debug.h>
 
 #include "NsProtocol.h"
+#include "ProximityListener.h"
 
 namespace ajn {
 
@@ -104,10 +105,18 @@ ref class ProximityNameService sealed {
     void Restart();
     void StartReader();
     void SocketError(qcc::String& errMsg);
+    uint32_t IncreaseOverlayTCPConnection() { return ++m_tcpConnCount; }
+    uint32_t DecreaseOverlayTCPConnection() { return --m_tcpConnCount; }
+    bool IsConnected() { return m_currentState == PROXIM_CONNECTED; }
+    ProximState GetCurrentState() { return m_currentState; }
+    void RegisterProximityListener(ProximityListener* listener) { m_listeners.push_back(listener); }
+    void UnRegisterProximityListener(ProximityListener* listener) { m_listeners.remove(listener); }
+    void NotifyDisconnected();
 
     void StartMaintainanceTimer();
     void TimerCallback(Windows::System::Threading::ThreadPoolTimer ^ timer);
-    void Retransmit();
+    void Locate(const qcc::String& wkn);
+    void TransmitMyWKNs();
     Callback<void, const qcc::String&, const qcc::String&, std::vector<qcc::String>&, uint8_t>* m_callback;
 
     bool IsBrowseConnectSupported();
@@ -138,6 +147,8 @@ ref class ProximityNameService sealed {
     uint16_t m_port;
     uint32_t m_tDuration;
     qcc::String m_listenAddr;
+    uint32_t m_tcpConnCount;
+    std::list<ProximityListener*> m_listeners;
 };
 
 } // namespace ajn

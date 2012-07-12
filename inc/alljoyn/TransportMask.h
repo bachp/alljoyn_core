@@ -36,7 +36,7 @@ const TransportMask TRANSPORT_WLAN      = 0x0004;   /**< Wireless local-area net
 const TransportMask TRANSPORT_WWAN      = 0x0008;   /**< Wireless wide-area network transport */
 const TransportMask TRANSPORT_LAN       = 0x0010;   /**< Wired local-area network transport */
 const TransportMask TRANSPORT_ICE       = 0x0020;   /**< Transport using ICE protocol */
-
+const TransportMask TRANSPORT_PROXIMITY = 0x0040;   /**< Transport using WinRT Proximity Framework */
 }
 
 #endif

@@ -68,7 +68,8 @@ ProximityNameService::ProximityNameService(const qcc::String& guid) :
     m_currentState(PROXIM_DISCONNECTED),
     m_port(0),
     m_tDuration(DEFAULT_DURATION),
-    m_listenAddr(qcc::String::Empty)
+    m_listenAddr(qcc::String::Empty),
+    m_tcpConnCount(0)
 {
     GUID128 id(guid);
     m_guid = id.ToShortString();
@@ -150,7 +151,7 @@ void ProximityNameService::ConnectionRequestedEventHandler(Platform::Object ^ se
                                  addrStr = addrStr.substr(0, pos);
                              }
                              m_listenAddr = addrStr;
-                             Retransmit();
+                             TransmitMyWKNs();
                              StartMaintainanceTimer();
                          } catch (Exception ^ e) {
                              status = ER_FAIL;
@@ -186,16 +187,17 @@ void ProximityNameService::EnableAdvertisement(const qcc::String& name)
             m_advertised.insert(name);
             m_doDiscovery = ShouldDoDiscovery();
 
+            if (IsConnected()) {
+                QCC_DbgPrintf(("EnableAdvertisement() already connected, TransmitMyWKNs Immidiately"));
+                TransmitMyWKNs();
+                return;
+            }
+
             PeerFinder::Stop();
             PeerFinder::DisplayName = EncodeWknAdvertisement();
             Windows::Networking::Proximity::PeerFinder::Start();
             m_peerFinderStarted = true;
             QCC_DbgPrintf(("EnableAdvertisement Now DisplayName is (%s)", PlatformToMultibyteString(PeerFinder::DisplayName).c_str()));
-
-            if (m_currentState == PROXIM_CONNECTED) {
-                QCC_DbgPrintf(("EnableAdvertisement() already exist connection, so  Retransmit"));
-                Retransmit();
-            }
         }
     } catch (Exception ^ e) {
         QCC_LogError(ER_FAIL, ("EnableAdvertisement() Error (%s)", PlatformToMultibyteString(e->Message).c_str()));
@@ -220,6 +222,11 @@ void ProximityNameService::DisableAdvertisement(vector<qcc::String>& wkns)
                 return;
             }
             m_doDiscovery = ShouldDoDiscovery();
+            if (IsConnected()) {
+                QCC_DbgPrintf(("DisableAdvertisement() already connected, TransmitMyWKNs Immidiately"));
+                TransmitMyWKNs();
+                return;
+            }
             if (m_advertised.size() == 0) {
                 updatedName = "NA";
             } else {
@@ -249,6 +256,13 @@ void ProximityNameService::EnableDiscovery(const qcc::String& namePrefix)
             }
 
             m_doDiscovery = ShouldDoDiscovery();
+
+            if (IsConnected()) {
+                QCC_DbgPrintf(("EnableDiscovery() already connected, Locate() Immidiately"));
+                Locate(namePrefix);
+                return;
+            }
+
             if (m_locateStarted) {
                 return;
             } else {
@@ -416,7 +430,7 @@ QStatus ProximityNameService::Connect(PeerInformation ^ peerInfo)
             addrStr = addrStr.substr(0, pos);
         }
         m_listenAddr = addrStr;
-        Retransmit();
+        TransmitMyWKNs();
         StartMaintainanceTimer();
     }
 
@@ -499,12 +513,12 @@ void ProximityNameService::StartMaintainanceTimer()
 
 void ProximityNameService::TimerCallback(Windows::System::Threading::ThreadPoolTimer ^ timer)
 {
-    Retransmit();
+    TransmitMyWKNs();
 }
 
 void ProximityNameService::StartReader()
 {
-    QCC_DbgPrintf(("StartReader()"));
+    QCC_DbgPrintf(("ProximityNameService::StartReader()"));
     Concurrency::task<unsigned int> loadTask(m_dataReader->LoadAsync(sizeof(unsigned int)));
     loadTask.then([this](Concurrency::task<unsigned int> stringBytesTask)
                   {
@@ -572,11 +586,42 @@ void ProximityNameService::SetEndpoints(const qcc::String& ipv6address, const ui
     m_port = port;
 }
 
+void ProximityNameService::NotifyDisconnected()
+{
+    std::list<ProximityListener*>::iterator it = m_listeners.begin();
+    for (; it != m_listeners.end(); it++) {
+        (*it)->OnProximityDisconnected();
+    }
+}
+
 extern bool WildcardMatch(qcc::String str, qcc::String pat);
 
-void ProximityNameService::Retransmit(void)
+void ProximityNameService::Locate(const qcc::String& wkn)
 {
-    QCC_DbgPrintf(("ProximityNameService::Retransmit(m_currentState(%d)", m_currentState));
+    QCC_DbgHLPrintf(("ProximityNameService::Locate(): %s", wkn.c_str()));
+
+    //
+    // Send a request to the network over our multicast channel,
+    // asking for anyone who supports the specified well-known name.
+    //
+    WhoHas whoHas;
+    whoHas.SetTcpFlag(true);
+    whoHas.SetIPv6Flag(true);
+    whoHas.AddName(wkn);
+
+    Header header;
+    header.SetVersion(0);
+    header.SetTimer(m_tDuration);
+    header.AddQuestion(whoHas);
+
+    // Send the message out over the proximity link.
+    //
+    SendProtocolMessage(header);
+}
+
+void ProximityNameService::TransmitMyWKNs(void)
+{
+    QCC_DbgPrintf(("ProximityNameService::TransmitMyWKNs() m_currentState(%d)", m_currentState));
     if (m_currentState != PROXIM_CONNECTED) {
         return;
     }
@@ -586,7 +631,7 @@ void ProximityNameService::Retransmit(void)
     // to which we send advertisements.
     //
     if (m_port == 0) {
-        QCC_DbgPrintf(("ProximityNameService::Retransmit(): Port not set"));
+        QCC_DbgPrintf(("ProximityNameService::TransmitMyWKNs(): Port not set"));
         return;
     }
 
@@ -637,14 +682,14 @@ void ProximityNameService::Retransmit(void)
     header.AddAnswer(isAt);
 
     //
-    // Send the message out over the multicast link.
+    // Send the message out over the proximity link.
     //
     SendProtocolMessage(header);
 }
 
 void ProximityNameService::SendProtocolMessage(Header& header)
 {
-    QCC_DbgPrintf(("ProximityNameService::SendProtocolMessage"));
+    QCC_DbgPrintf(("ProximityNameService::SendProtocolMessage()"));
     if (!m_socketClosed && m_socket != nullptr && m_dataWriter != nullptr) {
         size_t size = header.GetSerializedSize();
         uint8_t* buffer = new uint8_t[size];
@@ -733,10 +778,10 @@ void ProximityNameService::HandleProtocolQuestion(WhoHas whoHas, qcc::IPAddress 
 
     //
     // Since any response we send must include all of the advertisements we
-    // are exporting; this just means to retransmit all of our advertisements.
+    // are exporting; this just means to TransmitMyWKNs all of our advertisements.
     //
     if (respond) {
-        Retransmit();
+        TransmitMyWKNs();
     }
 }
 
