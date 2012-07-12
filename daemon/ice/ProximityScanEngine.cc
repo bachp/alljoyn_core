@@ -136,11 +136,6 @@ void ProximityScanEngine::ProcessScanResults() {
     QCC_DbgPrintf(("Size of scan Hysteresis = %d", hysteresisMap.size()));
     QCC_DbgPrintf(("Size of scan Final Map = %d", finalMap.size()));
 
-
-
-
-
-
     std::map<std::pair<qcc::String, qcc::String>, bool>::iterator it;
     std::map<std::pair<qcc::String, qcc::String>, int>::iterator hit;
 
@@ -265,7 +260,7 @@ void ProximityScanEngine::ProcessScanResults() {
     }
 
 
-    if (no_scan_results_count == 4) {
+    if (no_scan_results_count == 3) {
         request_scan = true;
     } else {
         request_scan = false;
