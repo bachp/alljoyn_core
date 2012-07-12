@@ -765,7 +765,9 @@ void ProxyBusObject::IntrospectMethodCB(Message& msg, void* context)
         ident += " : ";
         ident += msg->GetObjectPath();
         status = ParseXml(msg->GetArg(0)->v_string.str, ident.c_str());
-    } else if ((msg->GetType() == MESSAGE_ERROR) && (::strcmp("org.freedesktop.DBus.Error.ServiceUnknown", msg->GetErrorName()) == 0)) {
+    } else if ((msg->GetType() == MESSAGE_ERROR)
+               && (msg->GetErrorName() != NULL)
+               && (::strcmp("org.freedesktop.DBus.Error.ServiceUnknown", msg->GetErrorName()) == 0)) {
         status = ER_BUS_NO_SUCH_SERVICE;
     } else {
         status = ER_FAIL;
