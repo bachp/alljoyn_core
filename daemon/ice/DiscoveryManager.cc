@@ -3389,21 +3389,18 @@ QStatus STDCALL DiscoveryManager::ConnectThread::GetStatus(void)
 
 void DiscoveryManager::ConnectThread::ThreadExit(Thread* thread)
 {
+    QCC_DbgHLPrintf(("DiscoveryManager::ConnectThread::ThreadExit()"));
     return;
 }
 
 QStatus DiscoveryManager::Stop(void)
 {
-
-    /* Kill the ServerConnectThread if it is running and set the ConnectEvent so that
-       the Run() thread can complete and join */
-    if (ServerConnectThread) {
-        ServerConnectThread->Kill();
-        delete ServerConnectThread;
-        ServerConnectThread = NULL;
-    }
-
-    /* Set the ConnectEvent to make the Run() thread come out of the wait on ConnectEvent */
+    QCC_DbgHLPrintf(("DiscoveryManager::Stop()"));
+    /* Set the ConnectEvent to make the Run() thread come out of the wait on ConnectEvent.
+     * We should not kill the ServerConnectThread here because during joining, if the Run
+     * thread was waiting on ConnectEvent, it might want to read the status from the
+     * ServerConnectThread object. The Run() function itself will take care of killing this
+     * thread after reading this status. */
     ConnectEvent.SetEvent();
 
     /*
@@ -3421,6 +3418,7 @@ QStatus DiscoveryManager::Stop(void)
 
 QStatus DiscoveryManager::Join(void)
 {
+    QCC_DbgHLPrintf(("DiscoveryManager::Join()"));
     /*
      * Wait for the Run() thread to exit.
      */
