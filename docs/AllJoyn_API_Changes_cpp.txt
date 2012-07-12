@@ -229,7 +229,11 @@ ER_RENDEZVOUS_SERVER_UNRECOVERABLE_ERROR value = 0x90d7
 NEW STATUS
 ER_RENDEZVOUS_SERVER_ROOT_CERTIFICATE_UNINITIALIZED value = 0x90d8 
     Rendezvous Server root ceritificate uninitialized.
-
+NEW CLASS
+ajn::SetLinkTimeoutAsyncCB
+    Pure virtual base class implemented by classes that wish to call 
+    SetLinkTimeoutAsync().
+    
 CHANGED METHOD
 ajn::BusAttachment.BusAttachment(const char* applicationName, 
                                  bool allowRemoteMessages = false, 
@@ -243,8 +247,53 @@ ajn::BusAttachment.BusAttachment(const char* applicationName,
                                   signal handlers locally executing.
 
 NEW METHOD
-ajn::BusAttachmentGetConcurrency()
+ajn::BusAttachment.GetConcurrency()
     Get the concurrent method and signal handler limit.
+
+NEW METHOD
+ajn::BusAttachment.EnableConcurrentCallbacks()
+    Allow the currently executing method/signal handler to enable concurrent 
+    callbacks during the scope of the handler's execution.
+
+NEW METHOD
+ajn::BusAttachment.SetLinkTimeoutAsync(SessionId sessionid,
+                                       uint32_t linkTimeout,
+                                       BusAttachment::SetLinkTimeoutAsyncCB* callback,
+                                       void* context = NULL)
+    Set the link timeout for a session.
+
+    Link timeout is the maximum number of seconds that an unresponsive 
+    daemon-to-daemon connection will be monitored before declaring the session 
+    lost (via SessionLost callback). Link timeout defaults to 0 which indicates 
+    that AllJoyn link monitoring is disabled.
+
+    Each transport type defines a lower bound on link timeout to avoid defeating 
+    transport specific power management algorithms.
+
+    This call executes asynchronously. When the JoinSession response is received, 
+    the callback will be called.
+
+    [param] sessionid     Id of session whose link timeout will be modified.
+    [param] linkTimeout   Max number of seconds that a link can be unresponsive 
+                          before being declared lost. 0 indicates that AllJoyn 
+                          link monitoring will be disabled. On return, this value 
+                          will be the resulting (possibly upward) adjusted 
+                          linkTimeout value that acceptable to the underlying 
+                          transport.
+    [param]  callback     Called when SetLinkTimeout response is received.
+    [param]  context      User defined context which will be passed as-is to callback.
+
+NEW METHOD
+ajn::BusAttachment.GetLinkTimeoutResponse(Message& reply, uint32_t& timeout)
+    Validate the response to SetLinkTimeout
+
+NEW METHOD
+ajn::BusAttachment.GetJoinSessionResponse(Message& reply, SessionId& sessionId, SessionOpts& opts)
+    Validate the response to JoinSession
+
+NEW CLASS PROPERTY
+ajn::BusAttachment.concurrency
+    The maximum number of concurrent method and signal handlers locally executing
 
 CHANGED METHOD
 ajn::BusObject.AddMethodHandler(const InterfaceDescription::Member* member, 
@@ -288,6 +337,10 @@ ajn::_Message.SetEndianess(const char endian)
 NEW BIT MASK
 TRANSPORT_ICE value = 0x0020
     TrasportMask identifying transport ICE protocol
+
+NEW METHOD
+qcc::ManagedObj.GetRefCount()
+    Get the reference count
 
 NEW METHOD
 qcc::String.append(const char c)
