@@ -87,6 +87,8 @@ class BundledDaemon : public DaemonLauncher, public TransportFactoryContainer {
 
     BundledDaemon();
 
+    ~BundledDaemon();
+
     /**
      * Launch the bundled daemon
      */
@@ -109,7 +111,7 @@ class BundledDaemon : public DaemonLauncher, public TransportFactoryContainer {
     Bus* ajBus;
     BusController* ajBusController;
     Mutex lock;
-
+    volatile bool safeToShutdown;
 };
 
 bool ExistFile(const char* fileName) {
@@ -126,10 +128,18 @@ bool ExistFile(const char* fileName) {
  */
 static BundledDaemon bundledDaemon;
 
-BundledDaemon::BundledDaemon() : transportsInitialized(false), refCount(0), ajBus(NULL), ajBusController(NULL)
+BundledDaemon::BundledDaemon() : transportsInitialized(false), refCount(0), ajBus(NULL), ajBusController(NULL), safeToShutdown(true)
 {
     NullTransport::RegisterDaemonLauncher(this);
 }
+
+BundledDaemon::~BundledDaemon()
+{
+    while (safeToShutdown == false) {
+        qcc::Sleep(2);
+    }
+}
+
 
 QStatus BundledDaemon::Start(NullTransport* nullTransport)
 {
@@ -141,8 +151,8 @@ QStatus BundledDaemon::Start(NullTransport* nullTransport)
      * Need a mutex around this to prevent more than one BusAttachment from bringing up the
      * bundled daemon at the same time.
      */
-    ScopedMutexLock guard(lock);
-
+    lock.Lock();
+    safeToShutdown = false;
     if (IncrementAndFetch(&refCount) == 1) {
 #if defined(QCC_OS_ANDROID)
         LoggerSetting::GetLoggerSetting("bundled-daemon", LOG_DEBUG, true, NULL);
@@ -218,6 +228,7 @@ QStatus BundledDaemon::Start(NullTransport* nullTransport)
         goto ErrorExit;
     }
 
+    lock.Unlock();
     return ER_OK;
 
 ErrorExit:
@@ -228,12 +239,14 @@ ErrorExit:
         delete ajBus;
         ajBus = NULL;
     }
+    lock.Unlock();
+    safeToShutdown = true;
     return status;
 }
 
 void BundledDaemon::Join()
 {
-    ScopedMutexLock guard(lock);
+    lock.Lock();
     if (refCount == 0) {
         if (ajBus) {
             QCC_DbgPrintf(("Joining bundled daemon bus attachment"));
@@ -244,17 +257,24 @@ void BundledDaemon::Join()
         delete ajBus;
         ajBus = NULL;
     }
+
+    lock.Unlock();
+
+    if (refCount == 0) {
+        safeToShutdown = true;
+    }
 }
 
 QStatus BundledDaemon::Stop()
 {
-    ScopedMutexLock guard(lock);
+    lock.Lock();
     int32_t rc = DecrementAndFetch(&refCount);
+    QStatus status = ER_OK;
     assert(rc >= 0);
-
-    if ((rc == 0) && ajBus) {
-        QCC_DbgPrintf(("Stopping bundled daemon bus attachment"));
-        return ajBus->Stop();
+    if (rc == 0 && ajBus) {
+        status = ajBus->Stop();
     }
-    return ER_OK;
+    lock.Unlock();
+    return status;
 }
+
