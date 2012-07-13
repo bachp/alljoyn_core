@@ -1661,10 +1661,12 @@ void AllJoynObj::RemoveSessionRefs(const String& vepName, const String& b2bEpNam
 
     if (!vep) {
         QCC_LogError(ER_FAIL, ("Virtual endpoint %s disappeared during RemoveSessionRefs", vepName.c_str()));
+        ReleaseLocks();
         return;
     }
     if (!b2bEp) {
         QCC_LogError(ER_FAIL, ("B2B endpoint %s disappeared during RemoveSessionRefs", b2bEpName.c_str()));
+        ReleaseLocks();
         return;
     }
 
