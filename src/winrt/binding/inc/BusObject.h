@@ -176,6 +176,19 @@ public ref class BusObject sealed {
     /// - #ER_OK if successful
     /// - An error status otherwise
     /// </exception>
+    void MethodReply2(Message ^ msg, const Platform::Array<MsgArg ^> ^ args);
+
+    /// <summary>
+    /// Reply to a method call.
+    /// </summary>
+    /// <param name="msg">The method call message</param>
+    /// <param name="args">The reply arguments (can be NULL)</param>
+    /// <param name="numArgs">The number of arguments</param>
+    /// <exception cref="Platform::COMException">
+    /// HRESULT will contain the AllJoyn error status code for the error.
+    /// - #ER_OK if successful
+    /// - An error status otherwise
+    /// </exception>
     void MethodReply(Message ^ msg, const Platform::Array<MsgArg ^> ^ args);
 
     /// <summary>
