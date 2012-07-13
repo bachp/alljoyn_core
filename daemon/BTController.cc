@@ -1228,6 +1228,8 @@ void BTController::HandleSetState(const InterfaceDescription::Member* member, Me
     qcc::String sender = msg->GetSender();
     RemoteEndpoint* ep = bt.LookupEndpoint(sender);
 
+    bus.EnableConcurrentCallbacks();
+
     if ((ep == NULL) ||
         nodeDB.FindNode(ep->GetRemoteName())->IsValid()) {
         /* We don't acknowledge anyone calling the SetState method call who
