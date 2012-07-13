@@ -84,6 +84,8 @@ class BundledDaemon : public DaemonLauncher, public TransportFactoryContainer {
 
     BundledDaemon();
 
+    ~BundledDaemon();
+
     /**
      * Launch the bundled daemon
      */
@@ -106,6 +108,7 @@ class BundledDaemon : public DaemonLauncher, public TransportFactoryContainer {
     Bus* ajBus;
     BusController* ajBusController;
     Mutex lock;
+    volatile bool safeToShutdown;
 
 };
 
@@ -123,9 +126,16 @@ bool ExistFile(const char* fileName) {
  */
 static BundledDaemon bundledDaemon;
 
-BundledDaemon::BundledDaemon() : transportsInitialized(false), refCount(0), ajBus(NULL), ajBusController(NULL)
+BundledDaemon::BundledDaemon() : transportsInitialized(false), refCount(0), ajBus(NULL), ajBusController(NULL), safeToShutdown(true)
 {
     NullTransport::RegisterDaemonLauncher(this);
+}
+
+BundledDaemon::~BundledDaemon()
+{
+    while (safeToShutdown == false) {
+        qcc::Sleep(2);
+    }
 }
 
 QStatus BundledDaemon::Start(NullTransport* nullTransport)
@@ -139,6 +149,7 @@ QStatus BundledDaemon::Start(NullTransport* nullTransport)
      */
     lock.Lock();
 
+    safeToShutdown = false;
     if (IncrementAndFetch(&refCount) == 1) {
         LoggerSetting::GetLoggerSetting("bundled-daemon", LOG_DEBUG, false, stdout);
         /*
@@ -210,6 +221,7 @@ ErrorExit:
         ajBusController = NULL;
         delete ajBus;
         ajBus = NULL;
+        safeToShutdown = true;
     }
     lock.Unlock();
     printf("BundledDaemon::Start exit %s\n", QCC_StatusText(status));
@@ -230,6 +242,10 @@ void BundledDaemon::Join()
         ajBus = NULL;
     }
     lock.Unlock();
+
+    if (refCount == 0) {
+        safeToShutdown = true;
+    }
 }
 
 QStatus BundledDaemon::Stop()
