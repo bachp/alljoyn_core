@@ -89,7 +89,7 @@ DiscoveryManager::DiscoveryManager(BusAttachment& bus)
     InterfaceFlags(NONE),
     Connection(NULL),
     ConnectionAuthenticationComplete(false),
-    iceCallback(0),
+    iceCallback(NULL),
     WakeEvent(),
     OnDemandResponseEvent(NULL),
     PersistentResponseEvent(NULL),
@@ -199,6 +199,7 @@ DiscoveryManager::~DiscoveryManager()
     if (InterfaceUpdateAlarm) {
         DiscoveryManagerTimer.RemoveAlarm(*InterfaceUpdateAlarm);
         delete InterfaceUpdateAlarm;
+        InterfaceUpdateAlarm = NULL;
     }
 
     /* Stop the DiscoveryManagerTimer which is used to handle all the alarms */
@@ -242,8 +243,10 @@ DiscoveryManager::~DiscoveryManager()
     //
     // Delete any callbacks that a user of this class may have set.
     //
-    delete iceCallback;
-    iceCallback = 0;
+    if (iceCallback) {
+        delete iceCallback;
+        iceCallback = NULL;
+    }
 
     DiscoveryManagerState = IMPL_SHUTDOWN;
 }
@@ -334,7 +337,10 @@ void DiscoveryManager::SetCallback(Callback<void, CallbackType, const String&, c
     // Set the callback
     //
     DiscoveryManagerMutex.Lock(MUTEX_CONTEXT);
-    delete iceCallback;
+    if (iceCallback) {
+        delete iceCallback;
+        iceCallback = NULL;
+    }
     iceCallback = iceCb;
     DiscoveryManagerMutex.Unlock(MUTEX_CONTEXT);
 }
@@ -1153,6 +1159,7 @@ void* DiscoveryManager::Run(void* arg)
                     if (InterfaceUpdateAlarm) {
                         DiscoveryManagerTimer.RemoveAlarm(*InterfaceUpdateAlarm);
                         delete InterfaceUpdateAlarm;
+                        InterfaceUpdateAlarm = NULL;
                     }
 
                     InterfaceUpdateAlarm = new Alarm(INTERFACE_UPDATE_MIN_INTERVAL, this, 0, NULL);
@@ -2090,7 +2097,7 @@ QStatus DiscoveryManager::HandlePersistentMessageResponse(Json::Value payload)
     // If there is no callback, we can't tell the user anything about what is
     // going on, so it's pointless to go any further.
     //
-    if (iceCallback == 0) {
+    if (!iceCallback) {
         QCC_DbgPrintf(("DiscoveryManager::HandlePersistentMessageResponse(): No callback, so nothing to do\n"));
 
         // We return an ER_OK because this is not an error caused by the received response
@@ -2280,6 +2287,7 @@ void DiscoveryManager::HandlePersistentConnectionResponse(HttpConnection::HTTPRe
         if (InterfaceUpdateAlarm) {
             DiscoveryManagerTimer.RemoveAlarm(*InterfaceUpdateAlarm);
             delete InterfaceUpdateAlarm;
+            InterfaceUpdateAlarm = NULL;
         }
 
         InterfaceUpdateAlarm = new Alarm(INTERFACE_UPDATE_MIN_INTERVAL, this, 0, NULL);
@@ -2642,6 +2650,7 @@ void DiscoveryManager::HandleOnDemandConnectionResponse(HttpConnection::HTTPResp
             if (InterfaceUpdateAlarm) {
                 DiscoveryManagerTimer.RemoveAlarm(*InterfaceUpdateAlarm);
                 delete InterfaceUpdateAlarm;
+                InterfaceUpdateAlarm = NULL;
             }
 
             InterfaceUpdateAlarm = new Alarm(INTERFACE_UPDATE_MIN_INTERVAL, this, 0, NULL);
@@ -2666,6 +2675,7 @@ void DiscoveryManager::HandleOnDemandConnectionResponse(HttpConnection::HTTPResp
         if (InterfaceUpdateAlarm) {
             DiscoveryManagerTimer.RemoveAlarm(*InterfaceUpdateAlarm);
             delete InterfaceUpdateAlarm;
+            InterfaceUpdateAlarm = NULL;
         }
 
         InterfaceUpdateAlarm = new Alarm(INTERFACE_UPDATE_MIN_INTERVAL, this, 0, NULL);
