@@ -112,13 +112,6 @@ BusObject::~BusObject()
     }
 }
 
-// TODO: Remove this once we know the projection rules for WinJS
-// BUGBUG: Overloads appear to be broken in WinJS
-void BusObject::MethodReply2(Message ^ msg, const Platform::Array<MsgArg ^> ^ args)
-{
-    MethodReply(msg, args);
-}
-
 void BusObject::MethodReply(Message ^ msg, const Platform::Array<MsgArg ^> ^ args)
 {
     ::QStatus status = ER_OK;
