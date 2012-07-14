@@ -1,4 +1,4 @@
-AllJoyn Version 2.3.3 Release Notes
+AllJoyn Version 2.5.0 Release Notes
 -----------------------------------
 
 Platform Support
@@ -14,69 +14,98 @@ Platform Support
 Features added in this release
 ------------------------------
 
-None
+Added support for ICE (IETF draft-ietf-mmusic-ice-19) based peer-to-peer
+connections.  This new feature allows peers to connect over IP networks when
+multicast is blocked or when 802.11 wireless isolation prevents the existing
+AllJoyn discovery and connect mechanisms from succeeding.
+
+Added an API (BusAttachment.EnableConcurrentCallbacks) for controlling
+concurrent method/signal handler callbacks. Previously, the AllJoyn client
+library did not concurrently dispatch user-defined method/signal handlers.  It
+did, however, concurrently dispatch certain AllJoyn control related callbacks
+such as BusListener.FoundAdvertisedName, etc. These control related callbacks
+are now under the control of the new EnableConcurrentCalbacks API.
+
+Added new API BusAttachment.SetLinkTimeoutAsync. This new method is an
+asynchronous form of the existing SetLinkTimeout call.
+
+Added GoogleTest based test framework to automate the testing of the AllJoyn
+core.
 
 
 Issues Addressed in this Release
 --------------------------------
 
-1) ALLJOYN-850: AllJoyn client library's use of libcrypto could conflict
-   with Android Framework's use of libcrypto within an AllJoyn enabled app
-   that uses encryption/authentication.
+ALLJOYN-829: Changing link timeout via SetLinkTimeout now takes effect
+immediately. Previously, the link needed to receive at least one more message
+before the change would take effect.
 
-2) ALLJOYN-934: The debug variant of the bundled AllJoyn daemon could 
-   exit due to incorrect assertion failure.
+ALLJOYN-830: SetLinkTimeoutAsync was added to the external API to allow the user
+to set the link timeout from within the SessionPortListener::SessionJoined (or
+other AllJoyn) callback.
 
-3) ALLJOYN-946: Message serial number validation can fail to reject repeated
-   messages if their are many other messages between repeats.
-
-4) ALLJOYN-958: Java binding's BusAttachment.unregisterBusListener() could
-   cause jni crash on Android ICS.
+ALLJOYN-907: LostAdvertisedName indication is no longer delayed when the client
+side disconnects prior to the service side.
 
 
 Known issues and limitations with this release
 ----------------------------------------------
 
-1) ALLJOYN-829: Link timeout changes made via  BusAttachment::SetLinkTimeout()
-   do not take effect until after the involved endpoints receive one more
-   message with the original link timeout values.
+ALLJOYN-1154: The number of names that can be advertised from a single AllJoyn
+daemon instance (either bundled or unbundled) over TCP is limited to about 1400
+bytes.
 
-2) ALLJOYN-830: SetLinkTimeout cannot be called from within the
-   SessionPortListener::SessionJoined callback.
+ALLJOYN-1217: AllJoyn operation over Bluetooth is stable with up to 3
+devices. Some instabilites are seen with 4 or more devices.
 
-3) ALLJOYN-907: LostAdvertisedName indication may be delayed (up to 2 minutes) 
-   when only a single serivce/client pair is running on two devices and the 
-   client disconnects prior to the service disconnecting or canceling the
-   advertisement.
+ALLJOYN-1228: Discovery times when using ICE / Rendezvous are sometimes longer
+than necessary due to proximity scanning.
+
+ALLJOYN-(various): Daemon crashes are possible when using the bundled version of
+the AllJoyn daemon. Because of this, use of the bundled daemon is not officially
+supported in 2.5.0
+
+QA testing for the 2.5.0 release was completed only on Android variants of the
+non-bundled daemon.
 
 
 Compatibility
 -------------
-Applications written for AllJoyn 1.X will need to be modified and rebuilt
-for use with AllJoyn 2.0 and later.
+
+Applications written for AllJoyn 1.X will need to be modified and rebuilt for
+use with AllJoyn 2.0 and later.
 
 The AllJoyn wire protocol related to encryption and authentication has changed
-in the 2.1.0 release. AllJoyn interfaces that use security will not inter-operate
-with devices whose AllJoyn version is less than 2.1.0.
+in the 2.1.0 release. AllJoyn interfaces that use security will not
+inter-operate with devices whose AllJoyn version is less than 2.1.0.
 
 The AllJoyn wire protocol was modified to have a 128kB maximum message size
-starting with version 2.1.0. Earlier versions of AllJoyn which attempt to
-send messages that are greater than 128kB will not inter-operate with versions
+starting with version 2.1.0. Earlier versions of AllJoyn which attempt to send
+messages that are greater than 128kB will not inter-operate with versions
 greater than or equal to 2.1.0.
 
-Starting with version 2.2.0, AllJoyn clients on Android must obtain the
-manifest permissions needed to access wifi and Bluetooth in order to reach
-external AllJoyn nodes. These permissions are INTERNET,
-CHANGE_WIFI_MULTICAST_STATE, BLUETOOTH and BLUETOOTH_ADMIN.
+Starting with version 2.2.0, AllJoyn clients on Android must obtain the manifest
+permissions needed to access wifi and Bluetooth in order to reach external
+AllJoyn nodes. These permissions are INTERNET, CHANGE_WIFI_MULTICAST_STATE,
+BLUETOOTH and BLUETOOTH_ADMIN.
 
 Starting with version 2.2.0 BusAttachment::Stop(bool) and
 BusAttachment::WaitStop() were changed to BusAttachment::Stop() and
-BusAttachment::Join() to be more consistent with the internal threading model
-of AllJoyn (ALLJOYN-803).
+BusAttachment::Join() to be more consistent with the internal threading model of
+AllJoyn (ALLJOYN-803).
+
+Starting with version 2.5.0, AllJoyn control related callbacks such as
+BusListener::FoundAdvertisedName cannot make AllJoyn remote procedure calls or
+any type of blocking call without first enabling concurrent callbacks via the
+new BusAttachment.EnableConcurrentCallbacks() API.
 
 
 Change history
 --------------
+2.3.5 - Bug fixes.
+
+2.3.3 - Bug fixes.
+
 2.3.2 - Bug fixes.
 
 2.3.1 - Bug fixes.
