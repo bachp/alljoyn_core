@@ -1248,8 +1248,9 @@ ThreadReturn STDCALL DaemonICETransport::AllocateICESessionThread::Run(void* arg
                                                     }
 
                                                     if (status == ER_OK) {
-                                                        /* If we are using the local host candidate, we need not send NAT keepalives or TURN refreshes */
-                                                        if (!pktStream->IsLocalHost()) {
+                                                        /* If we are using the local and remote host candidate, we need not send
+                                                         * NAT keepalives or TURN refreshes */
+                                                        if ((!pktStream->IsLocalHost()) || (!pktStream->IsRemoteHost())) {
                                                             /* Arm the keep-alive/TURN refresh timer (immediate fire) */
                                                             transportObj->daemonICETransportTimer.AddAlarm(Alarm(0, transportObj, 0, pktStream));
                                                         }
@@ -1867,8 +1868,9 @@ QStatus DaemonICETransport::Connect(const char* connectSpec, const SessionOpts& 
                                                     }
 
                                                     if (status == ER_OK) {
-                                                        /* If we are using the local host candidate, we need not send NAT keepalives or TURN refreshes */
-                                                        if (!pktStream->IsLocalHost()) {
+                                                        /* If we are using the local and remote host candidate, we need not send
+                                                         * NAT keepalives or TURN refreshes */
+                                                        if ((!pktStream->IsLocalHost()) || (!pktStream->IsRemoteHost())) {
                                                             /* Arm the keep-alive (immediate fire) */
                                                             daemonICETransportTimer.AddAlarm(Alarm(0, this, 0, pktStream));
                                                         }
