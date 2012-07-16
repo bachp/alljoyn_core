@@ -79,7 +79,10 @@ class NullEndpoint : public BusEndpoint {
          */
         if (msg->bus == &clientBus) {
             /*
-             * Messages we are sending to the daemon may need to be encrypted.
+             * In the non-bundled case messages are encrypted when they are delivered to the daemon
+             * endpoint by a call to Message::Deliver. The null transport bypasses Message::Deliver
+             * by pushing the messages directly to the daemon router. This means we need to encrypt
+             * messages here before we do the push.
              */
             if (msg->encrypt) {
                 status = msg->EncryptMessage();
