@@ -112,14 +112,15 @@ void NameTable::RemoveUniqueName(const qcc::String& uniqueName)
             }
         }
 
+        uniqueNames.erase(it);
+        lock.Unlock(MUTEX_CONTEXT);
+        QCC_DbgPrintf(("Removed ep=%s from name table", uniqueName.c_str()));
+
         /* Notify listeners */
         CallListeners(uniqueName, &uniqueName, NULL);
-
-        QCC_DbgPrintf(("Removing ep=%s from name table", uniqueName.c_str()));
-        uniqueNames.erase(it);
-
+    } else {
+        lock.Unlock(MUTEX_CONTEXT);
     }
-    lock.Unlock(MUTEX_CONTEXT);
 }
 
 QStatus NameTable::AddAlias(const qcc::String& aliasName,
@@ -370,10 +371,14 @@ void NameTable::RemoveVirtualAliases(VirtualEndpoint& ep)
     while (vit != virtualAliasNames.end()) {
         if (vit->second == &ep) {
             String alias = vit->first.c_str();
-            if (aliasNames.find(alias) == aliasNames.end()) {
-                CallListeners(alias, &ep.GetUniqueName(), NULL);
-            }
+            String epName = ep.GetUniqueName();
             virtualAliasNames.erase(vit++);
+            if (aliasNames.find(alias) == aliasNames.end()) {
+                lock.Unlock(MUTEX_CONTEXT);
+                CallListeners(alias, &epName, NULL);
+                lock.Lock(MUTEX_CONTEXT);
+                vit = virtualAliasNames.upper_bound(alias);
+            }
         } else {
             ++vit;
         }
@@ -431,20 +436,25 @@ bool NameTable::SetVirtualAlias(const qcc::String& alias,
 void NameTable::AddListener(NameListener* listener)
 {
     lock.Lock(MUTEX_CONTEXT);
-    listeners.push_back(listener);
+    listeners.insert(ProtectedNameListener(listener));
     lock.Unlock(MUTEX_CONTEXT);
 }
 
 void NameTable::RemoveListener(NameListener* listener)
 {
     lock.Lock(MUTEX_CONTEXT);
-    vector<NameListener*>::iterator it = listeners.begin();
-    while (it != listeners.end()) {
-        if (*it == listener) {
-            listeners.erase(it);
-            break;
+    ProtectedNameListener pl(listener);
+    set<ProtectedNameListener>::iterator it = listeners.find(pl);
+    if (it != listeners.end()) {
+        /* Remove listener from set */
+        listeners.erase(it);
+
+        /* Wait until references to pl reach q (pl is only remaining ref) */
+        while (pl.GetRefCount() > 1) {
+            lock.Unlock(MUTEX_CONTEXT);
+            qcc::Sleep(4);
+            lock.Lock(MUTEX_CONTEXT);
         }
-        ++it;
     }
     lock.Unlock(MUTEX_CONTEXT);
 }
@@ -452,9 +462,13 @@ void NameTable::RemoveListener(NameListener* listener)
 void NameTable::CallListeners(const qcc::String& aliasName, const qcc::String* origOwner, const qcc::String* newOwner)
 {
     lock.Lock(MUTEX_CONTEXT);
-    vector<NameListener*>::iterator it = listeners.begin();
+    set<ProtectedNameListener>::iterator it = listeners.begin();
     while (it != listeners.end()) {
-        (*it++)->NameOwnerChanged(aliasName, origOwner, newOwner);
+        ProtectedNameListener nl = *it;
+        lock.Unlock(MUTEX_CONTEXT);
+        (*nl)->NameOwnerChanged(aliasName, origOwner, newOwner);
+        lock.Lock(MUTEX_CONTEXT);
+        it = listeners.upper_bound(nl);
     }
     lock.Unlock(MUTEX_CONTEXT);
 }

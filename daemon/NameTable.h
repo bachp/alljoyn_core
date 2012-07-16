@@ -26,6 +26,7 @@
 
 #include <deque>
 #include <vector>
+#include <set>
 
 #include <qcc/Mutex.h>
 #include <qcc/Environ.h>
@@ -241,7 +242,9 @@ class NameTable {
     unordered_map<qcc::String, std::deque<NameQueueEntry>, Hash, Equal> aliasNames;  /**< Alias name table */
     uint32_t uniqueId;
     qcc::String uniquePrefix;
-    std::vector<NameListener*> listeners;                              /**< Listeners regsitered with name table */
+
+    typedef qcc::ManagedObj<NameListener*> ProtectedNameListener;
+    std::set<ProtectedNameListener> listeners;                         /**< Listeners regsitered with name table */
     std::map<qcc::StringMapKey, VirtualEndpoint*> virtualAliasNames;   /**< map of virtual aliases to virtual endpts */
 
     /**
