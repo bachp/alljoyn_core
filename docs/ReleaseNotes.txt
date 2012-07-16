@@ -129,3 +129,4 @@ Change history
         API's and daemon protocols changed.
 
 1.8.0 - Initial Open Source Release
+
