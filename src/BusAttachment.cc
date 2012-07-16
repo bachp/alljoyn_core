@@ -1646,6 +1646,38 @@ void BusAttachment::Internal::AllJoynSignalHandler(const InterfaceDescription::M
             } else {
                 sessionListenersLock.Unlock(MUTEX_CONTEXT);
             }
+        } else if (0 == strcmp("PropertiesChanged", msg->GetMemberName())) {
+            listenersLock.Lock(MUTEX_CONTEXT);
+            ListenerSet::iterator it = listeners.begin();
+
+            while (it != listeners.end()) {
+                ProtectedBusListener pl = *it;
+                listenersLock.Unlock(MUTEX_CONTEXT);
+
+                // first param: name of interface
+                // second param: array of <string=>variant> (ONE!)
+
+                // first get the ARRAY<STRUCT<STRING,VARIANT>>
+                MsgArg* entries;
+                size_t num;
+
+                args[1].Get("a{sv}", &num, &entries);
+                for (unsigned i = 0; i < num; ++i) {
+                    // changed params with values
+                    (*pl)->PropertyChanged(entries[i].v_dictEntry.key->v_string.str, entries[i].v_dictEntry.val);
+                }
+
+                args[2].Get("a{s}", &num, &entries);
+                for (unsigned i = 0; i < num; ++i) {
+                    // invalidated params
+                    (*pl)->PropertyChanged(entries[i].v_string.str, NULL);
+                }
+
+                listenersLock.Lock(MUTEX_CONTEXT);
+                it = listeners.upper_bound(pl);
+            }
+
+            listenersLock.Unlock(MUTEX_CONTEXT);
         } else {
             QCC_DbgPrintf(("Unrecognized signal \"%s.%s\" received", msg->GetInterface(), msg->GetMemberName()));
         }
