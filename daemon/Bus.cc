@@ -163,8 +163,9 @@ void Bus::UnregisterBusListener(BusListener& listener) {
 
 void Bus::NameOwnerChanged(const qcc::String& alias, const qcc::String* oldOwner, const qcc::String* newOwner)
 {
-    if (busListener) {
-        busListener->NameOwnerChanged(alias.c_str(), oldOwner ? oldOwner->c_str() : NULL, newOwner ? newOwner->c_str() : NULL);
+    BusListener* listener = busListener;
+    if (listener) {
+        listener->NameOwnerChanged(alias.c_str(), oldOwner ? oldOwner->c_str() : NULL, newOwner ? newOwner->c_str() : NULL);
     }
 }
 
