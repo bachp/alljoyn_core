@@ -122,7 +122,8 @@ QStatus Component::CreateHostCandidate(qcc::SocketType socketType, const qcc::IP
         AddToStunActivityList(stunActivity);
 
         _ICECandidate::ICECandidateType type = _ICECandidate::Host_Candidate;
-        ICECandidate candidate(type, host, host, this, socketType, stunActivity);
+        Component* pComponent = this;
+        ICECandidate candidate(type, host, host, pComponent, socketType, stunActivity);
         status = AddCandidate(candidate);
 
         if (ER_OK == status) {

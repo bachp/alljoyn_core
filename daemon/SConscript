@@ -53,7 +53,8 @@ else:
 # AllJoyn Daemon
 progs, os_objs = env.SConscript('${OS_GROUP}/SConscript', exports=['daemon_objs'])
 base_objs.extend(os_objs)
-daemon_objs.extend(os_objs)
+if env['OS'] != 'darwin':
+    daemon_objs.extend(os_objs)
 
 # Daemon library
 lib  = env.StaticLibrary('ajdaemon', base_objs);

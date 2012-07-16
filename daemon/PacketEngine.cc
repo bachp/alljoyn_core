@@ -28,6 +28,18 @@
 #include <qcc/Util.h>
 #include "PacketEngine.h"
 
+#if defined(QCC_OS_DARWIN)
+
+#include <CoreFoundation/CFByteOrder.h>
+#define htole16(x) CFSwapInt16HostToLittle(x)
+#define letoh16(x) CFSwapInt16LittleToHost(x)
+#define htole32(x) CFSwapInt32HostToLittle(x)
+#define letoh32(x) CFSwapInt32LittleToHost(x)
+#define htole64(x) CFSwapInt64HostToLittle(x)
+#define letoh64(x) CFSwapInt64LittleToHost(x)
+
+#endif
+
 #define QCC_MODULE "PACKET"
 
 using namespace std;
