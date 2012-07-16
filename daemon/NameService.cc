@@ -467,9 +467,9 @@ QStatus NameService::Init(
     m_loopback = loopback;
 
     assert(IsRunning() == false);
+    m_state = IMPL_RUNNING;
     Start(this);
 
-    m_state = IMPL_RUNNING;
     return ER_OK;
 }
 
