@@ -86,6 +86,11 @@ class MyMessage : public _Message {
 
     QStatus ReMarshal(const char* senderName)
     {
+        /*
+         * Remarshal with a different serial number or we will get an invalid serial error
+         * (duplicate) when we try to unmarshal it.
+         */
+        _Message::SetSerialNumber();
         return _Message::ReMarshal(senderName);
     }
 

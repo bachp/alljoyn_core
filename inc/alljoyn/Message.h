@@ -671,8 +671,20 @@ class _Message {
 
     /**
      * @internal
+     * Marshal the message again with the new sender name if one was provided.
+     *
+     * @param senderName  Option sender name to replace the current sender name in the message.
+     * @return
+     *      - #ER_OK if successful
+     *      - An error status otherwise
      */
-    QStatus ReMarshal(const char* senderName);
+    QStatus ReMarshal(const char* senderName = NULL);
+
+    /**
+     * @internal
+     * Sets the serial number to the next available value for the bus attachment for this message.
+     */
+    void SetSerialNumber();
 
     /// @endcond
   private:
@@ -734,11 +746,6 @@ class _Message {
      *      - An error status otherwise
      */
     QStatus HelloReply(bool isBusToBus, const qcc::String& uniqueName);
-
-    /**
-     * Sets the serial number on the message.
-     */
-    void SetSerialNumber();
 
     typedef struct MessageHeader {
         char endian;           ///< The endianness of this message
