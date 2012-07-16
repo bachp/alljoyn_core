@@ -216,6 +216,12 @@ class ICEPacketStream : public PacketStream {
     bool IsLocalHost() const { return localHost; }
 
     /**
+     * Return true iff ICEPacketStream is using the remote host candidate.
+     * @return true iff ICEPacketStream is using the remote host candidate.
+     */
+    bool IsRemoteHost() const { return remoteHost; }
+
+    /**
      * Compose and send a NAT keepalive message.
      */
     QStatus SendNATKeepAlive(void);
@@ -246,6 +252,7 @@ class ICEPacketStream : public PacketStream {
     bool usingTurn;
     bool localTurn;
     bool localHost;
+    bool remoteHost;
     qcc::String hmacKey;
     qcc::String turnUsername;
     Mutex turnRefreshPeriodUpdateLock;

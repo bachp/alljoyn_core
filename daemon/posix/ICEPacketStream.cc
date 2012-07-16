@@ -79,6 +79,7 @@ ICEPacketStream::ICEPacketStream(ICESession& iceSession, Stun& stun, const ICECa
     usingTurn((selectedPair.local->GetType() == _ICECandidate::Relayed_Candidate) || (selectedPair.remote->GetType() == _ICECandidate::Relayed_Candidate)),
     localTurn((selectedPair.local->GetType() == _ICECandidate::Relayed_Candidate)),
     localHost((selectedPair.local->GetType() == _ICECandidate::Host_Candidate)),
+    remoteHost((selectedPair.remote->GetType() == _ICECandidate::Host_Candidate)),
     hmacKey(reinterpret_cast<const char*>(stun.GetHMACKey()), stun.GetHMACKeyLength(), stun.GetHMACKeyLength()),
     turnUsername(iceSession.GetusernameForShortTermCredential()),
     turnRefreshPeriod((selectedPair.local->GetAllocationLifetimeSeconds() - ajn::TURN_REFRESH_WARNING_PERIOD_SECS) * 1000),
@@ -127,7 +128,8 @@ ICEPacketStream::ICEPacketStream() :
     interfaceMtu(0),
     usingTurn(false),
     localTurn(false),
-    localHost(),
+    localHost(false),
+    remoteHost(false),
     hmacKey(),
     turnUsername(),
     turnRefreshPeriod(0),
@@ -154,6 +156,7 @@ ICEPacketStream::ICEPacketStream(const ICEPacketStream& other) :
     usingTurn(other.usingTurn),
     localTurn(other.localTurn),
     localHost(other.localHost),
+    remoteHost(other.remoteHost),
     hmacKey(other.hmacKey),
     turnUsername(other.turnUsername),
     turnRefreshPeriod(other.turnRefreshPeriod),
@@ -201,6 +204,7 @@ ICEPacketStream& ICEPacketStream::operator=(const ICEPacketStream& other)
         usingTurn = other.usingTurn;
         localTurn = other.localTurn;
         localHost = other.localHost;
+        remoteHost = other.remoteHost;
         hmacKey = other.hmacKey;
         turnUsername = other.turnUsername;
         turnRefreshPeriod = other.turnRefreshPeriod;
@@ -447,8 +451,18 @@ QStatus ICEPacketStream::SendNATKeepAlive(void)
     uint8_t* _txRenderBuf = txRenderBuf;
     status = msg.RenderBinary(_txRenderBuf, renderSize, msgSG);
 
+    qcc::IPAddress destnAddress = remoteAddress;
+    uint16_t destnPort = remotePort;
+
+    /* If we are using the relay candidate, we need to send the NAT keepalives to the
+     * Relay allocation */
+    if (usingTurn) {
+        destnAddress = turnAddress;
+        destnPort = turnPort;
+    }
+
     if (status == ER_OK) {
-        status = SendToSG(sock, remoteAddress, remotePort, msgSG, sent);
+        status = SendToSG(sock, destnAddress, destnPort, msgSG, sent);
         QCC_DbgPrintf(("ICEPacketStream::SendNATKeepAlive()(): Sent NAT keep-alive"));
     } else {
         QCC_LogError(status, ("ICEPacketStream::SendNATKeepAlive()(): Failed to send NAT keep-alive"));
