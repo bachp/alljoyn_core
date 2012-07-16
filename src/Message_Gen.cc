@@ -665,6 +665,7 @@ QStatus _Message::EncryptMessage()
          */
         if (!peerState->IsAuthorized((AllJoynMessageType)msgHeader.msgType, _PeerState::ALLOW_SECURE_TX)) {
             status = ER_BUS_NOT_AUTHORIZED;
+            encrypt = false;
         }
     }
     if (status == ER_OK) {
@@ -672,20 +673,26 @@ QStatus _Message::EncryptMessage()
         size_t hdrLen = ROUNDUP8(sizeof(msgHeader) + msgHeader.headerLen);
         status = ajn::Crypto::Encrypt(*this, key, (uint8_t*)msgBuf, hdrLen, argsLen);
         if (status == ER_OK) {
+            QCC_DbgHLPrintf(("EncryptMessage: %s", Description().c_str()));
+            /*
+             * Save the authentication mechanism that was used.
+             */
             authMechanism = key.GetTag();
-            assert(msgHeader.bodyLen == argsLen);
             encrypt = false;
+            assert(msgHeader.bodyLen == argsLen);
         }
     }
     /*
      * Need to request an authentication if we don't have a key.
      */
     if (status == ER_BUS_KEY_UNAVAILABLE) {
-        QCC_DbgHLPrintf(("Deliver: Key not available requesting authentication", Description().c_str()));
+        QCC_DbgHLPrintf(("Deliver: No key - requesting authentication %s", Description().c_str()));
         Message msg(this);
         status = bus->GetInternal().GetLocalEndpoint().GetPeerObj()->RequestAuthentication(msg);
         if (status == ER_OK) {
             status = ER_BUS_AUTHENTICATION_PENDING;
+        } else {
+            encrypt = false;
         }
     }
     return status;
@@ -719,13 +726,11 @@ QStatus _Message::MarshalMessage(const qcc::String& expectedSignature,
     msgHeader.flags = flags;
     msgHeader.msgType = (uint8_t)msgType;
     msgHeader.majorVersion = ALLJOYN_MAJOR_PROTOCOL_VERSION;
-    msgHeader.serialNum = bus->GetInternal().NextSerial();
     /*
      * Encryption will typically make the body length slightly larger because the encryption
      * algorithm appends a MAC block to the end of the encrypted data.
      */
     if (encrypt) {
-        QCC_DbgHLPrintf(("Encrypting messge to %s", destination.empty() ? "broadcast listeners" : destination.c_str()));
         msgHeader.bodyLen = static_cast<uint32_t>(argsLen + ajn::Crypto::MACLength);
     } else {
         msgHeader.bodyLen = static_cast<uint32_t>(argsLen);
@@ -747,6 +752,10 @@ QStatus _Message::MarshalMessage(const qcc::String& expectedSignature,
      * There should be a mapping for every field type
      */
     assert(ArraySize(FieldTypeMapping) == ArraySize(hdrFields.field));
+    /*
+     * Set the serial number. This may be changed later if the message gets delayed.
+     */
+    SetSerialNumber();
     /*
      * Add the destination if there is one.
      */
@@ -837,7 +846,7 @@ QStatus _Message::MarshalMessage(const qcc::String& expectedSignature,
     msgHeader.flags ^= ALLJOYN_FLAG_AUTO_START;
     bufPos += sizeof(msgHeader);
     /*
-     * Perfom endian-swap on the buffer so the header member is in message endianess.
+     * Perform endian-swap on the buffer so the header member is in message endianess.
      */
     if (endianSwap) {
         MessageHeader* hdr = (MessageHeader*)msgBuf;
@@ -897,7 +906,7 @@ ExitMarshalMessage:
     delete [] _oldMsgBuf;
 
     if (status == ER_OK) {
-        QCC_DbgHLPrintf(("MarshalMessage: %d+%d %s", hdrLen, msgHeader.bodyLen, Description().c_str()));
+        QCC_DbgHLPrintf(("MarshalMessage: %d+%d %s %s", hdrLen, msgHeader.bodyLen, Description().c_str(), encrypt ? " (encrypted)" : ""));
     } else {
         QCC_LogError(status, ("MarshalMessage: %s", Description().c_str()));
         msgBuf = NULL;
@@ -912,7 +921,7 @@ ExitMarshalMessage:
 }
 
 
-QStatus _Message::HelloMessage(bool isBusToBus, bool allowRemote, uint32_t& serial)
+QStatus _Message::HelloMessage(bool isBusToBus, bool allowRemote)
 {
     QStatus status;
     /*
@@ -949,13 +958,8 @@ QStatus _Message::HelloMessage(bool isBusToBus, bool allowRemote, uint32_t& seri
                                 0,
                                 ALLJOYN_FLAG_AUTO_START | (allowRemote ? ALLJOYN_FLAG_ALLOW_REMOTE_MSG : 0),
                                 0);
+
     }
-
-    /*
-     * Return the serial number for this message
-     */
-    serial = msgHeader.serialNum;
-
     return status;
 }
 
@@ -999,7 +1003,6 @@ QStatus _Message::CallMsg(const qcc::String& signature,
                           const qcc::String& objPath,
                           const qcc::String& iface,
                           const qcc::String& methodName,
-                          uint32_t& serial,
                           const MsgArg* args,
                           size_t numArgs,
                           uint8_t flags)
@@ -1055,12 +1058,6 @@ QStatus _Message::CallMsg(const qcc::String& signature,
      * Build method call message
      */
     status = MarshalMessage(signature, destination, MESSAGE_METHOD_CALL, args, numArgs, flags, sessionId);
-    if (status == ER_OK) {
-        /*
-         * Return the serial number for this message
-         */
-        serial = msgHeader.serialNum;
-    }
 
 ExitCallMsg:
     return status;
@@ -1195,7 +1192,7 @@ QStatus _Message::ErrorMsg(const Message& call, const char* errorName, const cha
     }
     hdrFields.field[ALLJOYN_HDR_FIELD_ERROR_NAME].Set("s", errorName);
     /*
-     * Return serial number
+     * Set the reply serial number
      */
     hdrFields.field[ALLJOYN_HDR_FIELD_REPLY_SERIAL].Set("u", call->msgHeader.serialNum);
     /*
@@ -1229,7 +1226,7 @@ QStatus _Message::ErrorMsg(const Message& call, QStatus status)
      */
     hdrFields.field[ALLJOYN_HDR_FIELD_ERROR_NAME].Set("s", org::alljoyn::Bus::ErrorName);
     /*
-     * Return serial number
+     * Set the reply serial number
      */
     hdrFields.field[ALLJOYN_HDR_FIELD_REPLY_SERIAL].Set("u", call->msgHeader.serialNum);
     /*
@@ -1257,7 +1254,7 @@ void _Message::ErrorMsg(const char* errorName,
     }
     hdrFields.field[ALLJOYN_HDR_FIELD_ERROR_NAME].Set("s", errorName);
     /*
-     * Return serial number
+     * Set the reply serial number
      */
     hdrFields.field[ALLJOYN_HDR_FIELD_REPLY_SERIAL].Set("u", replySerial);
     /*
@@ -1336,6 +1333,14 @@ QStatus _Message::GetExpansion(uint32_t token, MsgArg& replyArg)
         QCC_LogError(status, ("No expansion rule for token %u", token));
     }
     return status;
+}
+
+void _Message::SetSerialNumber()
+{
+    msgHeader.serialNum = bus->GetInternal().NextSerial();
+    if (msgBuf) {
+        ((MessageHeader*)msgBuf)->serialNum = endianSwap ? EndianSwap32(msgHeader.serialNum) : msgHeader.serialNum;
+    }
 }
 
 }

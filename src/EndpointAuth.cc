@@ -59,9 +59,8 @@ QStatus EndpointAuth::Hello(qcc::String& redirection)
     QStatus status;
     Message hello(bus);
     Message response(bus);
-    uint32_t serial;
 
-    status = hello->HelloMessage(endpoint.features.isBusToBus, endpoint.features.allowRemote, serial);
+    status = hello->HelloMessage(endpoint.features.isBusToBus, endpoint.features.allowRemote);
     if (status != ER_OK) {
         return status;
     }
@@ -96,7 +95,7 @@ QStatus EndpointAuth::Hello(qcc::String& redirection)
     if (response->GetType() != MESSAGE_METHOD_RET) {
         return ER_BUS_ESTABLISH_FAILED;
     }
-    if (response->GetReplySerial() != serial) {
+    if (response->GetReplySerial() != hello->GetCallSerial()) {
         return ER_BUS_UNKNOWN_SERIAL;
     }
     /*

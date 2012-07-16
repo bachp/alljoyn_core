@@ -56,14 +56,13 @@ class MyMessage : public _Message {
                        const char* objPath,
                        const char* interface,
                        const char* methodName,
-                       uint32_t& serial,
                        const MsgArg* argList,
                        size_t numArgs,
                        uint8_t flags = 0)
     {
         qcc::String sig = MsgArg::Signature(argList, numArgs);
         printf("Signature = \"%s\"\n", sig.c_str());
-        return CallMsg(sig, destination, 0, objPath, interface, methodName, serial, argList, numArgs, flags);
+        return CallMsg(sig, destination, 0, objPath, interface, methodName, argList, numArgs, flags);
     }
 
     QStatus Signal(const char* destination,
@@ -87,7 +86,7 @@ class MyMessage : public _Message {
 
     QStatus ReMarshal(const char* senderName)
     {
-        return _Message::ReMarshal(senderName, true);
+        return _Message::ReMarshal(senderName);
     }
 
     QStatus Deliver(RemoteEndpoint& ep)
@@ -106,7 +105,6 @@ static QStatus TestRemarshal(const MsgArg* argList, size_t numArgs, const char* 
     Pipe stream;
     RemoteEndpoint ep(*gBus, false, "", &stream, "dummy");
     MyMessage msg;
-    uint32_t serial;
 
     if (numArgs == 0) {
         printf("Empty arg.v_struct.Elements, arg.v_struct.numElements\n");
@@ -118,7 +116,7 @@ static QStatus TestRemarshal(const MsgArg* argList, size_t numArgs, const char* 
     qcc::String inSig = MsgArg::Signature(argList, numArgs);
     printf("ArgList:\n%s", inargList.c_str());
 
-    status = msg.MethodCall("desti.nation", "/foo/bar", "foo.bar", "test", serial, argList, numArgs);
+    status = msg.MethodCall("desti.nation", "/foo/bar", "foo.bar", "test", argList, numArgs);
     printf("MethodCall status:%s\n", QCC_StatusText(status));
     if (status != ER_OK) {
         return status;

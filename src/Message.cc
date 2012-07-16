@@ -326,14 +326,10 @@ _Message::~_Message(void)
     delete [] handles;
 }
 
-QStatus _Message::ReMarshal(const char* senderName, bool newSerial)
+QStatus _Message::ReMarshal(const char* senderName)
 {
     if (senderName) {
         hdrFields.field[ALLJOYN_HDR_FIELD_SENDER].Set("s", senderName);
-    }
-
-    if (newSerial) {
-        msgHeader.serialNum = bus->GetInternal().NextSerial();
     }
 
     /*

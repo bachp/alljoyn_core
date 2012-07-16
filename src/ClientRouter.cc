@@ -49,6 +49,7 @@ QStatus ClientRouter::PushMessage(Message& msg, BusEndpoint& sender)
         status = ER_BUS_NO_ENDPOINT;
     } else {
         if (&sender == localEndpoint) {
+            localEndpoint->UpdateSerialNumber(msg);
             status = nonLocalEndpoint->PushMessage(msg);
         } else {
             status = localEndpoint->PushMessage(msg);

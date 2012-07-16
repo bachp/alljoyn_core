@@ -70,6 +70,11 @@ class BusAttachment::Internal : public MessageReceiver {
     }
 
     /**
+     * Return most recently allocated serial number
+     */
+    uint32_t PrevSerial() { return msgSerial ? msgSerial : -1; }
+
+    /**
      * Get a reference to the authentication manager object.
      *
      * @return A pointer to the bus's authentication manager

@@ -48,7 +48,7 @@ DaemonRouter::DaemonRouter() : localEndpoint(NULL), ruleTable(), nameTable(), bu
 {
 }
 
-static QStatus SendThroughEndpoint(Message& msg, BusEndpoint& ep, SessionId sessionId)
+static inline QStatus SendThroughEndpoint(Message& msg, BusEndpoint& ep, SessionId sessionId)
 {
     QStatus status;
     if ((sessionId != 0) && (ep.GetEndpointType() == BusEndpoint::ENDPOINT_TYPE_VIRTUAL)) {
@@ -70,6 +70,14 @@ QStatus DaemonRouter::PushMessage(Message& msg, BusEndpoint& origSender)
 
     const char* destination = msg->GetDestination();
     SessionId sessionId = msg->GetSessionId();
+
+    /*
+     * If the message originated at the local endpoint check if the serial number needs to be
+     * updated before queuing the message on a remote endpoint.
+     */
+    if (&origSender == localEndpoint) {
+        localEndpoint->UpdateSerialNumber(msg);
+    }
 
     bool destinationEmpty = destination[0] == '\0';
     if (!destinationEmpty) {

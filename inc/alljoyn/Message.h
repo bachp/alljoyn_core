@@ -580,7 +580,6 @@ class _Message {
      * @param objPath     The object the method call is being sent to
      * @param iface       The interface for the method (can be NULL)
      * @param methodName  The name of the method to call
-     * @param serial      Returns the serial number for this method call
      * @param args        The method call argument list (can be NULL)
      * @param numArgs     The number of arguments
      * @param flags       A logical OR of the AllJoyn flags
@@ -594,7 +593,6 @@ class _Message {
                     const qcc::String& objPath,
                     const qcc::String& iface,
                     const qcc::String& methodName,
-                    uint32_t& serial,
                     const MsgArg* args,
                     size_t numArgs,
                     uint8_t flags);
@@ -674,7 +672,7 @@ class _Message {
     /**
      * @internal
      */
-    QStatus ReMarshal(const char* senderName, bool newSerial = false);
+    QStatus ReMarshal(const char* senderName);
 
     /// @endcond
   private:
@@ -719,13 +717,12 @@ class _Message {
      *
      * @param      isBusToBus   true iff connection attempt is between two AllJoyn instances (bus joining).
      * @param      allowRemote  true iff connection allows messages from remote devices.
-     * @param[out] serial  Returns the serial number for this method call
      *
      * @return
      *      - #ER_OK if hello method call was sent successfully.
      *      - An error status otherwise
      */
-    QStatus HelloMessage(bool isBusToBus, bool allowRemote, uint32_t& serial);
+    QStatus HelloMessage(bool isBusToBus, bool allowRemote);
 
     /**
      * Compose the reply to the hello method call
@@ -737,6 +734,11 @@ class _Message {
      *      - An error status otherwise
      */
     QStatus HelloReply(bool isBusToBus, const qcc::String& uniqueName);
+
+    /**
+     * Sets the serial number on the message.
+     */
+    void SetSerialNumber();
 
     typedef struct MessageHeader {
         char endian;           ///< The endianness of this message

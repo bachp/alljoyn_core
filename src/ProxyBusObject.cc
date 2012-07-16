@@ -88,12 +88,7 @@ QStatus ProxyBusObject::GetAllProperties(const char* iface, MsgArg& value) const
         if (propIface == NULL) {
             status = ER_BUS_NO_SUCH_INTERFACE;
         } else {
-            status = MethodCall(*(propIface->GetMember("GetAll")),
-                                &arg,
-                                1,
-                                reply,
-                                DefaultCallTimeout,
-                                flags);
+            status = MethodCall(*(propIface->GetMember("GetAll")), &arg, 1, reply, DefaultCallTimeout, flags);
             if (ER_OK == status) {
                 value = *(reply->GetArg(0));
             }
@@ -121,12 +116,7 @@ QStatus ProxyBusObject::GetProperty(const char* iface, const char* property, Msg
         if (propIface == NULL) {
             status = ER_BUS_NO_SUCH_INTERFACE;
         } else {
-            status = MethodCall(*(propIface->GetMember("Get")),
-                                inArgs,
-                                numArgs,
-                                reply,
-                                DefaultCallTimeout,
-                                flags);
+            status = MethodCall(*(propIface->GetMember("Get")), inArgs, numArgs, reply, DefaultCallTimeout, flags);
             if (ER_OK == status) {
                 value = *(reply->GetArg(0));
             }
@@ -384,7 +374,6 @@ QStatus ProxyBusObject::MethodCallAsync(const InterfaceDescription::Member& meth
 {
 
     QStatus status;
-    uint32_t serial;
     Message msg(*bus);
     LocalEndpoint& localEndpoint = bus->GetInternal().GetLocalEndpoint();
 
@@ -405,25 +394,10 @@ QStatus ProxyBusObject::MethodCallAsync(const InterfaceDescription::Member& meth
     if ((flags & ALLJOYN_FLAG_ENCRYPTED) && !bus->IsPeerSecurityEnabled()) {
         return ER_BUS_SECURITY_NOT_ENABLED;
     }
-    status = msg->CallMsg(method.signature,
-                          serviceName,
-                          sessionId,
-                          path,
-                          method.iface->GetName(),
-                          method.name,
-                          serial,
-                          args,
-                          numArgs,
-                          flags);
+    status = msg->CallMsg(method.signature, serviceName, sessionId, path, method.iface->GetName(), method.name, args, numArgs, flags);
     if (status == ER_OK) {
         if (!(flags & ALLJOYN_FLAG_NO_REPLY_EXPECTED)) {
-            status = localEndpoint.RegisterReplyHandler(receiver,
-                                                        replyHandler,
-                                                        method,
-                                                        serial,
-                                                        (flags & ALLJOYN_FLAG_ENCRYPTED) != 0,
-                                                        context,
-                                                        timeout);
+            status = localEndpoint.RegisterReplyHandler(receiver, replyHandler, method, msg, context, timeout);
         }
         if (status == ER_OK) {
             if (b2bEp) {
@@ -432,7 +406,7 @@ QStatus ProxyBusObject::MethodCallAsync(const InterfaceDescription::Member& meth
                 status = bus->GetInternal().GetRouter().PushMessage(msg, localEndpoint);
             }
             if (status != ER_OK) {
-                bool unregistered = localEndpoint.UnregisterReplyHandler(serial);
+                bool unregistered = localEndpoint.UnregisterReplyHandler(msg);
                 if (!unregistered) {
                     /*
                      * Unregister failed, so the reply handler must have already been called.
@@ -492,12 +466,13 @@ QStatus ProxyBusObject::MethodCall(const InterfaceDescription::Member& method,
                                    uint8_t flags) const
 {
     QStatus status;
-    uint32_t serial;
     Message msg(*bus);
     LocalEndpoint& localEndpoint = bus->GetInternal().GetLocalEndpoint();
 
-    // if we're being called from the LocalEndpoint (callback) thread, do not allow
-    // blocking calls unless BusAttachment::EnableConcurrentCallbacks has been called first
+    /*
+     * if we're being called from the LocalEndpoint (callback) thread, do not allow
+     * blocking calls unless BusAttachment::EnableConcurrentCallbacks has been called first
+     */
     if (localEndpoint.GetDispatcher().ThreadHoldsLock()) {
         status = ER_BUS_BLOCKING_CALL_NOT_ALLOWED;
         goto MethodCallExit;
@@ -514,29 +489,11 @@ QStatus ProxyBusObject::MethodCall(const InterfaceDescription::Member& method,
     if (method.iface->IsSecure()) {
         flags |= ALLJOYN_FLAG_ENCRYPTED;
     }
-    if (flags & ALLJOYN_FLAG_ENCRYPTED) {
-        if (!bus->IsPeerSecurityEnabled()) {
-            status = ER_BUS_SECURITY_NOT_ENABLED;
-            goto MethodCallExit;
-        }
-        status = localEndpoint.GetPeerObj()->AuthenticatePeer(MESSAGE_METHOD_CALL, serviceName);
-        /*
-         * Not recoverable if the connection could not be secured
-         */
-        if (status != ER_OK) {
-            goto MethodCallExit;
-        }
+    if ((flags & ALLJOYN_FLAG_ENCRYPTED) && !bus->IsPeerSecurityEnabled()) {
+        status = ER_BUS_SECURITY_NOT_ENABLED;
+        goto MethodCallExit;
     }
-    status = msg->CallMsg(method.signature,
-                          serviceName,
-                          sessionId,
-                          path,
-                          method.iface->GetName(),
-                          method.name,
-                          serial,
-                          args,
-                          numArgs,
-                          flags);
+    status = msg->CallMsg(method.signature, serviceName, sessionId, path, method.iface->GetName(), method.name, args, numArgs, flags);
     if (status != ER_OK) {
         goto MethodCallExit;
     }
@@ -559,8 +516,7 @@ QStatus ProxyBusObject::MethodCall(const InterfaceDescription::Member& method,
         status = localEndpoint.RegisterReplyHandler(const_cast<MessageReceiver*>(static_cast<const MessageReceiver* const>(this)),
                                                     static_cast<MessageReceiver::ReplyHandler>(&ProxyBusObject::SyncReplyHandler),
                                                     method,
-                                                    serial,
-                                                    (flags & ALLJOYN_FLAG_ENCRYPTED) != 0,
+                                                    msg,
                                                     heapCtx,
                                                     timeout);
         if (status == ER_OK) {
@@ -601,13 +557,11 @@ QStatus ProxyBusObject::MethodCall(const InterfaceDescription::Member& method,
              * can't know whether this object still exists.
              */
             status = ER_BUS_METHOD_CALL_ABORTED;
-            goto MethodCallExit;
-        } else {
-            if (localEndpoint.UnregisterReplyHandler(serial)) {
-                if (heapCtx) {
-                    delete heapCtx;
-                }
-            }
+        } else if (localEndpoint.UnregisterReplyHandler(msg)) {
+            /*
+             * The handler was deregistered so we need to delete the context here.
+             */
+            delete heapCtx;
         }
     }
 

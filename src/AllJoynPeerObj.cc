@@ -630,7 +630,7 @@ QStatus AllJoynPeerObj::AuthenticatePeer(AllJoynMessageType msgType, const qcc::
      * that use different names for the same peer, but we catch those below when we using the
      * unique name. Worst case we end up making a redundant ExchangeGuids method call.
      */
-    if (msgType != MESSAGE_SIGNAL) {
+    if (msgType == MESSAGE_METHOD_CALL) {
         lock.Lock(MUTEX_CONTEXT);
         if (peerState->GetAuthEvent()) {
             if (wait) {
@@ -741,11 +741,11 @@ QStatus AllJoynPeerObj::AuthenticatePeer(AllJoynMessageType msgType, const qcc::
         return ER_OK;
     }
     /*
-     * Signals don't trigger authentications so if the remote peer is not authenticated or in the
+     * Only method calls trigger authentications so if the remote peer is not authenticated or in the
      * process or being authenticated we return an error status which will cause a security
      * violation notification back to the application.
      */
-    if (msgType == MESSAGE_SIGNAL) {
+    if (msgType != MESSAGE_METHOD_CALL) {
         /* We are still holding the lock */
         lock.Unlock(MUTEX_CONTEXT);
         return ER_BUS_DESTINATION_NOT_AUTHENTICATED;
@@ -936,10 +936,10 @@ void AllJoynPeerObj::AlarmTriggered(const Alarm& alarm, QStatus reason)
         msgsPendingAuth.push_back(req->msg);
         lock.Unlock(MUTEX_CONTEXT);
         /*
-         * Extend timeouts so reply handlers don't expire while waiting for authentication to complete
+         * Pause timeouts so reply handlers don't expire while waiting for authentication to complete
          */
         if (req->msg->GetType() == MESSAGE_METHOD_CALL) {
-            bus.GetInternal().GetLocalEndpoint().ExtendReplyHandlerTimeout(req->msg->GetCallSerial(), AUTH_TIMEOUT);
+            bus.GetInternal().GetLocalEndpoint().PauseReplyHandlerTimeout(req->msg);
         }
         status = AuthenticatePeer(req->msg->GetType(), req->msg->GetDestination(), false);
         if (status != ER_WOULDBLOCK) {
@@ -963,6 +963,9 @@ void AllJoynPeerObj::AlarmTriggered(const Alarm& alarm, QStatus reason)
                             bus.GetInternal().GetLocalEndpoint().PushMessage(reply);
                         }
                     } else {
+                        if (msg->GetType() == MESSAGE_METHOD_CALL) {
+                            bus.GetInternal().GetLocalEndpoint().ResumeReplyHandlerTimeout(msg);
+                        }
                         bus.GetInternal().GetRouter().PushMessage(msg, bus.GetInternal().GetLocalEndpoint());
                     }
                     iter = msgsPendingAuth.erase(iter);

@@ -124,14 +124,13 @@ class MyMessage : public _Message {
                        const char* objPath,
                        const char* interface,
                        const char* methodName,
-                       uint32_t& serial,
                        const MsgArg* argList,
                        size_t numArgs,
                        uint8_t flags = 0)
     {
         qcc::String sig = MsgArg::Signature(argList, numArgs);
         if (!quiet) printf("Signature = \"%s\"\n", sig.c_str());
-        return CallMsg(sig, destination, 0, objPath, interface, methodName, serial, argList, numArgs, flags);
+        return CallMsg(sig, destination, 0, objPath, interface, methodName, argList, numArgs, flags);
     }
 
     QStatus Signal(const char* destination,
@@ -291,7 +290,6 @@ static QStatus TestMarshal(const MsgArg* argList, size_t numArgs, const char* ex
     QStatus status;
     TestPipe stream;
     MyMessage msg;
-    uint32_t serial;
     RemoteEndpoint ep(*gBus, false, "", &stream, "dummy", false);
     ep.GetFeatures().handlePassing = true;
 
@@ -305,7 +303,7 @@ static QStatus TestMarshal(const MsgArg* argList, size_t numArgs, const char* ex
     qcc::String inSig = MsgArg::Signature(argList, numArgs);
     if (!quiet) printf("ArgList:\n%s", inargList.c_str());
 
-    status = msg.MethodCall("desti.nation", "/foo/bar", "foo.bar", "test", serial, argList, numArgs);
+    status = msg.MethodCall("desti.nation", "/foo/bar", "foo.bar", "test", argList, numArgs);
     if (!quiet) printf("MethodCall status:%s\n", QCC_StatusText(status));
     if (status != ER_OK) {
         return status;
@@ -976,13 +974,12 @@ QStatus TestMsgUnpack()
     MyMessage msg;
     MsgArg args[4];
     size_t numArgs = ArraySize(args);
-    uint32_t serial;
     double d = 0.9;
     RemoteEndpoint ep(*gBus, false, "", &stream, "dummy", false);
     ep.GetFeatures().handlePassing = true;
 
     MsgArg::Set(args, numArgs, "usyd", 4, "hello", 8, d);
-    status = msg.MethodCall("a.b.c", "/foo/bar", "foo.bar", "test", serial, args, numArgs);
+    status = msg.MethodCall("a.b.c", "/foo/bar", "foo.bar", "test", args, numArgs);
     if (status != ER_OK) {
         return status;
     }

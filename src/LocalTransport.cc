@@ -85,6 +85,39 @@ bool LocalTransport::IsRunning()
     return !isStoppedEvent.IsSet();
 }
 
+class LocalEndpoint::ReplyContext {
+  public:
+    ReplyContext(LocalEndpoint* ep,
+                 MessageReceiver* receiver,
+                 MessageReceiver::ReplyHandler handler,
+                 const InterfaceDescription::Member* method,
+                 Message& methodCall,
+                 void* context,
+                 uint32_t timeout) :
+        ep(ep),
+        receiver(receiver),
+        handler(handler),
+        method(method),
+        callFlags(methodCall->GetFlags()),
+        serial(methodCall->msgHeader.serialNum),
+        context(context),
+        alarm(timeout, ep, 0, (void*) this)
+    { }
+
+    ~ReplyContext() {
+        ep->GetBus().GetInternal().GetTimer().RemoveAlarm(alarm, true /* block if alarm in progress */);
+    }
+
+    LocalEndpoint* ep;                           /* The endpoint this reply context is associated with */
+    MessageReceiver* receiver;                   /* The object to receive the reply */
+    MessageReceiver::ReplyHandler handler;       /* The receiving object's handler function */
+    const InterfaceDescription::Member* method;  /* The method that was called */
+    uint8_t callFlags;                           /* Flags from the method call */
+    uint32_t serial;                             /* Serial number for the method reply */
+    void* context;                               /* The calling object's context */
+    qcc::Alarm alarm;                            /* Alarm object for handling method call timeouts */
+};
+
 LocalEndpoint::LocalEndpoint(BusAttachment& bus) :
     BusEndpoint(BusEndpoint::ENDPOINT_TYPE_LOCAL),
     dispatcher(this),
@@ -106,6 +139,16 @@ LocalEndpoint::~LocalEndpoint()
 
     running = false;
 
+    /*
+     * Delete any stale reply contexts
+     */
+    replyMapLock.Lock(MUTEX_CONTEXT);
+    for (map<uint32_t, ReplyContext*>::iterator iter = replyMap.begin(); iter != replyMap.end(); ++iter) {
+        QCC_DbgHLPrintf(("LocalEndpoint~LocalEndpoint deleting reply handler for serial %u", iter->second->serial));
+        delete iter->second;
+    }
+    replyMap.clear();
+    replyMapLock.Unlock(MUTEX_CONTEXT);
     /*
      * Unregister all application registered bus objects
      */
@@ -473,11 +516,34 @@ BusObject* LocalEndpoint::FindLocalObject(const char* objectPath) {
     return ret;
 }
 
+void LocalEndpoint::UpdateSerialNumber(Message& msg)
+{
+    uint32_t serial = msg->msgHeader.serialNum;
+    /*
+     * If the previous serial number is not the latest we replace it.
+     */
+    if (serial != bus.GetInternal().PrevSerial()) {
+        msg->SetSerialNumber();
+        /*
+         * If the message is a method call me must update the reply map
+         */
+        if (msg->GetType() == MESSAGE_METHOD_CALL) {
+            replyMapLock.Lock(MUTEX_CONTEXT);
+            ReplyContext* rc = RemoveReplyHandler(serial);
+            if (rc) {
+                rc->serial = msg->msgHeader.serialNum;
+                replyMap[rc->serial] = rc;
+            }
+            replyMapLock.Unlock(MUTEX_CONTEXT);
+        }
+        QCC_DbgPrintf(("LocalEndpoint::UpdateSerialNumber for %s serial=%u was %u", msg->Description().c_str(), msg->msgHeader.serialNum, serial));
+    }
+}
+
 QStatus LocalEndpoint::RegisterReplyHandler(MessageReceiver* receiver,
                                             MessageReceiver::ReplyHandler replyHandler,
                                             const InterfaceDescription::Member& method,
-                                            uint32_t serial,
-                                            bool secure,
+                                            Message& methodCallMsg,
                                             void* context,
                                             uint32_t timeout)
 {
@@ -486,62 +552,87 @@ QStatus LocalEndpoint::RegisterReplyHandler(MessageReceiver* receiver,
         status = ER_BUS_STOPPING;
         QCC_LogError(status, ("Local transport not running"));
     } else {
-        ReplyContext reply = {
-            receiver,
-            replyHandler,
-            &method,
-            secure,
-            context,
-            Alarm(timeout, this, 0, (void*)(size_t)serial)
-        };
-        QCC_DbgPrintf(("LocalEndpoint::RegisterReplyHandler - Adding serial=%u", serial));
+        ReplyContext* rc =  new ReplyContext(this, receiver, replyHandler, &method, methodCallMsg, context, timeout);
+        QCC_DbgPrintf(("LocalEndpoint::RegisterReplyHandler"));
+        /*
+         * Add reply context.
+         */
         replyMapLock.Lock(MUTEX_CONTEXT);
-        replyMap.insert(pair<uint32_t, ReplyContext>(serial, reply));
+        replyMap[methodCallMsg->msgHeader.serialNum] = rc;
         replyMapLock.Unlock(MUTEX_CONTEXT);
-
-        /* Set a timeout */
-        status = bus.GetInternal().GetTimer().AddAlarm(reply.alarm);
+        /*
+         * Set timeout
+         */
+        status = bus.GetInternal().GetTimer().AddAlarm(rc->alarm);
         if (status != ER_OK) {
-            UnregisterReplyHandler(serial);
+            UnregisterReplyHandler(methodCallMsg);
         }
     }
     return status;
 }
 
-bool LocalEndpoint::UnregisterReplyHandler(uint32_t serial)
+bool LocalEndpoint::UnregisterReplyHandler(Message& methodCall)
 {
     replyMapLock.Lock(MUTEX_CONTEXT);
-    map<uint32_t, ReplyContext>::iterator iter = replyMap.find(serial);
-    if (iter != replyMap.end()) {
-        QCC_DbgPrintf(("LocalEndpoint::UnregisterReplyHandler - Removing serial=%u", serial));
-        ReplyContext rc = iter->second;
-        replyMap.erase(iter);
-        replyMapLock.Unlock(MUTEX_CONTEXT);
-        bus.GetInternal().GetTimer().RemoveAlarm(rc.alarm);
+    ReplyContext* rc = RemoveReplyHandler(methodCall->msgHeader.serialNum);
+    replyMapLock.Unlock(MUTEX_CONTEXT);
+    if (rc) {
+        delete rc;
         return true;
     } else {
-        replyMapLock.Unlock(MUTEX_CONTEXT);
         return false;
     }
 }
 
-QStatus LocalEndpoint::ExtendReplyHandlerTimeout(uint32_t serial, uint32_t extension)
+/*
+ * NOTE: Must be called holding replyMapLock
+ */
+LocalEndpoint::ReplyContext* LocalEndpoint::RemoveReplyHandler(uint32_t serial)
 {
-    QStatus status;
-    replyMapLock.Lock();
-    map<uint32_t, ReplyContext>::iterator iter = replyMap.find(serial);
+    QCC_DbgPrintf(("LocalEndpoint::RemoveReplyHandler for serial=%u", serial));
+    ReplyContext* rc = NULL;
+    map<uint32_t, ReplyContext*>::iterator iter = replyMap.find(serial);
     if (iter != replyMap.end()) {
-        QCC_DbgPrintf(("LocalEndpoint::ExtendReplyHandlerTimeout - extending timeout for serial=%u", serial));
-        Alarm newAlarm(Timespec(iter->second.alarm.GetAlarmTime() + extension), this, 0, (void*)(size_t)serial);
-        status = bus.GetInternal().GetTimer().ReplaceAlarm(iter->second.alarm, newAlarm, false);
-        if (status == ER_OK) {
-            iter->second.alarm = newAlarm;
-        }
-    } else {
-        status = ER_BUS_UNKNOWN_SERIAL;
+        rc = iter->second;
+        replyMap.erase(iter);
+        assert(rc->serial == serial);
     }
-    replyMapLock.Unlock();
-    return status;
+    return rc;
+}
+
+bool LocalEndpoint::PauseReplyHandlerTimeout(Message& methodCallMsg)
+{
+    bool paused = false;
+    if (methodCallMsg->GetType() == MESSAGE_METHOD_CALL) {
+        replyMapLock.Lock();
+        map<uint32_t, ReplyContext*>::iterator iter = replyMap.find(methodCallMsg->GetCallSerial());
+        if (iter != replyMap.end()) {
+            ReplyContext*rc = iter->second;
+            paused = rc->ep->GetBus().GetInternal().GetTimer().RemoveAlarm(rc->alarm);
+        }
+        replyMapLock.Unlock();
+    }
+    return paused;
+}
+
+bool LocalEndpoint::ResumeReplyHandlerTimeout(Message& methodCallMsg)
+{
+    bool resumed = false;
+    if (methodCallMsg->GetType() == MESSAGE_METHOD_CALL) {
+        replyMapLock.Lock();
+        map<uint32_t, ReplyContext*>::iterator iter = replyMap.find(methodCallMsg->GetCallSerial());
+        if (iter != replyMap.end()) {
+            ReplyContext*rc = iter->second;
+            QStatus status = rc->ep->GetBus().GetInternal().GetTimer().AddAlarm(rc->alarm);
+            if (status == ER_OK) {
+                resumed = true;
+            } else {
+                QCC_LogError(status, ("Failed to resume reply handler timeout for %s", methodCallMsg->Description().c_str()));
+            }
+        }
+        replyMapLock.Unlock();
+    }
+    return resumed;
 }
 
 QStatus LocalEndpoint::RegisterSignalHandler(MessageReceiver* receiver,
@@ -590,18 +681,16 @@ QStatus LocalEndpoint::UnregisterAllHandlers(MessageReceiver* receiver)
      * Remove any reply handlers for this receiver
      */
     replyMapLock.Lock(MUTEX_CONTEXT);
-    bool removed;
-    do {
-        removed = false;
-        for (map<uint32_t, ReplyContext>::iterator iter = replyMap.begin(); iter != replyMap.end(); ++iter) {
-            if (iter->second.object == receiver) {
-                bus.GetInternal().GetTimer().RemoveAlarm(iter->second.alarm);
-                replyMap.erase(iter);
-                removed = true;
-                break;
-            }
+    for (map<uint32_t, ReplyContext*>::iterator iter = replyMap.begin(); iter != replyMap.end();) {
+        ReplyContext* rc = iter->second;
+        if (rc->receiver == receiver) {
+            replyMap.erase(iter);
+            delete rc;
+            iter = replyMap.begin();
+        } else {
+            ++iter;
         }
-    } while (removed);
+    }
     replyMapLock.Unlock(MUTEX_CONTEXT);
     return ER_OK;
 }
@@ -611,16 +700,27 @@ QStatus LocalEndpoint::UnregisterAllHandlers(MessageReceiver* receiver)
  */
 void LocalEndpoint::AlarmTriggered(const Alarm& alarm, QStatus reason)
 {
-    uint32_t serial = reinterpret_cast<uintptr_t>(alarm.GetContext());
-    Message msg(bus);
-    QCC_DbgPrintf(("Timed out waiting for METHOD_REPLY with serial %d", serial));
-
-    if (reason == ER_TIMER_EXITING) {
-        msg->ErrorMsg("org.alljoyn.Bus.Exiting", serial);
+    ReplyContext* rc = reinterpret_cast<ReplyContext*>(alarm.GetContext());
+    if (reason == ER_OK) {
+        QCC_DbgPrintf(("Timed out waiting for METHOD_REPLY with serial %d", rc->serial));
+        Message msg(bus);
+        if (reason == ER_TIMER_EXITING) {
+            msg->ErrorMsg("org.alljoyn.Bus.Exiting", rc->serial);
+        } else {
+            msg->ErrorMsg("org.alljoyn.Bus.Timeout", rc->serial);
+        }
+        /*
+         * Forward the message via the dispatcher so we don't block this alarm thread. This prevents
+         * the ReplyContext destructor from being blocked while the response we just generated is
+         * handled.
+         */
+        dispatcher.DispatchMessage(msg);
     } else {
-        msg->ErrorMsg("org.alljoyn.Bus.Timeout", serial);
+        replyMapLock.Lock();
+        ReplyContext* rc = RemoveReplyHandler(rc->serial);
+        delete rc;
+        replyMapLock.Unlock();
     }
-    HandleMethodReply(msg);
 }
 
 QStatus LocalEndpoint::HandleMethodCall(Message& message)
@@ -790,14 +890,11 @@ QStatus LocalEndpoint::HandleMethodReply(Message& message)
 {
     QStatus status = ER_OK;
 
-    replyMapLock.Lock(MUTEX_CONTEXT);
-    map<uint32_t, ReplyContext>::iterator iter = replyMap.find(message->GetReplySerial());
-    if (iter != replyMap.end()) {
-        ReplyContext rc = iter->second;
-        replyMap.erase(iter);
-        replyMapLock.Unlock(MUTEX_CONTEXT);
-        bus.GetInternal().GetTimer().RemoveAlarm(rc.alarm);
-        if (rc.secure && !message->IsEncrypted()) {
+    replyMapLock.Lock();
+    ReplyContext* rc = RemoveReplyHandler(message->GetReplySerial());
+    replyMapLock.Unlock();
+    if (rc) {
+        if ((rc->callFlags & ALLJOYN_FLAG_ENCRYPTED) && !message->IsEncrypted()) {
             /*
              * If the response was an internally generated error response just keep that error.
              * Otherwise if reply was not encrypted so return an error to the caller. Internally
@@ -809,7 +906,7 @@ QStatus LocalEndpoint::HandleMethodReply(Message& message)
         } else {
             QCC_DbgPrintf(("Matched reply for serial #%d", message->GetReplySerial()));
             if (message->GetType() == MESSAGE_METHOD_RET) {
-                status = message->UnmarshalArgs(rc.method->returnSignature);
+                status = message->UnmarshalArgs(rc->method->returnSignature);
             } else {
                 status = message->UnmarshalArgs("*");
             }
@@ -830,9 +927,9 @@ QStatus LocalEndpoint::HandleMethodReply(Message& message)
             QCC_LogError(status, ("Reply message replaced with an internally generated error"));
             status = ER_OK;
         }
-        ((rc.object)->*(rc.handler))(message, rc.context);
+        ((rc->receiver)->*(rc->handler))(message, rc->context);
+        delete rc;
     } else {
-        replyMapLock.Unlock(MUTEX_CONTEXT);
         status = ER_BUS_UNMATCHED_REPLY_SERIAL;
         QCC_DbgHLPrintf(("%s does not match any current method calls: %s", message->Description().c_str(), QCC_StatusText(status)));
     }

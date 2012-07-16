@@ -54,11 +54,10 @@ class MyMessage : public _Message {
                        const char* objPath,
                        const char* interface,
                        const char* methodName,
-                       uint32_t& serial,
                        uint8_t flags = 0)
     {
         flags |= ALLJOYN_FLAG_COMPRESSED;
-        return CallMsg("", destination, 0, objPath, interface, methodName, serial, NULL, 0, flags);
+        return CallMsg("", destination, 0, objPath, interface, methodName, NULL, 0, flags);
     }
 
     QStatus Signal(const char* destination,
@@ -89,19 +88,18 @@ TEST(CompressionTest, Compression) {
     uint32_t tok1;
     uint32_t tok2;
     BusAttachment bus("compression");
-    uint32_t serial;
     MyMessage msg(bus);
     Pipe stream;
     RemoteEndpoint ep(bus, false, "", &stream, "dummy", false);
 
     bus.Start();
 
-    status = msg.MethodCall(":1.99", "/foo/bar", "foo.bar", "test", serial);
+    status = msg.MethodCall(":1.99", "/foo/bar", "foo.bar", "test");
     EXPECT_EQ(ER_OK, status) << "  Actual Status: " << QCC_StatusText(status);
 
     tok1 = msg.GetCompressionToken();
 
-    status = msg.MethodCall(":1.99", "/foo/bar", "foo.bar", "test", serial);
+    status = msg.MethodCall(":1.99", "/foo/bar", "foo.bar", "test");
     EXPECT_EQ(ER_OK, status) << "  Actual Status: " << QCC_StatusText(status);
 
     tok2 = msg.GetCompressionToken();
@@ -109,7 +107,7 @@ TEST(CompressionTest, Compression) {
     /* Expect same message to have same token */
     ASSERT_EQ(tok1, tok2) << "FAILD 1";
 
-    status = msg.MethodCall(":1.98", "/foo/bar", "foo.bar", "test", serial);
+    status = msg.MethodCall(":1.98", "/foo/bar", "foo.bar", "test");
     EXPECT_EQ(ER_OK, status) << "  Actual Status: " << QCC_StatusText(status);
 
     tok2 = msg.GetCompressionToken();

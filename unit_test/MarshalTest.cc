@@ -97,13 +97,12 @@ class MyMessage : public _Message {
                        const char* objPath,
                        const char* interface,
                        const char* methodName,
-                       uint32_t& serial,
                        const MsgArg* argList,
                        size_t numArgs,
                        uint8_t flags = 0)
     {
         qcc::String sig = MsgArg::Signature(argList, numArgs);
-        return CallMsg(sig, destination, 0, objPath, interface, methodName, serial, argList, numArgs, flags);
+        return CallMsg(sig, destination, 0, objPath, interface, methodName, argList, numArgs, flags);
     }
 
     QStatus Signal(const char* destination,
@@ -255,13 +254,12 @@ TEST(MarshalTest, TestMsgUnpack) {
     MyMessage msg(*bus);
     MsgArg args[4];
     size_t numArgs = ArraySize(args);
-    uint32_t serial;
     double d = 0.9;
     RemoteEndpoint ep(*bus, false, "", &stream, "dummy", false);
     ep.GetFeatures().handlePassing = true;
 
     MsgArg::Set(args, numArgs, "usyd", 4, "hello", 8, d);
-    status = msg.MethodCall("a.b.c", "/foo/bar", "foo.bar", "test", serial, args, numArgs);
+    status = msg.MethodCall("a.b.c", "/foo/bar", "foo.bar", "test", args, numArgs);
     ASSERT_EQ(ER_OK, status) << "  Actual Status: " << QCC_StatusText(status);
 
 
@@ -502,7 +500,6 @@ static QStatus TestMarshal(const MsgArg* argList, size_t numArgs, const char* ex
     QStatus status;
     TestPipe stream;
     MyMessage msg(*fuzzingBus);
-    uint32_t serial;
     errString.clear();
 
     RemoteEndpoint ep(*fuzzingBus, false, "", &stream, "dummy", false);
@@ -521,7 +518,7 @@ static QStatus TestMarshal(const MsgArg* argList, size_t numArgs, const char* ex
     if (!quiet) printf("ArgList:\n%s", inargList.c_str());
     else if (!bigArray) errString += "ArgList:\n" + static_cast<qcc::String>(inargList.c_str());
 
-    status = msg.MethodCall("desti.nation", "/foo/bar", "foo.bar", "test", serial, argList, numArgs);
+    status = msg.MethodCall("desti.nation", "/foo/bar", "foo.bar", "test", argList, numArgs);
     if (!quiet) printf("MethodCall status:%s\n", QCC_StatusText(status));
     else errString += "MethodCall status: " + static_cast<qcc::String>(QCC_StatusText(status)) + "\n";
     if (status != ER_OK) {
