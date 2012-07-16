@@ -110,7 +110,7 @@ Change history
 
 2.3.1 - Bug fixes.
 
-2.3.0 - Added support for dynamic enable/disable of Bluetooth device on 
+2.3.0 - Added support for dynamic enable/disable of Bluetooth device on
         Windows. Alpha support for Android ICS. BT and Windows stability.
 
 2.2.0 - Support for bundled daemon. BT fixes. Minor mods to security API.
