@@ -717,8 +717,9 @@ void LocalEndpoint::AlarmTriggered(const Alarm& alarm, QStatus reason)
         dispatcher.DispatchMessage(msg);
     } else {
         replyMapLock.Lock();
-        ReplyContext* rc = RemoveReplyHandler(rc->serial);
-        delete rc;
+        if (RemoveReplyHandler(rc->serial) == rc) {
+            delete rc;
+        }
         replyMapLock.Unlock();
     }
 }
