@@ -88,10 +88,15 @@ class BusObject : public MessageReceiver {
      * @param ifcName   The name of the interface
      * @param propName  The name of the property being changed
      * @param val       The new value of the property
-     * @param SessionId Id of the session we broadcast the signal to (0 for all)
+     * @param id        ID of the session we broadcast the signal to (0 for all)
      */
-    void EmitPropChanged(const char* ifcName, const char* propName, MsgArg& val, SessionId id = 0);
+    void EmitPropChanged(const char* ifcName, const char* propName, MsgArg& val, SessionId id);
 
+    /**
+     * Get a reference to the underlying BusAttachment
+     *
+     * @return a reference to the BusAttachment
+     */
     const BusAttachment& GetBusAttachment() const
     { return bus; }
 

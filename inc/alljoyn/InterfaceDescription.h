@@ -77,7 +77,7 @@ class InterfaceDescription {
 
   public:
 
-    typedef std::map<qcc::String, qcc::String> AnnotationsMap;
+    typedef std::map<qcc::String, qcc::String> AnnotationsMap; /**< A map to store string annotations */
 
     /**
      * Structure representing the member to be added to the Interface
@@ -263,7 +263,7 @@ class InterfaceDescription {
      * @param inputSig    Signature of input parameters or NULL for none.
      * @param outSig      Signature of output parameters or NULL for none.
      * @param argNames    Comma separated list of input and then output arg names used in annotation XML.
-     * @param annotation  Annotation flags.
+     * @param annotations  Map of annotations
      * @param accessPerms Access permission requirements on this call
      *
      * @return
