@@ -2219,7 +2219,7 @@ void NameService::Retransmit(void)
     // Keep track of how many messages we actually send in order to get all of
     // the advertisements out.
     //
-    uint nSent = 0;
+    uint32_t nSent = 0;
 
     //
     // The header will tie the whole protocol message together.  By setting the
