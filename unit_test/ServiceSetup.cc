@@ -77,7 +77,7 @@ QStatus MyAuthListener::RequestPwd(const qcc::String& authMechanism, uint8_t min
 
 /* Service Object class */
 
-ServiceObject::ServiceObject(BusAttachment& bus, const char* path) : BusObject(bus, path)
+ServiceObject::ServiceObject(BusAttachment& bus, const char* path) : BusObject(bus, path), objectRegistered(false)
 {
 
 }
