@@ -5,7 +5,7 @@
  */
 
 /******************************************************************************
- * Copyright 2009-2011, Qualcomm Innovation Center, Inc.
+ * Copyright 2009-2012, Qualcomm Innovation Center, Inc.
  *
  *    Licensed under the Apache License, Version 2.0 (the "License");
  *    you may not use this file except in compliance with the License.
@@ -37,6 +37,7 @@
 
 #include <alljoyn/BusAttachment.h>
 #include <alljoyn/DBusStd.h>
+#include <alljoyn/AllJoynStd.h>
 #include <alljoyn/Message.h>
 #include <alljoyn/ProxyBusObject.h>
 #include <alljoyn/InterfaceDescription.h>
@@ -71,7 +72,17 @@ struct ProxyBusObject::Components {
     vector<Thread*> waitingThreads;
 };
 
-QStatus ProxyBusObject::GetAllProperties(const char* iface, MsgArg& value) const
+template <typename _cbType> struct CBContext {
+    CBContext(ProxyBusObject* obj, ProxyBusObject::Listener* listener, _cbType callback, void* context)
+        : obj(obj), listener(listener), callback(callback), context(context) { }
+
+    ProxyBusObject* obj;
+    ProxyBusObject::Listener* listener;
+    _cbType callback;
+    void* context;
+};
+
+QStatus ProxyBusObject::GetAllProperties(const char* iface, MsgArg& value, uint32_t timeout) const
 {
     QStatus status;
     const InterfaceDescription* valueIface = bus->GetInterface(iface);
@@ -88,7 +99,7 @@ QStatus ProxyBusObject::GetAllProperties(const char* iface, MsgArg& value) const
         if (propIface == NULL) {
             status = ER_BUS_NO_SUCH_INTERFACE;
         } else {
-            status = MethodCall(*(propIface->GetMember("GetAll")), &arg, 1, reply, DefaultCallTimeout, flags);
+            status = MethodCall(*(propIface->GetMember("GetAll")), &arg, 1, reply, timeout, flags);
             if (ER_OK == status) {
                 value = *(reply->GetArg(0));
             }
@@ -97,7 +108,64 @@ QStatus ProxyBusObject::GetAllProperties(const char* iface, MsgArg& value) const
     return status;
 }
 
-QStatus ProxyBusObject::GetProperty(const char* iface, const char* property, MsgArg& value) const
+void ProxyBusObject::GetAllPropsMethodCB(Message& message, void* context)
+{
+    CBContext<Listener::GetAllPropertiesCB>* ctx = reinterpret_cast<CBContext<Listener::GetAllPropertiesCB>*>(context);
+
+    if (message->GetType() == MESSAGE_METHOD_RET) {
+        (ctx->listener->*ctx->callback)(ER_OK, ctx->obj, *message->GetArg(0), ctx->context);
+    } else {
+        const MsgArg noVal;
+        QStatus status = ER_BUS_NO_SUCH_PROPERTY;
+        if (::strcmp(message->GetErrorName(), org::alljoyn::Bus::ErrorName) == 0) {
+            const char* err;
+            if (message->GetArgs("sq", &err, &status) == ER_OK) {
+                QCC_DbgPrintf(("Asynch GetAllProperties call returned %s", err));
+            }
+        }
+        (ctx->listener->*ctx->callback)(status, ctx->obj, noVal, ctx->context);
+    }
+    delete ctx;
+}
+
+QStatus ProxyBusObject::GetAllPropertiesAsync(const char* iface,
+                                              ProxyBusObject::Listener* listener,
+                                              ProxyBusObject::Listener::GetPropertyCB callback,
+                                              void* context,
+                                              uint32_t timeout)
+{
+    QStatus status;
+    const InterfaceDescription* valueIface = bus->GetInterface(iface);
+    if (!valueIface) {
+        status = ER_BUS_OBJECT_NO_SUCH_INTERFACE;
+    } else {
+        uint8_t flags = 0;
+        if (valueIface->IsSecure()) {
+            flags |= ALLJOYN_FLAG_ENCRYPTED;
+        }
+        MsgArg arg = MsgArg("s", iface);
+        const InterfaceDescription* propIface = bus->GetInterface(org::freedesktop::DBus::Properties::InterfaceName);
+        if (propIface == NULL) {
+            status = ER_BUS_NO_SUCH_INTERFACE;
+        } else {
+            CBContext<Listener::GetAllPropertiesCB>* ctx = new CBContext<Listener::GetAllPropertiesCB>(this, listener, callback, context);
+            status = MethodCallAsync(*(propIface->GetMember("GetAll")),
+                                     this,
+                                     static_cast<MessageReceiver::ReplyHandler>(&ProxyBusObject::GetAllPropsMethodCB),
+                                     &arg,
+                                     1,
+                                     reinterpret_cast<void*>(ctx),
+                                     timeout,
+                                     flags);
+            if (status != ER_OK) {
+                delete ctx;
+            }
+        }
+    }
+    return status;
+}
+
+QStatus ProxyBusObject::GetProperty(const char* iface, const char* property, MsgArg& value, uint32_t timeout) const
 {
     QStatus status;
     const InterfaceDescription* valueIface = bus->GetInterface(iface);
@@ -116,7 +184,7 @@ QStatus ProxyBusObject::GetProperty(const char* iface, const char* property, Msg
         if (propIface == NULL) {
             status = ER_BUS_NO_SUCH_INTERFACE;
         } else {
-            status = MethodCall(*(propIface->GetMember("Get")), inArgs, numArgs, reply, DefaultCallTimeout, flags);
+            status = MethodCall(*(propIface->GetMember("Get")), inArgs, numArgs, reply, timeout, flags);
             if (ER_OK == status) {
                 value = *(reply->GetArg(0));
             }
@@ -125,7 +193,67 @@ QStatus ProxyBusObject::GetProperty(const char* iface, const char* property, Msg
     return status;
 }
 
-QStatus ProxyBusObject::SetProperty(const char* iface, const char* property, MsgArg& value) const
+void ProxyBusObject::GetPropMethodCB(Message& message, void* context)
+{
+    CBContext<Listener::GetPropertyCB>* ctx = reinterpret_cast<CBContext<Listener::GetPropertyCB>*>(context);
+
+    if (message->GetType() == MESSAGE_METHOD_RET) {
+        (ctx->listener->*ctx->callback)(ER_OK, ctx->obj, *message->GetArg(0), ctx->context);
+    } else {
+        const MsgArg noVal;
+        QStatus status = ER_BUS_NO_SUCH_PROPERTY;
+        if (::strcmp(message->GetErrorName(), org::alljoyn::Bus::ErrorName) == 0) {
+            const char* err;
+            if (message->GetArgs("sq", &err, &status) == ER_OK) {
+                QCC_DbgPrintf(("Asynch GetProperty call returned %s", err));
+            }
+        }
+        (ctx->listener->*ctx->callback)(status, ctx->obj, noVal, ctx->context);
+    }
+    delete ctx;
+}
+
+QStatus ProxyBusObject::GetPropertyAsync(const char* iface,
+                                         const char* property,
+                                         ProxyBusObject::Listener* listener,
+                                         ProxyBusObject::Listener::GetPropertyCB callback,
+                                         void* context,
+                                         uint32_t timeout)
+{
+    QStatus status;
+    const InterfaceDescription* valueIface = bus->GetInterface(iface);
+    if (!valueIface) {
+        status = ER_BUS_OBJECT_NO_SUCH_INTERFACE;
+    } else {
+        uint8_t flags = 0;
+        if (valueIface->IsSecure()) {
+            flags |= ALLJOYN_FLAG_ENCRYPTED;
+        }
+        MsgArg inArgs[2];
+        size_t numArgs = ArraySize(inArgs);
+        MsgArg::Set(inArgs, numArgs, "ss", iface, property);
+        const InterfaceDescription* propIface = bus->GetInterface(org::freedesktop::DBus::Properties::InterfaceName);
+        if (propIface == NULL) {
+            status = ER_BUS_NO_SUCH_INTERFACE;
+        } else {
+            CBContext<Listener::GetPropertyCB>* ctx = new CBContext<Listener::GetPropertyCB>(this, listener, callback, context);
+            status = MethodCallAsync(*(propIface->GetMember("Get")),
+                                     this,
+                                     static_cast<MessageReceiver::ReplyHandler>(&ProxyBusObject::GetPropMethodCB),
+                                     inArgs,
+                                     numArgs,
+                                     reinterpret_cast<void*>(ctx),
+                                     timeout,
+                                     flags);
+            if (status != ER_OK) {
+                delete ctx;
+            }
+        }
+    }
+    return status;
+}
+
+QStatus ProxyBusObject::SetProperty(const char* iface, const char* property, MsgArg& value, uint32_t timeout) const
 {
     QStatus status;
     const InterfaceDescription* valueIface = bus->GetInterface(iface);
@@ -148,8 +276,67 @@ QStatus ProxyBusObject::SetProperty(const char* iface, const char* property, Msg
                                 inArgs,
                                 numArgs,
                                 reply,
-                                DefaultCallTimeout,
+                                timeout,
                                 flags);
+        }
+    }
+    return status;
+}
+
+void ProxyBusObject::SetPropMethodCB(Message& message, void* context)
+{
+    QStatus status = ER_OK;
+    CBContext<Listener::SetPropertyCB>* ctx = reinterpret_cast<CBContext<Listener::SetPropertyCB>*>(context);
+
+    if (message->GetType() != MESSAGE_METHOD_RET) {
+        status = ER_BUS_NO_SUCH_PROPERTY;
+        if (::strcmp(message->GetErrorName(), org::alljoyn::Bus::ErrorName) == 0) {
+            const char* err;
+            if (message->GetArgs("sq", &err, &status) == ER_OK) {
+                QCC_DbgPrintf(("Asynch SetProperty call returned %s", err));
+            }
+        }
+    }
+    (ctx->listener->*ctx->callback)(status, ctx->obj, ctx->context);
+    delete ctx;
+}
+
+QStatus ProxyBusObject::SetPropertyAsync(const char* iface,
+                                         const char* property,
+                                         MsgArg& value,
+                                         ProxyBusObject::Listener* listener,
+                                         ProxyBusObject::Listener::SetPropertyCB callback,
+                                         void* context,
+                                         uint32_t timeout)
+{
+    QStatus status;
+    const InterfaceDescription* valueIface = bus->GetInterface(iface);
+    if (!valueIface) {
+        status = ER_BUS_OBJECT_NO_SUCH_INTERFACE;
+    } else {
+        uint8_t flags = 0;
+        if (valueIface->IsSecure()) {
+            flags |= ALLJOYN_FLAG_ENCRYPTED;
+        }
+        MsgArg inArgs[3];
+        size_t numArgs = ArraySize(inArgs);
+        MsgArg::Set(inArgs, numArgs, "ssv", iface, property, &value);
+        const InterfaceDescription* propIface = bus->GetInterface(org::freedesktop::DBus::Properties::InterfaceName);
+        if (propIface == NULL) {
+            status = ER_BUS_NO_SUCH_INTERFACE;
+        } else {
+            CBContext<Listener::SetPropertyCB>* ctx = new CBContext<Listener::SetPropertyCB>(this, listener, callback, context);
+            status = MethodCallAsync(*(propIface->GetMember("Set")),
+                                     this,
+                                     static_cast<MessageReceiver::ReplyHandler>(&ProxyBusObject::SetPropMethodCB),
+                                     inArgs,
+                                     numArgs,
+                                     reinterpret_cast<void*>(ctx),
+                                     timeout,
+                                     flags);
+            if (status != ER_OK) {
+                delete ctx;
+            }
         }
     }
     return status;
@@ -640,7 +827,7 @@ QStatus ProxyBusObject::SecureConnectionAsync(bool forceAuth)
     return peerObj->AuthenticatePeerAsync(serviceName);
 }
 
-QStatus ProxyBusObject::IntrospectRemoteObject()
+QStatus ProxyBusObject::IntrospectRemoteObject(uint32_t timeout)
 {
     /* Need to have introspectable interface in order to call Introspect */
     const InterfaceDescription* introIntf = GetInterface(org::freedesktop::DBus::Introspectable::InterfaceName);
@@ -654,7 +841,7 @@ QStatus ProxyBusObject::IntrospectRemoteObject()
     Message reply(*bus);
     const InterfaceDescription::Member* introMember = introIntf->GetMember("Introspect");
     assert(introMember);
-    QStatus status = MethodCall(*introMember, NULL, 0, reply, DefaultCallTimeout);
+    QStatus status = MethodCall(*introMember, NULL, 0, reply, timeout);
 
     /* Parse the XML reply */
     if (ER_OK == status) {
@@ -667,18 +854,10 @@ QStatus ProxyBusObject::IntrospectRemoteObject()
     return status;
 }
 
-struct _IntrospectMethodCBContext {
-    ProxyBusObject* obj;
-    ProxyBusObject::Listener* listener;
-    ProxyBusObject::Listener::IntrospectCB callback;
-    void* context;
-    _IntrospectMethodCBContext(ProxyBusObject* obj, ProxyBusObject::Listener* listener, ProxyBusObject::Listener::IntrospectCB callback, void* context)
-        : obj(obj), listener(listener), callback(callback), context(context) { }
-};
-
 QStatus ProxyBusObject::IntrospectRemoteObjectAsync(ProxyBusObject::Listener* listener,
                                                     ProxyBusObject::Listener::IntrospectCB callback,
-                                                    void* context)
+                                                    void* context,
+                                                    uint32_t timeout)
 {
     /* Need to have introspectable interface in order to call Introspect */
     const InterfaceDescription* introIntf = GetInterface(org::freedesktop::DBus::Introspectable::InterfaceName);
@@ -691,14 +870,14 @@ QStatus ProxyBusObject::IntrospectRemoteObjectAsync(ProxyBusObject::Listener* li
     /* Attempt to retrieve introspection from the remote object using async call */
     const InterfaceDescription::Member* introMember = introIntf->GetMember("Introspect");
     assert(introMember);
-    _IntrospectMethodCBContext* ctx = new _IntrospectMethodCBContext(this, listener, callback, context);
+    CBContext<Listener::IntrospectCB>* ctx = new CBContext<Listener::IntrospectCB>(this, listener, callback, context);
     QStatus status = MethodCallAsync(*introMember,
                                      this,
                                      static_cast<MessageReceiver::ReplyHandler>(&ProxyBusObject::IntrospectMethodCB),
                                      NULL,
                                      0,
                                      reinterpret_cast<void*>(ctx),
-                                     5000);
+                                     timeout);
     if (ER_OK != status) {
         delete ctx;
     }
@@ -711,7 +890,7 @@ void ProxyBusObject::IntrospectMethodCB(Message& msg, void* context)
     if (NULL != msg->GetArg(0)) {
         QCC_DbgPrintf(("Introspection XML: %s", msg->GetArg(0)->v_string.str));
     }
-    _IntrospectMethodCBContext* ctx = reinterpret_cast<_IntrospectMethodCBContext*>(context);
+    CBContext<Listener::IntrospectCB>* ctx = reinterpret_cast<CBContext<Listener::IntrospectCB>*>(context);
 
     if (msg->GetType() == MESSAGE_METHOD_RET) {
         /* Parse the XML reply to update this ProxyBusObject instance (plus any new interfaces) */
@@ -719,9 +898,7 @@ void ProxyBusObject::IntrospectMethodCB(Message& msg, void* context)
         ident += " : ";
         ident += msg->GetObjectPath();
         status = ParseXml(msg->GetArg(0)->v_string.str, ident.c_str());
-    } else if ((msg->GetType() == MESSAGE_ERROR)
-               && (msg->GetErrorName() != NULL)
-               && (::strcmp("org.freedesktop.DBus.Error.ServiceUnknown", msg->GetErrorName()) == 0)) {
+    } else if (::strcmp("org.freedesktop.DBus.Error.ServiceUnknown", msg->GetErrorName()) == 0) {
         status = ER_BUS_NO_SUCH_SERVICE;
     } else {
         status = ER_FAIL;
