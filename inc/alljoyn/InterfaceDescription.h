@@ -22,7 +22,6 @@
  ******************************************************************************/
 
 #include <qcc/platform.h>
-#include <qcc/StringMapKey.h>
 #include <qcc/String.h>
 #include <alljoyn/DBusStd.h>
 #include <alljoyn/Message.h>
@@ -78,7 +77,7 @@ class InterfaceDescription {
 
   public:
 
-    typedef std::map<qcc::StringMapKey, qcc::String> AnnotationsMap;
+    typedef std::map<qcc::String, qcc::String> AnnotationsMap;
 
     /**
      * Structure representing the member to be added to the Interface

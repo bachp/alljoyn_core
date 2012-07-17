@@ -22,7 +22,7 @@
 
 #include <qcc/platform.h>
 #include <qcc/String.h>
-
+#include <qcc/StringMapKey.h>
 #include <map>
 #include <alljoyn/AllJoynStd.h>
 #include <Status.h>
@@ -259,7 +259,7 @@ QStatus InterfaceDescription::AddMemberAnnotation(const char* member, const qcc:
     }
 
     Member& m = it->second;
-    std::pair<AnnotationsMap::iterator, bool> ret = m.annotations.insert(std::make_pair(StringMapKey(name), value));
+    std::pair<AnnotationsMap::iterator, bool> ret = m.annotations.insert(std::make_pair(name, value));
     return ret.second ? ER_OK : ER_BUS_ANNOTATION_ALREADY_EXISTS;
 }
 
@@ -271,7 +271,7 @@ bool InterfaceDescription::GetMemberAnnotation(const char* member, const qcc::St
     }
 
     const Member& m = mit->second;
-    AnnotationsMap::const_iterator ait = m.annotations.find(StringMapKey(name));
+    AnnotationsMap::const_iterator ait = m.annotations.find(name);
     return (ait != defs->annotations.end() ? value = ait->second, true : false);
 }
 
@@ -301,7 +301,7 @@ QStatus InterfaceDescription::AddPropertyAnnotation(const qcc::String& p_name, c
     }
 
     Property& property = pit->second;
-    std::pair<AnnotationsMap::iterator, bool> ret = property.annotations.insert(std::make_pair(StringMapKey(name), value));
+    std::pair<AnnotationsMap::iterator, bool> ret = property.annotations.insert(std::make_pair(name, value));
     return (ret.second ? ER_OK : ER_BUS_ANNOTATION_ALREADY_EXISTS);
 }
 
@@ -313,7 +313,7 @@ bool InterfaceDescription::GetPropertyAnnotation(const qcc::String& p_name, cons
     }
 
     const Property& property = pit->second;
-    AnnotationsMap::const_iterator ait = property.annotations.find(StringMapKey(name));
+    AnnotationsMap::const_iterator ait = property.annotations.find(name);
     return (ait != property.annotations.end() ? value = ait->second, true : false);
 }
 
@@ -323,14 +323,13 @@ QStatus InterfaceDescription::AddAnnotation(const qcc::String& name, const qcc::
         return ER_BUS_INTERFACE_ACTIVATED;
     }
 
-    StringMapKey key = qcc::String(name);
-    std::pair<AnnotationsMap::iterator, bool> ret = defs->annotations.insert(std::make_pair(key, value));
+    std::pair<AnnotationsMap::iterator, bool> ret = defs->annotations.insert(std::make_pair(name, value));
     return ret.second ? ER_OK : ER_BUS_ANNOTATION_ALREADY_EXISTS;
 }
 
 bool InterfaceDescription::GetAnnotation(const qcc::String& name, qcc::String& value) const
 {
-    AnnotationsMap::const_iterator it = defs->annotations.find(StringMapKey(name));
+    AnnotationsMap::const_iterator it = defs->annotations.find(name);
     return (it != defs->annotations.end() ? value = it->second, true : false);
 }
 
