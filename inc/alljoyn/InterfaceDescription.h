@@ -296,8 +296,8 @@ class InterfaceDescription {
      * @param value      Output value for the annotation
      *
      * @return
-     *      - #true if found
-     *      - #false if property not found
+     *      - true if found
+     *      - false if property not found
      */
     bool GetMemberAnnotation(const char* member, const qcc::String& name, qcc::String& value) const;
 
@@ -442,8 +442,8 @@ class InterfaceDescription {
      * @param name       Name of annotation.
      * @param value      Returned value of the annotation
      * @return
-     *      - #true if annotation found.
-     *      - #false if annotation not found
+     *      - true if annotation found.
+     *      - false if annotation not found
      */
     bool GetAnnotation(const qcc::String& name, qcc::String& value) const;
 
