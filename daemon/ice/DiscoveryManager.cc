@@ -1,4 +1,3 @@
-<<<<<<< HEAD
 /**
  * @file DiscoveryManager.cc
  *
@@ -3444,7 +3443,7 @@ void DiscoveryManager::GetRendezvousConnIPAddresses(IPAddress& onDemandAddress, 
 }
 
 } // namespace ajn
-=======
+== == == =
 /**
  * @file DiscoveryManager.cc
  *
@@ -3493,7 +3492,7 @@ void DiscoveryManager::GetRendezvousConnIPAddresses(IPAddress& onDemandAddress, 
 #include "ProximityScanEngine.h"
 #include "RendezvousServerConnection.h"
 
-using namespace std;
+    using namespace std;
 using namespace qcc;
 
 // Disable IPv6 support for initial release
@@ -6638,4 +6637,4 @@ void DiscoveryManager::ComposeAndQueueTokenRefreshMessage(TokenRefreshMessage re
 }
 
 } // namespace ajn
->>>>>>> d9faa66... ALLJOYN-1155: Fixed metro branch to build on Linux and Android.
+

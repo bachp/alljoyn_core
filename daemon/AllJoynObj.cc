@@ -98,7 +98,6 @@ AllJoynObj::AllJoynObj(Bus& bus, BusController* busController) :
 
 AllJoynObj::~AllJoynObj()
 {
-    nameMapReaper.Stop();
     bus.UnregisterBusObject(*this);
     router.RemoveBusNameListener(this);
 

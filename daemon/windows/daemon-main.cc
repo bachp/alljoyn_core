@@ -45,7 +45,7 @@
 #include "TCPTransport.h"
 #include "DaemonTransport.h"
 //disable bluetooth on windows.
-#if !defined(QCC_OS_WINDOWS)
+#if !defined(QCC_OS_GROUP_WINDOWS)
 #include "BTTransport.h"
 #endif
 
@@ -301,7 +301,7 @@ int daemon(OptParse& opts)
     TransportFactoryContainer cntr;
     cntr.Add(new TransportFactory<DaemonTransport>(DaemonTransport::TransportName, false));
     cntr.Add(new TransportFactory<TCPTransport>(TCPTransport::TransportName, false));
-#if !defined(QCC_OS_WINDOWS)
+#if !defined(QCC_OS_GROUP_WINDOWS)
     if (!opts.GetNoBT()) {
         cntr.Add(new TransportFactory<BTTransport>("bluetooth", false));
     }

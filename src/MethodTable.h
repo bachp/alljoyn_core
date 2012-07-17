@@ -34,7 +34,7 @@
 
 #include <Status.h>
 
-#endif
+#include <qcc/STLContainer.h>
 
 namespace ajn {
 
@@ -168,7 +168,7 @@ class MethodTable {
     };
 
     /** The hash table */
-    unordered_map<Key, Entry*, Hash, Equal> hashTable;
+    std::unordered_map<Key, Entry*, Hash, Equal> hashTable;
 };
 
 }

@@ -119,7 +119,7 @@ class NullEndpoint : public BusEndpoint {
     uint32_t GetGroupId() const { return qcc::GetGid(); }
     uint32_t GetProcessId() const { return qcc::GetPid(); }
     bool SupportsUnixIDs() const {
-#if defined(QCC_OS_WINDOWS)
+#if defined(QCC_OS_GROUP_WINDOWS) || defined(QCC_OS_GROUP_WINRT)
         return false;
 #else
         return true;

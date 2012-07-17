@@ -314,12 +314,15 @@ LocalEndpoint::Dispatcher::Dispatcher(LocalEndpoint* endpoint) :
 
 QStatus LocalEndpoint::Dispatcher::DispatchMessage(Message& msg)
 {
-    return AddAlarm(Alarm(0, this, 0, new Message(msg)));
+    uint32_t zero = 0;
+    void* context = new Message(msg);
+    Alarm alarm(zero, this, context, zero);
+    return AddAlarm(alarm);
 }
 
 void LocalEndpoint::Dispatcher::AlarmTriggered(const Alarm& alarm, QStatus reason)
 {
-    Message* msg = static_cast<Message*>(alarm.GetContext());
+    Message* msg = static_cast<Message*>(alarm->GetContext());
     if (msg) {
         if (reason == ER_OK) {
             QStatus status = endpoint->DoPushMessage(*msg);

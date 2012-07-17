@@ -1075,7 +1075,9 @@ void AllJoynPeerObj::AcceptSession(const InterfaceDescription::Member* member, M
         lock.Lock(MUTEX_CONTEXT);
         if (dispatcher.IsRunning()) {
             Request* req = new Request(msg, ACCEPT_SESSION, "");
-            Alarm alarm(0, this, 0, reinterpret_cast<void*>(req));
+            uint32_t zero = 0;
+            void* context = reinterpret_cast<void*>(req);
+            Alarm alarm(zero, this, context, zero);
             status = dispatcher.AddAlarm(alarm);
             if (status != ER_OK) {
                 delete req;
@@ -1139,7 +1141,9 @@ void AllJoynPeerObj::SessionJoined(const InterfaceDescription::Member* member, c
         lock.Lock(MUTEX_CONTEXT);
         if (dispatcher.IsRunning()) {
             Request* req = new Request(msg, SESSION_JOINED, "");
-            Alarm alarm(0, this, 0, reinterpret_cast<void*>(req));
+            uint32_t zero = 0;
+            void* context = reinterpret_cast<void*>(req);
+            Alarm alarm(zero, this, context, zero);
             status = dispatcher.AddAlarm(alarm);
             if (status != ER_OK) {
                 delete req;

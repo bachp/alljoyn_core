@@ -49,7 +49,7 @@
 #include "Transport.h"
 
 #include <qcc/STLContainer.h>
-#include "PermissionDB.h"
+
 namespace ajn {
 
 class BusAttachment;
@@ -445,7 +445,7 @@ class LocalEndpoint : public BusEndpoint, public qcc::AlarmListener, public Mess
     /**
      * Registered LocalObjects
      */
-    unordered_map<const char*, BusObject*, Hash, PathEq> localObjects;
+    std::unordered_map<const char*, BusObject*, Hash, PathEq> localObjects;
 
     /**
      * List of contexts for method call replies.

@@ -25,12 +25,6 @@ else:
 # bluetooth source files
 bt_srcs = [ 'BTController.cc', 'BTTransport.cc', 'BTNodeDB.cc' ]
 
-# Filter out bluetooth sources on unsupported platforms (unix specific files are filtered upstream for windows)
-if env['OS'] == "darwin" or env['OS_GROUP']=='winrt':
-    srcs = [ f for f in srcs if basename(str(f)) not in bt_srcs ]
-else:
-    srcs = [ f for f in srcs ]
-
 # basic daemon objects (excluding bluetooth)
 base_srcs = [ f for f in srcs if basename(str(f)) not in bt_srcs ]
 base_objs = env.Object(base_srcs)
@@ -43,14 +37,14 @@ if env['OS_GROUP'] == 'posix':
     base_objs.extend(env.Object(json_srcs))   
 
 # Add in bluetooth support
-if env['OS'] == 'android_donut' or env['OS'] =="darwin" or env['OS_GROUP']=='winrt':
+if env['OS'] == 'android_donut' or env['OS'] =="darwin" or env['OS_GROUP']=='winrt' or env['OS_GROUP'] == "windows":
     # bluetooth not supported on this platform
     daemon_objs = base_objs;
     pass
-elif env['OS_GROUP'] == "windows":
-    bt_srcs.extend(env.SConscript('bt_windows/SConscript'))
-    daemon_objs = base_objs + env.Object(bt_srcs)
-    env.AppendUnique(LIBS = ['Bthprops'])
+#elif env['OS_GROUP'] == "windows":
+#    bt_srcs.extend(env.SConscript('bt_windows/SConscript'))
+#    daemon_objs = base_objs + env.Object(bt_srcs)
+#    env.AppendUnique(LIBS = ['Bthprops'])
 else:
     # Use BlueZ
     bt_srcs.extend(env.SConscript('bt_bluez/SConscript'))

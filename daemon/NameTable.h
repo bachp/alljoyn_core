@@ -38,6 +38,7 @@
 #include "BusEndpoint.h"
 #include "VirtualEndpoint.h"
 
+#include <qcc/STLContainer.h>
 
 namespace ajn {
 

@@ -36,11 +36,6 @@
 
 #include <qcc/STLContainer.h>
 #include <map>
-//namespace std{
-//using namespace tr1; // add the tr1 to std, to allow line 139 to compile
-//}
-
-#endif
 
 namespace ajn {
 
@@ -129,7 +124,7 @@ class _CompressionRules {
     /**
      * The header compression mapping from header fields to compression token
      */
-    unordered_map<const ajn::HeaderFields*, uint32_t, HdrFieldHash, HdrFieldsEq> fieldMap;
+    std::unordered_map<const ajn::HeaderFields*, uint32_t, HdrFieldHash, HdrFieldsEq> fieldMap;
 
     /*
      * The header expansion mapping from compression token to header fields

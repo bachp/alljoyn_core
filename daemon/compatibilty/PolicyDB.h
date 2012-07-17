@@ -30,7 +30,7 @@
 
 #include "NameTable.h"
 
-
+#include <qcc/STLContainer.h>
 
 #if !defined(ALLJOYN_BUILD_POLICY_DEBUG)
 #define ALLJOYN_BUILD_POLICY_DEBUG 0
