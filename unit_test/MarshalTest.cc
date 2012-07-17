@@ -880,7 +880,8 @@ QStatus MarshalTests()
                 inner[j].typeId = ALLJOYN_BYTE;
                 inner[j].v_byte = l[i][j];
             }
-            outer[i].Set("ay", strlen(l[i]), inner);
+            outer[i].typeId = ALLJOYN_ARRAY;
+            outer[i].v_array.SetElements("y", strlen(l[i]), inner);
         }
         MsgArg arg;
         status = arg.Set("aay", ArraySize(l), outer);
@@ -1187,7 +1188,7 @@ QStatus MarshalTests()
     }
     if (fuzzing || (status == ER_OK)) {
         MsgArg dub;
-        dub.Set("d", &d);
+        dub.Set("d", d);
         MsgArg struc;
         struc.Set("(ybv)", y, b, &dub);
         MsgArg arg;
