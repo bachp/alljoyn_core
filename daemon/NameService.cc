@@ -1358,11 +1358,11 @@ QStatus NameService::Advertise(vector<qcc::String>& wkn)
     isAt.SetPort(m_port);
 
     //
-    // Always advertise the whole list of advertisements that match the protocol
-    // type, not just the (possibly one) entry the user has updated us with.
+    // Add the provided names to the is-at message that will be sent out on the
+    // network.
     //
-    for (list<qcc::String>::iterator i = m_advertised.begin(); i != m_advertised.end(); ++i) {
-        isAt.AddName(*i);
+    for (uint32_t i = 0; i < wkn.size(); ++i) {
+        isAt.AddName(wkn[i]);
     }
 
     //
@@ -1376,10 +1376,35 @@ QStatus NameService::Advertise(vector<qcc::String>& wkn)
     header.AddAnswer(isAt);
 
     //
-    // Queue this message for transmission out on the various live interfaces.
+    // We don't want allow the caller to advertise an unlimited number of names
+    // and consume all available network resources.  We expect Advertise() to
+    // typically be called once per advertised name, but since we allow a vector
+    // of names we need to limit that size somehow.  The easy way is to assume
+    // that all of the names are the maximum size and just limit based on the
+    // maximum NS packet size and the maximum name size of 256 bytes.  This,
+    // however, leaves just five names which seems too restrictive.  So, we do
+    // it the more time-consuming way and put together the message and then see
+    // if it's "too big."
     //
-    QueueProtocolMessage(header);
-    return ER_OK;
+    // This isn't terribly elegant, but we don't know the IP address(es) over
+    // which the message will be sent.  These are added in the loop that
+    // actually does the packet sends, with the interface addresses dynamically
+    // added onto the message.  We have no clue here if an IPv4 or IPv6 or both
+    // flavors of address will exist on a given interface, nor how many
+    // interfaces there are.  All we can do here is to assume the worst case for
+    // the size (both exist) and add the 20 bytes (four for IPv4, sixteen for
+    // IPv6) that the addresses may consume in the final packet.
+    //
+    if (header.GetSerializedSize() + 20 <= NS_MESSAGE_MAX) {
+        //
+        // Queue this message for transmission out on the various live interfaces.
+        //
+        QueueProtocolMessage(header);
+        return ER_OK;
+    } else {
+        QCC_LogError(ER_PACKET_TOO_LARGE, ("NameService::Advertise(): Resulting NS message too large"));
+        return ER_PACKET_TOO_LARGE;
+    }
 }
 
 QStatus NameService::Cancel(const qcc::String& wkn)
@@ -1478,7 +1503,7 @@ QStatus NameService::Cancel(vector<qcc::String>& wkn)
     }
 
     //
-    // When witdrawing advertisements, a complete flag means that we are
+    // When withdrawing advertisements, a complete flag means that we are
     // withdrawing all of the advertisements.  If the complete flag is
     // not set, we have some advertisements remaining.
     //
@@ -1510,6 +1535,7 @@ QStatus NameService::Cancel(vector<qcc::String>& wkn)
 void NameService::QueueProtocolMessage(Header& header)
 {
     QCC_DbgPrintf(("NameService::QueueProtocolMessage()"));
+
     m_mutex.Lock();
     m_outbound.push_back(header);
     m_wakeEvent.SetEvent();
@@ -1624,6 +1650,11 @@ void NameService::SendProtocolMessage(
     // collisions and all responses would be lost.  We delay a short
     // random time before sending anything to avoid the thundering herd.
     //
+    // This also works to limit the number of name service messages that
+    // can be sent out on the network for any given amount of time; which
+    // is good for preventing our users from trying to advertise zillions
+    // of names and tie up the net.
+    //
     qcc::Sleep(rand() % 128);
 
 #if HAPPY_WANDERER
@@ -1638,7 +1669,8 @@ void NameService::SendProtocolMessage(
     size_t size = header.GetSerializedSize();
 
     if (size > NS_MESSAGE_MAX) {
-        QCC_LogError(ER_FAIL, ("SendProtocolMessage: Message longer than NS_MESSAGE_MAX (%d bytes)", NS_MESSAGE_MAX));
+        QCC_LogError(ER_FAIL, ("SendProtocolMessage: Message (%d bytes) is longer than NS_MESSAGE_MAX (%d bytes)",
+                               size, NS_MESSAGE_MAX));
         return;
     }
 
@@ -2184,48 +2216,118 @@ void NameService::Retransmit(void)
     m_mutex.Lock();
 
     //
-    // The underlying protocol is capable of identifying both TCP and UDP
-    // services.  Right now, the only possibility is TCP.
+    // Keep track of how many messages we actually send in order to get all of
+    // the advertisements out.
     //
-    IsAt isAt;
-    isAt.SetTcpFlag(true);
-    isAt.SetUdpFlag(false);
+    uint nSent = 0;
 
     //
-    // Always send the provided daemon GUID out with the reponse.
-    //
-    isAt.SetGuid(m_guid);
-
-    //
-    // Send a protocol message describing the entire (complete) list of names
-    // we have.
-    //
-    isAt.SetCompleteFlag(true);
-
-    isAt.SetPort(m_port);
-
-    //
-    // Add all of our adversised names to the protocol answer message.
-    //
-    for (list<qcc::String>::iterator i = m_advertised.begin(); i != m_advertised.end(); ++i) {
-        isAt.AddName(*i);
-    }
-    m_mutex.Unlock();
-
-    //
-    // The header ties the whole protocol message together.  By setting the
-    // timer, we are asking for everyone who hears the message to remember
-    // the advertisements for that number of seconds.
+    // The header will tie the whole protocol message together.  By setting the
+    // timer, we are asking for everyone who hears the message to remember the
+    // advertisements for that number of seconds.
     //
     Header header;
     header.SetVersion(0);
     header.SetTimer(m_tDuration);
-    header.AddAnswer(isAt);
 
     //
-    // Send the message out over the multicast link.
+    // The underlying protocol is capable of identifying both TCP and UDP
+    // services.  Right now, the only possibility is TCP.
     //
+    IsAt isAt;
+    isAt.SetCompleteFlag(false);
+    isAt.SetTcpFlag(true);
+    isAt.SetUdpFlag(false);
+    isAt.SetGuid(m_guid);
+    isAt.SetPort(m_port);
+
+    QCC_DbgPrintf(("NameService::Retransmit(): Loop through advertised names"));
+
+    //
+    // Loop through the list of names we are advertising, constructing as many
+    // protocol messages as it takes to get our list of advertisements out.
+    //
+    // Note that the number of packets that can go out in any given amount of
+    // time is effectively throttled in SendProtocolMessage() by a random delay.
+    // A user can consume all available resources here by flooding us with
+    // advertisements but she will only be shooting herself in the foot.
+    //
+    for (list<qcc::String>::iterator i = m_advertised.begin(); i != m_advertised.end(); ++i) {
+        QCC_DbgPrintf(("NameService::Retransmit(): Accumulating \"%s\"", (*i).c_str()));
+
+        //
+        // It is possible that we have accumulated more advertisements than will
+        // fit in a UDP NameService packet.  A name service is-at message is going
+        // to consist of a header and its answer section, which is made from an
+        // IsAt object.  We first ask both of these objects to return their size
+        // so we know how much space is committed already.  Note that we ask the
+        // header for its max possible size since the header may be modified to
+        // add actual IPv4 and IPv6 addresses when it is sent.
+        //
+        size_t currentSize = header.GetSerializedSize() + isAt.GetSerializedSize();
+
+        //
+        // This isn't terribly elegant, but we don't know the IP address(es)
+        // over which the message will be sent.  These are added in the loop
+        // that actually does the packet sends, with the interface addresses
+        // dynamically added onto the message.  We have no clue here if an IPv4
+        // or IPv6 or both flavors of address will exist on a given interface,
+        // nor how many interfaces there are.  All we can do here is to assume
+        // the worst case for the size (both exist) and add the 20 bytes (four
+        // for IPv4, sixteen for IPv6) that the addresses may consume in the
+        // final packet.
+        //
+        currentSize += 20;
+
+        //
+        // We cheat a little in order to avoid a string copy and use our
+        // knowledge that names are stored as a byte count followed by the
+        // string bytes.  If the current name won't fit into the currently
+        // assembled message, we need to flush the current message and start
+        // again.
+        //
+        if (currentSize + 1 + (*i).size() > NS_MESSAGE_MAX) {
+            QCC_DbgPrintf(("NameService::Retransmit(): Message is full"));
+            //
+            // The current message cannot hold another name.  We need to send it
+            // out before continuing.
+            //
+            QCC_DbgPrintf(("NameService::Retransmit(): Sending partial list"));
+            header.AddAnswer(isAt);
+            QueueProtocolMessage(header);
+            ++nSent;
+
+            //
+            // The full message is now on the way out.  Now, we remove all of
+            // the entries in the IsAt object, reset the header, which clears
+            // out the existing is-at, and start accumulating new names again.
+            //
+            QCC_DbgPrintf(("NameService::Retransmit(): Resetting current list"));
+            header.Reset();
+            isAt.Reset();
+            isAt.AddName(*i);
+        } else {
+            QCC_DbgPrintf(("NameService::Retransmit(): Message has room.  Adding \"%s\"", (*i).c_str()));
+            isAt.AddName(*i);
+        }
+    }
+
+    //
+    // We most likely have a partially full message waiting to go out.  If we
+    // haven't sent a message, then the one message holds all of the names that
+    // are being advertised.  In this case, we set the complete flag to indicate
+    // that this packet describes the full extent of advertised well known
+    // names.
+    //
+    if (nSent == 0) {
+        QCC_DbgPrintf(("NameService::Retransmit(): Single complete message "));
+        isAt.SetCompleteFlag(true);
+    }
+
+    QCC_DbgPrintf(("NameService::Retransmit(): Sending final message "));
+    header.AddAnswer(isAt);
     QueueProtocolMessage(header);
+    m_mutex.Unlock();
 }
 
 void NameService::DoPeriodicMaintenance(void)

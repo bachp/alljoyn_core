@@ -73,6 +73,38 @@ char const* g_names[] = {
 
 const uint32_t g_numberNames = sizeof(g_names) / sizeof(char const*);
 
+char const* g_longnames[] = {
+    "org.thisisaverlongnamethatisusedtotestthemultiplemessageoutputcoderandomteststring.A",
+    "org.thisisaverlongnamethatisusedtotestthemultiplemessageoutputcoderandomteststring.B",
+    "org.thisisaverlongnamethatisusedtotestthemultiplemessageoutputcoderandomteststring.C",
+    "org.thisisaverlongnamethatisusedtotestthemultiplemessageoutputcoderandomteststring.D",
+    "org.thisisaverlongnamethatisusedtotestthemultiplemessageoutputcoderandomteststring.E",
+    "org.thisisaverlongnamethatisusedtotestthemultiplemessageoutputcoderandomteststring.F",
+    "org.thisisaverlongnamethatisusedtotestthemultiplemessageoutputcoderandomteststring.G",
+    "org.thisisaverlongnamethatisusedtotestthemultiplemessageoutputcoderandomteststring.H",
+    "org.thisisaverlongnamethatisusedtotestthemultiplemessageoutputcoderandomteststring.I",
+    "org.thisisaverlongnamethatisusedtotestthemultiplemessageoutputcoderandomteststring.J",
+    "org.thisisaverlongnamethatisusedtotestthemultiplemessageoutputcoderandomteststring.K",
+    "org.thisisaverlongnamethatisusedtotestthemultiplemessageoutputcoderandomteststring.L",
+    "org.thisisaverlongnamethatisusedtotestthemultiplemessageoutputcoderandomteststring.M",
+    "org.thisisaverlongnamethatisusedtotestthemultiplemessageoutputcoderandomteststring.N",
+    "org.thisisaverlongnamethatisusedtotestthemultiplemessageoutputcoderandomteststring.O",
+    "org.thisisaverlongnamethatisusedtotestthemultiplemessageoutputcoderandomteststring.P",
+    "org.thisisaverlongnamethatisusedtotestthemultiplemessageoutputcoderandomteststring.Q",
+    "org.thisisaverlongnamethatisusedtotestthemultiplemessageoutputcoderandomteststring.R",
+    "org.thisisaverlongnamethatisusedtotestthemultiplemessageoutputcoderandomteststring.S",
+    "org.thisisaverlongnamethatisusedtotestthemultiplemessageoutputcoderandomteststring.T",
+    "org.thisisaverlongnamethatisusedtotestthemultiplemessageoutputcoderandomteststring.U",
+    "org.thisisaverlongnamethatisusedtotestthemultiplemessageoutputcoderandomteststring.V",
+    "org.thisisaverlongnamethatisusedtotestthemultiplemessageoutputcoderandomteststring.W",
+    "org.thisisaverlongnamethatisusedtotestthemultiplemessageoutputcoderandomteststring.X",
+    "org.thisisaverlongnamethatisusedtotestthemultiplemessageoutputcoderandomteststring.Y",
+    "org.thisisaverlongnamethatisusedtotestthemultiplemessageoutputcoderandomteststring.Z",
+};
+
+const uint32_t g_numberLongnames = sizeof(g_longnames) / sizeof(char const*);
+
+
 class Finder {
   public:
 
@@ -175,12 +207,15 @@ int main(int argc, char** argv)
     bool useEth0 = false;
     bool runtests = false;
     bool wildcard = false;
+    bool longnames = false;
 
     for (int i = 1; i < argc; ++i) {
         if (strcmp("-a", argv[i]) == 0) {
             advertise = true;
         } else if (strcmp("-e", argv[i]) == 0) {
             useEth0 = true;
+        } else if (strcmp("-l", argv[i]) == 0) {
+            longnames = true;
         } else if (strcmp("-t", argv[i]) == 0) {
             runtests = true;
         } else if (strcmp("-w", argv[i]) == 0) {
@@ -297,6 +332,14 @@ int main(int argc, char** argv)
                 QCC_LogError(status, ("Locate failed"));
                 ERROR_EXIT;
             }
+        }
+    }
+
+    if (longnames) {
+        for (uint32_t i = 0; i < g_numberLongnames; ++i) {
+            char const* wkn = g_longnames[i];
+            status = ns.Advertise(wkn);
+            printf("Advertised %s\n", wkn);
         }
     }
 

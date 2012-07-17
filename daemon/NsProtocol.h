@@ -667,6 +667,12 @@ class IsAt : public ProtocolElement {
     qcc::String GetIPv6(void) const;
 
     /**
+     * @internal @brief Clear any objects from the list names, effectively
+     * resetting the object.
+     */
+    void Reset(void);
+
+    /**
      * @internal
      * @brief Add a string representing a well-known or bus name to the answer.
      *
@@ -865,6 +871,12 @@ class WhoHas : public ProtocolElement {
      * @return True if the daemon is interested on IPv4.
      */
     bool GetIPv4Flag(void) const { return m_flagF; }
+
+    /**
+     * @internal @brief Clear any objects from the list names, effectively
+     * resetting the object.
+     */
+    void Reset(void);
 
     /**
      * @internal
@@ -1078,6 +1090,13 @@ class Header : public ProtocolElement {
      * @return  The timer value (0 .. 255) for included answers.
      */
     uint8_t GetTimer(void) const;
+
+    /**
+     * @internal
+     * @brief Clear any objects from the lists of questions and answers,
+     * effectively resetting the header.
+     */
+    void Reset(void);
 
     /**
      * @internal

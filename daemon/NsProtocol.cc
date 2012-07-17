@@ -174,6 +174,11 @@ qcc::String IsAt::GetIPv6(void) const
     return m_ipv6;
 }
 
+void IsAt::Reset(void)
+{
+    m_names.clear();
+}
+
 void IsAt::AddName(qcc::String name)
 {
     m_names.push_back(name);
@@ -512,6 +517,11 @@ WhoHas::~WhoHas()
 {
 }
 
+void WhoHas::Reset(void)
+{
+    m_names.clear();
+}
+
 void WhoHas::AddName(qcc::String name)
 {
     m_names.push_back(name);
@@ -724,6 +734,12 @@ void Header::SetTimer(uint8_t timer)
 uint8_t Header::GetTimer(void) const
 {
     return m_timer;
+}
+
+void Header::Reset(void)
+{
+    m_questions.clear();
+    m_answers.clear();
 }
 
 void Header::AddQuestion(WhoHas question)
