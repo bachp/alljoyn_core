@@ -270,6 +270,7 @@ const char* _Message::GetErrorName(qcc::String* errorMessage) const
             }
             return hdrFields.field[ALLJOYN_HDR_FIELD_ERROR_NAME].v_string.str;
         }
+        return "Unspecified error";
     }
     return NULL;
 }
