@@ -195,11 +195,9 @@ DiscoveryManager::~DiscoveryManager()
 {
     QCC_DbgPrintf(("DiscoveryManager::~DiscoveryManager()\n"));
 
-    /* Delete all the active alarms */
+    /* Remove all the active alarms */
     if (InterfaceUpdateAlarm) {
         DiscoveryManagerTimer.RemoveAlarm(*InterfaceUpdateAlarm);
-        delete InterfaceUpdateAlarm;
-        InterfaceUpdateAlarm = NULL;
     }
 
     /* Stop the DiscoveryManagerTimer which is used to handle all the alarms */
@@ -247,6 +245,8 @@ DiscoveryManager::~DiscoveryManager()
         delete iceCallback;
         iceCallback = NULL;
     }
+
+    delete InterfaceUpdateAlarm;
 
     DiscoveryManagerState = IMPL_SHUTDOWN;
 }
