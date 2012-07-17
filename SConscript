@@ -22,12 +22,6 @@ env['_ALLJOYNCORE_'] = True
 # Dependent Projects
 common_hdrs, common_objs = env.SConscript(['../common/SConscript'])
 
-#  Platforms that require STLPORT
-if env['OS'] == 'android' or (env['OS'] == 'win7' and env['STLPORT'] == 'true') or env['OS'] == 'winxp':
-    env.SConscript(['../stlport/SConscript']);
-elif env['OS_GROUP'] != 'posix':
-    env.Append(CPPDEFINES=['QCC_NO_STLPORT'])
-
 if(not(env.has_key('BULLSEYE_BIN'))):
     print('BULLSEYE_BIN not specified')
 else:
