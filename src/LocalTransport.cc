@@ -979,7 +979,9 @@ void LocalEndpoint::OnBusConnected()
     /*
      * Use the local endpoint's dispatcher to call back to report the object registrations.
      */
-    dispatcher.AddAlarm(Alarm(0, &deferredCallbacks));
+    uint32_t zero = 0;
+    qcc::AlarmListener* localEndpointListener = &deferredCallbacks;
+    dispatcher.AddAlarm(Alarm(zero, localEndpointListener));
 }
 
 const ProxyBusObject& LocalEndpoint::GetAllJoynDebugObj() {
