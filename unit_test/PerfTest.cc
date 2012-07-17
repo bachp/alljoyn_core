@@ -31,8 +31,8 @@
 /* client waits for this event during findAdvertisedName */
 static Event g_discoverEvent;
 
-class PerfTest : public ::testing::Test {
-protected:
+class PerfTest : public::testing::Test {
+  protected:
     static void SetUpTestCase() {
         QStatus status = ER_OK;
         InterfaceDescription* regTestIntf = NULL;
