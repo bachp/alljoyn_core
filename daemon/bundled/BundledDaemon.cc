@@ -111,7 +111,6 @@ class BundledDaemon : public DaemonLauncher, public TransportFactoryContainer {
     Bus* ajBus;
     BusController* ajBusController;
     Mutex lock;
-    volatile bool safeToShutdown;
 };
 
 bool ExistFile(const char* fileName) {
@@ -128,16 +127,21 @@ bool ExistFile(const char* fileName) {
  */
 static BundledDaemon bundledDaemon;
 
-BundledDaemon::BundledDaemon() : transportsInitialized(false), refCount(0), ajBus(NULL), ajBusController(NULL), safeToShutdown(true)
+BundledDaemon::BundledDaemon() : transportsInitialized(false), refCount(0), ajBus(NULL), ajBusController(NULL)
 {
     NullTransport::RegisterDaemonLauncher(this);
 }
 
 BundledDaemon::~BundledDaemon()
 {
-    while (safeToShutdown == false) {
+    lock.Lock();
+    while (refCount != 0) {
+        lock.Unlock();
         qcc::Sleep(2);
+        lock.Lock();
     }
+    lock.Unlock();
+    Join();
 }
 
 
@@ -152,7 +156,6 @@ QStatus BundledDaemon::Start(NullTransport* nullTransport)
      * bundled daemon at the same time.
      */
     lock.Lock();
-    safeToShutdown = false;
     if (IncrementAndFetch(&refCount) == 1) {
 #if defined(QCC_OS_ANDROID)
         LoggerSetting::GetLoggerSetting("bundled-daemon", LOG_DEBUG, true, NULL);
@@ -240,7 +243,6 @@ ErrorExit:
         ajBus = NULL;
     }
     lock.Unlock();
-    safeToShutdown = true;
     return status;
 }
 
@@ -257,12 +259,7 @@ void BundledDaemon::Join()
         delete ajBus;
         ajBus = NULL;
     }
-
     lock.Unlock();
-
-    if (refCount == 0) {
-        safeToShutdown = true;
-    }
 }
 
 QStatus BundledDaemon::Stop()
