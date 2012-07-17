@@ -1015,7 +1015,8 @@ void DaemonICETransport::SendSTUNKeepAliveAndTURNRefreshRequest(ICEPacketStream&
     uint32_t zero = 0;
     uint32_t period = icePktStream.GetStunKeepAlivePeriod();
     void* packetStream = reinterpret_cast<void*>(&icePktStream);
-    Alarm keepAliveAlarm(period, this, packetStream, zero);
+    qcc::AlarmListener* transportListener = this;
+    Alarm keepAliveAlarm(period, transportListener, packetStream, zero);
     status = daemonICETransportTimer.AddAlarm(keepAliveAlarm);
     if (status != ER_OK) {
         QCC_LogError(status, ("DaemonICEEndpoint::SendSTUNKeepAliveAndTURNRefreshRequest(): Unable to add KeepAliveAlarm to daemonICETransportTimer"));
@@ -1255,7 +1256,8 @@ ThreadReturn STDCALL DaemonICETransport::AllocateICESessionThread::Run(void* arg
                                                          * NAT keepalives or TURN refreshes */
                                                         if ((!pktStream->IsLocalHost()) || (!pktStream->IsRemoteHost())) {
                                                             /* Arm the keep-alive/TURN refresh timer (immediate fire) */
-                                                            transportObj->daemonICETransportTimer.AddAlarm(Alarm(0, transportObj, 0, pktStream));
+                                                            uint32_t zero = 0;
+                                                            transportObj->daemonICETransportTimer.AddAlarm(Alarm(zero, transportObj, pktStream, zero));
                                                         }
                                                     } else {
                                                         QCC_LogError(status, ("ICEPacketStream.Start or AddPacketStream failed"));
@@ -1875,7 +1877,9 @@ QStatus DaemonICETransport::Connect(const char* connectSpec, const SessionOpts& 
                                                          * NAT keepalives or TURN refreshes */
                                                         if ((!pktStream->IsLocalHost()) || (!pktStream->IsRemoteHost())) {
                                                             /* Arm the keep-alive (immediate fire) */
-                                                            daemonICETransportTimer.AddAlarm(Alarm(0, this, 0, pktStream));
+                                                            uint32_t zero = 0;
+                                                            qcc::AlarmListener* transportListener = this;
+                                                            daemonICETransportTimer.AddAlarm(Alarm(zero, transportListener, pktStream, zero));
                                                         }
                                                     } else {
                                                         QCC_LogError(status, ("ICEPacketStream.Start or AddPacketStream failed"));
@@ -2456,7 +2460,7 @@ void DaemonICETransport::AlarmTriggered(const qcc::Alarm& alarm, QStatus alarmSt
         return;
     }
 
-    ICEPacketStream* ps = static_cast<ICEPacketStream*>(alarm.GetContext());
+    ICEPacketStream* ps = static_cast<ICEPacketStream*>(alarm->GetContext());
 
     /* Make sure PacketStream is still alive before calling nat/refresh code */
     QStatus status = AcquireICEPacketStreamByPointer(ps);

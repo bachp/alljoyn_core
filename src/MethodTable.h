@@ -168,7 +168,7 @@ class MethodTable {
     };
 
     /** The hash table */
-    std::unordered_map<Key, Entry*, Hash, Equal> hashTable;
+    STL_NAMESPACE_PREFIX::unordered_map<Key, Entry*, Hash, Equal> hashTable;
 };
 
 }

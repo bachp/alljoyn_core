@@ -262,7 +262,8 @@ QStatus PacketEngine::Connect(const PacketDest& dest, PacketStream& packetStream
         /* Put an entry on the callback timer */
         uint32_t zero = 0;
         uint32_t timeout = CONNECT_RETRY_TIMEOUT;
-        ci->connectReqAlarm = Alarm(timeout, this, cctx, zero);
+        qcc::AlarmListener* packetEngineListener = this;
+        ci->connectReqAlarm = Alarm(timeout, packetEngineListener, cctx, zero);
         status = timer.AddAlarm(ci->connectReqAlarm);
         if (status == ER_OK) {
             /* Send connect request */
@@ -298,7 +299,8 @@ void PacketEngine::CloseChannel(ChannelInfo& ci)
     ctx->disconnReq[0] = htole32(PACKET_COMMAND_DISCONNECT_REQ);
     uint32_t timeout = DISCONNECT_RETRY_TIMEOUT;
     uint32_t zero = 0;
-    ci.disconnectReqAlarm = Alarm(timeout, this, ctx, zero);
+    qcc::AlarmListener* packetEngineListener = this;    
+    ci.disconnectReqAlarm = Alarm(timeout, packetEngineListener, ctx, zero);
 
     /* Update state and send the message */
     ci.state = ChannelInfo::CLOSING;
@@ -367,7 +369,8 @@ void PacketEngine::AlarmTriggered(const Alarm& alarm, QStatus reason)
                 if (status == ER_OK) {
                     uint32_t timeout = DISCONNECT_RETRY_TIMEOUT * cctx->retries;
                     uint32_t zero = 0;
-                    ci->disconnectReqAlarm = Alarm(timeout, this, ctx, zero);
+                    qcc::AlarmListener* packetEngineListener = this;                    
+                    ci->disconnectReqAlarm = Alarm(timeout, packetEngineListener, ctx, zero);
                     status = timer.AddAlarm(ci->disconnectReqAlarm);
                 }
             }
@@ -404,7 +407,8 @@ void PacketEngine::AlarmTriggered(const Alarm& alarm, QStatus reason)
                 if (status == ER_OK) {
                     uint32_t timeout = CONNECT_RETRY_TIMEOUT * cctx->retries;
                     uint32_t zero = 0;
-                    ci->connectReqAlarm = Alarm(timeout, this, ctx, zero);
+                    qcc::AlarmListener* packetEngineListener = this;
+                    ci->connectReqAlarm = Alarm(timeout, packetEngineListener, ctx, zero);
                     status = timer.AddAlarm(ci->connectReqAlarm);
                 }
             }
@@ -431,7 +435,8 @@ void PacketEngine::AlarmTriggered(const Alarm& alarm, QStatus reason)
                 if (status == ER_OK) {
                     uint32_t zero = 0;
                     uint32_t timeout = CONNECT_RETRY_TIMEOUT * cctx->retries;
-                    ci->connectRspAlarm = Alarm(timeout, this, ctx, zero);
+                    qcc::AlarmListener* packetEngineListener = this;
+                    ci->connectRspAlarm = Alarm(timeout, packetEngineListener, ctx, zero);
                     status = timer.AddAlarm(ci->connectRspAlarm);
                 }
             }
@@ -462,7 +467,8 @@ void PacketEngine::AlarmTriggered(const Alarm& alarm, QStatus reason)
                 }
                 uint32_t nextTime = GetRetryMs(*ci, cctx->retries);
                 uint32_t zero = 0;
-                ci->xOnAlarm = Alarm(nextTime, this, ctx, zero);
+                qcc::AlarmListener* packetEngineListener = this;
+                ci->xOnAlarm = Alarm(nextTime, packetEngineListener, ctx, zero);
                 status = timer.AddAlarm(ci->xOnAlarm);
                 //printf("rx(%d): xon retry=%d rxD=0x%x, next=%d\n", (GetTimestamp() / 100) % 100000, cctx->retries + 1, ci->rxDrain, nextTime);
             }
@@ -775,7 +781,8 @@ void PacketEngine::SendAck(ChannelInfo& ci, uint16_t seqNum, bool allowDelay)
         if (!ci.isAckAlarmArmed) {
             uint32_t zero = 0;
             uint32_t timeout = ACK_DELAY_MS;
-            Alarm a(timeout, this, ci.ackAlarmContext, zero);
+            qcc::AlarmListener* packetEngineListener = this;
+            Alarm a(timeout, packetEngineListener, ci.ackAlarmContext, zero);
             QStatus status = timer.AddAlarm(a);
             ci.isAckAlarmArmed = (status == ER_OK);
             if (status != ER_OK) {
@@ -829,7 +836,8 @@ void PacketEngine::SendXOn(ChannelInfo& ci)
         cctx->xon[2] = htole32(ci.rxDrain);
         uint32_t zero = 0;
         uint32_t timeout = GetRetryMs(ci, ++cctx->retries);
-        ci.xOnAlarm = Alarm(timeout, this, cctx, zero);
+        qcc::AlarmListener* packetEngineListener = this;
+        ci.xOnAlarm = Alarm(timeout, packetEngineListener, cctx, zero);
         QStatus status = timer.AddAlarm(ci.xOnAlarm);
         if (status == ER_OK) {
             status = DeliverControlMsg(ci, cctx->xon, sizeof(cctx->xon));

@@ -155,7 +155,7 @@ LocalEndpoint::~LocalEndpoint()
     /*
      * Unregister all application registered bus objects
      */
-    unordered_map<const char*, BusObject*, Hash, PathEq>::iterator it = localObjects.begin();
+    STL_NAMESPACE_PREFIX::unordered_map<const char*, BusObject*, Hash, PathEq>::iterator it = localObjects.begin();
     while (it != localObjects.end()) {
         BusObject* obj = it->second;
         UnregisterBusObject(*obj);
@@ -319,7 +319,8 @@ QStatus LocalEndpoint::Dispatcher::DispatchMessage(Message& msg)
 {
     uint32_t zero = 0;
     void* context = new Message(msg);
-    Alarm alarm(zero, this, context, zero);
+    qcc::AlarmListener* localEndpointListener = this;
+    Alarm alarm(zero, localEndpointListener, context, zero);
     return AddAlarm(alarm);
 }
 
@@ -516,7 +517,7 @@ void LocalEndpoint::UnregisterBusObject(BusObject& object)
 
 BusObject* LocalEndpoint::FindLocalObject(const char* objectPath) {
     objectsLock.Lock(MUTEX_CONTEXT);
-    unordered_map<const char*, BusObject*, Hash, PathEq>::iterator iter = localObjects.find(objectPath);
+    STL_NAMESPACE_PREFIX::unordered_map<const char*, BusObject*, Hash, PathEq>::iterator iter = localObjects.find(objectPath);
     BusObject* ret = (iter == localObjects.end()) ? NULL : iter->second;
     objectsLock.Unlock(MUTEX_CONTEXT);
     return ret;
@@ -954,7 +955,7 @@ void LocalEndpoint::DeferredCallbacks::AlarmTriggered(const qcc::Alarm& alarm, Q
          * Call ObjectRegistered for any unregistered bus objects
          */
         endpoint->objectsLock.Lock(MUTEX_CONTEXT);
-        unordered_map<const char*, BusObject*, Hash, PathEq>::iterator iter = endpoint->localObjects.begin();
+        STL_NAMESPACE_PREFIX::unordered_map<const char*, BusObject*, Hash, PathEq>::iterator iter = endpoint->localObjects.begin();
         while (endpoint->running && (iter != endpoint->localObjects.end())) {
             if (!iter->second->isRegistered) {
                 BusObject* bo = iter->second;

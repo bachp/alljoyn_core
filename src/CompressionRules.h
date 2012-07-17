@@ -124,7 +124,7 @@ class _CompressionRules {
     /**
      * The header compression mapping from header fields to compression token
      */
-    std::unordered_map<const ajn::HeaderFields*, uint32_t, HdrFieldHash, HdrFieldsEq> fieldMap;
+    STL_NAMESPACE_PREFIX::unordered_map<const ajn::HeaderFields*, uint32_t, HdrFieldHash, HdrFieldsEq> fieldMap;
 
     /*
      * The header expansion mapping from compression token to header fields

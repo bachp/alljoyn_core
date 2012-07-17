@@ -36,7 +36,7 @@ namespace ajn {
 MethodTable::~MethodTable()
 {
     lock.Lock(MUTEX_CONTEXT);
-    unordered_map<Key, Entry*, Hash, Equal>::iterator iter = hashTable.begin();
+    STL_NAMESPACE_PREFIX::unordered_map<Key, Entry*, Hash, Equal>::iterator iter = hashTable.begin();
     while (iter != hashTable.end()) {
         delete iter->second;
         hashTable.erase(iter);
@@ -68,7 +68,7 @@ const MethodTable::Entry* MethodTable::Find(const char* objectPath,
     const Entry* entry = NULL;
     Key key(objectPath, iface, methodName);
     lock.Lock(MUTEX_CONTEXT);
-    unordered_map<Key, Entry*, Hash, Equal>::iterator iter = hashTable.find(key);
+    STL_NAMESPACE_PREFIX::unordered_map<Key, Entry*, Hash, Equal>::iterator iter = hashTable.find(key);
     if (iter != hashTable.end()) {
         entry = iter->second;
     }
@@ -78,7 +78,7 @@ const MethodTable::Entry* MethodTable::Find(const char* objectPath,
 
 void MethodTable::RemoveAll(BusObject* object)
 {
-    unordered_map<Key, Entry*, Hash, Equal>::iterator iter;
+    STL_NAMESPACE_PREFIX::unordered_map<Key, Entry*, Hash, Equal>::iterator iter;
     /*
      * Iterate over all entries deleting all entries that reference the object
      */

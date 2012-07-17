@@ -73,7 +73,7 @@ uint32_t _CompressionRules::GetToken(const HeaderFields& hdrFields)
 {
     uint32_t token;
     lock.Lock(MUTEX_CONTEXT);
-    unordered_map<const HeaderFields*, uint32_t, HdrFieldHash, HdrFieldsEq>::iterator iter = fieldMap.find(&hdrFields);
+    STL_NAMESPACE_PREFIX::unordered_map<const HeaderFields*, uint32_t, HdrFieldHash, HdrFieldsEq>::iterator iter = fieldMap.find(&hdrFields);
     if (iter != fieldMap.end()) {
         token = iter->second;
     } else {

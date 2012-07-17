@@ -231,8 +231,8 @@ class NameTable {
     };
 
     mutable qcc::Mutex lock;                                             /**< Lock protecting name tables */
-    unordered_map<qcc::String, BusEndpoint*, Hash, Equal> uniqueNames;   /**< Unique name table */
-    unordered_map<qcc::String, std::deque<NameQueueEntry>, Hash, Equal> aliasNames;  /**< Alias name table */
+    STL_NAMESPACE_PREFIX::unordered_map<qcc::String, BusEndpoint*, Hash, Equal> uniqueNames;   /**< Unique name table */
+    STL_NAMESPACE_PREFIX::unordered_map<qcc::String, std::deque<NameQueueEntry>, Hash, Equal> aliasNames;  /**< Alias name table */
     uint32_t uniqueId;
     qcc::String uniquePrefix;
 
