@@ -31,21 +31,12 @@
 /* client waits for this event during findAdvertisedName */
 static Event g_discoverEvent;
 
-/* Service available flag :
- * true -- service available, client can start
- * false-- service not available
- */
-static bool IsServiceReady = false;
+class PerfTest : public ::testing::Test {
+protected:
+    static void SetUpTestCase() {
+        QStatus status = ER_OK;
+        InterfaceDescription* regTestIntf = NULL;
 
-/* Common service setup function, each client test has to run at the beginning */
-static QStatus ServiceSetup()
-{
-    QStatus status = ER_OK;
-    InterfaceDescription* regTestIntf = NULL;
-    BusAttachment* serviceBus = NULL;
-
-    /* Do service setup only once */
-    if (!IsServiceReady) {
         serviceBus = new BusAttachment("bbtestservices", true);
 
         if (!serviceBus->IsStarted()) {
@@ -173,19 +164,20 @@ static QStatus ServiceSetup()
 
         status =  serviceBus->RegisterBusObject(*serviceTestObject);
         EXPECT_EQ(ER_OK, status) << "  Actual Status: " << QCC_StatusText(status);
-
-        //Set to True
-        IsServiceReady = true;
-
+    }
+    static void TearDownTestCase() {
+        BusAttachment* deleteMe = serviceBus;
+        serviceBus = NULL;
+        delete deleteMe;
     }
 
-    return status;
-}
+    static BusAttachment* serviceBus;
+};
 
-TEST(PerfTest, Introspect_CorrectParameters)
+BusAttachment* PerfTest::serviceBus = NULL;
+
+TEST_F(PerfTest, Introspect_CorrectParameters)
 {
-    ASSERT_EQ(ER_OK, ServiceSetup());
-
     ClientSetup testclient(ajn::getConnectArg().c_str());
 
     ProxyBusObject remoteObj(*(testclient.getClientMsgBus()),
@@ -197,9 +189,7 @@ TEST(PerfTest, Introspect_CorrectParameters)
     ASSERT_EQ(ER_OK, status) << "  Actual Status: " << QCC_StatusText(status);
 }
 
-TEST(PerfTest, ErrorMsg_Error_invalid_path) {
-    ASSERT_EQ(ER_OK, ServiceSetup());
-
+TEST_F(PerfTest, ErrorMsg_Error_invalid_path) {
     ClientSetup testclient(ajn::getConnectArg().c_str());
 
     /* Invalid path  - does not begin with '/' */
@@ -214,9 +204,7 @@ TEST(PerfTest, ErrorMsg_Error_invalid_path) {
 
 }
 
-TEST(PerfTest, ErrorMsg_Error_no_such_object) {
-    ASSERT_EQ(ER_OK, ServiceSetup());
-
+TEST_F(PerfTest, ErrorMsg_Error_no_such_object) {
     ClientSetup testclient(ajn::getConnectArg().c_str());
 
     BusAttachment* test_msgBus = testclient.getClientMsgBus();
@@ -248,9 +236,7 @@ TEST(PerfTest, ErrorMsg_Error_no_such_object) {
     EXPECT_STREQ(QCC_StatusText(ER_BUS_NO_SUCH_OBJECT), errMsg.c_str());
 }
 
-TEST(PerfTest, ErrorMsg_does_not_exist_interface) {
-    ASSERT_EQ(ER_OK, ServiceSetup());
-
+TEST_F(PerfTest, ErrorMsg_does_not_exist_interface) {
     ClientSetup testclient(ajn::getConnectArg().c_str());
 
     BusAttachment* test_msgBus = testclient.getClientMsgBus();
@@ -284,9 +270,7 @@ TEST(PerfTest, ErrorMsg_does_not_exist_interface) {
     }
 }
 
-TEST(PerfTest, ErrorMsg_MethodCallOnNonExistantMethod) {
-    ASSERT_EQ(ER_OK, ServiceSetup());
-
+TEST_F(PerfTest, ErrorMsg_MethodCallOnNonExistantMethod) {
     ClientSetup testclient(ajn::getConnectArg().c_str());
 
     BusAttachment* test_msgBus = testclient.getClientMsgBus();
@@ -304,9 +288,7 @@ TEST(PerfTest, ErrorMsg_MethodCallOnNonExistantMethod) {
 
 /* Test LargeParameters for a synchronous method call */
 
-TEST(PerfTest, MethodCallTest_LargeParameters) {
-    ASSERT_EQ(ER_OK, ServiceSetup());
-
+TEST_F(PerfTest, MethodCallTest_LargeParameters) {
     ClientSetup testclient(ajn::getConnectArg().c_str());
     QStatus status = testclient.MethodCall(100, 2);
     EXPECT_EQ(ER_OK, status) << "  Actual Status: " << QCC_StatusText(status);
@@ -315,9 +297,7 @@ TEST(PerfTest, MethodCallTest_LargeParameters) {
 
 /* Test for synchronous method call */
 
-TEST(PerfTest, MethodCallTest_SimpleCall) {
-    ASSERT_EQ(ER_OK, ServiceSetup());
-
+TEST_F(PerfTest, MethodCallTest_SimpleCall) {
     ClientSetup testclient(ajn::getConnectArg().c_str());
 
     QStatus status = testclient.MethodCall(1, 1);
@@ -325,9 +305,7 @@ TEST(PerfTest, MethodCallTest_SimpleCall) {
 
 }
 
-TEST(PerfTest, MethodCallTest_EmptyParameters) {
-    ASSERT_EQ(ER_OK, ServiceSetup());
-
+TEST_F(PerfTest, MethodCallTest_EmptyParameters) {
     ClientSetup testclient(ajn::getConnectArg().c_str());
 
     QStatus status = testclient.MethodCall(1, 3);
@@ -335,9 +313,7 @@ TEST(PerfTest, MethodCallTest_EmptyParameters) {
 
 }
 
-TEST(PerfTest, MethodCallTest_InvalidParameters) {
-    ASSERT_EQ(ER_OK, ServiceSetup());
-
+TEST_F(PerfTest, MethodCallTest_InvalidParameters) {
     ClientSetup testclient(ajn::getConnectArg().c_str());
 
     QStatus status = testclient.MethodCall(1, 4);
@@ -345,9 +321,7 @@ TEST(PerfTest, MethodCallTest_InvalidParameters) {
 }
 
 /* Test signals */
-TEST(PerfTest, Properties_SimpleSignal) {
-    ASSERT_EQ(ER_OK, ServiceSetup());
-
+TEST_F(PerfTest, Properties_SimpleSignal) {
     ClientSetup testclient(ajn::getConnectArg().c_str());
 
     BusAttachment* test_msgBus = testclient.getClientMsgBus();
@@ -361,8 +335,7 @@ TEST(PerfTest, Properties_SimpleSignal) {
 
 }
 
-TEST(PerfTest, Properties_SettingNoSuchProperty) {
-    ASSERT_EQ(ER_OK, ServiceSetup());
+TEST_F(PerfTest, Properties_SettingNoSuchProperty) {
     ClientSetup testclient(ajn::getConnectArg().c_str());
 
     BusAttachment* test_msgBus = testclient.getClientMsgBus();
@@ -386,8 +359,7 @@ TEST(PerfTest, Properties_SettingNoSuchProperty) {
 
 }
 
-TEST(PerfTest, Properties_SettingReadOnlyProperty) {
-    ASSERT_EQ(ER_OK, ServiceSetup());
+TEST_F(PerfTest, Properties_SettingReadOnlyProperty) {
     ClientSetup testclient(ajn::getConnectArg().c_str());
 
     BusAttachment* test_msgBus = testclient.getClientMsgBus();
@@ -410,8 +382,7 @@ TEST(PerfTest, Properties_SettingReadOnlyProperty) {
     EXPECT_STREQ(QCC_StatusText(ER_BUS_PROPERTY_ACCESS_DENIED), errMsg.c_str());
 }
 
-TEST(PerfTest, Signals_With_Two_Parameters) {
-    ASSERT_EQ(ER_OK, ServiceSetup());
+TEST_F(PerfTest, Signals_With_Two_Parameters) {
     ClientSetup testclient(ajn::getConnectArg().c_str());
 
     testclient.setSignalFlag(0);
@@ -429,8 +400,7 @@ TEST(PerfTest, Signals_With_Two_Parameters) {
 }
 
 
-TEST(PerfTest, Signals_With_Huge_String_Param) {
-    ASSERT_EQ(ER_OK, ServiceSetup());
+TEST_F(PerfTest, Signals_With_Huge_String_Param) {
     ClientSetup testclient(ajn::getConnectArg().c_str());
 
     testclient.setSignalFlag(0);
@@ -449,8 +419,7 @@ TEST(PerfTest, Signals_With_Huge_String_Param) {
 
 
 /* Test Asynchronous method calls */
-TEST(PerfTest, AsyncMethodCallTest_SimpleCall) {
-    ASSERT_EQ(ER_OK, ServiceSetup());
+TEST_F(PerfTest, AsyncMethodCallTest_SimpleCall) {
     ClientSetup testclient(ajn::getConnectArg().c_str());
 
     testclient.setSignalFlag(0);
@@ -467,9 +436,8 @@ TEST(PerfTest, AsyncMethodCallTest_SimpleCall) {
 
 }
 
-TEST(PerfTest, BusObject_ALLJOYN_328_BusObject_destruction)
+TEST_F(PerfTest, BusObject_ALLJOYN_328_BusObject_destruction)
 {
-    ASSERT_EQ(ER_OK, ServiceSetup());
     ClientSetup testclient(ajn::getConnectArg().c_str());
 
 
@@ -509,12 +477,11 @@ TEST(PerfTest, BusObject_ALLJOYN_328_BusObject_destruction)
 }
 
 // TODO: enable this test when ALLJOYN-394 is resolved
-TEST(PerfTest, DISABLED_BusObject_GetChildTest) {
+TEST_F(PerfTest, DISABLED_BusObject_GetChildTest) {
     QStatus status = ER_OK;
     ClientSetup testclient(ajn::getConnectArg().c_str());
 
 
-    ASSERT_EQ(ER_OK, ServiceSetup());
 
     /* The Client side */
     BusAttachment* client_msgBus = testclient.getClientMsgBus();
@@ -545,38 +512,7 @@ TEST(PerfTest, DISABLED_BusObject_GetChildTest) {
 
 }
 
-TEST(PerfTest, Security_ALLJOYN_294_AddLogonEntry_Without_EnablePeerSecurity)
-{
-    ClientSetup testclient(ajn::getConnectArg().c_str());
-
-
-
-    qcc::String clientArgs = testclient.getClientArgs();
-
-    /* Create a Bus Attachment Object */
-    BusAttachment*serviceBus = new BusAttachment("ALLJOYN-294", true);
-    serviceBus->Start();
-
-    QStatus status = serviceBus->Connect(clientArgs.c_str());
-    ASSERT_EQ(ER_OK, status) << "  Actual Status: " << QCC_StatusText(status);
-
-    status = serviceBus->AddLogonEntry("ALLJOYN_SRP_LOGON", "sleepy", "123456");
-    ASSERT_EQ(status, ER_BUS_KEYSTORE_NOT_LOADED);
-
-    status = serviceBus->AddLogonEntry("ALLJOYN_SRP_LOGON", "happy", "123456");
-    ASSERT_EQ(status, ER_BUS_KEYSTORE_NOT_LOADED);
-
-    /* Clean up msg bus */
-    if (serviceBus) {
-        BusAttachment* deleteMe = serviceBus;
-        serviceBus = NULL;
-        delete deleteMe;
-    }
-
-}
-
-TEST(PerfTest, Marshal_ByteArrayTest) {
-    ASSERT_EQ(ER_OK, ServiceSetup());
+TEST_F(PerfTest, Marshal_ByteArrayTest) {
     ClientSetup testclient(ajn::getConnectArg().c_str());
 
 
@@ -593,6 +529,7 @@ TEST(PerfTest, Marshal_ByteArrayTest) {
     const size_t max_array_size = 1024 * 128;
     /* 1. Testing the Max Array Size  */
     uint8_t* big = new uint8_t[max_array_size];
+    memset(big, 0xaa, max_array_size);
     MsgArg arg;
     status = arg.Set("ay", max_array_size, big);
     ASSERT_EQ(ER_OK, status) << "  Actual Status: " << QCC_StatusText(status);
@@ -633,10 +570,9 @@ class ClientBusListener : public BusListener {
     }
 };
 
-TEST(PerfTest, FindAdvertisedName_MatchAll_Success)
+TEST_F(PerfTest, FindAdvertisedName_MatchAll_Success)
 {
     QStatus status = ER_OK;
-    ASSERT_EQ(ER_OK, ServiceSetup());
 
     ClientSetup testclient(ajn::getConnectArg().c_str());
 
@@ -657,13 +593,12 @@ TEST(PerfTest, FindAdvertisedName_MatchAll_Success)
 
 }
 
-TEST(PerfTest, FindAdvertisedName_MatchExactName_Success)
+TEST_F(PerfTest, FindAdvertisedName_MatchExactName_Success)
 {
     QStatus status = ER_OK;
     Timespec startTime;
     Timespec endTime;
 
-    ASSERT_EQ(ER_OK, ServiceSetup());
 
     ClientSetup testclient(ajn::getConnectArg().c_str());
 
@@ -687,10 +622,9 @@ TEST(PerfTest, FindAdvertisedName_MatchExactName_Success)
     //QCC_SyncPrintf("FindAdvertisedName takes %d ms\n", (endTime - startTime));
 }
 
-TEST(PerfTest, FindAdvertisedName_InvalidName_Fail)
+TEST_F(PerfTest, FindAdvertisedName_InvalidName_Fail)
 {
     QStatus status = ER_OK;
-    ASSERT_EQ(ER_OK, ServiceSetup());
 
     ClientSetup testclient(ajn::getConnectArg().c_str());
 
@@ -712,12 +646,11 @@ TEST(PerfTest, FindAdvertisedName_InvalidName_Fail)
 
 }
 
-TEST(PerfTest, JoinSession_BusNotConnected_Fail)
+TEST_F(PerfTest, JoinSession_BusNotConnected_Fail)
 {
     QStatus status = ER_OK;
     BusAttachment* client_msgBus = NULL;
 
-    ASSERT_EQ(ER_OK, ServiceSetup());
 
     client_msgBus = new BusAttachment("clientSetup", true);
     client_msgBus->Start();
@@ -733,12 +666,11 @@ TEST(PerfTest, JoinSession_BusNotConnected_Fail)
     }
 
 }
-TEST(PerfTest, JoinSession_InvalidPort_Fail)
+TEST_F(PerfTest, JoinSession_InvalidPort_Fail)
 {
     QStatus status = ER_OK;
     BusAttachment* client_msgBus = NULL;
 
-    ASSERT_EQ(ER_OK, ServiceSetup());
     // Have to wait for some time till service well-known name is ready
     //qcc::Sleep(5000);
 
@@ -756,14 +688,13 @@ TEST(PerfTest, JoinSession_InvalidPort_Fail)
 
 }
 
-TEST(PerfTest, JoinSession_RecordTime_Success)
+TEST_F(PerfTest, JoinSession_RecordTime_Success)
 {
     QStatus status = ER_OK;
     BusAttachment* client_msgBus = NULL;
     Timespec startTime;
     Timespec endTime;
 
-    ASSERT_EQ(ER_OK, ServiceSetup());
 
     ClientSetup testclient(ajn::getConnectArg().c_str());
 
@@ -786,10 +717,9 @@ TEST(PerfTest, JoinSession_RecordTime_Success)
 
 }
 
-TEST(PerfTest, ClientTest_BasicDiscovery) {
+TEST_F(PerfTest, ClientTest_BasicDiscovery) {
     QStatus status = ER_OK;
 
-    ASSERT_EQ(ER_OK, ServiceSetup());
 
     ClientSetup testclient(ajn::getConnectArg().c_str());
 
