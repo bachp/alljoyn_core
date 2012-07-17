@@ -299,7 +299,7 @@ void PacketEngine::CloseChannel(ChannelInfo& ci)
     ctx->disconnReq[0] = htole32(PACKET_COMMAND_DISCONNECT_REQ);
     uint32_t timeout = DISCONNECT_RETRY_TIMEOUT;
     uint32_t zero = 0;
-    qcc::AlarmListener* packetEngineListener = this;    
+    qcc::AlarmListener* packetEngineListener = this;
     ci.disconnectReqAlarm = Alarm(timeout, packetEngineListener, ctx, zero);
 
     /* Update state and send the message */
@@ -369,7 +369,7 @@ void PacketEngine::AlarmTriggered(const Alarm& alarm, QStatus reason)
                 if (status == ER_OK) {
                     uint32_t timeout = DISCONNECT_RETRY_TIMEOUT * cctx->retries;
                     uint32_t zero = 0;
-                    qcc::AlarmListener* packetEngineListener = this;                    
+                    qcc::AlarmListener* packetEngineListener = this;
                     ci->disconnectReqAlarm = Alarm(timeout, packetEngineListener, ctx, zero);
                     status = timer.AddAlarm(ci->disconnectReqAlarm);
                 }

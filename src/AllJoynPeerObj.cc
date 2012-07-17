@@ -1078,7 +1078,7 @@ void AllJoynPeerObj::AcceptSession(const InterfaceDescription::Member* member, M
             Request* req = new Request(msg, ACCEPT_SESSION, "");
             uint32_t zero = 0;
             void* context = reinterpret_cast<void*>(req);
-            qcc::AlarmListener* alljoynPeerListener = this;            
+            qcc::AlarmListener* alljoynPeerListener = this;
             Alarm alarm(zero, alljoynPeerListener, context, zero);
             status = dispatcher.AddAlarm(alarm);
             if (status != ER_OK) {
@@ -1145,7 +1145,7 @@ void AllJoynPeerObj::SessionJoined(const InterfaceDescription::Member* member, c
             Request* req = new Request(msg, SESSION_JOINED, "");
             uint32_t zero = 0;
             void* context = reinterpret_cast<void*>(req);
-            qcc::AlarmListener* alljoynPeerListener = this;            
+            qcc::AlarmListener* alljoynPeerListener = this;
             Alarm alarm(zero, alljoynPeerListener, context, zero);
             status = dispatcher.AddAlarm(alarm);
             if (status != ER_OK) {
