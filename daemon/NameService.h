@@ -713,6 +713,14 @@ class NameService : public qcc::Thread {
      */
     State m_state;
 
+    /**
+     * @internal
+     * @brief State variable to indicate that the name service is in the process
+     * of sending its terminal is-at messages indicating that any currently
+     * advertised names are becoming invalid.
+     */
+    bool m_terminal;
+
     class InterfaceSpecifier {
       public:
         qcc::String m_interfaceName;        /**< The interface (cf. eth0) we want to talk to */
@@ -855,7 +863,7 @@ class NameService : public qcc::Thread {
      * @internal
      * @brief Retransmit exported advertisements.
      */
-    void Retransmit(void);
+    void Retransmit(bool exiting);
 
     /**
      * @internal

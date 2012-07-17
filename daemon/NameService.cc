@@ -428,14 +428,16 @@ bool WildcardMatch(qcc::String str, qcc::String pat)
 }
 
 NameService::NameService()
-    : Thread("NameService"), m_state(IMPL_SHUTDOWN), m_callback(0),
-    m_port(0), m_timer(0), m_tDuration(DEFAULT_DURATION),
+    : Thread("NameService"), m_state(IMPL_SHUTDOWN), m_terminal(false),
+    m_callback(0), m_port(0), m_timer(0), m_tDuration(DEFAULT_DURATION),
     m_tRetransmit(RETRANSMIT_TIME), m_tQuestion(QUESTION_TIME),
     m_modulus(QUESTION_MODULUS), m_retries(NUMBER_RETRIES),
     m_loopback(false), m_enableIPv4(false), m_enableIPv6(false),
     m_any(false), m_wakeEvent(), m_forceLazyUpdate(false),
     m_enabled(false), m_doEnable(false), m_doDisable(false)
 {
+    printf("**** NameService::NameService()\n");
+    fflush(stdout);
     QCC_DbgPrintf(("NameService::NameService()"));
 }
 
@@ -466,6 +468,7 @@ QStatus NameService::Init(
 
     assert(IsRunning() == false);
     m_state = IMPL_RUNNING;
+    m_terminal = false;
     Start(this);
 
     return ER_OK;
@@ -818,7 +821,7 @@ void NameService::LazyUpdateInterfaces(void)
     // m_any mode that means match all real IfConfig entries, we need to walk
     // the real IfConfig entries.
     //
-    for (uint32_t i = 0; (m_state == IMPL_RUNNING) && (i < entries.size()); ++i) {
+    for (uint32_t i = 0; (m_state == IMPL_RUNNING || m_terminal) && (i < entries.size()); ++i) {
         //
         // We expect that every device in the system must have a name.
         // It might be some crazy random GUID in Windows, but it will have
@@ -1271,6 +1274,7 @@ QStatus NameService::Advertise(const qcc::String& wkn)
 
 QStatus NameService::Advertise(vector<qcc::String>& wkn)
 {
+    printf("**** NameService::Advertise()\n");
     QCC_DbgHLPrintf(("NameService::Advertise()"));
 
     if (m_state != IMPL_RUNNING) {
@@ -1837,7 +1841,25 @@ void* NameService::Run(void* arg)
     qcc::Timespec tNow, tLastLazyUpdate;
     GetTimeNow(&tLastLazyUpdate);
 
-    while (m_state == IMPL_RUNNING) {
+    while (m_state == IMPL_RUNNING || m_terminal) {
+        printf("**** NameService::Run(): m_terminal == %d\n", m_terminal);
+
+        //
+        // If we are shutting down, we need to make sure that we send out the
+        // terminal is-at messages that correspond to a CancelAdvertiseName for
+        // any of the names we are advertising.  These messages are queued while
+        // handling the thread stop event (below) and m_terminal is set to true.
+        // The first time through the loop in which we find the m_outbound list
+        // empty it means that all of the terminal messages have been sent and
+        // we can exit.  So if we find m_terminal true and m_outbound.empty()
+        // true, we break out of the loop and exit.
+        //
+        if (m_terminal && m_outbound.empty()) {
+            printf("**** NameService::Run(): Done with terminal messages\n");
+            m_terminal = false;
+            break;
+        }
+
         GetTimeNow(&tNow);
         m_mutex.Lock();
 
@@ -1907,7 +1929,10 @@ void* NameService::Run(void* arg)
         // We know what interfaces can be currently used to send messages
         // over, so now send any messages we have queued for transmission.
         //
-        while (m_outbound.size() && (m_state == IMPL_RUNNING)) {
+        while (m_outbound.size() && (m_state == IMPL_RUNNING || m_terminal)) {
+            if (m_terminal) {
+                printf("**** NameService::Run(): Processing terminal message\n");
+            }
 
             //
             // The header contains a number of "questions" and "answers".
@@ -1940,7 +1965,7 @@ void* NameService::Run(void* arg)
             // Walk the list of live interfaces and send the protocol message
             // out each one.
             //
-            for (uint32_t i = 0; (m_state == IMPL_RUNNING) && (i < m_liveInterfaces.size()); ++i) {
+            for (uint32_t i = 0; (m_state == IMPL_RUNNING || m_terminal) && (i < m_liveInterfaces.size()); ++i) {
                 qcc::SocketFd sockFd = m_liveInterfaces[i].m_sockFd;
                 qcc::IPAddress interfaceAddress = m_liveInterfaces[i].m_address;
                 uint32_t interfaceAddressPrefixLen = m_liveInterfaces[i].m_prefixlen;
@@ -2063,12 +2088,39 @@ void* NameService::Run(void* arg)
         //
         for (vector<qcc::Event*>::iterator i = signaledEvents.begin(); i != signaledEvents.end(); ++i) {
             if (*i == &stopEvent) {
+                printf("**** NameService::Run(): Stop event fired\n");
                 QCC_DbgPrintf(("NameService::Run(): Stop event fired"));
+
                 //
-                // We heard the stop event, so reset it.  We'll pop out of the
-                // server loop when we run through it again (above).
+                // We heard the stop event, so reset it.  Our contract is that once
+                // we've heard this event, we have to exit the run routine fairly
+                // quickly.  We can take some time to clean up, but there will be
+                // someone else eventually blocked waiting for us to exit, so we
+                // can't get carried away.
                 //
                 stopEvent.ResetEvent();
+
+                //
+                // What we need to do is to send out is-at messages telling
+                // anyone interested in our names that they are no longer valid.
+                // This is a fairly complicated process that can involve sending
+                // multiple packets out multiple interfaces, so we clearly don't
+                // want to duplicate code here to make it all happen.  We use a
+                // special case of normal operation to prevent new requests from
+                // being queued, issue our own terminal requests corresponding to
+                // the is-at messages metioned above, and then we run until they
+                // are all processed and then we exit.
+                //
+                // Calling Retransmit(true) will queue the desired terminal
+                // is-at messages on the m_outbound list.  To ensure that they
+                // are sent before we exit, we set m_termianl to true.  We will
+                // have set m_state to IMPL_STOPPING in NameService::Stop.  This
+                // stops new external requests from being acted upon.  We then
+                // continue in our loop until the outbound queue is empty and
+                // then exit the run routine (above).
+                //
+                Retransmit(true);
+                m_terminal = true;
                 break;
             } else if (*i == &timerEvent) {
                 // QCC_DbgPrintf(("NameService::Run(): Timer event fired"));
@@ -2079,6 +2131,7 @@ void* NameService::Run(void* arg)
                 //
                 DoPeriodicMaintenance();
             } else if (*i == &m_wakeEvent) {
+                printf("**** NameService::Run(): Wake event fired\n");
                 QCC_DbgPrintf(("NameService::Run(): Wake event fired"));
                 //
                 // This is an event that fires whenever a message has been
@@ -2187,16 +2240,10 @@ void NameService::Retry(void)
     }
 }
 
-void NameService::Retransmit(void)
+void NameService::Retransmit(bool exiting)
 {
+    printf("**** NameService::Retransmit()\n");
     QCC_DbgPrintf(("NameService::Retransmit()"));
-
-    //
-    // Check we are still in a running state
-    //
-    if (m_state != IMPL_RUNNING) {
-        return;
-    }
 
     //
     // We need a valid port before we send something out to the local subnet.
@@ -2224,11 +2271,13 @@ void NameService::Retransmit(void)
     //
     // The header will tie the whole protocol message together.  By setting the
     // timer, we are asking for everyone who hears the message to remember the
-    // advertisements for that number of seconds.
+    // advertisements for that number of seconds.  If we are exiting, then we
+    // set the timer to zero, which means that the name is no longer valid.
     //
     Header header;
     header.SetVersion(0);
-    header.SetTimer(m_tDuration);
+    header.SetTimer(exiting ? 0 : m_tDuration);
+    printf("**** NameService::Retransmit(): exiting == %d\n", exiting);
 
     //
     // The underlying protocol is capable of identifying both TCP and UDP
@@ -2351,7 +2400,7 @@ void NameService::DoPeriodicMaintenance(void)
         --m_timer;
         if (m_timer == m_tRetransmit) {
             QCC_DbgPrintf(("NameService::DoPeriodicMaintenance(): Retransmit()"));
-            Retransmit();
+            Retransmit(false);
             m_timer = m_tDuration;
         }
     }
@@ -2422,7 +2471,7 @@ void NameService::HandleProtocolQuestion(WhoHas whoHas, qcc::IPAddress address)
     // are exporting; this just means to retransmit all of our advertisements.
     //
     if (respond) {
-        Retransmit();
+        Retransmit(false);
     }
 }
 
@@ -2596,10 +2645,13 @@ void NameService::HandleProtocolMessage(uint8_t const* buffer, uint32_t nbytes, 
 
 QStatus NameService::Stop()
 {
-    QStatus status = Thread::Stop();
+    printf("**** NameService::Stop()\n");
+    m_mutex.Lock();
     if (m_state != IMPL_SHUTDOWN) {
         m_state = IMPL_STOPPING;
     }
+    QStatus status = Thread::Stop();
+    m_mutex.Unlock();
     return status;
 }
 
