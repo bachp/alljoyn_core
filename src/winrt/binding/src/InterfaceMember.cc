@@ -304,8 +304,9 @@ Platform::String ^ InterfaceMember::ArgNames::get()
     return result;
 }
 
-uint8_t InterfaceMember::Annotation::get()
-{
+/*
+   uint8_t InterfaceMember::Annotation::get()
+   {
     ::QStatus status = ER_OK;
     uint8_t result = (uint8_t)-1;
 
@@ -324,7 +325,8 @@ uint8_t InterfaceMember::Annotation::get()
     }
 
     return result;
-}
+   }
+ */
 
 Platform::String ^ InterfaceMember::AccessPerms::get()
 {
@@ -396,7 +398,7 @@ _InterfaceMember::_InterfaceMember(ajn::InterfaceDescription::Member* member)
         }
         _member = new ajn::InterfaceDescription::Member(member->iface, member->memberType, member->name.c_str(),
                                                         member->signature.c_str(), member->returnSignature.c_str(), member->argNames.c_str(),
-                                                        member->annotation, member->accessPerms.c_str());
+                                                        0, member->accessPerms.c_str());
         if (NULL == _member) {
             status = ER_OUT_OF_MEMORY;
             break;

@@ -130,10 +130,10 @@ public ref class InterfaceMember sealed {
     ///<summary>
     ///Exclusive OR of flags MEMBER_ANNOTATE_NO_REPLY and MEMBER_ANNOTATE_DEPRECATED
     ///</summary>
-    property uint8_t Annotation
-    {
-        uint8_t get();
-    }
+    //property uint8_t Annotation
+    //{
+    //    uint8_t get();
+    //}
 
     ///<summary>
     ///Required permissions to invoke this call

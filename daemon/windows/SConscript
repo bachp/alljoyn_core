@@ -15,6 +15,9 @@
 
 Import('env', 'daemon_objs')
 
+# OS specific objects for daemon
+os_objs = []
+
 env.Append(CPPPATH=[env.Dir('../../daemon').srcnode()])
 
 # Build the resources for the dll
@@ -29,4 +32,4 @@ daemon = env2.Program('alljoyn-daemon', ['daemon-shell.cc'] )
 
 
 progs = [daemon, daemon_libs[0]] #alljoyn-daemon and daemonlibs.dll will be returned
-Return('progs')
+Return('progs', 'os_objs')

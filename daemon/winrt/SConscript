@@ -16,6 +16,9 @@
 import os
 Import('env', 'daemon_objs', 'common_objs', 'alljoyn_core_objs', 'bdobj')
 
+# OS specific objects for daemon
+os_objs = []
+
 # TODO: Fix our dependencies so they don't "bleed" all over
 env.Append(CPPPATH=['..'])
 
@@ -32,4 +35,4 @@ env.Install('$DISTDIR/lib', alljoyn_libs[1]) #put the *.lib file in the lib fold
 env.Install('$DISTDIR/bin', 'AllJoyn.winmd') #put the *.winmd file in the bin folder
 
 progs = [alljoyn_libs[0]] # alljoyn.dll will be returned
-Return('progs')
+Return('progs', 'os_objs')

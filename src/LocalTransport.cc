@@ -100,9 +100,12 @@ class LocalEndpoint::ReplyContext {
         method(method),
         callFlags(methodCall->GetFlags()),
         serial(methodCall->msgHeader.serialNum),
-        context(context),
-        alarm(timeout, ep, 0, (void*) this)
-    { }
+        context(context)
+    {
+        uint32_t zero = 0;
+        void* tempContext = (void*)this;
+        alarm = Alarm(timeout, ep, tempContext, zero);
+    }
 
     ~ReplyContext() {
         ep->GetBus().GetInternal().GetTimer().RemoveAlarm(alarm, true /* block if alarm in progress */);
@@ -703,7 +706,7 @@ QStatus LocalEndpoint::UnregisterAllHandlers(MessageReceiver* receiver)
  */
 void LocalEndpoint::AlarmTriggered(const Alarm& alarm, QStatus reason)
 {
-    ReplyContext* rc = reinterpret_cast<ReplyContext*>(alarm.GetContext());
+    ReplyContext* rc = reinterpret_cast<ReplyContext*>(alarm->GetContext());
     if (reason == ER_OK) {
         QCC_DbgPrintf(("Timed out waiting for METHOD_REPLY with serial %d", rc->serial));
         Message msg(bus);

@@ -50,44 +50,28 @@ else:
     bt_srcs.extend(env.SConscript('bt_bluez/SConscript'))
     daemon_objs = base_objs + env.Object(bt_srcs)
 
+# Bundled daemon object file
+bdobj = env.SConscript('bundled/SConscript')
+
 # AllJoyn Daemon
-progs, os_objs = env.SConscript('${OS_GROUP}/SConscript', exports=['daemon_objs'])
+progs, os_objs = env.SConscript('${OS_GROUP}/SConscript', exports=['daemon_objs', 'common_objs', 'alljoyn_core_objs', 'bdobj'])
 base_objs.extend(os_objs)
+
 if env['OS'] != 'darwin':
     daemon_objs.extend(os_objs)
-# Add in ICE support
-if env['OS'] == 'android' or env['OS'] =='linux':
-    ice_srcs = env.SConscript('ice/SConscript')
-    daemon_objs.extend(env.Object(ice_srcs))
-    json_srcs = env.SConscript('JSON/SConscript')
-    daemon_objs.extend(env.Object(json_srcs))   
 
 # Daemon library
-if env['OS_GROUP']!='winrt':
+if env['OS_GROUP'] != 'winrt':
     lib = env.StaticLibrary('ajdaemon', base_objs);
 else:
     lib = []
-	
-# Daemon Static Lib
-if env['OS'] == "win8_nt":
-    daemon_lib = env.StaticLibrary('daemon', daemon_objs + common_objs + alljoyn_core_objs)
-    env.Install('$DISTDIR/lib', daemon_lib) #put the *.lib file in the lib folder
-    
-# Bundled daemon object file
-bdobj = env.SConscript('bundled/SConscript')	
-	
-# AllJoyn Daemon
-progs = env.SConscript('${OS_GROUP}/SConscript', exports=['daemon_objs', 'common_objs', 'alljoyn_core_objs', 'bdobj'])
 
 # AllJoyn Daemon test programs
 if env['OS_GROUP'] != 'winrt':
     tests = env.SConscript('test/SConscript', exports=['daemon_objs'])
 else:
     tests = []
-
-# Bundled daemon object file
-bdobj = env.SConscript('bundled/SConscript')
-
+    
 # Return daemon and related tests
 ret = progs + tests, lib, bdobj
 Return('ret')
