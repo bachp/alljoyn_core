@@ -3280,7 +3280,7 @@ void DiscoveryManager::GetUserCredentials(void)
     clientLoginBusListener = new ClientLoginBusListener();
     bus.RegisterBusListener(*clientLoginBusListener);
 
-    bool hasOwer;
+    bool hasOwer = false;
 
     while (true) {
         status = bus.NameHasOwner(ClientLoginServiceName.c_str(), hasOwer);
