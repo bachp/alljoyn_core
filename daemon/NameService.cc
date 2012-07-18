@@ -436,8 +436,6 @@ NameService::NameService()
     m_any(false), m_wakeEvent(), m_forceLazyUpdate(false),
     m_enabled(false), m_doEnable(false), m_doDisable(false)
 {
-    printf("**** NameService::NameService()\n");
-    fflush(stdout);
     QCC_DbgPrintf(("NameService::NameService()"));
 }
 
@@ -1274,7 +1272,6 @@ QStatus NameService::Advertise(const qcc::String& wkn)
 
 QStatus NameService::Advertise(vector<qcc::String>& wkn)
 {
-    printf("**** NameService::Advertise()\n");
     QCC_DbgHLPrintf(("NameService::Advertise()"));
 
     if (m_state != IMPL_RUNNING) {
@@ -1842,8 +1839,6 @@ void* NameService::Run(void* arg)
     GetTimeNow(&tLastLazyUpdate);
 
     while (m_state == IMPL_RUNNING || m_terminal) {
-        printf("**** NameService::Run(): m_terminal == %d\n", m_terminal);
-
         //
         // If we are shutting down, we need to make sure that we send out the
         // terminal is-at messages that correspond to a CancelAdvertiseName for
@@ -1855,7 +1850,6 @@ void* NameService::Run(void* arg)
         // true, we break out of the loop and exit.
         //
         if (m_terminal && m_outbound.empty()) {
-            printf("**** NameService::Run(): Done with terminal messages\n");
             m_terminal = false;
             break;
         }
@@ -1930,10 +1924,6 @@ void* NameService::Run(void* arg)
         // over, so now send any messages we have queued for transmission.
         //
         while (m_outbound.size() && (m_state == IMPL_RUNNING || m_terminal)) {
-            if (m_terminal) {
-                printf("**** NameService::Run(): Processing terminal message\n");
-            }
-
             //
             // The header contains a number of "questions" and "answers".
             // We just pass on questions (who-has messages) as-is.  If these
@@ -2088,7 +2078,6 @@ void* NameService::Run(void* arg)
         //
         for (vector<qcc::Event*>::iterator i = signaledEvents.begin(); i != signaledEvents.end(); ++i) {
             if (*i == &stopEvent) {
-                printf("**** NameService::Run(): Stop event fired\n");
                 QCC_DbgPrintf(("NameService::Run(): Stop event fired"));
 
                 //
@@ -2131,7 +2120,6 @@ void* NameService::Run(void* arg)
                 //
                 DoPeriodicMaintenance();
             } else if (*i == &m_wakeEvent) {
-                printf("**** NameService::Run(): Wake event fired\n");
                 QCC_DbgPrintf(("NameService::Run(): Wake event fired"));
                 //
                 // This is an event that fires whenever a message has been
@@ -2242,7 +2230,6 @@ void NameService::Retry(void)
 
 void NameService::Retransmit(bool exiting)
 {
-    printf("**** NameService::Retransmit()\n");
     QCC_DbgPrintf(("NameService::Retransmit()"));
 
     //
@@ -2277,7 +2264,6 @@ void NameService::Retransmit(bool exiting)
     Header header;
     header.SetVersion(0);
     header.SetTimer(exiting ? 0 : m_tDuration);
-    printf("**** NameService::Retransmit(): exiting == %d\n", exiting);
 
     //
     // The underlying protocol is capable of identifying both TCP and UDP
@@ -2645,7 +2631,6 @@ void NameService::HandleProtocolMessage(uint8_t const* buffer, uint32_t nbytes, 
 
 QStatus NameService::Stop()
 {
-    printf("**** NameService::Stop()\n");
     m_mutex.Lock();
     if (m_state != IMPL_SHUTDOWN) {
         m_state = IMPL_STOPPING;
