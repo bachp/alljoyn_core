@@ -25,7 +25,7 @@
 namespace AllJoyn {
 
 [Platform::Metadata::Flags]
-public enum class ProximityType {
+public enum class ProximityType : uint32_t {
     PROXIMITY_ANY      = ajn::SessionOpts::PROXIMITY_ANY,
     PROXIMITY_PHYSICAL = ajn::SessionOpts::PROXIMITY_PHYSICAL,
     PROXIMITY_NETWORK  = ajn::SessionOpts::PROXIMITY_NETWORK

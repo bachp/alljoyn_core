@@ -30,7 +30,7 @@ namespace AllJoyn {
 ///Bitmasks used to indicated what type of credentials are being used.
 ///</summary>
 [Platform::Metadata::Flags]
-public enum class CredentialType {
+public enum class CredentialType : uint32_t {
     ///<summary>Bit 0 indicates credentials include a password, pincode, or passphrase</summary>
     CRED_PASSWORD     = ajn::AuthListener::CRED_PASSWORD,
     ///<summary>Bit 1 indicates credentials include a user name</summary>

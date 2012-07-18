@@ -41,7 +41,7 @@ public enum class AllJoynMessageType {
 };
 
 [Platform::Metadata::Flags]
-public enum class AllJoynFlagType {
+public enum class AllJoynFlagType : uint32_t {
     ///<summary>No reply is expected</summary>
     ALLJOYN_FLAG_NO_REPLY_EXPECTED  = ajn::ALLJOYN_FLAG_NO_REPLY_EXPECTED,
     ///<summary>Auto start the service</summary>

@@ -41,7 +41,6 @@ namespace ajn {
 
 ref class ProximityNameService sealed {
   public:
-    ~ProximityNameService();
     void ConnectionRequestedEventHandler(Platform::Object ^ sender, Windows::Networking::Proximity::ConnectionRequestedEventArgs ^ TriggeredConnectionStateChangedEventArgs);
 
   private:
@@ -61,6 +60,7 @@ ref class ProximityNameService sealed {
     };
 
     ProximityNameService(const qcc::String & guid);
+    ~ProximityNameService();
     void SetCallback(Callback<void, const qcc::String&, const qcc::String&, std::vector<qcc::String>&, uint8_t>* cb);
     void EnableDiscovery(const qcc::String& namePrefix);
     void DisableDiscovery(const qcc::String& namePrefix);
