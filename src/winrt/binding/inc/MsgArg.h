@@ -1,6 +1,6 @@
 /******************************************************************************
  *
- * Copyright 2011-2012, Qualcomm Innovation Center, Inc.
+ * Copyright 2011-2013, Qualcomm Innovation Center, Inc.
  *
  *    Licensed under the Apache License, Version 2.0 (the "License");
  *    you may not use this file except in compliance with the License.
@@ -180,9 +180,9 @@ public ref class MsgArg sealed {
     /// <summary>
     /// Get the value in the MsgArg object
     /// </summary>
-    /// <remark>
+    /// <remarks>
     ///
-    /// </remark>
+    /// </remarks>
     property Object ^ Value
     {
         Platform::Object ^ get();

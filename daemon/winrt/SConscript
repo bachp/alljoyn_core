@@ -34,8 +34,7 @@ rsc = env.RES('DaemonResources.rc')
 
 # Build the Windows daemon.
 alljoyn_libs = env.SharedLibrary('AllJoyn', daemon_objs + common_objs + alljoyn_core_objs + proximity_objs + os_objs)
-env.Install('$DISTDIR/lib', alljoyn_libs[1]) #put the *.lib file in the lib folder
-env.Install('$DISTDIR/bin', 'AllJoyn.winmd') #put the *.winmd file in the bin folder
+env.Install('$WINRT_DISTDIR/bin', 'AllJoyn.winmd') #put the *.winmd file in the bin folder
 
 progs = [alljoyn_libs[0]] # alljoyn.dll will be returned
 Return('progs', 'os_objs')

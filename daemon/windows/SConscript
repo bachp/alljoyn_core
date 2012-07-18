@@ -39,7 +39,7 @@ for x in daemon_libs:
     if env['SHLIBSUFFIX'] in str(x):
         daemon_shared_lib = x;
 
-env.Install('$DISTDIR/lib', daemon_static_lib) #put the *.lib file in the lib folder
+env.Install('$CPP_DISTDIR/lib', daemon_static_lib) #put the *.lib file in the lib folder
 env2 = env.Clone();
 env2.Append(LIBS=['daemonlib'])
 daemon = []

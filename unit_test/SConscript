@@ -135,6 +135,7 @@ else:
         unittest_env.Append(CPPDEFINES = ['_VARIADIC_MAX=10'])
     #gtest library file is placed on folder above the the object files.
     unittest_env.Append(LIBPATH = ['./'])
+    
     #the linker must be able to find stlport for android
     if(env['OS_CONF'] == 'android'):
         unittest_env.Append(LIBPATH = ['$ANDROID_NDK/platforms/android-$ANDROID_API_LEVEL_NDK/arch-%s/usr/lib' % env['CPU']])
@@ -143,10 +144,10 @@ else:
     obj = unittest_env.Object(test_src);
         
     unittest_prog = unittest_env.Program('ajtest', obj)
-    unittest_env.Install('$TESTDIR/bin', unittest_prog)
+    unittest_env.Install('$CPP_TESTDIR/bin', unittest_prog)
 
     #install gtest utilities
-    env.Install('$TESTDIR/bin', Dir('test_report').srcnode())
+    env.Install('$CPP_TESTDIR/bin', Dir('test_report').srcnode())
 
 if (env['OS'] == 'win8' and
     env['WINRT_UNITTEST'] == 'on' and
@@ -186,8 +187,8 @@ if (env['OS'] == 'win8' and
                           unit_test_appx_name,
                         [   # source files to depend upon
                             'winrt/AllJoynUnitTests.sln',
-                            '$DISTDIR/bin/AllJoyn.dll',
-                            '$DISTDIR/bin/AllJoyn.winmd'
+                            '$CPP_DISTDIR/bin/AllJoyn.dll',
+                            '$CPP_DISTDIR/bin/AllJoyn.winmd'
                         ],
                         'msbuild.exe ${SOURCE.abspath} /t:Clean,Rebuild /p:Configuration=' + appx_env['VARIANT'] + ';Platform=' + platform,
                         )
@@ -202,7 +203,7 @@ if (env['OS'] == 'win8' and
                         )
 
 #    # Install vsix at the same level as the architecture directory
-#    makeappx_install = appx_env.Install('$DISTDIR/../test', source = unit_test_appx_name_stem )
+#    makeappx_install = appx_env.Install('$CPP_DISTDIR/../test', source = unit_test_appx_name_stem )
 #    appx_env.Depends(makeappx_install, make_appx_cmd)
 
 

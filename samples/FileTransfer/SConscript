@@ -14,7 +14,7 @@
 # 
 
 Import('env')
-clientDistDir = '$DISTDIR/samples/FileTransfer'
+clientDistDir = '$CPP_DISTDIR/samples/FileTransfer'
 
 # The return value is the collection of files installed in the build destination.
 returnValue = []
@@ -25,7 +25,7 @@ progs = [
     env.Program('FileTransferService', ['FileTransferService.cc'])
     ]
 if 'linux' == env['OS'] or 'darwin' == env['OS'] or env['OS_GROUP'] == 'windows':
-    returnValue += env.Install('$DISTDIR/bin/samples', progs )
+    returnValue += env.Install('$CPP_DISTDIR/bin/samples', progs )
     returnValue += env.Install(clientDistDir, env.Glob('*.cc'))
 
 Return ('returnValue')

@@ -20,7 +20,7 @@ returnValue = []
 
 # Install sample source
 if env['OS'] == 'android':
-    clientDistDir = '$DISTDIR/samples/simple/client'
+    clientDistDir = '$CPP_DISTDIR/samples/simple/client'
     returnValue += env.Install(clientDistDir, 'android/client/AndroidManifest.xml')
     returnValue += env.Install(clientDistDir, 'android/client/.classpath')
     returnValue += env.Install(clientDistDir, 'android/client/.project')
@@ -30,7 +30,7 @@ if env['OS'] == 'android':
     returnValue += env.Install(clientDistDir, Dir('android/client/src').srcnode())
     returnValue += env.Install(clientDistDir, Dir('android/client/res').srcnode())
 
-    serviceDistDir = '$DISTDIR/samples/simple/service'
+    serviceDistDir = '$CPP_DISTDIR/samples/simple/service'
     returnValue += env.Install(serviceDistDir, 'android/service/AndroidManifest.xml')
     returnValue += env.Install(serviceDistDir, 'android/service/.classpath')
     returnValue += env.Install(serviceDistDir, 'android/service/.project')

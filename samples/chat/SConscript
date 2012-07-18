@@ -19,7 +19,7 @@ Import('env')
 returnValue = []
 
 # Install sample source
-clientDistDir = '$DISTDIR/samples/chat'
+clientDistDir = '$CPP_DISTDIR/samples/chat'
 if env['OS'] == 'android':
     returnValue += env.Install(clientDistDir, 'android/AndroidManifest.xml')
     returnValue += env.Install(clientDistDir, 'android/.classpath')
@@ -30,12 +30,12 @@ if env['OS'] == 'android':
     returnValue += env.Install(clientDistDir, Dir('android/res').srcnode())
 elif env['OS'] == 'linux' or 'darwin' == env['OS']:
     env.Program('chat', ['linux/chat.cc'])
-    returnValue += env.Install('$DISTDIR/bin/samples', ['chat'])
+    returnValue += env.Install('$CPP_DISTDIR/bin/samples', ['chat'])
     returnValue += env.Install(clientDistDir, env.Glob('linux/*.cc'))
     returnValue += env.Install(clientDistDir, env.Glob('linux/Make*'))
 elif env['OS_GROUP'] == 'windows':
     env.Program('chat', ['linux/chat.cc'])
-    returnValue += env.Install('$DISTDIR/bin/samples', ['chat.exe'])
+    returnValue += env.Install('$CPP_DISTDIR/bin/samples', ['chat.exe'])
     returnValue += env.Install(clientDistDir, env.Glob('linux/*.cc'))
     #install Visual Studio solution files
     returnValue += env.Install(clientDistDir+'/VC2008Win7', 'linux/VC2008Win7/VC2008Win7.sln')

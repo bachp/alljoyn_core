@@ -53,7 +53,7 @@ if env['OS'] == 'android':
    libenv = env.Clone(CCFLAGS = '-DDAEMON_LIB')
    libenv.Object(target = 'bbdaemon-lib', source = 'bbdaemon.cc')
    libbbdaemon = env.StaticLibrary(['bbdaemon-lib'] + daemon_objs)
-   dlibs = env.Install('$DISTDIR/lib', libbbdaemon)
+   dlibs = env.Install('$CPP_DISTDIR/lib', libbbdaemon)
 
 if env['OS_GROUP'] == 'winrt':
     progs = []

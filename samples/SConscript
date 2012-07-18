@@ -36,10 +36,10 @@ if env['OS'] != 'win8':
 
 # Install readme
 if env['OS_CONF'] == 'windows':
-    returnValue += env.InstallAs('$DISTDIR/samples/README.txt', 'README.windows.txt')
+    returnValue += env.InstallAs('$CPP_DISTDIR/samples/README.txt', 'README.windows.txt')
 elif env['OS_CONF'] == 'android':
-    returnValue += env.InstallAs('$DISTDIR/samples/README.txt', 'README.android.txt')
+    returnValue += env.InstallAs('$CPP_DISTDIR/samples/README.txt', 'README.android.txt')
 elif env['OS_CONF'] == 'linux':
-    returnValue += env.InstallAs('$DISTDIR/samples/README.txt', 'README.linux.txt')
+    returnValue += env.InstallAs('$CPP_DISTDIR/samples/README.txt', 'README.linux.txt')
 
 Return ('returnValue')

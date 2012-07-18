@@ -32,7 +32,7 @@ if env['OS'] == 'android':
    libenv = env.Clone(CCFLAGS = '-DDAEMON_LIB')
    libenv.Object(target = 'alljoyn-daemon', source = 'daemon-main.cc')
    libdaemon = env.StaticLibrary(['alljoyn-daemon'] + daemon_objs + os_objs)
-   dlibs = env.Install('$DISTDIR/lib', libdaemon)
+   dlibs = env.Install('$CPP_DISTDIR/lib', libdaemon)
 
 #progs = daemon + servicehelper
 progs = daemon, os_objs

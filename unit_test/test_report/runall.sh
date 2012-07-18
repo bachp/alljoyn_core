@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# Copyright 2010 - 2012, Qualcomm Innovation Center, Inc.
+# Copyright 2010 - 2013, Qualcomm Innovation Center, Inc.
 #
 #    Licensed under the Apache License, Version 2.0 (the "License");
 #    you may not use this file except in compliance with the License.
@@ -23,12 +23,12 @@ Runs GTest executables created by scons in alljoyn_core and common.
 Usage: $(basename -- "$0") [ -s -d alljoyn_dist ] [ -t alljoyn_test ] [-c configfile ] [ ajtest ] [ cmtest ] ...
 where
 	-s		# start and stop our own AllJoyn-Daemon (default internal transport address, --no-bt)
-	-d alljoyn_dist	# path to the build/.../dist tree, used to find bin/alljoyn-daemon exe, if used
-	-t alljoyn_test	# path to the build/.../test tree, used to find bin/cmtest exe, bin/ajtest exe, ...
-			# Note: do not include the 'bin' subdirectory in alljoyn_dist or alljoyn_test
+	-d alljoyn_dist	# path to the build/.../dist tree, used to find cpp/bin/alljoyn-daemon exe, if used
+	-t alljoyn_test	# path to the build/.../test tree, used to find cpp/bin/cmtest exe, ajtest exe, ...
+			# Note: do not include the 'cpp/bin' subdirectory in alljoyn_dist or alljoyn_test
 	-c configfile	# name of config file(s) (an embedded wildcard is replaced by the gtest test name)
 			#	default '*.conf'
-	ajtest, cmtest	# simple file name(s) of the gtest exe(s) to be run (found in -t path/bin)
+	ajtest, cmtest	# simple file name(s) of the gtest exe(s) to be run (found in -t path/cpp/bin)
 			#	default runs ajtest and cmtest
 "
 	exit 2
@@ -93,10 +93,10 @@ ckbin() {
 	ckvar=$1
 	binvar=$2
 	eval ckval="\$$1"
-	binval=` cd "$ckval/bin" > /dev/null && pwd ` || : ok
+	binval=` cd "$ckval/cpp/bin" > /dev/null && pwd ` || : ok
 	if test -z "$binval"
 	then
-		echo >&2 "error, could not find 'bin' subdirectory in $ckvar=$ckval"
+		echo >&2 "error, could not find 'cpp/bin' subdirectory in $ckvar=$ckval"
 		exit 2
 	fi
 	eval $binvar="'$binval'"
