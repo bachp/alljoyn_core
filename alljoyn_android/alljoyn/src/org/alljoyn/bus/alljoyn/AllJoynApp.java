@@ -116,7 +116,7 @@ public class AllJoynApp extends Application {
         	    "  <ice_discovery_manager>" +
         	    "    <property interfaces=\"*\"/>" +
         	    "    <property server=\"rdvs.alljoyn.org\"/>" +
-        	    "    <property protocol=\"HTTP\"/>" +
+        	    "    <property protocol=\"HTTPS\"/>" +
         	    "    <property enable_ipv6=\"false\"/>" +
         	    "  </ice_discovery_manager>" +
         	    "</busconfig>");
