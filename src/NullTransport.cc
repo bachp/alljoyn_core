@@ -98,6 +98,7 @@ class NullEndpoint : public BusEndpoint {
                 status = ER_OK;
             }
         } else {
+            assert(msg->bus == &daemonBus);
             /*
              * Register the endpoint with the client on receiving the first message from the daemon.
              */
@@ -107,8 +108,18 @@ class NullEndpoint : public BusEndpoint {
             } else {
                 DecrementAndFetch(&clientReady);
             }
-            msg->bus = &clientBus;
-            status = clientBus.GetInternal().GetRouter().PushMessage(msg, *this);
+            /*
+             * We need to clone broadcast signals because each receiving bus attachment must be
+             * able to unmarshal the arg list including decrypting and doing header expansion.
+             */
+            if (msg->IsBroadcastSignal()) {
+                Message clone(msg, true /*deep copy*/);
+                clone->bus = &clientBus;
+                status = clientBus.GetInternal().GetRouter().PushMessage(clone, *this);
+            } else {
+                msg->bus = &clientBus;
+                status = clientBus.GetInternal().GetRouter().PushMessage(msg, *this);
+            }
         }
         return status;
     }

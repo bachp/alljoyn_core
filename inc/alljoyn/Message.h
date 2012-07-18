@@ -506,6 +506,13 @@ class _Message {
         }
     }
 
+    /**
+     * Copy constructor.
+     *
+     * @param other   The other message to copy.
+     */
+    _Message(const _Message& other);
+
   protected:
 
     /*
@@ -687,12 +694,8 @@ class _Message {
     void SetSerialNumber();
 
     /// @endcond
-  private:
 
-    /**
-     * Copy constructor is disallowed.
-     */
-    _Message(const _Message& other);
+  private:
 
     /**
      * Message assignment is disallowed.
@@ -795,7 +798,6 @@ class _Message {
     qcc::SocketFd* handles;      ///< Array of file/socket descriptors.
     size_t numHandles;           ///< Number of handles in the handles array
     bool encrypt;                ///< True if the message is to be encrypted
-    volatile int32_t busy;       ///< Non-zero while the message is being modified
 
     /**
      * The header fields for this message. Which header fields are present depends on the message

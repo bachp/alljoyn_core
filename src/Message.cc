@@ -310,8 +310,7 @@ _Message::_Message(BusAttachment& bus) :
     ttl(0),
     handles(NULL),
     numHandles(0),
-    encrypt(false),
-    busy(0)
+    encrypt(false)
 {
     msgHeader.msgType = MESSAGE_INVALID;
     msgHeader.endian = myEndian;
@@ -326,6 +325,60 @@ _Message::~_Message(void)
     }
     delete [] handles;
 }
+
+_Message::_Message(const _Message& other) :
+    bus(other.bus),
+    endianSwap(other.endianSwap),
+    msgHeader(other.msgHeader),
+    numMsgArgs(other.numMsgArgs),
+    bufSize(other.bufSize),
+    ttl(other.ttl),
+    timestamp(other.timestamp),
+    replySignature(other.replySignature),
+    authMechanism(other.authMechanism),
+    rcvEndpointName(other.rcvEndpointName),
+    numHandles(other.numHandles),
+    encrypt(other.encrypt),
+    hdrFields(other.hdrFields)
+{
+    if (bufSize > 0) {
+        assert(msgBuf != NULL);
+        _msgBuf = new uint8_t[bufSize + 7];
+        msgBuf = (uint64_t*)((uintptr_t)(_msgBuf + 7) & ~7);
+        bufEOD = ((uint8_t*)msgBuf) + (other.bufEOD - ((uint8_t*)other.msgBuf));
+        bufPos = ((uint8_t*)msgBuf) + (other.bufPos - ((uint8_t*)other.msgBuf));
+        bodyPtr = ((uint8_t*)msgBuf) + (other.bodyPtr - ((uint8_t*)other.msgBuf));
+        /*
+         * Copy in buffer and zero fill the pad at the end of the data
+         */
+        ::memcpy(msgBuf, other.msgBuf, bufSize);
+        ::memset(bufEOD, 0, (uint8_t*)msgBuf + bufSize - bufEOD);
+    } else {
+        assert(other.msgBuf == NULL);
+        _msgBuf = NULL;
+        msgBuf = NULL;
+        bufEOD = NULL;
+        bufPos = NULL;
+        bodyPtr = NULL;
+    }
+    if (numMsgArgs > 0) {
+        msgArgs =  new MsgArg[numMsgArgs];
+        for (size_t i = 0; i < numMsgArgs; ++i) {
+            msgArgs[i] = other.msgArgs[i];
+        }
+    } else {
+        msgArgs = NULL;
+    }
+    if (numHandles > 0) {
+        handles = new qcc::SocketFd[numHandles];
+        for (size_t i = 0; i < numHandles; ++i) {
+            SocketDup(other.handles[i], handles[i]);
+        }
+    } else {
+        handles = NULL;
+    }
+}
+
 
 QStatus _Message::ReMarshal(const char* senderName)
 {
