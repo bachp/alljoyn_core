@@ -40,6 +40,8 @@ LOCAL_C_INCLUDES := \
 	$(MYDROID_PATH)/external/openssl/include \
 	$(ALLJOYN_DIST)/inc \
 	$(NDK_PLATFORMS_ROOT)/$(TARGET_PLATFORM)/arch-arm/usr/include \
+	$(NDK_ROOT)/sources/cxx-stl/gnu-libstdc++/include \
+	$(NDK_ROOT)/sources/cxx-stl/gnu-libstdc++/libs/armeabi/include
 
 # An optional set of compiler flags that will be passed when building
 # C ***AND*** C++ source files.
