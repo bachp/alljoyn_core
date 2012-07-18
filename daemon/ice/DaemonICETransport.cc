@@ -146,10 +146,11 @@ class DaemonICEEndpoint : public RemoteEndpoint {
 
     ~DaemonICEEndpoint()
     {
-        if (m_isConnected) {
-            /* Attempt graceful disconnect with other side if still connected */
-            m_transport->m_packetEngine.Disconnect(m_stream);
-        }
+        /* We should not be disconnecting the packet stream here in the DaemonICEEndpoint
+         * destructor because some other DaemonICEEndpoint might be using the packet stream.
+         * The disconnecting of the packet stream is taken care of by
+         * DaemonICETransport::ReleaseICEPacketStream which is aware of all the
+         * DaemonICEEndpoints that are associated with a particular packet stream */
     }
 
     void SetStartTime(Timespec tStart) { m_tStart = tStart; }
@@ -2471,7 +2472,12 @@ ICEPacketStream* DaemonICETransport::AcquireICEPacketStream(const String& connec
     pktStreamMapLock.Lock(MUTEX_CONTEXT);
     map<String, pair<ICEPacketStream, int32_t> >::iterator it = pktStreamMap.find(connectSpec);
     if (it != pktStreamMap.end()) {
-        it->second.second++;
+        /* Increment the ref count only if the packet stream has been setup and not when the packet stream
+         * is in the process of being setup */
+        if (it->second.first.HasSocket()) {
+            it->second.second++;
+            QCC_DbgPrintf(("%s: Acquired packet stream %s refCount=%d", __FUNCTION__, connectSpec.c_str(), it->second.second));
+        }
         ret = &(it->second.first);
     }
     pktStreamMapLock.Unlock(MUTEX_CONTEXT);
@@ -2486,6 +2492,7 @@ QStatus DaemonICETransport::AcquireICEPacketStreamByPointer(ICEPacketStream* ice
     while (it != pktStreamMap.end()) {
         if (icePktStream == &(it->second.first)) {
             it->second.second++;
+            QCC_DbgPrintf(("%s: Acquired packet stream refCount=%d", __FUNCTION__, it->second.second));
             status = ER_OK;
             break;
         }
@@ -2509,6 +2516,7 @@ void DaemonICETransport::ReleaseICEPacketStream(const ICEPacketStream& icePktStr
                 }
                 pktStreamMap.erase(it);
             }
+            QCC_DbgPrintf(("%s: Releasing packet stream refCount=%d", __FUNCTION__, it->second.second));
             found = true;
             break;
         }
