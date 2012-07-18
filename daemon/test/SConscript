@@ -21,10 +21,12 @@ env.Append(CPPPATH=['..'])
 # Test Programs
 progs = [
     env.Program('advtunnel', ['advtunnel.cc'] + daemon_objs),
-    env.Program('bbdaemon', ['bbdaemon.cc'] + daemon_objs),
     env.Program('ns', ['ns.cc'] + daemon_objs)
    ]
 
+if env['OS'] == 'android' or env['OS'] == 'android_donut' or env['OS'] == 'linux':
+   progs.append(env.Program('bbdaemon', ['bbdaemon.cc'] + daemon_objs))
+   
 if env['OS_GROUP'] == 'posix' and env['OS'] != 'darwin':
    testenv = env.Clone()
    testenv.Append(LINKFLAGS=['-Wl,--allow-multiple-definition'])

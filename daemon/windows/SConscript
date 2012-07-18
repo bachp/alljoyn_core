@@ -28,8 +28,8 @@ daemon_libs = env.SharedLibrary('daemonlib', ['daemon-service.cc', 'daemon-main.
 env.Install('$DISTDIR/lib', daemon_libs[1]) #put the *.lib file in the lib folder
 env2 = env.Clone();
 env2.Append(LIBS=['daemonlib'])
-daemon = env2.Program('alljoyn-daemon', ['daemon-shell.cc'] )
+daemon = []
 
 
-progs = [daemon, daemon_libs[0]] #alljoyn-daemon and daemonlibs.dll will be returned
+progs = [daemon, daemon_libs[0]] # daemonlibs.dll will be returned
 Return('progs', 'os_objs')
