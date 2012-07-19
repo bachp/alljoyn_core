@@ -146,7 +146,7 @@ QStatus HttpConnection::SetHost(String host)
     this->host = host;
     IPAddress tempAddr;
     // Retrieve the Server IP Address from the Server Name
-    status = tempAddr.SetAddress(host, true);
+    status = tempAddr.SetAddress(host, true, NAME_RESOLUTION_TIMEOUT_IN_MS);
 
     if (status != ER_OK) {
         QCC_LogError(status, ("HttpConnection::SetHost(): Invalid Rendezvous Server address specified"));

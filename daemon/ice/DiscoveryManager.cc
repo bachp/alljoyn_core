@@ -111,9 +111,7 @@ DiscoveryManager::DiscoveryManager(BusAttachment& bus)
     SentFirstGETMessage(false),
     userCredentials(),
     UseHTTP(false),
-    EnableIPv6(false),
-    ServerConnectThread(NULL),
-    ConnectEvent()
+    EnableIPv6(false)
 {
     QCC_DbgPrintf(("DiscoveryManager::DiscoveryManager()\n"));
 
@@ -983,52 +981,8 @@ void* DiscoveryManager::Run(void* arg)
                      **/
                     DiscoveryManagerMutex.Unlock(MUTEX_CONTEXT);
 
-                    /* Kill the connect thread if it already running */
-                    if (ServerConnectThread) {
-                        ServerConnectThread->Kill();
-                        delete ServerConnectThread;
-                        ServerConnectThread = NULL;
-                    }
-
-                    /* Reset the ConnectEvent */
-                    ConnectEvent.ResetEvent();
-
-                    /* Initialize and start the connect thread */
-                    ServerConnectThread = new ConnectThread(this);
-
-                    if (ServerConnectThread) {
-                        status = ServerConnectThread->Start();
-
-                        if (status == ER_OK) {
-
-                            /* Wait on the ConnectEvent until RENDEZVOUS_SERVER_CONNECT_TIMEOUT_IN_MS */
-                            status = Event::Wait(ConnectEvent, RENDEZVOUS_SERVER_CONNECT_TIMEOUT_IN_MS);
-
-                            QCC_DbgPrintf(("%s: Wait on connect status = %s", __FUNCTION__, QCC_StatusText(status)));
-
-                            /* Retrieve the status of the connect */
-                            if (ServerConnectThread) {
-                                status = ServerConnectThread->GetStatus();
-                            } else {
-                                status = ER_FAIL;
-                            }
-
-                            QCC_DbgPrintf(("%s: Server connect thread return status = %s", __FUNCTION__, QCC_StatusText(status)));
-
-                            /* Clean up the connect thread */
-                            if (ServerConnectThread) {
-                                ServerConnectThread->Kill();
-                                delete ServerConnectThread;
-                                ServerConnectThread = NULL;
-                            }
-
-                        } else {
-                            QCC_LogError(status, ("%s: Unable to start the ServerConnectThread", __FUNCTION__));
-                        }
-                    } else {
-                        status = ER_FAIL;
-                        QCC_LogError(status, ("%s: Unable to initialize the ServerConnectThread", __FUNCTION__));
-                    }
+                    status = Connect();
+                    QCC_DbgPrintf(("%s: Server connect return status = %s", __FUNCTION__, QCC_StatusText(status)));
 
                     DiscoveryManagerMutex.Lock(MUTEX_CONTEXT);
 
@@ -3368,41 +3322,10 @@ void DiscoveryManager::ComposeAndQueueTokenRefreshMessage(TokenRefreshMessage re
     DiscoveryManagerMutex.Unlock(MUTEX_CONTEXT);
 }
 
-ThreadReturn STDCALL DiscoveryManager::ConnectThread::Run(void* arg)
-{
-    QCC_DbgHLPrintf(("DiscoveryManager::ConnectThread::Run()"));
-
-    QStatus localStatus = ER_FAIL;
-
-    if (discoveryManager) {
-        localStatus = discoveryManager->Connect();
-    }
-
-    status = localStatus;
-
-    /* Tell the DiscoveryManager Run() thread that we are done */
-    (discoveryManager->ConnectEvent).SetEvent();
-
-    return 0;
-}
-
-QStatus STDCALL DiscoveryManager::ConnectThread::GetStatus(void)
-{
-    QCC_DbgHLPrintf(("DiscoveryManager::ConnectThread::GetStatus()"));
-
-    return status;
-}
-
 QStatus DiscoveryManager::Stop(void)
 {
 
     QCC_DbgHLPrintf(("DiscoveryManager::Stop()"));
-    /* Set the ConnectEvent to make the Run() thread come out of the wait on ConnectEvent.
-     * We should not kill the ServerConnectThread here because during joining, if the Run
-     * thread was waiting on ConnectEvent, it might want to read the status from the
-     * ServerConnectThread object. The Run() function itself will take care of killing this
-     * thread after reading this status. */
-    ConnectEvent.SetEvent();
 
     /*
      * Tell the Run() thread to shut down through the thread

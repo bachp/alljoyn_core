@@ -736,14 +736,6 @@ class DiscoveryManager : public Thread, public AlarmListener {
     /**
      * @internal
      *
-     * @brief Rendezvous Server Connect timeout.
-     */
-    /*PPN - Review duration*/
-    static const uint32_t RENDEZVOUS_SERVER_CONNECT_TIMEOUT_IN_MS = 5000;
-
-    /**
-     * @internal
-     *
      * @brief Time interval to wait for receiving a response for a GET message from the Rendezvous Server.
      */
     uint32_t T_KEEP_ALIVE_IN_MS;
@@ -1156,30 +1148,6 @@ class DiscoveryManager : public Thread, public AlarmListener {
     /* Boolean indicating if IPv6 interface should be used for connections with the Server and also
      * as probable ICE candidates */
     bool EnableIPv6;
-
-    /** Connect Thread handles a connect request to the Rendezvous Server */
-    class ConnectThread : public Thread, public ThreadListener {
-      public:
-        ConnectThread(DiscoveryManager* discMgr)
-            : Thread("ConnectThread"), discoveryManager(discMgr), status(ER_FAIL) { }
-
-        void ThreadExit(Thread* thread) { return; }
-
-        QStatus GetStatus(void);
-
-      protected:
-        ThreadReturn STDCALL Run(void* arg);
-
-      private:
-        DiscoveryManager* discoveryManager;
-        QStatus status;
-    };
-
-    /* Pointer to the instance of the Connect thread */
-    ConnectThread* ServerConnectThread;
-
-    /* Event used by the Connect thread to signal the connect attempt completion to the Discovery Manager thread */
-    qcc::Event ConnectEvent;
 };
 
 } // namespace ajn
