@@ -56,7 +56,7 @@ static inline QStatus SendThroughEndpoint(Message& msg, BusEndpoint& ep, Session
     } else {
         status = ep.PushMessage(msg);
     }
-    if (status != ER_OK) {
+    if ((status != ER_OK) && (status != ER_BUS_ENDPOINT_CLOSING)) {
         QCC_LogError(status, ("SendThroughEndpoint(dest=%s, ep=%s, id=%u) failed", msg->GetDestination(), ep.GetUniqueName().c_str(), sessionId));
     }
     return status;
@@ -99,16 +99,10 @@ QStatus DaemonRouter::PushMessage(Message& msg, BusEndpoint& origSender)
                     msg->ErrorMsg(msg, "org.alljoyn.Bus.Blocked", "Method reply would be blocked because caller does not allow remote messages");
                     PushMessage(msg, *localEndpoint);
                 } else {
-                    BusEndpoint::EndpointType epType = destEndpoint->GetEndpointType();
-                    RemoteEndpoint* protectEp = (epType == BusEndpoint::ENDPOINT_TYPE_REMOTE) || (epType == BusEndpoint::ENDPOINT_TYPE_BUS2BUS) ? static_cast<RemoteEndpoint*>(destEndpoint) : NULL;
-                    if (protectEp) {
-                        protectEp->IncrementWaiters();
-                    }
+                    destEndpoint->IncrementPushCount();
                     nameTable.Unlock();
                     status = SendThroughEndpoint(msg, *destEndpoint, sessionId);
-                    if (protectEp) {
-                        protectEp->DecrementWaiters();
-                    }
+                    destEndpoint->DecrementPushCount();
                     nameTable.Lock();
                 }
             } else {
@@ -168,18 +162,12 @@ QStatus DaemonRouter::PushMessage(Message& msg, BusEndpoint& origSender)
                  * forward the message, otherwise silently ignore it.
                  */
                 if (!((sender->GetEndpointType() == BusEndpoint::ENDPOINT_TYPE_BUS2BUS) && !dest->AllowRemoteMessages())) {
-                    BusEndpoint::EndpointType epType = dest->GetEndpointType();
-                    RemoteEndpoint* protectEp = (epType == BusEndpoint::ENDPOINT_TYPE_REMOTE) || (epType == BusEndpoint::ENDPOINT_TYPE_BUS2BUS) ? static_cast<RemoteEndpoint*>(dest) : NULL;
-                    if (protectEp) {
-                        protectEp->IncrementWaiters();
-                    }
+                    dest->IncrementPushCount();
                     ruleTable.Unlock();
                     nameTable.Unlock();
                     QStatus tStatus = SendThroughEndpoint(msg, *dest, sessionId);
                     status = (status == ER_OK) ? tStatus : status;
-                    if (protectEp) {
-                        protectEp->DecrementWaiters();
-                    }
+                    dest->DecrementPushCount();
                     nameTable.Lock();
                     ruleTable.Lock();
                 }
@@ -199,17 +187,11 @@ QStatus DaemonRouter::PushMessage(Message& msg, BusEndpoint& origSender)
             while (it != m_b2bEndpoints.end()) {
                 RemoteEndpoint* ep = *it;
                 if (ep != &origSender) {
-                    BusEndpoint::EndpointType epType = ep->GetEndpointType();
-                    RemoteEndpoint* protectEp = (epType == BusEndpoint::ENDPOINT_TYPE_REMOTE) || (epType == BusEndpoint::ENDPOINT_TYPE_BUS2BUS) ? static_cast<RemoteEndpoint*>(ep) : NULL;
-                    if (protectEp) {
-                        protectEp->IncrementWaiters();
-                    }
+                    ep->IncrementPushCount();
                     m_b2bEndpointsLock.Unlock(MUTEX_CONTEXT);
                     QStatus tStatus = SendThroughEndpoint(msg, *ep, sessionId);
                     status = (status == ER_OK) ? tStatus : status;
-                    if (protectEp) {
-                        protectEp->DecrementWaiters();
-                    }
+                    ep->DecrementPushCount();
                     m_b2bEndpointsLock.Lock(MUTEX_CONTEXT);
                     it = m_b2bEndpoints.lower_bound(ep);
                 }
@@ -232,17 +214,12 @@ QStatus DaemonRouter::PushMessage(Message& msg, BusEndpoint& origSender)
             if (!sit->b2bEp || (sit->b2bEp != lastB2b)) {
                 lastB2b = sit->b2bEp;
                 SessionCastEntry entry = *sit;
-                BusEndpoint::EndpointType epType = sit->destEp->GetEndpointType();
-                RemoteEndpoint* protectEp = (epType == BusEndpoint::ENDPOINT_TYPE_REMOTE) || (epType == BusEndpoint::ENDPOINT_TYPE_BUS2BUS) ? static_cast<RemoteEndpoint*>(sit->destEp) : NULL;
-                if (protectEp) {
-                    protectEp->IncrementWaiters();
-                }
+                BusEndpoint*ep = sit->destEp;
+                ep->IncrementPushCount();
                 sessionCastSetLock.Unlock(MUTEX_CONTEXT);
-                QStatus tStatus = SendThroughEndpoint(msg, *sit->destEp, sessionId);
+                QStatus tStatus = SendThroughEndpoint(msg, *ep, sessionId);
                 status = (status == ER_OK) ? tStatus : status;
-                if (protectEp) {
-                    protectEp->DecrementWaiters();
-                }
+                ep->DecrementPushCount();
                 sessionCastSetLock.Lock(MUTEX_CONTEXT);
                 sit = sessionCastSet.lower_bound(entry);
             }

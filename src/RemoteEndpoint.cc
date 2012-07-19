@@ -77,7 +77,6 @@ RemoteEndpoint::RemoteEndpoint(BusAttachment& bus,
     refCount(0),
     isSocket(isSocket),
     armRxPause(false),
-    numWaiters(0),
     idleTimeoutCount(0),
     maxIdleProbes(0),
     idleTimeout(0),
@@ -220,11 +219,10 @@ QStatus RemoteEndpoint::PauseAfterRxReply()
 
 QStatus RemoteEndpoint::Join(void)
 {
-    /* Wait for any threads blocked in PushMessage to exit */
-    while (numWaiters > 0) {
-        qcc::Sleep(10);
-    }
-
+    /*
+     * Wait for any threads running in PushMessage to exit
+     */
+    WaitForZeroPushCount();
     /*
      * Note that we don't join txThread and rxThread, rather we let the thread destructors handle
      * this when the RemoteEndpoint destructor is called. The reason for this is tied up in the
@@ -484,7 +482,7 @@ QStatus RemoteEndpoint::PushMessage(Message& msg)
     if (rxThread.IsStopping() || txThread.IsStopping()) {
         return ER_BUS_ENDPOINT_CLOSING;
     }
-    IncrementAndFetch(&numWaiters);
+    IncrementPushCount();
     txQueueLock.Lock(MUTEX_CONTEXT);
     size_t count = txQueue.size();
     bool wasEmpty = (count == 0);
@@ -564,7 +562,7 @@ QStatus RemoteEndpoint::PushMessage(Message& msg)
 #define QCC_MODULE "ALLJOYN"
 #endif
 
-    DecrementAndFetch(&numWaiters);
+    DecrementPushCount();
     return status;
 }
 

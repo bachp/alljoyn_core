@@ -6,7 +6,7 @@
  */
 
 /******************************************************************************
- * Copyright 2009-2011, Qualcomm Innovation Center, Inc.
+ * Copyright 2009-2012, Qualcomm Innovation Center, Inc.
  *
  *    Licensed under the Apache License, Version 2.0 (the "License");
  *    you may not use this file except in compliance with the License.
@@ -25,6 +25,7 @@
 
 #include <qcc/GUID.h>
 #include <qcc/String.h>
+#include <qcc/atomic.h>
 
 #include <alljoyn/Message.h>
 #include <alljoyn/MessageSink.h>
@@ -55,7 +56,7 @@ class BusEndpoint : public MessageSink {
      *
      * @param type    BusEndpoint type.
      */
-    BusEndpoint(EndpointType type) : endpointType(type), disconnectStatus(ER_OK) { }
+    BusEndpoint(EndpointType type) : endpointType(type), disconnectStatus(ER_OK), pushCount(0) { }
 
     /**
      * Virtual destructor for derivable class.
@@ -132,10 +133,28 @@ class BusEndpoint : public MessageSink {
      */
     bool SurpriseDisconnect() { return disconnectStatus != ER_OK; }
 
+    /**
+     * Increment push count for this endpoint.
+     */
+    void IncrementPushCount() { qcc::IncrementAndFetch(&pushCount); }
+
+    /**
+     * Decremeent push count for this endpoint.
+     */
+    void DecrementPushCount() { qcc::DecrementAndFetch(&pushCount); }
+
+    /**
+     * Block until the pushCount goes to zero.
+     */
+    void WaitForZeroPushCount();
+
   protected:
 
     EndpointType endpointType;   /**< Type of endpoint */
     QStatus disconnectStatus;    /**< Reason for the disconnect */
+
+  private:
+    int32_t pushCount;           /**< Number of threads currently running in PushMessage */
 };
 
 }

@@ -97,7 +97,7 @@ class BundledDaemon : public DaemonLauncher, public TransportFactoryContainer {
     /**
      * Terminate the bundled daemon
      */
-    QStatus Stop();
+    QStatus Stop(NullTransport* nullTransport);
 
     /**
      * Wait for bundled daemon to exit
@@ -111,6 +111,7 @@ class BundledDaemon : public DaemonLauncher, public TransportFactoryContainer {
     Bus* ajBus;
     BusController* ajBusController;
     Mutex lock;
+    std::set<NullTransport*> transports;
 };
 
 bool ExistFile(const char* fileName) {
@@ -127,23 +128,26 @@ bool ExistFile(const char* fileName) {
  */
 static BundledDaemon bundledDaemon;
 
-BundledDaemon::BundledDaemon() : transportsInitialized(false), refCount(0), ajBus(NULL), ajBusController(NULL)
+BundledDaemon::BundledDaemon() : transportsInitialized(false), ajBus(NULL), ajBusController(NULL)
 {
     NullTransport::RegisterDaemonLauncher(this);
 }
 
 BundledDaemon::~BundledDaemon()
 {
+    QCC_DbgPrintf(("BundledDaemon::~BundledDaemon"));
     lock.Lock();
-    while (refCount != 0) {
+    while (!transports.empty()) {
+        set<NullTransport*>::iterator iter = transports.begin();
+        NullTransport* trans = *iter;
+        transports.erase(iter);
         lock.Unlock();
-        qcc::Sleep(2);
+        trans->Disconnect("null:");
         lock.Lock();
     }
     lock.Unlock();
     Join();
 }
-
 
 QStatus BundledDaemon::Start(NullTransport* nullTransport)
 {
@@ -156,7 +160,7 @@ QStatus BundledDaemon::Start(NullTransport* nullTransport)
      * bundled daemon at the same time.
      */
     lock.Lock();
-    if (IncrementAndFetch(&refCount) == 1) {
+    if (transports.empty()) {
 #if defined(QCC_OS_ANDROID)
         LoggerSetting::GetLoggerSetting("bundled-daemon", LOG_DEBUG, true, NULL);
 #else
@@ -231,12 +235,14 @@ QStatus BundledDaemon::Start(NullTransport* nullTransport)
         goto ErrorExit;
     }
 
+    transports.insert(nullTransport);
+
     lock.Unlock();
     return ER_OK;
 
 ErrorExit:
 
-    if (DecrementAndFetch(&refCount) == 0) {
+    if (transports.empty()) {
         delete ajBusController;
         ajBusController = NULL;
         delete ajBus;
@@ -248,8 +254,9 @@ ErrorExit:
 
 void BundledDaemon::Join()
 {
+    QCC_DbgPrintf(("BundledDaemon::Join"));
     lock.Lock();
-    if (refCount == 0) {
+    if (transports.empty()) {
         if (ajBus) {
             QCC_DbgPrintf(("Joining bundled daemon bus attachment"));
             ajBus->Join();
@@ -262,13 +269,13 @@ void BundledDaemon::Join()
     lock.Unlock();
 }
 
-QStatus BundledDaemon::Stop()
+QStatus BundledDaemon::Stop(NullTransport* nullTransport)
 {
+    QCC_DbgPrintf(("BundledDaemon::Stop"));
     lock.Lock();
-    int32_t rc = DecrementAndFetch(&refCount);
+    transports.erase(nullTransport);
     QStatus status = ER_OK;
-    assert(rc >= 0);
-    if (rc == 0 && ajBus) {
+    if (transports.empty() && ajBus) {
         status = ajBus->Stop();
     }
     lock.Unlock();

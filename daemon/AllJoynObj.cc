@@ -1441,7 +1441,7 @@ qcc::ThreadReturn STDCALL AllJoynObj::JoinSessionThread::RunAttach()
      */
     srcB2BEp = srcB2B ? static_cast<RemoteEndpoint*>(ajObj.router.FindEndpoint(srcB2BStr)) : NULL;
     if (srcB2BEp) {
-        srcB2BEp->IncrementWaiters();
+        srcB2BEp->IncrementPushCount();
     }
     ajObj.ReleaseLocks();
     if (srcB2BEp) {
@@ -1453,7 +1453,7 @@ qcc::ThreadReturn STDCALL AllJoynObj::JoinSessionThread::RunAttach()
         status = ajObj.MethodReply(msg, replyArgs, ArraySize(replyArgs));
     }
     if (srcB2BEp) {
-        srcB2BEp->DecrementWaiters();
+        srcB2BEp->DecrementPushCount();
     }
     ajObj.AcquireLocks();
     srcB2BEp  = !srcB2BStr.empty() ? static_cast<RemoteEndpoint*>(ajObj.router.FindEndpoint(srcB2BStr)) : NULL;
@@ -1771,7 +1771,7 @@ QStatus AllJoynObj::SendAttachSession(SessionPort sessionPort,
     BusEndpoint* ep = router.FindEndpoint(remoteB2BName);
     RemoteEndpoint* b2bEp = (ep && ep->GetEndpointType() == BusEndpoint::ENDPOINT_TYPE_BUS2BUS) ?  static_cast<RemoteEndpoint*>(ep) : NULL;
     if (b2bEp) {
-        b2bEp->IncrementWaiters();
+        b2bEp->IncrementPushCount();
     } else {
         status = ER_BUS_NO_ENDPOINT;
         QCC_LogError(status, ("Cannot find B2BEp for %s", remoteB2BName));
@@ -1806,7 +1806,7 @@ QStatus AllJoynObj::SendAttachSession(SessionPort sessionPort,
 
     /* Free the stable reference */
     if (b2bEp) {
-        b2bEp->DecrementWaiters();
+        b2bEp->DecrementPushCount();
     }
 
     if (status != ER_OK) {
@@ -2669,13 +2669,13 @@ void AllJoynObj::RemoveBusToBusEndpoint(RemoteEndpoint& endpoint)
                         String key = it->first;
                         String key2 = it2->first.c_str();
                         RemoteEndpoint*ep = it2->second;
-                        ep->IncrementWaiters();
+                        ep->IncrementPushCount();
                         ReleaseLocks();
                         status = ep->PushMessage(sigMsg);
                         if (ER_OK != status) {
                             QCC_LogError(status, ("Failed to send NameChanged to %s", ep->GetUniqueName().c_str()));
                         }
-                        ep->DecrementWaiters();
+                        ep->DecrementPushCount();
                         AcquireLocks();
                         it2 = b2bEndpoints.lower_bound(key2);
                         if ((it2 != b2bEndpoints.end()) && (it2->first == key2)) {
@@ -2765,10 +2765,10 @@ QStatus AllJoynObj::ExchangeNames(RemoteEndpoint& endpoint)
                                         0,
                                         0);
         if (ER_OK == status) {
-            endpoint.IncrementWaiters();
+            endpoint.IncrementPushCount();
             ReleaseLocks();
             status = endpoint.PushMessage(exchangeMsg);
-            endpoint.DecrementWaiters();
+            endpoint.DecrementPushCount();
             AcquireLocks();
         }
     }
@@ -2857,13 +2857,13 @@ void AllJoynObj::ExchangeNamesSignalHandler(const InterfaceDescription::Member* 
                 QCC_DbgPrintf(("Propagating ExchangeName signal to %s", it->second->GetUniqueName().c_str()));
                 StringMapKey key = it->first;
                 RemoteEndpoint*ep = it->second;
-                ep->IncrementWaiters();
+                ep->IncrementPushCount();
                 ReleaseLocks();
                 QStatus status = ep->PushMessage(msg);
                 if (ER_OK != status) {
                     QCC_LogError(status, ("Failed to forward ExchangeNames to %s", ep->GetUniqueName().c_str()));
                 }
-                ep->DecrementWaiters();
+                ep->DecrementPushCount();
                 AcquireLocks();
                 it = b2bEndpoints.lower_bound(key);
                 if ((it != b2bEndpoints.end()) && (it->first == key)) {
@@ -2945,13 +2945,13 @@ void AllJoynObj::NameChangedSignalHandler(const InterfaceDescription::Member* me
                 QCC_DbgPrintf(("Propagating NameChanged signal to %s", it->second->GetUniqueName().c_str()));
                 String key = it->first.c_str();
                 RemoteEndpoint*ep = it->second;
-                ep->IncrementWaiters();
+                ep->IncrementPushCount();
                 ReleaseLocks();
                 QStatus status = ep->PushMessage(msg);
                 if (ER_OK != status) {
                     QCC_LogError(status, ("Failed to forward NameChanged to %s", ep->GetUniqueName().c_str()));
                 }
-                ep->DecrementWaiters();
+                ep->DecrementPushCount();
                 AcquireLocks();
                 it = b2bEndpoints.lower_bound(key);
                 if ((it != b2bEndpoints.end()) && (it->first == key)) {
@@ -3155,10 +3155,10 @@ void AllJoynObj::NameOwnerChanged(const qcc::String& alias, const qcc::String* o
             if (ER_OK == status) {
                 StringMapKey key = it->first;
                 RemoteEndpoint*ep = it->second;
-                ep->IncrementWaiters();
+                ep->IncrementPushCount();
                 ReleaseLocks();
                 status = ep->PushMessage(sigMsg);
-                ep->DecrementWaiters();
+                ep->DecrementPushCount();
                 AcquireLocks();
                 it = b2bEndpoints.lower_bound(key);
                 if ((it != b2bEndpoints.end()) && (it->first == key)) {

@@ -333,18 +333,6 @@ class RemoteEndpoint : public BusEndpoint, public qcc::ThreadListener {
      */
     void DecrementRef();
 
-    /**
-     * Increment numWaiters count for this endpoint.
-     * Endpoint will not be deleted until this count goes to zero.
-     */
-    void IncrementWaiters() { qcc::IncrementAndFetch(&numWaiters); }
-
-    /**
-     * Decremeent numWaiters count for this endpoint.
-     * Endpoint will not be deleted until this count goes to zero.
-     */
-    void DecrementWaiters() { qcc::DecrementAndFetch(&numWaiters); }
-
   protected:
 
     /**
@@ -461,7 +449,7 @@ class RemoteEndpoint : public BusEndpoint, public qcc::ThreadListener {
     int32_t refCount;                        /**< Number of active users of this remote endpoint */
     bool isSocket;                           /**< True iff this endpoint contains a SockStream as its 'stream' member */
     bool armRxPause;                         /**< Pause Rx after receiving next METHOD_REPLY message */
-    int32_t numWaiters;                      /**< Number of threads currently running in PushMessage */
+
     uint32_t idleTimeoutCount;               /**< Number of consecutive idle timeouts */
     uint32_t maxIdleProbes;                  /**< Maximum number of missed idle probes before shutdown */
     uint32_t idleTimeout;                    /**< RX idle seconds before sending probe */

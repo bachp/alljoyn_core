@@ -5,7 +5,7 @@
  */
 
 /******************************************************************************
- * Copyright 2009-2011, Qualcomm Innovation Center, Inc.
+ * Copyright 2009-2012, Qualcomm Innovation Center, Inc.
  *
  *    Licensed under the Apache License, Version 2.0 (the "License");
  *    you may not use this file except in compliance with the License.
@@ -56,14 +56,14 @@ QStatus VirtualEndpoint::PushMessage(Message& msg, SessionId id)
     multimap<SessionId, RemoteEndpoint*>::iterator it = (id == 0) ? m_b2bEndpoints.begin() : m_b2bEndpoints.lower_bound(id);
     while ((it != m_b2bEndpoints.end()) && (id == it->first)) {
         RemoteEndpoint* ep = it->second;
-        ep->IncrementWaiters();
+        ep->IncrementPushCount();
         m_b2bEndpointsLock.Unlock(MUTEX_CONTEXT);
         status = ep->PushMessage(msg);
         m_b2bEndpointsLock.Lock(MUTEX_CONTEXT);
         it = m_b2bEndpoints.lower_bound(id);
         while ((it != m_b2bEndpoints.end()) && (it->first == id)) {
             if (it->second == ep) {
-                it->second->DecrementWaiters();
+                it->second->DecrementPushCount();
                 ++it;
                 break;
             } else {

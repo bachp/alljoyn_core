@@ -64,6 +64,12 @@ class NullEndpoint : public BusEndpoint {
 
     QStatus PushMessage(Message& msg)
     {
+        if (closing) {
+            return ER_BUS_ENDPOINT_CLOSING;
+        }
+
+        IncrementPushCount();
+
         QStatus status = ER_OK;
         /*
          * In the un-bundled daemon case messages store the name of the endpoint they were received
@@ -121,6 +127,7 @@ class NullEndpoint : public BusEndpoint {
                 status = clientBus.GetInternal().GetRouter().PushMessage(msg, *this);
             }
         }
+        DecrementPushCount();
         return status;
     }
 
@@ -136,9 +143,11 @@ class NullEndpoint : public BusEndpoint {
         return true;
 #endif
     }
+
     bool AllowRemoteMessages() { return true; }
 
     int32_t clientReady;
+    bool closing;
     BusAttachment& clientBus;
     BusAttachment& daemonBus;
 
@@ -149,6 +158,7 @@ class NullEndpoint : public BusEndpoint {
 NullEndpoint::NullEndpoint(BusAttachment& clientBus, BusAttachment& daemonBus) :
     BusEndpoint(ENDPOINT_TYPE_NULL),
     clientReady(0),
+    closing(false),
     clientBus(clientBus),
     daemonBus(daemonBus)
 {
@@ -163,8 +173,14 @@ NullEndpoint::NullEndpoint(BusAttachment& clientBus, BusAttachment& daemonBus) :
 NullEndpoint::~NullEndpoint()
 {
     QCC_DbgHLPrintf(("Destroying null endpoint %s", uniqueName.c_str()));
+
+    closing = true;
     clientBus.GetInternal().GetRouter().UnregisterEndpoint(*this);
     daemonBus.GetInternal().GetRouter().UnregisterEndpoint(*this);
+    /*
+     * Don't finalize the destructor while there are threads pushing to this endpoint.
+     */
+    WaitForZeroPushCount();
 }
 
 NullTransport::NullTransport(BusAttachment& bus) : bus(bus), running(false), endpoint(NULL), daemonBus(NULL)
@@ -239,13 +255,14 @@ QStatus NullTransport::Connect(const char* connectSpec, const SessionOpts& opts,
     if (!daemonLauncher) {
         return ER_BUS_TRANSPORT_NOT_AVAILABLE;
     }
-    if (!daemonBus) {
-        status = daemonLauncher->Start(this);
-        if (status == ER_OK) {
-            assert(endpoint);
-            if (newep) {
-                *newep = endpoint;
-            }
+    assert(!daemonBus);
+    assert(!endpoint);
+
+    status = daemonLauncher->Start(this);
+    if (status == ER_OK) {
+        assert(endpoint);
+        if (newep) {
+            *newep = endpoint;
         }
     }
     return status;
@@ -257,7 +274,7 @@ QStatus NullTransport::Disconnect(const char* connectSpec)
     endpoint = NULL;
     if (daemonBus) {
         assert(daemonLauncher);
-        daemonLauncher->Stop();
+        daemonLauncher->Stop(this);
         daemonBus = NULL;
     }
     return ER_OK;

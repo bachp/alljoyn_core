@@ -4,7 +4,7 @@
  */
 
 /******************************************************************************
- * Copyright 2009-2010, Qualcomm Innovation Center, Inc.
+ * Copyright 2009-2012, Qualcomm Innovation Center, Inc.
  *
  *    Licensed under the Apache License, Version 2.0 (the "License");
  *    you may not use this file except in compliance with the License.
@@ -21,6 +21,7 @@
 
 #include <qcc/platform.h>
 #include <qcc/GUID.h>
+#include <qcc/Thread.h>
 
 #include <BusEndpoint.h>
 
@@ -34,4 +35,11 @@ String BusEndpoint::GetControllerUniqueName() const {
     ret[qcc::GUID128::SHORT_SIZE + 2] = '1';
     ret.resize(qcc::GUID128::SHORT_SIZE + 3);
     return ret;
+}
+
+void BusEndpoint::WaitForZeroPushCount()
+{
+    while (pushCount > 0) {
+        qcc::Sleep(1);
+    }
 }

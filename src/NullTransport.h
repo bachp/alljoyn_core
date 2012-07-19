@@ -52,7 +52,7 @@ struct DaemonLauncher {
 
     virtual QStatus Start(NullTransport* nullTransport) = 0;
 
-    virtual QStatus Stop() = 0;
+    virtual QStatus Stop(NullTransport* nullTransport) = 0;
 
     virtual void Join() = 0;
 
@@ -70,7 +70,7 @@ class NullTransport : public Transport {
     /**
      * Create a NullTransport
      *
-     * @param bus The BusAttachment associated with this endpoint
+     * @param bus The BusAttachment associated with this transport
      */
     NullTransport(BusAttachment& bus);
 
@@ -151,7 +151,7 @@ class NullTransport : public Transport {
     QStatus Disconnect(const char* connectSpec);
 
     /**
-     * The null transport emits so no events so this is a no-op.
+     * The null transport emits no events so this is a no-op.
      *
      * @param listener  Listener for transport related events.
      */

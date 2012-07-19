@@ -534,8 +534,8 @@ void DBusObj::NameOwnerChanged(const qcc::String& alias, const qcc::String* oldO
 
     const InterfaceDescription::Member* nameOwnerChanged = dbusIntf->GetMember("NameOwnerChanged");
     status = Signal(NULL, 0, *nameOwnerChanged, ownerChangedArgs, numArgs);
-    if ((ER_OK != status) && (ER_BUS_BUS_NOT_STARTED != status)) {
-        QCC_LogError(status, ("Failed to send NameOwnerChanged signal"));
+    if (status != ER_OK) {
+        QCC_DbgPrintf(("Failed to send NameOwnerChanged signal for %s to %s (%s)", alias.c_str(), newOwner->c_str(), QCC_StatusText(status)));
     }
 }
 
