@@ -187,7 +187,7 @@ QStatus RendezvousServerConnection::SetupConnection(ConnectionFlag connFlag)
 
     }
 
-    SocketFd sockFd;
+    SocketFd sockFd = -1;
     HttpConnection* newHttpConn = NULL;
 
     if (isConnected) {
