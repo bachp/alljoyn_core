@@ -284,7 +284,7 @@ public ref class ProxyBusObject sealed {
     /// - #ER_OK if successful.
     /// - An error status otherwise.
     ///</exception>
-    void AddInterface(Platform::String ^ name);
+    void AddInterfaceWithString(Platform::String ^ name);
 
     /// <summary>
     /// Returns an array of ProxyBusObjects for the children of this %ProxyBusObject.

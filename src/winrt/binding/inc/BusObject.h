@@ -201,7 +201,7 @@ public ref class BusObject sealed {
     /// - #ER_OK if successful
     /// - An error status otherwise
     /// </exception>
-    void MethodReply(Message ^ msg, QStatus s);
+    void MethodReplyWithQStatus(Message ^ msg, QStatus s);
 
     /// <summary>
     /// Send a signal.

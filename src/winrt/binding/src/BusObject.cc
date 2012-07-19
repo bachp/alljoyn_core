@@ -184,7 +184,7 @@ void BusObject::MethodReply(Message ^ msg, Platform::String ^ error, Platform::S
     }
 }
 
-void BusObject::MethodReply(Message ^ msg, QStatus s)
+void BusObject::MethodReplyWithQStatus(Message ^ msg, QStatus s)
 {
     ::QStatus status = ER_OK;
 

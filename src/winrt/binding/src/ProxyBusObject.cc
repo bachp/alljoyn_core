@@ -414,7 +414,7 @@ void ProxyBusObject::AddInterface(InterfaceDescription ^ iface)
     }
 }
 
-void ProxyBusObject::AddInterface(Platform::String ^ name)
+void ProxyBusObject::AddInterfaceWithString(Platform::String ^ name)
 {
     ::QStatus status = ER_OK;
 
