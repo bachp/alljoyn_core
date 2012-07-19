@@ -380,6 +380,14 @@ class HttpConnection {
     IPAddress GetLocalInterfaceAddress(void) { return localIPAddress; };
 
   private:
+    /**
+     * @internal
+     *
+     * @brief Name resolution timeout.
+     */
+    /*PPN - Review duration*/
+    static const uint32_t NAME_RESOLUTION_TIMEOUT_IN_MS = 5000;
+
     Stream* stream;                           /**< HTTP response stream */
     HttpResponseSource httpSource;            /**< Source wrapper */
     String host;                              /**< Destination host */

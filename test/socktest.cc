@@ -79,6 +79,7 @@ static void usage(void)
     printf("   -s                    = Selects server mode\n");
     printf("   -c                    = Selects client mode\n");
     printf("   -i #                  = Number of iterations\n");
+    printf("   -gai HOST             = Run getaddrinfo for HOST\n");
     printf("\n");
 }
 
@@ -250,8 +251,11 @@ int main(int argc, char** argv)
     BusAttachment bus("sock_test");
     bool client = false;
     bool server = false;
+    bool gai = false;
+    char* host = NULL;
     uint32_t iterations = 1;
     Environ* env;
+    qcc::String connectArgs;
 
     printf("AllJoyn Library version: %s\n", ajn::GetVersion());
     printf("AllJoyn Library build info: %s\n", ajn::GetBuildInfo());
@@ -282,22 +286,41 @@ int main(int argc, char** argv)
                 continue;
             }
         }
+        if (strcmp("-gai", argv[i]) == 0) {
+            gai = true;
+            ++i;
+            if (i == argc) {
+                printf("option %s requires a parameter\n", argv[i - 1]);
+            } else {
+                host = argv[i];
+                continue;
+            }
+        }
         printf("Unknown option %s\n", argv[i]);
         usage();
         exit(1);
     }
-    if ((!client && !server) || (client && server)) {
+    if ((!client && !server && !gai) || (client && server)) {
         usage();
         exit(1);
+    }
+
+    if (gai) {
+        IPAddress tempAddr;
+        status = tempAddr.SetAddress(host, true, 5000);
+        if (ER_OK == status) {
+            printf("%s -> %s\n", host, tempAddr.ToString().c_str());
+        }
+        goto Exit;
     }
 
     /* Get env vars */
     env = Environ::GetAppEnviron();
 #ifdef _WIN32
-    qcc::String connectArgs = env->Find("BUS_ADDRESS", "tcp:addr=127.0.0.1,port=9956");
+    connectArgs = env->Find("BUS_ADDRESS", "tcp:addr=127.0.0.1,port=9956");
 #else
     // qcc::String connectArgs = env->Find("BUS_ADDRESS", "unix:path=/var/run/dbus/system_bus_socket");
-    qcc::String connectArgs = env->Find("BUS_ADDRESS", "unix:abstract=alljoyn");
+    connectArgs = env->Find("BUS_ADDRESS", "unix:abstract=alljoyn");
 #endif
 
     /* Start the msg bus */
