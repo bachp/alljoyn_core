@@ -342,7 +342,7 @@ _Message::_Message(const _Message& other) :
     hdrFields(other.hdrFields)
 {
     if (bufSize > 0) {
-        assert(msgBuf != NULL);
+        assert(other.msgBuf != NULL);
         _msgBuf = new uint8_t[bufSize + 7];
         msgBuf = (uint64_t*)((uintptr_t)(_msgBuf + 7) & ~7);
         bufEOD = ((uint8_t*)msgBuf) + (other.bufEOD - ((uint8_t*)other.msgBuf));
