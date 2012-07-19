@@ -184,13 +184,16 @@ do
 	: run $i
 
 	date
-	python -u test_harness.py -c $c -t $i -p "$gtest_bin_p" > "$i.log" 2>&1 < /dev/null || {
-		xit=$?
-		case $xit in (1) : tests failed in $i ;; (*) : system error in $i ;; esac
-	}
+	python -u test_harness.py -c $c -t $i -p "$gtest_bin_p" > "$i.log" 2>&1 < /dev/null || : exit status is $? / IGNORE IT
 	date
-
 	set +x
+	tail -1 "$i.log" | grep "exiting with status 0" || xit=1
+
+	case "$xit" in
+	0 ) echo $i PASSED ;;
+	* ) echo $i FAILED, see $i.log for info ;;
+	esac
+
 	sleep 5
 done
 

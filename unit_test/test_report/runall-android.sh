@@ -28,7 +28,7 @@ where
 			# Note: do not include the 'bin' subdirectory in alljoyn_dist or alljoyn_test
 	-c configfile	# name of config file(s) (an embedded wildcard is replaced by the gtest test name)
 			#	default '*.conf'
-        \"adb device\"    # string needed by adb to contact the device, like \"-s XXXXXXX\" (use quotes if necessary)
+	\"adb device\"    # string needed by adb to contact the device, like \"-s XXXXXXX\" (use quotes if necessary)
 	ajtest, cmtest	# simple file name(s) of the gtest exe(s) to be run (gtest exe files expected in -t path/bin)
 			#	default runs ajtest and cmtest
 "
@@ -72,7 +72,7 @@ then
 				;;
 			( * )
 				device="$1"
-                        	;;
+				;;
 			esac
 			;;
 		( * )
@@ -83,7 +83,7 @@ then
 				;;
 			( * )
 				gtests="$gtests $1"
-                        	;;
+				;;
 			esac
 			;;
 		esac
@@ -217,13 +217,15 @@ do
 
 	: run $i
 
+	date
 	adb < /dev/null $device shell sh /data/alljoyn/$i.adb-sh > $i.log 2>&1
-        tail -1 $i.log | grep "exiting with status 0" || xit=1
+	date
+	tail -1 $i.log | grep "exiting with status 0" || xit=1
 
-        case "$xit" in
-        0 ) echo $i PASSED ;;
-        * ) echo $i FAILED, see $i.log for info ;;
-        esac
+	case "$xit" in
+	0 ) echo $i PASSED ;;
+	* ) echo $i FAILED, see $i.log for info ;;
+	esac
 
 	: get xml file, maybe
 
