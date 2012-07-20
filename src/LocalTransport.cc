@@ -708,7 +708,7 @@ QStatus LocalEndpoint::UnregisterAllHandlers(MessageReceiver* receiver)
 void LocalEndpoint::AlarmTriggered(const Alarm& alarm, QStatus reason)
 {
     ReplyContext* rc = reinterpret_cast<ReplyContext*>(alarm->GetContext());
-    if (reason == ER_OK) {
+    if (running) {
         QCC_DbgPrintf(("Timed out waiting for METHOD_REPLY with serial %d", rc->serial));
         Message msg(bus);
         if (reason == ER_TIMER_EXITING) {
