@@ -47,8 +47,11 @@ if env['OS'] == 'android':
     env.Install(distDir, env.Glob('alljoyn_android_ext/AndroidManifest.xml'))
     env.Install(distDir, env.Glob('alljoyn_android_ext/.classpath'))
     env.Install(distDir, env.Glob('alljoyn_android_ext/.project'))
+    env.Install(distDir, Dir('alljoyn_android_ext/.settings').srcnode())
     env.Install(distDir, env.Glob('alljoyn_android_ext/default.properties'))
+    env.Install(distDir, Dir('alljoyn_android_ext/jni').srcnode())
     env.Install(distDir, Dir('alljoyn_android_ext/src').srcnode())
+    env.Install(distDir, Dir('alljoyn_android_ext/res').srcnode())
     
     distDir = '$DISTDIR/alljoyn_android/ice_client_login_service'
     env.Install(distDir, env.Glob('ice_client_login_service/AndroidManifest.xml'))
