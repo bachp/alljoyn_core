@@ -1,11 +1,11 @@
-AllJoyn version 2.3.5 README.TXT
+AllJoyn version 2.3.6 README.TXT
 --------------------------------
 
 What's inside:
 -------------
 
- * alljoyn_2_3_5_dbg : AllJoyn SDK for Linux (debug), version 2.3.5
- * alljoyn_2_3_5_rel : AllJoyn SDK for Linux (release), version 2.3.5
+ * alljoyn_2_3_6_dbg : AllJoyn SDK for Linux (debug), version 2.3.6
+ * alljoyn_2_3_6_rel : AllJoyn SDK for Linux (release), version 2.3.6
     The above directories are identical, except for compilation options.
     The file and directory structure inside them is described below. 
 
