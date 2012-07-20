@@ -287,8 +287,8 @@ class TCPTransport : public Transport, public RemoteEndpoint::EndpointListener, 
     NameService* m_ns;                                             /**< The name service used for bus name discovery */
     bool m_stopping;                                               /**< True if Stop() has been called but endpoints still exist */
     TransportListener* m_listener;                                 /**< Registered TransportListener */
-    std::list<TCPEndpoint*> m_authList;                            /**< List of authenticating endpoints */
-    std::list<TCPEndpoint*> m_endpointList;                        /**< List of active endpoints */
+    std::set<TCPEndpoint*> m_authList;                            /**< List of authenticating endpoints */
+    std::set<TCPEndpoint*> m_endpointList;                        /**< List of active endpoints */
     qcc::Mutex m_endpointListLock;                                 /**< Mutex that protects the endpoint and auth lists */
 
     std::list<std::pair<qcc::String, qcc::SocketFd> > m_listenFds; /**< File descriptors the transport is listening on */
