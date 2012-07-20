@@ -20,6 +20,7 @@
 
 #include <alljoyn/BusObject.h>
 #include <alljoyn/BusListener.h>
+#include <BusInternal.h>
 #include <SocketStream.h>
 #include <InterfaceDescription.h>
 #include <MessageReceiver.h>
@@ -1450,6 +1451,7 @@ void _BusAttachment::JoinSessionCB(::QStatus s, ajn::SessionId sessionId, const 
 
 void _BusAttachment::DispatchCallback(Windows::UI::Core::DispatchedHandler ^ callback)
 {
+    void* srcThreadHandle = reinterpret_cast<void*>(qcc::Thread::GetThread());
     Windows::UI::Core::CoreWindow ^ window = Windows::UI::Core::CoreWindow::GetForCurrentThread();
     Windows::UI::Core::CoreDispatcher ^ dispatcher = nullptr;
     if (nullptr != window) {
@@ -1459,8 +1461,12 @@ void _BusAttachment::DispatchCallback(Windows::UI::Core::DispatchedHandler ^ cal
         // If we are an UI thread, but in the wrong UI thread (a different STA compartment) this will propagate an error.
         // This is correct behavior. It is an error to mix objects between STA compartments.
         Windows::Foundation::IAsyncAction ^ op = _dispatcher->RunAsync(Windows::UI::Core::CoreDispatcherPriority::Normal,
-                                                                       ref new Windows::UI::Core::DispatchedHandler([callback] () {
+                                                                       ref new Windows::UI::Core::DispatchedHandler([this, srcThreadHandle, callback] () {
                                                                                                                         callback();
+                                                                                                                        // Marshall thread state into the dispatch timer
+                                                                                                                        void* destThreadHandle = reinterpret_cast<void*>(qcc::Thread::GetThread());
+                                                                                                                        ajn::LocalEndpoint& localEndpoint = GetInternal().GetLocalEndpoint();
+                                                                                                                        localEndpoint.GetDispatcher().MarshalOwnershipThreadState(srcThreadHandle, destThreadHandle);
                                                                                                                     }));
         concurrency::task<void> dispatcherOp(op);
         dispatcherOp.wait();
