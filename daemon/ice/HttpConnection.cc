@@ -262,50 +262,48 @@ QStatus HttpConnection::Send(void)
     size_t sentBytes;
 
     /* Send HTTP request */
-    if (ER_OK == status) {
 
-        // Multipart form data needs to have a content-length and trailing "--"
-        if (isMultipartForm) {
-            requestBody.push_back('-');
-            requestBody.push_back('-');
-            requestHeaders["Content-Length"] = U32ToString(requestBody.size());
-        }
+    // Multipart form data needs to have a content-length and trailing "--"
+    if (isMultipartForm) {
+        requestBody.push_back('-');
+        requestBody.push_back('-');
+        requestHeaders["Content-Length"] = U32ToString(requestBody.size());
+    }
 
-        // application/json data needs to have a content-length
-        if (isApplicationJson) {
-            requestHeaders["Content-Length"] = U32ToString(requestBody.size());
-        }
+    // application/json data needs to have a content-length
+    if (isApplicationJson) {
+        requestHeaders["Content-Length"] = U32ToString(requestBody.size());
+    }
 
-        if (METHOD_INVALID != method) {
-            outStr.append(GetHTTPMethodString(method));
-        }
-        outStr.append(urlPath);
-        if (!query.empty()) {
-            outStr.append(query);
-        }
-        outStr.append(" HTTP/1.1\r\n");
+    if (METHOD_INVALID != method) {
+        outStr.append(GetHTTPMethodString(method));
+    }
+    outStr.append(urlPath);
+    if (!query.empty()) {
+        outStr.append(query);
+    }
+    outStr.append(" HTTP/1.1\r\n");
 
-        std::map<String, String>::const_iterator it;
+    std::map<String, String>::const_iterator it;
 
-        for (it = requestHeaders.begin(); it != requestHeaders.end(); it++) {
-            outStr.append(it->first.c_str());
-            outStr.append(": ");
-            outStr.append(it->second.c_str());
-            outStr.append("\r\n");
-        }
+    for (it = requestHeaders.begin(); it != requestHeaders.end(); it++) {
+        outStr.append(it->first.c_str());
+        outStr.append(": ");
+        outStr.append(it->second.c_str());
         outStr.append("\r\n");
+    }
+    outStr.append("\r\n");
 
-        /* Send body if it exists */
-        if (0 < requestBody.size()) {
-            outStr.append(requestBody);
-        }
+    /* Send body if it exists */
+    if (0 < requestBody.size()) {
+        outStr.append(requestBody);
+    }
 
-        QCC_DbgPrintf(("Sending HTTP Request: %s size %d", outStr.c_str(), outStr.size()));
+    QCC_DbgPrintf(("Sending HTTP Request: %s size %d", outStr.c_str(), outStr.size()));
 
-        status = stream->PushBytes((void*)outStr.c_str(), outStr.size(), sentBytes);
-        if (((ER_OK != status)) || ((ER_OK == status) && (sentBytes != outStr.size()))) {
-            status = ER_FAIL;
-        }
+    status = stream->PushBytes((void*)outStr.c_str(), outStr.size(), sentBytes);
+    if ((ER_OK == status) && (sentBytes != outStr.size())) {
+        status = ER_WRITE_ERROR;
     }
 
     if (ER_OK != status) {
