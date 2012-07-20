@@ -47,6 +47,8 @@ using namespace std;
 using namespace qcc;
 using namespace ajn;
 
+static bool noDestruct = false;
+
 class ThreadClass : public Thread {
 
   public:
@@ -80,9 +82,9 @@ class ThreadClass : public Thread {
         b1->RegisterBusObject(bo);
         b1->UnregisterBusObject(bo);
 
-
-        delete b1;
-        b1 = NULL;
+        if (!noDestruct) {
+            delete b1;
+        }
 
         return this;
     }
@@ -100,6 +102,7 @@ static void usage(void)
     printf("   -i                    = Number of iterations, default is 1000\n");
     printf("   -t                    = Number of threads, default is 5\n");
     printf("   -s                    = Stop the threads before joining them\n");
+    printf("   -d                    = Don't delete the bus attachments - implies \"-i 1\"r\n");
 }
 
 /** Main entry point */
@@ -130,12 +133,18 @@ int main(int argc, char**argv)
             } else {
                 threads = strtoul(argv[i], NULL, 10);
             }
+        } else if (0 == strcmp("-d", argv[i])) {
+            noDestruct = true;
         } else if (0 == strcmp("-s", argv[i])) {
             stop = true;
         } else {
             usage();
             exit(1);
         }
+    }
+
+    if (noDestruct) {
+        iterations = 1;
     }
 
     ThreadClass** threadList = new ThreadClass *[threads];
