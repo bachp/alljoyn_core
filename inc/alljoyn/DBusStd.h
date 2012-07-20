@@ -25,6 +25,8 @@
 
 #include <qcc/platform.h>
 
+#ifdef __cplusplus
+
 #include <Status.h>
 
 namespace ajn {
@@ -65,6 +67,8 @@ QStatus CreateInterfaces(BusAttachment& bus);
 }
 }
 }
+#endif /* #ifdef __cplusplus */
+
 /**
  * @name DBus RequestName input params
  * org.freedesktop.DBus.RequestName input params (see DBus spec)
@@ -102,6 +106,9 @@ QStatus CreateInterfaces(BusAttachment& bus);
 #define DBUS_START_REPLY_SUCCESS          1         /**< StartServiceByName reply: Service is started */
 #define DBUS_START_REPLY_ALREADY_RUNNING  2         /**< StartServiceByName reply: Service is already running */
 // @}
+
+#ifdef __cplusplus
 }
+#endif
 
 #endif
