@@ -114,6 +114,11 @@ class DaemonConfig {
      */
     DaemonConfig(const DaemonConfig& other);
 
+    /*
+     * Assignment operator private and undefined
+     */
+    DaemonConfig& operator=(const DaemonConfig& other);
+
     ~DaemonConfig();
 
     qcc::XmlElement* config;
