@@ -56,6 +56,7 @@ class BusAttachmentTest : public testing::Test {
 
     virtual void TearDown() {
         bus.Stop();
+        bus.Join();
     }
 
 };
@@ -135,7 +136,7 @@ class FindMulipleNamesBusListener : public BusListener {
 TEST_F(BusAttachmentTest, find_multiple_names)
 {
     QStatus status = ER_FAIL;
-    FindMulipleNamesBusListener testBusListener; // = new FindMulipleNamesBusListener();
+    FindMulipleNamesBusListener testBusListener;
     bus.RegisterBusListener(testBusListener);
 
     foundNameA = false;
@@ -204,8 +205,7 @@ TEST_F(BusAttachmentTest, find_multiple_names)
     status = bus.CancelFindAdvertisedName("name.A");
     EXPECT_EQ(ER_OK, status) << "  Actual Status: " << QCC_StatusText(status);
 
-    //Must Unregister bus listener or the test will segfault when trying to call
-    //
+    //Must Unregister bus listener or the test will segfault
     bus.UnregisterBusListener(testBusListener);
 
     otherBus.Stop();
