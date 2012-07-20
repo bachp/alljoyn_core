@@ -51,31 +51,31 @@ QStatus VirtualEndpoint::PushMessage(Message& msg)
 QStatus VirtualEndpoint::PushMessage(Message& msg, SessionId id)
 {
     QStatus status = ER_BUS_NO_ROUTE;
+    vector<RemoteEndpoint*> tryEndpoints;
 
+    /*
+     * There may be multiple routes from this virtual endpoint so we are going to try all of
+     * them until we either succeed or run out of options.
+     */
     m_b2bEndpointsLock.Lock(MUTEX_CONTEXT);
     multimap<SessionId, RemoteEndpoint*>::iterator it = (id == 0) ? m_b2bEndpoints.begin() : m_b2bEndpoints.lower_bound(id);
     while ((it != m_b2bEndpoints.end()) && (id == it->first)) {
         RemoteEndpoint* ep = it->second;
+        tryEndpoints.push_back(ep);
         ep->IncrementPushCount();
-        m_b2bEndpointsLock.Unlock(MUTEX_CONTEXT);
-        status = ep->PushMessage(msg);
-        m_b2bEndpointsLock.Lock(MUTEX_CONTEXT);
-        it = m_b2bEndpoints.lower_bound(id);
-        while ((it != m_b2bEndpoints.end()) && (it->first == id)) {
-            if (it->second == ep) {
-                it->second->DecrementPushCount();
-                ++it;
-                break;
-            } else {
-                ++it;
-            }
-        }
-        if (status != ER_BUS_ENDPOINT_CLOSING) {
-            break;
-        }
+        ++it;
     }
     m_b2bEndpointsLock.Unlock(MUTEX_CONTEXT);
-
+    /*
+     * We got the candidates so now try them all. Note we need to iterate over the entire list so we
+     * call DecrementPushCount on all the candidate endpoints.
+     */
+    for (vector<RemoteEndpoint*>::iterator iter = tryEndpoints.begin(); iter != tryEndpoints.end(); ++iter) {
+        if (status != ER_OK) {
+            status = (*iter)->PushMessage(msg);
+        }
+        (*iter)->DecrementPushCount();
+    }
     return status;
 }
 
