@@ -751,7 +751,7 @@ void TCPTransport::Authenticated(TCPEndpoint* conn)
      */
     m_endpointListLock.Lock(MUTEX_CONTEXT);
 
-    list<TCPEndpoint*>::iterator i = find(m_authList.begin(), m_authList.end(), conn);
+    set<TCPEndpoint*>::iterator i = find(m_authList.begin(), m_authList.end(), conn);
     assert(i != m_authList.end() && "TCPTransport::Authenticated(): Conn not on m_authList");
 
     /*
@@ -760,7 +760,7 @@ void TCPTransport::Authenticated(TCPEndpoint* conn)
      * and the endpoint can be on the endpointList and not the authList.
      */
     m_authList.erase(i);
-    m_endpointList.push_back(conn);
+    m_endpointList.insert(conn);
 
     m_endpointListLock.Unlock(MUTEX_CONTEXT);
 
@@ -920,7 +920,7 @@ QStatus TCPTransport::Stop(void)
      * data structure.  We call Stop() to stop that thread from running.  The
      * endpoint Rx and Tx threads will not be running yet.
      */
-    for (list<TCPEndpoint*>::iterator i = m_authList.begin(); i != m_authList.end(); ++i) {
+    for (set<TCPEndpoint*>::iterator i = m_authList.begin(); i != m_authList.end(); ++i) {
         (*i)->AuthStop();
     }
 
@@ -932,7 +932,7 @@ QStatus TCPTransport::Stop(void)
      * the connnection is on the m_endpointList, we know that the authentication
      * thread has handed off responsibility.
      */
-    for (list<TCPEndpoint*>::iterator i = m_endpointList.begin(); i != m_endpointList.end(); ++i) {
+    for (set<TCPEndpoint*>::iterator i = m_endpointList.begin(); i != m_endpointList.end(); ++i) {
         (*i)->Stop();
     }
 
@@ -996,11 +996,17 @@ QStatus TCPTransport::Join(void)
      * authentication threads in a previously required Stop().  We need to
      * Join() all of these auth threads here.
      */
-    for (list<TCPEndpoint*>::iterator i = m_authList.begin(); i != m_authList.end(); ++i) {
-        (*i)->AuthJoin();
-        delete *i;
+    set<TCPEndpoint*>::iterator it = m_authList.begin();
+    while (it != m_authList.end()) {
+        TCPEndpoint* ep = *it;
+        m_authList.erase(it);
+        m_endpointListLock.Unlock(MUTEX_CONTEXT);
+        ep->AuthJoin();
+        delete ep;
+        m_endpointListLock.Lock(MUTEX_CONTEXT);
+        it = m_authList.upper_bound(ep);
     }
-    m_authList.clear();
+
 
     /*
      * Any running endpoints have been asked it their threads in a previously
@@ -1008,11 +1014,16 @@ QStatus TCPTransport::Join(void)
      * Join() will wait on the endpoint rx and tx threads to exit as opposed to
      * the joining of the auth thread we did above.
      */
-    for (list<TCPEndpoint*>::iterator i = m_endpointList.begin(); i != m_endpointList.end(); ++i) {
-        (*i)->Join();
-        delete *i;
+    it = m_endpointList.begin();
+    while (it != m_endpointList.end()) {
+        TCPEndpoint* ep = *it;
+        m_endpointList.erase(it);
+        m_endpointListLock.Unlock(MUTEX_CONTEXT);
+        ep->Join();
+        delete ep;
+        m_endpointListLock.Lock(MUTEX_CONTEXT);
+        it = m_endpointList.upper_bound(ep);
     }
-    m_endpointList.clear();
 
     m_endpointListLock.Unlock(MUTEX_CONTEXT);
 
@@ -1297,7 +1308,7 @@ void TCPTransport::ManageEndpoints(Timespec tTimeout)
      * any that are no longer running or are taking too long to authenticate
      * (we assume a denial of service attack in this case).
      */
-    list<TCPEndpoint*>::iterator i = m_authList.begin();
+    set<TCPEndpoint*>::iterator i = m_authList.begin();
     while (i != m_authList.end()) {
         TCPEndpoint* ep = *i;
         TCPEndpoint::AuthState authState = ep->GetAuthState();
@@ -1310,9 +1321,12 @@ void TCPTransport::ManageEndpoints(Timespec tTimeout)
              * as we Join() the (failed) authentication thread.
              */
             QCC_DbgHLPrintf(("TCPTransport::ManageEndpoints(): Scavenging failed authenticator"));
+            m_authList.erase(i);
+            m_endpointListLock.Unlock(MUTEX_CONTEXT);
             ep->AuthJoin();
-            i = m_authList.erase(i);
             delete ep;
+            m_endpointListLock.Lock(MUTEX_CONTEXT);
+            i = m_authList.upper_bound(ep);
             continue;
         }
 
@@ -1370,8 +1384,11 @@ void TCPTransport::ManageEndpoints(Timespec tTimeout)
              * the state.
              */
             QCC_DbgHLPrintf(("TCPTransport::ManageEndpoints(): Scavenging failed authenticator"));
+            m_endpointListLock.Unlock(MUTEX_CONTEXT);
             ep->AuthJoin();
             ep->SetAuthDone();
+            m_endpointListLock.Lock(MUTEX_CONTEXT);
+            i = m_endpointList.upper_bound(ep);
             continue;
         }
 
@@ -1384,8 +1401,11 @@ void TCPTransport::ManageEndpoints(Timespec tTimeout)
          * joined.
          */
         if (endpointState == TCPEndpoint::EP_FAILED) {
-            i = m_endpointList.erase(i);
+            m_endpointList.erase(i);
+            m_endpointListLock.Unlock(MUTEX_CONTEXT);
             delete ep;
+            m_endpointListLock.Lock(MUTEX_CONTEXT);
+            i = m_endpointList.upper_bound(ep);
             continue;
         }
 
@@ -1402,9 +1422,12 @@ void TCPTransport::ManageEndpoints(Timespec tTimeout)
          * the endpoint AuthJoin() to join the auth thread.
          */
         if (endpointState == TCPEndpoint::EP_STOPPING) {
+            m_endpointList.erase(i);
+            m_endpointListLock.Unlock(MUTEX_CONTEXT);
             ep->Join();
-            i = m_endpointList.erase(i);
             delete ep;
+            m_endpointListLock.Lock(MUTEX_CONTEXT);
+            i = m_endpointList.upper_bound(ep);
             continue;
         }
         ++i;
@@ -1563,10 +1586,10 @@ void* TCPTransport::Run(void* arg)
                      * here.  Since there are no threads running we can just
                      * pitch the connection.
                      */
-                    m_authList.push_front(conn);
+                    std::pair<std::set<TCPEndpoint*>::iterator, bool> ins = m_authList.insert(conn);
                     status = conn->Authenticate();
                     if (status != ER_OK) {
-                        m_authList.pop_front();
+                        m_authList.erase(ins.first);
                         delete conn;
                     }
                     conn = NULL;
@@ -2522,7 +2545,7 @@ QStatus TCPTransport::Connect(const char* connectSpec, const SessionOpts& opts, 
         conn->SetActive();
         conn->SetAuthenticating();
         m_endpointListLock.Lock(MUTEX_CONTEXT);
-        m_endpointList.push_back(conn);
+        m_endpointList.insert(conn);
         m_endpointListLock.Unlock(MUTEX_CONTEXT);
 
         /* Initialized the features for this endpoint */
@@ -2562,7 +2585,7 @@ QStatus TCPTransport::Connect(const char* connectSpec, const SessionOpts& opts, 
             QCC_LogError(status, ("TCPTransport::Connect(): Start TCPEndpoint failed"));
 
             m_endpointListLock.Lock(MUTEX_CONTEXT);
-            list<TCPEndpoint*>::iterator i = find(m_endpointList.begin(), m_endpointList.end(), conn);
+            set<TCPEndpoint*>::iterator i = m_endpointList.find(conn);
             if (i != m_endpointList.end()) {
                 m_endpointList.erase(i);
             }
@@ -2656,7 +2679,7 @@ QStatus TCPTransport::Disconnect(const char* connectSpec)
      */
     status = ER_BUS_BAD_TRANSPORT_ARGS;
     m_endpointListLock.Lock(MUTEX_CONTEXT);
-    for (list<TCPEndpoint*>::iterator i = m_endpointList.begin(); i != m_endpointList.end(); ++i) {
+    for (set<TCPEndpoint*>::iterator i = m_endpointList.begin(); i != m_endpointList.end(); ++i) {
         if ((*i)->GetPort() == port && (*i)->GetIPAddress() == ipAddr) {
             TCPEndpoint* ep = *i;
             ep->SetSuddenDisconnect(false);
