@@ -1147,7 +1147,9 @@ void* DiscoveryManager::Run(void* arg)
                         if ((PeerID.empty()) || (ClientAuthenticationRequiredFlag)) {
 
                             if (LastOnDemandMessageSent.messageType != CLIENT_LOGIN) {
+                                DiscoveryManagerMutex.Unlock(MUTEX_CONTEXT);
                                 status = SendClientLoginFirstRequest();
+                                DiscoveryManagerMutex.Lock(MUTEX_CONTEXT);
 
                                 if (status != ER_OK) {
 
