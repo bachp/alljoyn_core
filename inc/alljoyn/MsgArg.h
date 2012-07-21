@@ -232,6 +232,7 @@ typedef struct {
 class MsgArg {
 
     friend class _Message;
+    friend class MsgArgC;
     friend class MsgArgUtils;
 
   public:
@@ -413,7 +414,7 @@ class MsgArg {
      * An array of strings
      *
      *     @code
-     *     char* fruits[3] =  { “apple”, "banana", “orange” };
+     *     char* fruits[3] =  { "apple", "banana", "orange" };
      *     MsgArg bowl;
      *     bowl.Set("as", 3, fruits);
      *     @endcode
