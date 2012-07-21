@@ -708,26 +708,34 @@ QStatus LocalEndpoint::UnregisterAllHandlers(MessageReceiver* receiver)
 void LocalEndpoint::AlarmTriggered(const Alarm& alarm, QStatus reason)
 {
     ReplyContext* rc = reinterpret_cast<ReplyContext*>(alarm->GetContext());
+    Message msg(bus);
+    QStatus status;
+
+    /*
+     * Clear the encrypted flag so the error response doesn't get rejected.
+     */
+    rc->callFlags &= ~ALLJOYN_FLAG_ENCRYPTED;
+
     if (running) {
         QCC_DbgPrintf(("Timed out waiting for METHOD_REPLY with serial %d", rc->serial));
-        Message msg(bus);
         if (reason == ER_TIMER_EXITING) {
             msg->ErrorMsg("org.alljoyn.Bus.Exiting", rc->serial);
         } else {
             msg->ErrorMsg("org.alljoyn.Bus.Timeout", rc->serial);
         }
         /*
-         * Forward the message via the dispatcher so we don't block this alarm thread. This prevents
-         * the ReplyContext destructor from being blocked while the response we just generated is
-         * handled.
+         * Forward the message via the dispatcher so we conform to our concurrency model.
          */
-        dispatcher.DispatchMessage(msg);
+        status = dispatcher.DispatchMessage(msg);
     } else {
-        replyMapLock.Lock();
-        if (RemoveReplyHandler(rc->serial) == rc) {
-            delete rc;
-        }
-        replyMapLock.Unlock();
+        status = ER_BUS_STOPPING;
+    }
+    /*
+     * If the dispatch failed or we are no longer running handle the reply on this thread.
+     */
+    if (status != ER_OK) {
+        msg->ErrorMsg("org.alljoyn.Bus.Exiting", rc->serial);
+        HandleMethodReply(msg);
     }
 }
 
