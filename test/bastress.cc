@@ -163,7 +163,7 @@ int main(int argc, char**argv)
             /*
              * Sleep a random time before stopping of bus attachments is tested at different states of up and running
              */
-            qcc::Sleep(qcc::Rand8() / 4);
+            qcc::Sleep(32 * (qcc::Rand8() / 8));
             QCC_SyncPrintf("stopping threads... \n");
             for (int i = 0; i < threads; i++) {
                 threadList[i]->Stop();
