@@ -962,17 +962,14 @@ QStatus TCPTransport::Join(void)
     /*
      * It is legal to call Join() more than once, so it must be possible to
      * call Join() on a joined transport.
-     *
-     * First, wait for the server accept loop thread to exit.
      */
     QStatus status = Thread::Join();
     if (status != ER_OK) {
-        QCC_LogError(status, ("TCPTransport::Join(): Failed to Join() server thread"));
         return status;
     }
 
     /*
-     * A requred call to Stop() that needs to happen before this Join will ask
+     * A required call to Stop() that needs to happen before this Join will ask
      * all of the endpoints to stop; and will also cause any authenticating
      * endpoints to stop.  We still need to wait here until all of the threads
      * running in those endpoints actually stop running.
