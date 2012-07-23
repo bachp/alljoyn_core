@@ -92,9 +92,9 @@ class MyBusListener : public BusListener, public SessionListener {
 #if defined(QCC_OS_ANDROID) || defined(QCC_OS_LINUX)
 
 void ProximityScanner::Scan(bool request_scan) {
-        
+
     QCC_DbgTrace(("ProximityScanner::Scan()"));
-        
+
     QStatus status;
     MyBusListener* g_busListener;
 
@@ -201,33 +201,33 @@ void ProximityScanner::Scan(bool request_scan) {
         QCC_DbgPrintf(("No Scan results were returned by the service. Either Wifi is turned off or there are no APs around"));
     }
 }
-    
+
 #elif defined(QCC_OS_DARWIN)
 
 #if defined(QCC_OS_IPHONE)
 void ProximityScanner::Scan(bool request_scan) {
     QCC_DbgTrace(("ProximityScanner::Scan()"));
-    
+
     QCC_DbgPrintf(("Retrieving BSSID from CaptiveNetwork API for iOS..."));
-    
+
     // Start with a clean slate
     //
     scanResults.clear();
-    
+
     // Ask iOS for a list of available network interfaces on the device
     //
     CFArrayRef supportedInterfaces = CNCopySupportedInterfaces();
-    
+
     // Walk through the list of interfaces and find the wifi interface
     // On iOS the name of the wifi interface will always be "en0"
     //
     bool foundWifiInterface = false;
     for (int i = 0; i < CFArrayGetCount(supportedInterfaces); i++) {
-        
+
         CFStringRef interfaceNameString = (CFStringRef)CFArrayGetValueAtIndex(supportedInterfaces, i);
-        
+
         if (CFStringCompare(CFSTR("en0"), interfaceNameString, 0) == kCFCompareEqualTo) {
-            
+
             CFDictionaryRef networkInfo = CNCopyCurrentNetworkInfo(interfaceNameString);
             CFStringRef bssidString = (CFStringRef)CFDictionaryGetValue(networkInfo, kCNNetworkInfoKeyBSSID);
             CFStringRef ssidString = (CFStringRef)CFDictionaryGetValue(networkInfo, kCNNetworkInfoKeySSID);
@@ -236,38 +236,38 @@ void ProximityScanner::Scan(bool request_scan) {
             bool attached = true; // always true on iOS, since we can only see the BSSID of the router we are affiliated with.
 
             scanResults.insert(std::map<std::pair<qcc::String, qcc::String>, bool>::value_type(std::make_pair(bssid_str, ssid_str), attached));
-            
+
             QCC_DbgPrintf(("-------------------- From Scan function -----------------------------------\n"));
             std::map<std::pair<qcc::String, qcc::String>, bool>::iterator it;
             for (it = scanResults.begin(); it != scanResults.end(); it++) {
                 QCC_DbgPrintf(("BSSID = %s , SSID = %s, attached = %s", it->first.first.c_str(), it->first.second.c_str(), (it->second ? "true" : "false")));
             }
-            
+
             CFRelease(ssidString);
             CFRelease(bssidString);
             CFRelease(networkInfo);
             foundWifiInterface = true;
         }
-        
+
         CFRelease(interfaceNameString);
-        
+
         if (foundWifiInterface) {
             break;
         }
     }
-    
+
     CFRelease(supportedInterfaces);
 }
-    
+
 #else
 
 void ProximityScanner::Scan(bool request_scan) {
     QCC_DbgTrace(("ProximityScanner::Scan()"));
 
 }
-    
+
 #endif
-    
+
 #endif
 
 }
