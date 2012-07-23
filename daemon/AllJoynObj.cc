@@ -700,7 +700,7 @@ ThreadReturn STDCALL AllJoynObj::JoinSessionThread::RunJoin()
             MsgArg membersArg;
 
             /* Check for existing multipoint session */
-            if (vSessionEp) {
+            if (vSessionEp && optsIn.isMultipoint) {
                 vSessionEpName = vSessionEp->GetUniqueName();
                 SessionMapType::iterator it = ajObj.sessionMap.begin();
                 while (it != ajObj.sessionMap.end()) {

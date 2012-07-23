@@ -908,6 +908,13 @@ bool DaemonICETransport::PacketEngineAcceptCB(PacketEngine& engine, const Packet
     QStatus status = ER_FAIL;
     ICEPacketStream* icePktStream = static_cast<ICEPacketStream*>(engine.GetPacketStream(stream));
 
+    /* Increment the ref count on this pktStream */
+    if (icePktStream) {
+        status = AcquireICEPacketStreamByPointer(icePktStream);
+        if (status != ER_OK) {
+            icePktStream = NULL;
+        }
+    }
     if (icePktStream) {
         /* Create endpoint */
         DaemonICEEndpoint* conn = new DaemonICEEndpoint(this, m_bus, true, "", *icePktStream);
@@ -945,6 +952,9 @@ bool DaemonICETransport::PacketEngineAcceptCB(PacketEngine& engine, const Packet
     }
 
     bool ret = (status == ER_OK);
+    if ((status != ER_OK) && icePktStream) {
+        ReleaseICEPacketStream(*icePktStream);
+    }
     QCC_DbgPrintf(("%s connect attempt from %s", ret ? "Accepting" : "Rejecting", icePktStream ? engine.ToString(*icePktStream, dest).c_str() : "<unknown>"));
     return ret;
 }
@@ -1229,22 +1239,23 @@ ThreadReturn STDCALL DaemonICETransport::AllocateICESessionThread::Run(void* arg
                                                 if (pktStream) {
                                                     /* Reuse existing pkstream rather than having two for the same destination */
                                                     QCC_DbgPrintf(("DaemonICETransport::AllocateICESessionThread: Reusing existing pktStream for %s", connectSpec.c_str()));
+                                                    transportObj->ReleaseICEPacketStream(*pktStream);
                                                 } else {
                                                     /* Wrap ICE session FD in a new ICEPacketStream */
                                                     ICEPacketStream pks(*iceSession, *stunActivityPtr->stun, *selectedCandidatePairList[0]);
                                                     map<String, pair<ICEPacketStream, int32_t> >::iterator sit =
-                                                        transportObj->pktStreamMap.insert(pair<String, pair<ICEPacketStream, int32_t> >(connectSpec, pair<ICEPacketStream, int32_t>(pks, 1))).first;
+                                                        transportObj->pktStreamMap.insert(pair<String, pair<ICEPacketStream, int32_t> >(connectSpec, pair<ICEPacketStream, int32_t>(pks, 0))).first;
                                                     pktStream = &(sit->second.first);
 
                                                     /* Start ICEPacketStream */
-                                                    status = sit->second.first.Start();
+                                                    status = pktStream->Start();
 
                                                     /* Stop the STUN RxThread and claim its file descriptor as our own */
                                                     stunActivityPtr->stun->ReleaseFD();
 
                                                     /* Make the packetEngine listen on icePktStream */
                                                     if (status == ER_OK) {
-                                                        status = transportObj->m_packetEngine.AddPacketStream(sit->second.first, *transportObj);
+                                                        status = transportObj->m_packetEngine.AddPacketStream(*pktStream, *transportObj);
                                                     }
 
                                                     if (status == ER_OK) {
@@ -1291,11 +1302,6 @@ ThreadReturn STDCALL DaemonICETransport::AllocateICESessionThread::Run(void* arg
                 QCC_LogError(status, ("DaemonICETransport::AllocateICESessionThread::Run(): GetLocalICECandidates failed"));
             }
         }
-    }
-
-    /* Remove new packet stream if we failed */
-    if ((status != ER_OK) && pktStream) {
-        transportObj->ReleaseICEPacketStream(*pktStream);
     }
 
     /* Succeed or fail, this iceSession is done */
@@ -1718,6 +1724,7 @@ QStatus DaemonICETransport::Connect(const char* connectSpec, const SessionOpts& 
          */
         ICEPacketStream pks;
         pktStreamMap.insert(pair<String, pair<ICEPacketStream, int32_t> >(normSpec, pair<ICEPacketStream, int32_t>(pks, 1))).first;
+        pktStream = &pktStreamMap[normSpec].first;
         pktStreamMapLock.Unlock();
 
         /*
@@ -1837,46 +1844,39 @@ QStatus DaemonICETransport::Connect(const char* connectSpec, const SessionOpts& 
                                                     selectedCandidatePairList[i]->local->GetStunActivity()->candidate->StopCheckListener();
                                                 }
 
-                                                /*
-                                                 * Make sure that pktStream wasnt created by somebody else while ICE was going on. If so,
-                                                 * reuse the existing packet stream
-                                                 */
+                                                /* Hold pktStreamMapLock while updating this pktStream */
                                                 pktStreamMapLock.Lock(MUTEX_CONTEXT);
-                                                pktStream = AcquireICEPacketStream(normSpec);
-                                                if (!pktStream || !pktStream->HasSocket()) {
-                                                    /* Stop the STUN RxThread and claim its file descriptor as our own */
-                                                    Stun* stun = selectedCandidatePairList[0]->local->GetStunActivity()->stun;
 
-                                                    /* Wrap ICE session FD in a new ICEPacketStream (and reset ref count) */
-                                                    pktStreamMap[normSpec] = pair<ICEPacketStream, int32_t>(ICEPacketStream(*iceSession, *stun, *selectedCandidatePairList[0]), 1);
-                                                    pktStream = &pktStreamMap[normSpec].first;
+                                                /* Stop the STUN RxThread and claim its file descriptor as our own */
+                                                Stun* stun = selectedCandidatePairList[0]->local->GetStunActivity()->stun;
 
-                                                    /* Start ICEPacketStream */
-                                                    status = pktStream->Start();
+                                                /* Wrap ICE session FD in a new ICEPacketStream (and reset ref count) */
+                                                *pktStream = ICEPacketStream(*iceSession, *stun, *selectedCandidatePairList[0]);
 
-                                                    /* Make Stun give up ownership of its fd */
-                                                    stun->ReleaseFD();
+                                                /* Start ICEPacketStream */
+                                                status = pktStream->Start();
 
-                                                    /* Deallocate the iceSession. This must be done BEFORE the packetEngine starts using stun's fd */
-                                                    m_iceManager.DeallocateSession(iceSession);
-                                                    iceSession = NULL;
-                                                    m_dm->RemoveSessionDetailFromMap(true, std::pair<String, DiscoveryManager::SessionEntry>(argMap["guid"], entry));
+                                                /* Make Stun give up ownership of its fd */
+                                                stun->ReleaseFD();
 
-                                                    /* Make the packetEngine listen on icePktStream */
-                                                    if (status == ER_OK) {
-                                                        status = m_packetEngine.AddPacketStream(*pktStream, *this);
+                                                /* Deallocate the iceSession. This must be done BEFORE the packetEngine starts using stun's fd */
+                                                m_iceManager.DeallocateSession(iceSession);
+                                                iceSession = NULL;
+                                                m_dm->RemoveSessionDetailFromMap(true, std::pair<String, DiscoveryManager::SessionEntry>(argMap["guid"], entry));
+
+                                                /* Make the packetEngine listen on icePktStream */
+                                                if (status == ER_OK) {
+                                                    status = m_packetEngine.AddPacketStream(*pktStream, *this);
+                                                }
+
+                                                if (status == ER_OK) {
+                                                    /* If we are using the local and remote host candidate, we need not send NAT keepalives or TURN refreshes */
+                                                    if ((!pktStream->IsLocalHost()) || (!pktStream->IsRemoteHost())) {
+                                                        /* Arm the keep-alive (immediate fire) */
+                                                        daemonICETransportTimer.AddAlarm(Alarm(0, this, 0, pktStream));
                                                     }
-
-                                                    if (status == ER_OK) {
-                                                        /* If we are using the local and remote host candidate, we need not send
-                                                         * NAT keepalives or TURN refreshes */
-                                                        if ((!pktStream->IsLocalHost()) || (!pktStream->IsRemoteHost())) {
-                                                            /* Arm the keep-alive (immediate fire) */
-                                                            daemonICETransportTimer.AddAlarm(Alarm(0, this, 0, pktStream));
-                                                        }
-                                                    } else {
-                                                        QCC_LogError(status, ("ICEPacketStream.Start or AddPacketStream failed"));
-                                                    }
+                                                } else {
+                                                    QCC_LogError(status, ("ICEPacketStream.Start or AddPacketStream failed"));
                                                 }
                                                 pktStreamMapLock.Unlock();
                                             } else {
@@ -2500,19 +2500,22 @@ QStatus DaemonICETransport::AcquireICEPacketStreamByPointer(ICEPacketStream* ice
 
 void DaemonICETransport::ReleaseICEPacketStream(const ICEPacketStream& icePktStream)
 {
+    QCC_DbgTrace(("DaemonICETransport::ReleaseICEPacketStream(%p)", &icePktStream));
+
     pktStreamMapLock.Lock(MUTEX_CONTEXT);
     bool found = false;
     map<String, pair<ICEPacketStream, int32_t> >::iterator it = pktStreamMap.begin();
     while (it != pktStreamMap.end()) {
         if (&icePktStream == &(it->second.first)) {
-            if (--it->second.second == 0) {
+            --it->second.second;
+            QCC_DbgPrintf(("%s: Releasing packet stream %p refCount=%d", __FUNCTION__, &icePktStream, it->second.second));
+            if (it->second.second <= 0) {
                 QStatus status = m_packetEngine.RemovePacketStream(it->second.first);
                 if (status != ER_OK) {
                     QCC_LogError(status, ("RemovePacketStream failed"));
                 }
                 pktStreamMap.erase(it);
             }
-            QCC_DbgPrintf(("%s: Releasing packet stream refCount=%d", __FUNCTION__, it->second.second));
             found = true;
             break;
         }
