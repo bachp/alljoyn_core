@@ -35,11 +35,22 @@ TARGET_PLATFORM := android-10
 # all sources (C, C++ and Assembly). These are placed before any 
 # corresponding inclusion flag in LOCAL_CFLAGS / LOCAL_CPPFLAGS.
 #
+# The path for NDK r8 and below is:
+#	$(NDK_ROOT)/sources/cxx-stl/gnu-libstdc++/include \
+#	$(NDK_ROOT)/sources/cxx-stl/gnu-libstdc++/libs/armeabi/include \
+# The path for NDK r8b is:
+#	$(NDK_ROOT)/sources/cxx-stl/gnu-libstdc++/4.6/include \
+#	$(NDK_ROOT)/sources/cxx-stl/gnu-libstdc++/4.6/libs/armeabi/include
+#
 
 LOCAL_C_INCLUDES := \
 	$(MYDROID_PATH)/external/openssl/include \
 	$(ALLJOYN_DIST)/inc \
 	$(NDK_PLATFORMS_ROOT)/$(TARGET_PLATFORM)/arch-arm/usr/include \
+	$(NDK_ROOT)/sources/cxx-stl/gnu-libstdc++/include \
+	$(NDK_ROOT)/sources/cxx-stl/gnu-libstdc++/libs/armeabi/include \
+	$(NDK_ROOT)/sources/cxx-stl/gnu-libstdc++/4.6/include \
+	$(NDK_ROOT)/sources/cxx-stl/gnu-libstdc++/4.6/libs/armeabi/include
 
 # An optional set of compiler flags that will be passed when building
 # C ***AND*** C++ source files.
@@ -73,9 +84,16 @@ LOCAL_SRC_FILES := \
 # symbols such as "__aeabi_f2uiz" present in libgcc.a. It has to be linked
 # as the very last library.
 #
+# The path for NDK r8 and below is:
+#        -L$(NDK_ROOT)/sources/cxx-stl/gnu-libstdc++/libs/armeabi \
+# The path for NDK r8b is:
+#        -L$(NDK_ROOT)/sources/cxx-stl/gnu-libstdc++/4.6/libs/armeabi \
+#
+
 LOCAL_LDLIBS := \
 	-L$(NDK_PLATFORMS_ROOT)/$(TARGET_PLATFORM)/arch-arm/usr/lib -L$(ALLJOYN_DIST)/lib -L$(ANDROID_SRC)/out/target/product/generic/system/lib \
-	-L$(NDK_ROOT)/sources/cxx-stl/gnu-libstdc++/libs/armeabi \
+        -L$(NDK_ROOT)/sources/cxx-stl/gnu-libstdc++/libs/armeabi \
+        -L$(NDK_ROOT)/sources/cxx-stl/gnu-libstdc++/4.6/libs/armeabi \
 	-llog -lz -ldl -lalljoyn -lm -lc -lstdc++ -lcrypto -lgcc -lgnustl_static
 	
 # By default, ARM target binaries will be generated in 'thumb' mode, where

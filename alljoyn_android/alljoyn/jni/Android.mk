@@ -14,8 +14,16 @@ include $(CLEAR_VARS)
 
 LOCAL_MODULE    := daemon-jni
 LOCAL_SRC_FILES := daemon-jni.cpp
+
+# The path for NDK r8 and below is:
+#        -L$(NDK_ROOT)/sources/cxx-stl/gnu-libstdc++/libs/armeabi \
+# The path for NDK r8b is:
+#        -L$(NDK_ROOT)/sources/cxx-stl/gnu-libstdc++/4.6/libs/armeabi \
+#
+
 LOCAL_LDLIBS := -L$(BUS_LIB_DIR) \
         -L$(NDK_ROOT)/sources/cxx-stl/gnu-libstdc++/libs/armeabi \
+        -L$(NDK_ROOT)/sources/cxx-stl/gnu-libstdc++/4.6/libs/armeabi \
 	-lalljoyn-daemon -lalljoyn -lcrypto -llog -lgcc -lssl -lgnustl_static
 
 include $(BUILD_SHARED_LIBRARY)

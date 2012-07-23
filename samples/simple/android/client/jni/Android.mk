@@ -92,7 +92,7 @@ LOCAL_SRC_FILES := \
 LOCAL_LDLIBS := \
 	-L$(NDK_PLATFORMS_ROOT)/$(TARGET_PLATFORM)/arch-arm/usr/lib \
         -L$(NDK_ROOT)/sources/cxx-stl/gnu-libstdc++/libs/armeabi \
-        -L$(NDK_ROOT)/sources/cxx-stl/gnu-libstdc++/4.6/slibs/armeabi \
+        -L$(NDK_ROOT)/sources/cxx-stl/gnu-libstdc++/4.6/libs/armeabi \
 	-L$(ALLJOYN_DIST)/lib \
 	-L./libs \
 	-llog -lz -ldl -lalljoyn -lm -lc -lstdc++ -lcrypto -lgcc -lgnustl_static
