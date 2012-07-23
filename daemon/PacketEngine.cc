@@ -214,7 +214,7 @@ QStatus PacketEngine::RemovePacketStream(PacketStream& pktStream)
             while (ci && isRunning && (ci->state != ChannelInfo::CLOSED)) {
                 uint32_t chanId = ci->id;
                 ReleaseChannelInfo(*ci);
-                qcc::Sleep(20);
+                qcc::Sleep(10);
                 ci = AcquireChannelInfo(chanId);
             }
         }
@@ -286,6 +286,8 @@ QStatus PacketEngine::Connect(const PacketDest& dest, PacketStream& packetStream
 
 void PacketEngine::CloseChannel(ChannelInfo& ci)
 {
+    QCC_DbgTrace(("PacketEngine::CloseChannel(id=0x%x)", ci.id));
+
     /* Return early if disconnect already in progress */
     ci.txLock.Lock();
     DisconnectReqAlarmContext* ctx = static_cast<DisconnectReqAlarmContext*>(ci.disconnectReqAlarm->GetContext());
@@ -389,6 +391,7 @@ void PacketEngine::AlarmTriggered(const Alarm& alarm, QStatus reason)
         DisconnectRspAlarmContext* cctx = static_cast<DisconnectRspAlarmContext*>(ctx);
         ChannelInfo* ci = AcquireChannelInfo(cctx->chanId);
         if (ci) {
+            QCC_DbgPrintf(("Received DisconnectRsp for id=0x%x", ci->id));
             ci->state = ChannelInfo::CLOSED;
             ReleaseChannelInfo(*ci);
         }
@@ -502,6 +505,7 @@ void PacketEngine::AlarmTriggered(const Alarm& alarm, QStatus reason)
         ClosingAlarmContext* cctx = static_cast<ClosingAlarmContext*>(ctx);
         ChannelInfo* ci = AcquireChannelInfo(cctx->chanId);
         if (ci) {
+            QCC_DbgPrintf(("PacketEngine::AlarmTriggered(CLOSING_CONTEXT): Closing id=0x%x", ci->id));
             ci->state = ChannelInfo::CLOSED;
             ReleaseChannelInfo(*ci);
         }
@@ -753,7 +757,6 @@ PacketEngine::ChannelInfo* PacketEngine::AcquireNextChannelInfo(PacketEngine::Ch
 
 void PacketEngine::ReleaseChannelInfo(ChannelInfo& ci)
 {
-
     channelInfoLock.Lock();
     if ((--ci.useCount == 0) && (ci.state == ChannelInfo::CLOSED)) {
 
@@ -1235,6 +1238,8 @@ void PacketEngine::RxPacketThread::HandleConnectRspAck(Packet* p)
         if (ci->state == ChannelInfo::OPENING) {
             ci->state = ChannelInfo::OPEN;
         }
+    }
+    if (ci) {
         engine->ReleaseChannelInfo(*ci);
     }
 }
@@ -1272,6 +1277,7 @@ void PacketEngine::RxPacketThread::HandleDisconnectRsp(Packet* p)
         engine->timer.RemoveAlarm(ci->disconnectReqAlarm);
         ci->disconnectReqAlarm = Alarm();
         delete ctx;
+        QCC_DbgPrintf(("PacketEngine::HandleDisconnectRsp: Closing id=0x%x", ci->id));
         ci->state = ChannelInfo::CLOSED;
     }
     if (ci) {
@@ -1492,6 +1498,7 @@ qcc::ThreadReturn STDCALL PacketEngine::TxPacketThread::Run(void* arg)
                     status = ci->packetStream.PushPacketBytes(p->buffer, p->payloadLen + Packet::payloadOffset, ci->dest);
                     /* Closedown if control message was a disconnectRsp */
                     if (letoh32(p->payload[0]) == PACKET_COMMAND_DISCONNECT_RSP) {
+                        QCC_DbgPrintf(("PacketEngine::TxThread: Send DisconnectRsp. Closing id=0x%x", ci->id));
                         ci->state = ChannelInfo::CLOSED;
                         break;
                     }
