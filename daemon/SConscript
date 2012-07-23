@@ -67,10 +67,12 @@ else:
     lib = []
 
 # AllJoyn Daemon test programs
-if env['OS_GROUP'] != 'winrt':
-    tests = env.SConscript('test/SConscript', exports=['daemon_objs'])
-else:
+if env['OS_GROUP']=='winrt':
     tests = []
+elif env['OS']=='darwin' and env['CPU']=='arm':
+    tests = []
+else:
+    tests = env.SConscript('test/SConscript', exports=['daemon_objs'])
     
 # Return daemon and related tests
 ret = progs + tests, lib, bdobj
