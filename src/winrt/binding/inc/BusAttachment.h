@@ -143,6 +143,18 @@ public ref class BusAttachment sealed {
     BusAttachment(Platform::String ^ applicationName, bool allowRemoteMessages);
 
     /// <summary>
+    /// Get the concurrent method and signal handler limit.
+    /// <summary>
+    /// <returns>The maximum number of concurrent method and signal handlers.</returns>
+    uint32_t GetConcurrency();
+
+    /// <summary>
+    /// Allow the currently executing method/signal handler to enable concurrent callbacks
+    /// during the scope of the handler's execution.
+    /// <summary>
+    void EnableConcurrentCallbacks();
+
+    /// <summary>
     /// Create an interface description with a given name.
     /// </summary>
     /// <remarks>

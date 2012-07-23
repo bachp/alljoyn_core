@@ -131,6 +131,16 @@ BusAttachment::~BusAttachment()
     }
 }
 
+uint32_t BusAttachment::GetConcurrency()
+{
+    return _busAttachment->GetConcurrency();
+}
+
+void BusAttachment::EnableConcurrentCallbacks()
+{
+    _busAttachment->EnableConcurrentCallbacks();
+}
+
 void BusAttachment::CreateInterface(Platform::String ^ name, Platform::WriteOnlyArray<AllJoyn::InterfaceDescription ^> ^ iface, bool secure)
 {
     ::QStatus status = ER_OK;
