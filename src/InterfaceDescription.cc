@@ -175,9 +175,9 @@ qcc::String InterfaceDescription::Introspect(size_t indent) const
         const Property& property = pit->second;
         xml += in + "  <property name=\"" + property.name + "\" type=\"" + property.signature + "\"";
         if (property.access == PROP_ACCESS_READ) {
-            xml += " access=\"read\"/>\n";
+            xml += " access=\"read\"";
         } else if (property.access == PROP_ACCESS_WRITE) {
-            xml += " access=\"write\"/>\n";
+            xml += " access=\"write\"";
         } else {
             xml += " access=\"readwrite\"";
         }
