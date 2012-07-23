@@ -5,7 +5,7 @@
  */
 
 /******************************************************************************
- * Copyright 2010-2011, Qualcomm Innovation Center, Inc.
+ * Copyright 2010-2012, Qualcomm Innovation Center, Inc.
  *
  *    Licensed under the Apache License, Version 2.0 (the "License");
  *    you may not use this file except in compliance with the License.
@@ -214,9 +214,7 @@ class AllJoynPeerObj : public BusObject, public BusListener, public qcc::AlarmLi
         AUTHENTICATE_PEER,
         AUTH_CHALLENGE,
         EXPAND_HEADER,
-        ACCEPT_SESSION,
-        SECURE_CONNECTION,
-        SESSION_JOINED
+        SECURE_CONNECTION
     } RequestType;
 
     /* Dispatcher context */

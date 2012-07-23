@@ -987,14 +987,6 @@ void AllJoynPeerObj::AlarmTriggered(const Alarm& alarm, QStatus reason)
         AuthAdvance(req->msg);
         break;
 
-    case ACCEPT_SESSION:
-        AcceptSession(NULL, req->msg);
-        break;
-
-    case SESSION_JOINED:
-        SessionJoined(NULL, NULL, req->msg);
-        break;
-
     case EXPAND_HEADER:
         ExpandHeader(req->msg, req->data);
         break;
@@ -1068,32 +1060,6 @@ void AllJoynPeerObj::NameOwnerChanged(const char* busName, const char* previousO
 void AllJoynPeerObj::AcceptSession(const InterfaceDescription::Member* member, Message& msg)
 {
     QStatus status;
-
-    if (member) {
-        /*
-         * Reenter on the BusAttachment dispatcher thread.
-         */
-        lock.Lock(MUTEX_CONTEXT);
-        if (dispatcher.IsRunning()) {
-            Request* req = new Request(msg, ACCEPT_SESSION, "");
-            uint32_t zero = 0;
-            void* context = reinterpret_cast<void*>(req);
-            qcc::AlarmListener* alljoynPeerListener = this;
-            Alarm alarm(zero, alljoynPeerListener, context, zero);
-            status = dispatcher.AddAlarm(alarm);
-            if (status != ER_OK) {
-                delete req;
-            }
-        } else {
-            status = ER_BUS_STOPPING;
-        }
-        lock.Unlock(MUTEX_CONTEXT);
-        if (status != ER_OK) {
-            MethodReply(msg, status);
-        }
-        return;
-    }
-
     size_t numArgs;
     const MsgArg* args;
 
@@ -1139,28 +1105,6 @@ void AllJoynPeerObj::SessionJoined(const InterfaceDescription::Member* member, c
 {
     // dispatch to the dispatcher thread
     QStatus status;
-    if (member) {
-        lock.Lock(MUTEX_CONTEXT);
-        if (dispatcher.IsRunning()) {
-            Request* req = new Request(msg, SESSION_JOINED, "");
-            uint32_t zero = 0;
-            void* context = reinterpret_cast<void*>(req);
-            qcc::AlarmListener* alljoynPeerListener = this;
-            Alarm alarm(zero, alljoynPeerListener, context, zero);
-            status = dispatcher.AddAlarm(alarm);
-            if (status != ER_OK) {
-                delete req;
-            }
-        } else {
-            status = ER_BUS_STOPPING;
-        }
-        lock.Unlock(MUTEX_CONTEXT);
-        if (status != ER_OK) {
-            MethodReply(msg, status);
-        }
-        return;
-    }
-
     size_t numArgs;
     const MsgArg* args;
 
