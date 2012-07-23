@@ -1,11 +1,11 @@
-AllJoyn version 2.5.0 README.TXT
+AllJoyn version 2.5.1 README.TXT
 --------------------------------
 
 What's inside:
 -------------
 
- * alljoyn_2_5_0_dbg : AllJoyn SDK for Windows (debug), version 2.5.0
- * alljoyn_2_5_0_rel : AllJoyn SDK for Windows (release), version 2.5.0
+ * alljoyn_2_5_1_dbg : AllJoyn SDK for Windows (debug), version 2.5.1
+ * alljoyn_2_5_1_rel : AllJoyn SDK for Windows (release), version 2.5.1
     The above folders are identical, except for compilation options.
     The file and directory structure inside them is described below. 
 
@@ -39,12 +39,6 @@ Summary of file and directory structure:
 
     ./inc
         AllJoyn C++ header files
-
-    ./installers
-        Windows installer(s) for running AllJoyn Daemon as a Windows Service:
-            ServiceSetup.msi (32-bit Windows 7) 
-            ServiceSetup64.msi (64-bit Windows 7)
-            ServiceSetupXP.msi (32-bit Windows XP)
 
     ./lib/alljoyn.lib
         Static library used to build AllJoyn capable applications.

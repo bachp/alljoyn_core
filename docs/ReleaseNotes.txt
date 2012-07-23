@@ -1,4 +1,4 @@
-AllJoyn Version 2.5.0 Release Notes
+AllJoyn Version 2.5.1 Release Notes
 -----------------------------------
 
 Platform Support
@@ -7,66 +7,65 @@ Platform Support
 2) Android Froyo 2.2 (ARM7)
 3) Android Gingerbread 2.3.4 (ARM7)
 4) Android Ice Cream Sandwich 4.0 (ARM7)
-4) Windows XP (32 bit x86)
-5) Windows 7 (32 and 64 bit x86)
+FIXME #### Windows is not supported
 
 
 Features added in this release
 ------------------------------
 
-Added support for ICE (IETF draft-ietf-mmusic-ice-19) based peer-to-peer
-connections.  This new feature allows peers to connect over IP networks when
-multicast is blocked or when 802.11 wireless isolation prevents the existing
-AllJoyn discovery and connect mechanisms from succeeding.
+FIXME #### Added support for ICE (IETF draft-ietf-mmusic-ice-19) based peer-to-peer
+FIXME #### connections.  This new feature allows peers to connect over IP networks when
+FIXME #### multicast is blocked or when 802.11 wireless isolation prevents the existing
+FIXME #### AllJoyn discovery and connect mechanisms from succeeding.
 
-Added an API (BusAttachment.EnableConcurrentCallbacks) for controlling
-concurrent method/signal handler callbacks. Previously, the AllJoyn client
-library did not concurrently dispatch user-defined method/signal handlers.  It
-did, however, concurrently dispatch certain AllJoyn control related callbacks
-such as BusListener.FoundAdvertisedName, etc. These control related callbacks
-are now under the control of the new EnableConcurrentCalbacks API.
+FIXME #### Added an API (BusAttachment.EnableConcurrentCallbacks) for controlling
+FIXME #### concurrent method/signal handler callbacks. Previously, the AllJoyn client
+FIXME #### library did not concurrently dispatch user-defined method/signal handlers.  It
+FIXME #### did, however, concurrently dispatch certain AllJoyn control related callbacks
+FIXME #### such as BusListener.FoundAdvertisedName, etc. These control related callbacks
+FIXME #### are now under the control of the new EnableConcurrentCalbacks API.
 
-Added new API BusAttachment.SetLinkTimeoutAsync. This new method is an
-asynchronous form of the existing SetLinkTimeout call.
+FIXME #### Added new API BusAttachment.SetLinkTimeoutAsync. This new method is an
+FIXME #### asynchronous form of the existing SetLinkTimeout call.
 
-Added GoogleTest based test framework to automate the testing of the AllJoyn
-core.
+FIXME #### Added GoogleTest based test framework to automate the testing of the AllJoyn
+FIXME #### core.
 
 
 Issues Addressed in this Release
 --------------------------------
 
-ALLJOYN-829: Changing link timeout via SetLinkTimeout now takes effect
-immediately. Previously, the link needed to receive at least one more message
-before the change would take effect.
+FIXME #### ALLJOYN-829: Changing link timeout via SetLinkTimeout now takes effect
+FIXME #### immediately. Previously, the link needed to receive at least one more message
+FIXME #### before the change would take effect.
 
-ALLJOYN-830: SetLinkTimeoutAsync was added to the external API to allow the user
-to set the link timeout from within the SessionPortListener::SessionJoined (or
-other AllJoyn) callback.
+FIXME #### ALLJOYN-830: SetLinkTimeoutAsync was added to the external API to allow the user
+FIXME #### to set the link timeout from within the SessionPortListener::SessionJoined (or
+FIXME #### other AllJoyn) callback.
 
-ALLJOYN-907: LostAdvertisedName indication is no longer delayed when the client
-side disconnects prior to the service side.
+FIXME #### ALLJOYN-907: LostAdvertisedName indication is no longer delayed when the client
+FIXME #### side disconnects prior to the service side.
 
 
 Known issues and limitations with this release
 ----------------------------------------------
 
-ALLJOYN-1154: The number of names that can be advertised from a single AllJoyn
-daemon instance (either bundled or unbundled) over TCP is limited to about 1400
-bytes.
+FIXME #### ALLJOYN-1154: The number of names that can be advertised from a single AllJoyn
+FIXME #### daemon instance (either bundled or unbundled) over TCP is limited to about 1400
+FIXME #### bytes.
 
-ALLJOYN-1217: AllJoyn operation over Bluetooth is stable with up to 3
-devices. Some instabilites are seen with 4 or more devices.
+FIXME #### ALLJOYN-1217: AllJoyn operation over Bluetooth is stable with up to 3
+FIXME #### devices. Some instabilites are seen with 4 or more devices.
 
-ALLJOYN-1228: Discovery times when using ICE / Rendezvous are sometimes longer
-than necessary due to proximity scanning.
+FIXME #### ALLJOYN-1228: Discovery times when using ICE / Rendezvous are sometimes longer
+FIXME #### than necessary due to proximity scanning.
 
-ALLJOYN-(various): Daemon crashes are possible when using the bundled version of
-the AllJoyn daemon. Because of this, use of the bundled daemon is not officially
-supported in 2.5.0
+FIXME #### ALLJOYN-(various): Daemon crashes are possible when using the bundled version of
+FIXME #### the AllJoyn daemon. Because of this, use of the bundled daemon is not officially
+FIXME #### supported in 2.5.0
 
-QA testing for the 2.5.0 release was completed only on Android variants of the
-non-bundled daemon.
+FIXME #### QA testing for the 2.5.0 release was completed only on Android variants of the
+FIXME #### non-bundled daemon.
 
 
 Compatibility
@@ -102,6 +101,8 @@ new BusAttachment.EnableConcurrentCallbacks() API.
 
 Change history
 --------------
+2.5.0 - FIXME ####
+
 2.3.5 - Bug fixes.
 
 2.3.3 - Bug fixes.
