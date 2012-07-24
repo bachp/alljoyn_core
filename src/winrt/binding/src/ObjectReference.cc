@@ -107,6 +107,10 @@ void ClearObjectMap(qcc::Mutex* mtx, std::map<void*, void*>* m)
 
 void AddIdReference(qcc::Mutex* mtx, ajn::SessionPort key, Platform::Object ^ val, std::map<ajn::SessionId, std::map<void*, void*>*>* m)
 {
+    if (val == nullptr) {
+        return;
+    }
+
     if (NULL != mtx) {
         mtx->Lock();
     }

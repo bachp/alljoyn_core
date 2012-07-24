@@ -444,10 +444,7 @@ uint32_t ProxyBusObject::GetChildren(Platform::WriteOnlyArray<ProxyBusObject ^> 
     size_t result = -1;
 
     while (true) {
-        if (nullptr != children && children->Length < 1) {
-            status = ER_BAD_ARG_1;
-            break;
-        } else if (nullptr != children) {
+        if (nullptr != children && children->Length > 0) {
             pboArray = new ajn::ProxyBusObject *[children->Length];
             if (NULL == pboArray) {
                 status = ER_OUT_OF_MEMORY;
@@ -875,6 +872,13 @@ _ProxyBusObject::_ProxyBusObject(BusAttachment ^ b, ajn::ProxyBusObject* proxybu
             status = ER_OUT_OF_MEMORY;
             break;
         }
+        AllJoyn::MessageReceiver ^ receiver =  ref new AllJoyn::MessageReceiver(b);
+        if (nullptr == receiver) {
+            status = ER_OUT_OF_MEMORY;
+            break;
+        }
+        _eventsAndProperties->Receiver = receiver;
+
         _eventsAndProperties->IntrospectRemoteObject += ref new IntrospectRemoteObjectHandler([&] (QStatus status, AllJoyn::ProxyBusObject ^ obj, Platform::Object ^ context)->QStatus {
                                                                                                   return DefaultIntrospectRemoteObjectHandler(status, obj, context);
                                                                                               });
