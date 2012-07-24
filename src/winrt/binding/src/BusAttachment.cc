@@ -1461,7 +1461,7 @@ void _BusAttachment::JoinSessionCB(::QStatus s, ajn::SessionId sessionId, const 
 
 void _BusAttachment::DispatchCallback(Windows::UI::Core::DispatchedHandler ^ callback)
 {
-    void* srcThreadHandle = reinterpret_cast<void*>(qcc::Thread::GetThread());
+    void* destThreadHandle = reinterpret_cast<void*>(qcc::Thread::GetThread());
     Windows::UI::Core::CoreWindow ^ window = Windows::UI::Core::CoreWindow::GetForCurrentThread();
     Windows::UI::Core::CoreDispatcher ^ dispatcher = nullptr;
     if (nullptr != window) {
@@ -1471,14 +1471,14 @@ void _BusAttachment::DispatchCallback(Windows::UI::Core::DispatchedHandler ^ cal
         // If we are an UI thread, but in the wrong UI thread (a different STA compartment) this will propagate an error.
         // This is correct behavior. It is an error to mix objects between STA compartments.
         Windows::Foundation::IAsyncAction ^ op = _dispatcher->RunAsync(Windows::UI::Core::CoreDispatcherPriority::Normal,
-                                                                       ref new Windows::UI::Core::DispatchedHandler([this, srcThreadHandle, callback] () {
+                                                                       ref new Windows::UI::Core::DispatchedHandler([this, destThreadHandle, callback] () {
                                                                                                                         ajn::LocalEndpoint& localEndpoint = GetInternal().GetLocalEndpoint();
                                                                                                                         // Set up the default state for the dispatch timer on this thread
                                                                                                                         localEndpoint.GetDispatcher().AllocThreadState();
                                                                                                                         // Call the handler
                                                                                                                         callback();
                                                                                                                         // Marshall thread state into the dispatch timer
-                                                                                                                        void* destThreadHandle = reinterpret_cast<void*>(qcc::Thread::GetThread());
+                                                                                                                        void* srcThreadHandle = reinterpret_cast<void*>(qcc::Thread::GetThread());
                                                                                                                         localEndpoint.GetDispatcher().MarshalThreadState(srcThreadHandle, destThreadHandle);
                                                                                                                         // Tear down to restore state and not leak objects in the state map
                                                                                                                         localEndpoint.GetDispatcher().DeleteThreadState();
