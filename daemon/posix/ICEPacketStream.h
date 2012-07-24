@@ -81,6 +81,20 @@ class ICEPacketStream : public PacketStream {
     bool HasSocket() { return sock != SOCKET_ERROR; }
 
     /**
+     * Get the PacketEngineAcceptCB timeout alarm.
+     *
+     * @return Alarm used to indicate PacketEngineAccept timeout.
+     */
+    const qcc::Alarm& GetTimeoutAlarm() const { return timeoutAlarm; }
+
+    /**
+     * Set the PacketEngineAcceptCB timeout alarm.
+     *
+     * @param timeoutAlarm    Alarm used to indicate PacketEngine accept timeout.
+     */
+    void SetTimeoutAlarm(const qcc::Alarm& timeoutAlarm) { this->timeoutAlarm = timeoutAlarm; }
+
+    /**
      * Get UDP port.
      */
     uint16_t GetPort() const { return port; }
@@ -262,6 +276,7 @@ class ICEPacketStream : public PacketStream {
     Mutex sendLock;
     uint8_t* rxRenderBuf;
     uint8_t* txRenderBuf;
+    qcc::Alarm timeoutAlarm;
 
     /**
      * Compose a STUN message with the passed in data.

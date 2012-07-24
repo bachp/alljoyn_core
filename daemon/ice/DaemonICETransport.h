@@ -484,8 +484,12 @@ class DaemonICETransport : public Transport, public RemoteEndpoint::EndpointList
     class AllocateICESessionThread : public Thread, public ThreadListener {
       public:
         AllocateICESessionThread(DaemonICETransport* transportObj, String clientGUID)
-            : Thread("AllocateICESessionThread"), transportObj(transportObj), clientGUID(clientGUID) { }
+            : Thread("AllocateICESessionThread"), transportObj(transportObj), clientGUID(clientGUID), pktStream(NULL) { }
 
+        /* Virtual destructor is needed to ensure that base class destructors get run */
+        virtual ~AllocateICESessionThread() { }
+
+        /* Called when thread instance exits */
         void ThreadExit(Thread* thread);
 
       protected:
@@ -494,6 +498,7 @@ class DaemonICETransport : public Transport, public RemoteEndpoint::EndpointList
       private:
         DaemonICETransport* transportObj;
         String clientGUID;
+        ICEPacketStream* pktStream;
     };
 
     std::vector<AllocateICESessionThread*> allocateICESessionThreads;  /**< List of outstanding AllocateICESession requests */
