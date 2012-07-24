@@ -1289,6 +1289,7 @@ ThreadReturn STDCALL DaemonICETransport::AllocateICESessionThread::Run(void* arg
                                     QCC_LogError(status, ("DaemonICETransport::AllocateICESessionThread::Run(): Unable to start the ICE Checks"));
                                 }
                             } else {
+                            	status = ER_FAIL;
                                 QCC_LogError(status, ("DaemonICETransport::AllocateICESessionThread::Run(): Not starting the ICE checks: candidates.empty()=%d peerCandidates.empty()=%d", candidates.empty(), peerCandidates.empty()));
                             }
                         } else {
@@ -1904,6 +1905,7 @@ QStatus DaemonICETransport::Connect(const char* connectSpec, const SessionOpts& 
                                     QCC_LogError(status, ("DaemonICETransport::Connect(): Unable to start the ICE Checks"));
                                 }
                             } else {
+                            	status = ER_FAIL;
                                 QCC_LogError(status, ("DaemonICETransport::Connect(): Not starting the ICE checks: candidates.empty()=%d peerCandidates.empty()=%d", candidates.empty(), peerCandidates.empty()));
                             }
                         } else if (status == ER_TIMEOUT) {
