@@ -1723,8 +1723,10 @@ QStatus DaemonICETransport::Connect(const char* connectSpec, const SessionOpts& 
          * same destination (normSpec) will wait for this join's ICE dance to complete.
          */
         ICEPacketStream pks;
-        pktStreamMap.insert(pair<String, pair<ICEPacketStream, int32_t> >(normSpec, pair<ICEPacketStream, int32_t>(pks, 1))).first;
-        pktStream = &pktStreamMap[normSpec].first;
+        std::pair<std::map<qcc::String, std::pair<ICEPacketStream, int32_t> >::iterator, bool> ins =
+            pktStreamMap.insert(std::make_pair(normSpec, pair<ICEPacketStream, int32_t>(pks, 1)));
+        pktStream = &(ins.first->second.first);
+        bool is_valid = false;
         pktStreamMapLock.Unlock();
 
         /*
@@ -1852,6 +1854,7 @@ QStatus DaemonICETransport::Connect(const char* connectSpec, const SessionOpts& 
 
                                                 /* Wrap ICE session FD in a new ICEPacketStream (and reset ref count) */
                                                 *pktStream = ICEPacketStream(*iceSession, *stun, *selectedCandidatePairList[0]);
+                                                is_valid = true;
 
                                                 /* Start ICEPacketStream */
                                                 status = pktStream->Start();
@@ -1923,6 +1926,14 @@ QStatus DaemonICETransport::Connect(const char* connectSpec, const SessionOpts& 
         } else {
             QCC_LogError(status, ("DaemonICETransport::Connect(): AllocateSession failed"));
         }
+
+        // the object at [pktStream] is not properly initialized
+        if (!is_valid) {
+            pktStreamMapLock.Lock();
+            pktStream = NULL;
+            pktStreamMap.erase(ins.first);
+            pktStreamMapLock.Unlock();
+        }
     } else {
         /*
          * Attempt to reuse existing pktStream.
@@ -1936,6 +1947,9 @@ QStatus DaemonICETransport::Connect(const char* connectSpec, const SessionOpts& 
             pktStream = AcquireICEPacketStream(normSpec);
         }
     }
+
+
+
 
     /* If we created or reused an ICEPacketStream, the wrap it in a DamonICEEndpoint */
     DaemonICEEndpoint* conn = NULL;
