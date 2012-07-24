@@ -184,5 +184,12 @@ int main(int argc, char** argv)
         status = TestRemarshal(&arg, 1);
     }
 
+    if (status == ER_OK) {
+        QCC_SyncPrintf("\n PASSED ");
+    } else {
+        QCC_SyncPrintf("\n FAILED ");
+    }
+    printf("\n");
+
     return 0;
 }
