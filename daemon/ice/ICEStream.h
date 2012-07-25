@@ -87,6 +87,7 @@ class ICEStream {
                          Component*& component,
                          Component*& implicitComponent);
 
+    void RemoveComponent(Component* component);
 
     /// const_iterator typedef.
     typedef vector<Component*>::const_iterator const_iterator;

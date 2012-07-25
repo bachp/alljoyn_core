@@ -1022,11 +1022,10 @@ QStatus ICESession::GatherHostCandidates(bool enableIpv6)
     if (addHostCandidates) {
         // add candidates per network interface list
         AdapterUtil::const_iterator networkInterfaceIter;
-
+        AdapterUtil::GetAdapterUtil()->ForceUpdate();
         AdapterUtil::GetAdapterUtil()->GetLock();
 
         for (networkInterfaceIter = AdapterUtil::GetAdapterUtil()->Begin(); networkInterfaceIter != AdapterUtil::GetAdapterUtil()->End(); ++networkInterfaceIter) {
-
             QCC_DbgPrintf(("network adapter = %s networkInterfaceIter->addr.IsIPv6() = %d", networkInterfaceIter->addr.ToString().c_str(), networkInterfaceIter->addr.IsIPv6()));
 
             // Ignore IPv6 interfaces if IPv6 support is disabled
@@ -1039,7 +1038,8 @@ QStatus ICESession::GatherHostCandidates(bool enableIpv6)
 
             if (status != ER_OK) {
                 QCC_LogError(status, ("component->CreateHostCandidate"));
-                break;
+                stream->RemoveComponent(component);
+                delete component;
             }
 
             if (NULL != implicitComponent) {
@@ -1048,7 +1048,7 @@ QStatus ICESession::GatherHostCandidates(bool enableIpv6)
 
                 if (status != ER_OK) {
                     QCC_LogError(status, ("implicitComponent->CreateHostCandidate"));
-                    break;
+                    delete implicitComponent;
                 }
             }
         }
