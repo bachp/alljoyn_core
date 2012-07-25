@@ -97,7 +97,6 @@ void ClientRouter::UnregisterEndpoint(BusEndpoint& endpoint)
          * Let the bus know that the local endpoint disconnected
          */
         localEndpoint->GetBus().GetInternal().LocalEndpointDisconnected();
-        localEndpoint = NULL;
     } else if (&endpoint == nonLocalEndpoint) {
         nonLocalEndpoint = NULL;
     }
