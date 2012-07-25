@@ -1279,7 +1279,8 @@ ThreadReturn STDCALL DaemonICETransport::AllocateICESessionThread::Run(void* arg
                                                      * and then not following through with a PacketEngine connect.
                                                      */
                                                     if (status == ER_OK) {
-                                                        pktStream->SetTimeoutAlarm(Alarm(PACKET_ENGINE_ACCEPT_TIMEOUT_MS, transportObj, 0, pktStream));
+                                                        uint32_t zero = 0;
+                                                        pktStream->SetTimeoutAlarm(Alarm(PACKET_ENGINE_ACCEPT_TIMEOUT_MS, transportObj, pktStream, zero));
                                                         status = transportObj->daemonICETransportTimer.AddAlarm(pktStream->GetTimeoutAlarm());
                                                     }
 
@@ -2478,11 +2479,11 @@ QStatus DaemonICETransport::GetNewTokensFromServer(bool client, STUNServerInfo& 
     return status;
 }
 
-void DaemonICETransport::AlarmTriggered(const qcc::Alarm& alarm, QStatus alarmStatus)
+void DaemonICETransport::AlarmTriggered(const Alarm& alarm, QStatus reason)
 {
     QCC_DbgPrintf(("DaemonICETransport::AlarmTriggered()"));
 
-    ICEPacketStream* ps = static_cast<ICEPacketStream*>(alarm.GetContext());
+    ICEPacketStream* ps = static_cast<ICEPacketStream*>(alarm->GetContext());
 
     /* Make sure PacketStream is still alive before calling nat/refresh code */
     QStatus status = AcquireICEPacketStreamByPointer(ps);

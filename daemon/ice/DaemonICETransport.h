@@ -431,7 +431,7 @@ class DaemonICETransport : public Transport, public RemoteEndpoint::EndpointList
      * @internal
      * @brief Alarm handler
      */
-    void AlarmTriggered(const qcc::Alarm& alarm, QStatus status);
+    void AlarmTriggered(const Alarm& alarm, QStatus reason);
 
     /**
      * PacketEngineAccept callback
