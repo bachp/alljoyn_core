@@ -56,6 +56,8 @@ DaemonLauncher* NullTransport::daemonLauncher;
  */
 class NullEndpoint : public BusEndpoint {
 
+    friend class NullTransport;
+
   public:
 
     NullEndpoint(BusAttachment& clientBus, BusAttachment& daemonBus);
@@ -224,23 +226,21 @@ QStatus NullTransport::LinkBus(BusAttachment* otherBus)
 {
     QCC_DbgHLPrintf(("Linking client and daemon busses"));
 
-    daemonBus = otherBus;
-    endpoint = new NullEndpoint(bus, *daemonBus);
+    endpoint = new NullEndpoint(bus, *otherBus);
     /*
      * The compression rules are shared between the client bus and the daemon bus
      */
-    bus.GetInternal().OverrideCompressionRules(daemonBus->GetInternal().GetCompressionRules());
+    bus.GetInternal().OverrideCompressionRules(otherBus->GetInternal().GetCompressionRules());
     /*
      * Register the null endpoint with the daemon router. The client is registered as soon as we
      * receive a message from the daemon. This will happen as soon as the daemon has completed
      * the registration.
      */
     QCC_DbgHLPrintf(("Registering null endpoint with daemon"));
-    QStatus status = daemonBus->GetInternal().GetRouter().RegisterEndpoint(*endpoint, false);
+    QStatus status = otherBus->GetInternal().GetRouter().RegisterEndpoint(*endpoint, false);
     if (status != ER_OK) {
         delete endpoint;
         endpoint = NULL;
-        daemonBus = NULL;
     }
     return status;
 }
@@ -255,7 +255,6 @@ QStatus NullTransport::Connect(const char* connectSpec, const SessionOpts& opts,
     if (!daemonLauncher) {
         return ER_BUS_TRANSPORT_NOT_AVAILABLE;
     }
-    assert(!daemonBus);
     assert(!endpoint);
 
     status = daemonLauncher->Start(this);
@@ -270,12 +269,13 @@ QStatus NullTransport::Connect(const char* connectSpec, const SessionOpts& opts,
 
 QStatus NullTransport::Disconnect(const char* connectSpec)
 {
-    delete endpoint;
-    endpoint = NULL;
-    if (daemonBus) {
+    NullEndpoint* ep = reinterpret_cast<NullEndpoint*>(endpoint);
+    if (ep) {
+        endpoint = NULL;
+        ep->closing = true;
         assert(daemonLauncher);
         daemonLauncher->Stop(this);
-        daemonBus = NULL;
+        delete ep;
     }
     return ER_OK;
 }
