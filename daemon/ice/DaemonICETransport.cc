@@ -856,6 +856,11 @@ QStatus DaemonICETransport::Join(void)
     /* Join the timer */
     daemonICETransportTimer.Join();
 
+    /* Join the discovery manager */
+    if (m_dm) {
+        m_dm->Join();
+    }
+
     m_stopping = false;
 
     return ER_OK;
@@ -1982,9 +1987,14 @@ QStatus DaemonICETransport::Connect(const char* connectSpec, const SessionOpts& 
         }
     }
 
+    /* Make sure we have a pktStream */
+    if (!pktStream || !pktStream->HasSocket()) {
+        status = ER_BUS_CONNECT_FAILED;
+    }
+
     /* If we created or reused an ICEPacketStream, the wrap it in a DamonICEEndpoint */
     DaemonICEEndpoint* conn = NULL;
-    if ((status == ER_OK) && pktStream) {
+    if (status == ER_OK) {
         conn = new DaemonICEEndpoint(this, m_bus, false, normSpec, *pktStream);
         /* Setup the PacketEngine connection */
         status = conn->PacketEngineConnect(pktStream->GetICERemoteAddr(), pktStream->GetICERemotePort());
