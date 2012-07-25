@@ -2031,6 +2031,8 @@ QStatus DiscoveryManager::HandleAddressCandidatesResponse(AddressCandidatesRespo
             QCC_DbgPrintf(("DiscoveryManager::HandleAddressCandidatesResponse(): Invoking the AllocateICESession callback\n"));
             (*iceCallback)(ALLOCATE_ICE_SESSION, response.peerAddr, &wkn, 0xFF);
         }
+
+        invokedAllocateICESession = true;
     }
 
     if ((!invokedAllocateICESession) && (!invokedStartICEChecks)) {

@@ -388,7 +388,7 @@ void* DaemonICEEndpoint::AuthThread::Run(void* arg)
          * next thing we do is exit.
          */
         conn->m_authState = AUTH_FAILED;
-        // TODO: need to wake the transport thread to cleanup the failed endpoint
+        conn->m_transport->wakeDaemonICETransportRun.SetEvent();
         return (void*)ER_FAIL;
     }
 
@@ -420,7 +420,7 @@ void* DaemonICEEndpoint::AuthThread::Run(void* arg)
          * next thing we do is exit.
          */
         conn->m_authState = AUTH_FAILED;
-        // TODO: need to wake the transport thread to cleanup the failed endpoint
+        conn->m_transport->wakeDaemonICETransportRun.SetEvent();
         return (void*)status;
     }
 
@@ -449,6 +449,7 @@ void* DaemonICEEndpoint::AuthThread::Run(void* arg)
      * without being worried about blocking since the next thing we do is exit.
      */
     conn->m_authState = AUTH_SUCCEEDED;
+
     return (void*)status;
 }
 
@@ -1040,7 +1041,8 @@ void DaemonICETransport::SendSTUNKeepAliveAndTURNRefreshRequest(ICEPacketStream&
     }
 
     /* Reload the alarm */
-    Alarm keepAliveAlarm(icePktStream.GetStunKeepAlivePeriod(), this, 0, reinterpret_cast<void*>(&icePktStream));
+    AlarmContext* ctx = new AlarmContext(&icePktStream);
+    Alarm keepAliveAlarm(icePktStream.GetStunKeepAlivePeriod(), this, 0, ctx);
     status = daemonICETransportTimer.AddAlarm(keepAliveAlarm);
     if (status != ER_OK) {
         QCC_LogError(status, ("DaemonICEEndpoint::SendSTUNKeepAliveAndTURNRefreshRequest(): Unable to add KeepAliveAlarm to daemonICETransportTimer"));
@@ -1099,7 +1101,7 @@ void DaemonICETransport::EndpointExit(RemoteEndpoint* ep)
     /*
      * Wake up the DaemonICETransport loop so that it deals with our passing immediately.
      */
-    Alert();
+    wakeDaemonICETransportRun.SetEvent();
 }
 
 ThreadReturn STDCALL DaemonICETransport::AllocateICESessionThread::Run(void* arg)
@@ -1280,7 +1282,8 @@ ThreadReturn STDCALL DaemonICETransport::AllocateICESessionThread::Run(void* arg
                                                      * and then not following through with a PacketEngine connect.
                                                      */
                                                     if (status == ER_OK) {
-                                                        pktStream->SetTimeoutAlarm(Alarm(PACKET_ENGINE_ACCEPT_TIMEOUT_MS, transportObj, 0, pktStream));
+                                                        AlarmContext* ctx = new AlarmContext(pktStream);
+                                                        pktStream->SetTimeoutAlarm(Alarm(PACKET_ENGINE_ACCEPT_TIMEOUT_MS, transportObj, 0, ctx));
                                                         status = transportObj->daemonICETransportTimer.AddAlarm(pktStream->GetTimeoutAlarm());
                                                     }
 
@@ -1289,7 +1292,8 @@ ThreadReturn STDCALL DaemonICETransport::AllocateICESessionThread::Run(void* arg
                                                          * NAT keepalives or TURN refreshes */
                                                         if ((!pktStream->IsLocalHost()) || (!pktStream->IsRemoteHost())) {
                                                             /* Arm the keep-alive/TURN refresh timer (immediate fire) */
-                                                            transportObj->daemonICETransportTimer.AddAlarm(Alarm(0, transportObj, 0, pktStream));
+                                                            AlarmContext* ctx = new AlarmContext(pktStream);
+                                                            transportObj->daemonICETransportTimer.AddAlarm(Alarm(0, transportObj, 0, ctx));
                                                         }
                                                     } else {
                                                         transportObj->ReleaseICEPacketStream(*pktStream);
@@ -1366,6 +1370,7 @@ void DaemonICETransport::AllocateICESessionThread::ThreadExit(Thread* thread)
 
 void DaemonICETransport::ManageEndpoints(Timespec tTimeout)
 {
+    QCC_DbgPrintf(("DaemonICETransport::ManageEndpoints"));
     m_endpointListLock.Lock(MUTEX_CONTEXT);
 
     /*
@@ -1551,6 +1556,10 @@ void* DaemonICETransport::Run(void* arg)
     checkEvents.push_back(&stopEvent);
     checkEvents.push_back(&wakeDaemonICETransportRun);
 
+    /* Add the DaemonICETransport::Run schedule alarm to the daemonICETransportTimer */
+    AlarmContext* ctx = new AlarmContext();
+    Alarm runAlarm(DAEMON_ICE_TRANSPORT_RUN_SCHEDULING_INTERVAL, this, 0, ctx);
+    status = daemonICETransportTimer.AddAlarm(runAlarm);
 
     while (!IsStopping()) {
         /*
@@ -1560,17 +1569,14 @@ void* DaemonICETransport::Run(void* arg)
          */
         assert(m_dm);
 
-        /*
-         * We have our list of events, so now wait for something to happen
-         * on that list (or get alerted).
-         */
-        signaledEvents.clear();
-
         status = Event::Wait(checkEvents, signaledEvents);
+
         if (ER_OK != status) {
             QCC_LogError(status, ("DaemonICETransport::Run(): Event::Wait failed"));
             break;
         }
+
+        QCC_DbgPrintf(("DaemonICETransport::Run()"));
 
         /*
          * We're back from our Wait() so we have received either the stop or
@@ -1641,12 +1647,16 @@ void* DaemonICETransport::Run(void* arg)
             m_IncomingICESessionsLock.Unlock(MUTEX_CONTEXT);
 
             // Reset the wakeDaemonICETransportRun
-            wakeDaemonICETransportRun.ResetEvent();
+            if (*i == &wakeDaemonICETransportRun) {
+                wakeDaemonICETransportRun.ResetEvent();
+            }
 
             if (status != ER_OK) {
                 QCC_LogError(status, ("DaemonICETransport::Run(): Error accepting new connection. Ignoring..."));
             }
         }
+
+        signaledEvents.clear();
     }
 
     QCC_DbgPrintf(("DaemonICETransport::Run is exiting status=%s", QCC_StatusText(status)));
@@ -1902,7 +1912,8 @@ QStatus DaemonICETransport::Connect(const char* connectSpec, const SessionOpts& 
                                                     /* If we are using the local and remote host candidate, we need not send NAT keepalives or TURN refreshes */
                                                     if ((!pktStream->IsLocalHost()) || (!pktStream->IsRemoteHost())) {
                                                         /* Arm the keep-alive (immediate fire) */
-                                                        daemonICETransportTimer.AddAlarm(Alarm(0, this, 0, pktStream));
+                                                        AlarmContext* ctx = new AlarmContext(pktStream);
+                                                        daemonICETransportTimer.AddAlarm(Alarm(0, this, 0, ctx));
                                                     }
                                                 } else {
                                                     QCC_LogError(status, ("ICEPacketStream.Start or AddPacketStream failed"));
@@ -2359,7 +2370,8 @@ void DaemonICETransport::RecordIncomingICESessions(String guid)
     IncomingICESessions.push_back(guid);
     m_IncomingICESessionsLock.Unlock(MUTEX_CONTEXT);
 
-    // Set the wakeDaemonICETransportRun event
+    // Wake up the DaemonICETransport::Run thread so that the new connection request can
+    // be handled
     wakeDaemonICETransportRun.SetEvent();
 }
 
@@ -2485,23 +2497,51 @@ void DaemonICETransport::AlarmTriggered(const qcc::Alarm& alarm, QStatus alarmSt
 {
     QCC_DbgPrintf(("DaemonICETransport::AlarmTriggered()"));
 
-    ICEPacketStream* ps = static_cast<ICEPacketStream*>(alarm.GetContext());
+    AlarmContext* ctx = reinterpret_cast<AlarmContext*>(alarm.GetContext());
 
-    /* Make sure PacketStream is still alive before calling nat/refresh code */
-    QStatus status = AcquireICEPacketStreamByPointer(ps);
+    switch (ctx->contextType) {
+    case AlarmContext::CONTEXT_NAT_KEEPALIVE:
+    {
+        ICEPacketStream* ps = ctx->pktStream;
 
-    if ((status == ER_OK) && (alarm == ps->GetTimeoutAlarm())) {
-        /* PacketEngine Accept timeout */
-        QCC_DbgPrintf(("DaemonICETransport::AlarmTriggered: Removing pktStream %p due to PacketEngine accept timeout", ps));
-        ReleaseICEPacketStream(*ps);
-        ReleaseICEPacketStream(*ps);
-    } else if (status == ER_OK) {
-        /* Send NAT keep alive and/or turn refresh */
-        SendSTUNKeepAliveAndTURNRefreshRequest(*ps);
-        ReleaseICEPacketStream(*ps);
-    } else {
-        /* Cant find pktStream */
-        QCC_DbgPrintf(("DaemonICETransport::AlarmTriggered: PktStream=%p was not found. keepalive/refresh timer disabled for this pktStream", ps));
+        /* Make sure PacketStream is still alive before calling nat/refresh code */
+        QStatus status = AcquireICEPacketStreamByPointer(ps);
+
+        if ((status == ER_OK) && (alarm == ps->GetTimeoutAlarm())) {
+            /* PacketEngine Accept timeout */
+            QCC_DbgPrintf(("DaemonICETransport::AlarmTriggered: Removing pktStream %p due to PacketEngine accept timeout", ps));
+            ReleaseICEPacketStream(*ps);
+            ReleaseICEPacketStream(*ps);
+        } else if (status == ER_OK) {
+            /* Send NAT keep alive and/or turn refresh */
+            SendSTUNKeepAliveAndTURNRefreshRequest(*ps);
+            ReleaseICEPacketStream(*ps);
+        } else {
+            /* Cant find pktStream */
+            QCC_DbgPrintf(("DaemonICETransport::AlarmTriggered: PktStream=%p was not found. keepalive/refresh timer disabled for this pktStream", ps));
+        }
+        break;
+    }
+
+    case AlarmContext::CONTEXT_SCHEDULE_RUN:
+    {
+        /* Wake up the DaemonICETransport::Run() thread to purge the endpoints*/
+        wakeDaemonICETransportRun.SetEvent();
+
+        /* Reload the alarm */
+        AlarmContext* ctx = new AlarmContext();
+        Alarm runAlarm(DAEMON_ICE_TRANSPORT_RUN_SCHEDULING_INTERVAL, this, 0, ctx);
+        daemonICETransportTimer.AddAlarm(runAlarm);
+
+        break;
+    }
+
+    default:
+    {
+        uint32_t t = static_cast<uint32_t>(ctx->contextType);
+        QCC_LogError(ER_FAIL, ("Received AlarmContext with unknown type (%u)", t));
+        break;
+    }
     }
 }
 
