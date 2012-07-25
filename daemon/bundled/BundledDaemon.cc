@@ -29,7 +29,6 @@
 #include <qcc/StringSource.h>
 #include <qcc/StringUtil.h>
 #include <qcc/Mutex.h>
-#include <qcc/ScopedMutexLock.h>
 #include <qcc/FileStream.h>
 
 #include <alljoyn/BusAttachment.h>
@@ -107,7 +106,7 @@ class BundledDaemon : public DaemonLauncher, public TransportFactoryContainer {
   private:
 
     bool transportsInitialized;
-    volatile int32_t refCount;
+    bool stopping;
     Bus* ajBus;
     BusController* ajBusController;
     Mutex lock;
@@ -128,7 +127,7 @@ bool ExistFile(const char* fileName) {
  */
 static BundledDaemon bundledDaemon;
 
-BundledDaemon::BundledDaemon() : transportsInitialized(false), ajBus(NULL), ajBusController(NULL)
+BundledDaemon::BundledDaemon() : transportsInitialized(false), stopping(false), ajBus(NULL), ajBusController(NULL)
 {
     NullTransport::RegisterDaemonLauncher(this);
 }
@@ -136,16 +135,16 @@ BundledDaemon::BundledDaemon() : transportsInitialized(false), ajBus(NULL), ajBu
 BundledDaemon::~BundledDaemon()
 {
     QCC_DbgPrintf(("BundledDaemon::~BundledDaemon"));
-    lock.Lock();
+    lock.Lock(MUTEX_CONTEXT);
     while (!transports.empty()) {
         set<NullTransport*>::iterator iter = transports.begin();
         NullTransport* trans = *iter;
         transports.erase(iter);
-        lock.Unlock();
+        lock.Unlock(MUTEX_CONTEXT);
         trans->Disconnect("null:");
-        lock.Lock();
+        lock.Lock(MUTEX_CONTEXT);
     }
-    lock.Unlock();
+    lock.Unlock(MUTEX_CONTEXT);
     Join();
 }
 
@@ -156,10 +155,18 @@ QStatus BundledDaemon::Start(NullTransport* nullTransport)
     printf("Using BundledDaemon\n");
 
     /*
-     * Need a mutex around this to prevent more than one BusAttachment from bringing up the
-     * bundled daemon at the same time.
+     * If the bundled daemon is in the process of stopping we need to wait until the operation is
+     * complete (BundledDaemon::Join has exited) before we attempt to start up again.
      */
-    lock.Lock();
+    lock.Lock(MUTEX_CONTEXT);
+    while (stopping) {
+        if (!transports.empty()) {
+            assert(transports.empty());
+        }
+        lock.Unlock(MUTEX_CONTEXT);
+        qcc::Sleep(5);
+        lock.Lock(MUTEX_CONTEXT);
+    }
     if (transports.empty()) {
 #if defined(QCC_OS_ANDROID)
         LoggerSetting::GetLoggerSetting("bundled-daemon", LOG_DEBUG, true, NULL);
@@ -237,7 +244,7 @@ QStatus BundledDaemon::Start(NullTransport* nullTransport)
 
     transports.insert(nullTransport);
 
-    lock.Unlock();
+    lock.Unlock(MUTEX_CONTEXT);
     return ER_OK;
 
 ErrorExit:
@@ -248,37 +255,45 @@ ErrorExit:
         delete ajBus;
         ajBus = NULL;
     }
-    lock.Unlock();
+    lock.Unlock(MUTEX_CONTEXT);
     return status;
 }
 
 void BundledDaemon::Join()
 {
     QCC_DbgPrintf(("BundledDaemon::Join"));
-    lock.Lock();
-    if (transports.empty()) {
-        if (ajBus) {
-            QCC_DbgPrintf(("Joining bundled daemon bus attachment"));
-            ajBus->Join();
-        }
+    lock.Lock(MUTEX_CONTEXT);
+    if (transports.empty() && ajBus) {
+        QCC_DbgPrintf(("Joining bundled daemon bus attachment"));
         delete ajBusController;
         ajBusController = NULL;
         delete ajBus;
         ajBus = NULL;
+        /*
+         * Clear the stopping state
+         */
+        stopping = false;
     }
-    lock.Unlock();
+    lock.Unlock(MUTEX_CONTEXT);
 }
 
 QStatus BundledDaemon::Stop(NullTransport* nullTransport)
 {
     QCC_DbgPrintf(("BundledDaemon::Stop"));
-    lock.Lock();
+    lock.Lock(MUTEX_CONTEXT);
     transports.erase(nullTransport);
     QStatus status = ER_OK;
-    if (transports.empty() && ajBus) {
-        status = ajBus->Stop();
+    if (transports.empty()) {
+        /*
+         * Set the stopping state to block any calls to Start until
+         * after Join() has been called.
+         */
+        stopping = true;
+        if (ajBus) {
+            status = ajBus->Stop();
+        }
     }
-    lock.Unlock();
+    lock.Unlock(MUTEX_CONTEXT);
     return status;
 }
 
