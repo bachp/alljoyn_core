@@ -340,13 +340,16 @@ void LocalEndpoint::Dispatcher::AlarmTriggered(const Alarm& alarm, QStatus reaso
 
 QStatus LocalEndpoint::PushMessage(Message& message)
 {
-    /* Determine if the source of this message is local to the process */
-    bool isLocalSender = bus.GetInternal().GetRouter().FindEndpoint(message->GetSender()) == this;
-
-    if (isLocalSender) {
-        return DoPushMessage(message);
+    if (running) {
+        /* Determine if the source of this message is local to the process */
+        bool isLocalSender = bus.GetInternal().GetRouter().FindEndpoint(message->GetSender()) == this;
+        if (isLocalSender) {
+            return DoPushMessage(message);
+        } else {
+            return dispatcher.DispatchMessage(message);
+        }
     } else {
-        return dispatcher.DispatchMessage(message);
+        return ER_BUS_STOPPING;
     }
 }
 
@@ -881,9 +884,9 @@ QStatus LocalEndpoint::HandleSignal(Message& message)
             status = ER_OK;
         }
     } else {
+#if 0
         list<SignalTable::Entry>::const_iterator first = callList.begin();
         // Disabled Access perms because not useful with bundled daemon
-#if 0
         if (first->member->accessPerms.size() > 0) {
             PeerPermission::PeerPermStatus pps = PeerPermission::CanPeerDoCall(message, first->member->accessPerms);
             if (pps == PeerPermission::PP_DENIED) {
