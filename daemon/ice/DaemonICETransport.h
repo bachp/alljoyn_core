@@ -406,11 +406,20 @@ class DaemonICETransport : public Transport, public RemoteEndpoint::EndpointList
 
     struct AlarmContext {
 
-        AlarmContext(DaemonICEEndpoint* iceendpoint) : endpoint(iceendpoint) { }
+        enum ContextType {
+            CONTEXT_NAT_KEEPALIVE,
+            CONTEXT_SCHEDULE_RUN
+        };
+
+        AlarmContext() : contextType(CONTEXT_SCHEDULE_RUN) { }
+
+        AlarmContext(ICEPacketStream* stream) : contextType(CONTEXT_NAT_KEEPALIVE), pktStream(stream) { }
 
         virtual ~AlarmContext() { }
 
-        DaemonICEEndpoint* endpoint;
+        ContextType contextType;
+
+        ICEPacketStream* pktStream;
     };
 
     /**
@@ -632,6 +641,12 @@ class DaemonICETransport : public Transport, public RemoteEndpoint::EndpointList
      * attacks from "abroad" and trust ourselves implicitly.
      */
     static const uint32_t ALLJOYN_MAX_COMPLETED_CONNECTIONS_ICE_DEFAULT = 50;
+
+    /**
+     * @brief The scheduling interval for the DaemonICETransport::Run thread.
+     */
+    // TODO: PPN - May need to tweak this value
+    static const uint32_t DAEMON_ICE_TRANSPORT_RUN_SCHEDULING_INTERVAL = 5000;
 
     /* Timer used to handle the alarms */
     Timer daemonICETransportTimer;
