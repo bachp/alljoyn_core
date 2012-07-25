@@ -1293,7 +1293,7 @@ ThreadReturn STDCALL DaemonICETransport::AllocateICESessionThread::Run(void* arg
                                                             /* Arm the keep-alive/TURN refresh timer (immediate fire) */
                                                             uint32_t zero = 0;
                                                             AlarmContext* ctx = new AlarmContext(pktStream);
-                                                            transportObj->daemonICETransportTimer.AddAlarm(Alarm(0, transportObj, ctx, zero));
+                                                            transportObj->daemonICETransportTimer.AddAlarm(Alarm(zero, transportObj, ctx, zero));
                                                         }
                                                     } else {
                                                         transportObj->ReleaseICEPacketStream(*pktStream);
@@ -1557,8 +1557,10 @@ void* DaemonICETransport::Run(void* arg)
     checkEvents.push_back(&wakeDaemonICETransportRun);
 
     /* Add the DaemonICETransport::Run schedule alarm to the daemonICETransportTimer */
+    uint32_t zero = 0;
     AlarmContext* ctx = new AlarmContext();
-    Alarm runAlarm(DAEMON_ICE_TRANSPORT_RUN_SCHEDULING_INTERVAL, this, 0, ctx);
+    uint32_t period = DAEMON_ICE_TRANSPORT_RUN_SCHEDULING_INTERVAL;
+    Alarm runAlarm(period, this, ctx, zero);
     status = daemonICETransportTimer.AddAlarm(runAlarm);
 
     while (!IsStopping()) {
@@ -2494,8 +2496,7 @@ void DaemonICETransport::AlarmTriggered(const Alarm& alarm, QStatus reason)
 {
     QCC_DbgPrintf(("DaemonICETransport::AlarmTriggered()"));
 
-
-    ICEPacketStream* ps = static_cast<ICEPacketStream*>(alarm->GetContext());
+    AlarmContext* ctx = reinterpret_cast<AlarmContext*>(alarm->GetContext());
 
     switch (ctx->contextType) {
     case AlarmContext::CONTEXT_NAT_KEEPALIVE:
@@ -2529,7 +2530,8 @@ void DaemonICETransport::AlarmTriggered(const Alarm& alarm, QStatus reason)
         /* Reload the alarm */
         uint32_t zero = 0;
         AlarmContext* ctx = new AlarmContext();
-        Alarm runAlarm(DAEMON_ICE_TRANSPORT_RUN_SCHEDULING_INTERVAL, this, ctx, zero);
+        uint32_t period = DAEMON_ICE_TRANSPORT_RUN_SCHEDULING_INTERVAL;
+        Alarm runAlarm(period, this, ctx, zero);
         daemonICETransportTimer.AddAlarm(runAlarm);
 
         break;
