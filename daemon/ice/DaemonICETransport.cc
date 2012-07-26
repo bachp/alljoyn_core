@@ -1565,7 +1565,8 @@ void* DaemonICETransport::Run(void* arg)
     uint32_t zero = 0;
     AlarmContext* ctx = new AlarmContext();
     uint32_t period = DAEMON_ICE_TRANSPORT_RUN_SCHEDULING_INTERVAL;
-    Alarm runAlarm(period, this, ctx, zero);
+    DaemonICETransport* pTransport = this;
+    Alarm runAlarm(period, pTransport, ctx, zero);
     status = daemonICETransportTimer.AddAlarm(runAlarm);
 
     while (!IsStopping()) {
@@ -2541,7 +2542,8 @@ void DaemonICETransport::AlarmTriggered(const Alarm& alarm, QStatus reason)
         uint32_t zero = 0;
         AlarmContext* ctx = new AlarmContext();
         uint32_t period = DAEMON_ICE_TRANSPORT_RUN_SCHEDULING_INTERVAL;
-        Alarm runAlarm(period, this, ctx, zero);
+        DaemonICETransport* pTransport = this;
+        Alarm runAlarm(period, pTransport, ctx, zero);
         daemonICETransportTimer.AddAlarm(runAlarm);
 
         break;
