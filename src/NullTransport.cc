@@ -176,9 +176,6 @@ NullEndpoint::~NullEndpoint()
 {
     QCC_DbgHLPrintf(("Destroying null endpoint %s", uniqueName.c_str()));
 
-    closing = true;
-    clientBus.GetInternal().GetRouter().UnregisterEndpoint(*this);
-    daemonBus.GetInternal().GetRouter().UnregisterEndpoint(*this);
     /*
      * Don't finalize the destructor while there are threads pushing to this endpoint.
      */
@@ -226,6 +223,8 @@ QStatus NullTransport::LinkBus(BusAttachment* otherBus)
 {
     QCC_DbgHLPrintf(("Linking client and daemon busses"));
 
+    assert(otherBus);
+
     endpoint = new NullEndpoint(bus, *otherBus);
     /*
      * The compression rules are shared between the client bus and the daemon bus
@@ -271,9 +270,11 @@ QStatus NullTransport::Disconnect(const char* connectSpec)
 {
     NullEndpoint* ep = reinterpret_cast<NullEndpoint*>(endpoint);
     if (ep) {
+        assert(daemonLauncher);
         endpoint = NULL;
         ep->closing = true;
-        assert(daemonLauncher);
+        ep->daemonBus.GetInternal().GetRouter().UnregisterEndpoint(*ep);
+        ep->clientBus.GetInternal().GetRouter().UnregisterEndpoint(*ep);
         daemonLauncher->Stop(this);
         delete ep;
     }

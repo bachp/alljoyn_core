@@ -711,6 +711,7 @@ QStatus LocalEndpoint::UnregisterAllHandlers(MessageReceiver* receiver)
 void LocalEndpoint::AlarmTriggered(const Alarm& alarm, QStatus reason)
 {
     ReplyContext* rc = reinterpret_cast<ReplyContext*>(alarm->GetContext());
+    uint32_t serial = rc->serial;
     Message msg(bus);
     QStatus status;
 
@@ -720,24 +721,25 @@ void LocalEndpoint::AlarmTriggered(const Alarm& alarm, QStatus reason)
     rc->callFlags &= ~ALLJOYN_FLAG_ENCRYPTED;
 
     if (running) {
-        QCC_DbgPrintf(("Timed out waiting for METHOD_REPLY with serial %d", rc->serial));
+        QCC_DbgPrintf(("Timed out waiting for METHOD_REPLY with serial %d", serial));
         if (reason == ER_TIMER_EXITING) {
-            msg->ErrorMsg("org.alljoyn.Bus.Exiting", rc->serial);
+            msg->ErrorMsg("org.alljoyn.Bus.Exiting", serial);
         } else {
-            msg->ErrorMsg("org.alljoyn.Bus.Timeout", rc->serial);
+            msg->ErrorMsg("org.alljoyn.Bus.Timeout", serial);
         }
         /*
          * Forward the message via the dispatcher so we conform to our concurrency model.
          */
         status = dispatcher.DispatchMessage(msg);
     } else {
-        status = ER_BUS_STOPPING;
+        msg->ErrorMsg("org.alljoyn.Bus.Exiting", serial);
+        HandleMethodReply(msg);
     }
     /*
      * If the dispatch failed or we are no longer running handle the reply on this thread.
      */
     if (status != ER_OK) {
-        msg->ErrorMsg("org.alljoyn.Bus.Exiting", rc->serial);
+        msg->ErrorMsg("org.alljoyn.Bus.Exiting", serial);
         HandleMethodReply(msg);
     }
 }
