@@ -29,6 +29,7 @@
 #include <qcc/StringSource.h>
 #include <qcc/StringUtil.h>
 #include <qcc/Mutex.h>
+#include <qcc/Thread.h>
 #include <qcc/FileStream.h>
 
 #include <alljoyn/BusAttachment.h>
