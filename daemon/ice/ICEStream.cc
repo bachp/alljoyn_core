@@ -70,7 +70,9 @@ ICEStream::~ICEStream(void)
     // Empty componentList
     while (!componentList.empty()) {
         Component* component = componentList.back();
+	GetSession()->Unlock();
         delete component;
+	GetSession()->Lock();
         componentList.pop_back();
     }
 }
