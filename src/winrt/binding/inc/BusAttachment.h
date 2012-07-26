@@ -109,7 +109,7 @@ class _BusAttachment : protected ajn::BusAttachment, protected ajn::BusAttachmen
     friend class _ProxyBusObjectListener;
     friend class _SessionListener;
     friend class _SessionPortListener;
-    _BusAttachment(const char* applicationName, bool allowRemoteMessages);
+    _BusAttachment(const char* applicationName, bool allowRemoteMessages, uint32_t concurrency);
     ~_BusAttachment();
 
     void DefaultBusAttachmentJoinSessionHandler(QStatus status, ajn::SessionId sessionId, SessionOpts ^ opts, Platform::Object ^ context);
@@ -139,8 +139,8 @@ public ref class BusAttachment sealed {
     /// </summary>
     /// <param name="applicationName">Name of the application.</param>
     /// <param name="allowRemoteMessages">True if this attachment is allowed to receive messages from remote devices.</param>
-    /// <param name="concurrency">The maximum number of concurrent method and signal handlers locally executing.</param>
-    BusAttachment(Platform::String ^ applicationName, bool allowRemoteMessages);
+    /// <param name="concurrency">The maximum number of concurrent method and signal handlers locally executing. This value isn't enforced and only provided for API completeness.</param>
+    BusAttachment(Platform::String ^ applicationName, bool allowRemoteMessages, uint32_t concurrency);
 
     /// <summary>
     /// Get the concurrent method and signal handler limit.

@@ -48,7 +48,7 @@ namespace AllJoyn {
 qcc::Mutex _mutex;
 std::map<void*, void*> _nativeToManagedMap;
 
-BusAttachment::BusAttachment(Platform::String ^ applicationName, bool allowRemoteMessages)
+BusAttachment::BusAttachment(Platform::String ^ applicationName, bool allowRemoteMessages, uint32_t concurrency)
 {
     ::QStatus status = ER_OK;
 
@@ -62,7 +62,7 @@ BusAttachment::BusAttachment(Platform::String ^ applicationName, bool allowRemot
             status = ER_OUT_OF_MEMORY;
             break;
         }
-        _BusAttachment* ba = new _BusAttachment(strApplicationName.c_str(), allowRemoteMessages);
+        _BusAttachment* ba = new _BusAttachment(strApplicationName.c_str(), allowRemoteMessages, concurrency);
         if (NULL == ba) {
             status = ER_OUT_OF_MEMORY;
             break;
@@ -1385,8 +1385,8 @@ uint32_t BusAttachment::Timestamp::get()
     return result;
 }
 
-_BusAttachment::_BusAttachment(const char* applicationName, bool allowRemoteMessages)
-    : BusAttachment(applicationName, allowRemoteMessages), ajn::BusAttachment::JoinSessionAsyncCB(),
+_BusAttachment::_BusAttachment(const char* applicationName, bool allowRemoteMessages, uint32_t concurrency)
+    : BusAttachment(applicationName, allowRemoteMessages, concurrency), ajn::BusAttachment::JoinSessionAsyncCB(),
     _keyStoreListener(nullptr), _authListener(nullptr), _dispatcher(nullptr)
 {
     ::QStatus status = ER_OK;
