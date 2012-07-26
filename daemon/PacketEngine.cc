@@ -1228,7 +1228,7 @@ void PacketEngine::RxPacketThread::HandleConnectRspAck(Packet* p)
 
     /* Channel for this connectRsp should already exist and should be in OPENING state */
     ChannelInfo* ci = engine->AcquireChannelInfo(p->chanId);
-    ConnectRspAlarmContext* ctx = static_cast<ConnectRspAlarmContext*>(ci ? ci->connectRspAlarm.GetContext() : NULL);
+    ConnectRspAlarmContext* ctx = static_cast<ConnectRspAlarmContext*>(ci ? ci->connectRspAlarm->GetContext() : NULL);
     QCC_DbgTrace(("PacketEngine::HandleConnectRspAck(%s)", ci ? engine->ToString(ci->packetStream, p->GetSender()).c_str() : ""));
     if (ci && ctx) {
         /* Disable any connect(Rsp)Alarm retry timer */
@@ -1271,7 +1271,7 @@ void PacketEngine::RxPacketThread::HandleDisconnectReq(Packet* p)
 void PacketEngine::RxPacketThread::HandleDisconnectRsp(Packet* p)
 {
     ChannelInfo* ci = engine->AcquireChannelInfo(p->chanId);
-    DisconnectReqAlarmContext* ctx = static_cast<DisconnectReqAlarmContext*>(ci ? ci->disconnectReqAlarm.GetContext() : NULL);
+    DisconnectReqAlarmContext* ctx = static_cast<DisconnectReqAlarmContext*>(ci ? ci->disconnectReqAlarm->GetContext() : NULL);
     if (ci && ctx) {
         /* Ignore disconnect rsp that has already timed out */
         engine->timer.RemoveAlarm(ci->disconnectReqAlarm);
