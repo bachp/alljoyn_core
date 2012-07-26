@@ -2865,6 +2865,7 @@ void AllJoynObj::ExchangeNamesSignalHandler(const InterfaceDescription::Member* 
                 }
                 ep->DecrementPushCount();
                 AcquireLocks();
+                bit = b2bEndpoints.find(msg->GetRcvEndpointName());
                 it = b2bEndpoints.lower_bound(key);
                 if ((it != b2bEndpoints.end()) && (it->first == key)) {
                     ++it;
@@ -2953,6 +2954,7 @@ void AllJoynObj::NameChangedSignalHandler(const InterfaceDescription::Member* me
                 }
                 ep->DecrementPushCount();
                 AcquireLocks();
+                bit = b2bEndpoints.find(msg->GetRcvEndpointName());
                 it = b2bEndpoints.lower_bound(key);
                 if ((it != b2bEndpoints.end()) && (it->first == key)) {
                     ++it;
