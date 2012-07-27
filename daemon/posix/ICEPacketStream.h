@@ -42,9 +42,12 @@ namespace ajn {
 class ICEPacketStream : public PacketStream {
   public:
 
+	/* The value of 100 accounts for the size of the TURN username attribute. As this is something that is sent
+	 * by the server during run time, there is no way for us to know that statically during initialization.
+	 * Hence the hard-coded value of 100 */
     static const uint32_t STUN_OVERHEAD = StunMessage::HEADER_SIZE + StunAttributeXorPeerAddress::ATTR_SIZE_WITH_HEADER +
                                           StunAttribute::ATTR_HEADER_SIZE + StunAttributeMessageIntegrity::ATTR_SIZE_WITH_HEADER +
-                                          StunAttributeFingerprint::ATTR_SIZE_WITH_HEADER;
+                                          StunAttributeFingerprint::ATTR_SIZE_WITH_HEADER + 100;
 
     /** Construct a PacketDest from a addr,port */
     static PacketDest GetPacketDest(const qcc::IPAddress& addr, uint16_t port);
