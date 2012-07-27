@@ -193,26 +193,28 @@ void BusObject::EmitPropChanged(const char* ifcName, const char* propName, MsgAr
     if (ifc && ifc->GetPropertyAnnotation(propName, org::freedesktop::DBus::AnnotateEmitsChanged, emitsChanged)) {
         if (emitsChanged == "true") {
             const InterfaceDescription* bus_ifc = bus.GetInterface(org::freedesktop::DBus::InterfaceName);
-            const InterfaceDescription::Member* propChanged = bus_ifc->GetMember("PropertiesChanged");
+            const InterfaceDescription::Member* propChanged = (bus_ifc ? bus_ifc->GetMember("PropertiesChanged") : NULL);
 
-            MsgArg args[3];
-            args[0].Set("s", ifcName);
-            MsgArg str("{sv}", propName, &val);
-            args[1].Set("a{sv}", 1, &str);
-            args[2].Set("as", 0, NULL);
-
-            Signal(NULL, id, *propChanged, args, ArraySize(args));
+            if (NULL != propChanged) {
+                MsgArg args[3];
+                args[0].Set("s", ifcName);
+                MsgArg str("{sv}", propName, &val);
+                args[1].Set("a{sv}", 1, &str);
+                args[2].Set("as", 0, NULL);
+                Signal(NULL, id, *propChanged, args, ArraySize(args));
+            }
         } else if (emitsChanged == "invalidates") {
             const InterfaceDescription* bus_ifc = bus.GetInterface(org::freedesktop::DBus::InterfaceName);
-            const InterfaceDescription::Member* propChanged = bus_ifc->GetMember("PropertiesChanged");
+            const InterfaceDescription::Member* propChanged = (bus_ifc ? bus_ifc->GetMember("PropertiesChanged") : NULL);
 
-            // EMPTY array, followed by array of strings
-            MsgArg args[3];
-            args[0].Set("s", ifcName);
-            args[1].Set("a{sv}", 0, NULL);
-            args[2].Set("as", 1, &propName);
-
-            Signal(NULL, id, *propChanged, args, ArraySize(args));
+            if (NULL != propChanged) {
+                // EMPTY array, followed by array of strings
+                MsgArg args[3];
+                args[0].Set("s", ifcName);
+                args[1].Set("a{sv}", 0, NULL);
+                args[2].Set("as", 1, &propName);
+                Signal(NULL, id, *propChanged, args, ArraySize(args));
+            }
         }
     }
 }
