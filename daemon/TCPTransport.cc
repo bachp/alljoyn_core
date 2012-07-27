@@ -730,8 +730,6 @@ TCPTransport::~TCPTransport()
     QCC_DbgTrace(("TCPTransport::~TCPTransport()"));
     Stop();
     Join();
-    delete m_ns;
-    m_ns = 0;
 }
 
 void TCPTransport::Authenticated(TCPEndpoint* conn)
