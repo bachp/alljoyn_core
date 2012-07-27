@@ -23,6 +23,7 @@
 
 #include <qcc/platform.h>
 
+#include <memory>
 #include <vector>
 
 #include <qcc/String.h>
