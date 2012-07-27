@@ -686,9 +686,11 @@ QStatus LocalEndpoint::HandleMethodCall(Message& message)
     QStatus status = ER_OK;
 
     /* Look up the member */
-    const MethodTable::Entry* entry = methodTable.Find(message->GetObjectPath(),
-                                                       message->GetInterface(),
-                                                       message->GetMemberName());
+    MethodTable::SafeEntry safeEntry = methodTable.Find(message->GetObjectPath(),
+                                                        message->GetInterface(),
+                                                        message->GetMemberName());
+    const MethodTable::Entry* entry = safeEntry->entry;
+
     if (entry == NULL) {
         if (strcmp(message->GetInterface(), org::freedesktop::DBus::Peer::InterfaceName) == 0) {
             /*
