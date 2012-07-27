@@ -112,4 +112,19 @@ void SocketStream::Recv(Platform::WriteOnlyArray<uint8> ^ buf, int len, Platform
     }
 }
 
+bool SocketStream::CanRead()
+{
+    return (_sockfd->GetEvents() & (int)qcc::winrt::Events::Read) != 0;
+}
+
+bool SocketStream::CanWrite()
+{
+    return (_sockfd->GetEvents() & (int)qcc::winrt::Events::Write) != 0;
+}
+
+void SocketStream::SetBlocking(bool block)
+{
+    _sockfd->SetBlocking(block);
+}
+
 }

@@ -18,36 +18,23 @@
 
 #pragma once
 
-#include <qcc/winrt/SocketWrapper.h>
+#include "SocketStream.h"
 
 namespace AllJoyn {
 
-public ref class SocketStream sealed {
+public delegate void SocketStreamDataReceivedHandler();
+
+public ref class SocketStreamEvent sealed {
   public:
 
-    void SocketDup(Platform::WriteOnlyArray<SocketStream ^> ^ dupSocket);
-
-    void Send(const Platform::Array<uint8> ^ buf, int len, Platform::WriteOnlyArray<int> ^ sent);
-
-    void Recv(Platform::WriteOnlyArray<uint8> ^ buf, int len, Platform::WriteOnlyArray<int> ^ received);
-
-    void SetBlocking(bool block);
-
-    bool CanRead();
-
-    bool CanWrite();
-
-    friend ref class BusAttachment;
-    friend ref class SocketStreamEvent;
+    SocketStreamEvent(SocketStream ^ sockStream);
+    event SocketStreamDataReceivedHandler ^ DataReceived;
 
   private:
 
-    SocketStream(qcc::winrt::SocketWrapper ^ sockfd);
-
-    SocketStream();
-    ~SocketStream();
-
-    qcc::winrt::SocketWrapper ^ _sockfd;
+    ~SocketStreamEvent();
+    void DefaultSocketStreamDataReceivedHandler();
+    void SocketEventsChangedHandler(Platform::Object ^ source, int events);
 };
 
 }
