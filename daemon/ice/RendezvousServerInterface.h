@@ -44,8 +44,6 @@
 using namespace qcc;
 using namespace std;
 
-#define PROPOSED_INTERFACE_CHANGES
-
 namespace ajn {
 
 /**
@@ -111,6 +109,12 @@ const String TokenRefreshUri = RendezvousServerAddress + RendezvousProtocolVersi
 /* Buffer time to subtract from the token expiry time specified by the Rendezvous Server so that we try to get new tokens
  * before the old tokens actually expire at the Server */
 const uint32_t TURN_TOKEN_EXPIRY_TIME_BUFFER_IN_SECONDS = 60;
+
+/* Acceptable max size of the TURN token in bytes */
+const uint32_t TURN_ACCT_TOKEN_MAX_SIZE = 90;
+
+/* Attribute size of the TURN account token */
+const uint32_t TURN_ACCT_TOKEN_ATTRIBUTE_HEADER_SIZE = 10;
 
 /**
  * Base InterfaceMessage class

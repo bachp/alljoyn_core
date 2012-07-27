@@ -665,12 +665,7 @@ QStatus DaemonICETransport::Start()
     }
 
     /* Start the PacketEngine */
-    /* Assuming that the MTU size of the interface is 1500 bytes, the total STUN overhead when sending
-     * data through the relay is 172 bytes/packet. Hence the max MTU for data would be 1328 bytes.
-     * This needs to be hard-coded here because PacketEngine does not allow us to set the MTU per
-     * packet stream instead it needs to know the max value when it is started so that it may allocate
-     * packet pools appropriately.*/
-    status = m_packetEngine.Start(1328);
+    status = m_packetEngine.Start(MAX_ICE_MTU);
     if (status != ER_OK) {
         QCC_LogError(status, ("DaemonICETransport::Start(): PacketEngine::Start failed"));
         return status;
