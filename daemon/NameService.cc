@@ -1160,9 +1160,12 @@ void NameService::SetCriticalParameters(
 
 void NameService::SetCallback(Callback<void, const qcc::String&, const qcc::String&, vector<qcc::String>&, uint8_t>* cb)
 {
+    Callback<void, const qcc::String&, const qcc::String&, vector<qcc::String>&, uint8_t>*  goner = m_callback;
+
     QCC_DbgPrintf(("NameService::SetCallback()"));
 
-    delete m_callback;
+    m_callback = NULL;
+    delete goner;
     m_callback = cb;
 }
 
