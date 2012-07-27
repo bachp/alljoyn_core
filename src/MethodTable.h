@@ -27,6 +27,8 @@
 
 #include <qcc/String.h>
 #include <qcc/Mutex.h>
+#include <qcc/Thread.h>
+#include <qcc/atomic.h>
 
 #include <alljoyn/BusObject.h>
 #include <alljoyn/InterfaceDescription.h>
@@ -56,7 +58,15 @@ class MethodTable {
               MessageReceiver::MethodHandler handler,
               const InterfaceDescription::Member* member,
               void* context)
-            : object(object), handler(handler), member(member), context(context), ifaceStr(member->iface->GetName()), methodStr(member->name) { }
+            : object(object), handler(handler), member(member), context(context), ifaceStr(member->iface->GetName()), methodStr(member->name),
+              refCount(0) { }
+
+        ~Entry()
+        {
+            while (0 != refCount) {
+                qcc::Sleep(1);
+            }
+        }
 
         /**
          * Construct an empty Entry.
@@ -69,7 +79,29 @@ class MethodTable {
         void* context;                                 /**<  Optional context provided when handler was registered */
         qcc::String ifaceStr;                          /**<  Interface string */
         qcc::String methodStr;                         /**<  Method string */
+        mutable volatile int32_t refCount;
     };
+
+    struct _SafeEntry {
+        _SafeEntry() : entry(NULL) {   }
+
+        ~_SafeEntry()
+        {
+            if (NULL != entry) {
+                qcc::DecrementAndFetch(&(entry->refCount));
+            }
+        }
+
+        void Set(Entry* entry)
+        {
+            qcc::IncrementAndFetch(&(entry->refCount));
+            this->entry = entry;
+        }
+
+        const Entry* entry;
+    };
+
+    typedef std::auto_ptr<_SafeEntry> SafeEntry;
 
     /**
      * Destructor
@@ -98,7 +130,7 @@ class MethodTable {
      *      - Entry that matches objectPath, interface and method
      *      - NULL if not found
      */
-    const Entry* Find(const char* objectPath, const char* iface, const char* methodName);
+    SafeEntry Find(const char* objectPath, const char* iface, const char* methodName);
 
     /**
      * Remove all hash entries related to the specified object.
@@ -168,7 +200,8 @@ class MethodTable {
     };
 
     /** The hash table */
-    STL_NAMESPACE_PREFIX::unordered_map<Key, Entry*, Hash, Equal> hashTable;
+    typedef STL_NAMESPACE_PREFIX::unordered_map<Key, Entry*, Hash, Equal> MapType;
+    MapType hashTable;
 };
 
 }

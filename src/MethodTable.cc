@@ -36,12 +36,12 @@ namespace ajn {
 MethodTable::~MethodTable()
 {
     lock.Lock(MUTEX_CONTEXT);
-    STL_NAMESPACE_PREFIX::unordered_map<Key, Entry*, Hash, Equal>::iterator iter = hashTable.begin();
+    MapType::iterator iter = hashTable.begin();
     while (iter != hashTable.end()) {
         delete iter->second;
-        hashTable.erase(iter);
-        iter = hashTable.begin();
     }
+
+    hashTable.clear();
     lock.Unlock(MUTEX_CONTEXT);
 }
 
@@ -61,16 +61,16 @@ void MethodTable::Add(BusObject* object,
     lock.Unlock(MUTEX_CONTEXT);
 }
 
-const MethodTable::Entry* MethodTable::Find(const char* objectPath,
+MethodTable::SafeEntry MethodTable::Find(const char* objectPath,
                                             const char* iface,
                                             const char* methodName)
 {
-    const Entry* entry = NULL;
+    SafeEntry entry(new _SafeEntry());
     Key key(objectPath, iface, methodName);
     lock.Lock(MUTEX_CONTEXT);
-    STL_NAMESPACE_PREFIX::unordered_map<Key, Entry*, Hash, Equal>::iterator iter = hashTable.find(key);
+    MapType::iterator iter = hashTable.find(key);
     if (iter != hashTable.end()) {
-        entry = iter->second;
+        entry->Set(iter->second);
     }
     lock.Unlock(MUTEX_CONTEXT);
     return entry;
@@ -78,7 +78,7 @@ const MethodTable::Entry* MethodTable::Find(const char* objectPath,
 
 void MethodTable::RemoveAll(BusObject* object)
 {
-    STL_NAMESPACE_PREFIX::unordered_map<Key, Entry*, Hash, Equal>::iterator iter;
+    MapType::iterator iter;
     /*
      * Iterate over all entries deleting all entries that reference the object
      */
