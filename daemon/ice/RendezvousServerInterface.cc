@@ -631,6 +631,9 @@ QStatus ParseMessagesResponse(Json::Value receivedResponse, ResponseMessage& par
                                                                 QCC_DbgPrintf(("ParseMessagesResponse(): Setting the port to default value as match[STUNInfo][port] member was not found"));
                                                             }
                                                             SearchMatch->STUNInfo.acct = String(STUNInfoObj[acct].asCString());
+                                                            if (SearchMatch->STUNInfo.acct.size() > TURN_ACCT_TOKEN_MAX_SIZE) {
+                                                                QCC_LogError(ER_FAIL, ("%s: Size of the TURN acct token (%u) is greater than max allowed %u", __FUNCTION__, SearchMatch->STUNInfo.acct.size(), TURN_ACCT_TOKEN_MAX_SIZE));
+                                                            }
                                                             SearchMatch->STUNInfo.pwd = String(STUNInfoObj[pwd].asCString());
                                                             SearchMatch->STUNInfo.expiryTime = ((STUNInfoObj[expiryTime].asInt()) - TURN_TOKEN_EXPIRY_TIME_BUFFER_IN_SECONDS) * 1000;
                                                             SearchMatch->STUNInfo.recvTime = GetTimestamp();
@@ -823,6 +826,9 @@ QStatus ParseMessagesResponse(Json::Value receivedResponse, ResponseMessage& par
                                                                             }
 
                                                                             AddressCandidates->STUNInfo.acct = String(STUNInfoObj[acct].asCString());
+                                                                            if (AddressCandidates->STUNInfo.acct.size() > TURN_ACCT_TOKEN_MAX_SIZE) {
+                                                                                QCC_LogError(ER_FAIL, ("%s: Size of the TURN acct token (%u) is greater than max allowed %u", __FUNCTION__, AddressCandidates->STUNInfo.acct.size(), TURN_ACCT_TOKEN_MAX_SIZE));
+                                                                            }
                                                                             AddressCandidates->STUNInfo.pwd = String(STUNInfoObj[pwd].asCString());
                                                                             AddressCandidates->STUNInfo.expiryTime = ((STUNInfoObj[expiryTime].asInt()) - TURN_TOKEN_EXPIRY_TIME_BUFFER_IN_SECONDS) * 1000;
                                                                             AddressCandidates->STUNInfo.recvTime = GetTimestamp();

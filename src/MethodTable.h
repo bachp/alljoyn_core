@@ -68,7 +68,7 @@ class MethodTable {
               const InterfaceDescription::Member* member,
               void* context)
             : object(object), handler(handler), member(member), context(context), ifaceStr(member->iface->GetName()), methodStr(member->name),
-              refCount(0) { }
+            refCount(0) { }
 
         ~Entry()
         {
