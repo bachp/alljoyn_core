@@ -121,7 +121,7 @@ class _BusAttachment : protected ajn::BusAttachment, protected ajn::BusAttachmen
     KeyStoreListener ^ _keyStoreListener;
     AuthListener ^ _authListener;
     Windows::UI::Core::CoreDispatcher ^ _dispatcher;
-	bool _originSTA;
+    bool _originSTA;
     std::map<void*, void*> _busObjectMap;
     std::map<void*, void*> _signalHandlerMap;
     std::map<void*, void*> _busListenerMap;

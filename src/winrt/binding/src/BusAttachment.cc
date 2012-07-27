@@ -1401,7 +1401,7 @@ _BusAttachment::_BusAttachment(const char* applicationName, bool allowRemoteMess
         if (nullptr != window) {
             _dispatcher = window->Dispatcher;
         }
-		_originSTA = IsOriginSTA();
+        _originSTA = IsOriginSTA();
         _eventsAndProperties->JoinSession += ref new BusAttachmentJoinSessionHandler([&] (QStatus status, ajn::SessionId sessionId, SessionOpts ^ opts, Platform::Object ^ context) {
                                                                                          DefaultBusAttachmentJoinSessionHandler(status, sessionId, opts, context);
                                                                                      });
@@ -1468,7 +1468,7 @@ void _BusAttachment::DispatchCallback(Windows::UI::Core::DispatchedHandler ^ cal
         dispatcher = window->Dispatcher;
     }
     if (_originSTA && nullptr != _dispatcher && _dispatcher != dispatcher) {
-		// Our origin was STA and the thread dispatcher doesn't match up. Move execution to the origin dispatcher thread.
+        // Our origin was STA and the thread dispatcher doesn't match up. Move execution to the origin dispatcher thread.
         Windows::Foundation::IAsyncAction ^ op = _dispatcher->RunAsync(Windows::UI::Core::CoreDispatcherPriority::Normal,
                                                                        ref new Windows::UI::Core::DispatchedHandler([callback] () {
                                                                                                                         callback();

@@ -62,8 +62,8 @@ void MethodTable::Add(BusObject* object,
 }
 
 MethodTable::SafeEntry MethodTable::Find(const char* objectPath,
-                                            const char* iface,
-                                            const char* methodName)
+                                         const char* iface,
+                                         const char* methodName)
 {
     SafeEntry entry(new _SafeEntry());
     Key key(objectPath, iface, methodName);
