@@ -28,6 +28,7 @@
 #include <qcc/Logger.h>
 #include <qcc/String.h>
 #include <qcc/Util.h>
+#include <qcc/atomic.h>
 
 #include <Status.h>
 
@@ -44,8 +45,16 @@ using namespace qcc;
 namespace ajn {
 
 
-DaemonRouter::DaemonRouter() : localEndpoint(NULL), ruleTable(), nameTable(), busController(NULL)
+DaemonRouter::DaemonRouter() : endpointRefs(0), closing(false), localEndpoint(NULL), ruleTable(), nameTable(), busController(NULL)
 {
+}
+
+DaemonRouter::~DaemonRouter()
+{
+    closing = true;
+    while (endpointRefs) {
+        qcc::Sleep(1);
+    }
 }
 
 static inline QStatus SendThroughEndpoint(Message& msg, BusEndpoint& ep, SessionId sessionId)
@@ -64,10 +73,19 @@ static inline QStatus SendThroughEndpoint(Message& msg, BusEndpoint& ep, Session
 
 QStatus DaemonRouter::PushMessage(Message& msg, BusEndpoint& origSender)
 {
+    /*
+     * Reference count protects local endpoint from being deregistered while in use.
+     */
+    IncrementAndFetch(&endpointRefs);
+    if (closing) {
+        DecrementAndFetch(&endpointRefs);
+        return ER_BUS_ENDPOINT_CLOSING;
+    }
+    assert(localEndpoint);
+
     QStatus status = ER_OK;
     BusEndpoint* sender = &origSender;
     bool replyExpected = (msg->GetType() == MESSAGE_METHOD_CALL) && ((msg->GetFlags() & ALLJOYN_FLAG_NO_REPLY_EXPECTED) == 0);
-
     const char* destination = msg->GetDestination();
     SessionId sessionId = msg->GetSessionId();
 
@@ -229,6 +247,8 @@ QStatus DaemonRouter::PushMessage(Message& msg, BusEndpoint& origSender)
         }
         sessionCastSetLock.Unlock(MUTEX_CONTEXT);
     }
+
+    DecrementAndFetch(&endpointRefs);
     return status;
 }
 
@@ -350,9 +370,17 @@ void DaemonRouter::UnregisterEndpoint(BusEndpoint& endpoint)
         RemoveAllRules(endpoint);
         PermissionMgr::CleanPermissionCache(endpoint);
     }
-
-    /* Unregister static endpoints */
+    /*
+     * If the local endpoint is being deregistered this indicates the router is being shut down.
+     */
     if (&endpoint == localEndpoint) {
+        closing = true;
+        /*
+         * Wait until there are no pushes in progress.
+         */
+        while (endpointRefs) {
+            qcc::Sleep(1);
+        }
         localEndpoint = NULL;
     }
 }

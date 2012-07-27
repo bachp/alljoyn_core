@@ -59,6 +59,11 @@ class DaemonRouter : public Router {
     DaemonRouter();
 
     /**
+     * Destructor
+     */
+    ~DaemonRouter();
+
+    /**
      * Set the busController associated with this router.
      *
      * @param busController   The bus controller.
@@ -306,7 +311,9 @@ class DaemonRouter : public Router {
     void RemoveSessionRoutes(const char* uniqueName, SessionId id);
 
   private:
+    int32_t endpointRefs;           /**< Reference count tracking endpoints in use */
     LocalEndpoint* localEndpoint;   /**< The local endpoint */
+    bool closing;                   /**< Indicates router is closing */
     RuleTable ruleTable;            /**< Routing rule table */
     NameTable nameTable;            /**< BusName to transport lookupl table */
     BusController* busController;   /**< The bus controller used with this router */
