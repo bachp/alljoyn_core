@@ -125,6 +125,53 @@ bool ExistFile(const char* fileName) {
 
 /*
  * Create the singleton bundled daemon instance.
+ *
+ * Sidebar on starting a bundled daemon
+ * ====================================
+ *
+ * How this works is via a fairly non-obvious mechanism, so we describe the
+ * process here.  If it is desired to use the bundled daemon, the user (for
+ * example bbclient or bbservice) includes this compilation unit.  Since the
+ * following defines a C++ static initializer, an instance of the BundledDaemon
+ * object will be created before any call into a function in this file.  In
+ * Linux, for example, this happens as a result of _init() being called before
+ * the main() function of the program using the bundled daemon.  _init() loops
+ * through the list of compilation units in link order and will eventually call
+ * out to BundledDaemon.cc:__static_initialization_and_destruction_0().  This is
+ * the initializer function for this file which will then calls the constructor
+ * for the BundledDaemon object.  The constructor calls into a static method
+ * (RegisterDaemonLauncher) of the NullTransport to register itself as the
+ * daemon to be launched.  This sets the stage for the use of the bundled
+ * daemon.
+ *
+ * When the program using the bundled daemon tries to connect to a bus
+ * attachment it calls BusAttachment::Connect().  This tries to connect to an
+ * existing first and it that connect does not succeed, it tries to connect over
+ * the NullTransport.
+ *
+ * The NullTransport::Connect() method looks to see if it is running, and if it
+ * is not it looks to see if it has a daemonLauncher.  Recall that the constructor
+ * for the BundledDaemon object registered itself as a daemon launcher, so the
+ * null transport will find the launcher.  The null transport then does a 
+ * daemonLauncher->Start() which calls back into the BundledDaemon::Start() method
+ * below, providing the NullTransport pointer.  The Start() method brings up the
+ * bundled daemon and links the daemon to the bus attachment using the provided
+ * null transport.
+ *
+ * So to summarize, one uses the bundled daemon simply by linking to the object
+ * file corresponding to this source file.  This automagically creates a bundled
+ * daemon static object and registers it with the null transport.  When trying
+ * to connect to a daemon using a bus attachment in the usual way, if there is
+ * no currently running native daemon process, the bus attachment will
+ * automagically try to connect to a registered bundled daemon using the null
+ * transport.  This will start the bundled daemon and then connect to it.
+ *
+ * The client uses the bundled daemon transparently -- it only has to link to it.
+ *
+ * Stopping the bundled daemon happens in the destructor for the C++ static
+ * global object, again transparently to the client.
+ *
+ * It's pretty magical.
  */
 static BundledDaemon bundledDaemon;
 
