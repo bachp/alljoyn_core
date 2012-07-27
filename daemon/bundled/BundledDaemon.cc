@@ -146,17 +146,18 @@ bool ExistFile(const char* fileName) {
  *
  * When the program using the bundled daemon tries to connect to a bus
  * attachment it calls BusAttachment::Connect().  This tries to connect to an
- * existing first and it that connect does not succeed, it tries to connect over
- * the NullTransport.
+ * existing daemon first and if that connect does not succeed, it tries to
+ * connect over the NullTransport to the bundled daemon.
  *
- * The NullTransport::Connect() method looks to see if it is running, and if it
- * is not it looks to see if it has a daemonLauncher.  Recall that the constructor
- * for the BundledDaemon object registered itself as a daemon launcher, so the
- * null transport will find the launcher.  The null transport then does a 
- * daemonLauncher->Start() which calls back into the BundledDaemon::Start() method
- * below, providing the NullTransport pointer.  The Start() method brings up the
- * bundled daemon and links the daemon to the bus attachment using the provided
- * null transport.
+ * The NullTransport::Connect() method looks to see if it (the null transport)
+ * is running, and if it is not it looks to see if it has a daemonLauncher.
+ * Recall that the constructor for the BundledDaemon object registered itself as
+ * a daemon launcher, so the null transport will find the launcher since it
+ * included the object file corresponding to this source.  The null transport
+ * then does a daemonLauncher->Start() which calls back into the bundled daemon
+ * object BundledDaemon::Start() method below, providing the daemon with the
+ * NullTransport pointer.  The Start() method brings up the bundled daemon and
+ * links the daemon to the bus attachment using the provided null transport.
  *
  * So to summarize, one uses the bundled daemon simply by linking to the object
  * file corresponding to this source file.  This automagically creates a bundled
