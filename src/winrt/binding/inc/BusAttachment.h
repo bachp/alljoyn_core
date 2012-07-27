@@ -115,11 +115,13 @@ class _BusAttachment : protected ajn::BusAttachment, protected ajn::BusAttachmen
     void DefaultBusAttachmentJoinSessionHandler(QStatus status, ajn::SessionId sessionId, SessionOpts ^ opts, Platform::Object ^ context);
     void JoinSessionCB(::QStatus status, ajn::SessionId sessionId, const ajn::SessionOpts& opts, void* context);
     void DispatchCallback(Windows::UI::Core::DispatchedHandler ^ callback);
+    bool IsOriginSTA();
 
     __BusAttachment ^ _eventsAndProperties;
     KeyStoreListener ^ _keyStoreListener;
     AuthListener ^ _authListener;
     Windows::UI::Core::CoreDispatcher ^ _dispatcher;
+	bool _originSTA;
     std::map<void*, void*> _busObjectMap;
     std::map<void*, void*> _signalHandlerMap;
     std::map<void*, void*> _busListenerMap;

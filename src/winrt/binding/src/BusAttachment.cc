@@ -1387,7 +1387,7 @@ uint32_t BusAttachment::Timestamp::get()
 
 _BusAttachment::_BusAttachment(const char* applicationName, bool allowRemoteMessages, uint32_t concurrency)
     : BusAttachment(applicationName, allowRemoteMessages, concurrency), ajn::BusAttachment::JoinSessionAsyncCB(),
-    _keyStoreListener(nullptr), _authListener(nullptr), _dispatcher(nullptr)
+    _keyStoreListener(nullptr), _authListener(nullptr), _dispatcher(nullptr), _originSTA(false)
 {
     ::QStatus status = ER_OK;
 
@@ -1401,6 +1401,7 @@ _BusAttachment::_BusAttachment(const char* applicationName, bool allowRemoteMess
         if (nullptr != window) {
             _dispatcher = window->Dispatcher;
         }
+		_originSTA = IsOriginSTA();
         _eventsAndProperties->JoinSession += ref new BusAttachmentJoinSessionHandler([&] (QStatus status, ajn::SessionId sessionId, SessionOpts ^ opts, Platform::Object ^ context) {
                                                                                          DefaultBusAttachmentJoinSessionHandler(status, sessionId, opts, context);
                                                                                      });
@@ -1466,9 +1467,8 @@ void _BusAttachment::DispatchCallback(Windows::UI::Core::DispatchedHandler ^ cal
     if (nullptr != window) {
         dispatcher = window->Dispatcher;
     }
-    if (nullptr != _dispatcher && _dispatcher != dispatcher) {
-        // If we are an UI thread, but in the wrong UI thread (a different STA compartment) this will propagate an error.
-        // This is correct behavior. It is an error to mix objects between STA compartments.
+    if (_originSTA && nullptr != _dispatcher && _dispatcher != dispatcher) {
+		// Our origin was STA and the thread dispatcher doesn't match up. Move execution to the origin dispatcher thread.
         Windows::Foundation::IAsyncAction ^ op = _dispatcher->RunAsync(Windows::UI::Core::CoreDispatcherPriority::Normal,
                                                                        ref new Windows::UI::Core::DispatchedHandler([callback] () {
                                                                                                                         callback();
@@ -1479,9 +1479,23 @@ void _BusAttachment::DispatchCallback(Windows::UI::Core::DispatchedHandler ^ cal
         concurrency::task<void> dispatcherOp(op);
         dispatcherOp.wait();
     } else {
-        // In this case, we either have no dispatcher (no UI threads involved) or we are already in the dispatcher thread
+        // In this case, our source origin is MTA or we are STA with either no dispatcher (no UI threads involved) or we are already in the dispatcher thread
+        // for the STA compartment.
         callback();
     }
+}
+
+bool _BusAttachment::IsOriginSTA()
+{
+    APTTYPE aptType;
+    APTTYPEQUALIFIER aptTypeQualifier;
+    HRESULT hr = ::CoGetApartmentType(&aptType, &aptTypeQualifier);
+    if (SUCCEEDED(hr)) {
+        if (aptType == APTTYPE_MAINSTA || aptType == APTTYPE_STA) {
+            return true;
+        }
+    }
+    return false;
 }
 
 __BusAttachment::__BusAttachment()
