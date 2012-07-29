@@ -1261,7 +1261,10 @@ void PacketEngine::RxPacketThread::HandleAck(Packet* controlPacket)
         if (delta >= ci->windowSize) {
             delta += ci->windowSize;
         }
-        if (IN_WINDOW(uint16_t, ci->remoteRxDrain, ci->windowSize - 1, controlPacket->seqNum) && (delta < ci->windowSize)) {
+        if (IN_WINDOW(uint16_t, ci->remoteRxDrain, ci->windowSize - 1, controlPacket->seqNum) &&
+            IN_WINDOW(uint16_t, ci->txDrain, numeric_limits<uint16_t>::max() >> 1, remoteRxAck) &&
+            (delta < ci->windowSize)) {
+
             ci->remoteRxDrain = remoteRxDrain;
 
             /* Find and validate the packet that this ack refers to */
