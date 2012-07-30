@@ -23,7 +23,6 @@
 
 #include <qcc/platform.h>
 
-#include <memory>
 #include <vector>
 
 #include <qcc/String.h>
@@ -91,10 +90,10 @@ class MethodTable {
         mutable volatile int32_t refCount;
     };
 
-    struct _SafeEntry {
-        _SafeEntry() : entry(NULL) {   }
+    struct SafeEntry {
+        SafeEntry() : entry(NULL) {   }
 
-        ~_SafeEntry()
+        ~SafeEntry()
         {
             if (NULL != entry) {
                 qcc::DecrementAndFetch(&(entry->refCount));
@@ -109,8 +108,6 @@ class MethodTable {
 
         const Entry* entry;
     };
-
-    typedef std::auto_ptr<_SafeEntry> SafeEntry;
 
     /**
      * Destructor
@@ -139,7 +136,7 @@ class MethodTable {
      *      - Entry that matches objectPath, interface and method
      *      - NULL if not found
      */
-    SafeEntry Find(const char* objectPath, const char* iface, const char* methodName);
+    SafeEntry* Find(const char* objectPath, const char* iface, const char* methodName);
 
     /**
      * Remove all hash entries related to the specified object.
