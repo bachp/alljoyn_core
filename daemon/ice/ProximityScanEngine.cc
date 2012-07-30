@@ -268,7 +268,7 @@ void ProximityScanEngine::ProcessScanResults() {
     }
 
 
-    if (no_scan_results_count == 4) {
+    if (no_scan_results_count == 3) {
         request_scan = true;
     } else {
         request_scan = false;
