@@ -29,12 +29,14 @@ import java.util.Enumeration;
 import java.util.HashMap;
 import java.util.Map;
 
+import android.app.AlarmManager;
 import android.app.Application;
 import android.app.Service;
 import android.content.BroadcastReceiver;
 import android.content.Context;
 import android.content.ContextWrapper;
 import android.content.Intent;
+import android.app.PendingIntent;
 import android.content.IntentFilter;
 import android.net.ConnectivityManager;
 import android.net.NetworkInfo;
@@ -71,6 +73,16 @@ public class AllJoynAndroidExt extends Service {
 	
 	WifiManager wifiMgr;
 	
+	AlarmManager alarmMgr;
+	
+	public long lastScanTime;
+	
+	public long currentTime;
+	
+	public Runnable tUpdateTimerRunnable;
+	
+	public Handler tHandler;
+	
 	final int NOT_CONNECTED_TO_ANY_NW = -1;
 	
 //	boolean startScan = false;
@@ -101,18 +113,81 @@ public class AllJoynAndroidExt extends Service {
 	public void onCreate(){
 
 		Log.v(TAG, "onCreate");
+
 		/* We have to create a separate thread which will do all the AllJoyn stuff */
 //		busThread = new HandlerThread("BusHandler");
 //		busThread.start();
 //		mBusHandler = new BusHandler(busThread.getLooper(),this);
 //		mBusHandler.sendEmptyMessage(BusHandler.CONNECT);
+		
+		
 		jniOnCreate(getPackageName());
 		
+	}
+	
+	public void updateTimer(){
+		
+		//
+		// Check if the time since the last scan has been 60 secs
+		// If Not just reset the time since last scan to 60 secs
+		// else
+		// Request a scan
+		//
+//		currentTime = System.currentTimeMillis();
+//		long timeSinceLastScan = lastScanTime - currentTime;
+//		if(timeSinceLastScan >= 60000){
+//			if(!wifiMgr.startScan()){
+//				Log.v(TAG,"startScan() returned error");
+//			}	
+//		} else {
+//			tHandler.postDelayed(tUpdateTimerRunnable, 60000 - timeSinceLastScan);
+//		}
 	}
 	
 	@Override
 	public int onStartCommand(Intent intent, int flags, int startId){
 		Log.v(TAG, "onStartCommand");
+		
+		//currentTime = System.currentTimeMillis();
+		if(receiver == null){
+			// Pass the map and the boolean scanResultsObtained here and use the same map to form the return message 
+			receiver = new ScanResultsReceiver(this);
+			registerReceiver(receiver, new IntentFilter(
+					WifiManager.SCAN_RESULTS_AVAILABLE_ACTION));
+		}
+		if(wifiMgr == null){ 		
+			wifiMgr = (WifiManager)getSystemService(Context.WIFI_SERVICE);
+		}
+
+//		if(tHandler == null){
+//			tHandler = new Handler();
+//		} 
+//		
+//		tUpdateTimerRunnable = new Runnable() {
+//			
+//			@Override
+//			public void run() {
+//				// TODO Auto-generated method stub
+//				updateTimer();
+//			}
+//		};
+//		
+//		tHandler.postDelayed(tUpdateTimerRunnable, 0);
+
+//		if(alarmMgr == null){
+//			alarmMgr = (AlarmManager)getSystemService(Context.ALARM_SERVICE);
+//			Intent alarmIntent = new Intent(this, ScanResultsReceiver.class);
+//			PendingIntent pi = PendingIntent.getBroadcast(this, 0, alarmIntent, 0);
+//			alarmMgr.setRepeating(AlarmManager.RTC_WAKEUP, System.currentTimeMillis(), 1000 * 60 * 10, pi); // Millisec * Second * Minute
+//		}
+		
+		//Start the timer here
+		
+		
+		if(!wifiMgr.startScan()){
+			Log.v(TAG,"startScan() returned error");
+		}
+		
 		return START_STICKY;
 	}
 	
@@ -156,7 +231,7 @@ public class AllJoynAndroidExt extends Service {
 			
 			Log.v(TAG,"---------------------- Scan results request called -------------------------------------------------------- !!!");
 			// Else wifi is turned on and we can proceed with the scan
-			if(request_scan){
+			if(scanResultMessage == null && request_scan){
 				Log.v(TAG,"***************************Requested Scan Results**************************************");
 				// Only a start scan or timeout scan can restart the scan processing so we set this boolean
 //					stopScanRequested = false;
@@ -207,6 +282,32 @@ public class AllJoynAndroidExt extends Service {
 					PrepareScanResults();
 			}
 			else{
+				//
+				// If ScanResultMessage is NULL and a scan was not requested then we need to check it we are still connected to a  
+				// network. 
+				// If Yes then we need to add this network to the scan results that are returned
+				// If Not then we return what we have already received
+				//
+				
+				// There is a corner case here where you are not connected to any network and Scan() function is called when 
+				// it is ok to have scanResultMessage = null so we check if we are connected to any network first
+				
+				boolean isConnected = false; 
+				if(wifiMgr.getConnectionInfo() != null){
+					isConnected = true;
+				}
+						
+				if(scanResultMessage == null && isConnected){
+					scanResultMessage = new ScanResultMessage[1];
+					scanResultMessage[0] = new ScanResultMessage();
+					
+					String currentBSSID = wifiMgr.getConnectionInfo().getBSSID();
+					String currentSSID = wifiMgr.getConnectionInfo().getSSID();
+					
+					scanResultMessage[0].bssid = currentBSSID;
+					scanResultMessage[0].ssid = currentSSID;
+					scanResultMessage[0].attached = true;
+				}
 				Log.v(TAG,"*************************** NOT REQUESTED Scan Results**************************************");
 				PrepareScanResults();
 			}

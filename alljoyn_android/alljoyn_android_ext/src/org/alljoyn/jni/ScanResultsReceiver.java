@@ -19,6 +19,7 @@
  ******************************************************************************/
 package org.alljoyn.jni;
 
+import android.app.AlarmManager;
 import android.content.BroadcastReceiver;
 import android.content.Intent;
 import android.content.Context;
@@ -38,12 +39,14 @@ import java.util.List;
 public class ScanResultsReceiver extends BroadcastReceiver{
 	
 	AllJoynAndroidExt jniProximity;
+	AlarmManager alarmMgr;
 	//
 	// Need a constructor that will take the instance on Proximity Service
 	//
 	public ScanResultsReceiver(AllJoynAndroidExt jniProximity){
 		super();
 		this.jniProximity = jniProximity; 
+		//alarmMgr = (AlarmManager)getSystemService(Context.ALARM_SERVICE);
 	}
 	public ScanResultsReceiver(){
 		super();
@@ -69,6 +72,9 @@ public class ScanResultsReceiver extends BroadcastReceiver{
 			else{
 				Log.v("ScanResultsReceiver", "Result size  = " + Integer.toString(scanResults.size()));
 			}
+			
+			
+			jniProximity.lastScanTime = System.currentTimeMillis();
 			
 			// If scan WAS requested we thrash all old results and just create and entirely new scan Results map
 			// If scan WAS NOT requested we append the results obtained from this scan to our original result
