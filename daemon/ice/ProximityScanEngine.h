@@ -89,8 +89,10 @@ class ProximityScanEngine : public qcc::AlarmListener, public qcc::Thread {
 
 
     bool wifiapDroppped;
-    bool wifiapAdded;
+    //bool wifiapAdded;
+    bool wifiON;
     bool request_scan;
+
 
     std::map<std::pair<qcc::String, qcc::String>, int>   hysteresisMap; /* Map used to keep track of BSSIDs for adding/removal from the final list */
     std::map<std::pair<qcc::String, qcc::String>, bool>  finalMap; /* The Map holding the final set sent to the Rendezvous */
