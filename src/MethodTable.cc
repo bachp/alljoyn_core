@@ -62,15 +62,15 @@ void MethodTable::Add(BusObject* object,
 }
 
 MethodTable::SafeEntry* MethodTable::Find(const char* objectPath,
-                                         const char* iface,
-                                         const char* methodName)
+                                          const char* iface,
+                                          const char* methodName)
 {
     SafeEntry* entry = NULL;
     Key key(objectPath, iface, methodName);
     lock.Lock(MUTEX_CONTEXT);
     MapType::iterator iter = hashTable.find(key);
     if (iter != hashTable.end()) {
-    	entry = new SafeEntry();
+        entry = new SafeEntry();
         entry->Set(iter->second);
     }
     lock.Unlock(MUTEX_CONTEXT);

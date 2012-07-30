@@ -112,7 +112,8 @@ ProximityScanEngine::ProximityScanEngine(DiscoveryManager*dm) : bus(dm->bus) {
     wifiapDroppped = false;
     //wifiapAdded = false;
     wifiON = false;
-    request_scan = false;
+    //request_scan = false;
+    request_scan = true;
     no_scan_results_count = 0;
     discoveryManager = dm;
     proximityScanner = new ProximityScanner(bus);
@@ -256,7 +257,7 @@ void ProximityScanEngine::ProcessScanResults() {
     //    request a scan once in 120 secs apart from what the device is already doing
     //
 
-    if (proximityScanner->scanResults.size() == 0) {
+    if (proximityScanner->scanResults.size() <= 1) {
         no_scan_results_count++;
     } else {
         no_scan_results_count = 0;
@@ -426,7 +427,7 @@ void ProximityScanEngine::StopScan() {
     wifiapDroppped = false;
     //wifiapAdded = false;
     wifiON = false;
-    //request_scan = true;
+    request_scan = true;
     no_scan_results_count = 0;
     QCC_DbgPrintf(("ProximityScanEngine::StopScan() completed"));
 
