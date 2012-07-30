@@ -112,9 +112,8 @@ ProximityScanEngine::ProximityScanEngine(DiscoveryManager*dm) : bus(dm->bus) {
     wifiapDroppped = false;
     //wifiapAdded = false;
     wifiON = false;
-    //request_scan = false;
+    request_scan = false;
     no_scan_results_count = 0;
-    //request_scan = true;
     discoveryManager = dm;
     proximityScanner = new ProximityScanner(bus);
     finalMap.clear();
