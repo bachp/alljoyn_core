@@ -240,6 +240,7 @@ public ref class MsgArg sealed {
     friend ref class ProxyBusObject;
     friend ref class Message;
     friend ref class MessageHeaderFields;
+    friend class _ProxyBusObjectListener;
     MsgArg(void* msgarg, bool isManaged);
     ~MsgArg();
 

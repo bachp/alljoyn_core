@@ -24,6 +24,7 @@
 #include <qcc/ManagedObj.h>
 #include "MessageReceiver.h"
 #include <qcc/Mutex.h>
+#include <qcc/Event.h>
 #include <map>
 
 namespace AllJoyn {
@@ -34,54 +35,131 @@ ref class InterfaceDescription;
 ref class InterfaceMember;
 class _ProxyBusObject;
 
-///<summary>Callback registered with IntrospectRemoteObjectAsync()</summary>
-///<param name="status">ER_OK if successful</param>
-///<param name="obj">Remote bus object that was introspected</param>
-///<param name="context">Context passed in IntrospectRemoteObjectAsync()</param>
-public delegate QStatus IntrospectRemoteObjectHandler(QStatus status, ProxyBusObject ^ obj, Platform::Object ^ context);
+public ref class IntrospectRemoteObjectResult sealed {
+  public:
+    property ProxyBusObject ^ Proxy;
+    property Platform::Object ^ Context;
 
-class IntrospectCBCtx {
-  protected:
+  private:
     friend ref class ProxyBusObject;
     friend class _ProxyBusObject;
     friend class _ProxyBusObjectListener;
-    IntrospectCBCtx(ProxyBusObject ^ proxy, Platform::Object ^ context)
+    IntrospectRemoteObjectResult(ProxyBusObject ^ proxy, Platform::Object ^ context)
     {
         Proxy = proxy;
         Context = context;
+        _exception = nullptr;
+        _stdException = NULL;
     }
 
-    ~IntrospectCBCtx()
+    ~IntrospectRemoteObjectResult()
     {
         Proxy = nullptr;
         Context = nullptr;
+        _exception = nullptr;
+        if (NULL != _stdException) {
+            delete _stdException;
+            _stdException = NULL;
+        }
     }
 
-    ProxyBusObject ^ Proxy;
-    Platform::Object ^ Context;
+    void Wait()
+    {
+        qcc::Event::Wait(_event, qcc::Event::WAIT_FOREVER);
+        // Propagate exception state
+        if (nullptr != _exception) {
+            throw _exception;
+        }
+        if (NULL != _stdException) {
+            throw _stdException;
+        }
+    }
+
+    void Complete()
+    {
+        _event.SetEvent();
+    }
+
+    Platform::Exception ^ _exception;
+    std::exception* _stdException;
+    qcc::Event _event;
+};
+
+public ref class GetPropertyResult sealed {
+  public:
+    property ProxyBusObject ^ Proxy;
+    property MsgArg ^ Value;
+    property Platform::Object ^ Context;
+
+  private:
+    friend ref class ProxyBusObject;
+    friend class _ProxyBusObject;
+    friend class _ProxyBusObjectListener;
+    GetPropertyResult(ProxyBusObject ^ proxy, Platform::Object ^ context)
+    {
+        Proxy = proxy;
+        Value = nullptr;
+        Context = context;
+        _exception = nullptr;
+        _stdException = NULL;
+    }
+
+    ~GetPropertyResult()
+    {
+        Proxy = nullptr;
+        Value = nullptr;
+        Context = nullptr;
+        _exception = nullptr;
+        if (NULL != _stdException) {
+            delete _stdException;
+            _stdException = NULL;
+        }
+    }
+
+    void Wait()
+    {
+        qcc::Event::Wait(_event, qcc::Event::WAIT_FOREVER);
+        // Propagate exception state
+        if (nullptr != _exception) {
+            throw _exception;
+        }
+        if (NULL != _stdException) {
+            throw _stdException;
+        }
+    }
+
+    void Complete()
+    {
+        _event.SetEvent();
+    }
+
+    Platform::Exception ^ _exception;
+    std::exception* _stdException;
+    qcc::Event _event;
 };
 
 class ProxyMessageReceiverCtx {
   protected:
     friend ref class ProxyBusObject;
     friend class _ProxyBusObject;
-    ProxyMessageReceiverCtx(ProxyBusObject ^ proxy, MessageReceiver ^ receiver, Platform::Object ^ context)
+    ProxyMessageReceiverCtx(ProxyBusObject ^ proxy, MessageReceiver ^ receiver, Platform::Object ^ context) : _proxy(proxy),
+        _receiver(receiver), _context(context)
     {
-        Proxy = proxy;
-        Receiver = receiver;
-        Context = context;
+        _proxy = proxy;
+        _receiver = receiver;
+        _context = context;
     }
 
     ~ProxyMessageReceiverCtx()
     {
-        Proxy = nullptr;
-        Receiver = nullptr;
-        Context = nullptr;
+        _proxy = nullptr;
+        _receiver = nullptr;
+        _context = nullptr;
     }
 
-    ProxyBusObject ^ Proxy;
-    MessageReceiver ^ Receiver;
-    Platform::Object ^ Context;
+    ProxyBusObject ^ _proxy;
+    MessageReceiver ^ _receiver;
+    Platform::Object ^ _context;
 };
 
 ref class __ProxyBusObject {
@@ -92,7 +170,6 @@ ref class __ProxyBusObject {
     __ProxyBusObject();
     ~__ProxyBusObject();
 
-    event IntrospectRemoteObjectHandler ^ IntrospectRemoteObject;
     property BusAttachment ^ Bus;
     property Platform::String ^ Name;
     property Platform::String ^ Path;
@@ -107,8 +184,10 @@ class _ProxyBusObjectListener : protected ajn::ProxyBusObject::Listener {
     _ProxyBusObjectListener(_ProxyBusObject* proxybusobject);
     ~_ProxyBusObjectListener();
 
-    ajn::ProxyBusObject::Listener::IntrospectCB GetProxyListenerCBHandler();
+    ajn::ProxyBusObject::Listener::IntrospectCB GetProxyListenerIntrospectCBHandler();
+    ajn::ProxyBusObject::Listener::GetPropertyCB GetProxyListenerGetPropertyCBHandler();
     void IntrospectCB(::QStatus s, ajn::ProxyBusObject* obj, void* context);
+    void GetPropertyCB(::QStatus status, ajn::ProxyBusObject* obj, const ajn::MsgArg& value, void* context);
 
     _ProxyBusObject* _proxyBusObject;
 };
@@ -122,7 +201,6 @@ class _ProxyBusObject : protected ajn::ProxyBusObject {
     _ProxyBusObject(BusAttachment ^ b, ajn::BusAttachment& bus, const char* service, const char* path, ajn::SessionId sessionId);
     ~_ProxyBusObject();
 
-    QStatus DefaultIntrospectRemoteObjectHandler(QStatus status, AllJoyn::ProxyBusObject ^ obj, Platform::Object ^ context);
     void MessageReceiverProxyReplyHandler(ajn::Message& msg, void* context);
 
     __ProxyBusObject ^ _eventsAndProperties;
@@ -132,11 +210,11 @@ class _ProxyBusObject : protected ajn::ProxyBusObject {
     qcc::Mutex _mutex;
 };
 
-///<summary>
-///Each <c>ProxyBusObject</c>instance represents a single DBus/AllJoyn object registered
-///somewhere on the bus. <c>ProxyBusObject</c>s are used to make method calls on these
-///remotely located DBus objects.
-///</summary>
+/// <summary>
+/// Each <c>ProxyBusObject</c>instance represents a single DBus/AllJoyn object registered
+/// somewhere on the bus. <c>ProxyBusObject</c>s are used to make method calls on these
+/// remotely located DBus objects.
+/// </summary>
 public ref class ProxyBusObject sealed {
   public:
 
@@ -173,27 +251,33 @@ public ref class ProxyBusObject sealed {
     /// callbacks.
     /// </remarks>
     /// <param name="context">User defined context which will be passed as-is to callback.</param>
-    ///<exception cref="Platform::COMException">
+    /// <exception cref="Platform::COMException">
     /// HRESULT will contain the AllJoyn error status code for the error.
     /// - #ER_OK if successful.
     /// - An error status otherwise
-    ///</exception>
-    void IntrospectRemoteObjectAsync(Platform::Object ^ context);
+    /// </exception>
+    /// <returns>A handle to the async operation.</returns>
+    Windows::Foundation::IAsyncOperation<IntrospectRemoteObjectResult ^> ^ IntrospectRemoteObjectAsync(Platform::Object ^ context);
 
     /// <summary>
     /// Get a property from an interface on the remote object.
     /// </summary>
     /// <param name="iface">Name of interface to retrieve property from.</param>
     /// <param name="property">The name of the property to get.</param>
-    /// <param name="value">  Property value.</param>
-    ///<exception cref="Platform::COMException">
+    /// <param name="context">User defined context which will be passed as-is to callback.</param>
+    /// <param name="timeout">Time in milliseconds before the call will expire</param>
+    /// <exception cref="Platform::COMException">
     /// HRESULT will contain the AllJoyn error status code for the error.
     /// - #ER_OK if the property was obtained.
     /// - #ER_BUS_OBJECT_NO_SUCH_INTERFACE if the no such interface on this remote object.
     /// - #ER_BUS_NO_SUCH_PROPERTY if the property does not exist
-    ///</exception>
-    void GetProperty(Platform::String ^ iface, Platform::String ^ property, Platform::WriteOnlyArray<MsgArg ^> ^ value);
-
+    /// </exception>
+    /// <returns>A handle to the async operation.</returns>
+    Windows::Foundation::IAsyncOperation<GetPropertyResult ^> ^ GetPropertyAsync(
+        Platform::String ^ iface,
+        Platform::String ^ property,
+        Platform::Object ^ context,
+        uint32_t timeout);
 
     /// <summary>
     /// Get all properties from an interface on the remote object.
@@ -207,7 +291,6 @@ public ref class ProxyBusObject sealed {
     /// - #ER_BUS_NO_SUCH_PROPERTY if the property does not exist
     /// </exception>
     void GetAllProperties(Platform::String ^ iface, Platform::WriteOnlyArray<MsgArg ^> ^ values);
-
 
     /// <summary>
     /// Set a property on an interface on the remote object.
@@ -223,7 +306,6 @@ public ref class ProxyBusObject sealed {
     /// </exception>
     void SetProperty(Platform::String ^ iface, Platform::String ^ property, MsgArg ^ value);
 
-
     /// <summary>
     /// Returns the interfaces implemented by this object. Note that all proxy bus objects
     /// automatically inherit the "org.freedesktop.DBus.Peer" which provides the built-in "ping"
@@ -236,7 +318,6 @@ public ref class ProxyBusObject sealed {
     /// number of interfaces only numIfaces will be returned.</param>
     /// <returns>The number of interfaces returned or the total number of interfaces if ifaces is NULL.</returns>
     uint32_t GetInterfaces(Platform::WriteOnlyArray<InterfaceDescription ^> ^ ifaces);
-
 
     /// <summary>
     /// Returns a pointer to an interface description. Returns NULL if the object does not implement
@@ -268,22 +349,22 @@ public ref class ProxyBusObject sealed {
     /// Bus. (i.e. it must have come from a call to Bus GetInterface ).
     /// </remarks>
     /// <param name="iface">The interface to add to this object. Must come from Bus  GetInterface .</param>
-    ///<exception cref="Platform::COMException">
+    /// <exception cref="Platform::COMException">
     /// HRESULT will contain the AllJoyn error status code for the error.
     /// - #ER_OK if successful.
     /// - An error status otherwise
-    ///</exception>
+    /// </exception>
     void AddInterface(InterfaceDescription ^ iface);
 
     /// <summary>
     /// Add an existing interface to this object using the interface's name.
     /// </summary>
     /// <param name="name">Name of existing interface to add to this object.</param>
-    ///<exception cref="Platform::COMException">
+    /// <exception cref="Platform::COMException">
     /// HRESULT will contain the AllJoyn error status code for the error.
     /// - #ER_OK if successful.
     /// - An error status otherwise.
-    ///</exception>
+    /// </exception>
     void AddInterfaceWithString(Platform::String ^ name);
 
     /// <summary>
@@ -322,12 +403,12 @@ public ref class ProxyBusObject sealed {
     /// - It is an error to try to add a child that has an object path that is not a descendant of this object's path.
     /// </remarks>
     /// <param name="child">Child ProxyBusObject</param>
-    ///<exception cref="Platform::COMException">
+    /// <exception cref="Platform::COMException">
     /// HRESULT will contain the AllJoyn error status code for the error.
     /// - #ER_OK if successful.
     /// - #ER_BUS_BAD_CHILD_PATH if the path is a bad path
     /// - #ER_BUS_OBJ_ALREADY_EXISTS the the object already exists on the ProxyBusObject
-    ///</exception>
+    /// </exception>
     void AddChild(ProxyBusObject ^ child);
 
     /// <summary>
@@ -369,6 +450,7 @@ public ref class ProxyBusObject sealed {
                          Platform::Object ^ context,
                          uint32_t timeout,
                          uint8_t flags);
+
     /// <summary>
     /// Make an asynchronous method call from this object
     /// </summary>
@@ -396,6 +478,7 @@ public ref class ProxyBusObject sealed {
                          Platform::Object ^ context,
                          uint32_t timeout,
                          uint8_t flags);
+
     /// <summary>
     /// Initialize this proxy object from an XML string. Calling this method does several things:
     /// -# Create and register any new InterfaceDescription(s) that are mentioned in the XML.
@@ -413,11 +496,11 @@ public ref class ProxyBusObject sealed {
     /// </summary>
     /// <param name="xml">An XML string in DBus introspection format.</param>
     /// <param name="identifier">An optional identifying string to include in error logging messages.</param>
-    ///<exception cref="Platform::COMException">
+    /// <exception cref="Platform::COMException">
     /// HRESULT will contain the AllJoyn error status code for the error.
     /// - #ER_OK if parsing is completely successful.
     /// - An error status otherwise.
-    ///</exception>
+    /// </exception>
     void ParseXml(Platform::String ^ xml, Platform::String ^ identifier);
 
     /// <summary>
@@ -435,7 +518,7 @@ public ref class ProxyBusObject sealed {
     /// - #ER_OK if securing could begin.
     /// - #ER_BUS_NO_AUTHENTICATION_MECHANISM if BusAttachment::EnablePeerSecurity() has not been called.
     /// - Other error status codes indicating a failure.
-    ///</exception>
+    /// </exception>
     void SecureConnectionAsync(bool forceAuth);
 
     /// <summary>
@@ -443,14 +526,6 @@ public ref class ProxyBusObject sealed {
     /// </summary>
     /// <returns>true if a valid proxy bus object, false otherwise.</returns>
     bool IsValid();
-
-    /// <summary>Called when the remote object introspection has completed</summary>
-    event IntrospectRemoteObjectHandler ^ IntrospectRemoteObject
-    {
-        Windows::Foundation::EventRegistrationToken add(IntrospectRemoteObjectHandler ^ handler);
-        void remove(Windows::Foundation::EventRegistrationToken token);
-        QStatus raise(QStatus status, ProxyBusObject ^ obj, Platform::Object ^ context);
-    }
 
     /// <summary>The bus attachment for the remote object.</summary>
     property BusAttachment ^ Bus

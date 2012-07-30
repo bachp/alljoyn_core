@@ -151,36 +151,46 @@ ProxyBusObject::~ProxyBusObject()
     }
 }
 
-void ProxyBusObject::IntrospectRemoteObjectAsync(Platform::Object ^ context)
+Windows::Foundation::IAsyncOperation<IntrospectRemoteObjectResult ^> ^ ProxyBusObject::IntrospectRemoteObjectAsync(Platform::Object ^ context)
 {
     ::QStatus status = ER_OK;
+    Windows::Foundation::IAsyncOperation<IntrospectRemoteObjectResult ^> ^ result = nullptr;
 
     while (true) {
         ajn::ProxyBusObject::Listener* listener = _proxyBusObject->_proxyBusObjectListener;
-        ajn::ProxyBusObject::Listener::IntrospectCB cb = _proxyBusObject->_proxyBusObjectListener->GetProxyListenerCBHandler();
-        IntrospectCBCtx* introspectCBCtx = new IntrospectCBCtx(this, context);
-        if (NULL == introspectCBCtx) {
+        ajn::ProxyBusObject::Listener::IntrospectCB cb = _proxyBusObject->_proxyBusObjectListener->GetProxyListenerIntrospectCBHandler();
+        IntrospectRemoteObjectResult ^ introspectRemoteObjectResult = ref new IntrospectRemoteObjectResult(this, context);
+        if (nullptr == introspectRemoteObjectResult) {
             status = ER_OUT_OF_MEMORY;
             break;
         }
-        status = _proxyBusObject->IntrospectRemoteObjectAsync(listener, cb, (void*)introspectCBCtx);
+        status = _proxyBusObject->IntrospectRemoteObjectAsync(listener, cb, (void*)introspectRemoteObjectResult);
         if (ER_OK != status) {
-            if (NULL != introspectCBCtx) {
-                delete introspectCBCtx;
-                introspectCBCtx = NULL;
-            }
+            break;
         }
+        result = concurrency::create_async([this, introspectRemoteObjectResult]()->IntrospectRemoteObjectResult ^
+                                           {
+                                               introspectRemoteObjectResult->Wait();
+                                               return introspectRemoteObjectResult;
+                                           });
         break;
     }
 
     if (ER_OK != status) {
         QCC_THROW_EXCEPTION(status);
     }
+
+    return result;
 }
 
-void ProxyBusObject::GetProperty(Platform::String ^ iface, Platform::String ^ property, Platform::WriteOnlyArray<MsgArg ^> ^ value)
+Windows::Foundation::IAsyncOperation<GetPropertyResult ^> ^ ProxyBusObject::GetPropertyAsync(
+    Platform::String ^ iface,
+    Platform::String ^ property,
+    Platform::Object ^ context,
+    uint32_t timeout)
 {
     ::QStatus status = ER_OK;
+    Windows::Foundation::IAsyncOperation<GetPropertyResult ^> ^ result = nullptr;
 
     while (true) {
         if (nullptr == iface) {
@@ -201,26 +211,36 @@ void ProxyBusObject::GetProperty(Platform::String ^ iface, Platform::String ^ pr
             status = ER_OUT_OF_MEMORY;
             break;
         }
-        if (nullptr == value || value->Length != 1) {
-            status = ER_BAD_ARG_3;
+        ajn::ProxyBusObject::Listener* listener = _proxyBusObject->_proxyBusObjectListener;
+        ajn::ProxyBusObject::Listener::GetPropertyCB cb = _proxyBusObject->_proxyBusObjectListener->GetProxyListenerGetPropertyCBHandler();
+        GetPropertyResult ^ getPropertyResult = ref new GetPropertyResult(this, context);
+        if (nullptr == getPropertyResult) {
+            status = ER_OUT_OF_MEMORY;
             break;
         }
-        ajn::MsgArg arg;
-        status = _proxyBusObject->GetProperty(strIface.c_str(), strProperty.c_str(), arg);
-        if (ER_OK == status) {
-            MsgArg ^ msgArgOut = ref new MsgArg((void*)&arg, false);
-            if (nullptr == msgArgOut) {
-                status = ER_OUT_OF_MEMORY;
-                break;
-            }
-            value[0] = msgArgOut;
+        status = _proxyBusObject->GetPropertyAsync(
+            strIface.c_str(),
+            strProperty.c_str(),
+            listener,
+            cb,
+            (void*)getPropertyResult,
+            timeout);
+        if (ER_OK != status) {
+            break;
         }
+        result = concurrency::create_async([this, getPropertyResult]()->GetPropertyResult ^
+                                           {
+                                               getPropertyResult->Wait();
+                                               return getPropertyResult;
+                                           });
         break;
     }
 
     if (ER_OK != status) {
         QCC_THROW_EXCEPTION(status);
     }
+
+    return result;
 }
 
 void ProxyBusObject::GetAllProperties(Platform::String ^ iface, Platform::WriteOnlyArray<MsgArg ^> ^ values)
@@ -755,21 +775,6 @@ bool ProxyBusObject::IsValid()
     return _proxyBusObject->IsValid();
 }
 
-Windows::Foundation::EventRegistrationToken ProxyBusObject::IntrospectRemoteObject::add(IntrospectRemoteObjectHandler ^ handler)
-{
-    return _proxyBusObject->_eventsAndProperties->IntrospectRemoteObject::add(handler);
-}
-
-void ProxyBusObject::IntrospectRemoteObject::remove(Windows::Foundation::EventRegistrationToken token)
-{
-    _proxyBusObject->_eventsAndProperties->IntrospectRemoteObject::remove(token);
-}
-
-QStatus ProxyBusObject::IntrospectRemoteObject::raise(QStatus status, ProxyBusObject ^ obj, Platform::Object ^ context)
-{
-    return _proxyBusObject->_eventsAndProperties->IntrospectRemoteObject::raise(status, obj, context);
-}
-
 BusAttachment ^ ProxyBusObject::Bus::get()
 {
     return _proxyBusObject->_eventsAndProperties->Bus;
@@ -878,10 +883,6 @@ _ProxyBusObject::_ProxyBusObject(BusAttachment ^ b, ajn::ProxyBusObject* proxybu
             break;
         }
         _eventsAndProperties->Receiver = receiver;
-
-        _eventsAndProperties->IntrospectRemoteObject += ref new IntrospectRemoteObjectHandler([&] (QStatus status, AllJoyn::ProxyBusObject ^ obj, Platform::Object ^ context)->QStatus {
-                                                                                                  return DefaultIntrospectRemoteObjectHandler(status, obj, context);
-                                                                                              });
         _eventsAndProperties->Bus = b;
         break;
     }
@@ -913,9 +914,6 @@ _ProxyBusObject::_ProxyBusObject(BusAttachment ^ b, ajn::BusAttachment& bus, con
             break;
         }
         _eventsAndProperties->Receiver = receiver;
-        _eventsAndProperties->IntrospectRemoteObject += ref new IntrospectRemoteObjectHandler([&] (QStatus status, AllJoyn::ProxyBusObject ^ obj, Platform::Object ^ context)->QStatus {
-                                                                                                  return DefaultIntrospectRemoteObjectHandler(status, obj, context);
-                                                                                              });
         _eventsAndProperties->Bus = b;
         break;
     }
@@ -936,11 +934,6 @@ _ProxyBusObject::~_ProxyBusObject()
     ClearObjectMap(&(this->_mutex), &(this->_childObjectMap));
 }
 
-QStatus _ProxyBusObject::DefaultIntrospectRemoteObjectHandler(QStatus status, AllJoyn::ProxyBusObject ^ obj, Platform::Object ^ context)
-{
-    return QStatus::ER_FAIL;
-}
-
 void _ProxyBusObject::MessageReceiverProxyReplyHandler(ajn::Message& msg, void* context)
 {
     try {
@@ -952,9 +945,9 @@ void _ProxyBusObject::MessageReceiverProxyReplyHandler(ajn::Message& msg, void* 
                 status = ER_FAIL;
                 break;
             }
-            AllJoyn::ProxyBusObject ^ proxy = proxyCtx->Proxy;
-            AllJoyn::MessageReceiver ^ receiver = proxyCtx->Receiver;
-            Platform::Object ^ objContext = proxyCtx->Context;
+            AllJoyn::ProxyBusObject ^ proxy = proxyCtx->_proxy;
+            AllJoyn::MessageReceiver ^ receiver = proxyCtx->_receiver;
+            Platform::Object ^ objContext = proxyCtx->_context;
             delete proxyCtx;
             proxyCtx = NULL;
             receiver->_receiver->ReplyHandler(msg, (void*)objContext);
@@ -979,33 +972,52 @@ _ProxyBusObjectListener::~_ProxyBusObjectListener()
     _proxyBusObject = nullptr;
 }
 
-ajn::ProxyBusObject::Listener::IntrospectCB _ProxyBusObjectListener::GetProxyListenerCBHandler()
+ajn::ProxyBusObject::Listener::IntrospectCB _ProxyBusObjectListener::GetProxyListenerIntrospectCBHandler()
 {
     return static_cast<ajn::ProxyBusObject::Listener::IntrospectCB>(&AllJoyn::_ProxyBusObjectListener::IntrospectCB);
+}
+
+ajn::ProxyBusObject::Listener::GetPropertyCB _ProxyBusObjectListener::GetProxyListenerGetPropertyCBHandler()
+{
+    return static_cast<ajn::ProxyBusObject::Listener::GetPropertyCB>(&AllJoyn::_ProxyBusObjectListener::GetPropertyCB);
 }
 
 void _ProxyBusObjectListener::IntrospectCB(::QStatus s, ajn::ProxyBusObject* obj, void* context)
 {
     ::QStatus status = ER_OK;
+    IntrospectRemoteObjectResult ^ introspectRemoteObjectResult = reinterpret_cast<IntrospectRemoteObjectResult ^>(context);
+    introspectRemoteObjectResult->Complete();
+}
+
+void _ProxyBusObjectListener::GetPropertyCB(::QStatus s, ajn::ProxyBusObject* obj, const ajn::MsgArg& value, void* context)
+{
+    ::QStatus status = ER_OK;
+    GetPropertyResult ^ getPropertyResult = reinterpret_cast<GetPropertyResult ^>(context);
 
     try {
         while (true) {
-            IntrospectCBCtx* introspectCBCtx = (IntrospectCBCtx*)context;
-            ProxyBusObject ^ proxy = introspectCBCtx->Proxy;
-            Platform::Object ^ objContext = introspectCBCtx->Context;
-            delete introspectCBCtx;
-            introspectCBCtx = NULL;
-            _proxyBusObject->_eventsAndProperties->Bus->_busAttachment->DispatchCallback(ref new Windows::UI::Core::DispatchedHandler([&]() {
-                                                                                                                                          _proxyBusObject->_eventsAndProperties->IntrospectRemoteObject((QStatus)(int)s, proxy, objContext);
-                                                                                                                                      }));
+            MsgArg ^ arg = ref new MsgArg((void*)&value, false);
+            if (nullptr == arg) {
+                status = ER_OUT_OF_MEMORY;
+                break;
+            }
+            getPropertyResult->Value = arg;
             break;
         }
 
         if (ER_OK != status) {
             QCC_THROW_EXCEPTION(status);
         }
-    } catch (...) {
-        // Do nothing
+
+        getPropertyResult->Complete();
+    } catch (Platform::Exception ^ pe) {
+        // Forward Platform::Exception
+        getPropertyResult->_exception = pe;
+        getPropertyResult->Complete();
+    } catch (std::exception& e) {
+        // Forward std::exception
+        getPropertyResult->_stdException = new std::exception(e);
+        getPropertyResult->Complete();
     }
 }
 

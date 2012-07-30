@@ -146,14 +146,14 @@ public ref class BusAttachment sealed {
 
     /// <summary>
     /// Get the concurrent method and signal handler limit.
-    /// <summary>
+    /// </summary>
     /// <returns>The maximum number of concurrent method and signal handlers.</returns>
     uint32_t GetConcurrency();
 
     /// <summary>
     /// Allow the currently executing method/signal handler to enable concurrent callbacks
     /// during the scope of the handler's execution.
-    /// <summary>
+    /// </summary>
     void EnableConcurrentCallbacks();
 
     /// <summary>
@@ -387,6 +387,15 @@ public ref class BusAttachment sealed {
     /// <returns>True if the message bus has been started by a call to <see cref="Start"/>.</returns>
     bool IsStopping();
 
+    /// <summary>
+    /// Connect to a remote bus address.
+    /// </summary>
+    /// <param name="connectSpec">The transport connection spec used to connect.</param>
+    /// <exception cref="Platform::COMException">
+    /// Upon completion, Platform::COMException will be raised and a HRESULT will contain the AllJoyn
+    /// error status code if any error occured.
+    /// </exception>
+    /// <returns>A handle to the async operation which can be used for synchronization.</returns>
     Windows::Foundation::IAsyncAction ^ ConnectAsync(Platform::String ^ connectSpec);
 
     /// <summary>
