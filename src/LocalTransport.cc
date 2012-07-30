@@ -750,8 +750,8 @@ QStatus LocalEndpoint::HandleMethodCall(Message& message)
 
     /* Look up the member */
     MethodTable::SafeEntry* safeEntry = methodTable.Find(message->GetObjectPath(),
-                                                        message->GetInterface(),
-                                                        message->GetMemberName());
+                                                         message->GetInterface(),
+                                                         message->GetMemberName());
     const MethodTable::Entry* entry = safeEntry ? safeEntry->entry : NULL;
 
     if (entry == NULL) {
