@@ -88,6 +88,7 @@ public ref class IntrospectRemoteObjectResult sealed {
 public ref class GetPropertyResult sealed {
   public:
     property ProxyBusObject ^ Proxy;
+    property QStatus Status;
     property MsgArg ^ Value;
     property Platform::Object ^ Context;
 
@@ -105,6 +106,60 @@ public ref class GetPropertyResult sealed {
     }
 
     ~GetPropertyResult()
+    {
+        Proxy = nullptr;
+        Value = nullptr;
+        Context = nullptr;
+        _exception = nullptr;
+        if (NULL != _stdException) {
+            delete _stdException;
+            _stdException = NULL;
+        }
+    }
+
+    void Wait()
+    {
+        qcc::Event::Wait(_event, qcc::Event::WAIT_FOREVER);
+        // Propagate exception state
+        if (nullptr != _exception) {
+            throw _exception;
+        }
+        if (NULL != _stdException) {
+            throw _stdException;
+        }
+    }
+
+    void Complete()
+    {
+        _event.SetEvent();
+    }
+
+    Platform::Exception ^ _exception;
+    std::exception* _stdException;
+    qcc::Event _event;
+};
+
+public ref class GetAllPropertiesResult sealed {
+  public:
+    property ProxyBusObject ^ Proxy;
+    property QStatus Status;
+    property MsgArg ^ Value;
+    property Platform::Object ^ Context;
+
+  private:
+    friend ref class ProxyBusObject;
+    friend class _ProxyBusObject;
+    friend class _ProxyBusObjectListener;
+    GetAllPropertiesResult(ProxyBusObject ^ proxy, Platform::Object ^ context)
+    {
+        Proxy = proxy;
+        Value = nullptr;
+        Context = context;
+        _exception = nullptr;
+        _stdException = NULL;
+    }
+
+    ~GetAllPropertiesResult()
     {
         Proxy = nullptr;
         Value = nullptr;
@@ -186,8 +241,10 @@ class _ProxyBusObjectListener : protected ajn::ProxyBusObject::Listener {
 
     ajn::ProxyBusObject::Listener::IntrospectCB GetProxyListenerIntrospectCBHandler();
     ajn::ProxyBusObject::Listener::GetPropertyCB GetProxyListenerGetPropertyCBHandler();
+    ajn::ProxyBusObject::Listener::GetAllPropertiesCB GetProxyListenerGetAllPropertiesCBHandler();
     void IntrospectCB(::QStatus s, ajn::ProxyBusObject* obj, void* context);
     void GetPropertyCB(::QStatus status, ajn::ProxyBusObject* obj, const ajn::MsgArg& value, void* context);
+    void GetAllPropertiesCB(::QStatus status, ajn::ProxyBusObject* obj, const ajn::MsgArg& value, void* context);
 
     _ProxyBusObject* _proxyBusObject;
 };
@@ -284,13 +341,18 @@ public ref class ProxyBusObject sealed {
     /// </summary>
     /// <param name="iface">Name of interface to retrieve all properties from.</param>
     /// <param name="values">Property values returned as an array of dictionary entries, signature "a{sv}".</param>
+    /// <param name="timeout">Time in milliseconds before the call will expire</param>
     /// <exception cref="Platform::COMException">
     /// HRESULT will contain the AllJoyn error status code for the error.
     /// - #ER_OK if the property was obtained.
     /// - #ER_BUS_OBJECT_NO_SUCH_INTERFACE if the no such interface on this remote object.
     /// - #ER_BUS_NO_SUCH_PROPERTY if the property does not exist
     /// </exception>
-    void GetAllProperties(Platform::String ^ iface, Platform::WriteOnlyArray<MsgArg ^> ^ values);
+    /// <returns>A handle to the async operation.</returns>
+    Windows::Foundation::IAsyncOperation<GetAllPropertiesResult ^> ^ GetAllPropertiesAsync(
+        Platform::String ^ iface,
+        Platform::Object ^ context,
+        uint32_t timeout);
 
     /// <summary>
     /// Set a property on an interface on the remote object.

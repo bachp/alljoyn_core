@@ -243,9 +243,13 @@ Windows::Foundation::IAsyncOperation<GetPropertyResult ^> ^ ProxyBusObject::GetP
     return result;
 }
 
-void ProxyBusObject::GetAllProperties(Platform::String ^ iface, Platform::WriteOnlyArray<MsgArg ^> ^ values)
+Windows::Foundation::IAsyncOperation<GetAllPropertiesResult ^> ^ ProxyBusObject::GetAllPropertiesAsync(
+    Platform::String ^ iface,
+    Platform::Object ^ context,
+    uint32_t timeout)
 {
     ::QStatus status = ER_OK;
+    Windows::Foundation::IAsyncOperation<GetAllPropertiesResult ^> ^ result = nullptr;
 
     while (true) {
         if (nullptr == iface) {
@@ -257,26 +261,34 @@ void ProxyBusObject::GetAllProperties(Platform::String ^ iface, Platform::WriteO
             status = ER_OUT_OF_MEMORY;
             break;
         }
-        if (nullptr == values || values->Length != 1) {
-            status = ER_BAD_ARG_2;
+        ajn::ProxyBusObject::Listener* listener = _proxyBusObject->_proxyBusObjectListener;
+        ajn::ProxyBusObject::Listener::GetPropertyCB cb = _proxyBusObject->_proxyBusObjectListener->GetProxyListenerGetAllPropertiesCBHandler();
+        GetAllPropertiesResult ^ getAllPropertiesResult = ref new GetAllPropertiesResult(this, context);
+        if (nullptr == getAllPropertiesResult) {
+            status = ER_OUT_OF_MEMORY;
             break;
         }
-        ajn::MsgArg arg;
-        status = _proxyBusObject->GetAllProperties(strIface.c_str(), arg);
-        if (ER_OK == status) {
-            MsgArg ^ msgArgOut = ref new MsgArg((void*)&arg, false);
-            if (nullptr == msgArgOut) {
-                status = ER_OUT_OF_MEMORY;
-                break;
-            }
-            values[0] = msgArgOut;
+        status = _proxyBusObject->GetAllPropertiesAsync(strIface.c_str(),
+                                                        listener,
+                                                        cb,
+                                                        (void*)getAllPropertiesResult,
+                                                        timeout);
+        if (ER_OK != status) {
+            break;
         }
+        result = concurrency::create_async([this, getAllPropertiesResult]()->GetAllPropertiesResult ^
+                                           {
+                                               getAllPropertiesResult->Wait();
+                                               return getAllPropertiesResult;
+                                           });
         break;
     }
 
     if (ER_OK != status) {
         QCC_THROW_EXCEPTION(status);
     }
+
+    return result;
 }
 
 void ProxyBusObject::SetProperty(Platform::String ^ iface, Platform::String ^ property, MsgArg ^ value)
@@ -982,6 +994,11 @@ ajn::ProxyBusObject::Listener::GetPropertyCB _ProxyBusObjectListener::GetProxyLi
     return static_cast<ajn::ProxyBusObject::Listener::GetPropertyCB>(&AllJoyn::_ProxyBusObjectListener::GetPropertyCB);
 }
 
+ajn::ProxyBusObject::Listener::GetAllPropertiesCB _ProxyBusObjectListener::GetProxyListenerGetAllPropertiesCBHandler()
+{
+    return static_cast<ajn::ProxyBusObject::Listener::GetAllPropertiesCB>(&AllJoyn::_ProxyBusObjectListener::GetAllPropertiesCB);
+}
+
 void _ProxyBusObjectListener::IntrospectCB(::QStatus s, ajn::ProxyBusObject* obj, void* context)
 {
     ::QStatus status = ER_OK;
@@ -1002,6 +1019,7 @@ void _ProxyBusObjectListener::GetPropertyCB(::QStatus s, ajn::ProxyBusObject* ob
                 break;
             }
             getPropertyResult->Value = arg;
+            getPropertyResult->Status = (AllJoyn::QStatus)s;
             break;
         }
 
@@ -1018,6 +1036,39 @@ void _ProxyBusObjectListener::GetPropertyCB(::QStatus s, ajn::ProxyBusObject* ob
         // Forward std::exception
         getPropertyResult->_stdException = new std::exception(e);
         getPropertyResult->Complete();
+    }
+}
+
+void _ProxyBusObjectListener::GetAllPropertiesCB(::QStatus s, ajn::ProxyBusObject* obj, const ajn::MsgArg& value, void* context)
+{
+    ::QStatus status = ER_OK;
+    GetAllPropertiesResult ^ getAllPropertiesResult = reinterpret_cast<GetAllPropertiesResult ^>(context);
+
+    try {
+        while (true) {
+            MsgArg ^ arg = ref new MsgArg((void*)&value, false);
+            if (nullptr == arg) {
+                status = ER_OUT_OF_MEMORY;
+                break;
+            }
+            getAllPropertiesResult->Value = arg;
+            getAllPropertiesResult->Status = (AllJoyn::QStatus)s;
+            break;
+        }
+
+        if (ER_OK != status) {
+            QCC_THROW_EXCEPTION(status);
+        }
+
+        getAllPropertiesResult->Complete();
+    } catch (Platform::Exception ^ pe) {
+        // Forward Platform::Exception
+        getAllPropertiesResult->_exception = pe;
+        getAllPropertiesResult->Complete();
+    } catch (std::exception& e) {
+        // Forward std::exception
+        getAllPropertiesResult->_stdException = new std::exception(e);
+        getAllPropertiesResult->Complete();
     }
 }
 
