@@ -3475,7 +3475,7 @@ void AllJoynObj::AlarmTriggered(const Alarm& alarm, QStatus reason)
                 if ((now - nme.timestamp) >= nme.ttl) {
                     QCC_DbgPrintf(("Expiring discovered name %s for guid %s", it->first.c_str(), nme.guid.c_str()));
                     SendLostAdvertisedName(it->first, nme.transport);
-                    timer.RemoveAlarm(nme.alarm);
+                    timer.RemoveAlarm(nme.alarm, false);
                     nme.alarm->SetContext((void*)false);
                     nameMap.erase(it++);
                 } else {
