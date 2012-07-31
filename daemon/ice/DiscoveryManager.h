@@ -240,6 +240,8 @@ class DiscoveryManager : public Thread, public AlarmListener {
                      String frag, String pwd) {
             ice_frag = frag;
             ice_pwd = pwd;
+            AddSTUNInfo = false;
+            STUNInfoPresent = false;
             if (client) {
                 clientCandidates = iceCandidates;
             } else {
