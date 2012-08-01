@@ -62,7 +62,6 @@ QStatus XmlHelper::ParseInterface(const XmlElement* elem, ProxyBusObject* obj)
     }
 
     /* Get "secure" annotation */
-    // TODO Think problem is here
     bool secure = false;
     vector<XmlElement*>::const_iterator ifIt = elem->GetChildren().begin();
     while (ifIt != elem->GetChildren().end()) {
@@ -91,7 +90,8 @@ QStatus XmlHelper::ParseInterface(const XmlElement* elem, ProxyBusObject* obj)
                 bool isFirstArg = true;
                 qcc::String inSig;
                 qcc::String outSig;
-                qcc::String argList;
+                qcc::String argNames;
+                bool isArgNamesEmpty = true;
                 InterfaceDescription::AnnotationsMap annotations;
 
                 /* Iterate over member children */
@@ -101,7 +101,7 @@ QStatus XmlHelper::ParseInterface(const XmlElement* elem, ProxyBusObject* obj)
                     const XmlElement* argElem = *argIt++;
                     if (argElem->GetName() == "arg") {
                         if (!isFirstArg) {
-                            argList += ',';
+                            argNames += ',';
                         }
                         isFirstArg = false;
                         const qcc::String& typeAtt = argElem->GetAttribute("type");
@@ -112,7 +112,12 @@ QStatus XmlHelper::ParseInterface(const XmlElement* elem, ProxyBusObject* obj)
                             break;
                         }
 
-                        argList += argElem->GetAttribute("name");
+                        const qcc::String& nameAtt = argElem->GetAttribute("name");
+                        if (!nameAtt.empty()) {
+                            isArgNamesEmpty = false;
+                            argNames += nameAtt;
+                        }
+
                         if (isSignal || (argElem->GetAttribute("direction") == "in")) {
                             inSig += typeAtt;
                         } else {
@@ -131,7 +136,7 @@ QStatus XmlHelper::ParseInterface(const XmlElement* elem, ProxyBusObject* obj)
                                             memberName.c_str(),
                                             inSig.c_str(),
                                             outSig.c_str(),
-                                            argList.c_str(),
+                                            isArgNamesEmpty ? NULL : argNames.c_str(),
                                             annotations);
                 }
             } else {

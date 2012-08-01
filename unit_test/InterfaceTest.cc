@@ -428,6 +428,7 @@ static const char ifcXML2[] =
 
 TEST_F(InterfaceTest, FullAnnotationsXmlTest) {
     QStatus status = ER_OK;
+
     ASSERT_EQ(ER_OK, ServiceBusSetup());
 
     InterfaceDescription* testIntf = NULL;
@@ -437,6 +438,7 @@ TEST_F(InterfaceTest, FullAnnotationsXmlTest) {
 
     /* Add org.alljoyn.alljoyn_test interface */
     status = g_msgBus->CreateInterface("org.alljoyn.xmlTest", testIntf);
+    EXPECT_EQ(status, ER_OK);
 
     testIntf->AddAnnotation("org.freedesktop.DBus.Method.MyAnnotation", "someValue");
 
@@ -482,4 +484,44 @@ TEST_F(InterfaceTest, AnnotationXMLTest) {
     //ASSERT_EQ(noreplyMem->annotation, MEMBER_ANNOTATE_NO_REPLY);
     EXPECT_TRUE(noreplyMem->GetAnnotation(org::freedesktop::DBus::AnnotateNoReply, val));
     EXPECT_STREQ("true", val.c_str());
+}
+
+/* Interace xml with optional argument name permutations */
+static const char ifcXMLArgNames[] =
+    "  <interface name=\"org.alljoyn.xmlTest\">\n"
+    "    <method name=\"Method0\">\n"
+    "      <arg type=\"s\" direction=\"in\"/>\n"
+    "      <arg type=\"s\" direction=\"out\"/>\n"
+    "    </method>\n"
+    "    <method name=\"Method1\">\n"
+    "      <arg name=\"arg0\" type=\"s\" direction=\"in\"/>\n"
+    "      <arg type=\"s\" direction=\"out\"/>\n"
+    "    </method>\n"
+    "    <method name=\"Method2\">\n"
+    "      <arg type=\"s\" direction=\"in\"/>\n"
+    "      <arg name=\"arg1\" type=\"s\" direction=\"out\"/>\n"
+    "    </method>\n"
+    "  </interface>\n";
+
+// Test for ALLJOYN-953
+TEST_F(InterfaceTest, ArgNamesTest) {
+    QStatus status = ER_OK;
+
+    status = g_msgBus->CreateInterfacesFromXml(ifcXMLArgNames);
+    EXPECT_EQ(status, ER_OK);
+
+    const InterfaceDescription* iface = g_msgBus->GetInterface("org.alljoyn.xmlTest");
+    ASSERT_TRUE(iface != NULL);
+
+    const InterfaceDescription::Member* member = iface->GetMember("Method0");
+    EXPECT_TRUE(member != NULL);
+    EXPECT_STREQ("", member->argNames.c_str());
+
+    member = iface->GetMember("Method1");
+    EXPECT_TRUE(member != NULL);
+    EXPECT_STREQ("arg0,", member->argNames.c_str());
+
+    member = iface->GetMember("Method2");
+    EXPECT_TRUE(member != NULL);
+    EXPECT_STREQ(",arg1", member->argNames.c_str());
 }
