@@ -339,6 +339,7 @@ public ref class Message sealed {
     friend ref class BusObject;
     friend class _BusObject;
     friend class _MessageReceiver;
+    friend class _ProxyBusObject;
     Message(void* message, bool isManaged);
     ~Message();
 

@@ -193,28 +193,101 @@ public ref class GetAllPropertiesResult sealed {
     qcc::Event _event;
 };
 
-class ProxyMessageReceiverCtx {
-  protected:
+public ref class SetPropertyResult sealed {
+  public:
+    property ProxyBusObject ^ Proxy;
+    property Platform::Object ^ Context;
+
+  private:
     friend ref class ProxyBusObject;
     friend class _ProxyBusObject;
-    ProxyMessageReceiverCtx(ProxyBusObject ^ proxy, MessageReceiver ^ receiver, Platform::Object ^ context) : _proxy(proxy),
-        _receiver(receiver), _context(context)
+    friend class _ProxyBusObjectListener;
+    SetPropertyResult(ProxyBusObject ^ proxy, Platform::Object ^ context)
     {
-        _proxy = proxy;
-        _receiver = receiver;
-        _context = context;
+        Proxy = proxy;
+        Context = context;
+        _exception = nullptr;
+        _stdException = NULL;
     }
 
-    ~ProxyMessageReceiverCtx()
+    ~SetPropertyResult()
     {
-        _proxy = nullptr;
-        _receiver = nullptr;
-        _context = nullptr;
+        Proxy = nullptr;
+        Context = nullptr;
+        _exception = nullptr;
+        if (NULL != _stdException) {
+            delete _stdException;
+            _stdException = NULL;
+        }
     }
 
-    ProxyBusObject ^ _proxy;
-    MessageReceiver ^ _receiver;
-    Platform::Object ^ _context;
+    void Wait()
+    {
+        qcc::Event::Wait(_event, qcc::Event::WAIT_FOREVER);
+        // Propagate exception state
+        if (nullptr != _exception) {
+            throw _exception;
+        }
+        if (NULL != _stdException) {
+            throw _stdException;
+        }
+    }
+
+    void Complete()
+    {
+        _event.SetEvent();
+    }
+
+    Platform::Exception ^ _exception;
+    std::exception* _stdException;
+    qcc::Event _event;
+};
+
+public ref class MethodCallResult sealed {
+  public:
+    property Message ^ Message;
+
+  private:
+    friend ref class ProxyBusObject;
+    friend class _ProxyBusObject;
+    friend class _ProxyBusObjectListener;
+    MethodCallResult()
+    {
+        Message = nullptr;
+        _exception = nullptr;
+        _stdException = NULL;
+    }
+
+    ~MethodCallResult()
+    {
+        Message = nullptr;
+        _exception = nullptr;
+        if (NULL != _stdException) {
+            delete _stdException;
+            _stdException = NULL;
+        }
+    }
+
+    void Wait()
+    {
+        qcc::Event::Wait(_event, qcc::Event::WAIT_FOREVER);
+        // Propagate exception state
+        if (nullptr != _exception) {
+            throw _exception;
+        }
+        if (NULL != _stdException) {
+            throw _stdException;
+        }
+    }
+
+    void Complete()
+    {
+        _event.SetEvent();
+    }
+
+    Platform::Exception ^ _exception;
+    std::exception* _stdException;
+    qcc::Event _event;
 };
 
 ref class __ProxyBusObject {
@@ -242,9 +315,11 @@ class _ProxyBusObjectListener : protected ajn::ProxyBusObject::Listener {
     ajn::ProxyBusObject::Listener::IntrospectCB GetProxyListenerIntrospectCBHandler();
     ajn::ProxyBusObject::Listener::GetPropertyCB GetProxyListenerGetPropertyCBHandler();
     ajn::ProxyBusObject::Listener::GetAllPropertiesCB GetProxyListenerGetAllPropertiesCBHandler();
+    ajn::ProxyBusObject::Listener::SetPropertyCB GetProxyListenerSetPropertyCBHandler();
     void IntrospectCB(::QStatus s, ajn::ProxyBusObject* obj, void* context);
     void GetPropertyCB(::QStatus status, ajn::ProxyBusObject* obj, const ajn::MsgArg& value, void* context);
     void GetAllPropertiesCB(::QStatus status, ajn::ProxyBusObject* obj, const ajn::MsgArg& value, void* context);
+    void SetPropertyCB(::QStatus status, ajn::ProxyBusObject* obj, void* context);
 
     _ProxyBusObject* _proxyBusObject;
 };
@@ -258,7 +333,7 @@ class _ProxyBusObject : protected ajn::ProxyBusObject {
     _ProxyBusObject(BusAttachment ^ b, ajn::BusAttachment& bus, const char* service, const char* path, ajn::SessionId sessionId);
     ~_ProxyBusObject();
 
-    void MessageReceiverProxyReplyHandler(ajn::Message& msg, void* context);
+    void ReplyHandler(ajn::Message& msg, void* context);
 
     __ProxyBusObject ^ _eventsAndProperties;
     _ProxyBusObjectListener* _proxyBusObjectListener;
@@ -340,7 +415,7 @@ public ref class ProxyBusObject sealed {
     /// Get all properties from an interface on the remote object.
     /// </summary>
     /// <param name="iface">Name of interface to retrieve all properties from.</param>
-    /// <param name="values">Property values returned as an array of dictionary entries, signature "a{sv}".</param>
+    /// <param name="context">User defined context which will be passed as-is to callback.</param>
     /// <param name="timeout">Time in milliseconds before the call will expire</param>
     /// <exception cref="Platform::COMException">
     /// HRESULT will contain the AllJoyn error status code for the error.
@@ -360,13 +435,21 @@ public ref class ProxyBusObject sealed {
     /// <param name="iface">Interface that holds the property</param>
     /// <param name="property">The name of the property to set</param>
     /// <param name="value">The value to set</param>
+    /// <param name="context">User defined context which will be passed as-is to callback.</param>
+    /// <param name="timeout">Time in milliseconds before the call will expire</param>
     /// <exception cref="Platform::COMException">
     /// HRESULT will contain the AllJoyn error status code for the error.
     /// - #ER_OK if the property was set
     /// - #ER_BUS_OBJECT_NO_SUCH_INTERFACE if the no such interface on this remote object.
     /// - #ER_BUS_NO_SUCH_PROPERTY if the property does not exist
     /// </exception>
-    void SetProperty(Platform::String ^ iface, Platform::String ^ property, MsgArg ^ value);
+    /// <returns>A handle to the async operation.</returns>
+    Windows::Foundation::IAsyncOperation<SetPropertyResult ^> ^ SetPropertyAsync(
+        Platform::String ^ iface,
+        Platform::String ^ property,
+        MsgArg ^ value,
+        Platform::Object ^ context,
+        uint32_t timeout);
 
     /// <summary>
     /// Returns the interfaces implemented by this object. Note that all proxy bus objects
@@ -490,11 +573,7 @@ public ref class ProxyBusObject sealed {
     /// Make an asynchronous method call from this object
     /// </summary>
     /// <param name="method">Method being invoked.</param>
-    /// <param name="receiver">The object to be called when the asych method call completes.</param>
-    /// <param name="replyFunc">The function that is called to deliver the reply</param>
     /// <param name="args">The arguments for the method call (can be NULL)</param>
-    /// <param name="numArgs">The number of arguments</param>
-    /// <param name="receiver">The object to be called when the asych method call completes.</param>
     /// <param name="context">User-defined context that will be returned to the reply handler</param>
     /// <param name="timeout">Timeout specified in milliseconds to wait for a reply</param>
     /// <param name="flags">Logical OR of the message flags for this method call. The following flags apply to method calls:
@@ -506,22 +585,19 @@ public ref class ProxyBusObject sealed {
     /// - ER_OK if successful
     /// - An error status otherwise
     /// </exception>
-    void MethodCallAsync(InterfaceMember ^ method,
-                         MessageReceiver ^ receiver,
-                         const Platform::Array<MsgArg ^> ^ args,
-                         Platform::Object ^ context,
-                         uint32_t timeout,
-                         uint8_t flags);
+    /// <returns>A handle to the async operation.</returns>
+    Windows::Foundation::IAsyncOperation<MethodCallResult ^> ^ MethodCallAsync(InterfaceMember ^ method,
+                                                                               const Platform::Array<MsgArg ^> ^ args,
+                                                                               Platform::Object ^ context,
+                                                                               uint32_t timeout,
+                                                                               uint8_t flags);
 
     /// <summary>
     /// Make an asynchronous method call from this object
     /// </summary>
     /// <param name="ifaceName">Name of interface for method.</param>
     /// <param name="methodName">Name of method.</param>
-    /// <param name="receiver">The object to be called when the asynchronous method call completes.</param>
-    /// <param name="replyFunc">The function that is called to deliver the reply</param>
     /// <param name="args">The arguments for the method call (can be NULL)</param>
-    /// <param name="numArgs">The number of arguments</param>
     /// <param name="context">User-defined context that will be returned to the reply handler</param>
     /// <param name="timeout">Timeout specified in milliseconds to wait for a reply</param>
     /// <param name="flags">Logical OR of the message flags for this method call. The following flags apply to method calls:
@@ -533,13 +609,13 @@ public ref class ProxyBusObject sealed {
     /// - ER_OK if successful
     /// - An error status otherwise
     /// </exception>
-    void MethodCallAsync(Platform::String ^ ifaceName,
-                         Platform::String ^ methodName,
-                         MessageReceiver ^ receiver,
-                         const Platform::Array<MsgArg ^> ^ args,
-                         Platform::Object ^ context,
-                         uint32_t timeout,
-                         uint8_t flags);
+    /// <returns>A handle to the async operation.</returns>
+    Windows::Foundation::IAsyncOperation<MethodCallResult ^> ^ MethodCallAsync(Platform::String ^ ifaceName,
+                                                                               Platform::String ^ methodName,
+                                                                               const Platform::Array<MsgArg ^> ^ args,
+                                                                               Platform::Object ^ context,
+                                                                               uint32_t timeout,
+                                                                               uint8_t flags);
 
     /// <summary>
     /// Initialize this proxy object from an XML string. Calling this method does several things:

@@ -291,9 +291,15 @@ Windows::Foundation::IAsyncOperation<GetAllPropertiesResult ^> ^ ProxyBusObject:
     return result;
 }
 
-void ProxyBusObject::SetProperty(Platform::String ^ iface, Platform::String ^ property, MsgArg ^ value)
+Windows::Foundation::IAsyncOperation<SetPropertyResult ^> ^ ProxyBusObject::SetPropertyAsync(
+    Platform::String ^ iface,
+    Platform::String ^ property,
+    MsgArg ^ value,
+    Platform::Object ^ context,
+    uint32_t timeout)
 {
     ::QStatus status = ER_OK;
+    Windows::Foundation::IAsyncOperation<SetPropertyResult ^> ^ result = nullptr;
 
     while (true) {
         if (nullptr == iface) {
@@ -319,13 +325,36 @@ void ProxyBusObject::SetProperty(Platform::String ^ iface, Platform::String ^ pr
             break;
         }
         ajn::MsgArg* arg = value->_msgArg;
-        status = _proxyBusObject->SetProperty(strIface.c_str(), strProperty.c_str(), *arg);
+        ajn::ProxyBusObject::Listener* listener = _proxyBusObject->_proxyBusObjectListener;
+        ajn::ProxyBusObject::Listener::SetPropertyCB cb = _proxyBusObject->_proxyBusObjectListener->GetProxyListenerSetPropertyCBHandler();
+        SetPropertyResult ^ setPropertyResult = ref new SetPropertyResult(this, context);
+        if (nullptr == setPropertyResult) {
+            status = ER_OUT_OF_MEMORY;
+            break;
+        }
+        status = _proxyBusObject->SetPropertyAsync(strIface.c_str(),
+                                                   strProperty.c_str(),
+                                                   *arg,
+                                                   listener,
+                                                   cb,
+                                                   (void*)setPropertyResult,
+                                                   timeout);
+        if (ER_OK != status) {
+            break;
+        }
+        result = concurrency::create_async([this, setPropertyResult]()->SetPropertyResult ^
+                                           {
+                                               setPropertyResult->Wait();
+                                               return setPropertyResult;
+                                           });
         break;
     }
 
     if (ER_OK != status) {
         QCC_THROW_EXCEPTION(status);
     }
+
+    return result;
 }
 
 uint32_t ProxyBusObject::GetInterfaces(Platform::WriteOnlyArray<InterfaceDescription ^> ^ ifaces)
@@ -608,27 +637,19 @@ void ProxyBusObject::RemoveChild(Platform::String ^ path)
     }
 }
 
-void ProxyBusObject::MethodCallAsync(InterfaceMember ^ method,
-                                     MessageReceiver ^ receiver,
-                                     const Platform::Array<MsgArg ^> ^ args,
-                                     Platform::Object ^ context,
-                                     uint32_t timeout,
-                                     uint8_t flags)
+Windows::Foundation::IAsyncOperation<MethodCallResult ^> ^ ProxyBusObject::MethodCallAsync(InterfaceMember ^ method,
+                                                                                           const Platform::Array<MsgArg ^> ^ args,
+                                                                                           Platform::Object ^ context,
+                                                                                           uint32_t timeout,
+                                                                                           uint8_t flags)
 {
     ::QStatus status = ER_OK;
     ajn::MsgArg* msgScratch = NULL;
+    Windows::Foundation::IAsyncOperation<MethodCallResult ^> ^ result = nullptr;
 
     while (true) {
         if (nullptr == method) {
             status = ER_BAD_ARG_1;
-            break;
-        }
-        if (nullptr == receiver) {
-            status = ER_BAD_ARG_2;
-            break;
-        }
-        if (!Bus->IsSameBusAttachment(receiver->_receiver->Bus)) {
-            status = ER_BAD_ARG_2;
             break;
         }
         size_t argsCount = 0;
@@ -645,15 +666,30 @@ void ProxyBusObject::MethodCallAsync(InterfaceMember ^ method,
                 msgScratch[i] = *arg;
             }
         }
-        ProxyMessageReceiverCtx* proxyCtx = new ProxyMessageReceiverCtx(this, receiver, context);
-        if (nullptr == proxyCtx) {
+        MethodCallResult ^ methodCallResult = ref new MethodCallResult();
+        if (nullptr == methodCallResult) {
             status = ER_OUT_OF_MEMORY;
             break;
         }
         ajn::InterfaceDescription::Member* imethod = *(method->_member);
         ajn::MessageReceiver* mreceiver = Receiver->_receiver;
-        ajn::MessageReceiver::ReplyHandler handler = static_cast<ajn::MessageReceiver::ReplyHandler>(&_ProxyBusObject::MessageReceiverProxyReplyHandler);
-        status = _proxyBusObject->MethodCallAsync(*imethod, mreceiver, handler, msgScratch, argsCount, (void*)proxyCtx, timeout, flags);
+        ajn::MessageReceiver::ReplyHandler handler = static_cast<ajn::MessageReceiver::ReplyHandler>(&_ProxyBusObject::ReplyHandler);
+        status = _proxyBusObject->MethodCallAsync(*imethod,
+                                                  mreceiver,
+                                                  handler,
+                                                  msgScratch,
+                                                  argsCount,
+                                                  (void*)methodCallResult,
+                                                  timeout,
+                                                  flags);
+        if (ER_OK != status) {
+            break;
+        }
+        result = concurrency::create_async([this, methodCallResult]()->MethodCallResult ^
+                                           {
+                                               methodCallResult->Wait();
+                                               return methodCallResult;
+                                           });
         break;
     }
 
@@ -665,18 +701,20 @@ void ProxyBusObject::MethodCallAsync(InterfaceMember ^ method,
     if (ER_OK != status) {
         QCC_THROW_EXCEPTION(status);
     }
+
+    return result;
 }
 
-void ProxyBusObject::MethodCallAsync(Platform::String ^ ifaceName,
-                                     Platform::String ^ methodName,
-                                     MessageReceiver ^ receiver,
-                                     const Platform::Array<MsgArg ^> ^ args,
-                                     Platform::Object ^ context,
-                                     uint32_t timeout,
-                                     uint8_t flags)
+Windows::Foundation::IAsyncOperation<MethodCallResult ^> ^ ProxyBusObject::MethodCallAsync(Platform::String ^ ifaceName,
+                                                                                           Platform::String ^ methodName,
+                                                                                           const Platform::Array<MsgArg ^> ^ args,
+                                                                                           Platform::Object ^ context,
+                                                                                           uint32_t timeout,
+                                                                                           uint8_t flags)
 {
     ::QStatus status = ER_OK;
     ajn::MsgArg* msgScratch = NULL;
+    Windows::Foundation::IAsyncOperation<MethodCallResult ^> ^ result = nullptr;
 
     while (true) {
         if (nullptr == ifaceName) {
@@ -697,14 +735,6 @@ void ProxyBusObject::MethodCallAsync(Platform::String ^ ifaceName,
             status = ER_OUT_OF_MEMORY;
             break;
         }
-        if (nullptr == receiver) {
-            status = ER_BAD_ARG_3;
-            break;
-        }
-        if (!Bus->IsSameBusAttachment(receiver->_receiver->Bus)) {
-            status = ER_BAD_ARG_3;
-            break;
-        }
         size_t argsCount = 0;
         if (nullptr != args & args->Length > 0) {
             argsCount = args->Length;
@@ -719,15 +749,30 @@ void ProxyBusObject::MethodCallAsync(Platform::String ^ ifaceName,
                 msgScratch[i] = *arg;
             }
         }
-        ProxyMessageReceiverCtx* proxyCtx = new ProxyMessageReceiverCtx(this, receiver, context);
-        if (nullptr == proxyCtx) {
+        MethodCallResult ^ methodCallResult = ref new MethodCallResult();
+        if (nullptr == methodCallResult) {
             status = ER_OUT_OF_MEMORY;
             break;
         }
         ajn::MessageReceiver* mreceiver = Receiver->_receiver;
-        ajn::MessageReceiver::ReplyHandler handler = static_cast<ajn::MessageReceiver::ReplyHandler>(&_ProxyBusObject::MessageReceiverProxyReplyHandler);
-        status = _proxyBusObject->MethodCallAsync(strIfaceName.c_str(), strMethodName.c_str(), mreceiver,
-                                                  handler, msgScratch, argsCount, (void*)proxyCtx, timeout, flags);
+        ajn::MessageReceiver::ReplyHandler handler = static_cast<ajn::MessageReceiver::ReplyHandler>(&_ProxyBusObject::ReplyHandler);
+        status = _proxyBusObject->MethodCallAsync(strIfaceName.c_str(),
+                                                  strMethodName.c_str(),
+                                                  mreceiver,
+                                                  handler,
+                                                  msgScratch,
+                                                  argsCount,
+                                                  (void*)methodCallResult,
+                                                  timeout,
+                                                  flags);
+        if (ER_OK != status) {
+            break;
+        }
+        result = concurrency::create_async([this, methodCallResult]()->MethodCallResult ^
+                                           {
+                                               methodCallResult->Wait();
+                                               return methodCallResult;
+                                           });
         break;
     }
 
@@ -739,6 +784,8 @@ void ProxyBusObject::MethodCallAsync(Platform::String ^ ifaceName,
     if (ER_OK != status) {
         QCC_THROW_EXCEPTION(status);
     }
+
+    return result;
 }
 
 void ProxyBusObject::ParseXml(Platform::String ^ xml, Platform::String ^ identifier)
@@ -946,31 +993,35 @@ _ProxyBusObject::~_ProxyBusObject()
     ClearObjectMap(&(this->_mutex), &(this->_childObjectMap));
 }
 
-void _ProxyBusObject::MessageReceiverProxyReplyHandler(ajn::Message& msg, void* context)
+void _ProxyBusObject::ReplyHandler(ajn::Message& msg, void* context)
 {
-    try {
-        ::QStatus status = ER_OK;
+    ::QStatus status = ER_OK;
+    MethodCallResult ^ methodCallResult = reinterpret_cast<MethodCallResult ^>(context);
 
+    try {
         while (true) {
-            ProxyMessageReceiverCtx* proxyCtx = reinterpret_cast<ProxyMessageReceiverCtx*>(context);
-            if (NULL == proxyCtx) {
-                status = ER_FAIL;
+            Message ^ message = ref new Message((void*)&msg, true);
+            if (nullptr == message) {
+                status = ER_OUT_OF_MEMORY;
                 break;
             }
-            AllJoyn::ProxyBusObject ^ proxy = proxyCtx->_proxy;
-            AllJoyn::MessageReceiver ^ receiver = proxyCtx->_receiver;
-            Platform::Object ^ objContext = proxyCtx->_context;
-            delete proxyCtx;
-            proxyCtx = NULL;
-            receiver->_receiver->ReplyHandler(msg, (void*)objContext);
+            methodCallResult->Message = message;
             break;
         }
 
         if (ER_OK != status) {
             QCC_THROW_EXCEPTION(status);
         }
-    } catch (...) {
-        // Do nothing
+
+        methodCallResult->Complete();
+    } catch (Platform::Exception ^ pe) {
+        // Forward Platform::Exception
+        methodCallResult->_exception = pe;
+        methodCallResult->Complete();
+    } catch (std::exception& e) {
+        // Forward std::exception
+        methodCallResult->_stdException = new std::exception(e);
+        methodCallResult->Complete();
     }
 }
 
@@ -997,6 +1048,11 @@ ajn::ProxyBusObject::Listener::GetPropertyCB _ProxyBusObjectListener::GetProxyLi
 ajn::ProxyBusObject::Listener::GetAllPropertiesCB _ProxyBusObjectListener::GetProxyListenerGetAllPropertiesCBHandler()
 {
     return static_cast<ajn::ProxyBusObject::Listener::GetAllPropertiesCB>(&AllJoyn::_ProxyBusObjectListener::GetAllPropertiesCB);
+}
+
+ajn::ProxyBusObject::Listener::SetPropertyCB _ProxyBusObjectListener::GetProxyListenerSetPropertyCBHandler()
+{
+    return static_cast<ajn::ProxyBusObject::Listener::SetPropertyCB>(&AllJoyn::_ProxyBusObjectListener::SetPropertyCB);
 }
 
 void _ProxyBusObjectListener::IntrospectCB(::QStatus s, ajn::ProxyBusObject* obj, void* context)
@@ -1070,6 +1126,13 @@ void _ProxyBusObjectListener::GetAllPropertiesCB(::QStatus s, ajn::ProxyBusObjec
         getAllPropertiesResult->_stdException = new std::exception(e);
         getAllPropertiesResult->Complete();
     }
+}
+
+void _ProxyBusObjectListener::SetPropertyCB(::QStatus s, ajn::ProxyBusObject* obj, void* context)
+{
+    ::QStatus status = ER_OK;
+    SetPropertyResult ^ setPropertyResult = reinterpret_cast<SetPropertyResult ^>(context);
+    setPropertyResult->Complete();
 }
 
 __ProxyBusObject::__ProxyBusObject()

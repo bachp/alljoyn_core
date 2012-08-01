@@ -42,29 +42,22 @@ ref class BusAttachment;
 ref class BusObject;
 ref class ProxyBusObject;
 
-///<summary>
-///MethodHandlers are %MessageReceiver methods which are called by AllJoyn library
-///to forward AllJoyn method_calls to AllJoyn library users.
-///</summary>
-///<param name="member">Method interface member entry.</param>
-///<param name="message">The received method call message.</param>
+/// <summary>
+/// MethodHandlers are %MessageReceiver methods which are called by AllJoyn library
+/// to forward AllJoyn method_calls to AllJoyn library users.
+/// </summary>
+/// <param name="member">Method interface member entry.</param>
+/// <param name="message">The received method call message.</param>
 public delegate void MessageReceiverMethodHandler(InterfaceMember ^ member, Message ^ message);
 
-///<summary>
-///ReplyHandlers are %MessageReceiver methods which are called by AllJoyn library
-///to forward AllJoyn method_reply and error responses to AllJoyn library users.
-///</summary>
-///<param name="message">The received message.</param>
-///<param name="context">User-defined context passed to MethodCall and returned upon reply.</param>
-public delegate void MessageReceiverReplyHandler(Message ^ message, Platform::Object ^ context);
 
-///<summary>
-///SignalHandlers are %MessageReceiver methods which are called by AllJoyn library
-///to forward AllJoyn received signals to AllJoyn library users.
-///</summary>
-///<param name="member">Method or signal interface member entry.</param>
-///<param name="srcPath">Object path of signal emitter.</param>
-///<param name="message">The received message.</param>
+/// <summary>
+/// SignalHandlers are %MessageReceiver methods which are called by AllJoyn library
+/// to forward AllJoyn received signals to AllJoyn library users.
+/// </summary>
+/// <param name="member">Method or signal interface member entry.</param>
+/// <param name="srcPath">Object path of signal emitter.</param>
+/// <param name="message">The received message.</param>
 public delegate void MessageReceiverSignalHandler(InterfaceMember ^ member, Platform::String ^ srcPath, Message ^ message);
 
 ref class __MessageReceiver {
@@ -75,7 +68,6 @@ ref class __MessageReceiver {
     ~__MessageReceiver() { }
 
     event MessageReceiverMethodHandler ^ MethodHandler;
-    event MessageReceiverReplyHandler ^ ReplyHandler;
     event MessageReceiverSignalHandler ^ SignalHandler;
 };
 
@@ -102,9 +94,6 @@ class _MessageReceiver : protected ajn::MessageReceiver {
             _eventsAndProperties->MethodHandler += ref new MessageReceiverMethodHandler([&] (InterfaceMember ^ member, Message ^ message) {
                                                                                             DefaultMessageReceiverMethodHandler(member, message);
                                                                                         });
-            _eventsAndProperties->ReplyHandler += ref new MessageReceiverReplyHandler([&] (Message ^ message, Platform::Object ^ context) {
-                                                                                          DefaultMessageReceiverReplyHandler(message, context);
-                                                                                      });
             _eventsAndProperties->SignalHandler += ref new MessageReceiverSignalHandler([&] (InterfaceMember ^ member, Platform::String ^ srcPath, Message ^ message) {
                                                                                             DefaultMessageReceiverSignalHandler(member, srcPath, message);
                                                                                         });
@@ -126,10 +115,6 @@ class _MessageReceiver : protected ajn::MessageReceiver {
     {
     }
 
-    void DefaultMessageReceiverReplyHandler(Message ^ message, Platform::Object ^ context)
-    {
-    }
-
     void DefaultMessageReceiverSignalHandler(InterfaceMember ^ member, Platform::String ^ srcPath, Message ^ message)
     {
     }
@@ -137,11 +122,6 @@ class _MessageReceiver : protected ajn::MessageReceiver {
     ajn::MessageReceiver::MethodHandler GetMethodHandler()
     {
         return static_cast<ajn::MessageReceiver::MethodHandler>(&AllJoyn::_MessageReceiver::MethodHandler);
-    }
-
-    ajn::MessageReceiver::ReplyHandler GetReplyHandler()
-    {
-        return static_cast<ajn::MessageReceiver::ReplyHandler>(&AllJoyn::_MessageReceiver::ReplyHandler);
     }
 
     ajn::MessageReceiver::SignalHandler GetSignalHandler()
@@ -168,32 +148,6 @@ class _MessageReceiver : protected ajn::MessageReceiver {
                 Bus->_busAttachment->DispatchCallback(ref new Windows::UI::Core::DispatchedHandler([&]() {
                                                                                                        _eventsAndProperties->MethodHandler(imember, message);
 
-                                                                                                   }));
-                break;
-            }
-
-            if (ER_OK != status) {
-                QCC_THROW_EXCEPTION(status);
-            }
-        } catch (...) {
-            // Do nothing
-        }
-    }
-
-    void ReplyHandler(ajn::Message& msg, void* context)
-    {
-        ::QStatus status = ER_OK;
-
-        try {
-            while (true) {
-                Message ^ message = ref new Message((void*)&msg, true);
-                if (nullptr == message) {
-                    status = ER_OUT_OF_MEMORY;
-                    break;
-                }
-                Platform::Object ^ objContext = reinterpret_cast<Platform::Object ^>(context);
-                Bus->_busAttachment->DispatchCallback(ref new Windows::UI::Core::DispatchedHandler([&]() {
-                                                                                                       _eventsAndProperties->ReplyHandler(message, objContext);
                                                                                                    }));
                 break;
             }
@@ -275,7 +229,7 @@ public ref class MessageReceiver sealed {
         }
     }
 
-    ///<summary>Called when a method has been received</summary>
+    /// <summary>Called when a method has been received</summary>
     event MessageReceiverMethodHandler ^ MethodHandler
     {
         Windows::Foundation::EventRegistrationToken add(MessageReceiverMethodHandler ^ handler)
@@ -294,26 +248,7 @@ public ref class MessageReceiver sealed {
         }
     }
 
-    ///<summary>Called when a method reply has been received</summary>
-    event MessageReceiverReplyHandler ^ ReplyHandler
-    {
-        Windows::Foundation::EventRegistrationToken add(MessageReceiverReplyHandler ^ handler)
-        {
-            return _receiver->_eventsAndProperties->ReplyHandler::add(handler);
-        }
-
-        void remove(Windows::Foundation::EventRegistrationToken token)
-        {
-            _receiver->_eventsAndProperties->ReplyHandler::remove(token);
-        }
-
-        void raise(Message ^ message, Platform::Object ^ context)
-        {
-            _receiver->_eventsAndProperties->ReplyHandler::raise(message, context);
-        }
-    }
-
-    ///<summary>Called when a signal has received</summary>
+    /// <summary>Called when a signal has been received</summary>
     event MessageReceiverSignalHandler ^ SignalHandler
     {
         Windows::Foundation::EventRegistrationToken add(MessageReceiverSignalHandler ^ handler)
