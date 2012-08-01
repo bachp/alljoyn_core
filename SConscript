@@ -13,6 +13,7 @@
 #    limitations under the License.
 # 
 
+import os
 Import('env')
 
 # Indicate that this SConscript file has been loaded already
@@ -22,10 +23,17 @@ env['_ALLJOYNCORE_'] = True
 # Dependent Projects
 common_hdrs, common_objs = env.SConscript(['../common/SConscript'])
 
-if(not(env.has_key('BULLSEYE_BIN'))):
-    print('BULLSEYE_BIN not specified')
-else:
-    env.PrependENVPath('PATH', env.get('BULLSEYE_BIN'))
+# Bullseye code coverage for 'debug' builds.
+if env['VARIANT'] == 'debug':
+    if(not(env.has_key('BULLSEYE_BIN'))):
+        print('BULLSEYE_BIN not specified')
+    else:
+        env.PrependENVPath('PATH', env.get('BULLSEYE_BIN'))
+        if (not(os.environ.has_key('COVFILE'))):
+            print('Error: COVFILE environment variable must be set')
+            Exit()
+        else:
+            env.PrependENVPath('COVFILE', os.environ['COVFILE'])
 
 # manually add dependencies for xml to h, and for files included in the xml
 env.Depends('inc/Status.h', 'src/Status.xml')
