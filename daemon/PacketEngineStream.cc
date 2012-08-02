@@ -110,7 +110,7 @@ QStatus PacketEngineStream::PullBytes(void* buf, size_t reqBytes, size_t& actual
             status = Event::Wait(*sourceEvent, timeout);
             ci->rxLock.Lock();
             if (status == ER_OK) {
-                if (ci->state == PacketEngine::ChannelInfo::OPEN) {
+                if ((ci->state == PacketEngine::ChannelInfo::OPEN) || (ci->state == PacketEngine::ChannelInfo::OPENING)) {
                     drain = ci->rxDrain;
                 } else {
                     status = ER_SOCK_OTHER_END_CLOSED;
