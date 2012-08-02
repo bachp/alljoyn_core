@@ -188,8 +188,7 @@ class ScanService : public BusObject {
 
             const char*bssid = env->GetStringUTFChars(jbssid, NULL);
             const char*ssid = env->GetStringUTFChars(jssid, NULL);
-            attached = (bool)jattached;
-            bool attached;
+            bool attached = (bool)jattached;
             if (bssid != NULL) {
 
                 args[i].Set("(ssb)", bssid, ssid, attached);
