@@ -293,7 +293,8 @@ public class AllJoynAndroidExt extends Service {
 				// it is ok to have scanResultMessage = null so we check if we are connected to any network first
 				
 				boolean isConnected = false; 
-				if(wifiMgr.getConnectionInfo() != null){
+				boolean wifiEnabled = wifiMgr.isWifiEnabled(); 
+				if(wifiEnabled && wifiMgr.getConnectionInfo() != null){
 					isConnected = true;
 				}
 						

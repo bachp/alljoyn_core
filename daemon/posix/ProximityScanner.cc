@@ -157,6 +157,9 @@ void ProximityScanner::Scan(bool request_scan) {
     MsgArg*scanArray;
     size_t scanArraySize;
     const MsgArg*args = reply->GetArg(0);
+    if (args == NULL) {
+        return;
+    }
     status = args->Get("a(ssb)", &scanArraySize, &scanArray);
     if (ER_OK != status) {
         QCC_LogError(status, ("Error while unmarshalling the array of structs recevied from the service"));
