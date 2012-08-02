@@ -119,6 +119,10 @@ class LocalEndpoint::ReplyContext {
     uint32_t serial;                             /* Serial number for the method reply */
     void* context;                               /* The calling object's context */
     qcc::Alarm alarm;                            /* Alarm object for handling method call timeouts */
+
+  private:
+    ReplyContext(const ReplyContext& other);
+    ReplyContext operator=(const ReplyContext& other);
 };
 
 LocalEndpoint::LocalEndpoint(BusAttachment& bus) :
