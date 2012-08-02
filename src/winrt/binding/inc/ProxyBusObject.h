@@ -88,9 +88,9 @@ public ref class IntrospectRemoteObjectResult sealed {
 public ref class GetPropertyResult sealed {
   public:
     property ProxyBusObject ^ Proxy;
+    property Platform::Object ^ Context;
     property QStatus Status;
     property MsgArg ^ Value;
-    property Platform::Object ^ Context;
 
   private:
     friend ref class ProxyBusObject;
@@ -99,6 +99,7 @@ public ref class GetPropertyResult sealed {
     GetPropertyResult(ProxyBusObject ^ proxy, Platform::Object ^ context)
     {
         Proxy = proxy;
+        Status = QStatus::ER_OK;
         Value = nullptr;
         Context = context;
         _exception = nullptr;
@@ -142,9 +143,9 @@ public ref class GetPropertyResult sealed {
 public ref class GetAllPropertiesResult sealed {
   public:
     property ProxyBusObject ^ Proxy;
+    property Platform::Object ^ Context;
     property QStatus Status;
     property MsgArg ^ Value;
-    property Platform::Object ^ Context;
 
   private:
     friend ref class ProxyBusObject;
@@ -153,6 +154,7 @@ public ref class GetAllPropertiesResult sealed {
     GetAllPropertiesResult(ProxyBusObject ^ proxy, Platform::Object ^ context)
     {
         Proxy = proxy;
+        Status = QStatus::ER_OK;
         Value = nullptr;
         Context = context;
         _exception = nullptr;
@@ -245,14 +247,18 @@ public ref class SetPropertyResult sealed {
 
 public ref class MethodCallResult sealed {
   public:
+    property ProxyBusObject ^ Proxy;
+    property Platform::Object ^ Context;
     property Message ^ Message;
 
   private:
     friend ref class ProxyBusObject;
     friend class _ProxyBusObject;
     friend class _ProxyBusObjectListener;
-    MethodCallResult()
+    MethodCallResult(ProxyBusObject ^ proxy, Platform::Object ^ context)
     {
+        Proxy = proxy;
+        Context = context;
         Message = nullptr;
         _exception = nullptr;
         _stdException = NULL;
@@ -260,6 +266,8 @@ public ref class MethodCallResult sealed {
 
     ~MethodCallResult()
     {
+        Proxy = nullptr;
+        Context = nullptr;
         Message = nullptr;
         _exception = nullptr;
         if (NULL != _stdException) {

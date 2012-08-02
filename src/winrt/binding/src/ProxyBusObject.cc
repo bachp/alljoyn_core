@@ -666,7 +666,7 @@ Windows::Foundation::IAsyncOperation<MethodCallResult ^> ^ ProxyBusObject::Metho
                 msgScratch[i] = *arg;
             }
         }
-        MethodCallResult ^ methodCallResult = ref new MethodCallResult();
+        MethodCallResult ^ methodCallResult = ref new MethodCallResult(this, context);
         if (nullptr == methodCallResult) {
             status = ER_OUT_OF_MEMORY;
             break;
@@ -749,7 +749,7 @@ Windows::Foundation::IAsyncOperation<MethodCallResult ^> ^ ProxyBusObject::Metho
                 msgScratch[i] = *arg;
             }
         }
-        MethodCallResult ^ methodCallResult = ref new MethodCallResult();
+        MethodCallResult ^ methodCallResult = ref new MethodCallResult(this, context);
         if (nullptr == methodCallResult) {
             status = ER_OUT_OF_MEMORY;
             break;

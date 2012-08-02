@@ -43,13 +43,6 @@ ref class ProxyBusObject;
 ref class AuthListener;
 ref class KeyStoreListener;
 
-///<summary>Event for reporting that a session has been joined</summary>
-///<param name="status">ER_OK if successful</param>
-///<param name="sessionId">Unique identifier for session.</param>
-///<param name="opts">Session options.</param>
-///<param name="context">User defined context which will be passed as-is to callback.</param>
-public delegate void BusAttachmentJoinSessionHandler(QStatus status, ajn::SessionId sessionId, SessionOpts ^ opts, Platform::Object ^ context);
-
 public enum class RequestNameType {
     ///<summary>Allow others to take ownership of this name</summary>
     DBUS_NAME_ALLOW_REPLACEMENT = DBUS_NAME_FLAG_ALLOW_REPLACEMENT,
@@ -59,24 +52,63 @@ public enum class RequestNameType {
     DBUS_NAME_DO_NOT_QUEUE = DBUS_NAME_FLAG_DO_NOT_QUEUE
 };
 
-class JoinSessionCtx {
-  protected:
+public ref class JoinSessionResult sealed {
+  public:
+    property BusAttachment ^ Bus;
+    property Platform::Object ^ Context;
+    property SessionListener ^ Listener;
+    property QStatus Status;
+    property ajn::SessionId SessionId;
+    property SessionOpts ^ Opts;
+
+  private:
     friend ref class BusAttachment;
     friend class _BusAttachment;
-    JoinSessionCtx(SessionListener ^ listener, Platform::Object ^ context)
+    JoinSessionResult(BusAttachment ^ bus, SessionListener ^ listener, Platform::Object ^ context)
     {
-        Listener = listener;
+        Bus = bus;
         Context = context;
+        Listener = listener;
+        Status = QStatus::ER_OK;
+        SessionId = (ajn::SessionId)-1;
+        Opts = nullptr;
+        _exception = nullptr;
+        _stdException = NULL;
     }
 
-    ~JoinSessionCtx()
+    ~JoinSessionResult()
     {
-        Listener = nullptr;
+        Bus = nullptr;
         Context = nullptr;
+        Listener = nullptr;
+        Opts = nullptr;
+        _exception = nullptr;
+        if (NULL != _stdException) {
+            delete _stdException;
+            _stdException = NULL;
+        }
     }
 
-    SessionListener ^ Listener;
-    Platform::Object ^ Context;
+    void Wait()
+    {
+        qcc::Event::Wait(_event, qcc::Event::WAIT_FOREVER);
+        // Propagate exception state
+        if (nullptr != _exception) {
+            throw _exception;
+        }
+        if (NULL != _stdException) {
+            throw _stdException;
+        }
+    }
+
+    void Complete()
+    {
+        _event.SetEvent();
+    }
+
+    Platform::Exception ^ _exception;
+    std::exception* _stdException;
+    qcc::Event _event;
 };
 
 ref class __BusAttachment {
@@ -86,7 +118,6 @@ ref class __BusAttachment {
     __BusAttachment();
     ~__BusAttachment();
 
-    event BusAttachmentJoinSessionHandler ^ JoinSession;
     property ProxyBusObject ^ DBusProxyBusObject;
     property ProxyBusObject ^ AllJoynProxyBusObject;
     property ProxyBusObject ^ AllJoynDebugProxyBusObject;
@@ -112,7 +143,6 @@ class _BusAttachment : protected ajn::BusAttachment, protected ajn::BusAttachmen
     _BusAttachment(const char* applicationName, bool allowRemoteMessages, uint32_t concurrency);
     ~_BusAttachment();
 
-    void DefaultBusAttachmentJoinSessionHandler(QStatus status, ajn::SessionId sessionId, SessionOpts ^ opts, Platform::Object ^ context);
     void JoinSessionCB(::QStatus status, ajn::SessionId sessionId, const ajn::SessionOpts& opts, void* context);
     void DispatchCallback(Windows::UI::Core::DispatchedHandler ^ callback);
     bool IsOriginSTA();
@@ -823,12 +853,13 @@ public ref class BusAttachment sealed {
     /// ER_BUS_NOT_CONNECTED if a connection has not been made with a local bus.
     /// Or other error status codes indicating the reason the operation failed.
     /// </exception>
-    void JoinSessionAsync(Platform::String ^ sessionHost,
-                          ajn::SessionPort sessionPort,
-                          SessionListener ^ listener,
-                          SessionOpts ^ opts_in,
-                          Platform::WriteOnlyArray<SessionOpts ^> ^ opts_out,
-                          Platform::Object ^ context);
+    /// <returns>A handle to the async operation.</returns>
+    Windows::Foundation::IAsyncOperation<JoinSessionResult ^> ^ JoinSessionAsync(Platform::String ^ sessionHost,
+                                                                                 ajn::SessionPort sessionPort,
+                                                                                 SessionListener ^ listener,
+                                                                                 SessionOpts ^ opts_in,
+                                                                                 Platform::WriteOnlyArray<SessionOpts ^> ^ opts_out,
+                                                                                 Platform::Object ^ context);
 
     /// <summary>
     /// Set the SessionListener for an existing sessionId.
@@ -931,16 +962,6 @@ public ref class BusAttachment sealed {
     /// <param name="other">The Busattachment reference to compare.</param>
     /// <returns>Returns true if this bus and the other bus are the same object.</returns>
     bool IsSameBusAttachment(BusAttachment ^ other);
-
-    /// <summary>
-    ///  Event for reporting that a session has been joined
-    /// </summary>
-    event BusAttachmentJoinSessionHandler ^ JoinSession
-    {
-        Windows::Foundation::EventRegistrationToken add(BusAttachmentJoinSessionHandler ^ handler);
-        void remove(Windows::Foundation::EventRegistrationToken token);
-        void raise(QStatus status, ajn::SessionId sessionId, SessionOpts ^ opts, Platform::Object ^ context);
-    }
 
     /// <summary>
     /// Get a reference to the org.freedesktop.DBus proxy object.

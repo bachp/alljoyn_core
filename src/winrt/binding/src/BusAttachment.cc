@@ -983,10 +983,15 @@ void BusAttachment::UnbindSessionPort(ajn::SessionPort sessionPort)
     }
 }
 
-void BusAttachment::JoinSessionAsync(Platform::String ^ sessionHost, ajn::SessionPort sessionPort, SessionListener ^ listener,
-                                     SessionOpts ^ opts_in, Platform::WriteOnlyArray<SessionOpts ^> ^ opts_out, Platform::Object ^ context)
+Windows::Foundation::IAsyncOperation<JoinSessionResult ^> ^ BusAttachment::JoinSessionAsync(Platform::String ^ sessionHost,
+                                                                                            ajn::SessionPort sessionPort,
+                                                                                            SessionListener ^ listener,
+                                                                                            SessionOpts ^ opts_in,
+                                                                                            Platform::WriteOnlyArray<SessionOpts ^> ^ opts_out,
+                                                                                            Platform::Object ^ context)
 {
     ::QStatus status = ER_OK;
+    Windows::Foundation::IAsyncOperation<JoinSessionResult ^> ^ result = nullptr;
 
     while (true) {
         if (nullptr == sessionHost) {
@@ -1012,12 +1017,17 @@ void BusAttachment::JoinSessionAsync(Platform::String ^ sessionHost, ajn::Sessio
             status = ER_BAD_ARG_6;
             break;
         }
-        JoinSessionCtx* jsCtx = new JoinSessionCtx(listener, context);
-        if (NULL == jsCtx) {
+        JoinSessionResult ^ joinSessionResult = ref new JoinSessionResult(this, listener, context);
+        if (nullptr == joinSessionResult) {
             status = ER_OUT_OF_MEMORY;
             break;
         }
-        status = _busAttachment->JoinSessionAsync(strSessionHost.c_str(), sessionPort, ajnlistener, *opts, _busAttachment, (void*)jsCtx);
+        status = _busAttachment->JoinSessionAsync(strSessionHost.c_str(),
+                                                  sessionPort,
+                                                  ajnlistener,
+                                                  *opts,
+                                                  _busAttachment,
+                                                  (void*)joinSessionResult);
         if (ER_OK == status) {
             SessionOpts ^ newOpts = ref new SessionOpts((void*)opts, false);
             if (nullptr == newOpts) {
@@ -1026,17 +1036,21 @@ void BusAttachment::JoinSessionAsync(Platform::String ^ sessionHost, ajn::Sessio
             }
             opts_out[0] = newOpts;
         } else {
-            if (NULL != jsCtx) {
-                delete jsCtx;
-                jsCtx = NULL;
-            }
+            break;
         }
+        result = concurrency::create_async([this, joinSessionResult]()->JoinSessionResult ^
+                                           {
+                                               joinSessionResult->Wait();
+                                               return joinSessionResult;
+                                           });
         break;
     }
 
     if (ER_OK != status) {
         QCC_THROW_EXCEPTION(status);
     }
+
+    return result;
 }
 
 void BusAttachment::SetSessionListener(ajn::SessionId sessionId, SessionListener ^ listener)
@@ -1200,21 +1214,6 @@ bool BusAttachment::IsSameBusAttachment(BusAttachment ^ other)
         return false;
     }
     return &(**_mBusAttachment) == &(**other->_mBusAttachment);
-}
-
-Windows::Foundation::EventRegistrationToken BusAttachment::JoinSession::add(BusAttachmentJoinSessionHandler ^ handler)
-{
-    return _busAttachment->_eventsAndProperties->JoinSession::add(handler);
-}
-
-void BusAttachment::JoinSession::remove(Windows::Foundation::EventRegistrationToken token)
-{
-    _busAttachment->_eventsAndProperties->JoinSession::remove(token);
-}
-
-void BusAttachment::JoinSession::raise(QStatus status, ajn::SessionId sessionId, SessionOpts ^ opts, Platform::Object ^ context)
-{
-    _busAttachment->_eventsAndProperties->JoinSession::raise(status, sessionId, opts, context);
 }
 
 ProxyBusObject ^ BusAttachment::DBusProxyBusObject::get()
@@ -1402,9 +1401,6 @@ _BusAttachment::_BusAttachment(const char* applicationName, bool allowRemoteMess
             _dispatcher = window->Dispatcher;
         }
         _originSTA = IsOriginSTA();
-        _eventsAndProperties->JoinSession += ref new BusAttachmentJoinSessionHandler([&] (QStatus status, ajn::SessionId sessionId, SessionOpts ^ opts, Platform::Object ^ context) {
-                                                                                         DefaultBusAttachmentJoinSessionHandler(status, sessionId, opts, context);
-                                                                                     });
         break;
     }
 
@@ -1425,38 +1421,38 @@ _BusAttachment::~_BusAttachment()
     ClearIdMap(&(this->_mutex), &(this->_sessionListenerMap));
 }
 
-void _BusAttachment::DefaultBusAttachmentJoinSessionHandler(QStatus status, ajn::SessionId sessionId, SessionOpts ^ opts, Platform::Object ^ context)
-{
-}
-
 void _BusAttachment::JoinSessionCB(::QStatus s, ajn::SessionId sessionId, const ajn::SessionOpts& opts, void* context)
 {
-    try {
-        ::QStatus status = ER_OK;
+    ::QStatus status = ER_OK;
+    JoinSessionResult ^ joinSessionResult = reinterpret_cast<JoinSessionResult ^>(context);
 
+    try {
         while (true) {
-            JoinSessionCtx* jsCtx = (JoinSessionCtx*)context;
-            SessionListener ^ listener = jsCtx->Listener;
-            Platform::Object ^ objContext = jsCtx->Context;
-            delete jsCtx;
-            jsCtx = NULL;
             SessionOpts ^ options = ref new SessionOpts((void*)&opts, false);
             if (nullptr == options) {
                 status = ER_OUT_OF_MEMORY;
                 break;
             }
-            AddIdReference(&(this->_mutex), sessionId, listener, &(this->_sessionListenerMap));
-            DispatchCallback(ref new Windows::UI::Core::DispatchedHandler([&]() {
-                                                                              _eventsAndProperties->JoinSession((QStatus)(int)s, sessionId, options, objContext);
-                                                                          }));
+            AddIdReference(&(this->_mutex), sessionId, joinSessionResult->Listener, &(this->_sessionListenerMap));
+            joinSessionResult->Status = (AllJoyn::QStatus)s;
+            joinSessionResult->SessionId = sessionId;
+            joinSessionResult->Opts = options;
             break;
         }
 
         if (ER_OK != status) {
             QCC_THROW_EXCEPTION(status);
         }
-    } catch (...) {
-        // Do nothing
+
+        joinSessionResult->Complete();
+    } catch (Platform::Exception ^ pe) {
+        // Forward Platform::Exception
+        joinSessionResult->_exception = pe;
+        joinSessionResult->Complete();
+    } catch (std::exception& e) {
+        // Forward std::exception
+        joinSessionResult->_stdException = new std::exception(e);
+        joinSessionResult->Complete();
     }
 }
 
