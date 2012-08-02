@@ -288,7 +288,55 @@ class ScatterGatherList {
      *
      * @return  Number of octets copied.
      */
-    size_t CopyDataFrom(const_iterator begin, const_iterator end, size_t limit = ~0);
+    size_t CopyDataFrom(const_iterator begin, const_iterator end, size_t limit = ~0)
+    {
+        if (sg.empty() || (begin == end)) {
+            return 0;
+        }
+        iterator dest(sg.begin());
+        const_iterator src(begin);
+        uint8_t* srcBuf = reinterpret_cast<uint8_t*>(src->buf);
+        uint8_t* destBuf = reinterpret_cast<uint8_t*>(dest->buf);
+        size_t srcLen = src->len;
+        size_t destLen = dest->len;
+        size_t copyCnt = 0;
+        size_t copyLimit = std::min(maxDataSize, limit);
+        QCC_DbgTrace(("ScatterGatherList::CopyDataFrom(begin, end, limit = %u)", limit));
+
+        QCC_DbgPrintf(("srcLen = %u  destLen = %u  copyLimit = %u", srcLen, destLen, copyLimit));
+
+        while (copyLimit > 0 && dest != sg.end() && src != end) {
+            size_t copyLen = std::min(copyLimit, std::min(destLen, srcLen));
+
+            QCC_DbgPrintf(("srcLen = %u  destLen = %u  copyLimit = %u  copyLen = %u", srcLen, destLen, copyLimit, copyLen));
+
+            memmove(destBuf, srcBuf, copyLen);
+            copyCnt += copyLen;
+            copyLimit -= copyLen;
+
+            if (copyLen == destLen) {
+                ++dest;
+                destBuf = reinterpret_cast<uint8_t*>(dest->buf);
+                destLen = dest->len;
+            } else {
+                destBuf += copyLen;
+                destLen -= copyLen;
+            }
+
+            if (copyLen == srcLen) {
+                ++src;
+                srcBuf = reinterpret_cast<uint8_t*>(src->buf);
+                srcLen = src->len;
+            } else {
+                srcBuf += copyLen;
+                srcLen -= copyLen;
+            }
+        }
+
+        dataSize = copyCnt;
+
+        return copyCnt;
+    }
 
     /**
      * Copies data from the SG list to a buffer.  It will copy at most bufSize
@@ -416,7 +464,6 @@ QStatus SendSG(SocketFd sockfd, const ScatterGatherList& sg, size_t& sent);
  */
 QStatus SendToSG(SocketFd sockfd, IPAddress& remoteAddr, uint16_t remotePort,
                  const ScatterGatherList& sg, size_t& sent);
-}
 
 /**
  * Receive data into a collection of buffers in a scatter-gather list from a
@@ -446,7 +493,6 @@ QStatus RecvSG(SocketFd sockfd, ScatterGatherList& sg, size_t& received);
  */
 QStatus RecvFromSG(SocketFd sockfd, IPAddress& remoteAddr, uint16_t& remotePort,
                    ScatterGatherList& sg, size_t& received);
-
 }
 
 #undef QCC_MODULE

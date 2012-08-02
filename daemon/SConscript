@@ -22,6 +22,8 @@ if env['OS'] == "darwin":
 else:
     srcs = [ f for f in env.Glob('*.cc') + env.Glob('*.c') + env.Glob(env['OS_GROUP'] + '/DaemonTransport.cc')]
 
+# scattergather sources
+	
 # bluetooth source files
 bt_srcs = [ 'BTController.cc', 'BTTransport.cc', 'BTNodeDB.cc' ]
 
