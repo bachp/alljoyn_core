@@ -1119,26 +1119,39 @@ void BusAttachment::GetSessionSocketStream(ajn::SessionId sessionId, Platform::W
     }
 }
 
-void BusAttachment::SetLinkTimeout(ajn::SessionId sessionid, uint32 linkTimeout_in, Platform::WriteOnlyArray<uint32> ^ linkTimeout_out)
+Windows::Foundation::IAsyncOperation<SetLinkTimeoutResult ^> ^ BusAttachment::SetLinkTimeoutAsync(ajn::SessionId sessionid,
+                                                                                                  uint32 linkTimeout,
+                                                                                                  Platform::Object ^ context)
 {
     ::QStatus status = ER_OK;
+    Windows::Foundation::IAsyncOperation<SetLinkTimeoutResult ^> ^ result = nullptr;
 
     while (true) {
-        if (nullptr == linkTimeout_out || linkTimeout_out->Length != 1) {
-            status = ER_BAD_ARG_2;
+        SetLinkTimeoutResult ^ setLinkTimeoutResult = ref new SetLinkTimeoutResult(this, context);
+        if (nullptr == setLinkTimeoutResult) {
+            status = ER_OUT_OF_MEMORY;
             break;
         }
-        uint32_t linkTimeout = linkTimeout_in;
-        status = _busAttachment->SetLinkTimeout(sessionid, linkTimeout);
-        if (ER_OK == status) {
-            linkTimeout_out[0] = linkTimeout;
+        status = _busAttachment->SetLinkTimeoutAsync(sessionid,
+                                                     linkTimeout,
+                                                     _busAttachment,
+                                                     (void*)setLinkTimeoutResult);
+        if (ER_OK != status) {
+            break;
         }
+        result = concurrency::create_async([this, setLinkTimeoutResult]()->SetLinkTimeoutResult ^
+                                           {
+                                               setLinkTimeoutResult->Wait();
+                                               return setLinkTimeoutResult;
+                                           });
         break;
     }
 
     if (ER_OK != status) {
         QCC_THROW_EXCEPTION(status);
     }
+
+    return result;
 }
 
 void BusAttachment::NameHasOwner(Platform::String ^ name, Platform::WriteOnlyArray<bool> ^ hasOwner)
@@ -1454,6 +1467,15 @@ void _BusAttachment::JoinSessionCB(::QStatus s, ajn::SessionId sessionId, const 
         joinSessionResult->_stdException = new std::exception(e);
         joinSessionResult->Complete();
     }
+}
+
+void _BusAttachment::SetLinkTimeoutCB(::QStatus s, uint32_t timeout, void* context)
+{
+    ::QStatus status = ER_OK;
+    SetLinkTimeoutResult ^ setLinkTimeoutResult = reinterpret_cast<SetLinkTimeoutResult ^>(context);
+    setLinkTimeoutResult->Status = (AllJoyn::QStatus)s;
+    setLinkTimeoutResult->Timeout = timeout;
+    setLinkTimeoutResult->Complete();
 }
 
 void _BusAttachment::DispatchCallback(Windows::UI::Core::DispatchedHandler ^ callback)

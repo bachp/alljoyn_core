@@ -111,6 +111,59 @@ public ref class JoinSessionResult sealed {
     qcc::Event _event;
 };
 
+public ref class SetLinkTimeoutResult sealed {
+  public:
+    property BusAttachment ^ Bus;
+    property Platform::Object ^ Context;
+    property QStatus Status;
+    property uint32_t Timeout;
+
+  private:
+    friend ref class BusAttachment;
+    friend class _BusAttachment;
+    SetLinkTimeoutResult(BusAttachment ^ bus, Platform::Object ^ context)
+    {
+        Bus = bus;
+        Context = context;
+        Status = QStatus::ER_OK;
+        Timeout = (uint32_t)-1;
+        _exception = nullptr;
+        _stdException = NULL;
+    }
+
+    ~SetLinkTimeoutResult()
+    {
+        Bus = nullptr;
+        Context = nullptr;
+        _exception = nullptr;
+        if (NULL != _stdException) {
+            delete _stdException;
+            _stdException = NULL;
+        }
+    }
+
+    void Wait()
+    {
+        qcc::Event::Wait(_event, qcc::Event::WAIT_FOREVER);
+        // Propagate exception state
+        if (nullptr != _exception) {
+            throw _exception;
+        }
+        if (NULL != _stdException) {
+            throw _stdException;
+        }
+    }
+
+    void Complete()
+    {
+        _event.SetEvent();
+    }
+
+    Platform::Exception ^ _exception;
+    std::exception* _stdException;
+    qcc::Event _event;
+};
+
 ref class __BusAttachment {
   private:
     friend ref class BusAttachment;
@@ -126,7 +179,7 @@ ref class __BusAttachment {
     property uint32_t Timestamp;
 };
 
-class _BusAttachment : protected ajn::BusAttachment, protected ajn::BusAttachment::JoinSessionAsyncCB {
+class _BusAttachment : protected ajn::BusAttachment, protected ajn::BusAttachment::JoinSessionAsyncCB, protected ajn::BusAttachment::SetLinkTimeoutAsyncCB {
   protected:
     friend class qcc::ManagedObj<_BusAttachment>;
     friend ref class BusAttachment;
@@ -143,7 +196,8 @@ class _BusAttachment : protected ajn::BusAttachment, protected ajn::BusAttachmen
     _BusAttachment(const char* applicationName, bool allowRemoteMessages, uint32_t concurrency);
     ~_BusAttachment();
 
-    void JoinSessionCB(::QStatus status, ajn::SessionId sessionId, const ajn::SessionOpts& opts, void* context);
+    void JoinSessionCB(::QStatus s, ajn::SessionId sessionId, const ajn::SessionOpts& opts, void* context);
+    void SetLinkTimeoutCB(::QStatus s, uint32_t timeout, void* context);
     void DispatchCallback(Windows::UI::Core::DispatchedHandler ^ callback);
     bool IsOriginSTA();
 
@@ -908,12 +962,10 @@ public ref class BusAttachment sealed {
     /// specific power management algorithms.
     /// </remarks>
     /// <param name="sessionid">Id of session whose link timeout will be modified.</param>
-    /// <param name="linkTimeout_in">Max number of seconds that a link can be unresponsive before being
+    /// <param name="linkTimeout">Max number of seconds that a link can be unresponsive before being
     /// declared lost. 0 indicates that AllJoyn link monitoring will be disabled.
     /// </param>
-    /// <param name="linkTimeout_out">On return, this value will be the resulting (possibly upward)
-    /// adjusted linkTimeout value that acceptable to the underlying transport.
-    /// </param>
+    /// <param name="context">User defined context which will be passed as-is to callback.</param>
     /// <exception cref="Platform::COMException">
     /// HRESULT will contain the AllJoyn error status code for the error.
     /// ER_ALLJOYN_SETLINKTIMEOUT_REPLY_NOT_SUPPORTED if local daemon does not support SetLinkTimeout
@@ -923,7 +975,10 @@ public ref class BusAttachment sealed {
     /// ER_BUS_NOT_CONNECTED if the BusAttachment is not connected to the daemon
     /// Or other error status codes indicating the reason the operation failed.
     /// </exception>
-    void SetLinkTimeout(ajn::SessionId sessionid, uint32 linkTimeout_in, Platform::WriteOnlyArray<uint32> ^ linkTimeout_out);
+    /// <returns>A handle to the async operation.</returns>
+    Windows::Foundation::IAsyncOperation<SetLinkTimeoutResult ^> ^ SetLinkTimeoutAsync(ajn::SessionId sessionid,
+                                                                                       uint32 linkTimeout,
+                                                                                       Platform::Object ^ context);
 
     /// <summary>
     /// Determine whether a given well-known name exists on the bus.
