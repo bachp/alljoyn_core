@@ -992,7 +992,7 @@ void AllJoynPeerObj::AlarmTriggered(const Alarm& alarm, QStatus reason)
         break;
 
     case SECURE_CONNECTION:
-        status = AuthenticatePeer(req->msg->GetType(), req->data, true);
+        status = AuthenticatePeer(MESSAGE_METHOD_CALL, req->data, true);
         if (status != ER_OK) {
             peerAuthListener.SecurityViolation(status, req->msg);
         }
