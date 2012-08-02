@@ -49,8 +49,9 @@ PacketPool::~PacketPool()
 {
     lock.Lock();
     std::vector<Packet*>::iterator it = freeList.begin();
-    while (it != freeList.end()) {
-        delete *it++;
+    for (; it != freeList.end(); ++it) {
+        Packet* p = *it;
+        delete p;
     }
     freeList.clear();
     lock.Unlock();
