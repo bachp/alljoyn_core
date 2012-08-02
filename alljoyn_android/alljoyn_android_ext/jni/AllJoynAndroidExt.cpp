@@ -188,7 +188,6 @@ class ScanService : public BusObject {
 
             const char*bssid = env->GetStringUTFChars(jbssid, NULL);
             const char*ssid = env->GetStringUTFChars(jssid, NULL);
-
             bool attached = (bool)jattached;
             if (bssid != NULL) {
 
