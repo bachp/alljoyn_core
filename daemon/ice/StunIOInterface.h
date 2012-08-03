@@ -32,7 +32,7 @@
 #include <vector>
 #include <qcc/platform.h>
 #include <qcc/Socket.h>
-#include "../posix/ScatterGatherList.h"
+#include "ScatterGatherList.h"
 #include "Status.h"
 
 using namespace qcc;

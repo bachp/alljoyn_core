@@ -28,7 +28,7 @@
 
 #include <assert.h>
 #include <qcc/platform.h>
-#include "../posix/ScatterGatherList.h"
+#include "ScatterGatherList.h"
 #include <StunAttributeBase.h>
 #include <types.h>
 #include "Status.h"

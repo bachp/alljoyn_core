@@ -37,7 +37,7 @@
 #include <qcc/Event.h>
 #include <qcc/Debug.h>
 #include <alljoyn/version.h>
-#include "../posix/ScatterGatherList.h"
+#include "ScatterGatherList.h"
 #include "ICECandidatePair.h"
 #include "Stun.h"
 #include "ICEPacketStream.h"

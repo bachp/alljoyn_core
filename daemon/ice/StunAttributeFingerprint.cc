@@ -21,7 +21,7 @@
  ******************************************************************************/
 
 #include <qcc/platform.h>
-#include "../posix/ScatterGatherList.h"
+#include "ScatterGatherList.h"
 #include <StunAttributeFingerprint.h>
 #include <StunMessage.h>
 #include "Status.h"

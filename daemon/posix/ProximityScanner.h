@@ -18,6 +18,8 @@
  *    See the License for the specific language governing permissions and
  *    limitations under the License.
  ******************************************************************************/
+#ifndef _PROXIMITY_SCANNER_H_
+#define _PROXIMITY_SCANNER_H_
 
 #include <qcc/platform.h>
 #include <map>
@@ -48,3 +50,6 @@ class ProximityScanner {
 };
 
 }
+
+#endif
+

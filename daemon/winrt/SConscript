@@ -17,7 +17,7 @@ import os
 Import('env', 'daemon_objs', 'common_objs', 'alljoyn_core_objs', 'bdobj')
 
 # Add OS specific daemon_objs
-os_objs = env.Object(['UDPPacketStream.cc', 'ICEPacketStream.cc', 'ProximityScanner.cc'])
+os_objs = env.Object(['UDPPacketStream.cc', 'ICEPacketStream.cc', 'ProximityScanner.cc', 'Socket.cc'])
 
 # TODO: Fix our dependencies so they don't "bleed" all over
 env.Append(CPPPATH=['..'])
