@@ -33,6 +33,7 @@
 
 #include <qcc/Debug.h>
 #include <qcc/SocketTypes.h>
+#include <qcc/IPAddress.h>
 
 #define QCC_MODULE  "NETWORK"
 
@@ -300,13 +301,13 @@ class ScatterGatherList {
         size_t srcLen = src->len;
         size_t destLen = dest->len;
         size_t copyCnt = 0;
-        size_t copyLimit = min(maxDataSize, limit);
+        size_t copyLimit = std::min(maxDataSize, limit);
         QCC_DbgTrace(("ScatterGatherList::CopyDataFrom(begin, end, limit = %u)", limit));
 
         QCC_DbgPrintf(("srcLen = %u  destLen = %u  copyLimit = %u", srcLen, destLen, copyLimit));
 
         while (copyLimit > 0 && dest != sg.end() && src != end) {
-            size_t copyLen = min(copyLimit, min(destLen, srcLen));
+            size_t copyLen = std::min(copyLimit, std::min(destLen, srcLen));
 
             QCC_DbgPrintf(("srcLen = %u  destLen = %u  copyLimit = %u  copyLen = %u", srcLen, destLen, copyLimit, copyLen));
 
@@ -464,7 +465,7 @@ QStatus SendSG(SocketFd sockfd, const ScatterGatherList& sg, size_t& sent);
  */
 QStatus SendToSG(SocketFd sockfd, IPAddress& remoteAddr, uint16_t remotePort,
                  const ScatterGatherList& sg, size_t& sent);
-}
+
 
 /**
  * Receive data into a collection of buffers in a scatter-gather list from a

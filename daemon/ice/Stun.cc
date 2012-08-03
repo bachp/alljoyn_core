@@ -28,7 +28,7 @@
 #include <qcc/Crypto.h>
 #include <qcc/NetInfo.h>
 #include <qcc/Socket.h>
-#include <qcc/ScatterGatherList.h>
+#include "../posix/ScatterGatherList.h"
 #include <Stun.h>
 #include <StunAttribute.h>
 #include <StunIOInterface.h>
