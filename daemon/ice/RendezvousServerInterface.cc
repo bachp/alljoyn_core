@@ -1445,6 +1445,10 @@ String GetOSTypeString(OSType type)
         retStr = String("LINUX");
         break;
 
+    case WINRT_OS:
+        retStr = String("WINRT");
+        break;
+
     default:
         break;
     }

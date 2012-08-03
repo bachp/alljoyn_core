@@ -30,6 +30,8 @@
 #include <posix/ProximityScanner.h>
 #elif defined(QCC_OS_GROUP_WINDOWS)
 #include <windows/ProximityScanner.h>
+#elif defined(QCC_OS_GROUP_WINRT)
+#include <winrt/ProximityScanner.h>
 #else
 #error No OS GROUP defined.
 #endif

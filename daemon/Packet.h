@@ -50,9 +50,18 @@ namespace ajn {
 class PacketSource;
 class PacketEngineStream;
 
+struct EndpointPair {
+    uint8_t ip[8];
+    uint16_t port;
+    uint16_t family;
+};
+
 /* Types */
 struct PacketDest {
-    uint64_t data[4];   /** Must be large enough for sockaddr_t */
+    union {
+        uint64_t data[4];   /** Must be large enough for sockaddr_t */
+        EndpointPair pair;
+    };
 };
 
 class Packet {

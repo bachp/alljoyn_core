@@ -51,6 +51,10 @@
 #include "posix/ICEPacketStream.h"
 #endif
 
+#ifdef QCC_OS_GROUP_WINRT
+#include "../winrt/ICEPacketStream.h"
+#endif
+
 using namespace qcc;
 
 

@@ -32,7 +32,7 @@ base_srcs = [ f for f in srcs if basename(str(f)) not in bt_srcs ]
 base_objs = env.Object(base_srcs)
 
 # Add in ICE support
-if env['OS_GROUP'] == 'posix':
+if env['OS_GROUP'] == 'posix' or  env['OS_GROUP'] == 'winrt':
     ice_srcs = env.SConscript('ice/SConscript')
     base_objs.extend(env.Object(ice_srcs))
     json_srcs = env.SConscript('JSON/SConscript')
@@ -42,6 +42,8 @@ if env['OS_GROUP'] == 'posix':
 if env['OS'] == "android":
     android_srcs = env.SConscript('android/SConscript')
     base_objs.extend(env.Object(android_srcs))
+if env['OS_GROUP'] == 'winrt':
+    env.Append(CPPPATH=['OS_GROUP'])
 
 # Add in bluetooth support
 if env['OS'] == 'android_donut' or env['OS'] =="darwin" or env['OS_GROUP']=='winrt' or env['OS_GROUP'] == "windows":
