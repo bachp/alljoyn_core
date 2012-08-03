@@ -225,37 +225,29 @@ void _SessionListener::DefaultSessionListenerSessionMemberRemovedHandler(ajn::Se
 
 void _SessionListener::SessionLost(ajn::SessionId sessionId)
 {
-    try {
-        _eventsAndProperties->Bus->_busAttachment->DispatchCallback(ref new Windows::UI::Core::DispatchedHandler([&]() {
-                                                                                                                     _eventsAndProperties->SessionLost(sessionId);
-                                                                                                                 }));
-    } catch (...) {
-        // Do nothing
-    }
+    _eventsAndProperties->Bus->_busAttachment->DispatchCallback(ref new Windows::UI::Core::DispatchedHandler([&]() {
+                                                                                                                 _eventsAndProperties->SessionLost(sessionId);
+                                                                                                             }));
 }
 
 void _SessionListener::SessionMemberAdded(ajn::SessionId sessionId,  const char* uniqueName)
 {
     ::QStatus status = ER_OK;
 
-    try {
-        while (true) {
-            Platform::String ^ strUniqueName = MultibyteToPlatformString(uniqueName);
-            if (nullptr == strUniqueName && NULL != uniqueName && uniqueName[0] != '\0') {
-                status = ER_OUT_OF_MEMORY;
-                break;
-            }
-            _eventsAndProperties->Bus->_busAttachment->DispatchCallback(ref new Windows::UI::Core::DispatchedHandler([&]() {
-                                                                                                                         _eventsAndProperties->SessionMemberAdded(sessionId, strUniqueName);
-                                                                                                                     }));
+    while (true) {
+        Platform::String ^ strUniqueName = MultibyteToPlatformString(uniqueName);
+        if (nullptr == strUniqueName && NULL != uniqueName && uniqueName[0] != '\0') {
+            status = ER_OUT_OF_MEMORY;
             break;
         }
+        _eventsAndProperties->Bus->_busAttachment->DispatchCallback(ref new Windows::UI::Core::DispatchedHandler([&]() {
+                                                                                                                     _eventsAndProperties->SessionMemberAdded(sessionId, strUniqueName);
+                                                                                                                 }));
+        break;
+    }
 
-        if (ER_OK != status) {
-            QCC_THROW_EXCEPTION(status);
-        }
-    }catch (...) {
-        // Do nothing
+    if (ER_OK != status) {
+        QCC_THROW_EXCEPTION(status);
     }
 }
 
@@ -263,24 +255,20 @@ void _SessionListener::SessionMemberRemoved(ajn::SessionId sessionId,  const cha
 {
     ::QStatus status = ER_OK;
 
-    try {
-        while (true) {
-            Platform::String ^ strUniqueName = MultibyteToPlatformString(uniqueName);
-            if (nullptr == strUniqueName && NULL != uniqueName && uniqueName[0] != '\0') {
-                status = ER_OUT_OF_MEMORY;
-                break;
-            }
-            _eventsAndProperties->Bus->_busAttachment->DispatchCallback(ref new Windows::UI::Core::DispatchedHandler([&]() {
-                                                                                                                         _eventsAndProperties->SessionMemberRemoved(sessionId, strUniqueName);
-                                                                                                                     }));
+    while (true) {
+        Platform::String ^ strUniqueName = MultibyteToPlatformString(uniqueName);
+        if (nullptr == strUniqueName && NULL != uniqueName && uniqueName[0] != '\0') {
+            status = ER_OUT_OF_MEMORY;
             break;
         }
+        _eventsAndProperties->Bus->_busAttachment->DispatchCallback(ref new Windows::UI::Core::DispatchedHandler([&]() {
+                                                                                                                     _eventsAndProperties->SessionMemberRemoved(sessionId, strUniqueName);
+                                                                                                                 }));
+        break;
+    }
 
-        if (ER_OK != status) {
-            QCC_THROW_EXCEPTION(status);
-        }
-    }catch (...) {
-        // Do nothing
+    if (ER_OK != status) {
+        QCC_THROW_EXCEPTION(status);
     }
 }
 

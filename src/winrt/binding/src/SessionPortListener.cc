@@ -206,29 +206,25 @@ bool _SessionPortListener::AcceptSessionJoiner(ajn::SessionPort sessionPort, con
     ::QStatus status = ER_OK;
     bool result = false;
 
-    try {
-        while (true) {
-            Platform::String ^ strJoiner = MultibyteToPlatformString(joiner);
-            if (nullptr == strJoiner && joiner != NULL && joiner[0] != '\0') {
-                status = ER_OUT_OF_MEMORY;
-                break;
-            }
-            SessionOpts ^ sessionOpts = ref new SessionOpts((void*)&opts, false);
-            if (nullptr == sessionOpts) {
-                status = ER_OUT_OF_MEMORY;
-                break;
-            }
-            _eventsAndProperties->Bus->_busAttachment->DispatchCallback(ref new Windows::UI::Core::DispatchedHandler([&]() {
-                                                                                                                         result = _eventsAndProperties->AcceptSessionJoiner(sessionPort, strJoiner, sessionOpts);
-                                                                                                                     }));
+    while (true) {
+        Platform::String ^ strJoiner = MultibyteToPlatformString(joiner);
+        if (nullptr == strJoiner && joiner != NULL && joiner[0] != '\0') {
+            status = ER_OUT_OF_MEMORY;
             break;
         }
-
-        if (ER_OK != status) {
-            QCC_THROW_EXCEPTION(status);
+        SessionOpts ^ sessionOpts = ref new SessionOpts((void*)&opts, false);
+        if (nullptr == sessionOpts) {
+            status = ER_OUT_OF_MEMORY;
+            break;
         }
-    } catch (...) {
-        // Do nothing
+        _eventsAndProperties->Bus->_busAttachment->DispatchCallback(ref new Windows::UI::Core::DispatchedHandler([&]() {
+                                                                                                                     result = _eventsAndProperties->AcceptSessionJoiner(sessionPort, strJoiner, sessionOpts);
+                                                                                                                 }));
+        break;
+    }
+
+    if (ER_OK != status) {
+        QCC_THROW_EXCEPTION(status);
     }
 
     return result;
@@ -238,24 +234,20 @@ void _SessionPortListener::SessionJoined(ajn::SessionPort sessionPort, ajn::Sess
 {
     ::QStatus status = ER_OK;
 
-    try {
-        while (true) {
-            Platform::String ^ strJoiner = MultibyteToPlatformString(joiner);
-            if (nullptr == strJoiner && joiner != NULL && joiner[0] != '\0') {
-                status = ER_OUT_OF_MEMORY;
-                break;
-            }
-            _eventsAndProperties->Bus->_busAttachment->DispatchCallback(ref new Windows::UI::Core::DispatchedHandler([&]() {
-                                                                                                                         _eventsAndProperties->SessionJoined(sessionPort, id, strJoiner);
-                                                                                                                     }));
+    while (true) {
+        Platform::String ^ strJoiner = MultibyteToPlatformString(joiner);
+        if (nullptr == strJoiner && joiner != NULL && joiner[0] != '\0') {
+            status = ER_OUT_OF_MEMORY;
             break;
         }
+        _eventsAndProperties->Bus->_busAttachment->DispatchCallback(ref new Windows::UI::Core::DispatchedHandler([&]() {
+                                                                                                                     _eventsAndProperties->SessionJoined(sessionPort, id, strJoiner);
+                                                                                                                 }));
+        break;
+    }
 
-        if (ER_OK != status) {
-            QCC_THROW_EXCEPTION(status);
-        }
-    } catch (...) {
-        // Do nothing
+    if (ER_OK != status) {
+        QCC_THROW_EXCEPTION(status);
     }
 }
 

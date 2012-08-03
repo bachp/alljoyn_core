@@ -655,41 +655,35 @@ void _BusObject::DefaultBusObjectIntrospectHandler(InterfaceMember ^ member, Mes
 {
     ::QStatus status = ER_FAIL;
 
-    try {
-        while (true) {
-            Platform::String ^ strIfcName = MultibyteToPlatformString(ifcName);
-            if (strIfcName == nullptr && NULL != ifcName && '\0' != ifcName[0]) {
-                status = ER_OUT_OF_MEMORY;
-                break;
-            }
-            Platform::String ^ strPropName = MultibyteToPlatformString(propName);
-            if (strPropName == nullptr && NULL != propName && '\0' != propName[0]) {
-                status = ER_OUT_OF_MEMORY;
-                break;
-            }
-            Platform::Array<MsgArg ^> ^ msgArgArray = ref new Platform::Array<MsgArg ^>(1);
-            if (nullptr == msgArgArray) {
-                status = ER_OUT_OF_MEMORY;
-                break;
-            }
-            _eventsAndProperties->Bus->_busAttachment->DispatchCallback(ref new Windows::UI::Core::DispatchedHandler([&]() {
-                                                                                                                         status = (::QStatus)(int)_eventsAndProperties->Get(strIfcName, strPropName, msgArgArray);
-                                                                                                                     }));
-            if (ER_OK == status) {
-                MsgArg ^ msgArgOut = msgArgArray[0];
-                ajn::MsgArg* msgArg = msgArgOut->_msgArg;
-                val = *msgArg;
-            }
+    while (true) {
+        Platform::String ^ strIfcName = MultibyteToPlatformString(ifcName);
+        if (strIfcName == nullptr && NULL != ifcName && '\0' != ifcName[0]) {
+            status = ER_OUT_OF_MEMORY;
             break;
         }
-
-        if (ER_OK != status) {
-            QCC_THROW_EXCEPTION(status);
+        Platform::String ^ strPropName = MultibyteToPlatformString(propName);
+        if (strPropName == nullptr && NULL != propName && '\0' != propName[0]) {
+            status = ER_OUT_OF_MEMORY;
+            break;
         }
-    } catch (Platform::COMException ^ ce) {
-        status = (::QStatus)(int)AllJoynException::FromCOMException(ce->HResult);
-    } catch (...) {
-        // Do nothing
+        Platform::Array<MsgArg ^> ^ msgArgArray = ref new Platform::Array<MsgArg ^>(1);
+        if (nullptr == msgArgArray) {
+            status = ER_OUT_OF_MEMORY;
+            break;
+        }
+        _eventsAndProperties->Bus->_busAttachment->DispatchCallback(ref new Windows::UI::Core::DispatchedHandler([&]() {
+                                                                                                                     status = (::QStatus)(int)_eventsAndProperties->Get(strIfcName, strPropName, msgArgArray);
+                                                                                                                 }));
+        if (ER_OK == status) {
+            MsgArg ^ msgArgOut = msgArgArray[0];
+            ajn::MsgArg* msgArg = msgArgOut->_msgArg;
+            val = *msgArg;
+        }
+        break;
+    }
+
+    if (ER_OK != status) {
+        QCC_THROW_EXCEPTION(status);
     }
 
     return status;
@@ -699,36 +693,30 @@ void _BusObject::DefaultBusObjectIntrospectHandler(InterfaceMember ^ member, Mes
 {
     ::QStatus status = ER_FAIL;
 
-    try {
-        while (true) {
-            Platform::String ^ strIfcName = MultibyteToPlatformString(ifcName);
-            if (strIfcName == nullptr && NULL != ifcName && '\0' != ifcName[0]) {
-                status = ER_OUT_OF_MEMORY;
-                break;
-            }
-            Platform::String ^ strPropName = MultibyteToPlatformString(propName);
-            if (strPropName == nullptr && NULL != propName && '\0' != propName[0]) {
-                status = ER_OUT_OF_MEMORY;
-                break;
-            }
-            MsgArg ^ msgArg = ref new MsgArg((void*)&val, false);
-            if (nullptr == msgArg) {
-                status = ER_OUT_OF_MEMORY;
-                break;
-            }
-            _eventsAndProperties->Bus->_busAttachment->DispatchCallback(ref new Windows::UI::Core::DispatchedHandler([&]() {
-                                                                                                                         status = (::QStatus)(int)_eventsAndProperties->Set(strIfcName, strPropName, msgArg);
-                                                                                                                     }));
+    while (true) {
+        Platform::String ^ strIfcName = MultibyteToPlatformString(ifcName);
+        if (strIfcName == nullptr && NULL != ifcName && '\0' != ifcName[0]) {
+            status = ER_OUT_OF_MEMORY;
             break;
         }
-
-        if (ER_OK != status) {
-            QCC_THROW_EXCEPTION(status);
+        Platform::String ^ strPropName = MultibyteToPlatformString(propName);
+        if (strPropName == nullptr && NULL != propName && '\0' != propName[0]) {
+            status = ER_OUT_OF_MEMORY;
+            break;
         }
-    } catch (Platform::COMException ^ ce) {
-        status = (::QStatus)(int)AllJoynException::FromCOMException(ce->HResult);
-    } catch (...) {
-        // Do nothing
+        MsgArg ^ msgArg = ref new MsgArg((void*)&val, false);
+        if (nullptr == msgArg) {
+            status = ER_OUT_OF_MEMORY;
+            break;
+        }
+        _eventsAndProperties->Bus->_busAttachment->DispatchCallback(ref new Windows::UI::Core::DispatchedHandler([&]() {
+                                                                                                                     status = (::QStatus)(int)_eventsAndProperties->Set(strIfcName, strPropName, msgArg);
+                                                                                                                 }));
+        break;
+    }
+
+    if (ER_OK != status) {
+        QCC_THROW_EXCEPTION(status);
     }
 
     return status;
@@ -739,25 +727,21 @@ qcc::String _BusObject::GenerateIntrospection(bool deep, uint32_t indent)
     ::QStatus status = ER_OK;
     qcc::String result;
 
-    try {
-        while (true) {
-            Platform::String ^ ret = nullptr;
-            _eventsAndProperties->Bus->_busAttachment->DispatchCallback(ref new Windows::UI::Core::DispatchedHandler([&]() {
-                                                                                                                         ret = _eventsAndProperties->GenerateIntrospection(deep, indent);
-                                                                                                                     }));
-            result = PlatformToMultibyteString(ret);
-            if (nullptr != ret && result.empty()) {
-                status = ER_OUT_OF_MEMORY;
-                break;
-            }
+    while (true) {
+        Platform::String ^ ret = nullptr;
+        _eventsAndProperties->Bus->_busAttachment->DispatchCallback(ref new Windows::UI::Core::DispatchedHandler([&]() {
+                                                                                                                     ret = _eventsAndProperties->GenerateIntrospection(deep, indent);
+                                                                                                                 }));
+        result = PlatformToMultibyteString(ret);
+        if (nullptr != ret && result.empty()) {
+            status = ER_OUT_OF_MEMORY;
             break;
         }
+        break;
+    }
 
-        if (ER_OK != status) {
-            QCC_THROW_EXCEPTION(status);
-        }
-    } catch (...) {
-        // Do nothing
+    if (ER_OK != status) {
+        QCC_THROW_EXCEPTION(status);
     }
 
     return result;
@@ -767,19 +751,15 @@ void _BusObject::ObjectRegistered(void)
 {
     ::QStatus status = ER_OK;
 
-    try {
-        while (true) {
-            _eventsAndProperties->Bus->_busAttachment->DispatchCallback(ref new Windows::UI::Core::DispatchedHandler([&]() {
-                                                                                                                         _eventsAndProperties->ObjectRegistered();
-                                                                                                                     }));
-            break;
-        }
+    while (true) {
+        _eventsAndProperties->Bus->_busAttachment->DispatchCallback(ref new Windows::UI::Core::DispatchedHandler([&]() {
+                                                                                                                     _eventsAndProperties->ObjectRegistered();
+                                                                                                                 }));
+        break;
+    }
 
-        if (ER_OK != status) {
-            QCC_THROW_EXCEPTION(status);
-        }
-    } catch (...) {
-        // Do nothing
+    if (ER_OK != status) {
+        QCC_THROW_EXCEPTION(status);
     }
 }
 
@@ -787,19 +767,15 @@ void _BusObject::ObjectUnregistered(void)
 {
     ::QStatus status = ER_OK;
 
-    try {
-        while (true) {
-            _eventsAndProperties->Bus->_busAttachment->DispatchCallback(ref new Windows::UI::Core::DispatchedHandler([&]() {
-                                                                                                                         _eventsAndProperties->ObjectUnregistered();
-                                                                                                                     }));
-            break;
-        }
+    while (true) {
+        _eventsAndProperties->Bus->_busAttachment->DispatchCallback(ref new Windows::UI::Core::DispatchedHandler([&]() {
+                                                                                                                     _eventsAndProperties->ObjectUnregistered();
+                                                                                                                 }));
+        break;
+    }
 
-        if (ER_OK != status) {
-            QCC_THROW_EXCEPTION(status);
-        }
-    } catch (...) {
-        // Do nothing
+    if (ER_OK != status) {
+        QCC_THROW_EXCEPTION(status);
     }
 }
 
@@ -807,29 +783,25 @@ void _BusObject::GetAllProps(const ajn::InterfaceDescription::Member* member, aj
 {
     ::QStatus status = ER_OK;
 
-    try {
-        while (true) {
-            InterfaceMember ^ imember = ref new InterfaceMember((void*)member);
-            if (nullptr == imember) {
-                status = ER_OUT_OF_MEMORY;
-                break;
-            }
-            Message ^ m = ref new Message((void*)&msg, true);
-            if (nullptr == m) {
-                status = ER_OUT_OF_MEMORY;
-                break;
-            }
-            _eventsAndProperties->Bus->_busAttachment->DispatchCallback(ref new Windows::UI::Core::DispatchedHandler([&]() {
-                                                                                                                         _eventsAndProperties->GetAllProps(imember, m);
-                                                                                                                     }));
+    while (true) {
+        InterfaceMember ^ imember = ref new InterfaceMember((void*)member);
+        if (nullptr == imember) {
+            status = ER_OUT_OF_MEMORY;
             break;
         }
-
-        if (ER_OK != status) {
-            QCC_THROW_EXCEPTION(status);
+        Message ^ m = ref new Message((void*)&msg, true);
+        if (nullptr == m) {
+            status = ER_OUT_OF_MEMORY;
+            break;
         }
-    } catch (...) {
-        // Do nothing
+        _eventsAndProperties->Bus->_busAttachment->DispatchCallback(ref new Windows::UI::Core::DispatchedHandler([&]() {
+                                                                                                                     _eventsAndProperties->GetAllProps(imember, m);
+                                                                                                                 }));
+        break;
+    }
+
+    if (ER_OK != status) {
+        QCC_THROW_EXCEPTION(status);
     }
 }
 
@@ -837,29 +809,25 @@ void _BusObject::Introspect(const ajn::InterfaceDescription::Member* member, ajn
 {
     ::QStatus status = ER_OK;
 
-    try {
-        while (true) {
-            InterfaceMember ^ imember = ref new InterfaceMember((void*)member);
-            if (nullptr == imember) {
-                status = ER_OUT_OF_MEMORY;
-                break;
-            }
-            Message ^ m = ref new Message((void*)&msg, true);
-            if (nullptr == m) {
-                status = ER_OUT_OF_MEMORY;
-                break;
-            }
-            _eventsAndProperties->Bus->_busAttachment->DispatchCallback(ref new Windows::UI::Core::DispatchedHandler([&]() {
-                                                                                                                         _eventsAndProperties->Introspect(imember, m);
-                                                                                                                     }));
+    while (true) {
+        InterfaceMember ^ imember = ref new InterfaceMember((void*)member);
+        if (nullptr == imember) {
+            status = ER_OUT_OF_MEMORY;
             break;
         }
-
-        if (ER_OK != status) {
-            QCC_THROW_EXCEPTION(status);
+        Message ^ m = ref new Message((void*)&msg, true);
+        if (nullptr == m) {
+            status = ER_OUT_OF_MEMORY;
+            break;
         }
-    } catch (...) {
-        // Do nothing
+        _eventsAndProperties->Bus->_busAttachment->DispatchCallback(ref new Windows::UI::Core::DispatchedHandler([&]() {
+                                                                                                                     _eventsAndProperties->Introspect(imember, m);
+                                                                                                                 }));
+        break;
+    }
+
+    if (ER_OK != status) {
+        QCC_THROW_EXCEPTION(status);
     }
 }
 

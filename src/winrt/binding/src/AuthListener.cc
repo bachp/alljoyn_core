@@ -243,41 +243,37 @@ bool _AuthListener::RequestCredentials(const char* authMechanism, const char* pe
     ::QStatus status = ER_OK;
     bool result = false;
 
-    try {
-        while (true) {
-            Platform::String ^ strAuthMechanism = MultibyteToPlatformString(authMechanism);
-            if (nullptr == strAuthMechanism && authMechanism != NULL && authMechanism[0] != '\0') {
-                status = ER_OUT_OF_MEMORY;
-                break;
-            }
-            Platform::String ^ strPeerName = MultibyteToPlatformString(peerName);
-            if (nullptr == strPeerName && peerName != NULL && peerName[0] != '\0') {
-                status = ER_OUT_OF_MEMORY;
-                break;
-            }
-            Platform::String ^ strUserName = MultibyteToPlatformString(userName);
-            if (nullptr == strUserName && userName != NULL && userName[0] != '\0') {
-                status = ER_OUT_OF_MEMORY;
-                break;
-            }
-            AllJoyn::Credentials ^ cred = ref new AllJoyn::Credentials((void*)&credentials, false);
-            if (nullptr == cred) {
-                status = ER_OUT_OF_MEMORY;
-                break;
-            }
-            _eventsAndProperties->Bus->_busAttachment->DispatchCallback(ref new Windows::UI::Core::DispatchedHandler([&]() {
-                                                                                                                         result = _eventsAndProperties->RequestCredentials(strAuthMechanism, strPeerName, authCount, strUserName, credMask, cred);
-                                                                                                                     }));
-            ajn::AuthListener::Credentials* credsOut = cred->_credentials;
-            ((Credentials &)credentials) = *credsOut;
+    while (true) {
+        Platform::String ^ strAuthMechanism = MultibyteToPlatformString(authMechanism);
+        if (nullptr == strAuthMechanism && authMechanism != NULL && authMechanism[0] != '\0') {
+            status = ER_OUT_OF_MEMORY;
             break;
         }
-
-        if (ER_OK != status) {
-            QCC_THROW_EXCEPTION(status);
+        Platform::String ^ strPeerName = MultibyteToPlatformString(peerName);
+        if (nullptr == strPeerName && peerName != NULL && peerName[0] != '\0') {
+            status = ER_OUT_OF_MEMORY;
+            break;
         }
-    } catch (...) {
-        // Do nothing
+        Platform::String ^ strUserName = MultibyteToPlatformString(userName);
+        if (nullptr == strUserName && userName != NULL && userName[0] != '\0') {
+            status = ER_OUT_OF_MEMORY;
+            break;
+        }
+        AllJoyn::Credentials ^ cred = ref new AllJoyn::Credentials((void*)&credentials, false);
+        if (nullptr == cred) {
+            status = ER_OUT_OF_MEMORY;
+            break;
+        }
+        _eventsAndProperties->Bus->_busAttachment->DispatchCallback(ref new Windows::UI::Core::DispatchedHandler([&]() {
+                                                                                                                     result = _eventsAndProperties->RequestCredentials(strAuthMechanism, strPeerName, authCount, strUserName, credMask, cred);
+                                                                                                                 }));
+        ajn::AuthListener::Credentials* credsOut = cred->_credentials;
+        ((Credentials &)credentials) = *credsOut;
+        break;
+    }
+
+    if (ER_OK != status) {
+        QCC_THROW_EXCEPTION(status);
     }
 
     return result;
@@ -288,36 +284,32 @@ bool _AuthListener::VerifyCredentials(const char* authMechanism, const char* pee
     ::QStatus status = ER_OK;
     bool result = false;
 
-    try {
-        while (true) {
-            Platform::String ^ strAuthMechanism = MultibyteToPlatformString(authMechanism);
-            if (nullptr == strAuthMechanism && authMechanism != NULL && authMechanism[0] != '\0') {
-                status = ER_OUT_OF_MEMORY;
-                break;
-            }
-            Platform::String ^ strPeerName = MultibyteToPlatformString(peerName);
-            if (nullptr == strPeerName && peerName != NULL && peerName[0] != '\0') {
-                status = ER_OUT_OF_MEMORY;
-                break;
-            }
-            AllJoyn::Credentials ^ cred = ref new AllJoyn::Credentials((void*)&credentials, false);
-            if (nullptr == cred) {
-                status = ER_OUT_OF_MEMORY;
-                break;
-            }
-            _eventsAndProperties->Bus->_busAttachment->DispatchCallback(ref new Windows::UI::Core::DispatchedHandler([&]() {
-                                                                                                                         result = _eventsAndProperties->VerifyCredentials(strAuthMechanism, strPeerName, cred);
-                                                                                                                     }));
-            ajn::AuthListener::Credentials* credsOut = cred->_credentials;
-            ((Credentials &)credentials) = *credsOut;
+    while (true) {
+        Platform::String ^ strAuthMechanism = MultibyteToPlatformString(authMechanism);
+        if (nullptr == strAuthMechanism && authMechanism != NULL && authMechanism[0] != '\0') {
+            status = ER_OUT_OF_MEMORY;
             break;
         }
-
-        if (ER_OK != status) {
-            QCC_THROW_EXCEPTION(status);
+        Platform::String ^ strPeerName = MultibyteToPlatformString(peerName);
+        if (nullptr == strPeerName && peerName != NULL && peerName[0] != '\0') {
+            status = ER_OUT_OF_MEMORY;
+            break;
         }
-    } catch (...) {
-        // Do nothing
+        AllJoyn::Credentials ^ cred = ref new AllJoyn::Credentials((void*)&credentials, false);
+        if (nullptr == cred) {
+            status = ER_OUT_OF_MEMORY;
+            break;
+        }
+        _eventsAndProperties->Bus->_busAttachment->DispatchCallback(ref new Windows::UI::Core::DispatchedHandler([&]() {
+                                                                                                                     result = _eventsAndProperties->VerifyCredentials(strAuthMechanism, strPeerName, cred);
+                                                                                                                 }));
+        ajn::AuthListener::Credentials* credsOut = cred->_credentials;
+        ((Credentials &)credentials) = *credsOut;
+        break;
+    }
+
+    if (ER_OK != status) {
+        QCC_THROW_EXCEPTION(status);
     }
 
     return result;
@@ -325,24 +317,20 @@ bool _AuthListener::VerifyCredentials(const char* authMechanism, const char* pee
 
 void _AuthListener::SecurityViolation(::QStatus status, const ajn::Message& msg)
 {
-    try {
-        while (true) {
-            Message ^ message = ref new Message((void*)&msg, true);
-            if (nullptr == message) {
-                status = ER_OUT_OF_MEMORY;
-                break;
-            }
-            _eventsAndProperties->Bus->_busAttachment->DispatchCallback(ref new Windows::UI::Core::DispatchedHandler([&]() {
-                                                                                                                         _eventsAndProperties->SecurityViolation((QStatus)(int)status, message);
-                                                                                                                     }));
+    while (true) {
+        Message ^ message = ref new Message((void*)&msg, true);
+        if (nullptr == message) {
+            status = ER_OUT_OF_MEMORY;
             break;
         }
+        _eventsAndProperties->Bus->_busAttachment->DispatchCallback(ref new Windows::UI::Core::DispatchedHandler([&]() {
+                                                                                                                     _eventsAndProperties->SecurityViolation((QStatus)(int)status, message);
+                                                                                                                 }));
+        break;
+    }
 
-        if (ER_OK != status) {
-            QCC_THROW_EXCEPTION(status);
-        }
-    } catch (...) {
-        // Do nothing
+    if (ER_OK != status) {
+        QCC_THROW_EXCEPTION(status);
     }
 }
 
@@ -350,29 +338,25 @@ void _AuthListener::AuthenticationComplete(const char* authMechanism, const char
 {
     ::QStatus status = ER_OK;
 
-    try {
-        while (true) {
-            Platform::String ^ strAuthMechanism = MultibyteToPlatformString(authMechanism);
-            if (nullptr == strAuthMechanism && authMechanism != NULL && authMechanism[0] != '\0') {
-                status = ER_OUT_OF_MEMORY;
-                break;
-            }
-            Platform::String ^ strPeerName = MultibyteToPlatformString(peerName);
-            if (nullptr == strPeerName && peerName != NULL && peerName[0] != '\0') {
-                status = ER_OUT_OF_MEMORY;
-                break;
-            }
-            _eventsAndProperties->Bus->_busAttachment->DispatchCallback(ref new Windows::UI::Core::DispatchedHandler([&]() {
-                                                                                                                         _eventsAndProperties->AuthenticationComplete(strAuthMechanism, strPeerName, success);
-                                                                                                                     }));
+    while (true) {
+        Platform::String ^ strAuthMechanism = MultibyteToPlatformString(authMechanism);
+        if (nullptr == strAuthMechanism && authMechanism != NULL && authMechanism[0] != '\0') {
+            status = ER_OUT_OF_MEMORY;
             break;
         }
-
-        if (ER_OK != status) {
-            QCC_THROW_EXCEPTION(status);
+        Platform::String ^ strPeerName = MultibyteToPlatformString(peerName);
+        if (nullptr == strPeerName && peerName != NULL && peerName[0] != '\0') {
+            status = ER_OUT_OF_MEMORY;
+            break;
         }
-    } catch (...) {
-        // Do nothing
+        _eventsAndProperties->Bus->_busAttachment->DispatchCallback(ref new Windows::UI::Core::DispatchedHandler([&]() {
+                                                                                                                     _eventsAndProperties->AuthenticationComplete(strAuthMechanism, strPeerName, success);
+                                                                                                                 }));
+        break;
+    }
+
+    if (ER_OK != status) {
+        QCC_THROW_EXCEPTION(status);
     }
 }
 

@@ -197,36 +197,32 @@ void _KeyStoreListener::DefaultKeyStoreListenerPutKeysHandler(Platform::String ^
 {
     ::QStatus status = ER_FAIL;
 
-    try {
-        _eventsAndProperties->Bus->_busAttachment->DispatchCallback(ref new Windows::UI::Core::DispatchedHandler([&]() {
-                                                                                                                     while (true) {
-                                                                                                                         Platform::String ^ source = _eventsAndProperties->GetKeys();
-                                                                                                                         if (nullptr == source) {
-                                                                                                                             status = ER_FAIL;
-                                                                                                                             break;
-                                                                                                                         }
-                                                                                                                         qcc::String strSource = PlatformToMultibyteString(source);
-                                                                                                                         if (strSource.empty()) {
-                                                                                                                             status = ER_OUT_OF_MEMORY;
-                                                                                                                             break;
-                                                                                                                         }
-                                                                                                                         Platform::String ^ password = _eventsAndProperties->GetPassword();
-                                                                                                                         if (nullptr == password) {
-                                                                                                                             status = ER_FAIL;
-                                                                                                                             break;
-                                                                                                                         }
-                                                                                                                         qcc::String strPassword = PlatformToMultibyteString(password);
-                                                                                                                         if (strPassword.empty()) {
-                                                                                                                             status = ER_OUT_OF_MEMORY;
-                                                                                                                             break;
-                                                                                                                         }
-                                                                                                                         status = PutKeys(keyStore, strSource, strPassword);
+    _eventsAndProperties->Bus->_busAttachment->DispatchCallback(ref new Windows::UI::Core::DispatchedHandler([&]() {
+                                                                                                                 while (true) {
+                                                                                                                     Platform::String ^ source = _eventsAndProperties->GetKeys();
+                                                                                                                     if (nullptr == source) {
+                                                                                                                         status = ER_FAIL;
                                                                                                                          break;
                                                                                                                      }
-                                                                                                                 }));
-    } catch (...) {
-        // Do nothing
-    }
+                                                                                                                     qcc::String strSource = PlatformToMultibyteString(source);
+                                                                                                                     if (strSource.empty()) {
+                                                                                                                         status = ER_OUT_OF_MEMORY;
+                                                                                                                         break;
+                                                                                                                     }
+                                                                                                                     Platform::String ^ password = _eventsAndProperties->GetPassword();
+                                                                                                                     if (nullptr == password) {
+                                                                                                                         status = ER_FAIL;
+                                                                                                                         break;
+                                                                                                                     }
+                                                                                                                     qcc::String strPassword = PlatformToMultibyteString(password);
+                                                                                                                     if (strPassword.empty()) {
+                                                                                                                         status = ER_OUT_OF_MEMORY;
+                                                                                                                         break;
+                                                                                                                     }
+                                                                                                                     status = PutKeys(keyStore, strSource, strPassword);
+                                                                                                                     break;
+                                                                                                                 }
+                                                                                                             }));
 
     return status;
 }
@@ -235,27 +231,23 @@ void _KeyStoreListener::DefaultKeyStoreListenerPutKeysHandler(Platform::String ^
 {
     ::QStatus status = ER_FAIL;
 
-    try {
-        _eventsAndProperties->Bus->_busAttachment->DispatchCallback(ref new Windows::UI::Core::DispatchedHandler([&]() {
-                                                                                                                     while (true) {
-                                                                                                                         qcc::String sink;
-                                                                                                                         status = GetKeys(keyStore, sink);
-                                                                                                                         if (ER_OK != status) {
-                                                                                                                             break;
-                                                                                                                         }
-                                                                                                                         Platform::String ^ strSink = MultibyteToPlatformString(sink.c_str());
-                                                                                                                         if (nullptr == strSink && !sink.empty()) {
-                                                                                                                             status = ER_OUT_OF_MEMORY;
-                                                                                                                             break;
-                                                                                                                         }
-                                                                                                                         _eventsAndProperties->PutKeys(strSink);
-                                                                                                                         status = ER_OK;
+    _eventsAndProperties->Bus->_busAttachment->DispatchCallback(ref new Windows::UI::Core::DispatchedHandler([&]() {
+                                                                                                                 while (true) {
+                                                                                                                     qcc::String sink;
+                                                                                                                     status = GetKeys(keyStore, sink);
+                                                                                                                     if (ER_OK != status) {
                                                                                                                          break;
                                                                                                                      }
-                                                                                                                 }));
-    } catch (...) {
-        // Do nothing
-    }
+                                                                                                                     Platform::String ^ strSink = MultibyteToPlatformString(sink.c_str());
+                                                                                                                     if (nullptr == strSink && !sink.empty()) {
+                                                                                                                         status = ER_OUT_OF_MEMORY;
+                                                                                                                         break;
+                                                                                                                     }
+                                                                                                                     _eventsAndProperties->PutKeys(strSink);
+                                                                                                                     status = ER_OK;
+                                                                                                                     break;
+                                                                                                                 }
+                                                                                                             }));
 
     return status;
 }

@@ -353,159 +353,131 @@ void _BusListener::DefaultBusListenerBusDisconnectedHandler()
 
 void _BusListener::ListenerRegistered(ajn::BusAttachment* bus)
 {
-    try {
-        ::QStatus status = ER_OK;
+    ::QStatus status = ER_OK;
 
-        while (true) {
-            if (NULL == bus) {
-                status = ER_BAD_ARG_1;
-                break;
-            }
-            AllJoyn::BusAttachment ^ ba = ref new AllJoyn::BusAttachment((void*)bus, false);
-            if (nullptr == ba) {
-                status = ER_OUT_OF_MEMORY;
-                break;
-            }
-            _eventsAndProperties->Bus->_busAttachment->DispatchCallback(ref new Windows::UI::Core::DispatchedHandler([&]() {
-                                                                                                                         _eventsAndProperties->ListenerRegistered(ba);
-                                                                                                                     }));
+    while (true) {
+        if (NULL == bus) {
+            status = ER_BAD_ARG_1;
             break;
         }
-
-        if (ER_OK != status) {
-            QCC_THROW_EXCEPTION(status);
+        AllJoyn::BusAttachment ^ ba = ref new AllJoyn::BusAttachment((void*)bus, false);
+        if (nullptr == ba) {
+            status = ER_OUT_OF_MEMORY;
+            break;
         }
-    }catch (...) {
-        // Do nothing
+        _eventsAndProperties->Bus->_busAttachment->DispatchCallback(ref new Windows::UI::Core::DispatchedHandler([&]() {
+                                                                                                                     _eventsAndProperties->ListenerRegistered(ba);
+                                                                                                                 }));
+        break;
+    }
+
+    if (ER_OK != status) {
+        QCC_THROW_EXCEPTION(status);
     }
 }
 
 void _BusListener::ListenerUnregistered()
 {
-    try {
-        _eventsAndProperties->Bus->_busAttachment->DispatchCallback(ref new Windows::UI::Core::DispatchedHandler([&]() {
-                                                                                                                     _eventsAndProperties->ListenerUnregistered();
-                                                                                                                 }));
-    }catch (...) {
-        // Do nothing
-    }
+    _eventsAndProperties->Bus->_busAttachment->DispatchCallback(ref new Windows::UI::Core::DispatchedHandler([&]() {
+                                                                                                                 _eventsAndProperties->ListenerUnregistered();
+                                                                                                             }));
 }
 
 void _BusListener::FoundAdvertisedName(const char* name, ajn::TransportMask transport, const char* namePrefix)
 {
-    try {
-        ::QStatus status = ER_OK;
+    ::QStatus status = ER_OK;
 
-        while (true) {
-            Platform::String ^ strName = MultibyteToPlatformString(name);
-            if (nullptr == strName && name != NULL && name[0] != '\0') {
-                status = ER_OUT_OF_MEMORY;
-                break;
-            }
-            Platform::String ^ strNamePrefix = MultibyteToPlatformString(namePrefix);
-            if (nullptr == strNamePrefix && namePrefix != NULL && namePrefix[0] != '\0') {
-                status = ER_OUT_OF_MEMORY;
-                break;
-            }
-            _eventsAndProperties->Bus->_busAttachment->DispatchCallback(ref new Windows::UI::Core::DispatchedHandler([&]() {
-                                                                                                                         _eventsAndProperties->FoundAdvertisedName(strName, (TransportMaskType)(int)transport, strNamePrefix);
-                                                                                                                     }));
+    while (true) {
+        Platform::String ^ strName = MultibyteToPlatformString(name);
+        if (nullptr == strName && name != NULL && name[0] != '\0') {
+            status = ER_OUT_OF_MEMORY;
             break;
         }
-
-        if (ER_OK != status) {
-            QCC_THROW_EXCEPTION(status);
+        Platform::String ^ strNamePrefix = MultibyteToPlatformString(namePrefix);
+        if (nullptr == strNamePrefix && namePrefix != NULL && namePrefix[0] != '\0') {
+            status = ER_OUT_OF_MEMORY;
+            break;
         }
-    }catch (...) {
-        // Do nothing
+        _eventsAndProperties->Bus->_busAttachment->DispatchCallback(ref new Windows::UI::Core::DispatchedHandler([&]() {
+                                                                                                                     _eventsAndProperties->FoundAdvertisedName(strName, (TransportMaskType)(int)transport, strNamePrefix);
+                                                                                                                 }));
+        break;
+    }
+
+    if (ER_OK != status) {
+        QCC_THROW_EXCEPTION(status);
     }
 }
 
 void _BusListener::LostAdvertisedName(const char* name, ajn::TransportMask transport, const char* namePrefix)
 {
-    try {
-        ::QStatus status = ER_OK;
+    ::QStatus status = ER_OK;
 
-        while (true) {
-            Platform::String ^ strName = MultibyteToPlatformString(name);
-            if (nullptr == strName && name != NULL && name[0] != '\0') {
-                status = ER_OUT_OF_MEMORY;
-                break;
-            }
-            Platform::String ^ strNamePrefix = MultibyteToPlatformString(namePrefix);
-            if (nullptr == strNamePrefix && namePrefix != NULL && namePrefix[0] != '\0') {
-                status = ER_OUT_OF_MEMORY;
-                break;
-            }
-            _eventsAndProperties->Bus->_busAttachment->DispatchCallback(ref new Windows::UI::Core::DispatchedHandler([&]() {
-                                                                                                                         _eventsAndProperties->LostAdvertisedName(strName, (TransportMaskType)(int)transport, strNamePrefix);
-                                                                                                                     }));
+    while (true) {
+        Platform::String ^ strName = MultibyteToPlatformString(name);
+        if (nullptr == strName && name != NULL && name[0] != '\0') {
+            status = ER_OUT_OF_MEMORY;
             break;
         }
-
-        if (ER_OK != status) {
-            QCC_THROW_EXCEPTION(status);
+        Platform::String ^ strNamePrefix = MultibyteToPlatformString(namePrefix);
+        if (nullptr == strNamePrefix && namePrefix != NULL && namePrefix[0] != '\0') {
+            status = ER_OUT_OF_MEMORY;
+            break;
         }
-    }catch (...) {
-        // Do nothing
+        _eventsAndProperties->Bus->_busAttachment->DispatchCallback(ref new Windows::UI::Core::DispatchedHandler([&]() {
+                                                                                                                     _eventsAndProperties->LostAdvertisedName(strName, (TransportMaskType)(int)transport, strNamePrefix);
+                                                                                                                 }));
+        break;
+    }
+
+    if (ER_OK != status) {
+        QCC_THROW_EXCEPTION(status);
     }
 }
 
 void _BusListener::NameOwnerChanged(const char* busName, const char* previousOwner, const char* newOwner)
 {
-    try {
-        ::QStatus status = ER_OK;
+    ::QStatus status = ER_OK;
 
-        while (true) {
-            Platform::String ^ strBusName = MultibyteToPlatformString(busName);
-            if (nullptr == strBusName && busName != NULL && busName[0] != '\0') {
-                status = ER_OUT_OF_MEMORY;
-                break;
-            }
-            Platform::String ^ strPreviousOwner = MultibyteToPlatformString(previousOwner);
-            if (nullptr == strPreviousOwner && previousOwner != NULL && previousOwner[0] != '\0') {
-                status = ER_OUT_OF_MEMORY;
-                break;
-            }
-            Platform::String ^ strNewOwner = MultibyteToPlatformString(newOwner);
-            if (nullptr == strNewOwner && newOwner != NULL && newOwner[0] != '\0') {
-                status = ER_OUT_OF_MEMORY;
-                break;
-            }
-            _eventsAndProperties->Bus->_busAttachment->DispatchCallback(ref new Windows::UI::Core::DispatchedHandler([&]() {
-                                                                                                                         _eventsAndProperties->NameOwnerChanged(strBusName, strPreviousOwner, strNewOwner);
-                                                                                                                     }));
+    while (true) {
+        Platform::String ^ strBusName = MultibyteToPlatformString(busName);
+        if (nullptr == strBusName && busName != NULL && busName[0] != '\0') {
+            status = ER_OUT_OF_MEMORY;
             break;
         }
-
-        if (ER_OK != status) {
-            QCC_THROW_EXCEPTION(status);
+        Platform::String ^ strPreviousOwner = MultibyteToPlatformString(previousOwner);
+        if (nullptr == strPreviousOwner && previousOwner != NULL && previousOwner[0] != '\0') {
+            status = ER_OUT_OF_MEMORY;
+            break;
         }
-    } catch (...) {
-        // Do nothing
+        Platform::String ^ strNewOwner = MultibyteToPlatformString(newOwner);
+        if (nullptr == strNewOwner && newOwner != NULL && newOwner[0] != '\0') {
+            status = ER_OUT_OF_MEMORY;
+            break;
+        }
+        _eventsAndProperties->Bus->_busAttachment->DispatchCallback(ref new Windows::UI::Core::DispatchedHandler([&]() {
+                                                                                                                     _eventsAndProperties->NameOwnerChanged(strBusName, strPreviousOwner, strNewOwner);
+                                                                                                                 }));
+        break;
+    }
+
+    if (ER_OK != status) {
+        QCC_THROW_EXCEPTION(status);
     }
 }
 
 void _BusListener::BusStopping()
 {
-    try {
-        _eventsAndProperties->Bus->_busAttachment->DispatchCallback(ref new Windows::UI::Core::DispatchedHandler([&]() {
-                                                                                                                     _eventsAndProperties->BusStopping();
-                                                                                                                 }));
-    } catch (...) {
-        // Do nothing
-    }
+    _eventsAndProperties->Bus->_busAttachment->DispatchCallback(ref new Windows::UI::Core::DispatchedHandler([&]() {
+                                                                                                                 _eventsAndProperties->BusStopping();
+                                                                                                             }));
 }
 
 void _BusListener::BusDisconnected()
 {
-    try {
-        _eventsAndProperties->Bus->_busAttachment->DispatchCallback(ref new Windows::UI::Core::DispatchedHandler([&]() {
-                                                                                                                     _eventsAndProperties->BusDisconnected();
-                                                                                                                 }));
-    } catch (...) {
-        // Do nothing
-    }
+    _eventsAndProperties->Bus->_busAttachment->DispatchCallback(ref new Windows::UI::Core::DispatchedHandler([&]() {
+                                                                                                                 _eventsAndProperties->BusDisconnected();
+                                                                                                             }));
 }
 
 __BusListener::__BusListener()
