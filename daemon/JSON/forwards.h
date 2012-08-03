@@ -38,7 +38,6 @@ class ValueIteratorBase;
 class ValueIterator;
 class ValueConstIterator;
 #ifdef JSON_VALUE_USE_INTERNAL_MAP
-class ValueAllocator;
 class ValueMapAllocator;
 class ValueInternalLink;
 class ValueInternalArray;

@@ -74,62 +74,32 @@ const UInt Value::maxUInt = UInt(-1);
 //   return 0;
 //}
 
-ValueAllocator::~ValueAllocator()
+static const unsigned int unknown = (unsigned int) -1;
+
+static char* duplicateStringValue(const char* value, unsigned int length = unknown)
 {
+    if (length == unknown)
+        length = (unsigned int)strlen(value);
+    char*newString = static_cast<char*>(malloc(length + 1));
+    memcpy(newString, value, length);
+    newString[length] = 0;
+    return newString;
 }
 
-class DefaultValueAllocator : public ValueAllocator {
-  public:
-    virtual ~DefaultValueAllocator()
-    {
-    }
-
-    virtual char*makeMemberName(const char*memberName)
-    {
-        return duplicateStringValue(memberName);
-    }
-
-    virtual void releaseMemberName(char*memberName)
-    {
-        releaseStringValue(memberName);
-    }
-
-    virtual char*duplicateStringValue(const char*value,
-                                      unsigned int length = unknown)
-    {
-        //@todo invesgate this old optimization
-        //if ( !value  ||  value[0] == 0 )
-        //   return 0;
-
-        if (length == unknown)
-            length = (unsigned int)strlen(value);
-        char*newString = static_cast<char*>(malloc(length + 1));
-        memcpy(newString, value, length);
-        newString[length] = 0;
-        return newString;
-    }
-
-    virtual void releaseStringValue(char*value)
-    {
-        if (value)
-            free(value);
-    }
-};
-
-static ValueAllocator*& valueAllocator()
+static void releaseStringValue(char* value)
 {
-    static DefaultValueAllocator defaultAllocator;
-    static ValueAllocator*valueAllocator = &defaultAllocator;
-    return valueAllocator;
+    free(value);
 }
 
-static struct DummyValueAllocatorInitializer {
-    DummyValueAllocatorInitializer()
-    {
-        valueAllocator();    // ensure valueAllocator() statics are initialized before main().
-    }
-} dummyValueAllocatorInitializer;
+static char* makeMemberName(const char* memberName)
+{
+    return duplicateStringValue(memberName);
+}
 
+static void releaseMemberName(char* memberName)
+{
+    releaseStringValue(memberName);
+}
 
 
 // //////////////////////////////////////////////////////////////////
@@ -163,18 +133,16 @@ Value::CommentInfo::CommentInfo()
 
 Value::CommentInfo::~CommentInfo()
 {
-    if (comment_)
-        valueAllocator()->releaseStringValue(comment_);
+    releaseStringValue(comment_);
 }
 
 
 void Value::CommentInfo::setComment(const char*text)
 {
-    if (comment_)
-        valueAllocator()->releaseStringValue(comment_);
+    releaseStringValue(comment_);
     assert(text);
     // It seems that /**/ style comments are acceptable as well.
-    comment_ = valueAllocator()->duplicateStringValue(text);
+    comment_ = duplicateStringValue(text);
 }
 
 
@@ -197,7 +165,7 @@ Value::CZString::CZString(int index)
 }
 
 Value::CZString::CZString(const char*cstr, DuplicationPolicy allocate)
-    : cstr_(allocate == duplicate ? valueAllocator()->makeMemberName(cstr)
+    : cstr_(allocate == duplicate ? makeMemberName(cstr)
                 : cstr)
     , index_(allocate)
 {
@@ -205,8 +173,7 @@ Value::CZString::CZString(const char*cstr, DuplicationPolicy allocate)
 
 Value::CZString::CZString(const CZString& other)
     : cstr_(other.index_ != noDuplication &&  other.cstr_ != 0
-            ?  valueAllocator()->makeMemberName(other.cstr_)
-                : other.cstr_)
+            ? makeMemberName(other.cstr_) : other.cstr_)
     , index_(other.cstr_ ? (other.index_ == noDuplication ? noDuplication : duplicate)
                  : other.index_)
 {
@@ -215,7 +182,7 @@ Value::CZString::CZString(const CZString& other)
 Value::CZString::~CZString()
 {
     if (cstr_  &&  index_ == duplicate)
-        valueAllocator()->releaseMemberName(const_cast<char*>(cstr_));
+        releaseMemberName(const_cast<char*>(cstr_));
 }
 
 void Value::CZString::swap(CZString& other)
@@ -224,7 +191,7 @@ void Value::CZString::swap(CZString& other)
     std::swap(index_, other.index_);
 }
 
-Value::CZString& Value::CZString::operator =(const CZString& other)
+Value::CZString& Value::CZString::operator=(const CZString& other)
 {
     CZString temp(other);
     swap(temp);
@@ -324,6 +291,7 @@ Value::Value(ValueType type)
 
     default:
         assert(false);
+        break;
     }
 }
 
@@ -367,7 +335,7 @@ Value::Value(const char*value)
     , itemIsUsed_(0)
 #endif
 {
-    value_.string_ = valueAllocator()->duplicateStringValue(value);
+    value_.string_ = duplicateStringValue(value);
 }
 
 
@@ -380,8 +348,7 @@ Value::Value(const char*beginValue,
     , itemIsUsed_(0)
 #endif
 {
-    value_.string_ = valueAllocator()->duplicateStringValue(beginValue,
-                                                            UInt(endValue - beginValue));
+    value_.string_ = duplicateStringValue(beginValue, UInt(endValue - beginValue));
 }
 
 
@@ -393,8 +360,7 @@ Value::Value(const std::string& value)
     , itemIsUsed_(0)
 #endif
 {
-    value_.string_ = valueAllocator()->duplicateStringValue(value.c_str(),
-                                                            (unsigned int)value.length());
+    value_.string_ = duplicateStringValue(value.c_str(), (unsigned int)value.length());
 
 }
 
@@ -452,10 +418,11 @@ Value::Value(const Value& other)
 
     case stringValue:
         if (other.value_.string_) {
-            value_.string_ = valueAllocator()->duplicateStringValue(other.value_.string_);
+            value_.string_ = duplicateStringValue(other.value_.string_);
             allocated_ = true;
-        } else
+        } else {
             value_.string_ = 0;
+        }
         break;
 
 #ifndef JSON_VALUE_USE_INTERNAL_MAP
@@ -476,6 +443,7 @@ Value::Value(const Value& other)
 #endif
     default:
         assert(false);
+        break;
     }
     if (other.comments_) {
         comments_ = new CommentInfo[numberOfCommentPlacement];
@@ -500,7 +468,7 @@ Value::~Value()
 
     case stringValue:
         if (allocated_)
-            valueAllocator()->releaseStringValue(value_.string_);
+            releaseStringValue(value_.string_);
         break;
 
 #ifndef JSON_VALUE_USE_INTERNAL_MAP
@@ -521,6 +489,7 @@ Value::~Value()
 #endif
     default:
         assert(false);
+        break;
     }
 
     if (comments_)
@@ -627,6 +596,7 @@ bool Value::operator <(const Value& other) const
 #endif
     default:
         assert(false);
+        break;
     }
     return 0; // unreachable
 }
@@ -693,6 +663,7 @@ bool Value::operator ==(const Value& other) const
 #endif
     default:
         assert(false);
+        break;
     }
     return 0; // unreachable
 }
@@ -728,6 +699,7 @@ std::string Value::asString() const
     case objectValue:
     default:
         assert(false);
+        break;
     }
     return ""; // unreachable
 }
@@ -762,6 +734,7 @@ Value::Int Value::asInt() const
     case objectValue:
     default:
         assert(false);
+        break;
     }
     return 0; // unreachable;
 }
@@ -789,6 +762,7 @@ Value::UInt Value::asUInt() const
     case objectValue:
     default:
         assert(false);
+        break;
     }
     return 0; // unreachable;
 }
@@ -816,6 +790,7 @@ double Value::asDouble() const
     case objectValue:
     default:
         assert(false);
+        break;
     }
     return 0; // unreachable;
 }
@@ -845,6 +820,7 @@ bool Value::asBool() const
 
     default:
         assert(false);
+        break;
     }
     return false; // unreachable;
 }
@@ -902,6 +878,7 @@ bool Value::isConvertibleTo(ValueType other) const
 
     default:
         assert(false);
+        break;
     }
     return false; // unreachable;
 }
@@ -941,6 +918,7 @@ Value::UInt Value::size() const
 #endif
     default:
         assert(false);
+        break;
     }
     return 0; // unreachable;
 }
