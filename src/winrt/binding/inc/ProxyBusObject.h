@@ -39,6 +39,7 @@ public ref class IntrospectRemoteObjectResult sealed {
   public:
     property ProxyBusObject ^ Proxy;
     property Platform::Object ^ Context;
+    property QStatus Status;
 
   private:
     friend ref class ProxyBusObject;
@@ -48,6 +49,7 @@ public ref class IntrospectRemoteObjectResult sealed {
     {
         Proxy = proxy;
         Context = context;
+        Status = QStatus::ER_OK;
         _exception = nullptr;
         _stdException = NULL;
     }
@@ -99,9 +101,9 @@ public ref class GetPropertyResult sealed {
     GetPropertyResult(ProxyBusObject ^ proxy, Platform::Object ^ context)
     {
         Proxy = proxy;
+        Context = context;
         Status = QStatus::ER_OK;
         Value = nullptr;
-        Context = context;
         _exception = nullptr;
         _stdException = NULL;
     }
@@ -109,8 +111,8 @@ public ref class GetPropertyResult sealed {
     ~GetPropertyResult()
     {
         Proxy = nullptr;
-        Value = nullptr;
         Context = nullptr;
+        Value = nullptr;
         _exception = nullptr;
         if (NULL != _stdException) {
             delete _stdException;
@@ -154,9 +156,9 @@ public ref class GetAllPropertiesResult sealed {
     GetAllPropertiesResult(ProxyBusObject ^ proxy, Platform::Object ^ context)
     {
         Proxy = proxy;
+        Context = context;
         Status = QStatus::ER_OK;
         Value = nullptr;
-        Context = context;
         _exception = nullptr;
         _stdException = NULL;
     }
@@ -164,8 +166,8 @@ public ref class GetAllPropertiesResult sealed {
     ~GetAllPropertiesResult()
     {
         Proxy = nullptr;
-        Value = nullptr;
         Context = nullptr;
+        Value = nullptr;
         _exception = nullptr;
         if (NULL != _stdException) {
             delete _stdException;

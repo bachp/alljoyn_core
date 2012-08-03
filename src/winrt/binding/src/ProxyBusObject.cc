@@ -1059,6 +1059,7 @@ void _ProxyBusObjectListener::IntrospectCB(::QStatus s, ajn::ProxyBusObject* obj
 {
     ::QStatus status = ER_OK;
     IntrospectRemoteObjectResult ^ introspectRemoteObjectResult = reinterpret_cast<IntrospectRemoteObjectResult ^>(context);
+    introspectRemoteObjectResult->Status = (AllJoyn::QStatus)s;
     introspectRemoteObjectResult->Complete();
 }
 
