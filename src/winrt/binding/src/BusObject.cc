@@ -112,6 +112,31 @@ BusObject::~BusObject()
     }
 }
 
+void BusObject::EmitPropChanged(Platform::String ^ ifcName, Platform::String ^ propName, MsgArg ^ val, ajn::SessionId id)
+{
+    ::QStatus status = ER_OK;
+
+    while (true) {
+        qcc::String strIfcName = PlatformToMultibyteString(ifcName);
+        if (nullptr != ifcName && strIfcName.empty()) {
+            status = ER_OUT_OF_MEMORY;
+            break;
+        }
+        qcc::String strPropName = PlatformToMultibyteString(propName);
+        if (nullptr != propName && strPropName.empty()) {
+            status = ER_OUT_OF_MEMORY;
+            break;
+        }
+        ajn::MsgArg* msgArg = val->_msgArg;
+        _busObject->EmitPropChanged(strIfcName.c_str(), strPropName.c_str(), *msgArg, id);
+        break;
+    }
+
+    if (ER_OK != status) {
+        QCC_THROW_EXCEPTION(status);
+    }
+}
+
 void BusObject::MethodReply(Message ^ msg, const Platform::Array<MsgArg ^> ^ args)
 {
     ::QStatus status = ER_OK;

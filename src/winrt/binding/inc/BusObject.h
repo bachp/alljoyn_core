@@ -166,6 +166,15 @@ public ref class BusObject sealed {
     BusObject(BusAttachment ^ bus, Platform::String ^ path, bool isPlaceholder);
 
     /// <summary>
+    /// Emit PropertiesChanged to signal the bus that this property has been updated
+    /// </summary>
+    /// <param name="ifcName">The name of the interface</param>
+    /// <param name="propName">The name of the property being changed</param>
+    /// <param name="val">The new value of the property</param>
+    /// <param name="id">ID of the session we broadcast the signal to (0 for all)</param>
+    void EmitPropChanged(Platform::String ^ ifcName, Platform::String ^ propName, MsgArg ^ val, ajn::SessionId id);
+
+    /// <summary>
     /// Reply to a method call.
     /// </summary>
     /// <param name="msg">The method call message</param>
