@@ -139,7 +139,7 @@ class MyBusListener : public BusListener, public SessionListener {
 
     void SessionLost(SessionId sessionId) {
         QCC_SyncPrintf("SessionLost(%08x) was called\n", sessionId);
-        exit(1);
+        _exit(1);
     }
 
     SessionId GetSessionId() const { return sessionId; }
