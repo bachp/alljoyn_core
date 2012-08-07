@@ -63,8 +63,11 @@ class MyBusListener : public BusListener, public SessionListener {
     void FoundAdvertisedName(const char* name, TransportMask transport, const char* namePrefix)
     {
         printf("FoundAdvertisedName(name=%s, prefix=%s)\n", name, namePrefix);
+
         if (0 == strcmp(name, SERVICE_NAME)) {
             // We found a remote bus that is advertising basic service's  well-known name so connect to it
+            /* Since we are in a callback we must enable concurrent callbacks before calling a synchronous method. */
+            g_msgBus->EnableConcurrentCallbacks();
             SessionOpts opts(SessionOpts::TRAFFIC_MESSAGES, false, SessionOpts::PROXIMITY_ANY, TRANSPORT_ANY);
             QStatus status = g_msgBus->JoinSession(name, SERVICE_PORT, this, s_sessionId, opts);
             if (ER_OK != status) {

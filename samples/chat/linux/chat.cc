@@ -130,6 +130,8 @@ class MyBusListener : public BusListener, public SessionPortListener, public Ses
         printf("Discovered chat conversation: \"%s\"\n", convName);
 
         /* Join the conversation */
+        /* Since we are in a callback we must enable concurrent callbacks before calling a synchronous method. */
+        s_bus->EnableConcurrentCallbacks();
         SessionOpts opts(SessionOpts::TRAFFIC_MESSAGES, true, SessionOpts::PROXIMITY_ANY, TRANSPORT_ANY);
         QStatus status = s_bus->JoinSession(name, CHAT_PORT, this, s_sessionId, opts);
         if (ER_OK == status) {
