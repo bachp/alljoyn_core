@@ -496,6 +496,9 @@ class DaemonICETransport : public Transport, public RemoteEndpoint::EndpointList
      */
     list<String> IncomingICESessions;
 
+
+    ICESessionListenerImpl iceListener;
+
     /** AllocateICESessionThread handles a AllocateICESession request from a remote client on a separate thread */
     class AllocateICESessionThread : public Thread, public ThreadListener {
       public:
@@ -659,7 +662,8 @@ class DaemonICETransport : public Transport, public RemoteEndpoint::EndpointList
     Timer daemonICETransportTimer;
 
     qcc::Mutex pktStreamMapLock;
-    std::map<qcc::String, std::pair<ICEPacketStream, int32_t> > pktStreamMap;
+    typedef std::map<qcc::String, std::pair<ICEPacketStream, int32_t> > PacketStreamMap;
+    PacketStreamMap pktStreamMap;
 };
 
 } // namespace ajn
