@@ -204,11 +204,21 @@ static QStatus ParseAttribute(const StunMessage& msg,
     default:
         status = ER_STUN_INVALID_ATTR_TYPE;
         QCC_LogError(status, ("Parsing attribute"));
-        goto exit;
+        break;
     }
 
     bufSize -= attrSize;
-    status = attr->Parse(buf, attrSize);
+
+    if (attr) {
+        status = attr->Parse(buf, attrSize);
+        QCC_DbgPrintf(("Parsed attribute: %s", attr->ToString().c_str()));
+    } else {
+        // Skip past the unknown attribute
+        QCC_DbgPrintf(("Skipping unknown attribute"));
+        buf += attrSize;
+        status = ER_OK;
+    }
+
     if ((status == ER_OK) || (status == ER_STUN_INVALID_MESSAGE_INTEGRITY)) {
         // Skip over any padding.
         buf += padding;
@@ -216,8 +226,6 @@ static QStatus ParseAttribute(const StunMessage& msg,
     } else {
         bufSize += attrSize;
     }
-
-    QCC_DbgPrintf(("Parsed attribute: %s", attr->ToString().c_str()));
 
 exit:
     return status;
@@ -317,7 +325,7 @@ QStatus StunMessage::Parse(const uint8_t*& buf, size_t& bufSize,
     bufSize -= msgSize;
 
     while (msgSize > 0) {
-        StunAttribute* attr;
+        StunAttribute* attr = NULL;
         QStatus parseStatus;
 
         parseStatus = ParseAttribute(*this, buf, msgSize, attr);
@@ -328,17 +336,21 @@ QStatus StunMessage::Parse(const uint8_t*& buf, size_t& bufSize,
             goto exit;
         }
 
-        if (attr->GetType() == STUN_ATTR_USERNAME) {
-            usernameAttr = reinterpret_cast<StunAttributeUsername*>(attr);
-        } else if (attr->GetType() == STUN_ATTR_MESSAGE_INTEGRITY) {
-            miAttr = reinterpret_cast<StunAttributeMessageIntegrity*>(attr);
+        if (attr) {
+            if (attr->GetType() == STUN_ATTR_USERNAME) {
+                usernameAttr = reinterpret_cast<StunAttributeUsername*>(attr);
+            } else if (attr->GetType() == STUN_ATTR_MESSAGE_INTEGRITY) {
+                miAttr = reinterpret_cast<StunAttributeMessageIntegrity*>(attr);
+            }
         }
 
         if (status == ER_OK) {
             status = parseStatus;
         }
 
-        attrs.push_back(attr);
+        if (attr) {
+            attrs.push_back(attr);
+        }
     }
 
     // Section 10.1.2 checks.
