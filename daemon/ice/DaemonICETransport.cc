@@ -1761,16 +1761,14 @@ QStatus DaemonICETransport::Connect(const char* connectSpec, const SessionOpts& 
          * same destination (normSpec) will wait for this join's ICE dance to complete.
          */
         ICEPacketStream pks;
-        std::pair<std::map<qcc::String, std::pair<ICEPacketStream, int32_t> >::iterator, bool> ins =
-            pktStreamMap.insert(std::make_pair(normSpec, pair<ICEPacketStream, int32_t>(pks, 1)));
+        std::pair<PacketStreamMap::iterator, bool> ins =
+            pktStreamMap.insert(std::make_pair(normSpec, std::make_pair(pks, 1)));
         pktStream = &(ins.first->second.first);
         pktStreamMapLock.Unlock();
 
         /*
          * Figure out the ICE Address Candidates
          */
-        ICESessionListenerImpl iceListener;
-
         STUNServerInfo stunInfo;
 
         /*
