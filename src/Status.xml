@@ -221,4 +221,7 @@ Copyright 2010 - 2012, Qualcomm Innovation Center, Inc.
   <status name="ER_RENDEZVOUS_SERVER_ERR401_UNAUTHORIZED_REQUEST" value="0x90d6" comment="Received a HTTP 401 status code from the Rendezvous Server. This indicates that the client is unauthorized to send a request to the Server. The Client login procedure must be initiated." />
   <status name="ER_RENDEZVOUS_SERVER_UNRECOVERABLE_ERROR" value="0x90d7" comment="Received a HTTP status code indicating unrecoverable error from the Rendezvous Server. The connection with the Server should be re-established." />
   <status name="ER_RENDEZVOUS_SERVER_ROOT_CERTIFICATE_UNINITIALIZED" value="0x90d8" comment="Rendezvous Server root ceritificate uninitialized." />
+  <status name="ER_BUS_NO_SUCH_ANNOTATION" value="0x90d9" comment="No such annotation for a GET or SET operation "/>
+  <status name="ER_BUS_ANNOTATION_ALREADY_EXISTS" value="0x90da" comment="Attempt to add an annotation to an interface or property that already exists"/>
+  <status name="ER_SOCK_CLOSING" value="0x90db" comment="Socket close in progress"/>
 </status_block>
