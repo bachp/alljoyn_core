@@ -223,4 +223,5 @@ Copyright 2010 - 2012, Qualcomm Innovation Center, Inc.
   <status name="ER_RENDEZVOUS_SERVER_ROOT_CERTIFICATE_UNINITIALIZED" value="0x90d8" comment="Rendezvous Server root ceritificate uninitialized." />
   <status name="ER_BUS_NO_SUCH_ANNOTATION" value="0x90d9" comment="No such annotation for a GET or SET operation "/>
   <status name="ER_BUS_ANNOTATION_ALREADY_EXISTS" value="0x90da" comment="Attempt to add an annotation to an interface or property that already exists"/>
+  <status name="ER_SOCK_CLOSING" value="0x90db" comment="Socket close in progress"/>
 </status_block>
