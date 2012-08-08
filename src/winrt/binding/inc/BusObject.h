@@ -36,18 +36,18 @@ ref class InterfaceMember;
 /// <summary>
 /// Handle a bus request to read a property from this object.
 /// BusObjects that implement properties should override this method.
-/// The default version simply returns ER_BUS_NO_SUCH_PROPERTY
+/// The default version simply returns #ER_BUS_NO_SUCH_PROPERTY
 /// </summary>
 /// <param name="ifcName">Identifies the interface that the property is defined on</param>
 /// <param name="propName">Identifies the the property to get</param>
-/// <param>name="val">Returns the property value. The type of this value is the actual value type.</param>
+/// <param name="val">Returns the property value. The type of this value is the actual value type.</param>
 /// <returns>#ER_BUS_NO_SUCH_PROPERTY (Should be changed by user implementation of BusObject)</returns>
 public delegate QStatus BusObjectGetHandler(Platform::String ^ ifcName, Platform::String ^ propName, Platform::WriteOnlyArray<MsgArg ^> ^ val);
 
 /// <summary>
 /// Handle a bus attempt to write a property value to this object.
 /// BusObjects that implement properties should override this method.
-/// This default version just replies with ER_BUS_NO_SUCH_PROPERTY
+/// This default version just replies with #ER_BUS_NO_SUCH_PROPERTY
 /// </summary>
 /// <param name="ifcName">Identifies the interface that the property is defined on</param>
 /// <param name="propName">Identifies the the property to set</param>
@@ -179,7 +179,6 @@ public ref class BusObject sealed {
     /// </summary>
     /// <param name="msg">The method call message</param>
     /// <param name="args">The reply arguments (can be NULL)</param>
-    /// <param name="numArgs">The number of arguments</param>
     /// <exception cref="Platform::COMException">
     /// HRESULT will contain the AllJoyn error status code for the error.
     /// - #ER_OK if successful
@@ -204,7 +203,7 @@ public ref class BusObject sealed {
     /// Reply to a method call with an error message.
     /// </summary>
     /// <param name="msg">The method call message</param>
-    /// <param name="status">The status code for the error</param>
+    /// <param name="s">The status code for the error</param>
     /// <exception cref="Platform::COMException">
     /// HRESULT will contain the AllJoyn error status code for the error.
     /// - #ER_OK if successful
@@ -219,7 +218,6 @@ public ref class BusObject sealed {
     /// <param name="sessionId">A unique SessionId for this AllJoyn session instance</param>
     /// <param name="signal">Interface member of signal being emitted.</param>
     /// <param name="args">The arguments for the signal (can be NULL)</param>
-    /// <param name="numArgs">The number of arguments</param>
     /// <param name="timeToLive">If non-zero this specifies in milliseconds the useful lifetime for this
     /// signal. If delivery of the signal is delayed beyond the timeToLive due to
     /// network congestion or other factors the signal may be discarded. There is
@@ -263,9 +261,7 @@ public ref class BusObject sealed {
     /// been added by calling AddInterface().
     /// </summary>
     /// <param name="member">Interface member implemented by handler.</param>
-    /// <param name="handler">Method handler.</param>
-    /// <param name="context">An optional context. This is mainly intended for implementing language
-    /// bindings and should normally be NULL.</param>
+    /// <param name="receiver">Method handler.</param>
     /// <exception cref="Platform::COMException">
     /// HRESULT will contain the AllJoyn error status code for the error.
     /// - #ER_OK if the method handler was added.
@@ -359,14 +355,18 @@ public ref class BusObject sealed {
         Platform::String ^ get();
     }
 
-    /// <summary>Return the path for the object</summary>
+    /// <summary>
+    /// Return the path for the object
+    /// </summary>
     /// <returns>Object path</returns>
     property Platform::String ^ Path
     {
         Platform::String ^ get();
     }
 
-    /// <summary>Return the receiver for the object</summary>
+    /// <summary>
+    /// Return the receiver for the object
+    /// </summary>
     /// <returns>A MessageReceiver</returns>
     property MessageReceiver ^ Receiver
     {

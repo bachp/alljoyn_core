@@ -35,69 +35,69 @@ namespace AllJoyn {
 /// DBus wire protocol but some are specific to the AllJoyn implementation.
 /// </remarks>
 public enum class AllJoynTypeId {
-    ///<summary> AllJoyn INVALID typeId</summary>
+    /// <summary> AllJoyn INVALID typeId</summary>
     ALLJOYN_INVALID          = ajn::ALLJOYN_INVALID,
-    ///<summary> AllJoyn array container type</summary>
+    /// <summary> AllJoyn array container type</summary>
     ALLJOYN_ARRAY            = ajn::ALLJOYN_ARRAY,
-    ///<summary> AllJoyn boolean basic type, @c 0 is @c FALSE and @c 1 is @c TRUE - Everything else is invalid</summary>
+    /// <summary> AllJoyn boolean basic type, @c 0 is @c FALSE and @c 1 is @c TRUE - Everything else is invalid</summary>
     ALLJOYN_BOOLEAN          = ajn::ALLJOYN_BOOLEAN,
-    ///<summary> AllJoyn IEEE 754 double basic type</summary>
+    /// <summary> AllJoyn IEEE 754 double basic type</summary>
     ALLJOYN_DOUBLE           = ajn::ALLJOYN_DOUBLE,
-    ///<summary> AllJoyn dictionary or map container type - an array of key-value pairs</summary>
+    /// <summary> AllJoyn dictionary or map container type - an array of key-value pairs</summary>
     ALLJOYN_DICT_ENTRY       = ajn::ALLJOYN_DICT_ENTRY,
-    ///<summary> AllJoyn signature basic type</summary>
+    /// <summary> AllJoyn signature basic type</summary>
     ALLJOYN_SIGNATURE        = ajn::ALLJOYN_SIGNATURE,
-    ///<summary> AllJoyn socket handle basic type</summary>
+    /// <summary> AllJoyn socket handle basic type</summary>
     ALLJOYN_HANDLE           = ajn::ALLJOYN_HANDLE,
-    ///<summary> AllJoyn 32-bit signed integer basic type</summary>
+    /// <summary> AllJoyn 32-bit signed integer basic type</summary>
     ALLJOYN_INT32            = ajn::ALLJOYN_INT32,
-    ///<summary> AllJoyn 16-bit signed integer basic type</summary>
+    /// <summary> AllJoyn 16-bit signed integer basic type</summary>
     ALLJOYN_INT16            = ajn::ALLJOYN_INT16,
-    ///<summary> AllJoyn Name of an AllJoyn object instance basic type</summary>
+    /// <summary> AllJoyn Name of an AllJoyn object instance basic type</summary>
     ALLJOYN_OBJECT_PATH      = ajn::ALLJOYN_OBJECT_PATH,
-    ///<summary> AllJoyn 16-bit unsigned integer basic type</summary>
+    /// <summary> AllJoyn 16-bit unsigned integer basic type</summary>
     ALLJOYN_UINT16           = ajn::ALLJOYN_UINT16,
-    ///<summary> AllJoyn struct container type</summary>
+    /// <summary> AllJoyn struct container type</summary>
     ALLJOYN_STRUCT           = ajn::ALLJOYN_STRUCT,
-    ///<summary> AllJoyn UTF-8 NULL terminated string basic type</summary>
+    /// <summary> AllJoyn UTF-8 NULL terminated string basic type</summary>
     ALLJOYN_STRING           = ajn::ALLJOYN_STRING,
-    ///<summary> AllJoyn 64-bit unsigned integer basic type</summary>
+    /// <summary> AllJoyn 64-bit unsigned integer basic type</summary>
     ALLJOYN_UINT64           = ajn::ALLJOYN_UINT64,
-    ///<summary> AllJoyn 32-bit unsigned integer basic type</summary>
+    /// <summary> AllJoyn 32-bit unsigned integer basic type</summary>
     ALLJOYN_UINT32           = ajn::ALLJOYN_UINT32,
-    ///<summary> AllJoyn variant container type</summary>
+    /// <summary> AllJoyn variant container type</summary>
     ALLJOYN_VARIANT          = ajn::ALLJOYN_VARIANT,
-    ///<summary> AllJoyn 64-bit signed integer basic type</summary>
+    /// <summary> AllJoyn 64-bit signed integer basic type</summary>
     ALLJOYN_INT64            = ajn::ALLJOYN_INT64,
-    ///<summary> AllJoyn 8-bit unsigned integer basic type</summary>
+    /// <summary> AllJoyn 8-bit unsigned integer basic type</summary>
     ALLJOYN_BYTE             = ajn::ALLJOYN_BYTE,
-    ///<summary> Never actually used as a typeId: specified as ALLJOYN_STRUCT</summary>
+    /// <summary> Never actually used as a typeId: specified as ALLJOYN_STRUCT</summary>
     ALLJOYN_STRUCT_OPEN      = ajn::ALLJOYN_STRUCT_OPEN,
-    ///<summary> Never actually used as a typeId: specified as ALLJOYN_STRUCT</summary>
+    /// <summary> Never actually used as a typeId: specified as ALLJOYN_STRUCT</summary>
     ALLJOYN_STRUCT_CLOSE     = ajn::ALLJOYN_STRUCT_CLOSE,
-    ///<summary> Never actually used as a typeId: specified as ALLJOYN_DICT_ENTRY</summary>
+    /// <summary> Never actually used as a typeId: specified as ALLJOYN_DICT_ENTRY</summary>
     ALLJOYN_DICT_ENTRY_OPEN  = ajn::ALLJOYN_DICT_ENTRY_OPEN,
-    ///<summary> Never actually used as a typeId: specified as ALLJOYN_DICT_ENTRY</summary>
+    /// <summary> Never actually used as a typeId: specified as ALLJOYN_DICT_ENTRY</summary>
     ALLJOYN_DICT_ENTRY_CLOSE = ajn::ALLJOYN_DICT_ENTRY_CLOSE,
-    ///<summary> AllJoyn array of booleans</summary>
+    /// <summary> AllJoyn array of booleans</summary>
     ALLJOYN_BOOLEAN_ARRAY    = ajn::ALLJOYN_BOOLEAN_ARRAY,
-    ///<summary> AllJoyn array of IEEE 754 doubles</summary>
+    /// <summary> AllJoyn array of IEEE 754 doubles</summary>
     ALLJOYN_DOUBLE_ARRAY     = ajn::ALLJOYN_DOUBLE_ARRAY,
-    ///<summary> AllJoyn array of 32-bit signed integers</summary>
+    /// <summary> AllJoyn array of 32-bit signed integers</summary>
     ALLJOYN_INT32_ARRAY      = ajn::ALLJOYN_INT32_ARRAY,
-    ///<summary> AllJoyn array of 16-bit signed integers</summary>
+    /// <summary> AllJoyn array of 16-bit signed integers</summary>
     ALLJOYN_INT16_ARRAY      = ajn::ALLJOYN_INT16_ARRAY,
-    ///<summary> AllJoyn array of 16-bit unsigned integers</summary>
+    /// <summary> AllJoyn array of 16-bit unsigned integers</summary>
     ALLJOYN_UINT16_ARRAY     = ajn::ALLJOYN_UINT16_ARRAY,
-    ///<summary> AllJoyn array of 64-bit unsigned integers</summary>
+    /// <summary> AllJoyn array of 64-bit unsigned integers</summary>
     ALLJOYN_UINT64_ARRAY     = ajn::ALLJOYN_UINT64_ARRAY,
-    ///<summary> AllJoyn array of 32-bit unsigned integers</summary>
+    /// <summary> AllJoyn array of 32-bit unsigned integers</summary>
     ALLJOYN_UINT32_ARRAY     = ajn::ALLJOYN_UINT32_ARRAY,
-    ///<summary> AllJoyn array of 64-bit signed integers</summary>
+    /// <summary> AllJoyn array of 64-bit signed integers</summary>
     ALLJOYN_INT64_ARRAY      = ajn::ALLJOYN_INT64_ARRAY,
-    ///<summary> AllJoyn array of 8-bit unsigned integers</summary>
+    /// <summary> AllJoyn array of 8-bit unsigned integers</summary>
     ALLJOYN_BYTE_ARRAY       = ajn::ALLJOYN_BYTE_ARRAY,
-    ///<summary> This never appears in a signature but is used for matching arbitrary message args</summary>
+    /// <summary> This never appears in a signature but is used for matching arbitrary message args</summary>
     ALLJOYN_WILDCARD         = ajn::ALLJOYN_WILDCARD
 };
 
@@ -132,16 +132,16 @@ class _MsgArg : protected ajn::MsgArg {
     std::list<void*> _msgScratch;
 };
 
-///<summary>
-///This class deals with the message bus types and the operations on them
-///</summary>
-///<remarks>
-///MsgArgs are designed to be light-weight. A MsgArg will normally hold references to the data
-///(strings etc.) it wraps and will only copy that data if the MsgArg is assigned. For example no
-///additional memory is allocated for an #ALLJOYN_STRING that references an existing const char*.
-///If a MsgArg is assigned the destination receives a copy of the contents of the source. The
-///Stabilize() methods can also be called to explicitly force contents of the MsgArg to be copied.
-///</remarks>
+/// <summary>
+/// This class deals with the message bus types and the operations on them
+/// </summary>
+/// <remarks>
+/// MsgArgs are designed to be light-weight. A MsgArg will normally hold references to the data
+/// (strings etc.) it wraps and will only copy that data if the MsgArg is assigned. For example no
+/// additional memory is allocated for an #ALLJOYN_STRING that references an existing const char*.
+/// If a MsgArg is assigned the destination receives a copy of the contents of the source. The
+/// Stabilize() methods can also be called to explicitly force contents of the MsgArg to be copied.
+/// </remarks>
 public ref class MsgArg sealed {
   public:
     /// <summary>
@@ -151,10 +151,7 @@ public ref class MsgArg sealed {
 
     /// <summary>
     /// Constructor to build a message arg. If the constructor fails for any reason the type will be
-    /// set to #ALLJOYN_INVALID. See the description of the #Set() method for information about the
-    /// signature and parameters. For initializing complex values it is recommended to use the
-    /// default constructor and the #Set() method so the success of setting the value can be
-    /// explicitly checked.
+    /// set to #ALLJOYN_INVALID.
     /// </summary>
     /// <param name="signature">The signature for MsgArg value.</param>
     /// <param name="args">One or more values to initialize the MsgArg.</param>
@@ -189,36 +186,36 @@ public ref class MsgArg sealed {
     /// - <c>'{'</c> and <c>'}'</c>A pair values using the notation above.
     ///
     /// - <c>'*'</c> A pointer to a MsgArg.
-    ///</remarks>
-    ///<example>
-    ///An array of strings
-    ///<code>
+    /// </remarks>
+    /// <example>
+    /// An array of strings
+    /// <code>
     ///    char* fruits[3] =  { "apple", "banana", "orange" };
     ///    MsgArg bowl;
     ///    bowl.Set("as", 3, fruits);
-    ///</code>
-    ///A struct with a uint and two string elements.
+    /// </code>
+    /// A struct with a uint and two string elements.
     ///
-    ///<code> arg.Set("(uss)", 1024, "hello", "world");</code>
-    ///An array of 3 dictionary entries where each entry has an integer key and string value.
-    ///<code>
+    /// <code> arg.Set("(uss)", 1024, "hello", "world");</code>
+    /// An array of 3 dictionary entries where each entry has an integer key and string value.
+    /// <code>
     ///    MsgArg dict[3];
     ///    dict[0].Set("{is}", 1, "red");
     ///    dict[1].Set("{is}", 2, "green");
     ///    dict[2].Set("{is}", 3, "blue");
     ///    arg.Set("a{is}", 3, dict);
-    ///</code>
-    ///An array of uint_16's
-    ///<code>
+    /// </code>
+    /// An array of uint_16's
+    /// <code>
     ///    uint16_t aq[] = { 1, 2, 3, 5, 6, 7 };
     ///    arg.Set("aq", sizeof(aq) / sizeof(uint16_t), aq);
-    ///</code>
-    ///</example>
-    ///<exception cref="Platform::COMException">
+    /// </code>
+    /// </example>
+    /// <exception cref="Platform::COMException">
     /// HRESULT will contain the AllJoyn error status code for the error.
     ///    - #ER_OK if the MsgArg was successfully set
     ///    - An error status otherwise
-    ///</exception>
+    /// </exception>
     MsgArg(Platform::String ^ signature, const Platform::Array<Platform::Object ^> ^ args);
 
     property Object ^ Value

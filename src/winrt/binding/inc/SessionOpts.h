@@ -32,11 +32,11 @@ public enum class ProximityType : uint32_t {
 };
 
 public enum class TrafficType {
-    ///<summary>Session carries message traffic</summary>
+    /// <summary>Session carries message traffic</summary>
     TRAFFIC_MESSAGES       = ajn::SessionOpts::TRAFFIC_MESSAGES,
-    ///<summary>Session carries an unreliable (lossy) byte stream</summary>
+    /// <summary>Session carries an unreliable (lossy) byte stream</summary>
     TRAFFIC_RAW_UNRELIABLE = ajn::SessionOpts::TRAFFIC_RAW_UNRELIABLE,
-    ///<summary>Session carries a reliable byte stream</summary>
+    /// <summary>Session carries a reliable byte stream</summary>
     TRAFFIC_RAW_RELIABLE   = ajn::SessionOpts::TRAFFIC_RAW_RELIABLE
 };
 
@@ -74,46 +74,48 @@ public ref class SessionOpts sealed {
   public:
     SessionOpts();
 
-    ///<summary>Construct a SessionOpts with specific parameters.</summary>
-    ///<param name="traffic">Type of traffic.</param>
-    ///<param name="isMultipoint">true iff session supports multipoint (greater than two endpoints).</param>
-    ///<param name="proximity">Proximity constraint bitmask.</param>
-    ///<param name="transports">Allowed transport types bitmask.</param>
+    /// <summary>
+    ///Construct a SessionOpts with specific parameters.
+    /// </summary>
+    /// <param name="traffic">Type of traffic.</param>
+    /// <param name="isMultipoint">true iff session supports multipoint (greater than two endpoints).</param>
+    /// <param name="proximity">Proximity constraint bitmask.</param>
+    /// <param name="transports">Allowed transport types bitmask.</param>
     SessionOpts(TrafficType traffic, bool isMultipoint, ProximityType proximity, TransportMaskType transports);
 
-    ///<summary>
+    /// <summary>
     ///Traffic accesses the <c>TrafficType</c> value of the <c>SessionOpts</c> object.
-    ///</summary>
+    /// </summary>
     property TrafficType Traffic
     {
         TrafficType get();
         void set(TrafficType value);
     }
 
-    ///<summary>
+    /// <summary>
     ///Multi-point session capable.
     ///A session is multi-point if it can be joined multiple times to form a single
     ///session with multi (greater than 2) endpoints. When false, each join attempt
     ///creates a new point-to-point session.
-    ///</summary>
+    /// </summary>
     property bool IsMultipoint
     {
         bool get();
         void set(bool value);
     }
 
-    ///<summary>
+    /// <summary>
     ///Proximity accesses the <c>ProximityType</c> value of the <c>SessionOpts</c> object.
-    ///</summary>
+    /// </summary>
     property ProximityType Proximity
     {
         ProximityType get();
         void set(ProximityType value);
     }
 
-    ///<summary>
+    /// <summary>
     ///TransportMask accesses the <c>TransportMaskType</c> value of the <c>SessionOpts</c> object.
-    ///</summary>
+    /// </summary>
     property TransportMaskType TransportMask
     {
         TransportMaskType get();

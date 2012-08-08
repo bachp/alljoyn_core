@@ -44,11 +44,17 @@ ref class AuthListener;
 ref class KeyStoreListener;
 
 public enum class RequestNameType {
-    ///<summary>Allow others to take ownership of this name</summary>
+    /// <summary>
+    ///Allow others to take ownership of this name
+    /// </summary>
     DBUS_NAME_ALLOW_REPLACEMENT = DBUS_NAME_FLAG_ALLOW_REPLACEMENT,
-    ///<summary> Attempt to take ownership of name if already taken </summary>
+    /// <summary>
+    ///Attempt to take ownership of name if already taken
+    /// </summary>
     DBUS_NAME_REPLACE_EXISTING = DBUS_NAME_FLAG_REPLACE_EXISTING,
-    ///<summary> Fail if name cannot be immediately obtained  </summary>
+    /// <summary>
+    ///Fail if name cannot be immediately obtained
+    /// </summary>
     DBUS_NAME_DO_NOT_QUEUE = DBUS_NAME_FLAG_DO_NOT_QUEUE
 };
 
@@ -250,7 +256,7 @@ public ref class BusAttachment sealed {
     /// Because interfaces are added both explicitly (via this method) and implicitly
     /// (via ProxyBusObject::IntrospectRemoteObject), there is the possibility that creating
     /// an interface here will fail because the interface already exists. If this happens, and
-    /// exception with be thrown and the HRESULT values with be ER_BUS_IFACE_ALREADY_EXISTS.
+    /// exception with be thrown and the HRESULT values with be #ER_BUS_IFACE_ALREADY_EXISTS.
     /// Interfaces created with this method need to be activated using InterfaceDescription::Activate()
     /// once all of the methods, signals, etc have been added to the interface. The interface will
     /// be unaccessible (via BusAttachment::GetInterfaces() or BusAttachment::GetInterface()) until
@@ -260,7 +266,7 @@ public ref class BusAttachment sealed {
     /// <param name="iface">Returns the newly created interface description.</param>
     /// <param name="secure">If true the interface is secure and method calls and signals will be encrypted.</param>
     /// <exception cref="Platform::COMException">
-    /// HRESULT == ER_BUS_IFACE_ALREADY_EXISTS if requested interface already exists
+    /// HRESULT == #ER_BUS_IFACE_ALREADY_EXISTS if requested interface already exists
     /// </exception>
     /// <see cref="ProxyBusObject::IntrospectRemoteObject"/>
     /// <see cref="InterfaceDescription::Activate"/>
@@ -288,7 +294,7 @@ public ref class BusAttachment sealed {
     /// <summary>
     /// Returns the existing activated InterfaceDescriptions.
     /// </summary>
-    /// <param name="ifaces">A pointer to an InterfaceDescription array to receive the interfaces. Can be NULL in
+    /// <param name="iface">A pointer to an InterfaceDescription array to receive the interfaces. Can be NULL in
     /// which case no interfaces are returned and the return value gives the number of interface available.
     /// </param>
     /// <param name="numIfaces">The size of the InterfaceDescription array. If this value is smaller than the total
@@ -313,7 +319,7 @@ public ref class BusAttachment sealed {
     /// <param name="iface">The unactivated interface to be deleted.</param>
     /// <exception cref="Platform::COMException">
     /// HRESULT will contain the AllJoyn error status code for the error.
-    /// ER_BUS_NO_SUCH_INTERFACE if the interface was not found
+    /// #ER_BUS_NO_SUCH_INTERFACE if the interface was not found
     /// </exception>
     void DeleteInterface(InterfaceDescription ^ iface);
 
@@ -391,7 +397,7 @@ public ref class BusAttachment sealed {
     /// </remarks>
     /// <exception cref="Platform::COMException">
     /// HRESULT will contain the AllJoyn error status code for the error.
-    /// ER_BUS_BUS_ALREADY_STARTED if already started.
+    /// #ER_BUS_BUS_ALREADY_STARTED if already started.
     /// Other error status codes indicating a failure.
     /// </exception>
     void Start();
@@ -442,7 +448,7 @@ public ref class BusAttachment sealed {
     /// </remarks>
     /// <exception cref="Platform::COMException">
     /// HRESULT will contain the AllJoyn error status code for the error.
-    /// ER_BUS_BUS_ALREADY_STARTED if already started or other error status codes identifying the
+    /// #ER_BUS_BUS_ALREADY_STARTED if already started or other error status codes identifying the
     /// reason for the failure
     /// </exception>
     void Join();
@@ -488,8 +494,8 @@ public ref class BusAttachment sealed {
     /// <param name="connectSpec">The transport connection spec used to connect.</param>
     /// <exception cref="Platform::COMException">
     /// HRESULT will contain the AllJoyn error status code for the error.
-    /// ER_BUS_BUS_NOT_STARTED if the bus is not started
-    /// ER_BUS_NOT_CONNECTED if the BusAttachment is not connected to the bus
+    /// #ER_BUS_BUS_NOT_STARTED if the bus is not started
+    /// #ER_BUS_NOT_CONNECTED if the BusAttachment is not connected to the bus
     /// Or other error status codes indicating the reason the operation failed.
     /// </exception>
     void Disconnect(Platform::String ^ connectSpec);
@@ -509,7 +515,7 @@ public ref class BusAttachment sealed {
     /// <param name="obj">BusObject to register.</param>
     /// <exception cref="Platform::COMException">
     /// HRESULT will contain the AllJoyn error status code for the error.
-    /// ER_BUS_BAD_OBJ_PATH for a bad object path
+    /// #ER_BUS_BAD_OBJ_PATH for a bad object path
     /// </exception>
     void RegisterBusObject(BusObject ^ obj);
 
@@ -527,7 +533,6 @@ public ref class BusAttachment sealed {
     /// qualifiers are ALL met.
     /// </remarks>
     /// <param name="receiver">The object receiving the signal.</param>
-    /// <param name="signalHandler">The signal handler method.</param>
     /// <param name="member">The interface/member of the signal.</param>
     /// <param name="srcPath">The object path of the emitter of the signal or NULL for all paths.</param>
     void RegisterSignalHandler(Platform::Object ^ receiver,
@@ -541,7 +546,6 @@ public ref class BusAttachment sealed {
     /// Remove the signal handler that was registered with the given parameters.
     /// </remarks>
     /// <param name="receiver">The object receiving the signal.</param>
-    /// <param name="signalHandler">The signal handler method.</param>
     /// <param name="member">The interface/member of the signal.</param>
     /// <param name="srcPath">The object path of the emitter of the signal or NULL for all paths.</param>
     void UnregisterSignalHandler(Platform::Object ^ receiver,
@@ -574,7 +578,7 @@ public ref class BusAttachment sealed {
     /// </param>
     /// <exception cref="Platform::COMException">
     /// HRESULT will contain the AllJoyn error status code for the error.
-    /// ER_BUS_BUS_NOT_STARTED BusAttachment::Start has not be called
+    /// #ER_BUS_BUS_NOT_STARTED BusAttachment::Start has not be called
     /// </exception>
     void EnablePeerSecurity(Platform::String ^ authMechanisms,
                             AuthListener ^ listener,
@@ -616,7 +620,7 @@ public ref class BusAttachment sealed {
     /// <param name="listener">The key store listener to set.</param>
     /// <exception cref="Platform::COMException">
     /// HRESULT will contain the AllJoyn error status code for the error.
-    /// ER_BUS_LISTENER_ALREADY_SET if a listener has been set by this function or because
+    /// #ER_BUS_LISTENER_ALREADY_SET if a listener has been set by this function or because
     /// EnablePeerSecurity has previously been called.
     /// </exception>
     void RegisterKeyStoreListener(KeyStoreListener ^ listener);
@@ -665,7 +669,7 @@ public ref class BusAttachment sealed {
     /// <param name="guid">The guid of a remote authenticated peer.</param>
     /// <exception cref="Platform::COMException">
     /// HRESULT will contain the AllJoyn error status code for the error.
-    /// ER_UNKNOWN_GUID if there is no peer with the specified GUID.
+    /// #ER_BUS_KEY_UNAVAILABLE if there is no peer with the specified GUID.
     /// Or other error status codes indicating the reason the operation failed.
     /// </exception>
     void ClearKeys(Platform::String ^ guid);
@@ -681,7 +685,7 @@ public ref class BusAttachment sealed {
     /// <param name="timeout">The time in seconds relative to the current time to expire the keys.</param>
     /// <exception cref="Platform::COMException">
     /// HRESULT will contain the AllJoyn error status code for the error.
-    /// ER_UNKNOWN_GUID if there is no authenticated peer with the specified GUID.
+    /// #ER_BUS_KEY_UNAVAILABLE if there is no authenticated peer with the specified GUID.
     /// Or other error status codes indicating the reason the operation failed.
     /// </exception>
     void SetKeyExpiration(Platform::String ^ guid, uint32_t timeout);
@@ -698,7 +702,7 @@ public ref class BusAttachment sealed {
     /// <param name="timeout">The time in seconds relative to the current time when the keys will expire.</param>
     /// <exception cref="Platform::COMException">
     /// HRESULT will contain the AllJoyn error status code for the error.
-    /// ER_UNKNOWN_GUID if there is no authenticated peer with the specified GUID.
+    /// #ER_BUS_KEY_UNAVAILABLE if there is no authenticated peer with the specified GUID.
     /// Or other error status codes indicating the reason the operation failed.
     /// </exception>
     void GetKeyExpiration(Platform::String ^ guid, Platform::WriteOnlyArray<uint32> ^ timeout);
@@ -718,9 +722,9 @@ public ref class BusAttachment sealed {
     /// </param>
     /// <exception cref="Platform::COMException">
     /// HRESULT will contain the AllJoyn error status code for the error.
-    /// ER_BUS_INVALID_AUTH_MECHANISM if the authentication mechanism does not support logon functionality.
-    /// ER_BAD_ARG_2 indicates a null string was used as the user name.
-    /// ER_BAD_ARG_3 indicates a null string was used as the password.
+    /// #ER_BUS_INVALID_AUTH_MECHANISM if the authentication mechanism does not support logon functionality.
+    /// #ER_BAD_ARG_2 indicates a null string was used as the user name.
+    /// #ER_BAD_ARG_3 indicates a null string was used as the password.
     /// Or other error status codes indicating the reason the operation failed.
     /// </exception>
     void AddLogonEntry(Platform::String ^ authMechanism, Platform::String ^ userName, Platform::String ^ password);
@@ -736,7 +740,7 @@ public ref class BusAttachment sealed {
     /// <param name="flags">Bitmask of DBUS_NAME_FLAG_* defines see <see cref="AllJoyn::DBusStd"/></param>
     /// <exception cref="Platform::COMException">
     /// HRESULT will contain the AllJoyn error status code for the error.
-    /// ER_BUS_NOT_CONNECTED if a connection has not been made with a local bus.
+    /// #ER_BUS_NOT_CONNECTED if a connection has not been made with a local bus.
     /// Or other error status codes indicating the reason the operation failed.
     /// </exception>
     void RequestName(Platform::String ^ requestedName, uint32_t flags);
@@ -751,7 +755,7 @@ public ref class BusAttachment sealed {
     /// <param name="name">Well-known name being released.</param>
     /// <exception cref="Platform::COMException">
     /// HRESULT will contain the AllJoyn error status code for the error.
-    /// ER_BUS_NOT_CONNECTED if a connection has not been made with a local bus.
+    /// #ER_BUS_NOT_CONNECTED if a connection has not been made with a local bus.
     /// Or other error status codes indicating the reason the operation failed.
     /// </exception>
     void ReleaseName(Platform::String ^ name);
@@ -765,7 +769,7 @@ public ref class BusAttachment sealed {
     /// <param name="rule">Match rule to be added (see DBus specification for format of this string).</param>
     /// <exception cref="Platform::COMException">
     /// HRESULT will contain the AllJoyn error status code for the error.
-    /// ER_BUS_NOT_CONNECTED if a connection has not been made with a local bus.
+    /// #ER_BUS_NOT_CONNECTED if a connection has not been made with a local bus.
     /// Or other error status codes indicating the reason the operation failed.
     /// </exception>
     void AddMatch(Platform::String ^ rule);
@@ -779,7 +783,7 @@ public ref class BusAttachment sealed {
     /// <param name="rule">Match rule to be removed (see DBus specification for format of this string).</param>
     /// <exception cref="Platform::COMException">
     /// HRESULT will contain the AllJoyn error status code for the error.
-    /// ER_BUS_NOT_CONNECTED if a connection has not been made with a local bus.
+    /// #ER_BUS_NOT_CONNECTED if a connection has not been made with a local bus.
     /// Or other error status codes indicating the reason the operation failed.
     /// </exception>
     void RemoveMatch(Platform::String ^ rule);
@@ -795,7 +799,7 @@ public ref class BusAttachment sealed {
     /// <param name="transports">Set of transports to use for sending advertisement.</param>
     /// <exception cref="Platform::COMException">
     /// HRESULT will contain the AllJoyn error status code for the error.
-    /// ER_BUS_NOT_CONNECTED if a connection has not been made with a local bus.
+    /// #ER_BUS_NOT_CONNECTED if a connection has not been made with a local bus.
     /// Or other error status codes indicating the reason the operation failed.
     /// </exception>
     void AdvertiseName(Platform::String ^ name, TransportMaskType transports);
@@ -811,7 +815,7 @@ public ref class BusAttachment sealed {
     /// <param name="transports">Set of transports whose name advertisement will be canceled.</param>
     /// <exception cref="Platform::COMException">
     /// HRESULT will contain the AllJoyn error status code for the error.
-    /// ER_BUS_NOT_CONNECTED if a connection has not been made with a local bus.
+    /// #ER_BUS_NOT_CONNECTED if a connection has not been made with a local bus.
     /// Or other error status codes indicating the reason the operation failed.
     /// </exception>
     void CancelAdvertiseName(Platform::String ^ name, TransportMaskType transports);
@@ -828,7 +832,7 @@ public ref class BusAttachment sealed {
     /// </param>
     /// <exception cref="Platform::COMException">
     /// HRESULT will contain the AllJoyn error status code for the error.
-    /// ER_BUS_NOT_CONNECTED if a connection has not been made with a local bus.
+    /// #ER_BUS_NOT_CONNECTED if a connection has not been made with a local bus.
     /// Or other error status codes indicating the reason the operation failed.
     /// </exception>
     void FindAdvertisedName(Platform::String ^ namePrefix);
@@ -845,7 +849,7 @@ public ref class BusAttachment sealed {
     /// </param>
     /// <exception cref="Platform::COMException">
     /// HRESULT will contain the AllJoyn error status code for the error.
-    /// ER_BUS_NOT_CONNECTED if a connection has not been made with a local bus.
+    /// #ER_BUS_NOT_CONNECTED if a connection has not been made with a local bus.
     /// Or other error status codes indicating the reason the operation failed.
     /// </exception>
     void CancelFindAdvertisedName(Platform::String ^ namePrefix);
@@ -866,14 +870,16 @@ public ref class BusAttachment sealed {
     /// the original session. The joiner can then create additional sessions with the service by
     /// calling JoinSession with these dynamic SessionPort ids.
     /// </remarks>
-    /// <param name="sessionPort">SessionPort value to bind or SESSION_PORT_ANY to allow this method
-    /// to choose an available port. On successful return, this value contains the chosen SessionPort.
+    /// <param name="sessionPort_in">SessionPort value to bind or SESSION_PORT_ANY to allow this method
+    /// to choose an available port.
+    /// </param>
+    /// <param name="sessionPort_out">On successful return, this value contains the chosen SessionPort.
     /// </param>
     /// <param name="opts">Session options that joiners must agree to in order to successfully join the session.</param>
     /// <param name="listener">Called by the bus when session related events occur.</param>
     /// <exception cref="Platform::COMException">
     /// HRESULT will contain the AllJoyn error status code for the error.
-    /// ER_BUS_NOT_CONNECTED if a connection has not been made with a local bus.
+    /// #ER_BUS_NOT_CONNECTED if a connection has not been made with a local bus.
     /// Or other error status codes indicating the reason the operation failed.
     /// </exception>
     void BindSessionPort(ajn::SessionPort sessionPort_in, Platform::WriteOnlyArray<ajn::SessionPort> ^ sessionPort_out, SessionOpts ^ opts, SessionPortListener ^ listener);
@@ -884,7 +890,7 @@ public ref class BusAttachment sealed {
     /// <param name="sessionPort">Existing session port to be un-bound.</param>
     /// <exception cref="Platform::COMException">
     /// HRESULT will contain the AllJoyn error status code for the error.
-    /// ER_BUS_NOT_CONNECTED if a connection has not been made with a local bus.
+    /// #ER_BUS_NOT_CONNECTED if a connection has not been made with a local bus.
     /// Or other error status codes indicating the reason the operation failed.
     /// </exception>
     void UnbindSessionPort(ajn::SessionPort sessionPort);
@@ -900,11 +906,12 @@ public ref class BusAttachment sealed {
     /// <param name="sessionHost">Bus name of attachment that is hosting the session to be joined.</param>
     /// <param name="sessionPort">SessionPort of sessionHost to be joined.</param>
     /// <param name="listener">Optional listener called when session related events occur. May be NULL.</param>
-    /// <param name="opts">Session options.</param>
+    /// <param name="opts_in">Session options.</param>
+    /// <param name="opts_out">Session options.</param>
     /// <param name="context">User defined context which will be passed as-is to callback.</param>
     /// <exception cref="Platform::COMException">
     /// HRESULT will contain the AllJoyn error status code for the error.
-    /// ER_BUS_NOT_CONNECTED if a connection has not been made with a local bus.
+    /// #ER_BUS_NOT_CONNECTED if a connection has not been made with a local bus.
     /// Or other error status codes indicating the reason the operation failed.
     /// </exception>
     /// <returns>A handle to the async operation.</returns>
@@ -936,7 +943,7 @@ public ref class BusAttachment sealed {
     /// <param name="sessionId">Session id.</param>
     /// <exception cref="Platform::COMException">
     /// HRESULT will contain the AllJoyn error status code for the error.
-    /// ER_BUS_NOT_CONNECTED if a connection has not been made with a local bus.
+    /// #ER_BUS_NOT_CONNECTED if a connection has not been made with a local bus.
     /// Or other error status codes indicating the reason the operation failed.
     /// </exception>
     void LeaveSession(ajn::SessionId sessionId);
@@ -968,11 +975,11 @@ public ref class BusAttachment sealed {
     /// <param name="context">User defined context which will be passed as-is to callback.</param>
     /// <exception cref="Platform::COMException">
     /// HRESULT will contain the AllJoyn error status code for the error.
-    /// ER_ALLJOYN_SETLINKTIMEOUT_REPLY_NOT_SUPPORTED if local daemon does not support SetLinkTimeout
-    /// ER_ALLJOYN_SETLINKTIMEOUT_REPLY_NO_DEST_SUPPORT if SetLinkTimeout not supported by destination
-    /// ER_BUS_NO_SESSION if the Session id is not valid
-    /// ER_ALLJOYN_SETLINKTIMEOUT_REPLY_FAILED if SetLinkTimeout failed
-    /// ER_BUS_NOT_CONNECTED if the BusAttachment is not connected to the daemon
+    /// #ER_ALLJOYN_SETLINKTIMEOUT_REPLY_NOT_SUPPORTED if local daemon does not support SetLinkTimeout
+    /// #ER_ALLJOYN_SETLINKTIMEOUT_REPLY_NO_DEST_SUPPORT if SetLinkTimeout not supported by destination
+    /// #ER_BUS_NO_SESSION if the Session id is not valid
+    /// #ER_ALLJOYN_SETLINKTIMEOUT_REPLY_FAILED if SetLinkTimeout failed
+    /// #ER_BUS_NOT_CONNECTED if the BusAttachment is not connected to the daemon
     /// Or other error status codes indicating the reason the operation failed.
     /// </exception>
     /// <returns>A handle to the async operation.</returns>

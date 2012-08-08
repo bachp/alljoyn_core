@@ -82,3 +82,10 @@ elif env['DOCS'] == 'chm':
         # make sure the chm file is built before trying to install it.
         Depends(chm_install, chm_cmd)
 
+elif env['DOCS'] == 'doxychm':
+    doxy_bld = Builder(action = 'cd ${SOURCE.dir} && doxygen ${SOURCE.file}')
+    env.Append(BUILDERS = {'Doxygen': doxy_bld})
+    # the target directory 'docs/tmp' is never built this will cause doxygen
+    # to run every time DOCS == 'doxychm'
+    env.Doxygen(source='Doxygen_chm', target=Dir('tmp'))
+    env.Clean('Doxygen_chm', Dir('chm'))

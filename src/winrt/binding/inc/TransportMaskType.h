@@ -20,24 +20,24 @@
 
 namespace AllJoyn {
 
-///<summary>Bitmask of all transport types</summary>
+/// <summary>Bitmask of all transport types</summary>
 [Platform::Metadata::Flags]
 public enum class TransportMaskType : uint32_t {
-    ///<summary>no transports</summary>
+    /// <summary>no transports</summary>
     TRANSPORT_NONE      = ajn::TRANSPORT_NONE,
-    ///<summary>ANY transport</summary>
+    /// <summary>ANY transport</summary>
     TRANSPORT_ANY       = ajn::TRANSPORT_ANY,
-    ///<summary>Local (same device) transport</summary>
+    /// <summary>Local (same device) transport</summary>
     TRANSPORT_LOCAL     = ajn::TRANSPORT_LOCAL,
-    ///<summary>Bluetooth transport</summary>
+    /// <summary>Bluetooth transport</summary>
     TRANSPORT_BLUETOOTH = ajn::TRANSPORT_BLUETOOTH,
-    ///<summary>Wireless local-area network transport</summary>
+    /// <summary>Wireless local-area network transport</summary>
     TRANSPORT_WLAN      = ajn::TRANSPORT_WLAN,
-    ///<summary>Wireless wide-area network transport</summary>
+    /// <summary>Wireless wide-area network transport</summary>
     TRANSPORT_WWAN      = ajn::TRANSPORT_WWAN,
-    ///<summary>Wired local-area network transport</summary>
+    /// <summary>Wired local-area network transport</summary>
     TRANSPORT_LAN       = ajn::TRANSPORT_LAN,
-    ///<summary>Transport using ICE protocol</summary>
+    /// <summary>Transport using ICE protocol</summary>
     TRANSPORT_ICE       = ajn::TRANSPORT_ICE
 };
 

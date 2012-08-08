@@ -24,15 +24,15 @@ namespace AllJoyn {
 
 public ref class Debug sealed {
   public:
-    ///<summary>Indicate whether AllJoyn logging goes to OS logger or stdout</summary>
-    ///<param name="useOSLog">
+    /// <summary>Indicate whether AllJoyn logging goes to OS logger or stdout</summary>
+    /// <param name="useOSLog">
     ///true iff OS specific logging should be used rather than print for AllJoyn debug messages.
-    ///</param>
+    /// </param>
     static void UseOSLogging(bool useOSLog);
 
-    ///<summary>Set AllJoyn debug levels.</summary>
-    ///<param name="module">name of the module to generate debug output</param>
-    ///<param name="level">debug level to set for the module</param>
+    /// <summary>Set AllJoyn debug levels.</summary>
+    /// <param name="module">name of the module to generate debug output</param>
+    /// <param name="level">debug level to set for the module</param>
     static void SetDebugLevel(Platform::String ^ module, uint32_t level);
 };
 

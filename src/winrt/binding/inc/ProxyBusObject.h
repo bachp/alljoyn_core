@@ -469,8 +469,6 @@ public ref class ProxyBusObject sealed {
     /// <param name="ifaces">A pointer to an InterfaceDescription array to receive the interfaces. Can be NULL in
     /// which case no interfaces are returned and the return value gives the number
     /// of interface available.</param>
-    /// <param name="numIfaces">The size of the InterfaceDescription array. If this value is smaller than the total
-    /// number of interfaces only numIfaces will be returned.</param>
     /// <returns>The number of interfaces returned or the total number of interfaces if ifaces is NULL.</returns>
     uint32_t GetInterfaces(Platform::WriteOnlyArray<InterfaceDescription ^> ^ ifaces);
 
@@ -523,13 +521,11 @@ public ref class ProxyBusObject sealed {
     void AddInterfaceWithString(Platform::String ^ name);
 
     /// <summary>
-    /// Returns an array of ProxyBusObjects for the children of this %ProxyBusObject.
+    /// Returns an array of ProxyBusObjects for the children of this ProxyBusObject.
     /// </summary>
-    /// <param name="children">A pointer to an %ProxyBusObject array to receive the children. Can be NULL in
+    /// <param name="children">A pointer to an ProxyBusObject array to receive the children. Can be NULL in
     /// which case no children are returned and the return value gives the number
     /// of children available.</param>
-    /// <param name="numChildren">The size of the %ProxyBusObject array. If this value is smaller than the total
-    /// number of children only numChildren will be returned.</param>
     /// <returns>The number of children returned or the total number of children if children is NULL.</returns>
     uint32_t GetChildren(Platform::WriteOnlyArray<ProxyBusObject ^> ^ children);
 
@@ -592,7 +588,7 @@ public ref class ProxyBusObject sealed {
     /// - If #ALLJOYN_FLAG_AUTO_START is set the bus will attempt to start a service if it is not running.</param>
     /// <exception cref="Platform::COMException">
     /// HRESULT will contain the AllJoyn error status code for the error.
-    /// - ER_OK if successful
+    /// - #ER_OK if successful
     /// - An error status otherwise
     /// </exception>
     /// <returns>A handle to the async operation.</returns>
@@ -616,7 +612,7 @@ public ref class ProxyBusObject sealed {
     /// - If #ALLJOYN_FLAG_AUTO_START is set the bus will attempt to start a service if it is not running.</param>
     /// <exception cref="Platform::COMException">
     /// HRESULT will contain the AllJoyn error status code for the error.
-    /// - ER_OK if successful
+    /// - #ER_OK if successful
     /// - An error status otherwise
     /// </exception>
     /// <returns>A handle to the async operation.</returns>

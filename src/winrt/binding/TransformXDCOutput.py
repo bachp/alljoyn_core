@@ -23,7 +23,7 @@ import re;
 # dictionary of strings to replace 
 d = { 'Platform.String': 'System.String',
       'Platform.Object' : 'System.Object',
-#      'Platform.Array\&lt\;(.*)\^\&gt\;' : '\\1[]'
+      '#ER_': 'QStatus::ER_',
     }
 
 p = re.compile("|".join(re.escape(k) for k in d))
