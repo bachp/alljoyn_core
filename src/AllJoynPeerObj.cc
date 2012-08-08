@@ -1104,7 +1104,6 @@ void AllJoynPeerObj::AcceptSession(const InterfaceDescription::Member* member, M
 void AllJoynPeerObj::SessionJoined(const InterfaceDescription::Member* member, const char* srcPath, Message& msg)
 {
     // dispatch to the dispatcher thread
-    QStatus status;
     size_t numArgs;
     const MsgArg* args;
 

@@ -260,7 +260,7 @@ QStatus InterfaceDescription::AddMemberAnnotation(const char* member, const qcc:
 
     Member& m = it->second;
     std::pair<AnnotationsMap::iterator, bool> ret = m.annotations.insert(std::make_pair(name, value));
-    return (ret.second || ret.first->first == name && ret.first->second == value) ? ER_OK : ER_BUS_ANNOTATION_ALREADY_EXISTS;
+    return (ret.second || (ret.first->first == name && ret.first->second == value)) ? ER_OK : ER_BUS_ANNOTATION_ALREADY_EXISTS;
 }
 
 bool InterfaceDescription::GetMemberAnnotation(const char* member, const qcc::String& name, qcc::String& value) const
@@ -302,7 +302,7 @@ QStatus InterfaceDescription::AddPropertyAnnotation(const qcc::String& p_name, c
 
     Property& property = pit->second;
     std::pair<AnnotationsMap::iterator, bool> ret = property.annotations.insert(std::make_pair(name, value));
-    return (ret.second || ret.first->first == name && ret.first->second == value) ? ER_OK : ER_BUS_ANNOTATION_ALREADY_EXISTS;
+    return (ret.second || (ret.first->first == name && ret.first->second == value)) ? ER_OK : ER_BUS_ANNOTATION_ALREADY_EXISTS;
 }
 
 bool InterfaceDescription::GetPropertyAnnotation(const qcc::String& p_name, const qcc::String& name, qcc::String& value) const
@@ -324,7 +324,7 @@ QStatus InterfaceDescription::AddAnnotation(const qcc::String& name, const qcc::
     }
 
     std::pair<AnnotationsMap::iterator, bool> ret = defs->annotations.insert(std::make_pair(name, value));
-    return (ret.second || ret.first->first == name && ret.first->second == value) ? ER_OK : ER_BUS_ANNOTATION_ALREADY_EXISTS;
+    return (ret.second || (ret.first->first == name && ret.first->second == value)) ? ER_OK : ER_BUS_ANNOTATION_ALREADY_EXISTS;
 }
 
 bool InterfaceDescription::GetAnnotation(const qcc::String& name, qcc::String& value) const

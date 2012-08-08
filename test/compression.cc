@@ -88,7 +88,6 @@ int main(int argc, char** argv)
     uint32_t tok1;
     uint32_t tok2;
     BusAttachment bus("compression");
-    uint32_t serial;
     MyMessage msg(bus);
     Pipe stream;
     RemoteEndpoint ep(bus, false, "", &stream, "dummy", false);

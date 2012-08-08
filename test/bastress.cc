@@ -152,7 +152,7 @@ int main(int argc, char**argv)
     while (iterations--) {
 
         QCC_SyncPrintf("Starting threads... \n");
-        for (int i = 0; i < threads; i++) {
+        for (unsigned int i = 0; i < threads; i++) {
             char buf[256];
             sprintf(buf, "Thread.n%d", i);
             threadList[i] = new ThreadClass((char*)buf);
@@ -165,13 +165,13 @@ int main(int argc, char**argv)
              */
             qcc::Sleep(32 * (qcc::Rand8() / 8));
             QCC_SyncPrintf("stopping threads... \n");
-            for (int i = 0; i < threads; i++) {
+            for (unsigned int i = 0; i < threads; i++) {
                 threadList[i]->Stop();
             }
         }
 
         QCC_SyncPrintf("deleting threads... \n");
-        for (int i = 0; i < threads; i++) {
+        for (unsigned int i = 0; i < threads; i++) {
             threadList[i]->Join();
             delete threadList[i];
         }

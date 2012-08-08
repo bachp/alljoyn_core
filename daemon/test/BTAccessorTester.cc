@@ -1028,7 +1028,6 @@ bool ClientTestDriver::TC_StopDiscovery()
 {
     QStatus status;
     bool tcSuccess = true;
-    size_t count;
     BDAddressSet ignoreAddrs;
     String detail;
 
@@ -1047,7 +1046,6 @@ bool ClientTestDriver::TC_StopDiscovery()
         qcc::Sleep(5000);
 
         devChangeLock.Lock(MUTEX_CONTEXT);
-        count = devChangeQueue.size();
         devChangeQueue.clear();
         devChangeEvent.ResetEvent();
         devChangeLock.Unlock(MUTEX_CONTEXT);

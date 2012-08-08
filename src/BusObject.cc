@@ -377,7 +377,7 @@ void BusObject::InstallMethods(MethodTable& methodTable)
     vector<MethodContext>::iterator iter;
     for (iter = components->methodContexts.begin(); iter != components->methodContexts.end(); iter++) {
         const MethodContext methodContext = *iter;
-        methodTable.Add(this, iter->handler, iter->member, iter->context);
+        methodTable.Add(this, methodContext.handler, methodContext.member, methodContext.context);
     }
 }
 

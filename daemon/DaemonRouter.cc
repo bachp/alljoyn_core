@@ -45,7 +45,7 @@ using namespace qcc;
 namespace ajn {
 
 
-DaemonRouter::DaemonRouter() : endpointRefs(0), closing(false), localEndpoint(NULL), ruleTable(), nameTable(), busController(NULL)
+DaemonRouter::DaemonRouter() : endpointRefs(0), localEndpoint(NULL), closing(false), ruleTable(), nameTable(), busController(NULL)
 {
 }
 
