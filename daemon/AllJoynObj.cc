@@ -537,13 +537,13 @@ ThreadReturn STDCALL AllJoynObj::JoinSessionThread::RunJoin()
             bool foundSessionMapEntry = false;
             SessionMapType::iterator sit = ajObj.SessionMapLowerBound(creatorName, 0);
             while ((sit != ajObj.sessionMap.end()) && (creatorName == sit->first.first)) {
-                if ((sit->first.second == 0) && (sit->second.sessionPort == sessionPort)) {
+                if ((sit->first.second == 0) && (sit->second.sessionHost == creatorName) && (sit->second.sessionPort == sessionPort)) {
                     sme = sit->second;
                     foundSessionMapEntry = true;
                     if (!sme.opts.isMultipoint) {
                         break;
                     }
-                } else if ((sit->first.second != 0) && (sit->second.sessionPort == sessionPort)) {
+                } else if ((sit->first.second != 0) && (sit->second.sessionHost == creatorName) && (sit->second.sessionPort == sessionPort)) {
                     /* Check if this joiner has already joined and reject in that case */
                     vector<String>::iterator mit = sit->second.memberNames.begin();
                     while (mit != sit->second.memberNames.end()) {
