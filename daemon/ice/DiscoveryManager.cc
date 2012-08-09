@@ -1473,6 +1473,13 @@ void* DiscoveryManager::Run(void* arg)
 
                 QCC_DbgPrintf(("DiscoveryManager::Run(): Stop event fired\n"));
 
+                /* If the stop event has been set, we are going away for good.
+                 * So send the deleteAll message to the server */
+                if (Connection) {
+                    /* We dont check the return status as we are anyways going to disconnect */
+                    SendMessage(RendezvousSessionDeleteMessage);
+                }
+
                 //
                 // Disconnect from the Rendezvous Server if connected.
                 //
@@ -1525,6 +1532,13 @@ void* DiscoveryManager::Run(void* arg)
                 // The trigger is a HTTP disconnect event
                 //
                 QCC_DbgPrintf(("DiscoveryManager::Run(): HTTP disconnect event fired\n"));
+
+                /* If the disconnect event has been set, DaemonICETransport::StopListen has been called.
+                 * So send the deleteAll message to the server */
+                if (Connection) {
+                    /* We dont check the return status as we are anyways going to disconnect */
+                    SendMessage(RendezvousSessionDeleteMessage);
+                }
 
                 Disconnect();
 
