@@ -2507,6 +2507,11 @@ void DaemonICETransport::AlarmTriggered(const qcc::Alarm& alarm, QStatus alarmSt
         /* Make sure PacketStream is still alive before calling nat/refresh code */
         QStatus status = AcquireICEPacketStreamByPointer(ps);
 
+        if ((status == ER_OK) && !ps->HasSocket()) {
+            status = ER_FAIL;
+            ReleaseICEPacketStream(*ps);
+        }
+
         if ((status == ER_OK) && (alarm == ps->GetTimeoutAlarm())) {
             /* PacketEngine Accept timeout */
             QCC_DbgPrintf(("DaemonICETransport::AlarmTriggered: Removing pktStream %p due to PacketEngine accept timeout", ps));
