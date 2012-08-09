@@ -289,7 +289,7 @@ class InterfaceDescription {
     QStatus AddMemberAnnotation(const char* member, const qcc::String& name, const qcc::String& value);
 
     /**
-     * Add the annotation value for a member (signal or method).
+     * Get annotation to an existing member (signal or method).
      *
      * @param member     Name of member
      * @param name       Name of annotation

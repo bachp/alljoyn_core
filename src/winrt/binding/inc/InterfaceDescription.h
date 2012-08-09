@@ -107,8 +107,56 @@ public ref class InterfaceDescription sealed {
     /// - #ER_OK if successful
     /// - #ER_BUS_MEMBER_ALREADY_EXISTS if member already exists
     /// </exception>
-    void AddMember(AllJoynMessageType type, Platform::String ^ name, Platform::String ^ inputSig, Platform::String ^ outSig, Platform::String ^ argNames, uint8_t annotation, Platform::String ^ accessPerms);
+    void AddMember(AllJoynMessageType type,
+                   Platform::String ^ name,
+                   Platform::String ^ inputSig,
+                   Platform::String ^ outSig,
+                   Platform::String ^ argNames,
+                   uint8_t annotation,
+                   Platform::String ^ accessPerms);
 
+    /// <summary>Add a member to the interface.</summary>
+    /// <param name="type"> Message type.</param>
+    /// <param name="name"> Name of member.</param>
+    /// <param name="inputSig"> Signature of input parameters or NULL for none.</param>
+    /// <param name="outSig"> Signature of output parameters or NULL for none.</param>
+    /// <param name="argNames"> Comma separated list of input and then output arg names used in annotation XML.</param>
+    /// <param name="annotation"> Map of annotations (string=>string)</param>
+    /// <param name="accessPerms"> Required permissions to invoke this call</param>
+    /// <exception cref="Platform::COMException">
+    /// HRESULT will contain the AllJoyn error status code for the error.
+    /// - #ER_OK if successful
+    /// - #ER_BUS_MEMBER_ALREADY_EXISTS if member already exists
+    /// </exception>
+    void AddMember(AllJoynMessageType type,
+                   Platform::String ^ name,
+                   Platform::String ^ inputSig,
+                   Platform::String ^ outSig,
+                   Platform::String ^ argNames,
+                   Windows::Foundation::Collections::IMapView<Platform::String ^, Platform::String ^> ^ annotations,
+                   Platform::String ^ accessPerms);
+
+    /// <summary>Add an annotation to an existing member (signal or method).</summary>
+    /// <param name="member"> Name of member</param>
+    /// <param name="name"> Name of annotation</param>
+    /// <param name="value"> Value for the annotation</param>
+    /// <exception cref="Platform::COMException">
+    /// HRESULT will contain the AllJoyn error status code for the error.
+    /// - #ER_OK if successful
+    /// - #ER_BUS_MEMBER_ALREADY_EXISTS if member already exists
+    /// </exception>
+    void AddMemberAnnotation(Platform::String ^ member, Platform::String ^ name, Platform::String ^ value);
+
+    /// <summary>Get annotation to an existing member (signal or method).</summary>
+    /// <param name="member"> Name of member</param>
+    /// <param name="name"> Name of annotation</param>
+    /// <returns>
+    ///Value iff member and name exist as an annotation.
+    /// </returns>
+    Platform::String ^ GetMemberAnnotation(Platform::String ^ member, Platform::String ^ name);
+
+    /// <summary>Lookup a member description by name</summary>
+    /// <param name="name">
     /// <summary>
     /// Lookup a member description by name
     /// </summary>
@@ -182,7 +230,43 @@ public ref class InterfaceDescription sealed {
     /// - #ER_OK if successful
     /// - #ER_BUS_MEMBER_ALREADY_EXISTS if member already exists
     /// </exception>
-    void AddMethod(Platform::String ^ name, Platform::String ^ inputSig, Platform::String ^ outSig, Platform::String ^ argNames, uint8_t annotation, Platform::String ^ accessPerms);
+    void AddMethod(Platform::String ^ name,
+                   Platform::String ^ inputSig,
+                   Platform::String ^ outSig,
+                   Platform::String ^ argNames,
+                   uint8_t annotation,
+                   Platform::String ^ accessPerms);
+
+    /// <summary>Add a method call member to the interface.</summary>
+    /// <param name="name">
+    ///Name of method call member.
+    /// </param>
+    /// <param name="inputSig">
+    ///Signature of input parameters or NULL for none.
+    /// </param>
+    /// <param name="outSig">
+    ///Signature of output parameters or NULL for none.
+    /// </param>
+    /// <param name="argNames">
+    ///Comma separated list of input and then output arg names used in annotation XML.
+    /// </param>
+    /// <param name="annotation">
+    ///Map of annotations.
+    /// </param>
+    /// <param name="accessPerms">
+    ///Access permission requirements on this call
+    /// </param>
+    /// <exception cref="Platform::COMException">
+    /// HRESULT will contain the AllJoyn error status code for the error.
+    /// - #ER_OK if successful
+    /// - #ER_BUS_MEMBER_ALREADY_EXISTS if member already exists
+    /// </exception>
+    void AddMethod(Platform::String ^ name,
+                   Platform::String ^ inputSig,
+                   Platform::String ^ outSig,
+                   Platform::String ^ argNames,
+                   Windows::Foundation::Collections::IMapView<Platform::String ^, Platform::String ^> ^ annotations,
+                   Platform::String ^ accessPerms);
 
     /// <summary>
     ///Lookup a member method description by name
@@ -274,6 +358,27 @@ public ref class InterfaceDescription sealed {
     /// </exception>
     void AddProperty(Platform::String ^ name, Platform::String ^ signature, uint8_t access);
 
+    /// <summary>Add an annotation to an existing property</summary>
+    /// <param name="member"> Name of member</param>
+    /// <param name="name"> Name of annotation</param>
+    /// <param name="value"> Value for the annotation</param>
+    /// <exception cref="Platform::COMException">
+    /// HRESULT will contain the AllJoyn error status code for the error.
+    /// - #ER_OK if successful
+    /// - #ER_BUS_MEMBER_ALREADY_EXISTS if member already exists
+    /// </exception>
+    void AddPropertyAnnotation(Platform::String ^ member, Platform::String ^ name, Platform::String ^ value);
+
+    /// <summary>Get the annotation value for a property</summary>
+    /// <param name="member"> Name of member</param>
+    /// <param name="name"> Name of annotation</param>
+    /// <returns>
+    ///Value iff member and name exist as an annotation.
+    /// </returns>
+    Platform::String ^ GetPropertyAnnotation(Platform::String ^ member, Platform::String ^ name);
+
+    /// <summary>Check for existence of a property.</summary>
+    /// <param name="name">
     /// <summary>
     ///Check for existence of a property.
     /// </summary>
@@ -317,6 +422,23 @@ public ref class InterfaceDescription sealed {
     ///true if the interface is secure.
     /// </returns>
     bool IsSecure();
+
+    /// <summary>Add an annotation to the interface.</summary>
+    /// <param name="name"> Name of annotation</param>
+    /// <param name="value"> Value for the annotation</param>
+    /// <exception cref="Platform::COMException">
+    /// HRESULT will contain the AllJoyn error status code for the error.
+    /// - #ER_OK if successful
+    /// - #ER_BUS_MEMBER_ALREADY_EXISTS if member already exists
+    /// </exception>
+    void AddAnnotation(Platform::String ^ name, Platform::String ^ value);
+
+    /// <summary>Get the value of an annotation</summary>
+    /// <param name="name"> Name of annotation</param>
+    /// <returns>
+    ///Value iff member and name exist as an annotation.
+    /// </returns>
+    Platform::String ^ GetAnnotation(Platform::String ^ name);
 
     /// <summary>
     ///The name of the interface

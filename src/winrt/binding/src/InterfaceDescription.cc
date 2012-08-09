@@ -24,6 +24,7 @@
 #include <qcc/String.h>
 #include <qcc/winrt/utility.h>
 #include <ObjectReference.h>
+#include <Collection.h>
 #include <AllJoynException.h>
 
 namespace AllJoyn {
@@ -81,7 +82,13 @@ InterfaceDescription::~InterfaceDescription()
     }
 }
 
-void InterfaceDescription::AddMember(AllJoynMessageType type, Platform::String ^ name, Platform::String ^ inputSig, Platform::String ^ outSig, Platform::String ^ argNames, uint8_t annotation, Platform::String ^ accessPerms)
+void InterfaceDescription::AddMember(AllJoynMessageType type,
+                                     Platform::String ^ name,
+                                     Platform::String ^ inputSig,
+                                     Platform::String ^ outSig,
+                                     Platform::String ^ argNames,
+                                     uint8_t annotation,
+                                     Platform::String ^ accessPerms)
 {
     ::QStatus status = ER_OK;
 
@@ -127,6 +134,144 @@ void InterfaceDescription::AddMember(AllJoynMessageType type, Platform::String ^
     if (ER_OK != status) {
         QCC_THROW_EXCEPTION(status);
     }
+}
+
+void InterfaceDescription::AddMember(AllJoynMessageType type,
+                                     Platform::String ^ name,
+                                     Platform::String ^ inputSig,
+                                     Platform::String ^ outSig,
+                                     Platform::String ^ argNames,
+                                     Windows::Foundation::Collections::IMapView<Platform::String ^, Platform::String ^> ^ annotations,
+                                     Platform::String ^ accessPerms)
+{
+    ::QStatus status = ER_OK;
+
+    while (true) {
+        if (nullptr == name) {
+            status = ER_BAD_ARG_2;
+            break;
+        }
+        qcc::String strName = PlatformToMultibyteString(name);
+        if (strName.empty()) {
+            status = ER_OUT_OF_MEMORY;
+            break;
+        }
+        qcc::String strInputSig = PlatformToMultibyteString(inputSig);
+        if (nullptr != inputSig && strInputSig.empty()) {
+            status = ER_OUT_OF_MEMORY;
+            break;
+        }
+        qcc::String strOutSig = PlatformToMultibyteString(outSig);
+        if (nullptr != outSig && strOutSig.empty()) {
+            status = ER_OUT_OF_MEMORY;
+            break;
+        }
+        if (nullptr == argNames) {
+            status = ER_BAD_ARG_5;
+            break;
+        }
+        qcc::String strArgNames = PlatformToMultibyteString(argNames);
+        if (strArgNames.empty()) {
+            status = ER_OUT_OF_MEMORY;
+            break;
+        }
+        ajn::InterfaceDescription::AnnotationsMap annotationsMap;
+        for (Platform::Collections::InputIterator<Windows::Foundation::Collections::IKeyValuePair<Platform::String ^, Platform::String ^> ^> iter = Windows::Foundation::Collections::begin(annotations);
+             iter != Windows::Foundation::Collections::end(annotations);
+             ++iter) {
+            Windows::Foundation::Collections::IKeyValuePair<Platform::String ^, Platform::String ^> ^ kvp = *iter;
+            qcc::String strKey = PlatformToMultibyteString(kvp->Key);
+            if (nullptr != kvp->Key && strKey.empty()) {
+                status = ER_OUT_OF_MEMORY;
+                break;
+            }
+            qcc::String strValue = PlatformToMultibyteString(kvp->Value);
+            if (nullptr != kvp->Value && strValue.empty()) {
+                status = ER_OUT_OF_MEMORY;
+                break;
+            }
+            annotationsMap[strKey] = strValue;
+        }
+        if (ER_OK != status) {
+            break;
+        }
+        qcc::String strAccessPerms = PlatformToMultibyteString(accessPerms);
+        if (nullptr != accessPerms && strAccessPerms.empty()) {
+            status = ER_OUT_OF_MEMORY;
+            break;
+        }
+        status = ((ajn::InterfaceDescription*)*_interfaceDescr)->AddMember((ajn::AllJoynMessageType)(int)type,
+                                                                           strName.c_str(),
+                                                                           strInputSig.c_str(),
+                                                                           strOutSig.c_str(),
+                                                                           strArgNames.c_str(),
+                                                                           annotationsMap,
+                                                                           strAccessPerms.c_str());
+        break;
+    }
+
+    if (ER_OK != status) {
+        QCC_THROW_EXCEPTION(status);
+    }
+}
+
+void InterfaceDescription::AddMemberAnnotation(Platform::String ^ member, Platform::String ^ name, Platform::String ^ value)
+{
+    ::QStatus status = ER_OK;
+
+    while (true) {
+        qcc::String strMember = PlatformToMultibyteString(member);
+        if (nullptr != member && strMember.empty()) {
+            status = ER_OUT_OF_MEMORY;
+            break;
+        }
+        qcc::String strName = PlatformToMultibyteString(name);
+        if (nullptr != name && strName.empty()) {
+            status = ER_OUT_OF_MEMORY;
+            break;
+        }
+        qcc::String strValue = PlatformToMultibyteString(value);
+        if (nullptr != value && strValue.empty()) {
+            status = ER_OUT_OF_MEMORY;
+            break;
+        }
+        status = ((ajn::InterfaceDescription*)*_interfaceDescr)->AddMemberAnnotation(strMember.c_str(), strName, strValue);
+        break;
+    }
+
+    if (ER_OK != status) {
+        QCC_THROW_EXCEPTION(status);
+    }
+}
+
+Platform::String ^ InterfaceDescription::GetMemberAnnotation(Platform::String ^ member, Platform::String ^ name)
+{
+    ::QStatus status = ER_OK;
+    Platform::String ^ result = nullptr;
+
+    while (true) {
+        qcc::String strMember = PlatformToMultibyteString(member);
+        if (nullptr != member && strMember.empty()) {
+            status = ER_OUT_OF_MEMORY;
+            break;
+        }
+        qcc::String strName = PlatformToMultibyteString(name);
+        if (nullptr != name && strName.empty()) {
+            status = ER_OUT_OF_MEMORY;
+            break;
+        }
+        qcc::String strValue;
+        if (((ajn::InterfaceDescription*)*_interfaceDescr)->GetMemberAnnotation(strMember.c_str(), strName, strValue)) {
+            result = MultibyteToPlatformString(strValue.c_str());
+        }
+        break;
+    }
+
+    if (ER_OK != status) {
+        QCC_THROW_EXCEPTION(status);
+    }
+
+    return result;
 }
 
 InterfaceMember ^ InterfaceDescription::GetMember(Platform::String ^ name)
@@ -240,7 +385,12 @@ bool InterfaceDescription::HasMember(Platform::String ^ name, Platform::String ^
     return result;
 }
 
-void InterfaceDescription::AddMethod(Platform::String ^ name, Platform::String ^ inputSig, Platform::String ^ outSig, Platform::String ^ argNames, uint8_t annotation, Platform::String ^ accessPerms)
+void InterfaceDescription::AddMethod(Platform::String ^ name,
+                                     Platform::String ^ inputSig,
+                                     Platform::String ^ outSig,
+                                     Platform::String ^ argNames,
+                                     uint8_t annotation,
+                                     Platform::String ^ accessPerms)
 {
     ::QStatus status = ER_OK;
 
@@ -280,6 +430,83 @@ void InterfaceDescription::AddMethod(Platform::String ^ name, Platform::String ^
         }
         status = ((ajn::InterfaceDescription*)*_interfaceDescr)->AddMethod(strName.c_str(), strInputSig.c_str(), strOutSig.c_str(),
                                                                            strArgNames.c_str(), annotation, strAccessPerms.c_str());
+        break;
+    }
+
+    if (ER_OK != status) {
+        QCC_THROW_EXCEPTION(status);
+    }
+}
+
+void InterfaceDescription::AddMethod(Platform::String ^ name,
+                                     Platform::String ^ inputSig,
+                                     Platform::String ^ outSig,
+                                     Platform::String ^ argNames,
+                                     Windows::Foundation::Collections::IMapView<Platform::String ^, Platform::String ^> ^ annotations,
+                                     Platform::String ^ accessPerms)
+{
+    ::QStatus status = ER_OK;
+
+    while (true) {
+        if (nullptr == name) {
+            status = ER_BAD_ARG_2;
+            break;
+        }
+        qcc::String strName = PlatformToMultibyteString(name);
+        if (strName.empty()) {
+            status = ER_OUT_OF_MEMORY;
+            break;
+        }
+        qcc::String strInputSig = PlatformToMultibyteString(inputSig);
+        if (nullptr != inputSig && strInputSig.empty()) {
+            status = ER_OUT_OF_MEMORY;
+            break;
+        }
+        qcc::String strOutSig = PlatformToMultibyteString(outSig);
+        if (nullptr != outSig && strOutSig.empty()) {
+            status = ER_OUT_OF_MEMORY;
+            break;
+        }
+        if (nullptr == argNames) {
+            status = ER_BAD_ARG_5;
+            break;
+        }
+        qcc::String strArgNames = PlatformToMultibyteString(argNames);
+        if (strArgNames.empty()) {
+            status = ER_OUT_OF_MEMORY;
+            break;
+        }
+        ajn::InterfaceDescription::AnnotationsMap annotationsMap;
+        for (Platform::Collections::InputIterator<Windows::Foundation::Collections::IKeyValuePair<Platform::String ^, Platform::String ^> ^> iter = Windows::Foundation::Collections::begin(annotations);
+             iter != Windows::Foundation::Collections::end(annotations);
+             ++iter) {
+            Windows::Foundation::Collections::IKeyValuePair<Platform::String ^, Platform::String ^> ^ kvp = *iter;
+            qcc::String strKey = PlatformToMultibyteString(kvp->Key);
+            if (nullptr != kvp->Key && strKey.empty()) {
+                status = ER_OUT_OF_MEMORY;
+                break;
+            }
+            qcc::String strValue = PlatformToMultibyteString(kvp->Value);
+            if (nullptr != kvp->Value && strValue.empty()) {
+                status = ER_OUT_OF_MEMORY;
+                break;
+            }
+            annotationsMap[strKey] = strValue;
+        }
+        if (ER_OK != status) {
+            break;
+        }
+        qcc::String strAccessPerms = PlatformToMultibyteString(accessPerms);
+        if (nullptr != accessPerms && strAccessPerms.empty()) {
+            status = ER_OUT_OF_MEMORY;
+            break;
+        }
+        status = ((ajn::InterfaceDescription*)*_interfaceDescr)->AddMethod(strName.c_str(),
+                                                                           strInputSig.c_str(),
+                                                                           strOutSig.c_str(),
+                                                                           strArgNames.c_str(),
+                                                                           annotationsMap,
+                                                                           strAccessPerms.c_str());
         break;
     }
 
@@ -511,6 +738,65 @@ void InterfaceDescription::AddProperty(Platform::String ^ name, Platform::String
     }
 }
 
+void InterfaceDescription::AddPropertyAnnotation(Platform::String ^ member, Platform::String ^ name, Platform::String ^ value)
+{
+    ::QStatus status = ER_OK;
+
+    while (true) {
+        qcc::String strMember = PlatformToMultibyteString(member);
+        if (nullptr != member && strMember.empty()) {
+            status = ER_OUT_OF_MEMORY;
+            break;
+        }
+        qcc::String strName = PlatformToMultibyteString(name);
+        if (nullptr != name && strName.empty()) {
+            status = ER_OUT_OF_MEMORY;
+            break;
+        }
+        qcc::String strValue = PlatformToMultibyteString(value);
+        if (nullptr != value && strValue.empty()) {
+            status = ER_OUT_OF_MEMORY;
+            break;
+        }
+        status = ((ajn::InterfaceDescription*)*_interfaceDescr)->AddPropertyAnnotation(strMember.c_str(), strName, strValue);
+        break;
+    }
+
+    if (ER_OK != status) {
+        QCC_THROW_EXCEPTION(status);
+    }
+}
+
+Platform::String ^ InterfaceDescription::GetPropertyAnnotation(Platform::String ^ member, Platform::String ^ name)
+{
+    ::QStatus status = ER_OK;
+    Platform::String ^ result = nullptr;
+
+    while (true) {
+        qcc::String strMember = PlatformToMultibyteString(member);
+        if (nullptr != member && strMember.empty()) {
+            status = ER_OUT_OF_MEMORY;
+            break;
+        }
+        qcc::String strName = PlatformToMultibyteString(name);
+        if (nullptr != name && strName.empty()) {
+            status = ER_OUT_OF_MEMORY;
+            break;
+        }
+        qcc::String strValue;
+        if (((ajn::InterfaceDescription*)*_interfaceDescr)->GetPropertyAnnotation(strMember.c_str(), strName, strValue)) {
+            result = MultibyteToPlatformString(strValue.c_str());
+        }
+        break;
+    }
+
+    if (ER_OK != status) {
+        QCC_THROW_EXCEPTION(status);
+    }
+
+    return result;
+}
+
 bool InterfaceDescription::HasProperty(Platform::String ^ name)
 {
     ::QStatus status = ER_OK;
@@ -572,6 +858,55 @@ void InterfaceDescription::Activate()
 bool InterfaceDescription::IsSecure()
 {
     return ((ajn::InterfaceDescription*)*_interfaceDescr)->IsSecure();
+}
+
+void InterfaceDescription::AddAnnotation(Platform::String ^ name, Platform::String ^ value)
+{
+    ::QStatus status = ER_OK;
+
+    while (true) {
+        qcc::String strName = PlatformToMultibyteString(name);
+        if (nullptr != name && strName.empty()) {
+            status = ER_OUT_OF_MEMORY;
+            break;
+        }
+        qcc::String strValue = PlatformToMultibyteString(value);
+        if (nullptr != value && strValue.empty()) {
+            status = ER_OUT_OF_MEMORY;
+            break;
+        }
+        status = ((ajn::InterfaceDescription*)*_interfaceDescr)->AddAnnotation(strName, strValue);
+        break;
+    }
+
+    if (ER_OK != status) {
+        QCC_THROW_EXCEPTION(status);
+    }
+}
+
+Platform::String ^ InterfaceDescription::GetAnnotation(Platform::String ^ name)
+{
+    ::QStatus status = ER_OK;
+    Platform::String ^ result = nullptr;
+
+    while (true) {
+        qcc::String strName = PlatformToMultibyteString(name);
+        if (nullptr != name && strName.empty()) {
+            status = ER_OUT_OF_MEMORY;
+            break;
+        }
+        qcc::String strValue;
+        if (((ajn::InterfaceDescription*)*_interfaceDescr)->GetAnnotation(strName, strValue)) {
+            result = MultibyteToPlatformString(strValue.c_str());
+        }
+        break;
+    }
+
+    if (ER_OK != status) {
+        QCC_THROW_EXCEPTION(status);
+    }
+
+    return result;
 }
 
 Platform::String ^ InterfaceDescription::Name::get()
