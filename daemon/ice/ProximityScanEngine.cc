@@ -456,10 +456,8 @@ void ProximityScanEngine::StartScan() {
     //AlarmListener*myListener = this;
     myListener = this;
 
-    void* vptr = NULL;
-
     // Add the alarm to the timer
-    this->tScan = new Alarm(relativeTime, myListener, vptr, periodMs);
+    this->tScan = new Alarm(relativeTime, myListener, periodMs);
     mainTimer.AddAlarm(*this->tScan);
 
 //    while (true) {
