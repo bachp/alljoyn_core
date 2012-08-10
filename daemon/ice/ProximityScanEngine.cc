@@ -105,7 +105,7 @@ void ProximityScanEngine::PrintHysteresis() {
     QCC_DbgPrintf(("----------------------------------------------"));
 }
 
-ProximityScanEngine::ProximityScanEngine(DiscoveryManager*dm) : bus(dm->bus) {
+ProximityScanEngine::ProximityScanEngine(DiscoveryManager*dm) : tScan(NULL), bus(dm->bus) {
 
     QCC_DbgTrace(("ProximityScanEngine::ProximityScanEngine() called"));
     tadd_count = 1;
@@ -421,8 +421,12 @@ void ProximityScanEngine::StopScan() {
 
     QCC_DbgTrace(("ProximityScanEngine::StopScan() called"));
     // RemoveTimers
-    if (mainTimer.HasAlarm(*tScan)) {
-        mainTimer.RemoveAlarm(*myListener, *tScan);
+    if (tScan) {
+        if (mainTimer.HasAlarm(*tScan)) {
+            mainTimer.RemoveAlarm(*myListener, *tScan);
+        }
+        delete tScan;
+        tScan = NULL;
     }
     mainTimer.Stop();
     mainTimer.Join();
@@ -456,10 +460,9 @@ void ProximityScanEngine::StartScan() {
     uint32_t periodMs = 0;
     myListener = this;
     void* vptr = NULL;
-    Alarm tScan(relativeTime, myListener, vptr, periodMs);
 
     // Add the alarm to the timer
-    this->tScan = &tScan;
+    this->tScan = new Alarm(relativeTime, myListener, vptr, periodMs);
     mainTimer.AddAlarm(*this->tScan);
 
 //    while (true) {
