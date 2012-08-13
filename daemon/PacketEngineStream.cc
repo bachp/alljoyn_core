@@ -95,10 +95,6 @@ QStatus PacketEngineStream::PullBytes(void* buf, size_t reqBytes, size_t& actual
         return ER_SOCK_OTHER_END_CLOSED;
     }
 
-    if (ci->state != PacketEngine::ChannelInfo::OPEN) {
-        return ER_SOCK_CLOSING;
-    }
-
     /* Check for expired messages and skip them */
     QStatus status = ER_OK;
     ci->rxLock.Lock();
@@ -207,10 +203,6 @@ QStatus PacketEngineStream::PushBytes(const void* buf, size_t numBytes, size_t& 
     PacketEngine::ChannelInfo* ci = engine->AcquireChannelInfo(chanId);
     if (!ci) {
         return ER_SOCK_OTHER_END_CLOSED;
-    }
-
-    if (ci->state != PacketEngine::ChannelInfo::OPEN) {
-        return ER_SOCK_CLOSING;
     }
 
     uint64_t now = GetTimestamp64();
