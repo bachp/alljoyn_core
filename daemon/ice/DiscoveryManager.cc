@@ -107,6 +107,7 @@ DiscoveryManager::DiscoveryManager(BusAttachment& bus)
     SCRAMAuthModule(),
     ProximityScanner(NULL),
     ClientAuthenticationFailed(false),
+    DiscoveryManagerTimer("DiscoveryManagerTimer"),
     InterfaceUpdateAlarm(NULL),
     SentFirstGETMessage(false),
     userCredentials(),

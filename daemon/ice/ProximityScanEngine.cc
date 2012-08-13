@@ -105,7 +105,7 @@ void ProximityScanEngine::PrintHysteresis() {
     QCC_DbgPrintf(("----------------------------------------------"));
 }
 
-ProximityScanEngine::ProximityScanEngine(DiscoveryManager*dm) : tScan(NULL), bus(dm->bus) {
+ProximityScanEngine::ProximityScanEngine(DiscoveryManager*dm) : mainTimer("ProximityScanTimer"), tScan(NULL), bus(dm->bus) {
 
     QCC_DbgTrace(("ProximityScanEngine::ProximityScanEngine() called"));
     tadd_count = 1;

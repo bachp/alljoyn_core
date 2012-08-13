@@ -512,7 +512,8 @@ DaemonICETransport::DaemonICETransport(BusAttachment& bus) :
     m_stopping(false),
     m_listener(0),
     m_packetEngine("ice_packet_engine"),
-    m_iceCallback(m_listener, this)
+    m_iceCallback(m_listener, this),
+    daemonICETransportTimer("DaemonICETransportTimer")
 {
     /*
      * We know we are daemon code, so we'd better be running with a daemon
