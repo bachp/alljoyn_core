@@ -89,6 +89,7 @@ AllJoynObj::AllJoynObj(Bus& bus, BusController* busController) :
     mpSessionChangedSignal(NULL),
     mpSessionJoinedSignal(NULL),
     guid(bus.GetInternal().GetGlobalGUID()),
+    timer("NameReaper"),
     exchangeNamesSignal(NULL),
     detachSessionSignal(NULL),
     isStopping(false),

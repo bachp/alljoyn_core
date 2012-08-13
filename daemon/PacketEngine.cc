@@ -123,6 +123,7 @@ PacketEngine::PacketEngine(const qcc::String& name, uint32_t maxWindowSize) :
     name(name),
     rxPacketThread(name),
     txPacketThread(name),
+    timer("PacketEngineTimer"),
     maxWindowSize(maxWindowSize),
     isRunning(false),
     rxPacketThreadReload(false)
