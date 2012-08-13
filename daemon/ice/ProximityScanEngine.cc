@@ -23,6 +23,7 @@
 #include <qcc/Timer.h>
 #include <stdio.h>
 #include <qcc/Thread.h>
+#include <android/log.h>
 
 #include "DiscoveryManager.h"
 #include "ProximityScanEngine.h"
@@ -32,6 +33,19 @@ using namespace std;
 using namespace qcc;
 
 #define QCC_MODULE "PROXIMITY_SCAN_ENGINE"
+#define LOG_TAG  "ProximityScanEngine"
+
+#ifndef LOGD
+#define LOGD(...) (__android_log_print(ANDROID_LOG_DEBUG, LOG_TAG, __VA_ARGS__))
+#endif
+
+#ifndef LOGI
+#define LOGI(...) (__android_log_print(ANDROID_LOG_INFO, LOG_TAG, __VA_ARGS__))
+#endif
+
+#ifndef LOGE
+#define LOGE(...) (__android_log_print(ANDROID_LOG_ERROR, LOG_TAG, __VA_ARGS__))
+#endif
 
 class DiscoveryManager;
 
@@ -255,7 +269,7 @@ void ProximityScanEngine::ProcessScanResults() {
 
     //
     // This needs to checked for the following conditions:
-    // 1. We did not get any opportunistic scan results since the last 4 scans = 120 secs.
+    // 1. We did not get any opportunistic scan results since the last 4 scans = 60 secs.
     //    This could mean that we are either connected to a network in which case we are not returned any results
     //	  This could also mean that Wifi is turned off or the phone is acting as a portable hotspot
     // 2. Wifi is turned ON but we do not have any networks in the vicinity. In that case it is not harmful to
@@ -420,6 +434,7 @@ void ProximityScanEngine::AlarmTriggered(const Alarm& alarm, QStatus reason)
 void ProximityScanEngine::StopScan() {
 
     QCC_DbgTrace(("ProximityScanEngine::StopScan() called"));
+    LOGD("============== ProximityScanEngine::StopScan() called ================");
     // RemoveTimers
     if (tScan) {
         if (mainTimer.HasAlarm(*tScan)) {
