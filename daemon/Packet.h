@@ -23,7 +23,7 @@
 
 #include <qcc/platform.h>
 #include <qcc/String.h>
-
+#include <qcc/IPAddress.h>
 #include "Status.h"
 
 namespace ajn {
@@ -50,18 +50,15 @@ namespace ajn {
 class PacketSource;
 class PacketEngineStream;
 
-struct EndpointPair {
-    uint8_t ip[8];
-    uint16_t port;
-    uint16_t family;
-};
-
 /* Types */
 struct PacketDest {
-    union {
-        uint64_t data[4];   /** Must be large enough for sockaddr_t */
-        EndpointPair pair;
-    };
+#if defined(QCC_OS_WINRT)
+    uint8_t ip[qcc::IPAddress::IPv6_SIZE];
+    uint16_t port;
+    uint16_t addrSize;
+#else
+    uint64_t data[4];   /** Must be large enough for sockaddr_t */
+#endif
 };
 
 class Packet {

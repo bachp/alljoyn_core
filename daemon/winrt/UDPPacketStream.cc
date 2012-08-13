@@ -41,9 +41,9 @@ PacketDest UDPPacketStream::GetPacketDest(const qcc::String& addr, uint16_t port
     PacketDest pd;
     ::memset((uint8_t*)(&pd), 0, sizeof(PacketDest));
     qcc::IPAddress tmpIpAddr(addr);
-    tmpIpAddr.RenderIPv4Binary(pd.pair.ip, qcc::IPAddress::IPv4_SIZE);
-    pd.pair.family = QCC_AF_INET;
-    pd.pair.port = port;
+    tmpIpAddr.RenderIPBinary(pd.ip, IPAddress::IPv6_SIZE);
+    pd.addrSize = tmpIpAddr.Size();
+    pd.port = port;
     return pd;
 }
 
@@ -120,8 +120,8 @@ QStatus UDPPacketStream::PushPacketBytes(const void* buf, size_t numBytes, Packe
     assert(numBytes <= mtu);
     size_t sendBytes = numBytes;
     size_t sent = 0;
-    qcc::IPAddress ipAddr(dest.pair.ip, IPAddress::IPv4_SIZE);
-    QStatus status = qcc::SendTo(sock, ipAddr, dest.pair.port, buf, sendBytes, sent);
+    IPAddress ipAddr(dest.ip, dest.addrSize);
+    QStatus status = qcc::SendTo(sock, ipAddr, dest.port, buf, sendBytes, sent);
     status = (sent == numBytes) ? ER_OK : ER_OS_ERROR;
     if (status != ER_OK) {
         if (sent == (size_t) -1) {
@@ -139,21 +139,25 @@ QStatus UDPPacketStream::PullPacketBytes(void* buf, size_t reqBytes, size_t& act
     QStatus status = ER_OK;
     assert(reqBytes >= mtu);
     size_t recvBytes = reqBytes;
-    qcc::IPAddress ipAddr(sender.pair.ip, IPAddress::IPv4_SIZE);
-    status =  qcc::RecvFrom(sock, ipAddr, sender.pair.port, buf, recvBytes, actualBytes);
-
-    if (status != ER_OK) {
+    IPAddress tmpIpAddr;
+    uint16_t tmpPort = 0;
+    status =  qcc::RecvFrom(sock, tmpIpAddr, tmpPort, buf, recvBytes, actualBytes);
+    if (ER_OK != status) {
         QCC_LogError(status, ("recvfrom failed: %s", ::strerror(errno)));
+    } else {
+        tmpIpAddr.RenderIPBinary(sender.ip, IPAddress::IPv6_SIZE);
+        sender.addrSize = tmpIpAddr.Size();
+        sender.port = tmpPort;
     }
     return status;
 }
 
 String UDPPacketStream::ToString(const PacketDest& dest) const
 {
-    IPAddress ipAddr(dest.pair.ip, IPAddress::IPv4_SIZE);
+    IPAddress ipAddr(dest.ip, dest.addrSize);
     String ret = ipAddr.ToString();
     ret += " (";
-    ret += U32ToString(dest.pair.port);
+    ret += U32ToString(dest.port);
     ret += ")";
     return ret;
 }

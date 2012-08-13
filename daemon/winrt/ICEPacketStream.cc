@@ -43,9 +43,9 @@ PacketDest ICEPacketStream::GetPacketDest(const IPAddress& addr, uint16_t port)
 {
     PacketDest pd;
     ::memset((uint8_t*)(&pd), 0, sizeof(PacketDest));
-    addr.RenderIPv4Binary(pd.pair.ip, IPAddress::IPv4_SIZE);
-    pd.pair.family = QCC_AF_INET;
-    pd.pair.port = port;
+    addr.RenderIPBinary(pd.ip, IPAddress::IPv6_SIZE);
+    pd.addrSize = addr.Size();
+    pd.port = port;
     return pd;
 }
 
@@ -278,7 +278,7 @@ QStatus ICEPacketStream::Stop()
 
 QStatus ICEPacketStream::PushPacketBytes(const void* buf, size_t numBytes, PacketDest& dest)
 {
-    QCC_DbgTrace(("ICEPacketStream::PushPacketBytes"));
+    QCC_DbgTrace(("ICEPacketStream::PushPacketBytes numBytes =%d", numBytes));
 
 #ifndef NDEBUG
     size_t messageMtu = usingTurn ? mtuWithStunOverhead : interfaceMtu;
@@ -303,8 +303,8 @@ QStatus ICEPacketStream::PushPacketBytes(const void* buf, size_t numBytes, Packe
         }
     } else {
 
-        IPAddress ipAddr(dest.pair.ip, IPAddress::IPv4_SIZE);
-        status = qcc::SendTo(sock, ipAddr, dest.pair.port, sendBuf, sendBytes, sent);
+        IPAddress ipAddr(dest.ip, dest.addrSize);
+        status = qcc::SendTo(sock, ipAddr, dest.port, sendBuf, sendBytes, sent);
 
         status = (sent == sendBytes) ? ER_OK : ER_OS_ERROR;
         if (status != ER_OK) {
@@ -335,7 +335,7 @@ QStatus ICEPacketStream::PushPacketBytes(const void* buf, size_t numBytes, Packe
 QStatus ICEPacketStream::PullPacketBytes(void* buf, size_t reqBytes, size_t& actualBytes,
                                          PacketDest& sender, uint32_t timeout)
 {
-    QCC_DbgTrace(("ICEPacketStream::PullPacketBytes"));
+    QCC_DbgTrace(("ICEPacketStream::PullPacketBytes reqBytes=%d", reqBytes));
 
     QStatus status = ER_OK;
 
@@ -347,11 +347,17 @@ QStatus ICEPacketStream::PullPacketBytes(void* buf, size_t reqBytes, size_t& act
         recvBytes = interfaceMtu;
     }
 
-    IPAddress ipAddr(sender.pair.ip, IPAddress::IPv4_SIZE);
-    status =  qcc::RecvFrom(sock, ipAddr, sender.pair.port, recvBuf, recvBytes, actualBytes);
+
+    IPAddress tmpIpAddr;
+    uint16_t tmpPort = 0;
+    status =  qcc::RecvFrom(sock, tmpIpAddr, tmpPort, recvBuf, recvBytes, actualBytes);
 
     if (ER_OK != status) {
         QCC_LogError(status, ("recvfrom failed: %s", ::strerror(errno)));
+    } else {
+        tmpIpAddr.RenderIPBinary(sender.ip, IPAddress::IPv6_SIZE);
+        sender.addrSize = tmpIpAddr.Size();
+        sender.port = tmpPort;
     }
 
     if (usingTurn) {
@@ -369,17 +375,17 @@ QStatus ICEPacketStream::PullPacketBytes(void* buf, size_t reqBytes, size_t& act
     }
     printf("\n");
 #endif
-
+    QCC_DbgTrace(("ICEPacketStream::PullPacketBytes Done actualBytes=%d", actualBytes));
     return status;
 }
 
 String ICEPacketStream::ToString(const PacketDest& dest) const
 {
 
-    IPAddress ipAddr(dest.pair.ip, IPAddress::IPv4_SIZE);
+    IPAddress ipAddr(dest.ip, dest.addrSize);
     String ret = ipAddr.ToString();
     ret += " (";
-    ret += U32ToString(dest.pair.port);
+    ret += U32ToString(dest.port);
     ret += ")";
     return ret;
 }
