@@ -27,7 +27,13 @@
 #include <qcc/String.h>
 #include <qcc/Thread.h>
 #include <alljoyn/BusAttachment.h>
+#include <jni.h>
 
+extern JavaVM* proxJVM;
+extern JNIEnv* psenv;
+extern jclass CLS_AllJoynAndroidExt;
+extern jmethodID MID_AllJoynAndroidExt_Scan;
+extern jclass CLS_ScanResultMessage;
 
 class ProximityScanEngine;
 

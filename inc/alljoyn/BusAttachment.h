@@ -107,6 +107,13 @@ class BusAttachment : public MessageReceiver {
     uint32_t GetConcurrency();
 
     /**
+     * Get the connect spec used by the BusAttachment
+     *
+     * @return The string representing the connect spec used by the BusAttachment
+     */
+    qcc::String GetConnectSpec();
+
+    /**
      * Allow the currently executing method/signal handler to enable concurrent callbacks
      * during the scope of the handler's execution.
      *
