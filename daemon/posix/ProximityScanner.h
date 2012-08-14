@@ -27,6 +27,13 @@
 #include <qcc/String.h>
 #include <qcc/Thread.h>
 #include <alljoyn/BusAttachment.h>
+
+//
+// We need JNI only when we are doing Java bindings
+//
+
+#if defined (QCC_OS_ANDROID)
+
 #include <jni.h>
 
 extern JavaVM* proxJVM;
@@ -34,6 +41,8 @@ extern JNIEnv* psenv;
 extern jclass CLS_AllJoynAndroidExt;
 extern jmethodID MID_AllJoynAndroidExt_Scan;
 extern jclass CLS_ScanResultMessage;
+
+#endif
 
 class ProximityScanEngine;
 
