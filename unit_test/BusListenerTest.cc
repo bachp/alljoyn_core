@@ -157,7 +157,7 @@ TEST_F(BusListenerTest, DISABLED_bus_stopping_disconnected) {
     EXPECT_TRUE(listener_unregistered_flag);
 }
 
-TEST_F(BusListenerTest, DISABLED_found_lost_advertised_name) {
+TEST_F(BusListenerTest, found_lost_advertised_name) {
     status = bus.Start();
     EXPECT_EQ(ER_OK, status) << "  Actual Status: " << QCC_StatusText(status);
     status = bus.Connect(ajn::getConnectArg().c_str());
@@ -228,7 +228,7 @@ TEST_F(BusListenerTest, DISABLED_found_lost_advertised_name) {
     EXPECT_EQ(ER_OK, status) << "  Actual Status: " << QCC_StatusText(status);
 }
 
-TEST_F(BusListenerTest, DISABLED_name_owner_changed) {
+TEST_F(BusListenerTest, name_owner_changed) {
     status = bus.Start();
     EXPECT_EQ(ER_OK, status) << "  Actual Status: " << QCC_StatusText(status);
     status = bus.Connect(ajn::getConnectArg().c_str());

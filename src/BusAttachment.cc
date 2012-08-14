@@ -566,8 +566,18 @@ void BusAttachment::WaitStopInternal()
             isStarted = false;
             isStopping = false;
 
-            busInternal->listeners.clear();
+            busInternal->listenersLock.Lock(MUTEX_CONTEXT);
+            Internal::ListenerSet::iterator it = busInternal->listeners.begin();
+            while (it != busInternal->listeners.end()) {
+                Internal::ProtectedBusListener l = *it;
+                busInternal->listeners.erase(it);
+                busInternal->listenersLock.Unlock(MUTEX_CONTEXT);
+                (*l)->ListenerUnregistered();
+                busInternal->listenersLock.Lock(MUTEX_CONTEXT);
+                it = busInternal->listeners.begin();
+            }
 
+            busInternal->listenersLock.Unlock(MUTEX_CONTEXT);
             busInternal->sessionPortListeners.clear();
 
             busInternal->sessionListeners.clear();
