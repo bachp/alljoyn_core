@@ -56,7 +56,7 @@ class BusObjectTest : public testing::Test {
     BusAttachment bus;
 };
 
-
+/* ALLJOYN-1292 */
 TEST_F(BusObjectTest, DISABLED_ObjectRegisteredUnregistered) {
     BusObjectTestBusObject testObj(bus, OBJECT_PATH);
     status = bus.RegisterBusObject(testObj);
