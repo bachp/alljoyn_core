@@ -113,7 +113,7 @@ TEST_F(BusListenerTest, listener_registered_unregistered) {
     EXPECT_TRUE(listener_unregistered_flag);
 }
 
-
+/* ALLJOYN-1308 */
 TEST_F(BusListenerTest, DISABLED_bus_stopping_disconnected) {
     bus.RegisterBusListener(buslistener);
     for (size_t i = 0; i < 200; ++i) {
