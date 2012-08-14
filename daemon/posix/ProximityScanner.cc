@@ -27,9 +27,10 @@
 #include <Status.h>
 #include <alljoyn/Message.h>
 #include <alljoyn/MsgArg.h>
-#include <android/log.h>
+
 #include <utility>
 #include "ProximityScanner.h"
+
 #if defined(QCC_OS_DARWIN)
 #if defined(QCC_OS_IPHONE)
 #include <SystemConfiguration/CaptiveNetwork.h>
@@ -44,24 +45,31 @@
 #define QCC_MODULE "PROXIMITY_SCANNER"
 #define LOG_TAG  "ProximityScanner"
 
-#ifndef LOGD
-#define LOGD(...) (__android_log_print(ANDROID_LOG_DEBUG, LOG_TAG, __VA_ARGS__))
-#endif
+#if defined (QCC_OS_ANDROID)
+        #include <android/log.h>
+        #include <jni.h>
 
-#ifndef LOGI
-#define LOGI(...) (__android_log_print(ANDROID_LOG_INFO, LOG_TAG, __VA_ARGS__))
-#endif
+        #ifndef LOGD
+        #define LOGD(...) (__android_log_print(ANDROID_LOG_DEBUG, LOG_TAG, __VA_ARGS__))
+        #endif
 
-#ifndef LOGE
-#define LOGE(...) (__android_log_print(ANDROID_LOG_ERROR, LOG_TAG, __VA_ARGS__))
-#endif
+        #ifndef LOGI
+        #define LOGI(...) (__android_log_print(ANDROID_LOG_INFO, LOG_TAG, __VA_ARGS__))
+        #endif
 
+        #ifndef LOGE
+        #define LOGE(...) (__android_log_print(ANDROID_LOG_ERROR, LOG_TAG, __VA_ARGS__))
+        #endif
 
 JavaVM* proxJVM = NULL;
 JNIEnv* psenv = NULL;
 jclass CLS_AllJoynAndroidExt = NULL;
 jclass CLS_ScanResultMessage = NULL;
 jmethodID MID_AllJoynAndroidExt_Scan = NULL;
+
+#endif
+
+
 
 
 using namespace qcc;
@@ -111,8 +119,21 @@ class MyBusListener : public BusListener, public SessionListener {
 //
 //}
 
+//
+//	There are many different platform and build combinations in which proximity scan function
+//	can be used
+//	1. Android without bundled daemon in which case it makes AllJoyn calls to the standalone Android service app called alljoyn_android_ext
+//	2. Android with bundled daemon in Java app in which case we need not make AllJoyn calls to the standalone proximity service
+//	3. Android with bundled daemon in native code. An implementation for this is not present since we do not support this
+//	4. Linux wihtout or without bundled daemon in native or Java or any other code. We make DBus calls to wpa_supplicant
+//	5. Windows with or without bundled daemon in any code. We use Windows SDK APIs to get scan results
+//	6. iOS/Darwin with or without bundled daemon. We get scan results using CaptiveNetwork APIs
+//	7. Windows with or without bundled daemon. We use Windows SDK APIs to get scan results
+//
 
-#if defined(QCC_OS_ANDROID) || defined(QCC_OS_LINUX)
+// Case 1 and 2: If platform is Android. It internall checks if it is a bundled daemon or not
+
+#if defined(QCC_OS_ANDROID)
 
 void ProximityScanner::Scan(bool request_scan) {
 
@@ -173,7 +194,6 @@ void ProximityScanner::Scan(bool request_scan) {
         jsize scanresultsize = psenv->GetArrayLength(scanresults);
         LOGD("Length of scan results : %d", scanresultsize);
         LOGD(" *****************************Printing the scan results***************************** ");
-
 
         //
         // Store the field ids of the structure ScanResultMessage class
@@ -248,8 +268,6 @@ void ProximityScanner::Scan(bool request_scan) {
 
         uint32_t starttime = GetTimestamp();
 
-
-
         while (true) {
             status = bus.NameHasOwner("org.alljoyn.proximity.proximityservice", hasOwer);
             if (ER_OK != status) {
@@ -276,8 +294,6 @@ void ProximityScanner::Scan(bool request_scan) {
         } else {
             QCC_DbgPrintf(("Introspection on the remote object /ProximityService successful"));
         }
-
-
 
         // Call the remote method SCAN on the service
 
@@ -353,11 +369,14 @@ void ProximityScanner::Scan(bool request_scan) {
             QCC_DbgPrintf(("No Scan results were returned by the service. Either Wifi is turned off or there are no APs around"));
         }
 
-
         QCC_DbgPrintf(("================ Time after Scan processing ============  %d", GetTimestamp() - starttime));
         // end if
     }
 
+}
+// Case no 4: If it is Linux build we make DBus calls to the wpa_supplicant
+#elif defined (QCC_OS_LINUX)
+void ProximityScanner::Scan(bool request_scan) {
 }
 
 #elif defined(QCC_OS_DARWIN)
@@ -427,5 +446,5 @@ void ProximityScanner::Scan(bool request_scan) {
 #endif
 
 #endif
-
 }
+

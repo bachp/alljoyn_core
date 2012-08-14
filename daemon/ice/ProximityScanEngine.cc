@@ -23,7 +23,7 @@
 #include <qcc/Timer.h>
 #include <stdio.h>
 #include <qcc/Thread.h>
-#include <android/log.h>
+
 
 #include "DiscoveryManager.h"
 #include "ProximityScanEngine.h"
@@ -35,17 +35,22 @@ using namespace qcc;
 #define QCC_MODULE "PROXIMITY_SCAN_ENGINE"
 #define LOG_TAG  "ProximityScanEngine"
 
-#ifndef LOGD
-#define LOGD(...) (__android_log_print(ANDROID_LOG_DEBUG, LOG_TAG, __VA_ARGS__))
+#if defined (QCC_OS_ANDROID)
+#include <android/log.h>
+        #ifndef LOGD
+        #define LOGD(...) (__android_log_print(ANDROID_LOG_DEBUG, LOG_TAG, __VA_ARGS__))
+        #endif
+
+        #ifndef LOGI
+        #define LOGI(...) (__android_log_print(ANDROID_LOG_INFO, LOG_TAG, __VA_ARGS__))
+        #endif
+
+        #ifndef LOGE
+        #define LOGE(...) (__android_log_print(ANDROID_LOG_ERROR, LOG_TAG, __VA_ARGS__))
+        #endif
 #endif
 
-#ifndef LOGI
-#define LOGI(...) (__android_log_print(ANDROID_LOG_INFO, LOG_TAG, __VA_ARGS__))
-#endif
 
-#ifndef LOGE
-#define LOGE(...) (__android_log_print(ANDROID_LOG_ERROR, LOG_TAG, __VA_ARGS__))
-#endif
 
 class DiscoveryManager;
 
@@ -434,7 +439,7 @@ void ProximityScanEngine::AlarmTriggered(const Alarm& alarm, QStatus reason)
 void ProximityScanEngine::StopScan() {
 
     QCC_DbgTrace(("ProximityScanEngine::StopScan() called"));
-    LOGD("============== ProximityScanEngine::StopScan() called ================");
+    //LOGD("============== ProximityScanEngine::StopScan() called ================");
     // RemoveTimers
     if (tScan) {
         if (mainTimer.HasAlarm(*tScan)) {
