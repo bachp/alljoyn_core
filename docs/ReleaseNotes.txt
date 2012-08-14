@@ -1,4 +1,4 @@
-AllJoyn Version 2.3.5 Release Notes
+AllJoyn Version 2.3.6 Release Notes
 -----------------------------------
 
 Platform Support
@@ -14,14 +14,14 @@ Platform Support
 Features added in this release
 ------------------------------
 
-none
+C language binding added
+AllJoyn Unity Extension added (Support for Windows and Android)
 
 
 Issues Addressed in this Release
 --------------------------------
 
-ALLJOYN-1103: Occasionaly missing LostAdvertisedName signals when using TCP transport.
-This issue was resolved in this release.
+none
 
 
 Known issues and limitations with this release
@@ -57,6 +57,8 @@ of AllJoyn (ALLJOYN-803).
 
 Change history
 --------------
+2.3.5 - Bug fixes.
+
 2.3.4 - Bug fixes.
 
 2.3.3 - Bug fixes.

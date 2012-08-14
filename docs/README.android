@@ -46,13 +46,25 @@ Summary of NDK file and directory structure:
     ./inc
         AllJoyn C++ header files
 
+    ./inc/alljoyn_c
+        AllJoyn C header files
+
     ./lib/liballjoyn.a
         Static library used to build AllJoyn capable applications.
-
+    ./lib/liballjoyn_c.a
+        Static library used to build AllJoyn capable application using the C 
+        language bindings
+    ./lib/liballjoyn_c.so
+        Shared library used to build AllJoyn capable applications using the C
+        language bindings
+    ./lib/bundle.jar
+        jar file required to use the Bundled Daemon
+    ./lib/libdaemon-jni.so
+        Shared library file required to use the Bundled Daemon 
     ./samples
         C++ sample programs for AllJoyn (see Developers Guide)
 
- * The remaining top-level directory (java) contains a similar structure
+ * The top-level directory (java) contains a similar structure
    underneath it, supporting the AllJoyn Java language binding:
 
     ./java/docs
@@ -69,4 +81,17 @@ Summary of NDK file and directory structure:
         Each sample contains a bin directory containing the prebuilt apks for
         that sample.
 
-
+* The top-level directory (Unity) contains a similar structure underneath it, 
+  supporting the AllJoyn Unity Extension:
+    ./unity/docs
+        AllJoyn Unity API (HTML documentation)
+    ./unity/lib/alljoyn_unity.dll
+        The alljoyn_unity library 
+    ./package_support/UnityPackage
+        A bare bones package containing everything needed to create a 
+        .unitypackage file
+    ./package_support/UnityStartAllJoyn
+        An Android project containing the code needed to use the AllJoyn Unity 
+        Extension with the bundled daemon.
+    ./samples
+        Sample programs for AllJoyn Unity Extension

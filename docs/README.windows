@@ -40,6 +40,9 @@ Summary of file and directory structure:
     ./inc
         AllJoyn C++ header files
 
+    ./inc/alljoyn_c
+        AllJoyn C header files
+
     ./installers
         Windows installer(s) for running AllJoyn Daemon as a Windows Service:
             ServiceSetup.msi (32-bit Windows 7) 
@@ -48,11 +51,17 @@ Summary of file and directory structure:
 
     ./lib/alljoyn.lib
         Static library used to build AllJoyn capable applications.
-
+    ./lib/alljoyn_c.lib
+        Static library used to build AllJoyn capable application using the C 
+        language bindings
+    ./lib/alljoyn_c.dll
+        Shared library used to build AllJoyn capable applications using the C
+        language bindings
+        
     ./samples
         C++ sample programs for AllJoyn
 
- * The remaining top-level directory (java) contains a similar structure
+ * The top-level directory (java) contains a similar structure
    underneath it, supporting the AllJoyn Java language binding:
 
     ./java/docs
@@ -69,4 +78,15 @@ Summary of file and directory structure:
         Each sample contains a bin directory containing the prebuilt apks for 
         that sample.
 
+* The top-level directory (Unity) contains a similar structure underneath it, 
+  supporting the AllJoyn Unity Extension:
+    ./unity/docs
+        AllJoyn Unity API (HTML documentation)
+    ./unity/lib/alljoyn_unity.dll
+        The alljoyn_unity library 
+    ./package_support/UnityPackage
+        A bare bones package containing everything needed to create a 
+        .unitypackage file
+    ./samples
+        Sample programs for AllJoyn Unity Extension
 
