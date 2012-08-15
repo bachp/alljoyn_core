@@ -7,7 +7,7 @@
  */
 
 /******************************************************************************
- * Copyright 2009-2011, Qualcomm Innovation Center, Inc.
+ * Copyright 2009-2012, Qualcomm Innovation Center, Inc.
  *
  *    Licensed under the Apache License, Version 2.0 (the "License");
  *    you may not use this file except in compliance with the License.
@@ -218,6 +218,8 @@ class AuthListener {
      * the request is for credentials for that specific user. A count allows the listener to decide
      * whether to allow or reject multiple authentication attempts to the same peer.
      *
+     * An implementation must provide RequestCredentials or RequestCredentialsAsync but not both.
+     *
      * @param authMechanism  The name of the authentication mechanism issuing the request.
      * @param peerName       The name of the remote peer being authenticated.  On the initiating
      *                       side this will be a well-known-name for the remote peer. On the
@@ -232,7 +234,39 @@ class AuthListener {
      *          requests is being rejected. If the request is rejected the authentication is
      *          complete.
      */
-    virtual bool RequestCredentials(const char* authMechanism, const char* peerName, uint16_t authCount, const char* userName, uint16_t credMask, Credentials& credentials) = 0;
+    virtual bool RequestCredentials(const char* authMechanism, const char* peerName, uint16_t authCount, const char* userName, uint16_t credMask, Credentials& credentials) { return false; }
+
+    /**
+     * Authentication mechanism asynchronous request for credentials. If the user name is not an empty string
+     * the request is for credentials for that specific user. A count allows the listener to decide
+     * whether to allow or reject multiple authentication attempts to the same peer.
+     *
+     * An implementation must provide RequestCredentials or RequestCredentialsAsync but not both.
+     *
+     * @param authMechanism  The name of the authentication mechanism issuing the request.
+     * @param peerName       The name of the remote peer being authenticated.  On the initiating
+     *                       side this will be a well-known-name for the remote peer. On the
+     *                       accepting side this will be the unique bus name for the remote peer.
+     * @param authCount      Count (starting at 1) of the number of authentication request attempts made.
+     * @param userName       The user name for the credentials being requested.
+     * @param credMask       A bit mask identifying the credentials being requested.
+     * @param authContext    Callback context for associating the request with the returned credentials.
+     *
+     * @return  Return ER_OK if the request is handled.
+     */
+    virtual QStatus RequestCredentialsAsync(const char* authMechanism, const char* peerName, uint16_t authCount, const char* userName, uint16_t credMask, void* authContext) { return ER_NOT_IMPLEMENTED; }
+
+    /**
+     * Respond to a call to RequestCredentialsAsync.
+     *
+     * @param authContext    Context that was passed in the call out to RequestCredentialsAsync.
+     * @param accept         Returns true to accept the credentials request or false to reject it.
+     * @param credentials    The credentials being returned if accept is true.
+     *
+     * @return   Returns ER_OK if the credential verification response was expected. Returns an error status if
+     *           the credentials verification response was not expected.
+     */
+    static QStatus RequestCredentialsResponse(void* authContext, bool accept, Credentials& credentials);
 
     /**
      * Authentication mechanism requests verification of credentials from a remote peer.
@@ -247,6 +281,31 @@ class AuthListener {
      *          credentials are being rejected.
      */
     virtual bool VerifyCredentials(const char* authMechanism, const char* peerName, const Credentials& credentials) { return true; }
+
+    /**
+     * Authentication mechanism asynchronous request for verification of credentials from a remote peer.
+     *
+     * @param authMechanism  The name of the authentication mechanism issuing the request.
+     * @param peerName       The name of the remote peer being authenticated.  On the initiating
+     *                       side this will be a well-known-name for the remote peer. On the
+     *                       accepting side this will be the unique bus name for the remote peer.
+     * @param credentials    The credentials to be verified.
+     * @param authContext    Callback context for associating the request with the verification response.
+     *
+     * @return  Return ER_OK if the request is handled.
+     */
+    virtual QStatus VerifyCredentialsAsync(const char* authMechanism, const char* peerName, const Credentials& credentials, void* authContext) { return ER_NOT_IMPLEMENTED; }
+
+    /**
+     * Respond to a call to VerifyCredentialsAsync.
+     *
+     * @param authContext    Context that was passed in the call out to RequestCredentialsAsync.
+     * @param accept         Returns true to accept the credentials or false to reject it.
+     *
+     * @return   Returns ER_OK if the credential verification response was expected. Returns an error status if
+     *           the credentials verification response was not expected.
+     */
+    static QStatus VerifyCredentialsResponse(void* authContext, bool accept);
 
     /**
      * Optional method that if implemented allows an application to monitor security violations. This

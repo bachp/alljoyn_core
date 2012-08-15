@@ -60,98 +60,27 @@ class ProtectedAuthListener : public AuthListener {
      * Set the listener. If one of internal listener callouts is currently being called this
      * function will block until the callout returns.
      */
-    void Set(AuthListener* listener) {
-        lock.Lock(MUTEX_CONTEXT);
-        /*
-         * Clear the current listener to prevent any more calls to this listener.
-         */
-        this->listener = NULL;
-        /*
-         * Poll and sleep until the current listener is no longer in use.
-         */
-        while (refCount) {
-            lock.Unlock(MUTEX_CONTEXT);
-            qcc::Sleep(10);
-            lock.Lock(MUTEX_CONTEXT);
-        }
-        /*
-         * Now set the new listener
-         */
-        this->listener = listener;
-        lock.Unlock(MUTEX_CONTEXT);
-    }
+    void Set(AuthListener* listener);
 
     /**
      * Simply wraps the call of the same name to the inner AuthListener
      */
-    bool RequestCredentials(const char* authMechanism, const char* peerName, uint16_t authCount, const char* userName, uint16_t credMask, Credentials& credentials)
-    {
-        bool ok = false;
-        lock.Lock(MUTEX_CONTEXT);
-        AuthListener* listener = this->listener;
-        ++refCount;
-        lock.Unlock(MUTEX_CONTEXT);
-        if (listener) {
-            ok = listener->RequestCredentials(authMechanism, peerName, authCount, userName, credMask, credentials);
-        }
-        lock.Lock(MUTEX_CONTEXT);
-        --refCount;
-        lock.Unlock(MUTEX_CONTEXT);
-        return ok;
-    }
+    bool RequestCredentials(const char* authMechanism, const char* peerName, uint16_t authCount, const char* userName, uint16_t credMask, Credentials& credentials);
 
     /**
      * Simply wraps the call of the same name to the inner AuthListener
      */
-    bool VerifyCredentials(const char* authMechanism, const char* peerName, const Credentials& credentials)
-    {
-        bool ok = false;
-        lock.Lock(MUTEX_CONTEXT);
-        AuthListener* listener = this->listener;
-        ++refCount;
-        lock.Unlock(MUTEX_CONTEXT);
-        if (listener) {
-            ok = listener->VerifyCredentials(authMechanism, peerName, credentials);
-        }
-        lock.Lock(MUTEX_CONTEXT);
-        --refCount;
-        lock.Unlock(MUTEX_CONTEXT);
-        return ok;
-    }
+    bool VerifyCredentials(const char* authMechanism, const char* peerName, const Credentials& credentials);
 
     /**
      * Simply wraps the call of the same name to the inner AuthListener
      */
-    void SecurityViolation(QStatus status, const Message& msg)
-    {
-        lock.Lock(MUTEX_CONTEXT);
-        AuthListener* listener = this->listener;
-        ++refCount;
-        lock.Unlock(MUTEX_CONTEXT);
-        if (listener) {
-            listener->SecurityViolation(status, msg);
-        }
-        lock.Lock(MUTEX_CONTEXT);
-        --refCount;
-        lock.Unlock(MUTEX_CONTEXT);
-    }
+    void SecurityViolation(QStatus status, const Message& msg);
 
     /**
      * Simply wraps the call of the same name to the inner AuthListener
      */
-    void AuthenticationComplete(const char* authMechanism, const char* peerName, bool success)
-    {
-        lock.Lock(MUTEX_CONTEXT);
-        AuthListener* listener = this->listener;
-        ++refCount;
-        lock.Unlock(MUTEX_CONTEXT);
-        if (listener) {
-            listener->AuthenticationComplete(authMechanism, peerName, success);
-        }
-        lock.Lock(MUTEX_CONTEXT);
-        --refCount;
-        lock.Unlock(MUTEX_CONTEXT);
-    }
+    void AuthenticationComplete(const char* authMechanism, const char* peerName, bool success);
 
   private:
 
@@ -160,10 +89,11 @@ class ProtectedAuthListener : public AuthListener {
      */
     AuthListener* listener;
 
+    qcc::Mutex lock;
+
     /*
      * Reference count so we know when the inner listener is no longer in use.
      */
-    qcc::Mutex lock;
     volatile int32_t refCount;
 };
 

@@ -151,9 +151,14 @@ static const char privKey[] = {
 
 class MyAuthListener : public AuthListener {
 
-    bool RequestCredentials(const char* authMechanism, const char* authPeer, uint16_t authCount, const char* userId, uint16_t credMask, Credentials& creds) {
+    QStatus RequestCredentialsAsync(const char* authMechanism, const char* authPeer, uint16_t authCount, const char* userId, uint16_t credMask, void* context)
+    {
+        Credentials creds;
 
         printf("RequestCredentials for authenticating %s using mechanism %s\n", authPeer, authMechanism);
+
+        /* Random delay */
+        qcc::Sleep(10 * qcc::Rand8());
 
         /* Enable concurrent callbacks since some of the calls below could block */
         g_msgBus->EnableConcurrentCallbacks();
@@ -175,7 +180,7 @@ class MyAuthListener : public AuthListener {
                 }
                 printf("AuthListener returning fixed pin \"%s\" for %s\n", creds.GetPassword().c_str(), authMechanism);
             }
-            return true;
+            return RequestCredentialsResponse(context, true, creds);
         }
 
         if (strcmp(authMechanism, "ALLJOYN_RSA_KEYX") == 0) {
@@ -193,45 +198,45 @@ class MyAuthListener : public AuthListener {
                     creds.SetPassword("123456");
                 }
             }
-            return true;
+            return RequestCredentialsResponse(context, true, creds);
         }
 
         if (strcmp(authMechanism, "ALLJOYN_SRP_LOGON") == 0) {
             if (!userId) {
-                return false;
+                return RequestCredentialsResponse(context, false, creds);
             }
             printf("Attemping to logon user %s\n", userId);
             if (strcmp(userId, "happy") == 0) {
                 if (credMask & AuthListener::CRED_PASSWORD) {
                     creds.SetPassword("123456");
-                    return true;
+                    return RequestCredentialsResponse(context, true, creds);
                 }
             }
             if (strcmp(userId, "sneezy") == 0) {
                 if (credMask & AuthListener::CRED_PASSWORD) {
                     creds.SetPassword("123456");
-                    return true;
+                    return RequestCredentialsResponse(context, true, creds);
                 }
             }
             /*
              * Allow 3 logon attempts.
              */
             if (authCount <= 3) {
-                return true;
+                return RequestCredentialsResponse(context, true, creds);
             }
         }
 
-        return false;
+        return RequestCredentialsResponse(context, false, creds);
     }
 
-    bool VerifyCredentials(const char* authMechanism, const char* authPeer, const Credentials& creds) {
+    QStatus VerifyCredentialsAsync(const char* authMechanism, const char* authPeer, const Credentials& creds, void* context) {
         if (strcmp(authMechanism, "ALLJOYN_RSA_KEYX") == 0) {
             if (creds.IsSet(AuthListener::CRED_CERT_CHAIN)) {
                 printf("Verify\n%s\n", creds.GetCertChain().c_str());
-                return true;
+                return VerifyCredentialsResponse(context, true);
             }
         }
-        return false;
+        return VerifyCredentialsResponse(context, false);
     }
 
     void AuthenticationComplete(const char* authMechanism, const char* authPeer, bool success) {
