@@ -44,6 +44,12 @@
 
 #include "NameService.h"
 
+#define P2P_HELPER 0
+
+#if defined(QCC_OS_ANDROID) && P2P_HELPER
+#include "android/P2PHelperInterface.h"
+#endif
+
 namespace ajn {
 
 class TCPEndpoint;
@@ -279,6 +285,19 @@ class TCPTransport : public Transport, public RemoteEndpoint::EndpointListener, 
      */
     static const char* TransportName;
 
+#if defined(QCC_OS_ANDROID) && P2P_HELPER
+
+    void OnFoundAdvertisedName(const char* name, const char* namePrefix, const char*  guid, const char* device);
+    void OnLostAdvertisedName(const char* name, const char* namePrefix, const char*  guid, const char* device);
+    void OnLinkEstablished(int handle);
+    void OnLinkError(int thandle, int error);
+    void OnLinkLost(int handle) { /* TODO This needs to drive a CloseInterface on the name service */ }
+
+    void HandleEstablishLinkReply(int32_t handle);
+    void HandleGetInterfaceNameFromHandleReply(qcc::String interface);
+
+#endif // defined(QCC_OS_ANDROID) && P2P_HELPER
+
   private:
     TCPTransport(const TCPTransport& other);
     TCPTransport& operator =(const TCPTransport& other);
@@ -461,10 +480,17 @@ class TCPTransport : public Transport, public RemoteEndpoint::EndpointListener, 
 
     class FoundCallback {
       public:
+#if defined(QCC_OS_ANDROID) && P2P_HELPER
+        FoundCallback(TCPTransport* transport, TransportListener*& listener) : m_transport(transport), m_listener(listener) { }
+#else
         FoundCallback(TransportListener*& listener) : m_listener(listener) { }
+#endif
         void Found(const qcc::String& busAddr, const qcc::String& guid, std::vector<qcc::String>& nameList, uint8_t timer);
       private:
-        TransportListener*& m_listener;
+#if defined(QCC_OS_ANDROID) && P2P_HELPER
+        TCPTransport * m_transport;
+#endif
+        TransportListener * &m_listener;
     };
 
     FoundCallback m_foundCallback;  /**< Called by NameService when new busses are discovered */
@@ -621,6 +647,233 @@ class TCPTransport : public Transport, public RemoteEndpoint::EndpointListener, 
     bool m_isDiscovering;
     bool m_isListening;
     bool m_isNsEnabled;
+
+#if defined(QCC_OS_ANDROID) && P2P_HELPER
+
+    class P2PConnectionInfo {
+      public:
+        P2PConnectionInfo(TCPEndpoint* endpoint, int32_t handle, qcc::String& interface)
+            : m_tcpEndpoint(endpoint), m_handle(handle), m_interface(interface) { }
+
+        virtual ~P2PConnectionInfo()
+        { m_tcpEndpoint = 0; m_handle = -1; m_interface = ""; }
+
+        TCPEndpoint* GetEndpoint() { return m_tcpEndpoint; }
+        int32_t GetHandle() { return m_handle; }
+        qcc::String GetInterface() { return m_interface; }
+
+      private:
+        TCPEndpoint* m_tcpEndpoint;
+        int32_t m_handle;
+        qcc::String m_interface;
+    };
+
+    P2PConnectionInfo* GetP2PInfoForEndpoint(TCPEndpoint* tcpEndpoint)
+    {
+        for (std::list<P2PConnectionInfo*>::iterator i = m_p2pConnectionInfo.begin(); i != m_p2pConnectionInfo.end(); ++i) {
+            if ((*i)->GetEndpoint() == tcpEndpoint) {
+                return *i;
+            }
+        }
+
+        return NULL;
+    }
+
+    void RememberP2PConnection(TCPEndpoint* endpoint, int32_t handle, qcc::String& interface)
+    {
+        assert(m_p2pConnectionInfo.empty() && "P2PConnectionInfo::RememberP2PConnection(): Multiple P2P Connections!?");
+        P2PConnectionInfo* info = new P2PConnectionInfo(endpoint, handle, interface);
+        m_p2pConnectionInfo.push_back(info);
+    }
+
+    void ForgetP2PConnection(TCPEndpoint* tcpEndpoint)
+    {
+        for (std::list<P2PConnectionInfo*>::iterator i = m_p2pConnectionInfo.begin(); i != m_p2pConnectionInfo.end(); ++i) {
+            if ((*i)->GetEndpoint() == tcpEndpoint) {
+                delete *i;
+                m_p2pConnectionInfo.erase(i);
+                return;
+            }
+        }
+    }
+
+    std::list<P2PConnectionInfo*> m_p2pConnectionInfo;
+
+    P2PHelperInterface* m_p2pHelperInterface;
+
+#define QCC_MODULE "TCP"
+
+    class MyP2PHelperListener : public P2PHelperListener {
+      public:
+        MyP2PHelperListener(TCPTransport* transport) : m_transport(transport) { }
+        ~MyP2PHelperListener() { }
+
+        virtual void OnFoundAdvertisedName(qcc::String& name, qcc::String& namePrefix, qcc::String& guid, qcc::String& device)
+        {
+            QCC_DbgPrintf(("MyP2PHelperListener::OnFoundAdvertisedname(\"%s\", \"%s\", \"%s\", \"%s\")\n",
+                           name.c_str(), namePrefix.c_str(), guid.c_str(), device.c_str()));
+
+            assert(m_transport);
+            m_transport->OnFoundAdvertisedName(name.c_str(), namePrefix.c_str(), guid.c_str(), device.c_str());
+        }
+
+        virtual void OnLostAdvertisedName(qcc::String& name, qcc::String& namePrefix, qcc::String& guid, qcc::String& device)
+        {
+            QCC_DbgPrintf(("MyP2PHelperListener::OnLostAdvertisedname(\"%s\", \"%s\", \"%s\", \"%s\")\n",
+                           name.c_str(), namePrefix.c_str(), guid.c_str(), device.c_str()));
+
+            assert(m_transport);
+            m_transport->OnLostAdvertisedName(name.c_str(), namePrefix.c_str(), guid.c_str(), device.c_str());
+        }
+
+        virtual void OnLinkEstablished(int32_t handle)
+        {
+            QCC_DbgPrintf(("MyP2PHelperListener::OnLinkEstablished(%d)\n", handle));
+
+            assert(m_transport);
+            m_transport->OnLinkEstablished(handle);
+        }
+
+        virtual void OnLinkError(int32_t handle, int32_t error)
+        {
+            QCC_DbgPrintf(("MyP2PHelperListener::OnLinkError(%d, %d)\n", handle, error));
+
+            assert(m_transport);
+            m_transport->OnLinkError(handle, error);
+        }
+
+        virtual void OnLinkLost(int32_t handle)
+        {
+            QCC_DbgPrintf(("MyP2PHelperListener::OnLinkLost(%d)\n", handle));
+
+            assert(m_transport);
+            m_transport->OnLinkLost(handle);
+        }
+
+        virtual void HandleFindAdvertisedNameReply(int32_t result)
+        {
+            QCC_DbgPrintf(("MyP2PHelperListener::HandleFindAdvertisedNameReply(%d)\n", result));
+            if (result != P2PHelperInterface::P2P_OK) {
+                QCC_LogError(ER_FAIL, ("MyP2PHelperListener::HandleFindAdvertisedNameReply(%d)\n", result));
+            }
+        }
+
+        virtual void HandleCancelFindAdvertisedNameReply(int32_t result)
+        {
+            QCC_DbgPrintf(("MyP2PHelperListener::HandleCancelFindAdvertisedNameReply(%d)\n", result));
+            if (result != P2PHelperInterface::P2P_OK) {
+                QCC_LogError(ER_FAIL, ("MyP2PHelperListener::HandleCancelFindAdvertisedNameReply(%d)\n", result));
+            }
+        }
+
+        virtual void HandleAdvertiseNameReply(int32_t result)
+        {
+            QCC_DbgPrintf(("MyP2PHelperListener::HandleAdvertiseNameReply(%d)\n", result));
+            if (result != P2PHelperInterface::P2P_OK) {
+                QCC_LogError(ER_FAIL, ("MyP2PHelperListener::HandleAdvertiseNameReply(%d)\n", result));
+            }
+        }
+
+        virtual void HandleCancelAdvertiseNameReply(int32_t result)
+        {
+            QCC_DbgPrintf(("MyP2PHelperListener::HandleCancelAdvertiseNameReply(%d)\n", result));
+            if (result != P2PHelperInterface::P2P_OK) {
+                QCC_LogError(ER_FAIL, ("MyP2PHelperListener::HandleCancelAdvertiseNameReply(%d)\n", result));
+            }
+        }
+
+        virtual void HandleEstablishLinkReply(int32_t handle)
+        {
+            QCC_DbgPrintf(("MyP2PHelperListener::HandleEstablishLinkReply(%d)\n", handle));
+            assert(m_transport);
+            m_transport->HandleEstablishLinkReply(handle);
+        }
+
+        virtual void HandleReleaseLinkReply(int32_t result)
+        {
+            QCC_DbgPrintf(("MyP2PHelperListener::HandleReleaseLinkReply(%d)\n", result));
+        }
+
+        virtual void HandleGetInterfaceNameFromHandleReply(qcc::String& interface)
+        {
+            QCC_DbgPrintf(("MyP2PHelperListener::HandleGetInterfaceNameFromHandleReply(\"%s\")\n", interface.c_str()));
+            assert(m_transport);
+            m_transport->HandleGetInterfaceNameFromHandleReply(interface);
+        }
+
+      private:
+        TCPTransport* m_transport;
+    };
+
+#undef QCC_MODULE
+
+    MyP2PHelperListener* m_myP2pHelperListener;
+
+    qcc::Event m_establishLinkEvent;
+    bool m_establishLinkResult;
+
+    qcc::Event m_getInterfaceNameFromHandleEvent;
+    bool m_getInterfaceNameFromHandleResult;
+    qcc::String m_foundInterface;
+
+    int m_goHandle;
+
+    qcc::Mutex m_deviceListLock;
+    typedef std::list<std::pair<qcc::String, qcc::String> > DeviceList;
+    DeviceList m_deviceList;
+
+    class P2pDeviceRequest {
+      public:
+        P2pDeviceRequest(int handle, qcc::Event* event) : m_handle(handle), m_event(event), m_result(-1) { }
+
+        int GetHandle(void) { return m_handle; }
+
+        void SetEvent(void) { m_event->SetEvent(); }
+
+        void SetResult(int result) { m_result = result; }
+        int GetResult(void) { return m_result; }
+
+      private:
+        int m_handle;
+        qcc::Event* m_event;
+        int m_result;
+    };
+
+    qcc::Mutex m_deviceRequestListLock;
+    typedef std::list<P2pDeviceRequest> P2pDeviceRequestList;
+    P2pDeviceRequestList m_deviceRequestList;
+
+    class P2pAddressRequest {
+      public:
+        P2pAddressRequest(qcc::String guid, qcc::Event* event) : m_guid(guid), m_event(event) { }
+        qcc::String GetGuid(void) { return m_guid; }
+
+        void SetEvent(void) { m_event->SetEvent(); }
+
+        void SetAddress(qcc::String address) { m_address = address; }
+        qcc::String GetAddress(void) { return m_address; }
+
+        void SetPort(qcc::String port) { m_port = port; }
+        qcc::String GetPort(void) { return m_port; }
+
+      private:
+        qcc::String m_guid;
+        qcc::Event* m_event;
+        qcc::String m_address;
+        qcc::String m_port;
+    };
+
+    qcc::Mutex m_addressRequestListLock;
+    typedef std::list<P2pAddressRequest> P2pAddressRequestList;
+    P2pAddressRequestList m_addressRequestList;
+
+    QStatus CreateTemporaryNetwork(const qcc::String& guid, qcc::String& interface);
+    QStatus CreateConnectSpec(const qcc::String& interface, const qcc::String& guid, qcc::String& connectSpec);
+
+  public:
+    void OnFound(const qcc::String& busAddr, const qcc::String& guid);
+
+#endif // defined(QCC_OS_ANDROID) && P2P_HELPER
 
 };
 

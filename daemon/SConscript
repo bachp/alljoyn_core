@@ -38,6 +38,11 @@ if env['OS_GROUP'] == 'posix':
     json_srcs = env.SConscript('JSON/SConscript')
     base_objs.extend(env.Object(json_srcs))   
 
+# Add in P2P Helper support for Android only
+if env['OS'] == "android":
+    android_srcs = env.SConscript('android/SConscript')
+    base_objs.extend(env.Object(android_srcs))
+
 # Add in bluetooth support
 if env['OS'] == 'android_donut' or env['OS'] =="darwin" or env['OS_GROUP']=='winrt' or env['OS_GROUP'] == "windows":
     # bluetooth not supported on this platform
