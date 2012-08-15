@@ -36,7 +36,7 @@ elif env['DOCS'] == 'pdf':
     Command('./latex/quic.sty','./quic.sty',Copy("$TARGET", "$SOURCE"))
     env.PDF('./latex/refman.pdf', './latex/refman.tex')
     env.Clean('Doxygen_pdf', Dir('latex'))
-elif env['DOCS'] == 'chm':
+elif env['DOCS'] == 'sandcastle':
     if not os.environ.has_key('SHFBROOT'):
         print 'Missing required environment build variable SHFBROOT'
         Exit()
@@ -82,10 +82,9 @@ elif env['DOCS'] == 'chm':
         # make sure the chm file is built before trying to install it.
         Depends(chm_install, chm_cmd)
 
-elif env['DOCS'] == 'doxychm':
-    doxy_bld = Builder(action = 'cd ${SOURCE.dir} && doxygen ${SOURCE.file}')
-    env.Append(BUILDERS = {'Doxygen': doxy_bld})
+elif env['DOCS'] == 'chm':
     # the target directory 'docs/tmp' is never built this will cause doxygen
-    # to run every time DOCS == 'doxychm'
+    # to run every time DOCS == 'chm'
     env.Doxygen(source='Doxygen_chm', target=Dir('tmp'))
     env.Clean('Doxygen_chm', Dir('chm'))
+    env.Install('$DISTDIR/bin', 'html/AllJoyn.chm')
