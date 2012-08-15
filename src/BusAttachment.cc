@@ -735,7 +735,13 @@ QStatus BusAttachment::EnablePeerSecurity(const char* authMechanisms,
             /* Validate the list of auth mechanisms */
             status =  busInternal->authManager.CheckNames(authMechanisms);
         }
+    } else {
+        status = busInternal->keyStore.Reset();
+        busInternal->authManager.UnregisterMechanism(AuthMechSRP::AuthName());
+        busInternal->authManager.UnregisterMechanism(AuthMechRSA::AuthName());
+        busInternal->authManager.UnregisterMechanism(AuthMechLogon::AuthName());
     }
+
     if (status == ER_OK) {
         AllJoynPeerObj* peerObj = busInternal->localEndpoint.GetPeerObj();
         if (peerObj) {

@@ -74,6 +74,17 @@ class AuthManager {
     }
 
     /**
+     * Unregisters an authentication mechanism factory function
+     */
+    void UnregisterMechanism(const char* mechanismName)
+    {
+        AuthMechFactoryMap::iterator it = authMechanisms.find(mechanismName);
+        if (it != authMechanisms.end()) {
+            authMechanisms.erase(it);
+        }
+    }
+
+    /**
      * Filter out mechanisms with names not listed in the string.
      */
     size_t FilterMechanisms(const qcc::String& list)
@@ -145,7 +156,8 @@ class AuthManager {
     /**
      * Maps authentication mechanisms names to factory functions
      */
-    std::map<qcc::StringMapKey, AuthMechFactory> authMechanisms;
+    typedef std::map<qcc::StringMapKey, AuthMechFactory> AuthMechFactoryMap;
+    AuthMechFactoryMap authMechanisms;
 };
 
 }

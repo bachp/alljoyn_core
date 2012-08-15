@@ -227,6 +227,13 @@ class KeyStore {
     QStatus Clear();
 
     /**
+     * Reset the state of
+     *
+     * @return  ER_OK if the state was cleared
+     */
+    QStatus Reset();
+
+    /**
      * Pull keys into the key store from a source.
      *
      * @param source    The source to read the keys from.
