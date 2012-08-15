@@ -3331,7 +3331,6 @@ void AllJoynObj::FoundNames(const qcc::String& busAddr,
                     if (0 < discoverMap.size()) {
                         multimap<String, String>::const_iterator dit = discoverMap.begin();
                         while ((dit != discoverMap.end()) && (dit->first.compare(*nit) <= 0)) {
-
                             if (nit->compare(0, dit->first.size(), dit->first) == 0) {
                                 /* Check whether the discoverer is allowed to use the transport over which the advertised name if found*/
                                 bool forbidden = false;
@@ -3363,7 +3362,13 @@ void AllJoynObj::FoundNames(const qcc::String& busAddr,
                     if (notimers && (busAddr == it->second.busAddr)) {
                         NameMapEntry& nme = it->second;
                         nme.timestamp = GetTimestamp64();
-                        QStatus status = timer.ReplaceAlarm(nme.alarm, nme.alarm, false);
+
+                        // need to move the alarm ttl seconds into the future.
+                        const uint32_t timeout = ttl * 1000;
+                        Alarm newAlarm(timeout, this, NameMapEntry::truthiness);
+                        QStatus status = timer.ReplaceAlarm(nme.alarm, newAlarm, false);
+                        nme.alarm = newAlarm;
+
                         if (ER_OK != status) {
                             // This is expected if a prior name set changed in any way (order, removed entry, etc)
                             status = timer.AddAlarm(nme.alarm);
