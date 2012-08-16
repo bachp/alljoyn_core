@@ -43,7 +43,7 @@
 #include "TCPTransport.h"
 #include "NullTransport.h"
 
-#if defined(QCC_OS_ANDROID) || defined(QCC_OS_LINUX)
+#if defined(QCC_OS_ANDROID) || defined(QCC_OS_LINUX) || defined(QCC_OS_DARWIN)
 #include "DaemonICETransport.h"
 #endif
 
@@ -66,7 +66,7 @@ static const char bundledConfig[] =
     "    <property enable_ipv4=\"true\"/>"
     "    <property enable_ipv6=\"true\"/>"
     "  </ip_name_service>"
-#if defined(QCC_OS_ANDROID) || defined(QCC_OS_LINUX)
+#if defined(QCC_OS_ANDROID) || defined(QCC_OS_LINUX) || defined(QCC_OS_DARWIN)
     "  <listen>ice:</listen>"
     "  <ice>"
     "    <limit name=\"max_incomplete_connections\">16</limit>"
@@ -267,7 +267,7 @@ QStatus BundledDaemon::Start(NullTransport* nullTransport)
          */
         if (!transportsInitialized) {
             Add(new TransportFactory<TCPTransport>(TCPTransport::TransportName, false));
-#if defined(QCC_OS_ANDROID) || defined(QCC_OS_LINUX)
+#if defined(QCC_OS_ANDROID) || defined(QCC_OS_LINUX) || defined(QCC_OS_DARWIN)
             Add(new TransportFactory<DaemonICETransport>(DaemonICETransport::TransportName, false));
 #endif
             transportsInitialized = true;
