@@ -338,10 +338,11 @@ void NameTable::GetUniqueNamesAndAliases(vector<pair<qcc::String, vector<qcc::St
                 break;
             }
         }
-        if (it->second[0] == ':') {
-            uniqueName = it->second;
+        const String& name = it->second;
+        if (name[0] == ':') {
+            uniqueName = name;
         } else {
-            aliasVec.push_back(it->second);
+            aliasVec.push_back(name);
         }
         lastEp = it->first;
         ++it;
