@@ -33,7 +33,7 @@ base_objs = env.Object(base_srcs)
 
 # Add in ICE support
 if env['OS_GROUP'] == 'posix' or  env['OS_GROUP'] == 'winrt':
-    env.Append(CPPPATH = env['OS_GROUP'])
+    env.Append(CPPPATH=[env.Dir(env['OS_GROUP']).srcnode()])
     ice_srcs = env.SConscript('ice/SConscript')
     base_objs.extend(env.Object(ice_srcs))
     json_srcs = env.SConscript('JSON/SConscript')

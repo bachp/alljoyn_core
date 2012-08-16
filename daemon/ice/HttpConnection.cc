@@ -235,7 +235,12 @@ QStatus HttpConnection::Connect(SocketFd sock)
 
             SslSocket* sslSocket = new SslSocket(host);
             stream = sslSocket;
+#if defined(QCC_OS_WINRT)
+            // On WinRT, when using SslSocket, Connect() should use the host name instead of its IP address, otherwise it will fail with error "CertCN_NO_MATCH"
+            status = sslSocket->Connect(host, port);
+#else
             status = sslSocket->Connect(hostIPAddress, port);
+#endif
 
             /* Retrieve the interface details over which the OS has
              * set up the socket to talk to the Server */
