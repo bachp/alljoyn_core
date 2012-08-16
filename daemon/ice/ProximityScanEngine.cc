@@ -476,7 +476,7 @@ void ProximityScanEngine::StartScan() {
 
     // Initialize the Alarm
 
-    uint32_t relativeTime = 5000;
+    uint32_t relativeTime = 0;
     uint32_t periodMs = 0;
     myListener = this;
     void* vptr = NULL;
