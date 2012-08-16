@@ -72,10 +72,17 @@ void ProximityScanner::Scan(bool request_scan) {
                   });
 
     if (profileNames.size() == 0) {
+        QCC_DbgPrintf(("No Network Connection Profiles Found."));
         return;
     }
-
-    auto lanIdentifiers = NetworkInformation::GetLanIdentifiers();
+    IVectorView<LanIdentifier ^> ^ lanIdentifiers = nullptr;
+    try {
+        lanIdentifiers = NetworkInformation::GetLanIdentifiers();
+    } catch (Platform::Exception ^ e) {
+        QCC_LogError(ER_OS_ERROR, ("ProximityScanner::Scan() AccessDeniedException: The 'Location' capability should be enabled for the Application to access the LanIdentifier (location information)"));
+        // AccessDeniedException will be threw if Location capability is not enabled for the Application
+        return;
+    }
     std::for_each(begin(lanIdentifiers), end(lanIdentifiers), [this, &profileNames, internetProfileName](LanIdentifier ^ lanIdentifier) {
                       WCHAR networkAdapterId[MAX_GUID_STRING_SIZE];
                       if (StringFromGUID2(lanIdentifier->NetworkAdapterId, networkAdapterId, ARRAYSIZE(networkAdapterId))) {
@@ -85,13 +92,27 @@ void ProximityScanner::Scan(bool request_scan) {
                               qcc::String bssid;
                               auto lanIdVals = lanIdentifier->InfrastructureId->Value;
                               if (lanIdVals->Size != 0) {
-                                  std::for_each(begin(lanIdVals), end(lanIdVals), [this, &bssid](int lanIdVal)
+                                  bool first = true;
+                                  std::for_each(begin(lanIdVals), end(lanIdVals), [this, &first, &bssid](int lanIdVal)
                                                 {
-                                                    bssid += U32ToString(lanIdVal, 16, 2, '0');
+                                                    if (!first) {
+                                                        bssid.append(':');
+                                                    } else {
+                                                        first = false;
+                                                    }
+                                                    // represent the BSSID in lower case
+                                                    qcc::String tmpStr = U32ToString(lanIdVal, 16, 2, '0');
+                                                    std::for_each(tmpStr.begin(), tmpStr.end(), [&bssid](int c) {
+                                                                      bssid.append(tolower(c));
+                                                                  });
                                                 });
                                   qcc::String ssid = PlatformToMultibyteString(it->second);
                                   bool attached = (internetProfileName == it->second) ? true : false;
-                                  scanResults.insert(std::map<std::pair<qcc::String, qcc::String>, bool>::value_type(std::make_pair(bssid, ssid), attached));
+                                  // only return the WIFI AP currently connected to.
+                                  if (attached) {
+                                      scanResults.insert(std::map<std::pair<qcc::String, qcc::String>, bool>::value_type(std::make_pair(bssid, ssid), attached));
+                                      return;
+                                  }
                               }
                           }
                       }
