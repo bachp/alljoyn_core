@@ -23,7 +23,6 @@
 #include <qcc/IPAddress.h>
 
 #include <qcc/winrt/SocketWrapper.h>
-#include <qcc/winrt/SocketWrapperEvents.h>
 #include <qcc/winrt/SocketsWrapper.h>
 #include <qcc/winrt/utility.h>
 
