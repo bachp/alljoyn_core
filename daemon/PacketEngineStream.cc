@@ -95,7 +95,7 @@ QStatus PacketEngineStream::PullBytes(void* buf, size_t reqBytes, size_t& actual
         return ER_SOCK_OTHER_END_CLOSED;
     }
 
-    if (ci->state == PacketEngine::ChannelInfo::CLOSED) {
+    if (ci->state == PacketEngine::ChannelInfo::CLOSED || ci->state == PacketEngine::ChannelInfo::ABORTED) {
         return ER_SOCK_OTHER_END_CLOSED;
     }
 
@@ -209,7 +209,7 @@ QStatus PacketEngineStream::PushBytes(const void* buf, size_t numBytes, size_t& 
         return ER_SOCK_OTHER_END_CLOSED;
     }
 
-    if (ci->state == PacketEngine::ChannelInfo::CLOSED) {
+    if (ci->state == PacketEngine::ChannelInfo::CLOSED || ci->state == PacketEngine::ChannelInfo::ABORTED) {
         return ER_SOCK_OTHER_END_CLOSED;
     }
 
