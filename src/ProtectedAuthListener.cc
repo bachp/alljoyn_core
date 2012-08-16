@@ -135,6 +135,7 @@ class AsyncTracker {
                     ++it;
                 }
             }
+            self->lock.Unlock();
         }
         if (DecrementAndFetch(&refs) == 0) {
             delete self;
