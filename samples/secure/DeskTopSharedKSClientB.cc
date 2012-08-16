@@ -151,7 +151,7 @@ class SrpKeyXListener : public AuthListener {
     }
 
     void AuthenticationComplete(const char* authMechanism, const char* authPeer, bool success) {
-        printf("Authentication %s %s\n", authMechanism, success ? "succesful" : "failed");
+        printf("Authentication %s %s\n", authMechanism, success ? "successful" : "failed");
     }
 };
 
@@ -213,7 +213,7 @@ int main(int argc, char** argv, char** envArg)
         if (ER_OK != status) {
             printf("BusAttachment::EnablePeerSecurity failed (%s)\n", QCC_StatusText(status));
         } else {
-            printf("BusAttachment::EnablePeerSecurity succesful\n");
+            printf("BusAttachment::EnablePeerSecurity successful\n");
         }
     }
 
@@ -261,10 +261,10 @@ int main(int argc, char** argv, char** envArg)
         inputs[0].Set("s", "ClientB says Hello AllJoyn!");
         status = remoteObj.MethodCall(INTERFACE_NAME, "Ping", inputs, 1, reply, 5000);
         if (ER_OK == status) {
-            printf("%s.%s ( path=%s) returned \"%s\"\n", INTERFACE_NAME, "Ping",
+            printf("%s.Ping (path=%s) returned \"%s\"\n", INTERFACE_NAME,
                    SERVICE_PATH, reply->GetArg(0)->v_string.str);
         } else {
-            printf("MethodCall on %s.%s failed\n", INTERFACE_NAME, "Ping");
+            printf("MethodCall on %s.Ping failed\n", INTERFACE_NAME);
         }
     }
 
