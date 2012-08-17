@@ -469,6 +469,10 @@ class DaemonICETransport : public Transport, public RemoteEndpoint::EndpointList
      */
     static const char* TransportName;
 
+    void EndpointListLock(void) { m_endpointListLock.Lock(MUTEX_CONTEXT); };
+
+    void EndpointListUnlock(void) { m_endpointListLock.Unlock(MUTEX_CONTEXT); };
+
   private:
 
     DaemonICETransport(const DaemonICETransport& other);
@@ -662,7 +666,7 @@ class DaemonICETransport : public Transport, public RemoteEndpoint::EndpointList
     Timer daemonICETransportTimer;
 
     qcc::Mutex pktStreamMapLock;
-    typedef std::map<qcc::String, std::pair<ICEPacketStream, int32_t> > PacketStreamMap;
+    typedef std::multimap<qcc::String, std::pair<ICEPacketStream, int32_t> > PacketStreamMap;
     PacketStreamMap pktStreamMap;
 };
 
