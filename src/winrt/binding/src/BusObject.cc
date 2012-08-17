@@ -161,9 +161,15 @@ void BusObject::MethodReply(Message ^ msg, const Platform::Array<MsgArg ^> ^ arg
                 break;
             }
             for (int i = 0; i < argsCount; i++) {
-                MsgArg ^ tempArg = args[i];
-                ajn::MsgArg* arg = tempArg->_msgArg;
+                if (nullptr == args[i]) {
+                    status = ER_BUFFER_TOO_SMALL;
+                    break;
+                }
+                ajn::MsgArg* arg = args[i]->_msgArg;
                 msgScratch[i] = *arg;
+            }
+            if (ER_OK != status) {
+                break;
             }
         }
         status = _busObject->MethodReply(*mMessage, msgScratch, argsCount);
@@ -258,7 +264,14 @@ void BusObject::Signal(Platform::String ^ destination,
                 break;
             }
             for (int i = 0; i < numArgs; ++i) {
+                if (nullptr == args[i]) {
+                    status = ER_BUFFER_TOO_SMALL;
+                    break;
+                }
                 msgArgs[i] = *(args[i]->_msgArg);
+            }
+            if (ER_OK != status) {
+                break;
             }
         }
         status = _busObject->Signal(strDestination.c_str(), sessionId, *member, msgArgs, numArgs, timeToLive, flags);

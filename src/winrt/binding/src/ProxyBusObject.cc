@@ -693,9 +693,15 @@ Windows::Foundation::IAsyncOperation<MethodCallResult ^> ^ ProxyBusObject::Metho
                 break;
             }
             for (int i = 0; i < argsCount; i++) {
-                MsgArg ^ tempArg = args[i];
-                ajn::MsgArg* arg = tempArg->_msgArg;
+                if (nullptr == args[i]) {
+                    status = ER_BUFFER_TOO_SMALL;
+                    break;
+                }
+                ajn::MsgArg* arg = args[i]->_msgArg;
                 msgScratch[i] = *arg;
+            }
+            if (ER_OK != status) {
+                break;
             }
         }
         MethodCallResult ^ methodCallResult = ref new MethodCallResult(this, context);
@@ -776,9 +782,15 @@ Windows::Foundation::IAsyncOperation<MethodCallResult ^> ^ ProxyBusObject::Metho
                 break;
             }
             for (int i = 0; i < argsCount; i++) {
-                MsgArg ^ tempArg = args[i];
-                ajn::MsgArg* arg = tempArg->_msgArg;
+                if (nullptr == args[i]) {
+                    status = ER_BUFFER_TOO_SMALL;
+                    break;
+                }
+                ajn::MsgArg* arg = args[i]->_msgArg;
                 msgScratch[i] = *arg;
+            }
+            if (ER_OK != status) {
+                break;
             }
         }
         MethodCallResult ^ methodCallResult = ref new MethodCallResult(this, context);
