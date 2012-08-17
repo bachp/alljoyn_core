@@ -233,7 +233,7 @@ QStatus BundledDaemon::Start(NullTransport* nullTransport)
         configFile = "/mnt/sdcard/.alljoyn/config.xml";
     #endif
 
-    #if defined(QCC_OS_LINUX) || defined(QCC_OS_GROUP_WINDOWS)
+    #if defined(QCC_OS_LINUX) || defined(QCC_OS_GROUP_WINDOWS) || defined(QCC_OS_GROUP_WINRT)
         configFile = "./config.xml";
     #endif
 
