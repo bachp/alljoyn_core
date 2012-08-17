@@ -52,7 +52,7 @@
 
 using namespace qcc;
 
-#if defined(QCC_OS_ANDROID) || defined(QCC_OS_WINRT)
+#if defined(QCC_OS_ANDROID) || defined(QCC_OS_DARWIN) || defined(QCC_OS_WINRT)
 #define ENABLE_PROXIMITY_FRAMEWORK
 #endif
 
