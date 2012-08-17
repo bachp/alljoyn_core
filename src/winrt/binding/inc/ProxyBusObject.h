@@ -334,14 +334,17 @@ class _ProxyBusObjectListener : protected ajn::ProxyBusObject::Listener {
     _ProxyBusObject* _proxyBusObject;
 };
 
-class _ProxyBusObject : protected ajn::ProxyBusObject {
+class _ProxyBusObject : ajn::MessageReceiver {
   protected:
     friend class qcc::ManagedObj<_ProxyBusObject>;
     friend ref class ProxyBusObject;
     friend class _ProxyBusObjectListener;
-    _ProxyBusObject(BusAttachment ^ b, ajn::ProxyBusObject* proxybusobject);
-    _ProxyBusObject(BusAttachment ^ b, ajn::BusAttachment& bus, const char* service, const char* path, ajn::SessionId sessionId);
+    _ProxyBusObject(BusAttachment ^ b, const ajn::ProxyBusObject* proxybusobject);
+    _ProxyBusObject(BusAttachment ^ b, const ajn::_ProxyBusObject* proxybusobject);
+    _ProxyBusObject(BusAttachment ^ b, const char* service, const char* path, ajn::SessionId sessionId);
     ~_ProxyBusObject();
+    operator ajn::ProxyBusObject * ();
+    operator ajn::_ProxyBusObject * ();
 
     void ReplyHandler(ajn::Message& msg, void* context);
 
@@ -350,6 +353,8 @@ class _ProxyBusObject : protected ajn::ProxyBusObject {
     qcc::ManagedObj<_MessageReceiver>* _mReceiver;
     std::map<void*, void*> _childObjectMap;
     qcc::Mutex _mutex;
+    ajn::_ProxyBusObject* _mProxyBusObject;
+    ajn::ProxyBusObject* _proxyBusObject;
 };
 
 /// <summary>
@@ -705,8 +710,9 @@ public ref class ProxyBusObject sealed {
 
   private:
     friend ref class BusAttachment;
-    ProxyBusObject(BusAttachment ^ bus, void* proxybusobject);
-    ProxyBusObject(void* proxybusobject, bool isManaged);
+    ProxyBusObject(BusAttachment ^ bus, const ajn::ProxyBusObject * proxyBusObject);
+    ProxyBusObject(BusAttachment ^ bus, const ajn::_ProxyBusObject * proxyBusObject);
+    ProxyBusObject(BusAttachment ^ bus, const qcc::ManagedObj<_ProxyBusObject>* proxyBusObject);
     ~ProxyBusObject();
 
     qcc::ManagedObj<_ProxyBusObject>* _mProxyBusObject;

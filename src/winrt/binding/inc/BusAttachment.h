@@ -196,6 +196,7 @@ class _BusAttachment : protected ajn::BusAttachment, protected ajn::BusAttachmen
     friend class _BusObject;
     friend class _KeyStoreListener;
     friend class _MessageReceiver;
+    friend class _ProxyBusObject;
     friend class _ProxyBusObjectListener;
     friend class _SessionListener;
     friend class _SessionPortListener;
@@ -1088,6 +1089,7 @@ public ref class BusAttachment sealed {
     friend class _BusObject;
     friend class _KeyStoreListener;
     friend class _MessageReceiver;
+    friend class _ProxyBusObject;
     friend class _ProxyBusObjectListener;
     friend class _SessionListener;
     friend class _SessionPortListener;

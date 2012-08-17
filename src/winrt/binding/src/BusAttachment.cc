@@ -1241,7 +1241,7 @@ ProxyBusObject ^ BusAttachment::DBusProxyBusObject::get()
                 // Do nothing. just return
                 break;
             }
-            result = ref new ProxyBusObject(this, (void*)proxyObj);
+            result = ref new ProxyBusObject(this, proxyObj);
             if (nullptr == result) {
                 status = ER_OUT_OF_MEMORY;
                 break;
@@ -1272,7 +1272,7 @@ ProxyBusObject ^ BusAttachment::AllJoynProxyBusObject::get()
                 // Do nothing. just return
                 break;
             }
-            result = ref new ProxyBusObject(this, (void*)proxyObj);
+            result = ref new ProxyBusObject(this, proxyObj);
             if (nullptr == result) {
                 status = ER_OUT_OF_MEMORY;
                 break;
@@ -1303,7 +1303,7 @@ ProxyBusObject ^ BusAttachment::AllJoynDebugProxyBusObject::get()
                 // Do nothing. just return
                 break;
             }
-            result = ref new ProxyBusObject(this, (void*)proxyObj);
+            result = ref new ProxyBusObject(this, proxyObj);
             if (nullptr == result) {
                 status = ER_OUT_OF_MEMORY;
                 break;

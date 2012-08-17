@@ -456,6 +456,21 @@ class ProxyBusObject : public MessageReceiver {
     size_t GetChildren(ProxyBusObject** children = NULL, size_t numChildren = 0);
 
     /**
+     * Returns an array of _ProxyBusObjects for the children of this %ProxyBusObject.
+     * Unlike the unmanaged version of GetChildren, it is expected the caller will call
+     * delete on each _ProxyBusObject in the array returned.
+     *
+     * @param children     A pointer to a %_ProxyBusObject array to receive the children. Can be NULL in
+     *                     which case no children are returned and the return value gives the number
+     *                     of children available.
+     * @param numChildren  The size of the %_ProxyBusObject array. If this value is smaller than the total
+     *                     number of children only numChildren will be returned.
+     *
+     * @return  The number of children returned or the total number of children if children is NULL.
+     */
+    size_t GetManagedChildren(void* children = NULL, size_t numChildren = 0);
+
+    /**
      * Get a path descendant ProxyBusObject (child) by its relative path name.
      *
      * For example, if this ProxyBusObject's path is @c "/foo/bar", then you can
@@ -469,6 +484,22 @@ class ProxyBusObject : public MessageReceiver {
      *      - NULL if not found.
      */
     ProxyBusObject* GetChild(const char* path);
+
+    /**
+     * Get a path descendant _ProxyBusObject (child) by its relative path name.
+     *
+     * For example, if this _ProxyBusObject's path is @c "/foo/bar", then you can
+     * retrieve the _ProxyBusObject for @c "/foo/bar/bat/baz" by calling
+     * @c GetChild("bat/baz"). Unlike the unmanaged version of GetChild, it is
+     * expected the caller will call delete on the _ProxyBusObject returned.
+     *
+     * @param path the relative path for the child.
+     *
+     * @return
+     *      - The (potentially deep) descendant _ProxyBusObject
+     *      - NULL if not found.
+     */
+    void* GetManagedChild(const char* inPath);
 
     /**
      * Add a child object (direct or deep object path descendant) to this object.
@@ -843,6 +874,11 @@ class ProxyBusObject : public MessageReceiver {
     mutable qcc::Mutex* lock;   /**< Lock that protects access to components member */
     bool isExiting;             /**< true iff ProxyBusObject is in the process of begin destroyed */
 };
+
+/**
+ * _ProxyBusObject is a reference counted (managed) version of ProxyBusObject
+ */
+typedef qcc::ManagedObj<ProxyBusObject> _ProxyBusObject;
 
 }
 

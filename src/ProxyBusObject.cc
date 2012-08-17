@@ -66,7 +66,7 @@ struct ProxyBusObject::Components {
     map<qcc::StringMapKey, const InterfaceDescription*> ifaces;
 
     /** Names of child objects of this object */
-    vector<ProxyBusObject> children;
+    vector<_ProxyBusObject> children;
 
     /** List of threads that are waiting in sync method calls */
     vector<Thread*> waitingThreads;
@@ -407,7 +407,23 @@ size_t ProxyBusObject::GetChildren(ProxyBusObject** children, size_t numChildren
     if (children) {
         count = min(count, numChildren);
         for (size_t i = 0; i < count; i++) {
-            children[i] = &components->children[i];
+            _ProxyBusObject pbo = (components->children)[i];
+            children[i] = &(*pbo);
+        }
+    }
+    lock->Unlock(MUTEX_CONTEXT);
+    return count;
+}
+
+size_t ProxyBusObject::GetManagedChildren(void* children, size_t numChildren)
+{
+    _ProxyBusObject** pboChildren = reinterpret_cast<_ProxyBusObject**>(children);
+    lock->Lock(MUTEX_CONTEXT);
+    size_t count = components->children.size();
+    if (pboChildren) {
+        count = min(count, numChildren);
+        for (size_t i = 0; i < count; i++) {
+            pboChildren[i] = new _ProxyBusObject((components->children)[i]);
         }
     }
     lock->Unlock(MUTEX_CONTEXT);
@@ -434,11 +450,11 @@ ProxyBusObject* ProxyBusObject::GetChild(const char* inPath)
     while (idx != qcc::String::npos) {
         size_t end = inPathStr.find_first_of('/', idx);
         qcc::String item = inPathStr.substr(0, (qcc::String::npos == end) ? end : end - 1);
-        vector<ProxyBusObject>& ch = cur->components->children;
-        vector<ProxyBusObject>::iterator it = ch.begin();
+        vector<_ProxyBusObject>& ch = cur->components->children;
+        vector<_ProxyBusObject>::iterator it = ch.begin();
         while (it != ch.end()) {
-            if (it->GetPath() == item) {
-                cur = &(*it);
+            if ((*it)->GetPath() == item) {
+                cur = &(*(*it));
                 break;
             }
             ++it;
@@ -451,6 +467,50 @@ ProxyBusObject* ProxyBusObject::GetChild(const char* inPath)
     }
     lock->Unlock(MUTEX_CONTEXT);
     return cur;
+}
+
+void* ProxyBusObject::GetManagedChild(const char* inPath)
+{
+    /* Add a trailing slash to this path */
+    qcc::String pathSlash = (path == "/") ? path : path + '/';
+
+    /* Create absolute version of inPath */
+    qcc::String inPathStr = ('/' == inPath[0]) ? inPath : pathSlash + inPath;
+
+    /* Sanity check to make sure path is possible */
+    if ((0 != inPathStr.find(pathSlash)) || (inPathStr[inPathStr.length() - 1] == '/')) {
+        return NULL;
+    }
+
+    /* Find each path element as a child within the parent's vector of children */
+    size_t idx = path.size() + 1;
+    ProxyBusObject* cur = this;
+    _ProxyBusObject mcur;
+    lock->Lock(MUTEX_CONTEXT);
+    while (idx != qcc::String::npos) {
+        size_t end = inPathStr.find_first_of('/', idx);
+        qcc::String item = inPathStr.substr(0, (qcc::String::npos == end) ? end : end - 1);
+        vector<_ProxyBusObject>& ch = cur->components->children;
+        vector<_ProxyBusObject>::iterator it = ch.begin();
+        while (it != ch.end()) {
+            if ((*it)->GetPath() == item) {
+                cur = &(*(*it));
+                mcur = *(*it);
+                break;
+            }
+            ++it;
+        }
+        if (it == ch.end()) {
+            lock->Unlock(MUTEX_CONTEXT);
+            return NULL;
+        }
+        idx = ((qcc::String::npos == end) || ((end + 1) == inPathStr.size())) ? qcc::String::npos : end + 1;
+    }
+    lock->Unlock(MUTEX_CONTEXT);
+    if (NULL != cur) {
+        return new _ProxyBusObject(mcur);
+    }
+    return NULL;
 }
 
 QStatus ProxyBusObject::AddChild(const ProxyBusObject& child)
@@ -472,11 +532,11 @@ QStatus ProxyBusObject::AddChild(const ProxyBusObject& child)
     while (idx != qcc::String::npos) {
         size_t end = childPath.find_first_of('/', idx);
         qcc::String item = childPath.substr(0, (qcc::String::npos == end) ? end : end - 1);
-        vector<ProxyBusObject>& ch = cur->components->children;
-        vector<ProxyBusObject>::iterator it = ch.begin();
+        vector<_ProxyBusObject>& ch = cur->components->children;
+        vector<_ProxyBusObject>::iterator it = ch.begin();
         while (it != ch.end()) {
-            if (it->GetPath() == item) {
-                cur = &(*it);
+            if ((*it)->GetPath() == item) {
+                cur = &(*(*it));
                 break;
             }
             ++it;
@@ -487,9 +547,11 @@ QStatus ProxyBusObject::AddChild(const ProxyBusObject& child)
                 lock->Unlock(MUTEX_CONTEXT);
                 return ER_OK;
             } else {
-                ProxyBusObject ro(*bus, serviceName.c_str(), item.c_str(), sessionId);
+                const char* tempServiceName = serviceName.c_str();
+                const char* tempPath = item.c_str();
+                _ProxyBusObject ro(*bus, tempServiceName, tempPath, sessionId);
                 ch.push_back(ro);
-                cur = ch.empty() ? NULL : &ch.back();
+                cur = ch.empty() ? NULL : &(*(ch.back()));
             }
         }
         idx = ((qcc::String::npos == end) || ((end + 1) == childPath.size())) ? qcc::String::npos : end + 1;
@@ -520,16 +582,16 @@ QStatus ProxyBusObject::RemoveChild(const char* inPath)
     while (idx != qcc::String::npos) {
         size_t end = childPath.find_first_of('/', idx);
         qcc::String item = childPath.substr(0, (qcc::String::npos == end) ? end : end - 1);
-        vector<ProxyBusObject>& ch = cur->components->children;
-        vector<ProxyBusObject>::iterator it = ch.begin();
+        vector<_ProxyBusObject>& ch = cur->components->children;
+        vector<_ProxyBusObject>::iterator it = ch.begin();
         while (it != ch.end()) {
-            if (it->GetPath() == item) {
+            if ((*it)->GetPath() == item) {
                 if (end == qcc::String::npos) {
                     ch.erase(it);
                     lock->Unlock(MUTEX_CONTEXT);
                     return ER_OK;
                 } else {
-                    cur = &(*it);
+                    cur = &(*(*it));
                     break;
                 }
             }
