@@ -3365,7 +3365,8 @@ void AllJoynObj::FoundNames(const qcc::String& busAddr,
 
                         // need to move the alarm ttl seconds into the future.
                         const uint32_t timeout = ttl * 1000;
-                        Alarm newAlarm(timeout, this, NameMapEntry::truthiness);
+                        AllJoynObj* pObj = this;
+                        Alarm newAlarm(timeout, pObj, NameMapEntry::truthiness);
                         QStatus status = timer.ReplaceAlarm(nme.alarm, newAlarm, false);
                         nme.alarm = newAlarm;
 
