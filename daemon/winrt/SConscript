@@ -26,6 +26,9 @@ proximity_objs = SConscript('proximity/SConscript')
 winmdswitch = '\"/WINMDFILE:%s\"' % os.path.abspath('AllJoyn.winmd')
 env.Append(LINKFLAGS=['/MANIFEST:NO', '/SUBSYSTEM:CONSOLE', '/TLBID:1', '/APPCONTAINER', '/WINMD', winmdswitch])
 
+if env['CPU'] == 'arm':
+    env.Append(LINKFLAGS=['/INCREMENTAL:NO'])
+
 # Build the resources for the dll
 rsc = env.RES('DaemonResources.rc')
 
