@@ -128,13 +128,13 @@ public ref class InterfaceDescription sealed {
     /// - #ER_OK if successful
     /// - #ER_BUS_MEMBER_ALREADY_EXISTS if member already exists
     /// </exception>
-    void AddMember(AllJoynMessageType type,
-                   Platform::String ^ name,
-                   Platform::String ^ inputSig,
-                   Platform::String ^ outSig,
-                   Platform::String ^ argNames,
-                   Windows::Foundation::Collections::IMapView<Platform::String ^, Platform::String ^> ^ annotations,
-                   Platform::String ^ accessPerms);
+    void AddMemberWithMap(AllJoynMessageType type,
+                          Platform::String ^ name,
+                          Platform::String ^ inputSig,
+                          Platform::String ^ outSig,
+                          Platform::String ^ argNames,
+                          Windows::Foundation::Collections::IMapView<Platform::String ^, Platform::String ^> ^ annotations,
+                          Platform::String ^ accessPerms);
 
     /// <summary>Add an annotation to an existing member (signal or method).</summary>
     /// <param name="member"> Name of member</param>
@@ -261,12 +261,12 @@ public ref class InterfaceDescription sealed {
     /// - #ER_OK if successful
     /// - #ER_BUS_MEMBER_ALREADY_EXISTS if member already exists
     /// </exception>
-    void AddMethod(Platform::String ^ name,
-                   Platform::String ^ inputSig,
-                   Platform::String ^ outSig,
-                   Platform::String ^ argNames,
-                   Windows::Foundation::Collections::IMapView<Platform::String ^, Platform::String ^> ^ annotations,
-                   Platform::String ^ accessPerms);
+    void AddMethodWithMap(Platform::String ^ name,
+                          Platform::String ^ inputSig,
+                          Platform::String ^ outSig,
+                          Platform::String ^ argNames,
+                          Windows::Foundation::Collections::IMapView<Platform::String ^, Platform::String ^> ^ annotations,
+                          Platform::String ^ accessPerms);
 
     /// <summary>
     ///Lookup a member method description by name

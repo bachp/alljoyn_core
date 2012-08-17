@@ -136,13 +136,13 @@ void InterfaceDescription::AddMember(AllJoynMessageType type,
     }
 }
 
-void InterfaceDescription::AddMember(AllJoynMessageType type,
-                                     Platform::String ^ name,
-                                     Platform::String ^ inputSig,
-                                     Platform::String ^ outSig,
-                                     Platform::String ^ argNames,
-                                     Windows::Foundation::Collections::IMapView<Platform::String ^, Platform::String ^> ^ annotations,
-                                     Platform::String ^ accessPerms)
+void InterfaceDescription::AddMemberWithMap(AllJoynMessageType type,
+                                            Platform::String ^ name,
+                                            Platform::String ^ inputSig,
+                                            Platform::String ^ outSig,
+                                            Platform::String ^ argNames,
+                                            Windows::Foundation::Collections::IMapView<Platform::String ^, Platform::String ^> ^ annotations,
+                                            Platform::String ^ accessPerms)
 {
     ::QStatus status = ER_OK;
 
@@ -438,12 +438,12 @@ void InterfaceDescription::AddMethod(Platform::String ^ name,
     }
 }
 
-void InterfaceDescription::AddMethod(Platform::String ^ name,
-                                     Platform::String ^ inputSig,
-                                     Platform::String ^ outSig,
-                                     Platform::String ^ argNames,
-                                     Windows::Foundation::Collections::IMapView<Platform::String ^, Platform::String ^> ^ annotations,
-                                     Platform::String ^ accessPerms)
+void InterfaceDescription::AddMethodWithMap(Platform::String ^ name,
+                                            Platform::String ^ inputSig,
+                                            Platform::String ^ outSig,
+                                            Platform::String ^ argNames,
+                                            Windows::Foundation::Collections::IMapView<Platform::String ^, Platform::String ^> ^ annotations,
+                                            Platform::String ^ accessPerms)
 {
     ::QStatus status = ER_OK;
 
