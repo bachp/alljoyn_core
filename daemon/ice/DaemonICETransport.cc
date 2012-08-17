@@ -1271,27 +1271,23 @@ ThreadReturn STDCALL DaemonICETransport::AllocateICESessionThread::Run(void* arg
                                                     status = transportObj->m_packetEngine.AddPacketStream(*pktStream, *transportObj);
                                                 }
 
-                                                    /*
-                                                     * Set an alarm to guard against the client-side successfully creating an ICE session
-                                                     * and then not following through with a PacketEngine connect.
-                                                     */
-                                                    if (status == ER_OK) {
-                                                        AlarmContext* ctx = new AlarmContext(pktStream);
-                                                        pktStream->SetTimeoutAlarm(Alarm(PACKET_ENGINE_ACCEPT_TIMEOUT_MS, transportObj, 0, ctx));
-                                                        status = transportObj->daemonICETransportTimer.AddAlarm(pktStream->GetTimeoutAlarm());
-                                                    }
+                                                /*
+                                                 * Set an alarm to guard against the client-side successfully creating an ICE session
+                                                 * and then not following through with a PacketEngine connect.
+                                                 */
+                                                if (status == ER_OK) {
+                                                    AlarmContext* ctx = new AlarmContext(pktStream);
+                                                    pktStream->SetTimeoutAlarm(Alarm(PACKET_ENGINE_ACCEPT_TIMEOUT_MS, transportObj, 0, ctx));
+                                                    status = transportObj->daemonICETransportTimer.AddAlarm(pktStream->GetTimeoutAlarm());
+                                                }
 
-                                                    if (status == ER_OK) {
-                                                        /* If we are using the local and remote host candidate, we need not send
-                                                         * NAT keepalives or TURN refreshes */
-                                                        if ((!pktStream->IsLocalHost()) || (!pktStream->IsRemoteHost())) {
-                                                            /* Arm the keep-alive/TURN refresh timer (immediate fire) */
-                                                            AlarmContext* ctx = new AlarmContext(pktStream);
-                                                            transportObj->daemonICETransportTimer.AddAlarm(Alarm(0, transportObj, 0, ctx));
-                                                        }
-                                                    } else {
-                                                        transportObj->ReleaseICEPacketStream(*pktStream);
-                                                        QCC_LogError(status, ("ICEPacketStream.Start or AddPacketStream failed"));
+                                                if (status == ER_OK) {
+                                                    /* If we are using the local and remote host candidate, we need not send
+                                                     * NAT keepalives or TURN refreshes */
+                                                    if ((!pktStream->IsLocalHost()) || (!pktStream->IsRemoteHost())) {
+                                                        /* Arm the keep-alive/TURN refresh timer (immediate fire) */
+                                                        AlarmContext* ctx = new AlarmContext(pktStream);
+                                                        transportObj->daemonICETransportTimer.AddAlarm(Alarm(0, transportObj, 0, ctx));
                                                     }
                                                 } else {
                                                     transportObj->ReleaseICEPacketStream(*pktStream);
