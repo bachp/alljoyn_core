@@ -44,7 +44,7 @@
 
 #include "NameService.h"
 
-#define P2P_HELPER 0
+#define P2P_HELPER 1
 
 #if defined(QCC_OS_ANDROID) && P2P_HELPER
 #include "android/P2PHelperInterface.h"
@@ -53,6 +53,8 @@
 namespace ajn {
 
 class TCPEndpoint;
+
+#define QCC_MODULE "TCP"
 
 /**
  * @brief A class for TCP Transports used in daemons.
@@ -670,7 +672,9 @@ class TCPTransport : public Transport, public RemoteEndpoint::EndpointListener, 
 
     P2PConnectionInfo* GetP2PInfoForEndpoint(TCPEndpoint* tcpEndpoint)
     {
+        QCC_DbgPrintf(("P2PConnectionInfo::GetP2PInfoForEndpoint(%p)\n", tcpEndpoint));
         for (std::list<P2PConnectionInfo*>::iterator i = m_p2pConnectionInfo.begin(); i != m_p2pConnectionInfo.end(); ++i) {
+            QCC_DbgPrintf(("P2PConnectionInfo::GetP2PInfoForEndpoint(): check out %p\n", *i));
             if ((*i)->GetEndpoint() == tcpEndpoint) {
                 return *i;
             }
@@ -689,7 +693,9 @@ class TCPTransport : public Transport, public RemoteEndpoint::EndpointListener, 
     void ForgetP2PConnection(TCPEndpoint* tcpEndpoint)
     {
         for (std::list<P2PConnectionInfo*>::iterator i = m_p2pConnectionInfo.begin(); i != m_p2pConnectionInfo.end(); ++i) {
+            QCC_DbgPrintf(("P2PConnectionInfo::forgetP2PConnection(): check out %p\n", *i));
             if ((*i)->GetEndpoint() == tcpEndpoint) {
+                QCC_DbgPrintf(("P2PConnectionInfo::ForgetP2PConnection(): delete %p\n", *i));
                 delete *i;
                 m_p2pConnectionInfo.erase(i);
                 return;
@@ -700,8 +706,6 @@ class TCPTransport : public Transport, public RemoteEndpoint::EndpointListener, 
     std::list<P2PConnectionInfo*> m_p2pConnectionInfo;
 
     P2PHelperInterface* m_p2pHelperInterface;
-
-#define QCC_MODULE "TCP"
 
     class MyP2PHelperListener : public P2PHelperListener {
       public:
@@ -805,8 +809,6 @@ class TCPTransport : public Transport, public RemoteEndpoint::EndpointListener, 
         TCPTransport* m_transport;
     };
 
-#undef QCC_MODULE
-
     MyP2PHelperListener* m_myP2pHelperListener;
 
     qcc::Event m_establishLinkEvent;
@@ -876,6 +878,8 @@ class TCPTransport : public Transport, public RemoteEndpoint::EndpointListener, 
 #endif // defined(QCC_OS_ANDROID) && P2P_HELPER
 
 };
+
+#undef QCC_MODULE
 
 } // namespace ajn
 

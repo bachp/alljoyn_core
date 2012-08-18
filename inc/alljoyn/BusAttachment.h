@@ -1116,7 +1116,13 @@ class BusAttachment : public MessageReceiver {
 
     class JoinObj {
       public:
+        /**
+         * Construct a JoinObj.
+         */
         JoinObj(BusAttachment* bus) : bus(bus) { }
+        /**
+         * Destroy a JoinObj.
+         */
         ~JoinObj() {
             bus->WaitStopInternal();
         }
