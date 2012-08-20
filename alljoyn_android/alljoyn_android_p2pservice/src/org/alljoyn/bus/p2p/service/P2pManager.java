@@ -78,7 +78,10 @@ public class P2pManager implements ConnectionInfoListener, DnsSdServiceResponseL
     private Handler mHandler = null;
     private Runnable mPeriodicDiscovery = null;
     private Runnable mPeriodicPeerFind = null;
+    private Runnable mRequestConnectionInfo = null;
+
     private static final long periodicInterval = 40000;
+    private static final long connectionTimeout = 30000;
 
     private ArrayList <String> mServiceRequestList;
     private ArrayList <String> mRequestedNames;
@@ -169,7 +172,19 @@ public class P2pManager implements ConnectionInfoListener, DnsSdServiceResponseL
                 mHandler.postDelayed(mPeriodicDiscovery, periodicInterval);
             }
         };
-    }
+
+        final ConnectionInfoListener connInfoListener = this;
+        mRequestConnectionInfo = new Runnable() {
+            public void run() {
+                if (!isEnabled) {
+                    return;
+                }
+
+                Log.d(TAG, "Request connection info");
+                manager.requestConnectionInfo(channel, connInfoListener);
+            }
+        };
+    };
 
     private void doDiscoverServices(boolean start) {
         mHandler.removeCallbacks(mPeriodicDiscovery);
@@ -437,10 +452,11 @@ public class P2pManager implements ConnectionInfoListener, DnsSdServiceResponseL
 
         updateDeviceServiceList(name, namePrefix, guid, timer, srcDevice.deviceAddress);
 
-        if (timer != 0)
+        if (timer != 0) {
             busInterface.OnFoundAdvertisedName(name, namePrefix, guid, /*timer,*/ srcDevice.deviceAddress);
-        else
+        } else {
             busInterface.OnLostAdvertisedName(name, namePrefix, guid, srcDevice.deviceAddress);
+        }
     }
 
     /**
@@ -477,6 +493,8 @@ public class P2pManager implements ConnectionInfoListener, DnsSdServiceResponseL
         synchronized (mRequestedNames) {
             if (!mRequestedNames.isEmpty() && mRequestedNames.contains(namePrefix)) {
                 Log.d(TAG, "Request for " + namePrefix + " already added");
+                if (mFindState != FindState.DISCOVERING)
+                    doDiscoverServices(true);
                 return OK;
             }
 
@@ -574,6 +592,7 @@ public class P2pManager implements ConnectionInfoListener, DnsSdServiceResponseL
             mServiceRequestList.clear();
             manager.clearServiceRequests(channel, null);
             doDiscoverServices(false);
+            //TODO We might not want to stop peer discovery in case we are advertising services.
             manager.stopPeerDiscovery(channel, null);
             mFindState = FindState.IDLE;
         }
@@ -745,7 +764,7 @@ public class P2pManager implements ConnectionInfoListener, DnsSdServiceResponseL
         }
 
         if (peerState != PeerState.DISCONNECTED) {
-            Log.e(TAG, "Already connected");
+            Log.e(TAG, "Already connected or in progress: " + peerState);
             return ERROR;
         }
 
@@ -777,6 +796,8 @@ public class P2pManager implements ConnectionInfoListener, DnsSdServiceResponseL
 //                                });
 //
 //            Log.d(TAG, "Group created");
+
+
             return handle;
         }
 
@@ -794,6 +815,8 @@ public class P2pManager implements ConnectionInfoListener, DnsSdServiceResponseL
                                 if (peerState == PeerState.INITIATED) {
                                     peerState = PeerState.CONNECTING;
                                 }
+                                Log.d(TAG, "Post delayed connection info request");
+                                mHandler.postDelayed(mRequestConnectionInfo, connectionTimeout);
                             }
 
                             public void onFailure(int reasonCode) {
@@ -804,7 +827,6 @@ public class P2pManager implements ConnectionInfoListener, DnsSdServiceResponseL
                                 busInterface.OnLinkError(handle, reasonCode);
                             }
                         });
-
         Log.d(TAG, "establishLink(): Returning: " + getHandle(peerConfig.deviceAddress));
         return getHandle(peerConfig.deviceAddress);
     }
