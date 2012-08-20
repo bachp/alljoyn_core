@@ -67,3 +67,4 @@ if env['OS'] == 'android':
     env.Install(distDir, env.Glob('ice_client_login_service/.project'))
     env.Install(distDir, env.Glob('ice_client_login_service/default.properties'))
     env.Install(distDir, Dir('ice_client_login_service/src').srcnode())
+    env.Install(distDir, Dir('ice_client_login_service/res').srcnode())
