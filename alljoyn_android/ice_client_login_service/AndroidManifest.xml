@@ -1,8 +1,8 @@
 <?xml version="1.0" encoding="utf-8"?>
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
       package="org.alljoyn.ice"
-      android:versionCode="1"
-      android:versionName="1.0"
+      android:versionCode="251"
+      android:versionName="2.5.1"
       android:installLocation="internalOnly">
     <uses-sdk android:minSdkVersion="8" />
   	<uses-permission android:name="android.permission.ACCESS_WIFI_STATE"></uses-permission>
@@ -12,10 +12,6 @@
     <uses-permission android:name="android.permission.INTERNET" />
     <application android:label="ClientLoginService">
     <service android:name=".ClientLoginService" android:enabled="true">
-		<intent-filter>
-			<action android:name="org.alljoyn.ice.ClientLoginService"> 
-			</action>
-		</intent-filter>
 	</service>
     </application>
 </manifest>
