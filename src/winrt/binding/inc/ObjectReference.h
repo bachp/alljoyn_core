@@ -60,7 +60,5 @@ void ClearPortMap(qcc::Mutex* mtx, std::map<ajn::SessionPort, std::map<void*, vo
 
 uint32_t QueryReferenceCount(Platform::Object ^ obj);
 
-bool IsDestructedRefCount(Platform::Object ^ obj);
-
 }
 // ObjectReference.h

@@ -82,11 +82,6 @@ InterfaceDescription::InterfaceDescription(const qcc::ManagedObj<_InterfaceDescr
 
 InterfaceDescription::~InterfaceDescription()
 {
-    // Make sure consumers are following the documentation
-    if (!IsDestructedRefCount(this)) {
-        QCC_THROW_EXCEPTION(ER_FAIL);
-    }
-
     if (NULL != _mInterfaceDescr) {
         delete _mInterfaceDescr;
         _mInterfaceDescr = NULL;

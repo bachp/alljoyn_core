@@ -56,11 +56,6 @@ Message::Message(const ajn::Message* message)
 
 Message::~Message()
 {
-    // Make sure consumers are following the documentation
-    if (!IsDestructedRefCount(this)) {
-        QCC_THROW_EXCEPTION(ER_FAIL);
-    }
-
     if (NULL != _mMessage) {
         delete _mMessage;
         _mMessage = NULL;

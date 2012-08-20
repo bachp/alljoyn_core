@@ -274,12 +274,4 @@ uint32_t QueryReferenceCount(Platform::Object ^ obj)
     return count - 1;
 }
 
-bool IsDestructedRefCount(Platform::Object ^ obj)
-{
-    __abi_IUnknown* pUnk = reinterpret_cast<__abi_IUnknown*>(obj);
-    pUnk->__abi_AddRef();
-    int32_t count = (int32_t)pUnk->__abi_Release();
-    return -1 == count;
-}
-
 }

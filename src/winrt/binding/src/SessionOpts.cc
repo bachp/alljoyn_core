@@ -131,11 +131,6 @@ SessionOpts::SessionOpts(const qcc::ManagedObj<_SessionOpts>* sessionOpts)
 
 SessionOpts::~SessionOpts()
 {
-    // Make sure consumers are following the documentation
-    if (!IsDestructedRefCount(this)) {
-        QCC_THROW_EXCEPTION(ER_FAIL);
-    }
-
     if (NULL != _mSessionOpts) {
         delete _mSessionOpts;
         _mSessionOpts = NULL;

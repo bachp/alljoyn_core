@@ -77,11 +77,6 @@ MessageHeaderFields::MessageHeaderFields(const qcc::ManagedObj<_MessageHeaderFie
 
 MessageHeaderFields::~MessageHeaderFields()
 {
-    // Make sure consumers are following the documentation
-    if (!IsDestructedRefCount(this)) {
-        QCC_THROW_EXCEPTION(ER_FAIL);
-    }
-
     if (NULL != _mMessageHeaderFields) {
         delete _mMessageHeaderFields;
         _mMessageHeaderFields = NULL;

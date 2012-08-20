@@ -79,11 +79,6 @@ SessionPortListener::SessionPortListener(const qcc::ManagedObj<_SessionPortListe
 
 SessionPortListener::~SessionPortListener()
 {
-    // Make sure consumers are following the documentation
-    if (!IsDestructedRefCount(this)) {
-        QCC_THROW_EXCEPTION(ER_FAIL);
-    }
-
     if (NULL != _mListener) {
         delete _mListener;
         _mListener = NULL;

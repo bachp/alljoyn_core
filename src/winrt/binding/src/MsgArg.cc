@@ -173,11 +173,6 @@ MsgArg::MsgArg(const qcc::ManagedObj<_MsgArg>* msgArg)
 
 MsgArg::~MsgArg()
 {
-    // Make sure consumers are following the documentation
-    if (!IsDestructedRefCount(this)) {
-        QCC_THROW_EXCEPTION(ER_FAIL);
-    }
-
     if (NULL != _mMsgArg) {
         delete _mMsgArg;
         _mMsgArg = NULL;

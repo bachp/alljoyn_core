@@ -137,11 +137,6 @@ BusAttachment::BusAttachment(const qcc::ManagedObj<_BusAttachment>* busAttachmen
 
 BusAttachment::~BusAttachment()
 {
-    // Make sure consumers are following the documentation
-    if (!IsDestructedRefCount(this)) {
-        QCC_THROW_EXCEPTION(ER_FAIL);
-    }
-
     if (NULL != _mBusAttachment) {
         delete _mBusAttachment;
         _mBusAttachment = NULL;

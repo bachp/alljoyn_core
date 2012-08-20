@@ -99,11 +99,6 @@ InterfaceProperty::InterfaceProperty(void* interfaceProperty)
 
 InterfaceProperty::~InterfaceProperty()
 {
-    // Make sure consumers are following the documentation
-    if (!IsDestructedRefCount(this)) {
-        QCC_THROW_EXCEPTION(ER_FAIL);
-    }
-
     if (NULL != _mProperty) {
         delete _mProperty;
         _mProperty = NULL;

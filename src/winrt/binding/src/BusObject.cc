@@ -95,11 +95,6 @@ BusObject::BusObject(const qcc::ManagedObj<_BusObject>* busObject)
 
 BusObject::~BusObject()
 {
-    // Make sure consumers are following the documentation
-    if (!IsDestructedRefCount(this)) {
-        QCC_THROW_EXCEPTION(ER_FAIL);
-    }
-
     if (NULL != _mBusObject) {
         delete _mBusObject;
         _mBusObject = NULL;

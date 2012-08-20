@@ -81,11 +81,6 @@ BusListener::BusListener(const qcc::ManagedObj<_BusListener>* listener)
 
 BusListener::~BusListener()
 {
-    // Make sure consumers are following the documentation
-    if (!IsDestructedRefCount(this)) {
-        QCC_THROW_EXCEPTION(ER_FAIL);
-    }
-
     if (NULL != _mListener) {
         delete _mListener;
         _mListener = NULL;

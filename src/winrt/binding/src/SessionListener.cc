@@ -80,11 +80,6 @@ SessionListener::SessionListener(const qcc::ManagedObj<_SessionListener>* listen
 
 SessionListener::~SessionListener()
 {
-    // Make sure consumers are following the documentation
-    if (!IsDestructedRefCount(this)) {
-        QCC_THROW_EXCEPTION(ER_FAIL);
-    }
-
     if (NULL != _mListener) {
         delete _mListener;
         _mListener = NULL;

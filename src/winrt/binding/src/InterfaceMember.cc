@@ -136,11 +136,6 @@ InterfaceMember::InterfaceMember(void* interfaceMember)
 
 InterfaceMember::~InterfaceMember()
 {
-    // Make sure consumers are following the documentation
-    if (!IsDestructedRefCount(this)) {
-        QCC_THROW_EXCEPTION(ER_FAIL);
-    }
-
     if (NULL != _mMember) {
         delete _mMember;
         _mMember = NULL;
