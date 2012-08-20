@@ -81,29 +81,47 @@ BusAttachment::BusAttachment(Platform::String ^ applicationName, bool allowRemot
     }
 }
 
-BusAttachment::BusAttachment(void* busattachment, bool isManaged)
+BusAttachment::BusAttachment(const ajn::BusAttachment* busAttachment)
 {
     ::QStatus status = ER_OK;
 
     while (true) {
-        if (NULL == busattachment) {
+        if (NULL == busAttachment) {
             status = ER_BAD_ARG_1;
             break;
         }
-        void* ba = NULL;
-        if (!isManaged) {
-            _mutex.Lock();
-            ba = _nativeToManagedMap[busattachment];
-            _mutex.Unlock();
-            if (NULL == ba) {
-                status = ER_FAIL;
-                break;
-            }
-        } else {
-            ba = busattachment;
+        _mutex.Lock();
+        void* ba = _nativeToManagedMap[(void*)busAttachment];
+        _mutex.Unlock();
+        if (NULL == ba) {
+            status = ER_FAIL;
+            break;
         }
         qcc::ManagedObj<_BusAttachment>* mba = reinterpret_cast<qcc::ManagedObj<_BusAttachment>*>(ba);
         _mBusAttachment = new qcc::ManagedObj<_BusAttachment>(*mba);
+        if (NULL == _mBusAttachment) {
+            status = ER_OUT_OF_MEMORY;
+            break;
+        }
+        _busAttachment = &(**_mBusAttachment);
+        break;
+    }
+
+    if (ER_OK != status) {
+        QCC_THROW_EXCEPTION(status);
+    }
+}
+
+BusAttachment::BusAttachment(const qcc::ManagedObj<_BusAttachment>* busAttachment)
+{
+    ::QStatus status = ER_OK;
+
+    while (true) {
+        if (NULL == busAttachment) {
+            status = ER_BAD_ARG_1;
+            break;
+        }
+        _mBusAttachment = new qcc::ManagedObj<_BusAttachment>(*busAttachment);
         if (NULL == _mBusAttachment) {
             status = ER_OUT_OF_MEMORY;
             break;
@@ -162,7 +180,7 @@ void BusAttachment::CreateInterface(Platform::String ^ name, Platform::WriteOnly
         ajn::InterfaceDescription* intDescr;
         status = _busAttachment->CreateInterface(strName.c_str(), intDescr, secure);
         if (ER_OK == status) {
-            InterfaceDescription ^ id = ref new InterfaceDescription(intDescr, false);
+            InterfaceDescription ^ id = ref new InterfaceDescription(intDescr);
             iface[0] = id;
         }
         break;
@@ -204,7 +222,7 @@ uint32_t BusAttachment::GetInterfaces(Platform::WriteOnlyArray<InterfaceDescript
     const ajn::InterfaceDescription* id = NULL;
     size_t result = _busAttachment->GetInterfaces(nullptr == iface ? NULL : &id, numIfaces);
     if (result > 0 && NULL != id) {
-        InterfaceDescription ^ refId = ref new InterfaceDescription((void*)id, false);
+        InterfaceDescription ^ refId = ref new InterfaceDescription(id);
         iface[0] = refId;
     }
     return result;
@@ -230,7 +248,7 @@ InterfaceDescription ^ BusAttachment::GetInterface(Platform::String ^ name)
             status = ER_FAIL;
             break;
         }
-        idRef = ref new InterfaceDescription((void*)id, false);
+        idRef = ref new InterfaceDescription(id);
         if (nullptr == idRef) {
             status = ER_OUT_OF_MEMORY;
             break;
@@ -1029,7 +1047,7 @@ Windows::Foundation::IAsyncOperation<JoinSessionResult ^> ^ BusAttachment::JoinS
                                                   _busAttachment,
                                                   (void*)joinSessionResult);
         if (ER_OK == status) {
-            SessionOpts ^ newOpts = ref new SessionOpts((void*)opts, false);
+            SessionOpts ^ newOpts = ref new SessionOpts(opts);
             if (nullptr == newOpts) {
                 status = ER_OUT_OF_MEMORY;
                 break;
@@ -1441,7 +1459,7 @@ void _BusAttachment::JoinSessionCB(::QStatus s, ajn::SessionId sessionId, const 
 
     try {
         while (true) {
-            SessionOpts ^ options = ref new SessionOpts((void*)&opts, false);
+            SessionOpts ^ options = ref new SessionOpts(&opts);
             if (nullptr == options) {
                 status = ER_OUT_OF_MEMORY;
                 break;

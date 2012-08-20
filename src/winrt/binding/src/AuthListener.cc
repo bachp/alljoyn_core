@@ -56,7 +56,7 @@ AuthListener::AuthListener(BusAttachment ^ bus)
     }
 }
 
-AuthListener::AuthListener(void* listener, bool isManaged)
+AuthListener::AuthListener(const qcc::ManagedObj<_AuthListener>* listener)
 {
     ::QStatus status = ER_OK;
 
@@ -65,12 +65,7 @@ AuthListener::AuthListener(void* listener, bool isManaged)
             status = ER_BAD_ARG_1;
             break;
         }
-        if (!isManaged) {
-            status = ER_FAIL;
-            break;
-        }
-        qcc::ManagedObj<_AuthListener>* mal = reinterpret_cast<qcc::ManagedObj<_AuthListener>*>(listener);
-        _mListener = new qcc::ManagedObj<_AuthListener>(*mal);
+        _mListener = new qcc::ManagedObj<_AuthListener>(*listener);
         if (NULL == _mListener) {
             status = ER_OUT_OF_MEMORY;
             break;
@@ -259,7 +254,7 @@ bool _AuthListener::RequestCredentials(const char* authMechanism, const char* pe
             status = ER_OUT_OF_MEMORY;
             break;
         }
-        AllJoyn::Credentials ^ cred = ref new AllJoyn::Credentials((void*)&credentials, false);
+        AllJoyn::Credentials ^ cred = ref new AllJoyn::Credentials(&credentials);
         if (nullptr == cred) {
             status = ER_OUT_OF_MEMORY;
             break;
@@ -295,7 +290,7 @@ bool _AuthListener::VerifyCredentials(const char* authMechanism, const char* pee
             status = ER_OUT_OF_MEMORY;
             break;
         }
-        AllJoyn::Credentials ^ cred = ref new AllJoyn::Credentials((void*)&credentials, false);
+        AllJoyn::Credentials ^ cred = ref new AllJoyn::Credentials(&credentials);
         if (nullptr == cred) {
             status = ER_OUT_OF_MEMORY;
             break;
@@ -318,7 +313,7 @@ bool _AuthListener::VerifyCredentials(const char* authMechanism, const char* pee
 void _AuthListener::SecurityViolation(::QStatus status, const ajn::Message& msg)
 {
     while (true) {
-        Message ^ message = ref new Message((void*)&msg, true);
+        Message ^ message = ref new Message(&msg);
         if (nullptr == message) {
             status = ER_OUT_OF_MEMORY;
             break;

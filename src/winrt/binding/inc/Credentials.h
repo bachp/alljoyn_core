@@ -158,7 +158,8 @@ public ref class Credentials sealed {
 
   private:
     friend class _AuthListener;
-    Credentials(void* creds, bool isManaged);
+    Credentials(const ajn::AuthListener::Credentials * creds);
+    Credentials(const qcc::ManagedObj<_Credentials>* creds);
     ~Credentials();
 
     qcc::ManagedObj<_Credentials>* _mCredentials;

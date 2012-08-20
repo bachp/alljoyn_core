@@ -49,7 +49,7 @@ Credentials::Credentials()
     }
 }
 
-Credentials::Credentials(void* creds, bool isManaged)
+Credentials::Credentials(const ajn::AuthListener::Credentials* creds)
 {
     ::QStatus status = ER_OK;
 
@@ -58,30 +58,42 @@ Credentials::Credentials(void* creds, bool isManaged)
             status = ER_BAD_ARG_1;
             break;
         }
-        if (!isManaged) {
-            _Credentials* credentials = new _Credentials();
-            if (NULL == credentials) {
-                status = ER_OUT_OF_MEMORY;
-                break;
-            }
-            ajn::AuthListener::Credentials* dstCreds = credentials;
-            ajn::AuthListener::Credentials* srcCreds = reinterpret_cast<ajn::AuthListener::Credentials*>(creds);
-            *dstCreds = *srcCreds;
-            _mCredentials = new qcc::ManagedObj<_Credentials>(credentials);
-            if (NULL == _mCredentials) {
-                status = ER_OUT_OF_MEMORY;
-                break;
-            }
-            _credentials = &(**_mCredentials);
-        } else {
-            qcc::ManagedObj<_Credentials>* mac = reinterpret_cast<qcc::ManagedObj<_Credentials>*>(creds);
-            _mCredentials = new qcc::ManagedObj<_Credentials>(*mac);
-            if (NULL == _mCredentials) {
-                status = ER_OUT_OF_MEMORY;
-                break;
-            }
-            _credentials = &(**_mCredentials);
+        _Credentials* credentials = new _Credentials();
+        if (NULL == credentials) {
+            status = ER_OUT_OF_MEMORY;
+            break;
         }
+        ajn::AuthListener::Credentials* dstCreds = credentials;
+        *dstCreds = *creds;
+        _mCredentials = new qcc::ManagedObj<_Credentials>(credentials);
+        if (NULL == _mCredentials) {
+            status = ER_OUT_OF_MEMORY;
+            break;
+        }
+        _credentials = &(**_mCredentials);
+        break;
+    }
+
+    if (ER_OK != status) {
+        QCC_THROW_EXCEPTION(status);
+    }
+}
+
+Credentials::Credentials(const qcc::ManagedObj<_Credentials>* creds)
+{
+    ::QStatus status = ER_OK;
+
+    while (true) {
+        if (NULL == creds) {
+            status = ER_BAD_ARG_1;
+            break;
+        }
+        _mCredentials = new qcc::ManagedObj<_Credentials>(*creds);
+        if (NULL == _mCredentials) {
+            status = ER_OUT_OF_MEMORY;
+            break;
+        }
+        _credentials = &(**_mCredentials);
         break;
     }
 

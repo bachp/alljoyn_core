@@ -119,7 +119,7 @@ public ref class SessionPortListener sealed {
 
   private:
     friend ref class BusAttachment;
-    SessionPortListener(void* listener, bool isManaged);
+    SessionPortListener(const qcc::ManagedObj<_SessionPortListener>* listener);
     ~SessionPortListener();
 
     qcc::ManagedObj<_SessionPortListener>* _mListener;

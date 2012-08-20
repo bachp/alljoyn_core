@@ -178,7 +178,7 @@ public ref class AuthListener sealed {
 
   private:
     friend ref class BusAttachment;
-    AuthListener(void* listener, bool isManaged);
+    AuthListener(const qcc::ManagedObj<_AuthListener>* listener);
     ~AuthListener();
 
     qcc::ManagedObj<_AuthListener>* _mListener;

@@ -26,7 +26,7 @@
 
 namespace AllJoyn {
 
-Message::Message(void* message, bool isManaged)
+Message::Message(const ajn::Message* message)
 {
     ::QStatus status = ER_OK;
 
@@ -35,12 +35,7 @@ Message::Message(void* message, bool isManaged)
             status = ER_BAD_ARG_1;
             break;
         }
-        if (!isManaged) {
-            status = ER_FAIL;
-            break;
-        }
-        ajn::Message* msg = reinterpret_cast<ajn::Message*>(message);
-        _Message* m = new _Message(msg);
+        _Message* m = new _Message(message);
         if (NULL == m) {
             status = ER_OUT_OF_MEMORY;
             break;
@@ -126,7 +121,7 @@ uint32_t Message::GetArgs(Platform::WriteOnlyArray<MsgArg ^> ^ args)
         ((ajn::_Message*)*_message)->GetArgs(result, margs);
         if (result > 0 && nullptr != args && args->Length > 0) {
             for (int i = 0; i < args->Length; i++) {
-                MsgArg ^ tempMsgArg = ref new MsgArg((void*)&(margs[i]), false);
+                MsgArg ^ tempMsgArg = ref new MsgArg(&(margs[i]));
                 if (nullptr == tempMsgArg) {
                     status = ER_OUT_OF_MEMORY;
                     break;
@@ -156,7 +151,7 @@ MsgArg ^ Message::GetArg(uint32_t argN)
             status = ER_BAD_ARG_1;
             break;
         }
-        newArg = ref new MsgArg((void*)arg, false);
+        newArg = ref new MsgArg(arg);
         if (nullptr == newArg) {
             status = ER_OUT_OF_MEMORY;
             break;
@@ -325,7 +320,7 @@ MessageHeaderFields ^ Message::HeaderFields::get()
     while (true) {
         if (nullptr == _message->_eventsAndProperties->HeaderFields) {
             ajn::HeaderFields headers = ((ajn::_Message*)*_message)->GetHeaderFields();
-            result = ref new MessageHeaderFields((void*)&headers, false);
+            result = ref new MessageHeaderFields(&headers);
             if (nullptr == result) {
                 status = ER_OUT_OF_MEMORY;
                 break;
@@ -648,7 +643,7 @@ uint32_t Message::Timestamp::get()
     return result;
 }
 
-_Message::_Message(ajn::Message* msg)
+_Message::_Message(const ajn::Message* msg)
 {
     ::QStatus status = ER_OK;
 
@@ -693,7 +688,7 @@ _Message::operator ajn::Message * ()
 
 _Message::operator ajn::_Message * ()
 {
-    return _message;
+    return (ajn::_Message*)_message;
 }
 
 __Message::__Message()

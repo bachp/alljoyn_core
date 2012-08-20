@@ -77,7 +77,7 @@ class _MessageHeaderFields : protected ajn::HeaderFields {
   protected:
     friend class qcc::ManagedObj<_MessageHeaderFields>;
     friend ref class MessageHeaderFields;
-    _MessageHeaderFields(ajn::HeaderFields* headers);
+    _MessageHeaderFields(const ajn::HeaderFields* headers);
     ~_MessageHeaderFields();
 
     __MessageHeaderFields ^ _eventsAndProperties;
@@ -122,7 +122,8 @@ public ref class MessageHeaderFields sealed {
 
   private:
     friend ref class Message;
-    MessageHeaderFields(void* messageheaders, bool isManaged);
+    MessageHeaderFields(const ajn::HeaderFields * headers);
+    MessageHeaderFields(const qcc::ManagedObj<_MessageHeaderFields>* headers);
     ~MessageHeaderFields();
 
     qcc::ManagedObj<_MessageHeaderFields>* _mMessageHeaderFields;

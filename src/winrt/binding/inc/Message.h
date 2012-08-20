@@ -89,7 +89,7 @@ class _Message {
     friend class _AuthListener;
     friend ref class BusObject;
     friend class _BusObject;
-    _Message(ajn::Message* msg);
+    _Message(const ajn::Message* msg);
     ~_Message();
 
     operator ajn::Message * ();
@@ -97,7 +97,7 @@ class _Message {
 
     __Message ^ _eventsAndProperties;
     ajn::Message* _mMessage;
-    ajn::_Message* _message;
+    const ajn::_Message* _message;
 };
 
 public ref class Message sealed {
@@ -375,7 +375,7 @@ public ref class Message sealed {
     friend class _BusObject;
     friend class _MessageReceiver;
     friend class _ProxyBusObject;
-    Message(void* message, bool isManaged);
+    Message(const ajn::Message * message);
     ~Message();
 
     qcc::ManagedObj<_Message>* _mMessage;

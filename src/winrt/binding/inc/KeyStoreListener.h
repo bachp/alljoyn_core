@@ -91,7 +91,7 @@ public ref class KeyStoreListener sealed {
 
   private:
     friend ref class BusAttachment;
-    KeyStoreListener(void* listener, bool isManaged);
+    KeyStoreListener(const qcc::ManagedObj<_KeyStoreListener>* listener);
     ~KeyStoreListener();
 
     qcc::ManagedObj<_KeyStoreListener>* _mListener;

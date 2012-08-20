@@ -155,7 +155,7 @@ InterfaceDescription ^ InterfaceMember::Interface::get()
 
     while (true) {
         if (nullptr == _member->_eventsAndProperties->Interface) {
-            result = ref new InterfaceDescription((void*)_member->_member->iface, false);
+            result = ref new InterfaceDescription(_member->_member->iface);
             if (nullptr == result) {
                 status = ER_OUT_OF_MEMORY;
                 break;

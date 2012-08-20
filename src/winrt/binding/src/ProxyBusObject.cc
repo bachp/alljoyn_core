@@ -400,7 +400,7 @@ uint32_t ProxyBusObject::GetInterfaces(Platform::WriteOnlyArray<InterfaceDescrip
         result = ((ajn::ProxyBusObject*)*_proxyBusObject)->GetInterfaces((const ajn::InterfaceDescription**)idescArray, ifaces->Length);
         if (result > 0 && NULL != idescArray) {
             for (int i = 0; i < result; i++) {
-                InterfaceDescription ^ id = ref new InterfaceDescription((void*)idescArray[i], false);
+                InterfaceDescription ^ id = ref new InterfaceDescription(idescArray[i]);
                 if (nullptr == id) {
                     status = ER_OUT_OF_MEMORY;
                     break;
@@ -440,7 +440,7 @@ InterfaceDescription ^ ProxyBusObject::GetInterface(Platform::String ^ iface)
         }
         const ajn::InterfaceDescription* ret = ((ajn::ProxyBusObject*)*_proxyBusObject)->GetInterface(strIface.c_str());
         if (NULL != ret) {
-            result = ref new InterfaceDescription((void*)ret, false);
+            result = ref new InterfaceDescription(ret);
             if (nullptr == result) {
                 status = ER_OUT_OF_MEMORY;
                 break;
@@ -1096,7 +1096,7 @@ void _ProxyBusObject::ReplyHandler(ajn::Message& msg, void* context)
 
     try {
         while (true) {
-            Message ^ message = ref new Message((void*)&msg, true);
+            Message ^ message = ref new Message(&msg);
             if (nullptr == message) {
                 status = ER_OUT_OF_MEMORY;
                 break;
@@ -1176,7 +1176,7 @@ void _ProxyBusObjectListener::GetPropertyCB(::QStatus s, ajn::ProxyBusObject* ob
 
     try {
         while (true) {
-            MsgArg ^ arg = ref new MsgArg((void*)&value, false);
+            MsgArg ^ arg = ref new MsgArg(&value);
             if (nullptr == arg) {
                 status = ER_OUT_OF_MEMORY;
                 break;
@@ -1209,7 +1209,7 @@ void _ProxyBusObjectListener::GetAllPropertiesCB(::QStatus s, ajn::ProxyBusObjec
 
     try {
         while (true) {
-            MsgArg ^ arg = ref new MsgArg((void*)&value, false);
+            MsgArg ^ arg = ref new MsgArg(&value);
             if (nullptr == arg) {
                 status = ER_OUT_OF_MEMORY;
                 break;

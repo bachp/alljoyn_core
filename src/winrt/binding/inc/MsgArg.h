@@ -238,7 +238,8 @@ public ref class MsgArg sealed {
     friend ref class Message;
     friend ref class MessageHeaderFields;
     friend class _ProxyBusObjectListener;
-    MsgArg(void* msgarg, bool isManaged);
+    MsgArg(const ajn::MsgArg * msgArg);
+    MsgArg(const qcc::ManagedObj<_MsgArg>* msgArg);
     ~MsgArg();
 
     qcc::ManagedObj<_MsgArg>* _mMsgArg;

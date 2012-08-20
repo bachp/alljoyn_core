@@ -75,37 +75,52 @@ SessionOpts::SessionOpts(TrafficType traffic, bool isMultipoint, ProximityType p
     }
 }
 
-SessionOpts::SessionOpts(void* sessionopts, bool isManaged)
+SessionOpts::SessionOpts(const ajn::SessionOpts* sessionOpts)
 {
     ::QStatus status = ER_OK;
 
     while (true) {
-        if (NULL == sessionopts) {
+        if (NULL == sessionOpts) {
             status = ER_BAD_ARG_1;
             break;
         }
-        if (!isManaged) {
-            ajn::SessionOpts* opts = reinterpret_cast<ajn::SessionOpts*>(sessionopts);
-            _SessionOpts* so = new _SessionOpts(opts->traffic, opts->isMultipoint, opts->proximity, opts->transports);
-            if (NULL == so) {
-                status = ER_OUT_OF_MEMORY;
-                break;
-            }
-            _mSessionOpts = new qcc::ManagedObj<_SessionOpts>(so);
-            if (NULL == _mSessionOpts) {
-                status = ER_OUT_OF_MEMORY;
-                break;
-            }
-            _sessionOpts = &(**_mSessionOpts);
-        } else {
-            qcc::ManagedObj<_SessionOpts>* mso = reinterpret_cast<qcc::ManagedObj<_SessionOpts>*>(sessionopts);
-            _mSessionOpts = new qcc::ManagedObj<_SessionOpts>(*mso);
-            if (NULL == _mSessionOpts) {
-                status = ER_OUT_OF_MEMORY;
-                break;
-            }
-            _sessionOpts = &(**_mSessionOpts);
+        _SessionOpts* so = new _SessionOpts(sessionOpts->traffic,
+                                            sessionOpts->isMultipoint,
+                                            sessionOpts->proximity,
+                                            sessionOpts->transports);
+        if (NULL == so) {
+            status = ER_OUT_OF_MEMORY;
+            break;
         }
+        _mSessionOpts = new qcc::ManagedObj<_SessionOpts>(so);
+        if (NULL == _mSessionOpts) {
+            status = ER_OUT_OF_MEMORY;
+            break;
+        }
+        _sessionOpts = &(**_mSessionOpts);
+        break;
+    }
+
+    if (ER_OK != status) {
+        QCC_THROW_EXCEPTION(status);
+    }
+}
+
+SessionOpts::SessionOpts(const qcc::ManagedObj<_SessionOpts>* sessionOpts)
+{
+    ::QStatus status = ER_OK;
+
+    while (true) {
+        if (NULL == sessionOpts) {
+            status = ER_BAD_ARG_1;
+            break;
+        }
+        _mSessionOpts = new qcc::ManagedObj<_SessionOpts>(*sessionOpts);
+        if (NULL == _mSessionOpts) {
+            status = ER_OUT_OF_MEMORY;
+            break;
+        }
+        _sessionOpts = &(**_mSessionOpts);
         break;
     }
 

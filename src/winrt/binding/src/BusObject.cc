@@ -70,21 +70,16 @@ BusObject::BusObject(BusAttachment ^ bus, Platform::String ^ path, bool isPlaceh
     }
 }
 
-BusObject::BusObject(void* busobject, bool isManaged)
+BusObject::BusObject(const qcc::ManagedObj<_BusObject>* busObject)
 {
     ::QStatus status = ER_OK;
 
     while (true) {
-        if (nullptr == busobject) {
+        if (nullptr == busObject) {
             status = ER_BAD_ARG_1;
             break;
         }
-        if (!isManaged) {
-            status = ER_FAIL;
-            break;
-        }
-        qcc::ManagedObj<_BusObject>* mbo = reinterpret_cast<qcc::ManagedObj<_BusObject>*>(busobject);
-        _mBusObject = new qcc::ManagedObj<_BusObject>(*mbo);
+        _mBusObject = new qcc::ManagedObj<_BusObject>(*busObject);
         if (NULL == _mBusObject) {
             status = ER_OUT_OF_MEMORY;
             break;
@@ -579,7 +574,7 @@ QStatus _BusObject::DefaultBusObjectGetHandler(Platform::String ^ ifcName, Platf
         ajn::MsgArg msgArg;
         status = ajn::BusObject::Get(strIfcName.c_str(), strPropName.c_str(), msgArg);
         if (ER_OK == status) {
-            MsgArg ^ newArg = ref new MsgArg((void*)&msgArg, false);
+            MsgArg ^ newArg = ref new MsgArg(&msgArg);
             val[0] = newArg;
         }
         break;
@@ -717,7 +712,7 @@ void _BusObject::DefaultBusObjectIntrospectHandler(InterfaceMember ^ member, Mes
             status = ER_OUT_OF_MEMORY;
             break;
         }
-        MsgArg ^ msgArg = ref new MsgArg((void*)&val, false);
+        MsgArg ^ msgArg = ref new MsgArg(&val);
         if (nullptr == msgArg) {
             status = ER_OUT_OF_MEMORY;
             break;
@@ -802,7 +797,7 @@ void _BusObject::GetAllProps(const ajn::InterfaceDescription::Member* member, aj
             status = ER_OUT_OF_MEMORY;
             break;
         }
-        Message ^ m = ref new Message((void*)&msg, true);
+        Message ^ m = ref new Message(&msg);
         if (nullptr == m) {
             status = ER_OUT_OF_MEMORY;
             break;
@@ -828,7 +823,7 @@ void _BusObject::Introspect(const ajn::InterfaceDescription::Member* member, ajn
             status = ER_OUT_OF_MEMORY;
             break;
         }
-        Message ^ m = ref new Message((void*)&msg, true);
+        Message ^ m = ref new Message(&msg);
         if (nullptr == m) {
             status = ER_OUT_OF_MEMORY;
             break;

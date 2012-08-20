@@ -54,7 +54,7 @@ KeyStoreListener::KeyStoreListener(BusAttachment ^ bus)
     }
 }
 
-KeyStoreListener::KeyStoreListener(void* listener, bool isManaged)
+KeyStoreListener::KeyStoreListener(const qcc::ManagedObj<_KeyStoreListener>* listener)
 {
     ::QStatus status = ER_OK;
 
@@ -63,12 +63,7 @@ KeyStoreListener::KeyStoreListener(void* listener, bool isManaged)
             status = ER_BAD_ARG_1;
             break;
         }
-        if (!isManaged) {
-            status = ER_FAIL;
-            break;
-        }
-        qcc::ManagedObj<_KeyStoreListener>* mksl = reinterpret_cast<qcc::ManagedObj<_KeyStoreListener>*>(listener);
-        _mListener = new qcc::ManagedObj<_KeyStoreListener>(*mksl);
+        _mListener = new qcc::ManagedObj<_KeyStoreListener>(*listener);
         if (NULL == _mListener) {
             status = ER_OUT_OF_MEMORY;
             break;

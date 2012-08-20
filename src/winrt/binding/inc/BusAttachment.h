@@ -1093,7 +1093,8 @@ public ref class BusAttachment sealed {
     friend class _ProxyBusObjectListener;
     friend class _SessionListener;
     friend class _SessionPortListener;
-    BusAttachment(void* busattachment, bool isManaged);
+    BusAttachment(const ajn::BusAttachment * busAttachment);
+    BusAttachment(const qcc::ManagedObj<_BusAttachment>* busAttachment);
     ~BusAttachment();
 
     qcc::ManagedObj<_BusAttachment>* _mBusAttachment;

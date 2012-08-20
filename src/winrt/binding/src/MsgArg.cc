@@ -118,39 +118,51 @@ MsgArg::MsgArg(Platform::String ^ signature, const Platform::Array<Platform::Obj
     }
 }
 
-MsgArg::MsgArg(void* msgarg, bool isManaged)
+MsgArg::MsgArg(const ajn::MsgArg* msgArg)
 {
     ::QStatus status = ER_OK;
 
     while (true) {
-        if (NULL == msgarg) {
+        if (NULL == msgArg) {
             status = ER_BAD_ARG_1;
             break;
         }
-        if (!isManaged) {
-            _MsgArg* ma = new _MsgArg();
-            if (NULL == ma) {
-                status = ER_OUT_OF_MEMORY;
-                break;
-            }
-            ajn::MsgArg* destArg = ma;
-            ajn::MsgArg* srcArg = reinterpret_cast<ajn::MsgArg*>(msgarg);
-            *destArg = *srcArg;
-            _mMsgArg = new qcc::ManagedObj<_MsgArg>(ma);
-            if (NULL == _mMsgArg) {
-                status = ER_OUT_OF_MEMORY;
-                break;
-            }
-            _msgArg = &(**_mMsgArg);
-        } else {
-            qcc::ManagedObj<_MsgArg>* marg = reinterpret_cast<qcc::ManagedObj<_MsgArg>*>(msgarg);
-            _mMsgArg = new qcc::ManagedObj<_MsgArg>(*marg);
-            if (NULL == _mMsgArg) {
-                status = ER_OUT_OF_MEMORY;
-                break;
-            }
-            _msgArg = &(**_mMsgArg);
+        _MsgArg* ma = new _MsgArg();
+        if (NULL == ma) {
+            status = ER_OUT_OF_MEMORY;
+            break;
         }
+        ajn::MsgArg* destArg = ma;
+        *destArg = *msgArg;
+        _mMsgArg = new qcc::ManagedObj<_MsgArg>(ma);
+        if (NULL == _mMsgArg) {
+            status = ER_OUT_OF_MEMORY;
+            break;
+        }
+        _msgArg = &(**_mMsgArg);
+        break;
+    }
+
+    if (ER_OK != status) {
+        QCC_THROW_EXCEPTION(status);
+    }
+}
+
+MsgArg::MsgArg(const qcc::ManagedObj<_MsgArg>* msgArg)
+{
+    ::QStatus status = ER_OK;
+
+    while (true) {
+        if (NULL == msgArg) {
+            status = ER_BAD_ARG_1;
+            break;
+        }
+        _mMsgArg = new qcc::ManagedObj<_MsgArg>(*msgArg);
+        if (NULL == _mMsgArg) {
+            status = ER_OUT_OF_MEMORY;
+            break;
+        }
+        _msgArg = &(**_mMsgArg);
         break;
     }
 
@@ -1252,8 +1264,8 @@ void _MsgArg::SetObject(AllJoyn::MsgArg ^ arg, bool isKey)
 
     case ALLJOYN_DICT_ENTRY:
     {
-        AllJoyn::MsgArg ^ newKey = ref new AllJoyn::MsgArg((void*)arg->_msgArg->v_dictEntry.key, false);
-        AllJoyn::MsgArg ^ newValue = ref new AllJoyn::MsgArg((void*)arg->_msgArg->v_dictEntry.val, false);
+        AllJoyn::MsgArg ^ newKey = ref new AllJoyn::MsgArg(arg->_msgArg->v_dictEntry.key);
+        AllJoyn::MsgArg ^ newValue = ref new AllJoyn::MsgArg(arg->_msgArg->v_dictEntry.val);
         if (isKey) {
             arg->_msgArg->_eventsAndProperties->Key = typeCoercer->Coerce(newKey->Value, arg->_msgArg->v_dictEntry.key->typeId, false);
         } else {
@@ -1279,7 +1291,7 @@ void _MsgArg::SetObject(AllJoyn::MsgArg ^ arg, bool isKey)
         size_t elementCount = arg->_msgArg->v_struct.numMembers;
         Platform::Array<Platform::Object ^> ^ arr = ref new Platform::Array<Platform::Object ^>(elementCount);
         for (int i = 0; i < elementCount; i++) {
-            AllJoyn::MsgArg ^ newArg = ref new AllJoyn::MsgArg((void*)&(elements[i]), false);
+            AllJoyn::MsgArg ^ newArg = ref new AllJoyn::MsgArg(&(elements[i]));
             AddObjectReference(NULL, newArg, &(this->_refMap));
             SetObject(newArg, isKey);
             if (isKey) {
@@ -1310,7 +1322,7 @@ void _MsgArg::SetObject(AllJoyn::MsgArg ^ arg, bool isKey)
 
     case ALLJOYN_VARIANT:
     {
-        AllJoyn::MsgArg ^ newArg = ref new AllJoyn::MsgArg((void*)arg->_msgArg->v_variant.val, false);
+        AllJoyn::MsgArg ^ newArg = ref new AllJoyn::MsgArg(arg->_msgArg->v_variant.val);
         if (isKey) {
             arg->_msgArg->_eventsAndProperties->Key = typeCoercer->Coerce(newArg, ajn::ALLJOYN_VARIANT, false);
         } else {
@@ -1425,7 +1437,7 @@ void _MsgArg::SetObject(AllJoyn::MsgArg ^ arg, bool isKey)
             size_t elementCount = arg->_msgArg->v_array.GetNumElements();
             Platform::Array<Platform::Object ^> ^ arr = ref new Platform::Array<Platform::Object ^>(elementCount);
             for (int i = 0; i < elementCount; i++) {
-                AllJoyn::MsgArg ^ newArg = ref new AllJoyn::MsgArg((void*)&(elements[i]), false);
+                AllJoyn::MsgArg ^ newArg = ref new AllJoyn::MsgArg(&(elements[i]));
                 AddObjectReference(NULL, newArg, &(this->_refMap));
                 arr[i] = newArg;
             }

@@ -126,7 +126,8 @@ public ref class SessionOpts sealed {
     friend ref class BusAttachment;
     friend class _SessionPortListener;
     friend class _BusAttachment;
-    SessionOpts(void* sessionopts, bool isManaged);
+    SessionOpts(const ajn::SessionOpts * sessionOpts);
+    SessionOpts(const qcc::ManagedObj<_SessionOpts>* sessionOpts);
     ~SessionOpts();
 
     qcc::ManagedObj<_SessionOpts>* _mSessionOpts;

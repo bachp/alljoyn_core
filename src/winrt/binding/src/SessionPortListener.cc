@@ -54,7 +54,7 @@ SessionPortListener::SessionPortListener(BusAttachment ^ bus)
     }
 }
 
-SessionPortListener::SessionPortListener(void* listener, bool isManaged)
+SessionPortListener::SessionPortListener(const qcc::ManagedObj<_SessionPortListener>* listener)
 {
     ::QStatus status = ER_OK;
 
@@ -63,12 +63,7 @@ SessionPortListener::SessionPortListener(void* listener, bool isManaged)
             status = ER_BAD_ARG_1;
             break;
         }
-        if (!isManaged) {
-            status = ER_FAIL;
-            break;
-        }
-        qcc::ManagedObj<_SessionPortListener>* mspl = reinterpret_cast<qcc::ManagedObj<_SessionPortListener>*>(listener);
-        _mListener = new qcc::ManagedObj<_SessionPortListener>(*mspl);
+        _mListener = new qcc::ManagedObj<_SessionPortListener>(*listener);
         if (NULL == _mListener) {
             status = ER_OUT_OF_MEMORY;
             break;
@@ -212,7 +207,7 @@ bool _SessionPortListener::AcceptSessionJoiner(ajn::SessionPort sessionPort, con
             status = ER_OUT_OF_MEMORY;
             break;
         }
-        SessionOpts ^ sessionOpts = ref new SessionOpts((void*)&opts, false);
+        SessionOpts ^ sessionOpts = ref new SessionOpts(&opts);
         if (nullptr == sessionOpts) {
             status = ER_OUT_OF_MEMORY;
             break;

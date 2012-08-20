@@ -61,13 +61,13 @@ class _InterfaceDescription {
     friend ref class BusObject;
     friend ref class InterfaceMember;
     friend ref class ProxyBusObject;
-    _InterfaceDescription(ajn::InterfaceDescription* interfaceDescr);
+    _InterfaceDescription(const ajn::InterfaceDescription* interfaceDescr);
     ~_InterfaceDescription();
 
     operator ajn::InterfaceDescription * ();
 
     __InterfaceDescription ^ _eventsAndProperties;
-    ajn::InterfaceDescription* _interfaceDescr;
+    const ajn::InterfaceDescription* _interfaceDescr;
 };
 
 
@@ -453,7 +453,8 @@ public ref class InterfaceDescription sealed {
     friend ref class BusObject;
     friend ref class InterfaceMember;
     friend ref class ProxyBusObject;
-    InterfaceDescription(void* interfaceDescr, bool isManaged);
+    InterfaceDescription(const ajn::InterfaceDescription * interfaceDescr);
+    InterfaceDescription(const qcc::ManagedObj<_InterfaceDescription>* interfaceDescr);
     ~InterfaceDescription();
 
     qcc::ManagedObj<_InterfaceDescription>* _mInterfaceDescr;

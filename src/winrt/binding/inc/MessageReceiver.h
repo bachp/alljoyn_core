@@ -140,7 +140,7 @@ class _MessageReceiver : protected ajn::MessageReceiver {
                     status = ER_OUT_OF_MEMORY;
                     break;
                 }
-                Message ^ message = ref new Message((void*)&msg, true);
+                Message ^ message = ref new Message(&msg);
                 if (nullptr == message) {
                     status = ER_OUT_OF_MEMORY;
                     break;
@@ -176,7 +176,7 @@ class _MessageReceiver : protected ajn::MessageReceiver {
                     status = ER_OUT_OF_MEMORY;
                     break;
                 }
-                Message ^ message = ref new Message((void*)&msg, true);
+                Message ^ message = ref new Message(&msg);
                 if (nullptr == message) {
                     status = ER_OUT_OF_MEMORY;
                     break;
@@ -277,7 +277,7 @@ public ref class MessageReceiver sealed {
     {
     }
 
-    MessageReceiver(void* receiver, bool isManaged)
+    MessageReceiver(const qcc::ManagedObj<_MessageReceiver>* receiver)
     {
         ::QStatus status = ER_OK;
 
@@ -286,18 +286,12 @@ public ref class MessageReceiver sealed {
                 status = ER_BAD_ARG_1;
                 break;
             }
-            if (!isManaged) {
-                status = ER_FAIL;
+            _mReceiver = new qcc::ManagedObj<_MessageReceiver>(*receiver);
+            if (NULL == _mReceiver) {
+                status = ER_OUT_OF_MEMORY;
                 break;
-            }           else {
-                qcc::ManagedObj<_MessageReceiver>* mmr = reinterpret_cast<qcc::ManagedObj<_MessageReceiver>*>(receiver);
-                _mReceiver = new qcc::ManagedObj<_MessageReceiver>(*mmr);
-                if (NULL == _mReceiver) {
-                    status = ER_OUT_OF_MEMORY;
-                    break;
-                }
-                _receiver = &(**_mReceiver);
             }
+            _receiver = &(**_mReceiver);
             break;
         }
 

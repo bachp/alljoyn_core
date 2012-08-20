@@ -375,7 +375,7 @@ public ref class BusObject sealed {
 
   private:
     friend ref class BusAttachment;
-    BusObject(void* listener, bool isManaged);
+    BusObject(const qcc::ManagedObj<_BusObject>* busObject);
     ~BusObject();
 
     qcc::ManagedObj<_BusObject>* _mBusObject;

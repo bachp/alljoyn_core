@@ -118,7 +118,7 @@ public ref class SessionListener sealed {
 
   private:
     friend ref class BusAttachment;
-    SessionListener(void* listener, bool isManaged);
+    SessionListener(const qcc::ManagedObj<_SessionListener>* listener);
     ~SessionListener();
 
     qcc::ManagedObj<_SessionListener>* _mListener;

@@ -56,7 +56,7 @@ BusListener::BusListener(BusAttachment ^ bus)
     }
 }
 
-BusListener::BusListener(void* listener, bool isManaged)
+BusListener::BusListener(const qcc::ManagedObj<_BusListener>* listener)
 {
     ::QStatus status = ER_OK;
 
@@ -65,12 +65,7 @@ BusListener::BusListener(void* listener, bool isManaged)
             status = ER_BAD_ARG_1;
             break;
         }
-        if (!isManaged) {
-            status = ER_FAIL;
-            break;
-        }
-        qcc::ManagedObj<_BusListener>* mbl = reinterpret_cast<qcc::ManagedObj<_BusListener>*>(listener);
-        _mListener = new qcc::ManagedObj<_BusListener>(*mbl);
+        _mListener = new qcc::ManagedObj<_BusListener>(*listener);
         if (NULL == _mListener) {
             status = ER_OUT_OF_MEMORY;
             break;
@@ -360,7 +355,7 @@ void _BusListener::ListenerRegistered(ajn::BusAttachment* bus)
             status = ER_BAD_ARG_1;
             break;
         }
-        AllJoyn::BusAttachment ^ ba = ref new AllJoyn::BusAttachment((void*)bus, false);
+        AllJoyn::BusAttachment ^ ba = ref new AllJoyn::BusAttachment(bus);
         if (nullptr == ba) {
             status = ER_OUT_OF_MEMORY;
             break;

@@ -29,7 +29,7 @@
 
 namespace AllJoyn {
 
-InterfaceDescription::InterfaceDescription(void* interfaceDescr, bool isManaged)
+InterfaceDescription::InterfaceDescription(const ajn::InterfaceDescription* interfaceDescr)
 {
     ::QStatus status = ER_OK;
 
@@ -38,28 +38,40 @@ InterfaceDescription::InterfaceDescription(void* interfaceDescr, bool isManaged)
             status = ER_BAD_ARG_1;
             break;
         }
-        if (!isManaged) {
-            ajn::InterfaceDescription* id = reinterpret_cast<ajn::InterfaceDescription*>(interfaceDescr);
-            _InterfaceDescription* intdescr = new _InterfaceDescription(id);
-            if (NULL == intdescr) {
-                status = ER_OUT_OF_MEMORY;
-                break;
-            }
-            _mInterfaceDescr = new qcc::ManagedObj<_InterfaceDescription>(intdescr);
-            if (NULL == _mInterfaceDescr) {
-                status = ER_OUT_OF_MEMORY;
-                break;
-            }
-            _interfaceDescr = &(**_mInterfaceDescr);
-        } else {
-            qcc::ManagedObj<_InterfaceDescription>* mid = reinterpret_cast<qcc::ManagedObj<_InterfaceDescription>*>(interfaceDescr);
-            _mInterfaceDescr = new qcc::ManagedObj<_InterfaceDescription>(*mid);
-            if (NULL == _mInterfaceDescr) {
-                status = ER_OUT_OF_MEMORY;
-                break;
-            }
-            _interfaceDescr = &(**_mInterfaceDescr);
+        _InterfaceDescription* intdescr = new _InterfaceDescription(interfaceDescr);
+        if (NULL == intdescr) {
+            status = ER_OUT_OF_MEMORY;
+            break;
         }
+        _mInterfaceDescr = new qcc::ManagedObj<_InterfaceDescription>(intdescr);
+        if (NULL == _mInterfaceDescr) {
+            status = ER_OUT_OF_MEMORY;
+            break;
+        }
+        _interfaceDescr = &(**_mInterfaceDescr);
+        break;
+    }
+
+    if (ER_OK != status) {
+        QCC_THROW_EXCEPTION(status);
+    }
+}
+
+InterfaceDescription::InterfaceDescription(const qcc::ManagedObj<_InterfaceDescription>* interfaceDescr)
+{
+    ::QStatus status = ER_OK;
+
+    while (true) {
+        if (NULL == interfaceDescr) {
+            status = ER_BAD_ARG_1;
+            break;
+        }
+        _mInterfaceDescr = new qcc::ManagedObj<_InterfaceDescription>(*interfaceDescr);
+        if (NULL == _mInterfaceDescr) {
+            status = ER_OUT_OF_MEMORY;
+            break;
+        }
+        _interfaceDescr = &(**_mInterfaceDescr);
         break;
     }
 
@@ -936,7 +948,7 @@ Platform::String ^ InterfaceDescription::Name::get()
     return result;
 }
 
-_InterfaceDescription::_InterfaceDescription(ajn::InterfaceDescription* interfaceDescr)
+_InterfaceDescription::_InterfaceDescription(const ajn::InterfaceDescription* interfaceDescr)
 {
     ::QStatus status = ER_OK;
 
@@ -962,7 +974,7 @@ _InterfaceDescription::~_InterfaceDescription()
 
 _InterfaceDescription::operator ajn::InterfaceDescription * ()
 {
-    return _interfaceDescr;
+    return (ajn::InterfaceDescription*)_interfaceDescr;
 }
 
 __InterfaceDescription::__InterfaceDescription()

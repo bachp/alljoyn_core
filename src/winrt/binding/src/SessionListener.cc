@@ -55,7 +55,7 @@ SessionListener::SessionListener(BusAttachment ^ bus)
     }
 }
 
-SessionListener::SessionListener(void* listener, bool isManaged)
+SessionListener::SessionListener(const qcc::ManagedObj<_SessionListener>* listener)
 {
     ::QStatus status = ER_OK;
 
@@ -64,12 +64,7 @@ SessionListener::SessionListener(void* listener, bool isManaged)
             status = ER_BAD_ARG_1;
             break;
         }
-        if (!isManaged) {
-            status = ER_FAIL;
-            break;
-        }
-        qcc::ManagedObj<_SessionListener>* msl = reinterpret_cast<qcc::ManagedObj<_SessionListener>*>(listener);
-        _mListener = new qcc::ManagedObj<_SessionListener>(*msl);
+        _mListener = new qcc::ManagedObj<_SessionListener>(*listener);
         if (NULL == _mListener) {
             status = ER_OUT_OF_MEMORY;
             break;

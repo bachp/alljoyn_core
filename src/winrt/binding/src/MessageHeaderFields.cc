@@ -24,37 +24,49 @@
 
 namespace AllJoyn {
 
-MessageHeaderFields::MessageHeaderFields(void* messageheaders, bool isManaged)
+MessageHeaderFields::MessageHeaderFields(const ajn::HeaderFields* headers)
 {
     ::QStatus status = ER_OK;
 
     while (true) {
-        if (NULL == messageheaders) {
+        if (NULL == headers) {
             status = ER_BAD_ARG_1;
             break;
         }
-        if (!isManaged) {
-            ajn::HeaderFields* headers = reinterpret_cast<ajn::HeaderFields*>(messageheaders);
-            _MessageHeaderFields* hf = new _MessageHeaderFields(headers);
-            if (NULL == hf) {
-                status = ER_OUT_OF_MEMORY;
-                break;
-            }
-            _mMessageHeaderFields = new qcc::ManagedObj<_MessageHeaderFields>(hf);
-            if (NULL == _mMessageHeaderFields) {
-                status = ER_OUT_OF_MEMORY;
-                break;
-            }
-            _messageHeaderFields = &(**_mMessageHeaderFields);
-        } else {
-            qcc::ManagedObj<_MessageHeaderFields>* mhf = reinterpret_cast<qcc::ManagedObj<_MessageHeaderFields>*>(messageheaders);
-            _mMessageHeaderFields = new qcc::ManagedObj<_MessageHeaderFields>(*mhf);
-            if (NULL == _mMessageHeaderFields) {
-                status = ER_OUT_OF_MEMORY;
-                break;
-            }
-            _messageHeaderFields = &(**_mMessageHeaderFields);
+        _MessageHeaderFields* hf = new _MessageHeaderFields(headers);
+        if (NULL == hf) {
+            status = ER_OUT_OF_MEMORY;
+            break;
         }
+        _mMessageHeaderFields = new qcc::ManagedObj<_MessageHeaderFields>(hf);
+        if (NULL == _mMessageHeaderFields) {
+            status = ER_OUT_OF_MEMORY;
+            break;
+        }
+        _messageHeaderFields = &(**_mMessageHeaderFields);
+        break;
+    }
+
+    if (ER_OK != status) {
+        QCC_THROW_EXCEPTION(status);
+    }
+}
+
+MessageHeaderFields::MessageHeaderFields(const qcc::ManagedObj<_MessageHeaderFields>* headers)
+{
+    ::QStatus status = ER_OK;
+
+    while (true) {
+        if (NULL == headers) {
+            status = ER_BAD_ARG_1;
+            break;
+        }
+        _mMessageHeaderFields = new qcc::ManagedObj<_MessageHeaderFields>(*headers);
+        if (NULL == _mMessageHeaderFields) {
+            status = ER_OUT_OF_MEMORY;
+            break;
+        }
+        _messageHeaderFields = &(**_mMessageHeaderFields);
         break;
     }
 
@@ -112,7 +124,7 @@ Platform::Array<MsgArg ^> ^ MessageHeaderFields::Field::get()
                 break;
             }
             for (int i = 0; i < ajn::ALLJOYN_HDR_FIELD_UNKNOWN; i++) {
-                MsgArg ^ tempArg = ref new MsgArg(&(_messageHeaderFields->field[i]), false);
+                MsgArg ^ tempArg = ref new MsgArg(&(_messageHeaderFields->field[i]));
                 if (nullptr == tempArg) {
                     status = ER_OUT_OF_MEMORY;
                     break;
@@ -191,7 +203,7 @@ Platform::Array<AllJoynTypeId> ^ MessageHeaderFields::FieldType::get()
     return result;
 }
 
-_MessageHeaderFields::_MessageHeaderFields(ajn::HeaderFields* headers)
+_MessageHeaderFields::_MessageHeaderFields(const ajn::HeaderFields* headers)
     : ajn::HeaderFields(*headers)
 {
     ::QStatus status = ER_OK;
