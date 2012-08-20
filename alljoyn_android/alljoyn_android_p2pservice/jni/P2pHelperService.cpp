@@ -195,6 +195,8 @@ class P2pService : public BusObject {
         onLinkLostMember = p2pIntf->GetMember("OnLinkLost");
 
         sessionId = 0; // Where to get this?
+
+        initialized = true;
     }
 
     //
@@ -613,6 +615,7 @@ class P2pService : public BusObject {
         args[2].Set("s", guid);
         args[3].Set("s", device);
 
+        LOGI("sendOnFoundAdvertisedName(%s, %s, %s, %s)", name, namePrefix, guid, device);
         QStatus status = Signal(NULL, sessionId, *onFoundAdvertisedNameMember, args, 4, 0);
         if (ER_OK != status) {
             LOGE("sendOnFoundAdvertisedName: Error sending signal (%s)", QCC_StatusText(status));
@@ -626,6 +629,7 @@ class P2pService : public BusObject {
         args[2].Set("s", guid);
         args[3].Set("s", device);
 
+        LOGI("sendOnLostAdvertisedName(%s, %s, %s, %s)", name, namePrefix, guid, device);
         QStatus status = Signal(NULL, sessionId, *onLostAdvertisedNameMember, args, 4, 0);
         if (ER_OK != status) {
             LOGE("sendOnLostAdvertisedName: Error sending signal (%s)", QCC_StatusText(status));
@@ -635,6 +639,7 @@ class P2pService : public BusObject {
     void sendOnLinkEstablished(int handle) {
         MsgArg arg("i", handle);
 
+        LOGI("sendOnLinkEstablished(%d)", handle);
         QStatus status = Signal(NULL, sessionId, *onLinkEstablishedMember, &arg, 1, 0);
         if (ER_OK != status) {
             LOGE("sendOnLinkEstablished: Error sending signal (%s)", QCC_StatusText(status));
@@ -646,6 +651,7 @@ class P2pService : public BusObject {
         args[0].Set("i", handle);
         args[1].Set("i", error);
 
+        LOGI("sendOnLinkError(%d, %d)", handle, error);
         QStatus status = Signal(NULL, sessionId, *onLinkErrorMember, args, 2, 0);
         if (ER_OK != status) {
             LOGE("sendOnLinkError: Error sending signal (%s)", QCC_StatusText(status));
@@ -655,6 +661,7 @@ class P2pService : public BusObject {
     void sendOnLinkLost(int handle) {
         MsgArg arg("i", handle);
 
+        LOGI("sendOnLinkLost(%d)", handle);
         QStatus status = Signal(NULL, sessionId, *onLinkLostMember, &arg, 1, 0);
         if (ER_OK != status) {
             LOGE("sendOnLinkLost: Error sending signal (%s)", QCC_StatusText(status));
@@ -787,7 +794,7 @@ JNIEXPORT jboolean JNICALL Java_org_alljoyn_bus_p2p_service_P2pHelperAndroidServ
                         s_obj = NULL;
                         return false;
                     } else {
-                        LOGE("BusAttachment::Connect(\"%s\") SUCCEDDED (%s)", daemonAddr, QCC_StatusText(status));
+                        LOGE("BusAttachment::Connect(\"%s\") SUCCEEDED (%s)", daemonAddr, QCC_StatusText(status));
                     }
                 }
             }
@@ -800,7 +807,7 @@ JNIEXPORT jboolean JNICALL Java_org_alljoyn_bus_p2p_service_P2pHelperAndroidServ
         LOGE("RequestName(%s) failed (status=%s)\n", SERVICE_NAME, QCC_StatusText(status));
         status = (status == ER_OK) ? ER_FAIL : status;
     } else {
-        LOGE("\n Request Name was successful");
+        LOGI("Request Name was successful");
     }
 
     return true;
