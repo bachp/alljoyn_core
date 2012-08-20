@@ -6,8 +6,9 @@
 LOCAL_PATH := $(call my-dir)
 
 # AllJoyn specifics
-ALLJOYN_BASE := ../../..
-ALLJOYN_DIST := $(ALLJOYN_BASE)/build/android/arm/$(APP_OPTIM)/dist
+# ALLJOYN_BASE := ../../..
+# ALLJOYN_DIST := $(ALLJOYN_BASE)/build/android/arm/$(APP_OPTIM)/dist
+ALLJOYN_DIST := ../..
 
 # The CLEAR_VARS variable is provided by the build system and points to a
 # special GNU Makefile that will clear many LOCAL_XXX variables for you
