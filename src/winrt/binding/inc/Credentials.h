@@ -70,6 +70,7 @@ class _Credentials : protected ajn::AuthListener::Credentials {
   protected:
     friend class qcc::ManagedObj<_Credentials>;
     friend ref class Credentials;
+    friend ref class AuthListener;
     friend class _AuthListener;
     _Credentials();
     ~_Credentials();
@@ -157,6 +158,7 @@ public ref class Credentials sealed {
     }
 
   private:
+    friend ref class AuthListener;
     friend class _AuthListener;
     Credentials(const ajn::AuthListener::Credentials * creds);
     Credentials(const qcc::ManagedObj<_Credentials>* creds);

@@ -88,7 +88,48 @@ AuthListener::~AuthListener()
     }
 }
 
-Windows::Foundation::EventRegistrationToken AuthListener::RequestCredentials::add(AuthListenerRequestCredentialsHandler ^ handler)
+void AuthListener::RequestCredentialsResponse(AuthContext ^ authContext, bool accept, Credentials ^ credentials)
+{
+    ::QStatus status = ER_OK;
+
+    while (true) {
+        if (nullptr == authContext) {
+            status = ER_BAD_ARG_1;
+            break;
+        }
+        if (nullptr == credentials) {
+            status = ER_BAD_ARG_3;
+            break;
+        }
+        ajn::AuthListener::Credentials* creds = credentials->_credentials;
+        status = _listener->RequestCredentialsResponse(authContext->_authContext, accept, *creds);
+        break;
+    }
+
+    if (ER_OK != status) {
+        QCC_THROW_EXCEPTION(status);
+    }
+}
+
+void AuthListener::VerifyCredentialsResponse(AuthContext ^ authContext, bool accept)
+{
+    ::QStatus status = ER_OK;
+
+    while (true) {
+        if (nullptr == authContext) {
+            status = ER_BAD_ARG_1;
+            break;
+        }
+        status = _listener->VerifyCredentialsResponse(authContext->_authContext, accept);
+        break;
+    }
+
+    if (ER_OK != status) {
+        QCC_THROW_EXCEPTION(status);
+    }
+}
+
+Windows::Foundation::EventRegistrationToken AuthListener::RequestCredentials::add(AuthListenerRequestCredentialsAsyncHandler ^ handler)
 {
     return _listener->_eventsAndProperties->RequestCredentials::add(handler);
 }
@@ -98,12 +139,12 @@ void AuthListener::RequestCredentials::remove(Windows::Foundation::EventRegistra
     _listener->_eventsAndProperties->RequestCredentials::remove(token);
 }
 
-bool AuthListener::RequestCredentials::raise(Platform::String ^ authMechanism, Platform::String ^ peerName, uint16_t authCount, Platform::String ^ userName, uint16_t credMask, Credentials ^ credentials)
+QStatus AuthListener::RequestCredentials::raise(Platform::String ^ authMechanism, Platform::String ^ peerName, uint16_t authCount, Platform::String ^ userName, uint16_t credMask, AuthContext ^ authContext)
 {
-    return _listener->_eventsAndProperties->RequestCredentials::raise(authMechanism, peerName, authCount, userName, credMask, credentials);
+    return _listener->_eventsAndProperties->RequestCredentials::raise(authMechanism, peerName, authCount, userName, credMask, authContext);
 }
 
-Windows::Foundation::EventRegistrationToken AuthListener::VerifyCredentials::add(AuthListenerVerifyCredentialsHandler ^ handler)
+Windows::Foundation::EventRegistrationToken AuthListener::VerifyCredentials::add(AuthListenerVerifyCredentialsAsyncHandler ^ handler)
 {
     return _listener->_eventsAndProperties->VerifyCredentials::add(handler);
 }
@@ -113,9 +154,9 @@ void AuthListener::VerifyCredentials::remove(Windows::Foundation::EventRegistrat
     _listener->_eventsAndProperties->VerifyCredentials::remove(token);
 }
 
-bool AuthListener::VerifyCredentials::raise(Platform::String ^ authMechanism, Platform::String ^ peerName, Credentials ^ credentials)
+QStatus AuthListener::VerifyCredentials::raise(Platform::String ^ authMechanism, Platform::String ^ peerName, AllJoyn::Credentials ^ credentials, AuthContext ^ authContext)
 {
-    return _listener->_eventsAndProperties->VerifyCredentials::raise(authMechanism, peerName, credentials);
+    return _listener->_eventsAndProperties->VerifyCredentials::raise(authMechanism, peerName, credentials, authContext);
 }
 
 Windows::Foundation::EventRegistrationToken AuthListener::SecurityViolation::add(AuthListenerSecurityViolationHandler ^ handler)
@@ -163,12 +204,12 @@ _AuthListener::_AuthListener(BusAttachment ^ bus)
             status = ER_OUT_OF_MEMORY;
             break;
         }
-        _eventsAndProperties->RequestCredentials += ref new AuthListenerRequestCredentialsHandler([&] (Platform::String ^ authMechanism, Platform::String ^ peerName, uint16_t authCount, Platform::String ^ userName, uint16_t credMask, AllJoyn::Credentials ^ credentials)->bool {
-                                                                                                      return DefaultAuthListenerRequestCredentialsHandler(authMechanism, peerName, authCount, userName, credMask, credentials);
-                                                                                                  });
-        _eventsAndProperties->VerifyCredentials += ref new AuthListenerVerifyCredentialsHandler([&] (Platform::String ^ authMechanism, Platform::String ^ peerName, AllJoyn::Credentials ^ credentials)->bool {
-                                                                                                    return DefaultAuthListenerVerifyCredentialsHandler(authMechanism, peerName, credentials);
-                                                                                                });
+        _eventsAndProperties->RequestCredentials += ref new AuthListenerRequestCredentialsAsyncHandler([&] (Platform::String ^ authMechanism, Platform::String ^ peerName, uint16_t authCount, Platform::String ^ userName, uint16_t credMask, AuthContext ^ authContext)->QStatus {
+                                                                                                           return DefaultAuthListenerRequestCredentialsAsyncHandler(authMechanism, peerName, authCount, userName, credMask, authContext);
+                                                                                                       });
+        _eventsAndProperties->VerifyCredentials += ref new AuthListenerVerifyCredentialsAsyncHandler([&] (Platform::String ^ authMechanism, Platform::String ^ peerName, AllJoyn::Credentials ^ credentials, AuthContext ^ authContext)->QStatus {
+                                                                                                         return DefaultAuthListenerVerifyCredentialsAsyncHandler(authMechanism, peerName, credentials, authContext);
+                                                                                                     });
         _eventsAndProperties->SecurityViolation += ref new AuthListenerSecurityViolationHandler([&] (AllJoyn::QStatus status, Message ^ msg) {
                                                                                                     DefaultAuthListenerSecurityViolationHandler(status, msg);
                                                                                                 });
@@ -189,15 +230,36 @@ _AuthListener::~_AuthListener()
     _eventsAndProperties = nullptr;
 }
 
-bool _AuthListener::DefaultAuthListenerRequestCredentialsHandler(Platform::String ^ authMechanism, Platform::String ^ peerName, uint16_t authCount, Platform::String ^ userName, uint16_t credMask, AllJoyn::Credentials ^ credentials)
-{
-    return false;
-}
-
-bool _AuthListener::DefaultAuthListenerVerifyCredentialsHandler(Platform::String ^ authMechanism, Platform::String ^ peerName, AllJoyn::Credentials ^ credentials)
+QStatus _AuthListener::DefaultAuthListenerRequestCredentialsAsyncHandler(Platform::String ^ authMechanism, Platform::String ^ peerName, uint16_t authCount, Platform::String ^ userName, uint16_t credMask, AuthContext ^ authContext)
 {
     ::QStatus status = ER_OK;
-    bool result = false;
+
+    while (true) {
+        qcc::String strAuthMechanism = PlatformToMultibyteString(authMechanism);
+        if (nullptr != authMechanism && strAuthMechanism.empty()) {
+            status = ER_OUT_OF_MEMORY;
+            break;
+        }
+        qcc::String strPeerName = PlatformToMultibyteString(peerName);
+        if (nullptr != peerName && strPeerName.empty()) {
+            status = ER_OUT_OF_MEMORY;
+            break;
+        }
+        qcc::String strUserName = PlatformToMultibyteString(userName);
+        if (nullptr != userName && strUserName.empty()) {
+            status = ER_OUT_OF_MEMORY;
+            break;
+        }
+        status = ajn::AuthListener::RequestCredentialsAsync(strAuthMechanism.c_str(), strPeerName.c_str(), authCount, strUserName.c_str(), credMask, authContext->_authContext);
+        break;
+    }
+
+    return (AllJoyn::QStatus)status;
+}
+
+QStatus _AuthListener::DefaultAuthListenerVerifyCredentialsAsyncHandler(Platform::String ^ authMechanism, Platform::String ^ peerName, AllJoyn::Credentials ^ credentials, AuthContext ^ authContext)
+{
+    ::QStatus status = ER_OK;
 
     while (true) {
         qcc::String strAuthMechanism = PlatformToMultibyteString(authMechanism);
@@ -211,11 +273,11 @@ bool _AuthListener::DefaultAuthListenerVerifyCredentialsHandler(Platform::String
             break;
         }
         ajn::AuthListener::Credentials* creds = credentials->_credentials;
-        result = ajn::AuthListener::VerifyCredentials(strAuthMechanism.c_str(), strPeerName.c_str(), *creds);
+        status = ajn::AuthListener::VerifyCredentialsAsync(strAuthMechanism.c_str(), strPeerName.c_str(), *creds, authContext->_authContext);
         break;
     }
 
-    return result;
+    return (AllJoyn::QStatus)status;
 }
 
 void _AuthListener::DefaultAuthListenerSecurityViolationHandler(AllJoyn::QStatus status, Message ^ msg)
@@ -228,10 +290,9 @@ void _AuthListener::DefaultAuthListenerAuthenticationCompleteHandler(Platform::S
 {
 }
 
-bool _AuthListener::RequestCredentials(const char* authMechanism, const char* peerName, uint16_t authCount, const char* userName, uint16_t credMask, ajn::AuthListener::Credentials& credentials)
+::QStatus _AuthListener::RequestCredentialsAsync(const char* authMechanism, const char* peerName, uint16_t authCount, const char* userName, uint16_t credMask, void* authContext)
 {
     ::QStatus status = ER_OK;
-    bool result = false;
 
     while (true) {
         Platform::String ^ strAuthMechanism = MultibyteToPlatformString(authMechanism);
@@ -249,16 +310,14 @@ bool _AuthListener::RequestCredentials(const char* authMechanism, const char* pe
             status = ER_OUT_OF_MEMORY;
             break;
         }
-        AllJoyn::Credentials ^ cred = ref new AllJoyn::Credentials(&credentials);
-        if (nullptr == cred) {
+        AuthContext ^ context = ref new AuthContext(authContext);
+        if (nullptr == context) {
             status = ER_OUT_OF_MEMORY;
             break;
         }
         _eventsAndProperties->Bus->_busAttachment->DispatchCallback(ref new Windows::UI::Core::DispatchedHandler([&]() {
-                                                                                                                     result = _eventsAndProperties->RequestCredentials(strAuthMechanism, strPeerName, authCount, strUserName, credMask, cred);
+                                                                                                                     status = (::QStatus)_eventsAndProperties->RequestCredentials(strAuthMechanism, strPeerName, authCount, strUserName, credMask, context);
                                                                                                                  }));
-        ajn::AuthListener::Credentials* credsOut = cred->_credentials;
-        ((Credentials &)credentials) = *credsOut;
         break;
     }
 
@@ -266,13 +325,12 @@ bool _AuthListener::RequestCredentials(const char* authMechanism, const char* pe
         QCC_THROW_EXCEPTION(status);
     }
 
-    return result;
+    return status;
 }
 
-bool _AuthListener::VerifyCredentials(const char* authMechanism, const char* peerName, const Credentials& credentials)
+::QStatus _AuthListener::VerifyCredentialsAsync(const char* authMechanism, const char* peerName, const Credentials& credentials, void* authContext)
 {
     ::QStatus status = ER_OK;
-    bool result = false;
 
     while (true) {
         Platform::String ^ strAuthMechanism = MultibyteToPlatformString(authMechanism);
@@ -290,11 +348,14 @@ bool _AuthListener::VerifyCredentials(const char* authMechanism, const char* pee
             status = ER_OUT_OF_MEMORY;
             break;
         }
+        AuthContext ^ context = ref new AuthContext(authContext);
+        if (nullptr == context) {
+            status = ER_OUT_OF_MEMORY;
+            break;
+        }
         _eventsAndProperties->Bus->_busAttachment->DispatchCallback(ref new Windows::UI::Core::DispatchedHandler([&]() {
-                                                                                                                     result = _eventsAndProperties->VerifyCredentials(strAuthMechanism, strPeerName, cred);
+                                                                                                                     status = (::QStatus)_eventsAndProperties->VerifyCredentials(strAuthMechanism, strPeerName, cred, context);
                                                                                                                  }));
-        ajn::AuthListener::Credentials* credsOut = cred->_credentials;
-        ((Credentials &)credentials) = *credsOut;
         break;
     }
 
@@ -302,7 +363,7 @@ bool _AuthListener::VerifyCredentials(const char* authMechanism, const char* pee
         QCC_THROW_EXCEPTION(status);
     }
 
-    return result;
+    return status;
 }
 
 void _AuthListener::SecurityViolation(::QStatus status, const ajn::Message& msg)

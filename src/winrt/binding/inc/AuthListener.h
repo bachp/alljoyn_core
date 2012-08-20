@@ -26,6 +26,14 @@
 
 namespace AllJoyn {
 
+public ref class AuthContext sealed {
+  private:
+    friend ref class AuthListener;
+    friend class _AuthListener;
+    AuthContext(void* authContext) : _authContext(authContext) { }
+    void* _authContext;
+};
+
 ref class Credentials;
 ref class BusAttachment;
 ref class Message;
@@ -46,13 +54,11 @@ ref class Message;
 /// <param name="credMask">A bit mask identifying the credentials being requested.
 /// The application may return none, some or all of the requested credentials.
 /// </param>
-/// <param name="credentials">The credentials returned.</param>
+/// <param name="authContext">Callback context for associating the request with the returned credentials.</param>
 /// <returns>
-///The caller should return true if the request is being accepted or false if the
-///requests is being rejected. If the request is rejected the authentication is
-///complete.
+///Return ER_OK if the request is handled.
 /// </returns>
-public delegate bool AuthListenerRequestCredentialsHandler(Platform::String ^ authMechanism, Platform::String ^ peerName, uint16_t authCount, Platform::String ^ userName, uint16_t credMask, Credentials ^ credentials);
+public delegate QStatus AuthListenerRequestCredentialsAsyncHandler(Platform::String ^ authMechanism, Platform::String ^ peerName, uint16_t authCount, Platform::String ^ userName, uint16_t credMask, AuthContext ^ authContext);
 
 /// <summary>
 ///Authentication mechanism requests verification of credentials from a remote peer.
@@ -62,11 +68,11 @@ public delegate bool AuthListenerRequestCredentialsHandler(Platform::String ^ au
 /// side this will be a well-known-name for the remote peer. On the
 /// accepting side this will be the unique bus name for the remote peer.</param>
 /// <param name="credentials">The credentials to be verified.</param>
+/// <param name="authContext">Callback context for associating the request with the verification response.</param>
 /// <returns>
-///The listener should return true if the credentials are acceptable or false if the
-///credentials are being rejected.
+///Return ER_OK if the request is handled.
 /// </returns>
-public delegate bool AuthListenerVerifyCredentialsHandler(Platform::String ^ authMechanism, Platform::String ^ peerName, Credentials ^ credentials);
+public delegate QStatus AuthListenerVerifyCredentialsAsyncHandler(Platform::String ^ authMechanism, Platform::String ^ peerName, Credentials ^ credentials, AuthContext ^ authContext);
 
 /// <summary>
 ///Optional method that if implemented allows an application to monitor security violations. This
@@ -96,8 +102,8 @@ ref class __AuthListener {
     __AuthListener();
     ~__AuthListener();
 
-    event AuthListenerRequestCredentialsHandler ^ RequestCredentials;
-    event AuthListenerVerifyCredentialsHandler ^ VerifyCredentials;
+    event AuthListenerRequestCredentialsAsyncHandler ^ RequestCredentials;
+    event AuthListenerVerifyCredentialsAsyncHandler ^ VerifyCredentials;
     event AuthListenerSecurityViolationHandler ^ SecurityViolation;
     event AuthListenerAuthenticationCompleteHandler ^ AuthenticationComplete;
     property BusAttachment ^ Bus;
@@ -111,12 +117,12 @@ class _AuthListener : protected ajn::AuthListener {
     _AuthListener(BusAttachment ^ bus);
     ~_AuthListener();
 
-    bool DefaultAuthListenerRequestCredentialsHandler(Platform::String ^ authMechanism, Platform::String ^ peerName, uint16_t authCount, Platform::String ^ userName, uint16_t credMask, AllJoyn::Credentials ^ credentials);
-    bool DefaultAuthListenerVerifyCredentialsHandler(Platform::String ^ authMechanism, Platform::String ^ peerName, AllJoyn::Credentials ^ credentials);
+    QStatus DefaultAuthListenerRequestCredentialsAsyncHandler(Platform::String ^ authMechanism, Platform::String ^ peerName, uint16_t authCount, Platform::String ^ userName, uint16_t credMask, AuthContext ^ authContext);
+    QStatus DefaultAuthListenerVerifyCredentialsAsyncHandler(Platform::String ^ authMechanism, Platform::String ^ peerName, AllJoyn::Credentials ^ credentials, AuthContext ^ authContext);
     void DefaultAuthListenerSecurityViolationHandler(AllJoyn::QStatus status, Message ^ msg);
     void DefaultAuthListenerAuthenticationCompleteHandler(Platform::String ^ authMechanism, Platform::String ^ peerName, bool success);
-    bool RequestCredentials(const char* authMechanism, const char* peerName, uint16_t authCount, const char* userName, uint16_t credMask, ajn::AuthListener::Credentials& credentials);
-    bool VerifyCredentials(const char* authMechanism, const char* peerName, const Credentials& credentials);
+    ::QStatus RequestCredentialsAsync(const char* authMechanism, const char* peerName, uint16_t authCount, const char* userName, uint16_t credMask, void* authContext);
+    ::QStatus VerifyCredentialsAsync(const char* authMechanism, const char* peerName, const ajn::AuthListener::Credentials& credentials, void* authContext);
     void SecurityViolation(::QStatus status, const ajn::Message& msg);
     void AuthenticationComplete(const char* authMechanism, const char* peerName, bool success);
 
@@ -131,23 +137,48 @@ public ref class AuthListener sealed {
     AuthListener(BusAttachment ^ bus);
 
     /// <summary>
+    ///Respond to a call to RequestCredentialsAsync.
+    /// </summary>
+    /// <param name="authContext">Context that was passed in the call out to RequestCredentialsAsync.</param>
+    /// <param name="accept">Returns true to accept the credentials request or false to reject it.</param>
+    /// <param name="credentials">The credentials being returned if accept is true.</param>
+    /// <exception cref="Platform::COMException">
+    /// HRESULT will contain the AllJoyn error status code for the error.
+    /// - #ER_OK if successful
+    /// - An error status otherwise
+    /// </exception>
+    void RequestCredentialsResponse(AuthContext ^ authContext, bool accept, Credentials ^ credentials);
+
+    /// <summary>
+    ///Respond to a call to VerifyCredentialsAsync.
+    /// </summary>
+    /// <param name="authContext">Context that was passed in the call out to VerifyCredentialsAsync.</param>
+    /// <param name="accept">Returns true to accept the credentials or false to reject it.</param>
+    /// <exception cref="Platform::COMException">
+    /// HRESULT will contain the AllJoyn error status code for the error.
+    /// - #ER_OK if successful
+    /// - An error status otherwise
+    /// </exception>
+    void VerifyCredentialsResponse(AuthContext ^ authContext, bool accept);
+
+    /// <summary>
     ///Called when user credentials are requested.
     /// </summary>
-    event AuthListenerRequestCredentialsHandler ^ RequestCredentials
+    event AuthListenerRequestCredentialsAsyncHandler ^ RequestCredentials
     {
-        Windows::Foundation::EventRegistrationToken add(AuthListenerRequestCredentialsHandler ^ handler);
+        Windows::Foundation::EventRegistrationToken add(AuthListenerRequestCredentialsAsyncHandler ^ handler);
         void remove(Windows::Foundation::EventRegistrationToken token);
-        bool raise(Platform::String ^ authMechanism, Platform::String ^ peerName, uint16_t authCount, Platform::String ^ userName, uint16_t credMask, Credentials ^ credentials);
+        QStatus raise(Platform::String ^ authMechanism, Platform::String ^ peerName, uint16_t authCount, Platform::String ^ userName, uint16_t credMask, AuthContext ^ authContext);
     }
 
     /// <summary>
     ///Called when a remote peer requests verification of credentials.
     /// </summary>
-    event AuthListenerVerifyCredentialsHandler ^ VerifyCredentials
+    event AuthListenerVerifyCredentialsAsyncHandler ^ VerifyCredentials
     {
-        Windows::Foundation::EventRegistrationToken add(AuthListenerVerifyCredentialsHandler ^ handler);
+        Windows::Foundation::EventRegistrationToken add(AuthListenerVerifyCredentialsAsyncHandler ^ handler);
         void remove(Windows::Foundation::EventRegistrationToken token);
-        bool raise(Platform::String ^ authMechanism, Platform::String ^ peerName, Credentials ^ credentials);
+        QStatus raise(Platform::String ^ authMechanism, Platform::String ^ peerName, AllJoyn::Credentials ^ credentials, AuthContext ^ authContext);
     }
 
     /// <summary>
