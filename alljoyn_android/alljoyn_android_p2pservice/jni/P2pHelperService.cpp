@@ -212,7 +212,7 @@ class P2pService : public BusObject {
     // about arranging to get the current thread associated with the environment so
     // we provide a convenience function that does what we need.
     //
-    JNIEnv* attachEnv(jint *jret)
+    JNIEnv* attachEnv(jint* jret)
     {
         LOGI("attachEnv()");
         JNIEnv* env;
