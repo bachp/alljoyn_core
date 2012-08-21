@@ -3309,22 +3309,19 @@ void AllJoynObj::FoundNames(const qcc::String& busAddr,
             if (0 < ttl) {
                 if (isNew) {
                     /* Add new name to map */
-                    nameMap.insert(pair<String, NameMapEntry>(*nit, NameMapEntry(busAddr,
-                                                                                 guid,
-                                                                                 transport,
-                                                                                 (ttl == numeric_limits<uint8_t>::max()) ? numeric_limits<uint64_t>::max() : (1000LL * ttl),
-                                                                                 this)));
+                    NameMapType::iterator it = nameMap.insert(NameMapType::value_type(*nit, NameMapEntry(busAddr,
+                                                                                                         guid,
+                                                                                                         transport,
+                                                                                                         (ttl == numeric_limits<uint8_t>::max()) ? numeric_limits<uint64_t>::max() : (1000LL * ttl),
+                                                                                                         this)));
                     // Don't schedule an alarm which will never expire or multiple timers for the same set
                     if (notimers && (ttl != numeric_limits<uint8_t>::max())) {
-                        multimap<String, NameMapEntry>::iterator ait = nameMap.find(*nit);
-                        if (ait != nameMap.end()) {
-                            NameMapEntry& nme = ait->second;
-                            QStatus status = timer.AddAlarm(nme.alarm);
-                            if (ER_OK != status && ER_TIMER_EXITING != status) {
-                                QCC_LogError(status, ("Failed to add alarm"));
-                            } else {
-                                notimers = false;
-                            }
+                        NameMapEntry& nme = it->second;
+                        QStatus status = timer.AddAlarm(nme.alarm);
+                        if (ER_OK != status && ER_TIMER_EXITING != status) {
+                            QCC_LogError(status, ("Failed to add alarm"));
+                        } else {
+                            notimers = false;
                         }
                     }
                     /* Send FoundAdvertisedName to anyone who is discovering *nit */

@@ -402,7 +402,8 @@ class AllJoynObj : public BusObject, public NameListener, public TransportListen
             ttl(ttl),
             alarm(ttl, listener, truthiness) { }
     };
-    std::multimap<qcc::String, NameMapEntry> nameMap;
+    typedef std::multimap<qcc::String, NameMapEntry> NameMapType;
+    NameMapType nameMap;
 
     /* Session map */
     struct SessionMapEntry {
