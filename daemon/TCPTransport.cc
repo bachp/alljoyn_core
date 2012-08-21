@@ -2130,7 +2130,7 @@ void TCPTransport::EnableAdvertisementInstance(ListenRequest& listenRequest)
                     break;
                 }
 
-                if (msWaited > 5000 ) {
+                if (msWaited > 5000) {
                     status = ER_TIMEOUT;
                     break;
                 }
@@ -2733,7 +2733,7 @@ QStatus TCPTransport::CreateTemporaryNetwork(const qcc::String& guid, qcc::Strin
                     break;
                 }
 
-                if (msWaited > 5000 ) {
+                if (msWaited > 5000) {
                     status = ER_TIMEOUT;
                     break;
                 }
@@ -2899,13 +2899,13 @@ QStatus TCPTransport::CreateTemporaryNetwork(const qcc::String& guid, qcc::Strin
 
                                     for (;;) {
                                         QCC_DbgPrintf(("TCPTransport::CreateTemporaryNetwork(): "
-                                                      "Waiting on m_getInterfacenameFromHandleResult"));
+                                                       "Waiting on m_getInterfacenameFromHandleResult"));
 
                                         if (m_getInterfaceNameFromHandleResult) {
                                             break;
                                         }
 
-                                        if (msWaited > 5000 ) {
+                                        if (msWaited > 5000) {
                                             status = ER_TIMEOUT;
                                             break;
                                         }
@@ -2914,7 +2914,7 @@ QStatus TCPTransport::CreateTemporaryNetwork(const qcc::String& guid, qcc::Strin
                                         msWaited += 100;
                                     }
                                 } else {
-                                    QCC_LogError(status, 
+                                    QCC_LogError(status,
                                                  ("TCPTransport::EnableAdvertisementInstance(): EstablishLink for GO fails"));
                                 }
 
