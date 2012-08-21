@@ -1502,7 +1502,6 @@ void _BusAttachment::DispatchCallback(Windows::UI::Core::DispatchedHandler ^ cal
         // Our origin was STA and the thread dispatcher doesn't match up. Move execution to the origin dispatcher thread.
         Windows::Foundation::IAsyncAction ^ op = _dispatcher->RunAsync(Windows::UI::Core::CoreDispatcherPriority::Normal,
                                                                        ref new Windows::UI::Core::DispatchedHandler([this, callback] () {
-                                                                                                                        EnableConcurrentCallbacks();
                                                                                                                         callback();
                                                                                                                     }));
         // Since we are now queued up, enable concurrency to prevent any unnecessary blocking (this turns whatever callback does into a no op)
