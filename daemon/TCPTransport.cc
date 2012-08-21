@@ -1324,6 +1324,7 @@ void TCPTransport::EndpointExit(RemoteEndpoint* ep)
         m_p2pHelperInterface->ReleaseLinkAsync(m_goHandle);
         m_goHandle = -1;
 
+#if 0
         /*
          * We don't currently have any way to know if this was a GO or STA or
          * what kind of advertisements or discovery operations are happening
@@ -1335,6 +1336,7 @@ void TCPTransport::EndpointExit(RemoteEndpoint* ep)
         if (status != ER_OK) {
             QCC_LogError(status, ("TCPTransport::Disconnect(): Cannot close interface \"%s\"", interface.c_str()));
         }
+#endif
     }
 
 #endif // defined(QCC_OS_ANDROID) && P2P_HELPER
@@ -2060,10 +2062,18 @@ void TCPTransport::EnableAdvertisementInstance(ListenRequest& listenRequest)
 #if defined(QCC_OS_ANDROID) && P2P_HELPER
 
     /*
+     * We've advertised the name with the multicast name service so now we need
+     * to deal with the possibility that we are on a system which supports Wi-Fi
+     * P2P.  In this case, the supported system is Android and the only way to
+     * talk to P2P is via the Android Application Framework.  This means we need
+     * to call out to a service that is implemented in a process which has the
+     * framework present.  We use a helper to make life easier for us.
+     *
      * We lazily create the helper since there's no easy way for us to know when
      * the initialization sequence has completed enough for us to find the DBus
-     * interface.  If someone is advertising, though, it must be completed
-     * enough since they exist.
+     * interface.  If some service is advertising, though, we must be
+     * initialized since a service fhas connected to the daemon and is doing an
+     * advertise name.
      */
     if (m_p2pHelperInterface == NULL) {
         QCC_DbgPrintf(("TCPTransport::EnableAdvertisementInstance(): new P2PHelperInterface"));
@@ -2079,24 +2089,26 @@ void TCPTransport::EnableAdvertisementInstance(ListenRequest& listenRequest)
      * If we are on an Android system, we need to call back into the helper
      * service to make this happen.
      *
-     * First, if we are going to advertise a name, we need to act as the group
-     * owner (GO) of a P2P group which AllJoyn clients will join as STA nodes
-     * when they discover the name.  This may or may not have any immediate
-     * effect since the P2P code may decide to delay group action until there is
-     * a STA trying to connect.  So we just do the asynchronous request and hope
-     * for the best.
+     * First, if we are going to advertise a name, it means we are a service.
+     * In this case, we need to act as the group owner (GO) of a P2P group which
+     * AllJoyn clients will join as STA nodes when they discover the name over
+     * Wi-Fi P2P.  We want to instantiate a group (act as a GO) whenever we start
+     * advertising and keep the group up and running until we get a cancel
+     * advertise name.
      *
-     * The call to EstablishLink returns a handle for the link.  We want to
-     * instantiate an instance of a GO on a particular daemon whenever it starts
-     * advertising and keep the group up and running until it stops.
+     * We need to create the GO irrespective of whether or not a concurrent
+     * infrastructure mode interface is up or not.  This is so we can connect via
+     * Wi-Fi P2P if the corresponding AP is blocking communication between STAs
+     * for example.
      *
-     * Since there is a lot of action happening in the main thread of the TCP
-     * transport, we need to use asynchrounous method calls since the thread is
-     * going to be constantly Alert()ed, which breaks normal synchronous calls.
-     * There is nothing terribly time-critical about the TCPTransport main
-     * thread, so we can afford to hang out here until we get a response.  The
-     * response comes back in MyP2PHelperListener::HandleEstablishLinkReply()
-     * found in TCPTransport.h, BTW.
+     * The call to EstablishLink returns a handle for the group, so we have to
+     * wait for the response.  There is a lot of action happening in the main
+     * thread of the TCP transport so the thread is constantly in the Alerted
+     * state, so we use an asynchrounous method call.  Note that we are blocking
+     * the the TCPTransport main thread here, so inbound connections will be
+     * delayed for the time it takes to get the response.  The response comes
+     * back in MyP2PHelperListener::HandleEstablishLinkReply() found in
+     * TCPTransport.h, BTW.
      */
     if (!m_isAdvertising) {
         m_establishLinkEvent.ResetEvent();
@@ -2104,61 +2116,51 @@ void TCPTransport::EnableAdvertisementInstance(ListenRequest& listenRequest)
         qcc::String localDevice("");
         QCC_DbgPrintf(("TCPTransport::EnableAdvertisementInstance(): EstablishLink()"));
         status = m_p2pHelperInterface->EstablishLinkAsync(localDevice, P2PHelperInterface::DEVICE_MUST_BE_GO);
-        if (status != ER_OK) {
+        if (status == ER_OK) {
+            /*
+             * Only wait for a rational amount of time for this RPC to complete.
+             * If the system is working, this should happen very quickly, so
+             * we'll pick the generic five second timeout out of the air.
+             */
+            uint32_t msWaited = 0;
+
+            for (;;) {
+                QCC_DbgPrintf(("TCPTransport::EnableAdvertisementInstance(): Gag, polling m_establishLinkResult"));
+                if (m_establishLinkResult) {
+                    break;
+                }
+
+                if (msWaited > 5000 ) {
+                    status = ER_TIMEOUT;
+                    break;
+                }
+
+                qcc::Sleep(100);
+                msWaited += 100;
+            }
+        } else {
             QCC_LogError(status, ("TCPTransport::EnableAdvertisementInstance(): EstablishLink for GO fails"));
         }
 
-        /*
-         * Wait for the reply to the asynchronous call to complete, which will
-         * stash the returned handle and bug the establish link event.
-         *
-         * XXX FIXME MT timeout concurrency with STA side?
-         */
-        for (;;) {
-            QCC_DbgPrintf(("TCPTransport::EnableAdvertisementInstance(): Waiting on m_establishLinkEvent"));
-            if (m_establishLinkResult) {
-                break;
-            }
-
-            qcc::Sleep(100);
-#if 0
-            status = Event::Wait(m_establishLinkEvent, Event::WAIT_FOREVER);
-            QCC_DbgPrintf(("TCPTransport::EnableAdvertisementInstance(): Back from Event::Wait with status %d.", status));
-            switch (status) {
-            case ER_OK:
-                QCC_DbgPrintf(("TCPTransport::EnableAdvertisementInstance(): Event::Wait() returns ER_OK"));
-                break;
-
-            case ER_ALERTED_THREAD:
-                QCC_DbgPrintf(("TCPTransport::EnableAdvertisementInstance(): Event::Wait() returns ER_ALERTED_THREAD"));
-                continue;
-
-            case ER_FAIL:
-            case ER_TIMEOUT:
-            default:
-                QCC_LogError(status, ("TCPTransport::EnableAdvertisementInstance(): Event::Wait() fails"));
-                break;
-            }
-#endif
-        }
-
-        QCC_DbgPrintf(("TCPTransport::EnableAdvertisementInstance(): Link establish reply received"));
-
-        if (m_goHandle < P2PHelperInterface::P2P_OK) {
+        if (status != ER_OK || m_goHandle < P2PHelperInterface::P2P_OK) {
             /*
              * We were unable to start a P2P Group, but this doesn't mean that
              * the entire advertisement process has not been successful.  It is
              * possible that there are existing groups (P2P, legacy, soft AP,
              * ethernet, etc.) that are working just fine, so we do not error
              * out if we can't create the group -- we just report the error and
-             * don't try to pre-association advertse the corresponding service.
+             * don't try to pre-association advertise the corresponding service.
+             * We will have advertised over the multicast name service at this
+             * point.
              */
             QCC_LogError(status, ("TCPTransport::EnableAdvertisementInstance(): Could not start P2P group"));
         } else {
             /*
              * The P2P group has come up, or the service assures us that it will
              * during a group owner negotiaion, so we can confidently advertise
-             * the corresponding service.
+             * the corresponding service over pre-association service discovery.
+             * There's not much we can do if the Android Application Framework
+             * balks, so we just throw the RPC over the fence and hope it sticks.
              */
             QCC_DbgPrintf(("TCPTransport::EnableAdvertisementInstance(): AdvertiseNameAsync()"));
             status = m_p2pHelperInterface->AdvertiseNameAsync(listenRequest.m_requestParam,
@@ -2199,10 +2201,18 @@ void TCPTransport::DisableAdvertisementInstance(ListenRequest& listenRequest)
 #if defined(QCC_OS_ANDROID) && P2P_HELPER
 
     /*
+     * We've advertised the name with the multicast name service so now we need
+     * to deal with the possibility that we are on a system which supports Wi-Fi
+     * P2P.  In this case, the supported system is Android and the only way to
+     * talk to P2P is via the Android Application Framework.  This means we need
+     * to call out to a service that is implemented in a process which has the
+     * framework present.  We use a helper to make life easier for us.
+     *
      * We lazily create the helper since there's no easy way for us to know when
      * the initialization sequence has completed enough for us to find the DBus
-     * interface.  If someone is advertising, though, it must be completed
-     * enough since they exist.
+     * interface.  If some service is advertising, though, we must be
+     * initialized since a service fhas connected to the daemon and is doing an
+     * advertise name.
      */
     if (m_p2pHelperInterface == NULL) {
         QCC_DbgPrintf(("TCPTransport::DisableAdvertisementInstance(): new P2PHelperInterface"));
@@ -2216,7 +2226,8 @@ void TCPTransport::DisableAdvertisementInstance(ListenRequest& listenRequest)
 
     /*
      * If we are on an Android system, we need to call back into the helper
-     * service to make this happen.
+     * service to make this happen.  If the framework balks at the request to
+     * release the link, there's not much we can do about it.
      */
     if (isEmpty && m_isAdvertising) {
         QCC_DbgPrintf(("TCPTransport::DisableAdvertisementInstance(): ReleaseLinkAsync()"));
@@ -2352,10 +2363,18 @@ void TCPTransport::EnableDiscoveryInstance(ListenRequest& listenRequest)
 #if defined(QCC_OS_ANDROID) && P2P_HELPER
 
     /*
+     * We've tried to find the name with the multicast name service so now we
+     * need to deal with the possibility that we are on a system which supports
+     * Wi-Fi P2P.  In this case, the supported system is Android and the only
+     * way to talk to P2P is via the Android Application Framework.  This means
+     * we need to call out to a service that is implemented in a process which
+     * has the framework present.  We use a helper to make life easier for us.
+     *
      * We lazily create the helper since there's no easy way for us to know when
      * the initialization sequence has completed enough for us to find the DBus
-     * interface.  If someone is doing discovery, though, it must be completed
-     * enough since they exist.
+     * interface.  If some service is doing discovery, though, we must be
+     * initialized since a service fhas connected to the daemon and is doing an
+     * advertise name.
      */
     if (m_p2pHelperInterface == NULL) {
         QCC_DbgPrintf(("TCPTransport::EnableDiscoveryInstance(): new P2PHelperInterface"));
@@ -2400,10 +2419,18 @@ void TCPTransport::DisableDiscoveryInstance(ListenRequest& listenRequest)
     starred.append('*');
 
     /*
+     * We've tried to find the name with the multicast name service so now we
+     * need to deal with the possibility that we are on a system which supports
+     * Wi-Fi P2P.  In this case, the supported system is Android and the only
+     * way to talk to P2P is via the Android Application Framework.  This means
+     * we need to call out to a service that is implemented in a process which
+     * has the framework present.  We use a helper to make life easier for us.
+     *
      * We lazily create the helper since there's no easy way for us to know when
      * the initialization sequence has completed enough for us to find the DBus
-     * interface.  If someone is doing discovery, though, it must be completed
-     * enough since they exist.
+     * interface.  If some service is doing discovery, though, we must be
+     * initialized since a service fhas connected to the daemon and is doing an
+     * advertise name.
      */
     if (m_p2pHelperInterface == NULL) {
         QCC_DbgPrintf(("TCPTransport::DisableDiscoveryInstance(): new P2PHelperInterface"));
@@ -2688,44 +2715,36 @@ QStatus TCPTransport::CreateTemporaryNetwork(const qcc::String& guid, qcc::Strin
 
         QCC_DbgPrintf(("TCPTransport::CreateTemporaryNetwork(): EstablishLink()"));
         QStatus status = m_p2pHelperInterface->EstablishLinkAsync(device.c_str(), P2PHelperInterface::DEVICE_MUST_BE_STA);
-        if (status != ER_OK) {
+        if (status == ER_OK) {
+            /*
+             * Only wait for a rational amount of time for this RPC to complete.
+             * Getting the handle back for the link should be a farily quick
+             * operation, so we'll pick the generic five second timeout out of
+             * the air.  The really time consuming part comes later when the
+             * link is actually tried to be brought up.  The result of that
+             * operation (until either OnLinkEstablished or OnLinkError happens)
+             * can be very time consuming.  We're just getting a handle here.
+             */
+            uint32_t msWaited = 0;
+
+            for (;;) {
+                QCC_DbgPrintf(("TCPTransport::CreateTemporaryNetwork(): Gag, polling m_establishLinkResult"));
+                if (m_establishLinkResult) {
+                    break;
+                }
+
+                if (msWaited > 5000 ) {
+                    status = ER_TIMEOUT;
+                    break;
+                }
+
+                qcc::Sleep(100);
+                msWaited += 100;
+            }
+        } else {
+            QCC_LogError(status, ("TCPTransport::CreateTemporaryNetwork(): EstablishLinkAsync for STA fails"));
             m_deviceRequestListLock.Unlock(MUTEX_CONTEXT);
-            QCC_LogError(ER_FAIL, ("TCPTransport::CreateTemporaryNetwork(): EstablishLink on \"%s\" failed", device.c_str()));
             return status;
-        }
-
-        /*
-         * Wait for the reply to the asynchronous call to complete, which will
-         * stash the returned handle and bug the establish link event.
-         *
-         * XXX FIXME timeout MT concurrency with GO side
-         */
-        for (;;) {
-            QCC_DbgPrintf(("TCPTransport::CreateTemporaryNetwork(): Waiting on m_establishLinkEvent"));
-            if (m_establishLinkResult) {
-                break;
-            }
-
-            qcc::Sleep(100);
-#if 0
-            status = Event::Wait(m_establishLinkEvent, Event::WAIT_FOREVER);
-            switch (status) {
-            case ER_OK:
-                QCC_DbgPrintf(("TCPTransport::CreateTemporaryNetwork(): Event::Wait() returns"));
-                break;
-
-            case ER_FAIL:
-            case ER_TIMEOUT:
-                QCC_LogError(status, ("TCPTransport::CreateTemporaryNetwork(): Event::Wait() fails"));
-                break;
-
-            case ER_ALERTED_THREAD:
-                continue;
-
-            default:
-                break;
-            }
-#endif
         }
 
         /*
@@ -2739,11 +2758,13 @@ QStatus TCPTransport::CreateTemporaryNetwork(const qcc::String& guid, qcc::Strin
         int32_t handle = m_goHandle;
 
         /*
-         * We need to identify ourselves as a thread waiting for a result for a
-         * particular request.  The request is identified by the handle, and we
-         * are going to eventually be waiting on an event.  We wrap those two
-         * things up in an object and stash it on a list available to the
-         * callback that will happen when the request is acted upon.
+         * We have a handle for the link we want to establish, but we don't have
+         * a result for the actual link establishment operation.  We need to
+         * identify ourselves as a thread waiting for a result for a particular
+         * link establishment request.  The request is identified by the handle,
+         * we just got and we are going to want to wait on an event; so we wrap
+         * those two things up in an object and stash it on a list available to
+         * the callback that will happen when the request is acted upon.
          */
         qcc::Event deviceEvent;
 
@@ -2760,13 +2781,13 @@ QStatus TCPTransport::CreateTemporaryNetwork(const qcc::String& guid, qcc::Strin
         m_deviceRequestListLock.Unlock(MUTEX_CONTEXT);
 
         /*
-         * We'll wait as long as 15 seconds for a response (the group to be
-         * created).  This isn't pulled out of the air, it is a number taken
-         * from the Wi-Fi P2P technical specification section 3.1.4 (Group
-         * Formation Procedure).  It requires that "A P2P Device shall take no
-         * more than fifteen seconds to complete Group Formation."
-         *
-         * So, since the spec says fifteen seconds, we'll wait two minutes.
+         * We need to wait a rational amount of time for the link establishment
+         * request to be acted upon.  Unfortunately, a rational amount of time
+         * is pretty unreasonable.  We need to wait for the GO negotiation to
+         * complete, and we may need to wait until a human being on the other
+         * side gets around to accepting a connection request popup on the
+         * remote device.  We pull two minutes out of the air as a rational
+         * amount of time to wait.
          */
         Timespec tTimeout = 120000;
         Timespec tStart;
@@ -2865,45 +2886,43 @@ QStatus TCPTransport::CreateTemporaryNetwork(const qcc::String& guid, qcc::Strin
                                 QCC_DbgPrintf(("TCPTransport::CreateTemporaryNetwork(): GetInterfaceNameFromHandleAsync()"));
                                 m_getInterfaceNameFromHandleEvent.ResetEvent();
                                 m_getInterfaceNameFromHandleResult = false;
-                                m_p2pHelperInterface->GetInterfaceNameFromHandleAsync(handle);
+                                status = m_p2pHelperInterface->GetInterfaceNameFromHandleAsync(handle);
+                                if (status == ER_OK) {
+                                    /*
+                                     * Only wait for a rational amount of time
+                                     * for this RPC to complete.  If the system
+                                     * is working, this should happen very
+                                     * quickly, so we'll pick the generic five
+                                     * second timeout out of the air.
+                                     */
+                                    uint32_t msWaited = 0;
 
-                                /*
-                                 * Wait for the reply to the asynchronous call to complete, which will
-                                 * stash the returned interface name and bug the establish link event.
-                                 * XXX FIXME timeout
-                                 */
-                                for (;;) {
-                                    QCC_DbgPrintf(("TCPTransport::CreateTemporaryNetwork(): "
-                                                   "Waiting on m_getInterfacenameFromHandleResult"));
+                                    for (;;) {
+                                        QCC_DbgPrintf(("TCPTransport::CreateTemporaryNetwork(): "
+                                                      "Waiting on m_getInterfacenameFromHandleResult"));
 
-                                    if (m_getInterfaceNameFromHandleResult) {
-                                        break;
+                                        if (m_getInterfaceNameFromHandleResult) {
+                                            break;
+                                        }
+
+                                        if (msWaited > 5000 ) {
+                                            status = ER_TIMEOUT;
+                                            break;
+                                        }
+
+                                        qcc::Sleep(100);
+                                        msWaited += 100;
                                     }
-
-                                    qcc::Sleep(100);
-
-#if 0
-                                    status = Event::Wait(m_getInterfaceNameFromHandleEvent, Event::WAIT_FOREVER);
-                                    switch (status) {
-                                    case ER_OK:
-                                        QCC_DbgPrintf(("TCPTransport::CreateTemporaryNetwork(): Event::Wait() returns"));
-                                        break;
-
-                                    case ER_FAIL:
-                                    case ER_TIMEOUT:
-                                        QCC_LogError(status, ("TCPTransport::CreateTemporaryNetwork(): Event::Wait() fails"));
-                                        break;
-
-                                    case ER_ALERTED_THREAD:
-                                        continue;
-
-                                    default:
-                                        break;
-                                    }
-#endif
+                                } else {
+                                    QCC_LogError(status, 
+                                                 ("TCPTransport::EnableAdvertisementInstance(): EstablishLink for GO fails"));
                                 }
 
-                                interface = m_foundInterface;
+                                if (status == ER_OK) {
+                                    interface = m_foundInterface;
+                                } else {
+                                    interface = m_foundInterface;
+                                }
                             }
                         }
 
@@ -3406,6 +3425,7 @@ QStatus TCPTransport::Connect(const char* connectSpec, const SessionOpts& opts, 
 #if defined(QCC_OS_ANDROID) && P2P_HELPER
 
     qcc::String interface;
+    bool wasP2P = false;
 
     /*
      * If we find a guid in the argument map, it means a pre-association service
@@ -3418,6 +3438,8 @@ QStatus TCPTransport::Connect(const char* connectSpec, const SessionOpts& opts, 
     map<qcc::String, qcc::String>::iterator iter = argMap.find("guid");
     if (iter != argMap.end()) {
         QCC_DbgPrintf(("TCPTransport::Connect(): CreateTemporaryNetwork()"));
+        wasP2P = true;
+
         /*
          * The first thing to do is to make sure the temporary network (AKA Wi-Fi
          * P2P Group) is created and ready to go.  It may or may not be there,
@@ -3508,6 +3530,7 @@ QStatus TCPTransport::Connect(const char* connectSpec, const SessionOpts& opts, 
     } else {
         snprintf(anyspec, sizeof(anyspec), "tcp:addr=0::0,port=%u,family=ipv6", port);
     }
+
     qcc::String normAnySpec;
     map<qcc::String, qcc::String> normArgMap;
     status = NormalizeListenSpec(anyspec, normAnySpec, normArgMap);
@@ -3732,8 +3755,10 @@ QStatus TCPTransport::Connect(const char* connectSpec, const SessionOpts& opts, 
 
 #if defined(QCC_OS_ANDROID) && P2P_HELPER
 
-        QCC_DbgPrintf(("TCPTransport::Connect(): RememberP2PConnection()"));
-        RememberP2PConnection(conn, m_goHandle, interface);
+        if (wasP2P) {
+            QCC_DbgPrintf(("TCPTransport::Connect(): RememberP2PConnection()"));
+            RememberP2PConnection(conn, m_goHandle, interface);
+        }
 
 #endif // defined(QCC_OS_ANDROID) && P2P_HELPER
 
