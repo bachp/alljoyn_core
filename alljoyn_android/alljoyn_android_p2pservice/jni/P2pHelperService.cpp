@@ -56,21 +56,21 @@ static const char* P2P_SERVICE_INTERFACE_NAME = "org.alljoyn.bus.p2p.P2pInterfac
 static const char* SERVICE_OBJECT_PATH = "/P2pService";
 static const char* SERVICE_NAME = "org.alljoyn.bus.p2p";
 
-static jfieldID bssidFID = NULL;
-static jfieldID ssidFID = NULL;
-static jfieldID attachedFID = NULL;
-
 static BusAttachment* s_bus = NULL;
 static P2pService* s_obj = NULL;
-
 
 class P2pService : public BusObject {
   public:
     P2pService(BusAttachment& bus, const char* path, JavaVM* vm, jobject jobj) : BusObject(bus, path), vm(vm), jobj(jobj)
     {
         QStatus status;
+        jint jret;
 
-        /* Add the P2p interface to this object */
+        LOGI("P2pService(): construct");
+
+        //
+        // Set up the AllJoyn side of things. First, add the P2p interface to this object
+        //
         const InterfaceDescription* p2pIntf = bus.GetInterface(P2P_SERVICE_INTERFACE_NAME);
         assert(p2pIntf);
         AddInterface(*p2pIntf);
@@ -100,28 +100,29 @@ class P2pService : public BusObject {
             { p2pIntf->GetMember("GetInterfaceNameFromHandle"), static_cast<MessageReceiver::MethodHandler>(&P2pService::handleGetInterfaceNameFromHandle) }
         };
 
-        /* Add the AllJoyn method handlers to the BusObject */
+        //
+        // Finally, add the AllJoyn method handlers to the BusObject */
+        //
         status = AddMethodHandlers(methodEntries, ARRAY_SIZE(methodEntries));
         if (ER_OK != status) {
             LOGE("P2pService(): Failed to register method handlers for P2pService (%s)", QCC_StatusText(status));
         }
 
         //
-        // We need the JNI environment pointer to get access to the JNI functions
-        // that we need to do the introspection.
+        // Now setup the JNI side of things
         //
-        JNIEnv* env = getEnv();
+        JNIEnv* env = attachEnv(&jret);
 
         //
         // Create a reference to the provided P2pHelperAndroidService Java object that remains
         // meaningful in other calls into our various functions.  We create a weak
         // reference so that we don't interfere with garbage collection.  Note well
         // that you can't use weak references directly, you must always create a
-        // valid local referece from the weak reference before using it.
+        // valid local reference from the weak reference before using it.
         //
         jhelper = env->NewWeakGlobalRef(jobj);
         if (!jhelper) {
-            LOGD("P2pService(): Can't make NewWeakGlobalRef()\n");
+            LOGE("P2pService(): Can't make NewWeakGlobalRef()\n");
             return;
         }
 
@@ -131,11 +132,11 @@ class P2pService : public BusObject {
         //
         jclass clazz = env->GetObjectClass(jobj);
         if (!clazz) {
-            LOGD("P2pService::P2pService(): Can't GetObjectClass()\n");
+            LOGE("P2pService(): Can't GetObjectClass()\n");
             return;
         }
 
-        LOGI("P2pService::P2pService(): Mapping methods\n");
+        LOGI("P2pService(): Mapping methods\n");
 
         //
         // Java associates method names with a method ID which we will need in order
@@ -146,47 +147,47 @@ class P2pService : public BusObject {
         //
         MID_findAdvertisedName = env->GetMethodID(clazz, "FindAdvertisedName", "(Ljava/lang/String;)I");
         if (!MID_findAdvertisedName) {
-            LOGD("P2pService(): Can't locate FindAdvertisedName()\n");
+            LOGE("P2pService(): Can't locate FindAdvertisedName()\n");
             return;
         }
 
         MID_cancelFindAdvertisedName = env->GetMethodID(clazz, "CancelFindAdvertisedName", "(Ljava/lang/String;)I");
         if (!MID_cancelFindAdvertisedName) {
-            LOGD("P2pService(): Can't locate CancelFindAdvertisedName()\n");
+            LOGE("P2pService(): Can't locate CancelFindAdvertisedName()\n");
             return;
         }
 
         MID_advertiseName = env->GetMethodID(clazz, "AdvertiseName", "(Ljava/lang/String;Ljava/lang/String;)I");
         if (!MID_advertiseName) {
-            LOGD("P2pService(): Can't locate AdvertiseName()\n");
+            LOGE("P2pService(): Can't locate AdvertiseName()\n");
             return;
         }
 
         MID_cancelAdvertiseName = env->GetMethodID(clazz, "CancelAdvertiseName", "(Ljava/lang/String;Ljava/lang/String;)I");
         if (!MID_cancelAdvertiseName) {
-            LOGD("P2pService(): Can't locate CancelAdvertiseName()\n");
+            LOGE("P2pService(): Can't locate CancelAdvertiseName()\n");
             return;
         }
 
         MID_establishLink = env->GetMethodID(clazz, "EstablishLink", "(Ljava/lang/String;I)I");
         if (!MID_establishLink) {
-            LOGD("P2pService(): Can't locate EstablishLink()\n");
+            LOGE("P2pService(): Can't locate EstablishLink()\n");
             return;
         }
 
         MID_releaseLink = env->GetMethodID(clazz, "ReleaseLink", "(I)I");
         if (!MID_releaseLink) {
-            LOGD("P2pService(): Can't locate ReleaseLink()\n");
+            LOGE("P2pService(): Can't locate ReleaseLink()\n");
             return;
         }
 
         MID_getInterfaceNameFromHandle = env->GetMethodID(clazz, "GetInterfaceNameFromHandle", "(I)Ljava/lang/String;");
         if (!MID_getInterfaceNameFromHandle) {
-            LOGD("P2pService(): Can't locate GetInterfaceNameFromHandle()\n");
+            LOGE("P2pService(): Can't locate GetInterfaceNameFromHandle()\n");
             return;
         }
 
-        LOGI("P2pService::P2pService(): Mapping signals\n");
+        LOGI("P2pService(): Mapping signals\n");
 
         onFoundAdvertisedNameMember = p2pIntf->GetMember("OnFoundAdvertisedName");
         onLostAdvertisedNameMember = p2pIntf->GetMember("OnLostAdvertisedName");
@@ -196,7 +197,39 @@ class P2pService : public BusObject {
 
         sessionId = 0; // Where to get this?
 
+        detachEnv(jret);
+
         initialized = true;
+    }
+
+    ~P2pService() {
+        LOGI("P2pService(): destruct");
+    }
+
+    //
+    // All JNI functions are accessed indirectly through a pointer provided by the
+    // Java virtual machine.  When working with this pointer, we have to be careful
+    // about arranging to get the current thread associated with the environment so
+    // we provide a convenience function that does what we need.
+    //
+    JNIEnv* attachEnv(jint *jret)
+    {
+        LOGI("attachEnv()");
+        JNIEnv* env;
+        *jret = vm->GetEnv((void**)&env, JNI_VERSION_1_2);
+        if (*jret == JNI_EDETACHED) {
+            LOGI("attaching");
+            int ret = vm->AttachCurrentThread(&env, NULL);
+        }
+        return env;
+    }
+
+    void detachEnv(jint jret) {
+        LOGI("deleteEnv()");
+        if (jret == JNI_EDETACHED) {
+            LOGI("detaching");
+            vm->DetachCurrentThread();
+        }
     }
 
     //
@@ -205,52 +238,36 @@ class P2pService : public BusObject {
     //
     int FindAdvertisedName(const char* namePrefix)
     {
-        LOGD("FindAdvertisedName()\n");
+        int result = ER_OK;
+        jint jret;
+        LOGI("FindAdvertisedName()");
 
         if (!initialized) {
-            LOGD("FindAdvertisedName(): Not initialized\n");
+            LOGE("FindAdvertisedName(): Not initialized");
             return ER_GENERAL;
         }
 
-        //
-        // Get a pointer we can use to talk to the JNI functions of the JVM we know
-        // we must be part of.
-        //
-        JNIEnv* env = getEnv();
+        JNIEnv* env = attachEnv(&jret);
 
-        //
-        // Ask JNI to take the const char* we were given and make a new Java string
-        // out of it.  This will be a normal Java (local) object and will be garbage
-        // collected automagically when we are done here.
-        //
         jstring jnamePrefix = env->NewStringUTF(namePrefix);
         if (env->ExceptionCheck()) {
-            LOGD("FindAdvertisedName(): Exception converting parameter <namePrefix>\n");
-            return ER_GENERAL;
+            LOGE("FindAdvertisedName(): Exception converting parameter <namePrefix>");
+            result = ER_GENERAL;
+        } else {
+            jobject jo = env->NewLocalRef(jhelper);
+            if (!jo) {
+                LOGE("FindAdvertisedName(): Can't get Java object");
+                result = ER_GENERAL;
+            } else {
+                result = env->CallIntMethod(jo, MID_findAdvertisedName, jnamePrefix);
+                if (env->ExceptionCheck()) {
+                    LOGE("FindAdvertisedName(): Exception calling Java");
+                    result = ER_GENERAL;
+                }
+            }
         }
 
-        //
-        // The jhelper member is an object pointer to the Java object that will
-        // actually make calls into the Android framework.  We stored it as a
-        // weak object reference, though, so we didn't interfere with garbage
-        // collecion.  These weak references cannot be used directly, so we need
-        // to make a new local reference in order to do anything with it.
-        //
-        jobject jo = env->NewLocalRef(jhelper);
-        if (!jo) {
-            LOGD("FindAdvertisedName(): Can't get Java object\n");
-            return ER_GENERAL;
-        }
-
-        //
-        // Now we can call out into the Java object and method that will actually
-        // do the FindAdvertisedName work.
-        //
-        int status = env->CallIntMethod(jo, MID_findAdvertisedName, jnamePrefix);
-        if (env->ExceptionCheck()) {
-            LOGD("FindAdvertisedName(): Exception calling Java\n");
-            return ER_GENERAL;
-        }
+        detachEnv(jret);
 
         //
         // Status is really only that the framework could start the operation.  The
@@ -258,7 +275,7 @@ class P2pService : public BusObject {
         // cannot possibly support Wi-Fi Direct -- for example, if it is running
         // on a Gingerbread device.
         //
-        return status;
+        return result;
     }
 
     //
@@ -267,34 +284,38 @@ class P2pService : public BusObject {
     //
     int CancelFindAdvertisedName(const char* namePrefix)
     {
-        LOGD("CancelFindAdvertisedName()\n");
+        int result = ER_OK;
+        jint jret;
+        LOGI("CancelFindAdvertisedName()\n");
 
         if (!initialized) {
             LOGD("CancelFindAdvertisedName(): Not initialized\n");
             return ER_GENERAL;
         }
 
-        JNIEnv* env = getEnv();
+        JNIEnv* env = attachEnv(&jret);
 
         jstring jnamePrefix = env->NewStringUTF(namePrefix);
         if (env->ExceptionCheck()) {
-            LOGD("CancelFindAdvertisedName(): Exception converting parameter <namePrefix>\n");
-            return ER_GENERAL;
+            LOGE("CancelFindAdvertisedName(): Exception converting parameter <namePrefix>\n");
+            result = ER_GENERAL;
+        } else {
+            jobject jo = env->NewLocalRef(jhelper);
+            if (!jo) {
+                LOGE("CancelFindAdvertisedName(): Can't get Java object\n");
+                result = ER_GENERAL;
+            } else {
+                result = env->CallIntMethod(jo, MID_cancelFindAdvertisedName, jnamePrefix);
+                if (env->ExceptionCheck()) {
+                    LOGE("CancelFindAdvertisedName(): Exception calling Java\n");
+                    result = ER_GENERAL;
+                }
+            }
         }
 
-        jobject jo = env->NewLocalRef(jhelper);
-        if (!jo) {
-            LOGD("CancelFindAdvertisedName(): Can't get Java object\n");
-            return ER_GENERAL;
-        }
+        detachEnv(jret);
 
-        int status = env->CallIntMethod(jo, MID_cancelFindAdvertisedName, jnamePrefix);
-        if (env->ExceptionCheck()) {
-            LOGD("CancelFindAdvertisedName(): Exception calling Java\n");
-            return ER_GENERAL;
-        }
-
-        return status;
+        return result;
     }
 
     //
@@ -302,43 +323,50 @@ class P2pService : public BusObject {
     //
     int AdvertiseName(const char* name, const char* guid)
     {
-        LOGD("P2pService::AdvertiseName()\n");
+        int result = ER_OK;
+        jint jret;
+        LOGI("P2pService::AdvertiseName()");
 
         if (!initialized) {
-            LOGD("P2pService::AdvertiseName(): Not initialized\n");
+            LOGD("P2pService::AdvertiseName(): Not initialized");
             return ER_GENERAL;
         }
 
-        JNIEnv* env = getEnv();
+        JNIEnv* env = attachEnv(&jret);
 
         jstring jname = env->NewStringUTF(name);
         if (env->ExceptionCheck()) {
-            LOGD("P2pService::AdvertiseName(): Exception converting parameter <name>\n");
-            return ER_GENERAL;
+            LOGE("P2pService::AdvertiseName(): Exception converting parameter <name>");
+            result = ER_GENERAL;
+        } else {
+            jstring jguid = env->NewStringUTF(guid);
+            if (env->ExceptionCheck()) {
+                LOGE("P2pService::AdvertiseName(): Exception converting parameter <guid>");
+                result = ER_GENERAL;
+            } else {
+                jobject jo = env->NewLocalRef(jhelper);
+                if (!jo) {
+                    LOGE("P2pService::AdvertiseName(): Can't get Java object");
+                    result = ER_GENERAL;
+                } else {
+                    result = env->CallIntMethod(jo, MID_advertiseName, jname, jguid);
+                    if (env->ExceptionCheck()) {
+                        LOGE("P2pService::AdvertiseName(): Exception calling Java");
+                        result = ER_GENERAL;
+                    }
+                }
+            }
         }
 
-        jstring jguid = env->NewStringUTF(guid);
-        if (env->ExceptionCheck()) {
-            LOGD("P2pService::AdvertiseName(): Exception converting parameter <guid>\n");
-            return ER_GENERAL;
-        }
+        detachEnv(jret);
 
-        jobject jo = env->NewLocalRef(jhelper);
-        if (!jo) {
-            LOGD("P2pService::AdvertiseName(): Can't get Java object\n");
-            return ER_GENERAL;
-        }
-
-        int status = env->CallIntMethod(jo, MID_advertiseName, jname, jguid);
-        if (env->ExceptionCheck()) {
-            LOGD("P2pService::AdvertiseName(): Exception calling Java\n");
-            return ER_GENERAL;
-        }
-        return status;
+        return result;
     }
 
     int CancelAdvertiseName(const char* name, const char* guid)
     {
+        int result = ER_OK;
+        jint jret;
         LOGD("CancelAdvertiseName()\n");
 
         if (!initialized) {
@@ -346,63 +374,67 @@ class P2pService : public BusObject {
             return ER_GENERAL;
         }
 
-        JNIEnv* env = getEnv();
+        JNIEnv* env = attachEnv(&jret);
 
         jstring jname = env->NewStringUTF(name);
         if (env->ExceptionCheck()) {
-            LOGD("CancelAdvertiseName(): Exception converting parameter <name>\n");
-            return ER_GENERAL;
+            LOGE("CancelAdvertiseName(): Exception converting parameter <name>");
+            result = ER_GENERAL;
+        } else {
+            jstring jguid = env->NewStringUTF(guid);
+            if (env->ExceptionCheck()) {
+                LOGE("CancelAdvertiseName(): Exception converting parameter <guid>");
+                result = ER_GENERAL;
+            } else {
+                jobject jo = env->NewLocalRef(jhelper);
+                if (!jo) {
+                    LOGE("CancelAdvertiseName(): Can't get Java object");
+                    result = ER_GENERAL;
+                } else {
+                    int result = env->CallIntMethod(jo, MID_cancelAdvertiseName, jname, jguid);
+                    if (env->ExceptionCheck()) {
+                        LOGE("CancelAdvertiseName(): Exception calling Java");
+                        result = ER_GENERAL;
+                    }
+                }
+            }
         }
 
-        jstring jguid = env->NewStringUTF(guid);
-        if (env->ExceptionCheck()) {
-            LOGD("CancelAdvertiseName(): Exception converting parameter <guid>\n");
-            return ER_GENERAL;
-        }
+        detachEnv(jret);
 
-        jobject jo = env->NewLocalRef(jhelper);
-        if (!jo) {
-            LOGD("CancelAdvertiseName(): Can't get Java object\n");
-            return ER_GENERAL;
-        }
-
-        int status = env->CallIntMethod(jo, MID_cancelAdvertiseName, jname, jguid);
-        if (env->ExceptionCheck()) {
-            LOGD("CancelAdvertiseName(): Exception calling Java\n");
-            return ER_GENERAL;
-        }
-
-        return status;
+        return result;
     }
 
     int EstablishLink(const char* device, int groupOwnerIntent)
     {
-        LOGD("EstablishLink()\n");
+        int handle = 0;
+        jint jret;
+        LOGI("EstablishLink(%s, %d)", device, groupOwnerIntent);
 
         if (!initialized) {
-            LOGD("EstablishLink(): Not initialized\n");
+            LOGE("EstablishLink(): Not initialized\n");
             return ER_GENERAL;
         }
 
-        JNIEnv* env = getEnv();
+        JNIEnv* env = attachEnv(&jret);
 
         jstring jdevice = env->NewStringUTF(device);
         if (env->ExceptionCheck()) {
-            LOGD("EstablishLink(): Exception converting parameter <device>\n");
-            return ER_GENERAL;
+            LOGE("EstablishLink(): Exception converting parameter <device>");
+        } else {
+            jobject jo = env->NewLocalRef(jhelper);
+            if (!jo) {
+                LOGE("EstablishLink(): Can't get Java object");
+            } else {
+                handle = env->CallIntMethod(jo, MID_establishLink, jdevice, groupOwnerIntent);
+                if (env->ExceptionCheck()) {
+                    LOGE("EstablishLink(): Exception calling Java");
+                    handle = 0;
+                }
+            }
         }
 
-        jobject jo = env->NewLocalRef(jhelper);
-        if (!jo) {
-            LOGD("EstablishLink(): Can't get Java object\n");
-            return ER_GENERAL;
-        }
-
-        int handle = env->CallIntMethod(jo, MID_establishLink, jdevice, groupOwnerIntent);
-        if (env->ExceptionCheck()) {
-            LOGD("EstablishLink(): Exception calling Java\n");
-            return ER_GENERAL;
-        }
+        detachEnv(jret);
 
         return handle;
     }
@@ -413,28 +445,32 @@ class P2pService : public BusObject {
     //
     int ReleaseLink(int handle)
     {
-        LOGD("ReleaseLink()\n");
+        int result = ER_OK;
+        jint jret;
+        LOGI("ReleaseLink()");
 
         if (!initialized) {
-            LOGD("ReleaseLink(): Not initialized\n");
+            LOGE("ReleaseLink(): Not initialized");
             return ER_GENERAL;
         }
 
-        JNIEnv* env = getEnv();
+        JNIEnv* env = attachEnv(&jret);
 
         jobject jo = env->NewLocalRef(jhelper);
         if (!jo) {
-            LOGD("ReleaseLink(): Can't get Java object\n");
-            return ER_GENERAL;
+            LOGE("ReleaseLink(): Can't get Java object");
+            result = ER_GENERAL;
+        } else {
+            int status = env->CallIntMethod(jo, MID_releaseLink, handle);
+            if (env->ExceptionCheck()) {
+                LOGE("ReleaseLink(): Exception calling Java");
+                result = ER_GENERAL;
+            }
         }
 
-        int status = env->CallIntMethod(jo, MID_releaseLink, handle);
-        if (env->ExceptionCheck()) {
-            LOGD("ReleaseLink(): Exception calling Java\n");
-            return ER_GENERAL;
-        }
+        detachEnv(jret);
 
-        return status;
+        return result;
     }
 
     //
@@ -449,51 +485,41 @@ class P2pService : public BusObject {
     //
     int GetInterfaceNameFromHandle(int handle, char* buffer, int buflen)
     {
-        LOGD("GetInterfaceNameFromHandle()\n");
+        int result = ER_OK;
+        jint jret;
+        LOGI("GetInterfaceNameFromHandle()");
 
         if (!initialized) {
-            LOGD("GetInterfaceNameFromHandle(): Not initialized\n");
+            LOGE("GetInterfaceNameFromHandle(): Not initialized");
             return ER_GENERAL;
         }
 
-        //
-        // Get a pointer we can use to talk to the JNI functions of the JVM we know
-        // we must be part of.
-        //
-        JNIEnv* env = getEnv();
+        JNIEnv* env = attachEnv(&jret);
 
-        //
-        // The jhelper member is an object pointer to the Java object that will
-        // actually make calls into the Android framework.  We stored it as a
-        // weak object reference, though, so we didn't interfere with garbage
-        // collecion.  These weak references cannot be used directly, so we need
-        // to make a new local reference in order to do anything with it.
-        //
         jobject jo = env->NewLocalRef(jhelper);
         if (!jo) {
-            LOGD("GetInterfaceNameFromHandle(): Can't get Java object\n");
-            return ER_GENERAL;
-        }
-
-        //
-        // Now we can call out into the Java object and method that will actually
-        // do the GetInterfaceNameFromHandle work.
-        //
-        jstring jname = (jstring)env->CallObjectMethod(jo, MID_getInterfaceNameFromHandle, handle);
-        if (env->ExceptionCheck()) {
-            LOGD("GetInterfaceNameFromHandle(): Exception calling Java\n");
-            return ER_GENERAL;
-        }
-
-        if (jname) {
-            const char* tmp = env->GetStringUTFChars(jname, NULL);
-            strncpy(buffer, tmp, buflen);
-            buffer[buflen] = '\0';
-            env->ReleaseStringUTFChars(jname, tmp);
-            return ER_OK;
+            LOGE("GetInterfaceNameFromHandle(): Can't get Java object");
+            result = ER_GENERAL;
         } else {
-            return ER_GENERAL;
+            jstring jname = (jstring)env->CallObjectMethod(jo, MID_getInterfaceNameFromHandle, handle);
+            if (env->ExceptionCheck()) {
+                LOGE("GetInterfaceNameFromHandle(): Exception calling Java");
+                result = ER_GENERAL;
+            } else if (jname) {
+                const char* tmp = env->GetStringUTFChars(jname, NULL);
+                strncpy(buffer, tmp, buflen);
+                buffer[buflen] = '\0';
+                env->ReleaseStringUTFChars(jname, tmp);
+                result = ER_OK;
+            } else {
+                LOGE("GetInterfaceNameFromHandle(): Could not get interface name");
+                result = ER_GENERAL;
+            }
         }
+
+        detachEnv(jret);
+
+        return result;
     }
 
     //
@@ -507,7 +533,8 @@ class P2pService : public BusObject {
 
         int result = FindAdvertisedName(namePrefix.c_str());
 
-        MsgArg reply("i", 1, result);
+        LOGI("handleFindAdvertisedName replying with %d", result);
+        MsgArg reply("i", result);
         QStatus status = MethodReply(msg, &reply, 1);
         if (ER_OK != status) {
             LOGE("handleFindAdvertisedName: Error sending reply (%s)", QCC_StatusText(status));
@@ -522,6 +549,7 @@ class P2pService : public BusObject {
 
         int result = CancelFindAdvertisedName(namePrefix.c_str());
 
+        LOGI("handleCancelFindAdvertisedName replying with %d", result);
         MsgArg reply("i", 1, result);
         QStatus status = MethodReply(msg, &reply, 1);
         if (ER_OK != status) {
@@ -538,6 +566,7 @@ class P2pService : public BusObject {
 
         int result = AdvertiseName(name.c_str(), guid.c_str());
 
+        LOGI("handleAdvertisedName replying with %d", result);
         MsgArg reply("i", 1, result);
         QStatus status = MethodReply(msg, &reply, 1);
         if (ER_OK != status) {
@@ -554,6 +583,7 @@ class P2pService : public BusObject {
 
         int result = CancelAdvertiseName(name.c_str(), guid.c_str());
 
+        LOGI("handleCancelAdvertisedName replying with %d", result);
         MsgArg reply("i", 1, result);
         QStatus status = MethodReply(msg, &reply, 1);
         if (ER_OK != status) {
@@ -570,6 +600,7 @@ class P2pService : public BusObject {
 
         int result = EstablishLink(device.c_str(), intent);
 
+        LOGI("handleEstablishLink replying with %d", result);
         MsgArg reply("i", 1, result);
         QStatus status = MethodReply(msg, &reply, 1);
         if (ER_OK != status) {
@@ -585,6 +616,7 @@ class P2pService : public BusObject {
 
         int result = ReleaseLink(handle);
 
+        LOGI("handleReleaseLink replying with %d", result);
         MsgArg reply("i", 1, result);
         QStatus status = MethodReply(msg, &reply, 1);
         if (ER_OK != status) {
@@ -601,6 +633,7 @@ class P2pService : public BusObject {
 
         int result = GetInterfaceNameFromHandle(handle, buf, 64);
 
+        LOGI("handleGetInterfaceName replying with %d", result);
         MsgArg reply("s", 1, buf);
         QStatus status = MethodReply(msg, &reply, 1);
         if (ER_OK != status) {
@@ -672,28 +705,6 @@ class P2pService : public BusObject {
         return jobj;
     }
 
-    //
-    // All JNI functions are accessed indirectly through a pointer provided by the
-    // Java virtual machine.  When working with this pointer, we have to be careful
-    // about arranging to get the current thread associated with the environment so
-    // we provide a convenience function that does what we need.
-    //
-    // All JNI functions are accessed indirectly through a pointer provided by the
-    // Java virtual machine.  When working with this pointer, we have to be careful
-    // about arranging to get the current thread associated with the environment so
-    // we provide a convenience function that does what we need.
-    //
-    JNIEnv* getEnv()
-    {
-        LOGD("getEnv()\n");
-        JNIEnv* env;
-        jint ret = vm->GetEnv((void**)&env, JNI_VERSION_1_2);
-        if (ret == JNI_EDETACHED) {
-            ret = vm->AttachCurrentThread(&env, NULL);
-        }
-        return env;
-    }
-
   private:
     JavaVM* vm;
     jobject jobj;
@@ -735,7 +746,6 @@ extern "C" {
  */
 JNIEXPORT jboolean JNICALL Java_org_alljoyn_bus_p2p_service_P2pHelperAndroidService_00024P2pHelperService_jniOnCreate(JNIEnv*env, jobject jobj) {
 
-
     QStatus status = ER_OK;
     const char* daemonAddr = "unix:abstract=alljoyn";
     InterfaceDescription* p2pIntf = NULL;
@@ -745,6 +755,8 @@ JNIEXPORT jboolean JNICALL Java_org_alljoyn_bus_p2p_service_P2pHelperAndroidServ
     jglobalObj = env->NewGlobalRef(jobj);
 
     env->GetJavaVM(&vm);
+
+    LOGI("jniOnCreate");
 
     /* Create message bus */
     s_bus = new BusAttachment("P2pHelperService", true);
@@ -773,7 +785,7 @@ JNIEXPORT jboolean JNICALL Java_org_alljoyn_bus_p2p_service_P2pHelperAndroidServ
 
             p2pIntf->Activate();
 
-            /* Register service object */
+            /* Create the P2P service object */
             s_obj = new P2pService(*s_bus, SERVICE_OBJECT_PATH, vm, jglobalObj);
             status = s_bus->RegisterBusObject(*s_obj);
             if (ER_OK != status) {
@@ -815,11 +827,11 @@ JNIEXPORT jboolean JNICALL Java_org_alljoyn_bus_p2p_service_P2pHelperAndroidServ
 
 /*
  * Class:     org_alljoyn_bus_p2p_service_P2pHelperService
- * Method:    jniShutdown
+ * Method:    jniOnDestroy
  * Signature: ()V
  */
 JNIEXPORT void JNICALL Java_org_alljoyn_bus_p2p_service_P2pHelperAndroidService_00024P2pHelperService_jniOnDestroy(JNIEnv* env, jobject jobj) {
-    LOGE("OnDestroy");
+    LOGI("jniOnDestroy");
     delete s_obj;
     s_obj = NULL;
 }
@@ -913,11 +925,15 @@ JNIEXPORT jint JNICALL JNI_OnLoad(JavaVM* vm,
     jclass clazz;
     clazz = env->FindClass("org/alljoyn/bus/p2p/service/P2pHelperAndroidService$P2pHelperService");
     if (!clazz) {
-        LOGD("*********************** error while loading the class *******************");
+        LOGE("***** Unable to FindClass P2pHelperService **********");
         env->ExceptionDescribe();
         return JNI_ERR;
     } else {
-        LOGD("org/alljoyn/jni/P2pHelperService loaded SUCCESSFULLY");
+        LOGI("org/alljoyn/jni/P2pHelperService loaded SUCCESSFULLY");
+    }
+
+    if (JNI_EDETACHED == jret) {
+        vm->DetachCurrentThread();
     }
 
     return JNI_VERSION_1_2;
