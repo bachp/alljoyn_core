@@ -226,6 +226,11 @@ public class P2pHelperAndroidService extends Service {
         }
     }
 
+    public void exit() {
+        Log.i(TAG, "exit");
+        System.exit(0);
+    }
+
     public void onFoundAdvertisedName(String name, String namePrefix, String guid, String device) {
         Log.i(TAG, "onFoundAdvertisedName("
               + name + ", "

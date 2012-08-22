@@ -34,11 +34,7 @@ import android.widget.Button;
 public class P2pHelperAndroidActivity extends Activity {
     private static final String TAG = "P2pHelperAndroidActivity";
 
-    private Button mOnFoundAdvertisedNameButton = null;
-    private Button mOnLostAdvertisedNameButton = null;
-    private Button mOnLinkEstablishedButton = null;
-    private Button mOnLinkErrorButton = null;
-    private Button mOnLinkLostButton = null;
+    private Button mExitButton = null;
 
     @Override
     public void onCreate(Bundle savedInstanceState) {
@@ -47,52 +43,14 @@ public class P2pHelperAndroidActivity extends Activity {
         Log.i(TAG, "onCreate()");
         setContentView(R.layout.main);
 
-        mOnFoundAdvertisedNameButton = (Button)findViewById(R.id.mainOnFoundAdvertisedName);
-        mOnFoundAdvertisedNameButton.setOnClickListener(new View.OnClickListener() {
+        mExitButton = (Button)findViewById(R.id.mainExit);
+        mExitButton.setOnClickListener(new View.OnClickListener() {
                                                             public void onClick(View v) {
                                                                 if (mBoundService != null) {
-                                                                    mBoundService.onFoundAdvertisedName("org.yadda.1234", "org.blah",
-                                                                                                        "4506750e77b049fc94880d35d9ea6cdd", "08002e000123");
+                                                                    mBoundService.exit();
                                                                 }
                                                             }
-                                                        });
-
-        mOnLostAdvertisedNameButton = (Button)findViewById(R.id.mainOnLostAdvertisedName);
-        mOnLostAdvertisedNameButton.setOnClickListener(new View.OnClickListener() {
-                                                           public void onClick(View v) {
-                                                               if (mBoundService != null) {
-                                                                   mBoundService.onLostAdvertisedName("org.yadda.1234", "org.blah",
-                                                                                                      "4506750e77b049fc94880d35d9ea6cdd", "08002e000123");
-                                                               }
-                                                           }
-                                                       });
-
-        mOnLinkEstablishedButton = (Button)findViewById(R.id.mainOnLinkEstablished);
-        mOnLinkEstablishedButton.setOnClickListener(new View.OnClickListener() {
-                                                        public void onClick(View v) {
-                                                            if (mBoundService != null) {
-                                                                mBoundService.onLinkEstablished(1);
-                                                            }
-                                                        }
-                                                    });
-
-        mOnLinkErrorButton = (Button)findViewById(R.id.mainOnLinkError);
-        mOnLinkErrorButton.setOnClickListener(new View.OnClickListener() {
-                                                  public void onClick(View v) {
-                                                      if (mBoundService != null) {
-                                                          mBoundService.onLinkError(2, 3);
-                                                      }
-                                                  }
-                                              });
-
-        mOnLinkLostButton = (Button)findViewById(R.id.mainOnLinkLost);
-        mOnLinkLostButton.setOnClickListener(new View.OnClickListener() {
-                                                 public void onClick(View v) {
-                                                     if (mBoundService != null) {
-                                                         mBoundService.onLinkLost(4);
-                                                     }
-                                                 }
-                                             });
+        });
 
         Intent intent = new Intent(this, P2pHelperAndroidService.class );
         bindService(intent, mConnection, Context.BIND_AUTO_CREATE);

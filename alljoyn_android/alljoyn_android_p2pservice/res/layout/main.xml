@@ -10,68 +10,13 @@
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:layout_marginTop="5dp">  
+
         <Button
-            android:id="@+id/mainOnFoundAdvertisedName"
+            android:id="@+id/mainExit"
             android:layout_width="240dp"
             android:layout_height="wrap_content"
-    	    android:text="OnFoundAdvertisedName"
-        />
-    </LinearLayout>
-    
-    <LinearLayout
-        android:orientation="horizontal"
-        android:gravity="center"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:layout_marginTop="5dp">  
-        <Button
-            android:id="@+id/mainOnLostAdvertisedName"
-            android:layout_width="240dp"
-            android:layout_height="wrap_content"
-    	    android:text="OnLostAdvertisedName"
-        />
-    </LinearLayout>
-    
-    <LinearLayout
-        android:orientation="horizontal"
-        android:gravity="center"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:layout_marginTop="5dp">  
-        <Button
-            android:id="@+id/mainOnLinkEstablished"
-            android:layout_width="240dp"
-            android:layout_height="wrap_content"
-    	    android:text="OnLinkEstablished"
-        />
-    </LinearLayout>
-    
-    <LinearLayout
-        android:orientation="horizontal"
-        android:gravity="center"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:layout_marginTop="5dp">  
-        <Button
-            android:id="@+id/mainOnLinkError"
-            android:layout_width="240dp"
-            android:layout_height="wrap_content"
-    	    android:text="OnLinkError"
-        />
-    </LinearLayout>
-    
-    <LinearLayout
-        android:orientation="horizontal"
-        android:gravity="center"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:layout_marginTop="5dp">  
-        <Button
-            android:id="@+id/mainOnLinkLost"
-            android:layout_width="240dp"
-            android:layout_height="wrap_content"
-    	    android:text="OnLinkLost"
-        />
+            android:text="Exit" />
+
     </LinearLayout>
     
 </LinearLayout>
