@@ -114,7 +114,7 @@ TEST_F(BusListenerTest, listener_registered_unregistered) {
 }
 
 /* ALLJOYN-1308 */
-TEST_F(BusListenerTest, DISABLED_bus_stopping_disconnected) {
+TEST_F(BusListenerTest, bus_stopping_disconnected) {
     bus.RegisterBusListener(buslistener);
     for (size_t i = 0; i < 200; ++i) {
         if (listener_registered_flag) {
@@ -135,6 +135,10 @@ TEST_F(BusListenerTest, DISABLED_bus_stopping_disconnected) {
         }
         qcc::Sleep(5);
     }
+    /*
+     * Expect the bus_disconnected_flag to be set when BusAttachment.Disconnect
+     * is called.
+     */
     EXPECT_TRUE(bus_disconnected_flag);
 
     bus.Stop();
