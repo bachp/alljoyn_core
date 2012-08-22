@@ -44,7 +44,7 @@
 
 #include "NameService.h"
 
-#define P2P_HELPER 0
+#define P2P_HELPER 1
 
 #if defined(QCC_OS_ANDROID) && P2P_HELPER
 #include "android/P2PHelperInterface.h"
