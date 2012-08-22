@@ -81,7 +81,7 @@ public class P2pManager implements ConnectionInfoListener, DnsSdServiceResponseL
     private Runnable mRequestConnectionInfo = null;
 
     private static final long periodicInterval = 40000;
-    private static final long connectionTimeout = 30000;
+    private static final long connectionTimeout = 150000;
 
     private ArrayList <String> mServiceRequestList;
     private ArrayList <String> mRequestedNames;
@@ -180,7 +180,7 @@ public class P2pManager implements ConnectionInfoListener, DnsSdServiceResponseL
                     return;
                 }
 
-                Log.d(TAG, "Request connection info");
+                Log.d(TAG, "Connection initiation timeout: Request connection info");
                 manager.requestConnectionInfo(channel, connInfoListener);
             }
         };
@@ -223,6 +223,8 @@ public class P2pManager implements ConnectionInfoListener, DnsSdServiceResponseL
         if (info.groupOwnerAddress != null) {
             Log.d(TAG, "Group Owner Address: " + info.groupOwnerAddress.getHostAddress());
         }
+
+        mHandler.removeCallbacks(mRequestConnectionInfo);
 
         switch (peerState) {
         case INITIATED:
@@ -774,6 +776,9 @@ public class P2pManager implements ConnectionInfoListener, DnsSdServiceResponseL
                 Log.e(TAG, "No local device known");
                 return ERROR;
             }
+
+            // Remove pending  calls
+            mHandler.removeCallbacks(mRequestConnectionInfo);
 
             final int handle = getHandle(this.device.deviceAddress);
 
