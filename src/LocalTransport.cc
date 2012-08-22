@@ -717,7 +717,7 @@ void LocalEndpoint::AlarmTriggered(const Alarm& alarm, QStatus reason)
     ReplyContext* rc = reinterpret_cast<ReplyContext*>(alarm->GetContext());
     uint32_t serial = rc->serial;
     Message msg(bus);
-    QStatus status;
+    QStatus status = ER_OK;
 
     /*
      * Clear the encrypted flag so the error response doesn't get rejected.
