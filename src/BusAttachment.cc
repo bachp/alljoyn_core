@@ -230,6 +230,30 @@ BusAttachment::~BusAttachment(void)
         qcc::Sleep(1);
     }
 
+    /*
+     * Make sure that the ListenerUnregistered callback is called when the
+     * BusAttachment is being destroyed.
+     * clear the contents of the BusListener, SessionPortListeners, and
+     * SessionListeners before destroying the BusAttachment.
+     */
+    busInternal->listenersLock.Lock(MUTEX_CONTEXT);
+    Internal::ListenerSet::iterator it = busInternal->listeners.begin();
+    while (it != busInternal->listeners.end()) {
+        Internal::ProtectedBusListener l = *it;
+        busInternal->listeners.erase(it);
+        busInternal->listenersLock.Unlock(MUTEX_CONTEXT);
+        (*l)->ListenerUnregistered();
+        busInternal->listenersLock.Lock(MUTEX_CONTEXT);
+        it = busInternal->listeners.begin();
+    }
+
+    busInternal->listenersLock.Unlock(MUTEX_CONTEXT);
+
+    busInternal->sessionListenersLock.Lock(MUTEX_CONTEXT);
+    busInternal->sessionPortListeners.clear();
+    busInternal->sessionListeners.clear();
+    busInternal->sessionListenersLock.Unlock(MUTEX_CONTEXT);
+
     delete busInternal;
     busInternal = NULL;
 }
@@ -565,22 +589,6 @@ void BusAttachment::WaitStopInternal()
 
             isStarted = false;
             isStopping = false;
-
-            busInternal->listenersLock.Lock(MUTEX_CONTEXT);
-            Internal::ListenerSet::iterator it = busInternal->listeners.begin();
-            while (it != busInternal->listeners.end()) {
-                Internal::ProtectedBusListener l = *it;
-                busInternal->listeners.erase(it);
-                busInternal->listenersLock.Unlock(MUTEX_CONTEXT);
-                (*l)->ListenerUnregistered();
-                busInternal->listenersLock.Lock(MUTEX_CONTEXT);
-                it = busInternal->listeners.begin();
-            }
-
-            busInternal->listenersLock.Unlock(MUTEX_CONTEXT);
-            busInternal->sessionPortListeners.clear();
-
-            busInternal->sessionListeners.clear();
         }
 
         busInternal->stopLock.Unlock(MUTEX_CONTEXT);

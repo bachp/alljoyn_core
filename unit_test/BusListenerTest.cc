@@ -113,6 +113,46 @@ TEST_F(BusListenerTest, listener_registered_unregistered) {
     EXPECT_TRUE(listener_unregistered_flag);
 }
 
+TEST_F(BusListenerTest, bus_unregister_listener_when_busAttachment_destroyed) {
+    BusAttachment* busattachment = new BusAttachment("BusListenerTestInternal", false);
+    busattachment->RegisterBusListener(buslistener);
+    for (size_t i = 0; i < 200; ++i) {
+        if (listener_registered_flag) {
+            break;
+        }
+        qcc::Sleep(5);
+    }
+    EXPECT_TRUE(listener_registered_flag);
+
+    status = busattachment->Start();
+    EXPECT_EQ(ER_OK, status) << "  Actual Status: " << QCC_StatusText(status);
+    status = busattachment->Connect(ajn::getConnectArg().c_str());
+
+    busattachment->Stop();
+    for (size_t i = 0; i < 200; ++i) {
+        if (bus_stopping_flag) {
+            break;
+        }
+        qcc::Sleep(5);
+    }
+    EXPECT_TRUE(bus_disconnected_flag);
+    EXPECT_TRUE(bus_stopping_flag);
+    busattachment->Join();
+    /*
+     * We do not expect the ListenerUnregistered callback to be called when
+     * the BusAttachment is stopped.  We only expect it to be unregistered
+     * when UnregisterBusListener is called or when the BusAttachment's
+     * destructor has been called.
+     */
+    EXPECT_FALSE(listener_unregistered_flag);
+    delete busattachment;
+
+    /*
+     * BusAttachments destructor should have been called at the end of the
+     * scope so we should have the listener_unregistered_flag set.
+     */
+    EXPECT_TRUE(listener_unregistered_flag);
+}
 /* ALLJOYN-1308 */
 TEST_F(BusListenerTest, bus_stopping_disconnected) {
     bus.RegisterBusListener(buslistener);
@@ -148,6 +188,7 @@ TEST_F(BusListenerTest, bus_stopping_disconnected) {
         }
         qcc::Sleep(5);
     }
+    EXPECT_TRUE(bus_disconnected_flag);
     EXPECT_TRUE(bus_stopping_flag);
     bus.Join();
 
