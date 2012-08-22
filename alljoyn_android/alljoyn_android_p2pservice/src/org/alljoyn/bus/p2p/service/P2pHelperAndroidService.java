@@ -48,9 +48,6 @@ public class P2pHelperAndroidService extends Service {
 
     public void onCreate() {
         Log.i(TAG, "onCreate()");
-
-        DoStartTask doStartTask = new DoStartTask();
-        doStartTask.execute(this);
     }
 
     public void onDestroy() {
@@ -62,6 +59,10 @@ public class P2pHelperAndroidService extends Service {
 
     public int onStartCommand(Intent intent, int flags, int startId) {
         Log.i(TAG, "onStartCommand()");
+
+        DoStartTask doStartTask = new DoStartTask();
+        doStartTask.execute(this);
+
         return START_STICKY;
     }
 
