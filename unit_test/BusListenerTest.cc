@@ -135,9 +135,18 @@ TEST_F(BusListenerTest, bus_unregister_listener_when_busAttachment_destroyed) {
         }
         qcc::Sleep(5);
     }
-    EXPECT_TRUE(bus_disconnected_flag);
     EXPECT_TRUE(bus_stopping_flag);
     busattachment->Join();
+
+    /* the bus will automatically disconnect when it is stopped */
+    for (size_t i = 0; i < 200; ++i) {
+        if (bus_disconnected_flag) {
+            break;
+        }
+        qcc::Sleep(5);
+    }
+    EXPECT_TRUE(bus_disconnected_flag);
+
     /*
      * We do not expect the ListenerUnregistered callback to be called when
      * the BusAttachment is stopped.  We only expect it to be unregistered
