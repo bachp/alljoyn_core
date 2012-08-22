@@ -92,7 +92,7 @@ void ClientRouter::UnregisterEndpoint(BusEndpoint& endpoint)
     QCC_DbgHLPrintf(("ClientRouter::UnregisterEndpoint"));
 
     /* Unregister static endpoints */
-    if (&endpoint == localEndpoint) {
+    if (&endpoint != localEndpoint) {
         /*
          * Let the bus know that the local endpoint disconnected
          */
