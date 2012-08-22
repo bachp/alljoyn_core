@@ -15,7 +15,7 @@
             android:id="@+id/mainExit"
             android:layout_width="240dp"
             android:layout_height="wrap_content"
-            android:text="Exit" />
+            android:text="@string/exit" />
 
     </LinearLayout>
     
