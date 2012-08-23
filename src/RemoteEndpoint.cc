@@ -80,7 +80,8 @@ RemoteEndpoint::RemoteEndpoint(BusAttachment& bus,
     idleTimeoutCount(0),
     maxIdleProbes(0),
     idleTimeout(0),
-    probeTimeout(0)
+    probeTimeout(0),
+    started(false)
 {
     ++threadCount;
 }
@@ -156,6 +157,10 @@ QStatus RemoteEndpoint::Start()
         QCC_LogError(status, ("AllJoynRemoteEndoint::Start failed"));
     }
 
+    if (status == ER_OK) {
+        started = true;
+    }
+
     return status;
 }
 
@@ -228,6 +233,18 @@ QStatus RemoteEndpoint::Join(void)
      * this when the RemoteEndpoint destructor is called. The reason for this is tied up in the
      * ThreadExit logic that coordinates the stopping of both rx and tx threads.
      */
+
+    /*
+     * block until the two threads have been joined and the EP has been deleted
+     * but *only* if this REP has started successfully, otherwise we'll wait forever
+     * for two threads that have never been spawned
+     */
+    if (started) {
+        while (exitCount < 2) {
+            qcc::Sleep(10);
+        }
+    }
+
     return ER_OK;
 }
 

@@ -143,6 +143,7 @@ QStatus ClientTransport::Disconnect(const char* connectSpec)
     m_epLock.Lock();
     if (!m_stopping && m_endpoint) {
         m_endpoint->Stop();
+        m_endpoint->Join();
     }
     m_epLock.Unlock();
     return status;

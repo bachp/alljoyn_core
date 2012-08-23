@@ -454,6 +454,7 @@ class RemoteEndpoint : public BusEndpoint, public qcc::ThreadListener {
     uint32_t maxIdleProbes;                  /**< Maximum number of missed idle probes before shutdown */
     uint32_t idleTimeout;                    /**< RX idle seconds before sending probe */
     uint32_t probeTimeout;                   /**< Probe timeout in seconds */
+    bool started;                            /**< Is this EP started? */
 };
 
 }
