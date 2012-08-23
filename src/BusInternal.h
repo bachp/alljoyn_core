@@ -212,7 +212,7 @@ class BusAttachment::Internal : public MessageReceiver {
     /**
      * Called if the bus attachment become disconnected from the bus.
      */
-    void LocalEndpointDisconnected();
+    void NonLocalEndpointDisconnected();
 
     /**
      * JoinSessionAsync method_reply handler.

@@ -1588,7 +1588,7 @@ QStatus BusAttachment::SetLinkTimeout(SessionId sessionId, uint32_t& linkTimeout
     return status;
 }
 
-void BusAttachment::Internal::LocalEndpointDisconnected()
+void BusAttachment::Internal::NonLocalEndpointDisconnected()
 {
     listenersLock.Lock(MUTEX_CONTEXT);
     ListenerSet::iterator it = listeners.begin();
