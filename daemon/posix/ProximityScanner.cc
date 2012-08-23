@@ -38,8 +38,6 @@
 #import <CoreWLAN/CoreWLAN.h>
 #endif
 #endif
-#include <jni.h>
-
 
 
 #define QCC_MODULE "PROXIMITY_SCANNER"
