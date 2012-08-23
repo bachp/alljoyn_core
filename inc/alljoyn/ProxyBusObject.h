@@ -493,7 +493,7 @@ class ProxyBusObject : public MessageReceiver {
      * @c GetChild("bat/baz"). Unlike the unmanaged version of GetChild, it is
      * expected the caller will call delete on the _ProxyBusObject returned.
      *
-     * @param path the relative path for the child.
+     * @param inPath the relative path for the child.
      *
      * @return
      *      - The (potentially deep) descendant _ProxyBusObject
