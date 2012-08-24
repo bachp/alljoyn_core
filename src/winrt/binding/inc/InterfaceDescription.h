@@ -115,27 +115,6 @@ public ref class InterfaceDescription sealed {
                    uint8_t annotation,
                    Platform::String ^ accessPerms);
 
-    /// <summary>Add a member to the interface.</summary>
-    /// <param name="type"> Message type.</param>
-    /// <param name="name"> Name of member.</param>
-    /// <param name="inputSig"> Signature of input parameters or NULL for none.</param>
-    /// <param name="outSig"> Signature of output parameters or NULL for none.</param>
-    /// <param name="argNames"> Comma separated list of input and then output arg names used in annotation XML.</param>
-    /// <param name="annotation"> Map of annotations (string=>string)</param>
-    /// <param name="accessPerms"> Required permissions to invoke this call</param>
-    /// <exception cref="Platform::COMException">
-    /// HRESULT will contain the AllJoyn error status code for the error.
-    /// - #ER_OK if successful
-    /// - #ER_BUS_MEMBER_ALREADY_EXISTS if member already exists
-    /// </exception>
-    void AddMemberWithMap(AllJoynMessageType type,
-                          Platform::String ^ name,
-                          Platform::String ^ inputSig,
-                          Platform::String ^ outSig,
-                          Platform::String ^ argNames,
-                          Windows::Foundation::Collections::IMapView<Platform::String ^, Platform::String ^> ^ annotations,
-                          Platform::String ^ accessPerms);
-
     /// <summary>Add an annotation to an existing member (signal or method).</summary>
     /// <param name="member"> Name of member</param>
     /// <param name="name"> Name of annotation</param>
@@ -236,37 +215,6 @@ public ref class InterfaceDescription sealed {
                    Platform::String ^ argNames,
                    uint8_t annotation,
                    Platform::String ^ accessPerms);
-
-    /// <summary>Add a method call member to the interface.</summary>
-    /// <param name="name">
-    ///Name of method call member.
-    /// </param>
-    /// <param name="inputSig">
-    ///Signature of input parameters or NULL for none.
-    /// </param>
-    /// <param name="outSig">
-    ///Signature of output parameters or NULL for none.
-    /// </param>
-    /// <param name="argNames">
-    ///Comma separated list of input and then output arg names used in annotation XML.
-    /// </param>
-    /// <param name="annotation">
-    ///Map of annotations.
-    /// </param>
-    /// <param name="accessPerms">
-    ///Access permission requirements on this call
-    /// </param>
-    /// <exception cref="Platform::COMException">
-    /// HRESULT will contain the AllJoyn error status code for the error.
-    /// - #ER_OK if successful
-    /// - #ER_BUS_MEMBER_ALREADY_EXISTS if member already exists
-    /// </exception>
-    void AddMethodWithMap(Platform::String ^ name,
-                          Platform::String ^ inputSig,
-                          Platform::String ^ outSig,
-                          Platform::String ^ argNames,
-                          Windows::Foundation::Collections::IMapView<Platform::String ^, Platform::String ^> ^ annotations,
-                          Platform::String ^ accessPerms);
 
     /// <summary>
     ///Lookup a member method description by name
