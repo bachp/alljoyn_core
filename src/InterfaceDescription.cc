@@ -114,13 +114,13 @@ InterfaceDescription::Member::Member(
 
 InterfaceDescription::Member::Member(const Member& other)
     : iface(other.iface),
-      memberType(other.memberType),
-      name(other.name),
-      signature(other.signature),
-      returnSignature(other.returnSignature),
-      argNames(other.argNames),
-      annotations(new AnnotationsMap(*(other.annotations))),
-      accessPerms(other.accessPerms)
+    memberType(other.memberType),
+    name(other.name),
+    signature(other.signature),
+    returnSignature(other.returnSignature),
+    argNames(other.argNames),
+    annotations(new AnnotationsMap(*(other.annotations))),
+    accessPerms(other.accessPerms)
 {
 }
 
@@ -147,9 +147,9 @@ InterfaceDescription::Property::Property(const char* name, const char* signature
 
 InterfaceDescription::Property::Property(const Property& other)
     : name(other.name),
-      signature(other.signature),
-      access(other.access),
-      annotations(new AnnotationsMap(*(other.annotations)))
+    signature(other.signature),
+    access(other.access),
+    annotations(new AnnotationsMap(*(other.annotations)))
 {
 
 }
