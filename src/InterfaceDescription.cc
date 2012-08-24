@@ -60,6 +60,54 @@ static qcc::String NextArg(const char*& signature, qcc::String& argNames, bool i
     return arg;
 }
 
+
+class InterfaceDescription::AnnotationsMap : public std::map<qcc::String, qcc::String> { };
+
+
+InterfaceDescription::Member::Member(
+    const InterfaceDescription* iface,
+    AllJoynMessageType type,
+    const char* name,
+    const char* signature,
+    const char* returnSignature,
+    const char* argNames,
+    uint8_t annotation,
+    const char* accessPerms)
+    : iface(iface),
+    memberType(type),
+    name(name),
+    signature(signature ? signature : ""),
+    returnSignature(returnSignature ? returnSignature : ""),
+    argNames(argNames ? argNames : ""),
+    annotations(),
+    accessPerms(accessPerms ? accessPerms : "") {
+
+    if (annotation & MEMBER_ANNOTATE_DEPRECATED) {
+        (*annotations)[org::freedesktop::DBus::AnnotateDeprecated] = "true";
+    }
+
+    if (annotation & MEMBER_ANNOTATE_NO_REPLY) {
+        (*annotations)[org::freedesktop::DBus::AnnotateNoReply] = "true";
+    }
+}
+
+bool InterfaceDescription::Member::operator==(const Member& o) const {
+    return ((memberType == o.memberType) && (name == o.name) && (signature == o.signature)
+            && (returnSignature == o.returnSignature) && (annotations == o.annotations));
+}
+
+
+InterfaceDescription::Property::Property(const char* name, const char* signature, uint8_t access)
+    : name(name), signature(signature ? signature : ""), access(access), annotations()
+{
+}
+
+/** Equality */
+bool InterfaceDescription::Property::operator==(const Property& o) const {
+    return ((name == o.name) && (signature == o.signature) && (access == o.access) && (annotations == o.annotations));
+}
+
+
 struct InterfaceDescription::Definitions {
     typedef std::map<qcc::StringMapKey, Member> MemberMap;
     typedef std::map<qcc::StringMapKey, Property> PropertyMap;
@@ -75,8 +123,8 @@ struct InterfaceDescription::Definitions {
 
 bool InterfaceDescription::Member::GetAnnotation(const qcc::String& name, qcc::String& value) const
 {
-    AnnotationsMap::const_iterator it = annotations.find(name);
-    return (it != annotations.end() ? value = it->second, true : false);
+    AnnotationsMap::const_iterator it = annotations->find(name);
+    return (it != annotations->end() ? value = it->second, true : false);
 }
 
 InterfaceDescription::InterfaceDescription(const char* name, bool secure) :
@@ -159,8 +207,8 @@ qcc::String InterfaceDescription::Introspect(size_t indent) const
          * Add annotations
          */
 
-        AnnotationsMap::const_iterator ait = member.annotations.begin();
-        for (; ait != member.annotations.end(); ++ait) {
+        AnnotationsMap::const_iterator ait = member.annotations->begin();
+        for (; ait != member.annotations->end(); ++ait) {
             xml += in + "    <annotation name=\"" + ait->first.c_str() + "\" value=\"" + ait->second + "\"/>\n";
         }
 
@@ -182,12 +230,12 @@ qcc::String InterfaceDescription::Introspect(size_t indent) const
             xml += " access=\"readwrite\"";
         }
 
-        if (property.annotations.size()) {
+        if (property.annotations->size()) {
             xml += ">\n";
 
             // add annotations
-            AnnotationsMap::const_iterator ait = property.annotations.begin();
-            for (; ait != property.annotations.end(); ++ait) {
+            AnnotationsMap::const_iterator ait = property.annotations->begin();
+            for (; ait != property.annotations->end(); ++ait) {
                 xml += in + "    <annotation name=\"" + ait->first.c_str() + "\" value=\"" + ait->second + "\"/>\n";
             }
 
@@ -228,25 +276,6 @@ QStatus InterfaceDescription::AddMember(AllJoynMessageType type,
     return ret.second ? ER_OK : ER_BUS_MEMBER_ALREADY_EXISTS;
 }
 
-QStatus InterfaceDescription::AddMember(AllJoynMessageType type,
-                                        const char* name,
-                                        const char* inSig,
-                                        const char* outSig,
-                                        const char* argNames,
-                                        const AnnotationsMap& annotations,
-                                        const char* accessPerms)
-{
-    if (isActivated) {
-        return ER_BUS_INTERFACE_ACTIVATED;
-    }
-
-    StringMapKey key = qcc::String(name);
-    Member member(this, type, name, inSig, outSig, argNames, annotations, accessPerms);
-    pair<StringMapKey, Member> item(key, member);
-    pair<Definitions::MemberMap::iterator, bool> ret = defs->members.insert(item);
-    return ret.second ? ER_OK : ER_BUS_MEMBER_ALREADY_EXISTS;
-}
-
 QStatus InterfaceDescription::AddMemberAnnotation(const char* member, const qcc::String& name, const qcc::String& value)
 {
     if (isActivated) {
@@ -259,7 +288,7 @@ QStatus InterfaceDescription::AddMemberAnnotation(const char* member, const qcc:
     }
 
     Member& m = it->second;
-    std::pair<AnnotationsMap::iterator, bool> ret = m.annotations.insert(std::make_pair(name, value));
+    std::pair<AnnotationsMap::iterator, bool> ret = m.annotations->insert(AnnotationsMap::value_type(name, value));
     return (ret.second || (ret.first->first == name && ret.first->second == value)) ? ER_OK : ER_BUS_ANNOTATION_ALREADY_EXISTS;
 }
 
@@ -271,7 +300,7 @@ bool InterfaceDescription::GetMemberAnnotation(const char* member, const qcc::St
     }
 
     const Member& m = mit->second;
-    AnnotationsMap::const_iterator ait = m.annotations.find(name);
+    AnnotationsMap::const_iterator ait = m.annotations->find(name);
     return (ait != defs->annotations.end() ? value = ait->second, true : false);
 }
 
@@ -301,7 +330,7 @@ QStatus InterfaceDescription::AddPropertyAnnotation(const qcc::String& p_name, c
     }
 
     Property& property = pit->second;
-    std::pair<AnnotationsMap::iterator, bool> ret = property.annotations.insert(std::make_pair(name, value));
+    std::pair<AnnotationsMap::iterator, bool> ret = property.annotations->insert(AnnotationsMap::value_type(name, value));
     return (ret.second || (ret.first->first == name && ret.first->second == value)) ? ER_OK : ER_BUS_ANNOTATION_ALREADY_EXISTS;
 }
 
@@ -313,8 +342,8 @@ bool InterfaceDescription::GetPropertyAnnotation(const qcc::String& p_name, cons
     }
 
     const Property& property = pit->second;
-    AnnotationsMap::const_iterator ait = property.annotations.find(name);
-    return (ait != property.annotations.end() ? value = ait->second, true : false);
+    AnnotationsMap::const_iterator ait = property.annotations->find(name);
+    return (ait != property.annotations->end() ? value = ait->second, true : false);
 }
 
 QStatus InterfaceDescription::AddAnnotation(const qcc::String& name, const qcc::String& value)

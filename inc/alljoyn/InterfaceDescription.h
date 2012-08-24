@@ -26,7 +26,6 @@
 #include <alljoyn/DBusStd.h>
 #include <alljoyn/Message.h>
 #include <Status.h>
-#include <map>
 /// @cond ALLJOYN_DEV
 /*!
    \def QCC_MODULE
@@ -77,7 +76,7 @@ class InterfaceDescription {
 
   public:
 
-    typedef std::map<qcc::String, qcc::String> AnnotationsMap; /**< A map to store string annotations */
+    class AnnotationsMap; /**< A map to store string annotations */
 
     /**
      * Structure representing the member to be added to the Interface
@@ -89,42 +88,12 @@ class InterfaceDescription {
         qcc::String signature;               /**< Method call IN arguments (NULL for signals) */
         qcc::String returnSignature;         /**< Signal or method call OUT arguments */
         qcc::String argNames;                /**< Comma separated list of argument names - can be NULL */
-        AnnotationsMap annotations;           /**< Map of annotations */
+        qcc::ManagedObj<AnnotationsMap> annotations;           /**< Map of annotations */
         qcc::String accessPerms;              /**< Required permissions to invoke this call */
 
         /** %Member constructor */
         Member(const InterfaceDescription* iface, AllJoynMessageType type, const char* name,
-               const char* signature, const char* returnSignature, const char* argNames, uint8_t annotation, const char* accessPerms)
-            : iface(iface),
-            memberType(type),
-            name(name),
-            signature(signature ? signature : ""),
-            returnSignature(returnSignature ? returnSignature : ""),
-            argNames(argNames ? argNames : ""),
-            annotations(),
-            accessPerms(accessPerms ? accessPerms : "") {
-
-            if (annotation & MEMBER_ANNOTATE_DEPRECATED) {
-                annotations[org::freedesktop::DBus::AnnotateDeprecated] = "true";
-            }
-
-            if (annotation & MEMBER_ANNOTATE_NO_REPLY) {
-                annotations[org::freedesktop::DBus::AnnotateNoReply] = "true";
-            }
-        }
-
-        /** %Member constructor */
-        Member(const InterfaceDescription* iface, AllJoynMessageType type, const char* name,
-               const char* signature, const char* returnSignature, const char* argNames, const AnnotationsMap& annotations, const char* accessPerms)
-            : iface(iface),
-            memberType(type),
-            name(name),
-            signature(signature ? signature : ""),
-            returnSignature(returnSignature ? returnSignature : ""),
-            argNames(argNames ? argNames : ""),
-            annotations(annotations),
-            accessPerms(accessPerms ? accessPerms : "") {
-        }
+               const char* signature, const char* returnSignature, const char* argNames, uint8_t annotation, const char* accessPerms);
 
         /**
          * Check if this member has a given annotation with a given value
@@ -139,10 +108,7 @@ class InterfaceDescription {
          * @param o   Member to compare against this member.
          * @return    true iff o == this member.
          */
-        bool operator==(const Member& o) const {
-            return ((memberType == o.memberType) && (name == o.name) && (signature == o.signature)
-                    && (returnSignature == o.returnSignature) && (annotations == o.annotations));
-        }
+        bool operator==(const Member& o) const;
     };
 
     /**
@@ -152,16 +118,13 @@ class InterfaceDescription {
         qcc::String name;              /**< %Property name */
         qcc::String signature;         /**< %Property type */
         uint8_t access;                /**< Access is #PROP_ACCESS_READ, #PROP_ACCESS_WRITE, or #PROP_ACCESS_RW */
-        AnnotationsMap annotations;    /**< Map of annotations */
+        qcc::ManagedObj<AnnotationsMap> annotations;    /**< Map of annotations */
 
         /** Property constructor */
-        Property(const char* name, const char* signature, uint8_t access)
-            : name(name), signature(signature ? signature : ""), access(access), annotations() { }
+        Property(const char* name, const char* signature, uint8_t access);
 
         /** Equality */
-        bool operator==(const Property& o) const {
-            return ((name == o.name) && (signature == o.signature) && (access == o.access) && (annotations == o.annotations));
-        }
+        bool operator==(const Property& o) const;
     };
 
     /**
@@ -180,25 +143,6 @@ class InterfaceDescription {
      *      - #ER_BUS_MEMBER_ALREADY_EXISTS if member already exists
      */
     QStatus AddMember(AllJoynMessageType type, const char* name, const char* inputSig, const char* outSig, const char* argNames, uint8_t annotation = 0, const char* accessPerms = 0);
-
-
-    /**
-     * Add a member to the interface.
-     *
-     * @param type        Message type.
-     * @param name        Name of member.
-     * @param inputSig    Signature of input parameters or NULL for none.
-     * @param outSig      Signature of output parameters or NULL for none.
-     * @param argNames    Comma separated list of input and then output arg names used in annotation XML.
-     * @param annotations Map of annotations (string=>string)
-     * @param accessPerms Required permissions to invoke this call
-     *
-     * @return
-     *      - #ER_OK if successful
-     *      - #ER_BUS_MEMBER_ALREADY_EXISTS if member already exists
-     */
-    QStatus AddMember(AllJoynMessageType type, const char* name, const char* inputSig, const char* outSig, const char* argNames, const AnnotationsMap& annotations, const char* accessPerms = 0);
-
 
     /**
      * Lookup a member description by name
@@ -254,25 +198,6 @@ class InterfaceDescription {
     QStatus AddMethod(const char* name, const char* inputSig, const char* outSig, const char* argNames, uint8_t annotation = 0, const char* accessPerms = 0)
     {
         return AddMember(MESSAGE_METHOD_CALL, name, inputSig, outSig, argNames, annotation, accessPerms);
-    }
-
-    /**
-     * Add a method call member to the interface.
-     *
-     * @param name        Name of method call member.
-     * @param inputSig    Signature of input parameters or NULL for none.
-     * @param outSig      Signature of output parameters or NULL for none.
-     * @param argNames    Comma separated list of input and then output arg names used in annotation XML.
-     * @param annotations  Map of annotations
-     * @param accessPerms Access permission requirements on this call
-     *
-     * @return
-     *      - #ER_OK if successful
-     *      - #ER_BUS_MEMBER_ALREADY_EXISTS if member already exists
-     */
-    QStatus AddMethod(const char* name, const char* inputSig, const char* outSig, const char* argNames, const AnnotationsMap& annotations, const char* accessPerms = 0)
-    {
-        return AddMember(MESSAGE_METHOD_CALL, name, inputSig, outSig, argNames, annotations, accessPerms);
     }
 
     /**

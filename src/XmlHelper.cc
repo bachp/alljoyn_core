@@ -92,7 +92,7 @@ QStatus XmlHelper::ParseInterface(const XmlElement* elem, ProxyBusObject* obj)
                 qcc::String outSig;
                 qcc::String argNames;
                 bool isArgNamesEmpty = true;
-                InterfaceDescription::AnnotationsMap annotations;
+                std::map<String, String> annotations;
 
                 /* Iterate over member children */
                 const vector<XmlElement*>& argChildren = ifChildElem->GetChildren();
@@ -136,8 +136,11 @@ QStatus XmlHelper::ParseInterface(const XmlElement* elem, ProxyBusObject* obj)
                                             memberName.c_str(),
                                             inSig.c_str(),
                                             outSig.c_str(),
-                                            isArgNamesEmpty ? NULL : argNames.c_str(),
-                                            annotations);
+                                            isArgNamesEmpty ? NULL : argNames.c_str());
+
+                    for (std::map<String, String>::const_iterator it = annotations.begin(); it != annotations.end(); ++it) {
+                        intf.AddMemberAnnotation(memberName.c_str(), it->first, it->second);
+                    }
                 }
             } else {
                 status = ER_BUS_BAD_MEMBER_NAME;
