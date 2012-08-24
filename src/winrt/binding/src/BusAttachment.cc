@@ -285,22 +285,25 @@ void BusAttachment::Start()
     }
 }
 
-void BusAttachment::Stop()
+Windows::Foundation::IAsyncAction ^     BusAttachment::StopAsync()
 {
-    ::QStatus status = _busAttachment->Stop();
+    IAsyncAction ^ action = concurrency::create_async([this](concurrency::cancellation_token ct) {
+                                                          ::QStatus status = ER_OK;
 
-    if (ER_OK != status) {
-        QCC_THROW_EXCEPTION(status);
-    }
-}
+                                                          while (true) {
+                                                              status = _busAttachment->Stop();
+                                                              if (ER_OK != status) {
+                                                                  break;
+                                                              }
+                                                              status =  _busAttachment->Join();
+                                                              break;
+                                                          }
 
-void BusAttachment::Join()
-{
-    ::QStatus status = _busAttachment->Join();
-
-    if (ER_OK != status) {
-        QCC_THROW_EXCEPTION(status);
-    }
+                                                          if (ER_OK != status) {
+                                                              QCC_THROW_EXCEPTION(status);
+                                                          }
+                                                      });
+    return action;
 }
 
 bool BusAttachment::IsStarted()

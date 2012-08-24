@@ -408,51 +408,16 @@ public ref class BusAttachment sealed {
     /// process of ending the execution of its threads.
     /// </summary>
     /// <remarks>
-    /// The Stop() method call on a bus attachment should be thought of as
-    /// mapping to a threading package stop function.  It asks the BusAttachment
-    /// to begin shutting down its various threads of execution, but does not
-    /// wait for any threads to exit.
-    /// A call to Stop() is implied as one of the first steps in the destruction
-    /// of a bus attachment.
-    /// Note there is no guarantee that a listener callback may begin executing
-    /// after a call to Stop().  To achieve that effect, the Stop() must be followed
-    /// by a Join().
+    /// The StopAsync() method call on a bus attachment should be thought of as
+    /// mapping to a threading package stop function.
     /// <see cref="BusAttachment::Start"/>
-    /// <see cref="BusAttachment::Join"/>
     /// </remarks>
     /// <exception cref="Platform::COMException">
     /// HRESULT will contain the AllJoyn error status code for the error if
     /// unable to begin the process of stopping the BusAttachment threads.
     /// </exception>
-    void Stop();
-
-    /// <summary>
-    /// Wait for all of the threads spawned by the bus attachment to be completely exited.
-    /// </summary>
-    /// <remarks>
-    /// A call to the Join() method should be thought of as mapping to a
-    /// threading package join function call.  It blocks and waits until all of
-    /// the threads in the BusAttachment have, in fact, exited their Run functions,
-    /// gone through the stopping state and have returned their status.  When
-    /// the Join() method returns, one may be assured that no threads are running
-    /// in the bus attachment, and therefore there will be no callbacks in
-    /// progress and no further callbacks will ever come out of the instance of a
-    /// bus attachment on which Join() was called.
-    /// A call to Join() is implied as one of the first steps in the destruction
-    /// of a bus attachment.  Thus, when a bus attachment is destroyed, it is
-    /// guaranteed that before it completes its destruction process, there will be
-    /// no callbacks in process.
-    /// Note that if Join() is called without a previous Stop() it will result in
-    /// blocking "forever."
-    /// <see cref="BusAttachment::Start"/>
-    /// <see cref="BusAttachment::Stop"/>
-    /// </remarks>
-    /// <exception cref="Platform::COMException">
-    /// HRESULT will contain the AllJoyn error status code for the error.
-    /// #ER_BUS_BUS_ALREADY_STARTED if already started or other error status codes identifying the
-    /// reason for the failure
-    /// </exception>
-    void Join();
+    /// <returns>A handle to the async operation which can be used for synchronization.</returns>
+    Windows::Foundation::IAsyncAction ^ StopAsync();
 
     /// <summary>
     /// Determine if the bus attachment has been started by a call to <see cref="Start"/>.
