@@ -73,7 +73,8 @@ CXXFLAGS=-Wall \
         -fno-exceptions \
         -fno-strict-aliasing \
         -Wno-long-long \
-        -Wno-deprecated
+        -Wno-deprecated \
+		-std=c++0x
 
 ifeq "$(CPU)" "x86"
 # Force 32-bit builds

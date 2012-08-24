@@ -77,7 +77,7 @@ class Token {
 
 
 enum Actions {
-    NONE,
+    NO_ACTION,
     LIST,
     LIST_ALL,
     LIST_OBJECTS,
@@ -964,7 +964,7 @@ static void ParseCmdLine(int argc, char** argv)
             }
             objPath = argv[i];
         } else if (strcmp(argv[i], "-lo") == 0) {
-            if (action != NONE) {
+            if (action != NO_ACTION) {
                 printf("Only one of \"-f\", \"-l\", \"-lo\", \"-a\", \"-i\", \"-c\" may be used.\n");
                 exit(1);
             }
@@ -974,19 +974,19 @@ static void ParseCmdLine(int argc, char** argv)
             }
             action = LIST_OBJECTS;
         } else if (strcmp(argv[i], "-l") == 0) {
-            if (action != NONE) {
+            if (action != NO_ACTION) {
                 printf("Only one of \"-f\", \"-l\", \"-lo\", \"-a\", \"-i\", \"-c\" may be used.\n");
                 exit(1);
             }
             action = LIST;
         } else if (strcmp(argv[i], "-a") == 0) {
-            if (action != NONE) {
+            if (action != NO_ACTION) {
                 printf("Only one of \"-f\", \"-l\", \"-lo\", \"-a\", \"-i\", \"-c\" may be used.\n");
                 exit(1);
             }
             action = LIST_ALL;
         } else if (strcmp(argv[i], "-i") == 0) {
-            if (action != NONE) {
+            if (action != NO_ACTION) {
                 printf("Only one of \"-f\", \"-l\", \"-lo\", \"-a\", \"-i\", \"-c\" may be used.\n");
                 exit(1);
             }
@@ -996,7 +996,7 @@ static void ParseCmdLine(int argc, char** argv)
             }
             action = INTROSPECT;
         } else if (strcmp(argv[i], "-c") == 0) {
-            if ((action != NONE) && (action != INTROSPECT)) {
+            if ((action != NO_ACTION) && (action != INTROSPECT)) {
                 printf("Cannot use \"-c\" with \"-l\", \"-lo\", \"-a\".\n");
                 exit(1);
             }
@@ -1077,7 +1077,7 @@ int main(int argc, char** argv)
     }
 
     switch (action) {
-    case NONE:
+    case NO_ACTION:
         break;
 
     case LIST:

@@ -20,6 +20,14 @@ all: daemon test_progs
 BT_SRCS = BTController.cc BTTransport.cc BTNodeDB.cc
 DAEMON_SRCS = $(wildcard *.cc)
 DAEMON_SRCS += $(wildcard *.c)
+DAEMON_SRCS += $(wildcard ice/*.cc)
+DAEMON_SRCS += $(wildcard JSON/*.cc)
+DAEMON_SRCS += \
+	$(OS_GROUP)/ICEPacketStream.cc \
+	$(OS_GROUP)/ProximityScanner.cc \
+	$(OS_GROUP)/Socket.cc 
+
+INCLUDE += -I$(PWD)/ice -I$(PWD)/$(OS_GROUP) -I$(PWD)/JSON
 
 ifeq "$(OS)" "darwin"
     # Darwin has its own version of the daemon transport
@@ -37,7 +45,6 @@ else
     DAEMON_SRCS += $(wildcard bt_bluez/*.cc)
 endif
 
-
 DAEMON_OBJS = $(patsubst %.cc,%.o,$(DAEMON_SRCS))
 $(DAEMON_OBJS) : $(DAEMON_SRC)
 	$(CC) $(CXXFLAGS) $(CPPDEFINES) $(INCLUDE) -c -o $@ $(patsubst %.o,%.cc,$@)
@@ -53,7 +60,6 @@ TESTDIR = test
 
 $(TESTDIR)/advtunnel.o : $(TESTDIR)/advtunnel.cc
 $(TESTDIR)/bbdaemon.o : $(TESTDIR)/bbdaemon.cc
-$(TESTDIR)/DaemonTest.o : $(TESTDIR)/DaemonTest.cc
 $(TESTDIR)/mcmd.o : $(TESTDIR)/mcmd.cc
 $(TESTDIR)/ns.o : $(TESTDIR)/ns.cc
 
@@ -64,7 +70,7 @@ daemon : $(DAEMON_OBJS) $(DAEMON_MAIN_OBJ)
 	$(CC) $(CXXFLAGS) $(CPPDEFINES) $(INCLUDE) $(LINKFLAGS) -o alljoyn-daemon $(DAEMON_OBJS) $(DAEMON_MAIN_OBJ) $(LIBS)
 	cp alljoyn-daemon $(INSTALLDIR)/dist/bin
  
-test_progs: advtunnel bbdaemon DaemonTest mcmd ns
+test_progs: advtunnel bbdaemon mcmd ns
 
 advtunnel : $(DAEMON_OBJS) $(TESTDIR)/advtunnel.o
 	$(CC) $(CXXFLAGS) $(CPPDEFINES) $(INCLUDE) $(LINKFLAGS) -o advtunnel $(DAEMON_OBJS) $(TESTDIR)/advtunnel.o $(LIBS)
