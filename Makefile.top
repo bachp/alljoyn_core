@@ -106,7 +106,7 @@ INCLUDE = -I$(PWD)/common/inc -I$(PWD)/alljoyn_core/inc -I$(PWD)/alljoyn_core/sr
 LIBS = -lalljoyn
 # Platform specifics system libs
 ifeq "$(OS)" "linux"
-    LIBS += -lrt -lstdc++ -lpthread -lcrypto
+    LIBS += -lrt -lstdc++ -lpthread -lcrypto -lssl
 endif
 
 CRYPTO = openssl
