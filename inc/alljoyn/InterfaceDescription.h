@@ -376,6 +376,14 @@ class InterfaceDescription {
      */
     bool GetAnnotation(const qcc::String& name, qcc::String& value) const;
 
+    /**
+     * Get the names and values of all annotations
+     *
+     * @param[out] names    Annotation names
+     * @param[out] value    Annotation values
+     * @param[out] size     Number of annotations
+     */
+    void GetAllAnnotations(qcc::String** names, qcc::String** values, size_t& size) const;
 
     /**
      * Returns a description of the interface in introspection XML format

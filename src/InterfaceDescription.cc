@@ -36,6 +36,27 @@ using namespace qcc;
 
 namespace ajn {
 
+static void GetAnnotationsWithValues(const std::map<qcc::String, qcc::String>& annotations, qcc::String** names, qcc::String** values, size_t& size)
+{
+    typedef std::map<qcc::String, qcc::String> AnnotationsMap;
+    if (annotations.empty()) {
+        size = 0;
+        *names = NULL;
+        *values = NULL;
+        return;
+    }
+
+    *names = new String[size];
+    *values = new String[size];
+
+    size = 0;
+    for (AnnotationsMap::const_iterator it = annotations.begin(); it != annotations.end(); ++it) {
+        (*names)[size] = it->first;
+        (*values)[size] = it->second;
+        ++size;
+    }
+}
+
 static qcc::String NextArg(const char*& signature, qcc::String& argNames, bool inOut, size_t indent)
 {
     qcc::String in(indent, ' ');
@@ -93,22 +114,7 @@ InterfaceDescription::Member::Member(
 
 void InterfaceDescription::Member::GetAllAnnotations(qcc::String** names, qcc::String** values, size_t& size) const
 {
-    if (annotations->empty()) {
-        size = 0;
-        *names = NULL;
-        *values = NULL;
-        return;
-    }
-
-    *names = new String[size];
-    *values = new String[size];
-
-    size = 0;
-    for (AnnotationsMap::const_iterator it = annotations->begin(); it != annotations->end(); ++it) {
-        (*names)[size] = it->first;
-        (*values)[size] = it->second;
-        ++size;
-    }
+    GetAnnotationsWithValues(*annotations, names, values, size);
 }
 
 bool InterfaceDescription::Member::operator==(const Member& o) const {
@@ -124,22 +130,7 @@ InterfaceDescription::Property::Property(const char* name, const char* signature
 
 void InterfaceDescription::Property::GetAllAnnotations(qcc::String** names, qcc::String** values, size_t& size) const
 {
-    if (annotations->empty()) {
-        size = 0;
-        *names = NULL;
-        *values = NULL;
-        return;
-    }
-
-    *names = new String[size];
-    *values = new String[size];
-
-    size = 0;
-    for (AnnotationsMap::const_iterator it = annotations->begin(); it != annotations->end(); ++it) {
-        (*names)[size] = it->first;
-        (*values)[size] = it->second;
-        ++size;
-    }
+    GetAnnotationsWithValues(*annotations, names, values, size);
 }
 
 /** Equality */
@@ -400,6 +391,11 @@ bool InterfaceDescription::GetAnnotation(const qcc::String& name, qcc::String& v
 {
     AnnotationsMap::const_iterator it = defs->annotations.find(name);
     return (it != defs->annotations.end() ? value = it->second, true : false);
+}
+
+void InterfaceDescription::GetAllAnnotations(qcc::String** names, qcc::String** values, size_t& size) const
+{
+    GetAnnotationsWithValues(defs->annotations, names, values, size);
 }
 
 bool InterfaceDescription::operator==(const InterfaceDescription& other) const
