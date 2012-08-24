@@ -95,6 +95,8 @@ class InterfaceDescription {
         Member(const InterfaceDescription* iface, AllJoynMessageType type, const char* name,
                const char* signature, const char* returnSignature, const char* argNames, uint8_t annotation, const char* accessPerms);
 
+        void GetAllAnnotations(qcc::String** names, qcc::String** values, size_t& size) const;
+
         /**
          * Check if this member has a given annotation with a given value
          * @param name   Name of the annotation to look for
@@ -122,6 +124,8 @@ class InterfaceDescription {
 
         /** Property constructor */
         Property(const char* name, const char* signature, uint8_t access);
+
+        void GetAllAnnotations(qcc::String** names, qcc::String** values, size_t& size) const;
 
         /** Equality */
         bool operator==(const Property& o) const;

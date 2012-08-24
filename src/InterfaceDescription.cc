@@ -91,6 +91,26 @@ InterfaceDescription::Member::Member(
     }
 }
 
+void InterfaceDescription::Member::GetAllAnnotations(qcc::String** names, qcc::String** values, size_t& size) const
+{
+    if (annotations->empty()) {
+        size = 0;
+        *names = NULL;
+        *values = NULL;
+        return;
+    }
+
+    *names = new String[size];
+    *values = new String[size];
+
+    size = 0;
+    for (AnnotationsMap::const_iterator it = annotations->begin(); it != annotations->end(); ++it) {
+        (*names)[size] = it->first;
+        (*values)[size] = it->second;
+        ++size;
+    }
+}
+
 bool InterfaceDescription::Member::operator==(const Member& o) const {
     return ((memberType == o.memberType) && (name == o.name) && (signature == o.signature)
             && (returnSignature == o.returnSignature) && (annotations == o.annotations));
@@ -100,6 +120,26 @@ bool InterfaceDescription::Member::operator==(const Member& o) const {
 InterfaceDescription::Property::Property(const char* name, const char* signature, uint8_t access)
     : name(name), signature(signature ? signature : ""), access(access), annotations()
 {
+}
+
+void InterfaceDescription::Property::GetAllAnnotations(qcc::String** names, qcc::String** values, size_t& size) const
+{
+    if (annotations->empty()) {
+        size = 0;
+        *names = NULL;
+        *values = NULL;
+        return;
+    }
+
+    *names = new String[size];
+    *values = new String[size];
+
+    size = 0;
+    for (AnnotationsMap::const_iterator it = annotations->begin(); it != annotations->end(); ++it) {
+        (*names)[size] = it->first;
+        (*values)[size] = it->second;
+        ++size;
+    }
 }
 
 /** Equality */
