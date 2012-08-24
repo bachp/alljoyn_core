@@ -100,7 +100,7 @@ InterfaceDescription::Member::Member(
     signature(signature ? signature : ""),
     returnSignature(returnSignature ? returnSignature : ""),
     argNames(argNames ? argNames : ""),
-    annotations(),
+    annotations(new AnnotationsMap()),
     accessPerms(accessPerms ? accessPerms : "") {
 
     if (annotation & MEMBER_ANNOTATE_DEPRECATED) {
@@ -112,6 +112,23 @@ InterfaceDescription::Member::Member(
     }
 }
 
+InterfaceDescription::Member::Member(const Member& other)
+    : iface(other.iface),
+      memberType(other.memberType),
+      name(other.name),
+      signature(other.signature),
+      returnSignature(other.returnSignature),
+      argNames(other.argNames),
+      annotations(new AnnotationsMap(*(other.annotations))),
+      accessPerms(other.accessPerms)
+{
+}
+
+InterfaceDescription::Member::~Member()
+{
+    delete annotations;
+}
+
 size_t InterfaceDescription::Member::GetAnnotations(qcc::String* names, qcc::String* values, size_t size) const
 {
     return GetAnnotationsWithValues(*annotations, names, values, size);
@@ -119,13 +136,27 @@ size_t InterfaceDescription::Member::GetAnnotations(qcc::String* names, qcc::Str
 
 bool InterfaceDescription::Member::operator==(const Member& o) const {
     return ((memberType == o.memberType) && (name == o.name) && (signature == o.signature)
-            && (returnSignature == o.returnSignature) && (annotations == o.annotations));
+            && (returnSignature == o.returnSignature) && (*annotations == *(o.annotations)));
 }
 
 
 InterfaceDescription::Property::Property(const char* name, const char* signature, uint8_t access)
-    : name(name), signature(signature ? signature : ""), access(access), annotations()
+    : name(name), signature(signature ? signature : ""), access(access), annotations(new AnnotationsMap())
 {
+}
+
+InterfaceDescription::Property::Property(const Property& other)
+    : name(other.name),
+      signature(other.signature),
+      access(other.access),
+      annotations(new AnnotationsMap(*(other.annotations)))
+{
+
+}
+
+InterfaceDescription::Property::~Property()
+{
+    delete annotations;
 }
 
 size_t InterfaceDescription::Property::GetAnnotations(qcc::String* names, qcc::String* values, size_t size) const
@@ -135,7 +166,7 @@ size_t InterfaceDescription::Property::GetAnnotations(qcc::String* names, qcc::S
 
 /** Equality */
 bool InterfaceDescription::Property::operator==(const Property& o) const {
-    return ((name == o.name) && (signature == o.signature) && (access == o.access) && (annotations == o.annotations));
+    return ((name == o.name) && (signature == o.signature) && (access == o.access) && (*annotations == *(o.annotations)));
 }
 
 

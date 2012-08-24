@@ -88,12 +88,14 @@ class InterfaceDescription {
         qcc::String signature;               /**< Method call IN arguments (NULL for signals) */
         qcc::String returnSignature;         /**< Signal or method call OUT arguments */
         qcc::String argNames;                /**< Comma separated list of argument names - can be NULL */
-        qcc::ManagedObj<AnnotationsMap> annotations;           /**< Map of annotations */
+        AnnotationsMap* annotations;           /**< Map of annotations */
         qcc::String accessPerms;              /**< Required permissions to invoke this call */
 
         /** %Member constructor */
         Member(const InterfaceDescription* iface, AllJoynMessageType type, const char* name,
                const char* signature, const char* returnSignature, const char* argNames, uint8_t annotation, const char* accessPerms);
+        Member(const Member& other);
+        ~Member();
 
         /**
          * Get the names and values of all annotations
@@ -128,10 +130,12 @@ class InterfaceDescription {
         qcc::String name;              /**< %Property name */
         qcc::String signature;         /**< %Property type */
         uint8_t access;                /**< Access is #PROP_ACCESS_READ, #PROP_ACCESS_WRITE, or #PROP_ACCESS_RW */
-        qcc::ManagedObj<AnnotationsMap> annotations;    /**< Map of annotations */
+        AnnotationsMap* annotations;    /**< Map of annotations */
 
         /** Property constructor */
         Property(const char* name, const char* signature, uint8_t access);
+        Property(const Property& other);
+        ~Property();
 
         /**
          * Get the names and values of all annotations
