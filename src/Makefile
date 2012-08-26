@@ -51,5 +51,5 @@ corelib: $(ALLJOYN_CC_OBJS) $(ALLJOYN_C_OBJS)
 	cp $(DYNAMIC_LIB) $(INSTALLDIR)/dist/lib
 
 clean:
-	@rm -f *.o *~ $(STATIC_LIB) $(DYNAMIC_LIB) $(OS_SRC_DIR)/*.o
+	@rm -f *.o *~ $(STATIC_LIB) $(DYNAMIC_LIB) $(OS_SRC_DIR)/*.o $(OS_SRC_DIR)/linux/*.o
 
