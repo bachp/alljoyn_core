@@ -2470,55 +2470,59 @@ void DaemonICETransport::AlarmTriggered(const qcc::Alarm& alarm, QStatus alarmSt
 
     AlarmContext* ctx = reinterpret_cast<AlarmContext*>(alarm.GetContext());
 
-    switch (ctx->contextType) {
-    case AlarmContext::CONTEXT_NAT_KEEPALIVE:
-    {
-        ICEPacketStream* ps = ctx->pktStream;
+    if (alarmStatus == ER_OK) {
+        switch (ctx->contextType) {
+        case AlarmContext::CONTEXT_NAT_KEEPALIVE:
+        {
+            ICEPacketStream* ps = ctx->pktStream;
 
-        /* Make sure PacketStream is still alive before calling nat/refresh code */
-        QStatus status = AcquireICEPacketStreamByPointer(ps);
+            /* Make sure PacketStream is still alive before calling nat/refresh code */
+            QStatus status = AcquireICEPacketStreamByPointer(ps);
 
-        if ((status == ER_OK) && !ps->HasSocket()) {
-            status = ER_FAIL;
-            ReleaseICEPacketStream(*ps);
+            if ((status == ER_OK) && !ps->HasSocket()) {
+                status = ER_FAIL;
+                ReleaseICEPacketStream(*ps);
+            }
+
+            if ((status == ER_OK) && (alarm == ps->GetTimeoutAlarm())) {
+                /* PacketEngine Accept timeout */
+                QCC_DbgPrintf(("DaemonICETransport::AlarmTriggered: Removing pktStream %p due to PacketEngine accept timeout", ps));
+                ReleaseICEPacketStream(*ps);
+                ReleaseICEPacketStream(*ps);
+            } else if (status == ER_OK) {
+                /* Send NAT keep alive and/or turn refresh */
+                SendSTUNKeepAliveAndTURNRefreshRequest(*ps);
+                ReleaseICEPacketStream(*ps);
+            } else {
+                /* Cant find pktStream */
+                QCC_DbgPrintf(("DaemonICETransport::AlarmTriggered: PktStream=%p was not found. keepalive/refresh timer disabled for this pktStream", ps));
+            }
+            break;
         }
 
-        if ((status == ER_OK) && (alarm == ps->GetTimeoutAlarm())) {
-            /* PacketEngine Accept timeout */
-            QCC_DbgPrintf(("DaemonICETransport::AlarmTriggered: Removing pktStream %p due to PacketEngine accept timeout", ps));
-            ReleaseICEPacketStream(*ps);
-            ReleaseICEPacketStream(*ps);
-        } else if (status == ER_OK) {
-            /* Send NAT keep alive and/or turn refresh */
-            SendSTUNKeepAliveAndTURNRefreshRequest(*ps);
-            ReleaseICEPacketStream(*ps);
-        } else {
-            /* Cant find pktStream */
-            QCC_DbgPrintf(("DaemonICETransport::AlarmTriggered: PktStream=%p was not found. keepalive/refresh timer disabled for this pktStream", ps));
+        case AlarmContext::CONTEXT_SCHEDULE_RUN:
+        {
+            /* Wake up the DaemonICETransport::Run() thread to purge the endpoints*/
+            wakeDaemonICETransportRun.SetEvent();
+
+            /* Reload the alarm */
+            AlarmContext* ctx = new AlarmContext();
+            Alarm runAlarm(DAEMON_ICE_TRANSPORT_RUN_SCHEDULING_INTERVAL, this, 0, ctx);
+            daemonICETransportTimer.AddAlarm(runAlarm);
+
+            break;
         }
-        break;
+
+        default:
+        {
+            uint32_t t = static_cast<uint32_t>(ctx->contextType);
+            QCC_LogError(ER_FAIL, ("Received AlarmContext with unknown type (%u)", t));
+            break;
+        }
+        }
     }
 
-    case AlarmContext::CONTEXT_SCHEDULE_RUN:
-    {
-        /* Wake up the DaemonICETransport::Run() thread to purge the endpoints*/
-        wakeDaemonICETransportRun.SetEvent();
-
-        /* Reload the alarm */
-        AlarmContext* ctx = new AlarmContext();
-        Alarm runAlarm(DAEMON_ICE_TRANSPORT_RUN_SCHEDULING_INTERVAL, this, 0, ctx);
-        daemonICETransportTimer.AddAlarm(runAlarm);
-
-        break;
-    }
-
-    default:
-    {
-        uint32_t t = static_cast<uint32_t>(ctx->contextType);
-        QCC_LogError(ER_FAIL, ("Received AlarmContext with unknown type (%u)", t));
-        break;
-    }
-    }
+    delete ctx;
 }
 
 ICEPacketStream* DaemonICETransport::AcquireICEPacketStream(const String& connectSpec)
