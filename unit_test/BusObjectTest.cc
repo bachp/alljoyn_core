@@ -71,6 +71,8 @@ TEST_F(BusObjectTest, DISABLED_ObjectRegisteredUnregistered) {
     EXPECT_EQ(ER_OK, status) << "  Actual Status: " << QCC_StatusText(status);
     status = bus.Stop();
     EXPECT_EQ(ER_OK, status) << "  Actual Status: " << QCC_StatusText(status);
+    status = bus.Join();
+    EXPECT_EQ(ER_OK, status) << "  Actual Status: " << QCC_StatusText(status);
 
     for (int i = 0; i < 500; ++i) {
         qcc::Sleep(10);

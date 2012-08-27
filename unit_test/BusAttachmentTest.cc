@@ -211,3 +211,129 @@ TEST_F(BusAttachmentTest, find_multiple_names)
     otherBus.Stop();
     otherBus.Join();
 }
+
+/*
+ * listeners and variables used by the JoinSession Test.
+ * This test is a mirror of the JUnit test that goes by the same name
+ *
+ */
+bool found;
+bool lost;
+
+class FindNewNameBusListener : public BusListener, public BusAttachmentTest {
+    virtual void FoundAdvertisedName(const char* name, TransportMask transport, const char* namePrefix) {
+        found = true;
+        bus.EnableConcurrentCallbacks();
+
+    }
+};
+
+bool sessionAccepted;
+bool sessionJoined;
+bool onJoined;
+QStatus joinSessionStatus;
+int busSessionId;
+int otherBusSessionId;
+
+class JoinSession_SessionPortListener : public SessionPortListener {
+  public:
+    JoinSession_SessionPortListener(BusAttachment* bus) : bus(bus) { };
+
+    bool AcceptSessionJoiner(SessionPort sessionPort, const char* joiner, const SessionOpts& opts) {
+        if (sessionPort == 42) {
+            sessionAccepted = true;
+            bus->EnableConcurrentCallbacks();
+            return true;
+        } else {
+            sessionAccepted = false;
+            return false;
+        }
+    }
+
+    void SessionJoined(SessionPort sessionPort, SessionId id, const char* joiner) {
+        if (sessionPort == 42) {
+            busSessionId = id;
+            sessionJoined = true;
+        } else {
+            sessionJoined = false;
+        }
+    }
+    BusAttachment* bus;
+};
+
+class JoinSession_BusListener : public BusListener {
+  public:
+    JoinSession_BusListener(BusAttachment* bus) : bus(bus) { }
+
+    void FoundAdvertisedName(const char* name, TransportMask transport, const char* namePrefix) {
+        SessionOpts sessionOpts(SessionOpts::TRAFFIC_MESSAGES, false, SessionOpts::PROXIMITY_ANY, TRANSPORT_ANY);
+
+        SessionId sessionId = 0;
+        // Since we are using blocking form of joinSession, we need to enable concurrency
+        bus->EnableConcurrentCallbacks();
+        // Join session once the AdvertisedName has been found
+        joinSessionStatus = bus->JoinSession(name, 42, new SessionListener(), sessionId, sessionOpts);
+        otherBusSessionId = sessionId;
+        found = true;
+    }
+    BusAttachment* bus;
+};
+
+TEST_F(BusAttachmentTest, JoinSession) {
+    QStatus status = ER_FAIL;
+    // Set up SessionOpts
+    SessionOpts sessionOpts(SessionOpts::TRAFFIC_MESSAGES, false, SessionOpts::PROXIMITY_ANY, TRANSPORT_ANY);
+
+    // User defined sessionPort Number
+    SessionPort sessionPort = 42;
+
+    //bindSessionPort new SessionPortListener
+    JoinSession_SessionPortListener sessionPortListener(&bus);
+    status = bus.BindSessionPort(sessionPort, sessionOpts, sessionPortListener);
+    EXPECT_EQ(ER_OK, status) << "  Actual Status: " << QCC_StatusText(status);
+
+    // Request name from bus
+    int flag = DBUS_NAME_FLAG_REPLACE_EXISTING | DBUS_NAME_FLAG_DO_NOT_QUEUE;
+    status = bus.RequestName("org.alljoyn.bus.BusAttachmentTest.advertise", flag);
+    EXPECT_EQ(ER_OK, status) << "  Actual Status: " << QCC_StatusText(status);
+
+    // Advertise same bus name
+    status = bus.AdvertiseName("org.alljoyn.bus.BusAttachmentTest.advertise", TRANSPORT_ANY);
+    EXPECT_EQ(ER_OK, status) << "  Actual Status: " << QCC_StatusText(status);
+
+    // Create Second BusAttachment
+    BusAttachment otherBus("BusAttachemntTest.JoinSession", true);
+    status = otherBus.Start();
+    EXPECT_EQ(ER_OK, status) << "  Actual Status: " << QCC_StatusText(status);
+    status = otherBus.Connect(getConnectArg().c_str());
+    EXPECT_EQ(ER_OK, status) << "  Actual Status: " << QCC_StatusText(status);
+
+    // Register BusListener for the foundAdvertisedName Listener
+    JoinSession_BusListener busListener(&otherBus);
+    otherBus.RegisterBusListener(busListener);
+
+    // find the AdvertisedName
+    status = otherBus.FindAdvertisedName("org.alljoyn.bus.BusAttachmentTest.advertise");
+    EXPECT_EQ(ER_OK, status) << "  Actual Status: " << QCC_StatusText(status);
+
+    for (size_t i = 0; i < 200; ++i) {
+        if (found) {
+            break;
+        }
+        qcc::Sleep(5);
+    }
+
+    EXPECT_TRUE(found);
+
+    for (size_t i = 0; i < 200; ++i) {
+        if (!sessionAccepted || !sessionJoined) {
+            break;
+        }
+        qcc::Sleep(5);
+    }
+
+    EXPECT_EQ(ER_OK, joinSessionStatus);
+    EXPECT_TRUE(sessionAccepted);
+    EXPECT_TRUE(sessionJoined);
+    EXPECT_EQ(busSessionId, otherBusSessionId);
+}
