@@ -422,16 +422,18 @@ void ProximityScanEngine::ProcessScanResults() {
 
 void ProximityScanEngine::AlarmTriggered(const Alarm& alarm, QStatus reason)
 {
-    while (true) {
-        uint64_t start = GetTimestamp64();
-        proximityScanner->Scan(request_scan);
-        ProcessScanResults();
-        uint32_t delay = ::max((uint64_t)0, SCAN_DELAY - (GetTimestamp64() - start));
-        if (delay > 0) {
-            //Add alarm with delay time to our main timer
-            QCC_DbgPrintf(("Adding Alarm "));
-            AddAlarm(delay);
-            break;
+    if (reason == ER_OK) {
+        while (true) {
+            uint64_t start = GetTimestamp64();
+            proximityScanner->Scan(request_scan);
+            ProcessScanResults();
+            uint32_t delay = ::max((uint64_t)0, SCAN_DELAY - (GetTimestamp64() - start));
+            if (delay > 0) {
+                //Add alarm with delay time to our main timer
+                QCC_DbgPrintf(("Adding Alarm "));
+                AddAlarm(delay);
+                break;
+            }
         }
     }
 }

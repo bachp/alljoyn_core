@@ -3195,11 +3195,13 @@ void DiscoveryManager::AlarmTriggered(const qcc::Alarm& alarm, QStatus status)
 {
     QCC_DbgPrintf(("DiscoveryManager::AlarmTriggered()"));
 
-    DiscoveryManagerMutex.Lock(MUTEX_CONTEXT);
-    /* Set the ForceInterfaceUpdateFlag to update the interfaces and set the wake event to wake the DiscoveryManager thread */
-    ForceInterfaceUpdateFlag = true;
-    WakeEvent.SetEvent();
-    DiscoveryManagerMutex.Unlock(MUTEX_CONTEXT);
+    if (status == ER_OK) {
+        DiscoveryManagerMutex.Lock(MUTEX_CONTEXT);
+        /* Set the ForceInterfaceUpdateFlag to update the interfaces and set the wake event to wake the DiscoveryManager thread */
+        ForceInterfaceUpdateFlag = true;
+        WakeEvent.SetEvent();
+        DiscoveryManagerMutex.Unlock(MUTEX_CONTEXT);
+    }
 }
 
 class ClientLoginBusListener : public BusListener, public SessionListener {
