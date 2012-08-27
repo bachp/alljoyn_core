@@ -464,7 +464,7 @@ public ref class BusAttachment sealed {
     /// #ER_BUS_NOT_CONNECTED if the BusAttachment is not connected to the bus
     /// Or other error status codes indicating the reason the operation failed.
     /// </exception>
-    void Disconnect(Platform::String ^ connectSpec);
+    Windows::Foundation::IAsyncAction ^ DisconnectAsync(Platform::String ^ connectSpec);
 
     /// <summary>
     /// Indicate whether bus is currently connected.

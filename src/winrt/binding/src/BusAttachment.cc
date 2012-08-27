@@ -285,7 +285,7 @@ void BusAttachment::Start()
     }
 }
 
-Windows::Foundation::IAsyncAction ^     BusAttachment::StopAsync()
+Windows::Foundation::IAsyncAction ^ BusAttachment::StopAsync()
 {
     IAsyncAction ^ action = concurrency::create_async([this](concurrency::cancellation_token ct) {
                                                           ::QStatus status = ER_OK;
@@ -318,27 +318,22 @@ bool BusAttachment::IsStopping()
 
 IAsyncAction ^ BusAttachment::ConnectAsync(Platform::String ^ connectSpec)
 {
-    ::QStatus status = ER_OK;
+    IAsyncAction ^ action = concurrency::create_async([this, connectSpec](concurrency::cancellation_token ct) {
+                                                          ::QStatus status = ER_OK;
+                                                          while (true) {
+                                                              if (nullptr == connectSpec) {
+                                                                  status = ER_BAD_ARG_1;
+                                                                  break;
+                                                              }
+                                                              qcc::String strConnectSpec = PlatformToMultibyteString(connectSpec);
+                                                              if (strConnectSpec.empty()) {
+                                                                  status = ER_OUT_OF_MEMORY;
+                                                                  break;
+                                                              }
+                                                              status = _busAttachment->Connect(strConnectSpec.c_str());
+                                                              break;
+                                                          }
 
-    if (nullptr == connectSpec) {
-        status = ER_BAD_ARG_1;
-    }
-
-    if (ER_OK != status) {
-        QCC_THROW_EXCEPTION(status);
-    }
-
-    qcc::String strConnectSpec = PlatformToMultibyteString(connectSpec);
-    if (strConnectSpec.empty()) {
-        status = ER_OUT_OF_MEMORY;
-    }
-
-    if (ER_OK != status) {
-        QCC_THROW_EXCEPTION(status);
-    }
-
-    IAsyncAction ^ action = concurrency::create_async([this, strConnectSpec](concurrency::cancellation_token ct) {
-                                                          ::QStatus status = this->_busAttachment->Connect(strConnectSpec.c_str());
                                                           if (ER_OK != status) {
                                                               QCC_THROW_EXCEPTION(status);
                                                           }
@@ -346,27 +341,29 @@ IAsyncAction ^ BusAttachment::ConnectAsync(Platform::String ^ connectSpec)
     return action;
 }
 
-void BusAttachment::Disconnect(Platform::String ^ connectSpec)
+IAsyncAction ^ BusAttachment::DisconnectAsync(Platform::String ^ connectSpec)
 {
-    ::QStatus status = ER_OK;
+    IAsyncAction ^ action = concurrency::create_async([this, connectSpec](concurrency::cancellation_token ct) {
+                                                          ::QStatus status = ER_OK;
+                                                          while (true) {
+                                                              if (nullptr == connectSpec) {
+                                                                  status = ER_BAD_ARG_1;
+                                                                  break;
+                                                              }
+                                                              qcc::String strConnectSpec = PlatformToMultibyteString(connectSpec);
+                                                              if (strConnectSpec.empty()) {
+                                                                  status = ER_OUT_OF_MEMORY;
+                                                                  break;
+                                                              }
+                                                              status = _busAttachment->Disconnect(strConnectSpec.c_str());
+                                                              break;
+                                                          }
 
-    while (true) {
-        if (nullptr == connectSpec) {
-            status = ER_BAD_ARG_1;
-            break;
-        }
-        qcc::String strConnectSpec = PlatformToMultibyteString(connectSpec);
-        if (strConnectSpec.empty()) {
-            status = ER_OUT_OF_MEMORY;
-            break;
-        }
-        status = _busAttachment->Disconnect(strConnectSpec.c_str());
-        break;
-    }
-
-    if (ER_OK != status) {
-        QCC_THROW_EXCEPTION(status);
-    }
+                                                          if (ER_OK != status) {
+                                                              QCC_THROW_EXCEPTION(status);
+                                                          }
+                                                      });
+    return action;
 }
 
 bool BusAttachment::IsConnected()
