@@ -145,7 +145,7 @@ void ProximityScanner::Scan(bool request_scan) {
     // In case of AllJoyn.apk we will go with the same approach as standalone daemon that is we
     // will have a separate app that handles ICE proximity information
     //
-    if (bus.GetConnectSpec() == "null:") {
+    if (proxJVM != NULL) {
         // Check if proxJVM was initialized
         LOGD("======================= We are running inside a Bundled daemon ==============================");
         if (proxJVM == NULL) {
