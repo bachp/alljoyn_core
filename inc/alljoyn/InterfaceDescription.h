@@ -153,6 +153,14 @@ class InterfaceDescription {
          */
         size_t GetAnnotations(qcc::String* names = NULL, qcc::String* values = NULL, size_t size = 0) const;
 
+        /**
+         * Get this property's annotation value
+         * @param name   name of the annotation to look for
+         * @param[out]   value  The value of the annotation, if found
+         * @return    true iff annotations[name] == value
+         */
+        bool GetAnnotation(const qcc::String& name, qcc::String& value) const;
+
         /** Equality */
         bool operator==(const Property& o) const;
     };

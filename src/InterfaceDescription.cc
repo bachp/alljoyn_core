@@ -189,6 +189,12 @@ bool InterfaceDescription::Member::GetAnnotation(const qcc::String& name, qcc::S
     return (it != annotations->end() ? value = it->second, true : false);
 }
 
+bool InterfaceDescription::Property::GetAnnotation(const qcc::String& name, qcc::String& value) const
+{
+    AnnotationsMap::const_iterator it = annotations->find(name);
+    return (it != annotations->end() ? value = it->second, true : false);
+}
+
 InterfaceDescription::InterfaceDescription(const char* name, bool secure) :
     defs(new Definitions),
     name(name),
