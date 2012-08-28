@@ -60,6 +60,10 @@ void ProximityScanner::Scan(bool request_scan) {
     //
     scanResults.clear();
     ConnectionProfile ^ internetConnectionProfile = NetworkInformation::GetInternetConnectionProfile();
+    if (internetConnectionProfile == nullptr) {
+        QCC_DbgPrintf(("This device is not connected to the network."));
+        return;
+    }
     Platform::String ^ internetProfileName = internetConnectionProfile->ProfileName;
     std::map<Platform::String ^, Platform::String ^> profileNames;
     auto connectionProfiles = NetworkInformation::GetConnectionProfiles();
@@ -83,6 +87,7 @@ void ProximityScanner::Scan(bool request_scan) {
         // AccessDeniedException will be threw if Location capability is not enabled for the Application
         return;
     }
+
     std::for_each(begin(lanIdentifiers), end(lanIdentifiers), [this, &profileNames, internetProfileName](LanIdentifier ^ lanIdentifier) {
                       WCHAR networkAdapterId[MAX_GUID_STRING_SIZE];
                       if (StringFromGUID2(lanIdentifier->NetworkAdapterId, networkAdapterId, ARRAYSIZE(networkAdapterId))) {
