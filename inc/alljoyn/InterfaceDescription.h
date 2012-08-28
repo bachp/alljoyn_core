@@ -106,7 +106,7 @@ class InterfaceDescription {
          *
          * @param[out] names    Annotation names
          * @param[out] value    Annotation values
-         * @param[out] size     Number of annotations
+         * @param      size     Number of annotations to get
          * @return              The number of annotations returned or the total number of annotations if props is NULL.
          */
         size_t GetAnnotations(qcc::String* names = NULL, qcc::String* values = NULL, size_t size = 0) const;
@@ -148,7 +148,7 @@ class InterfaceDescription {
          *
          * @param[out] names    Annotation names
          * @param[out] value    Annotation values
-         * @param[out] size     Number of annotations
+         * @param      size     Number of annotations to get
          * @return              The number of annotations returned or the total number of annotations if props is NULL.
          */
         size_t GetAnnotations(qcc::String* names = NULL, qcc::String* values = NULL, size_t size = 0) const;
