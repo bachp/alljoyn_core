@@ -512,6 +512,7 @@ void PacketEngine::AlarmTriggered(const Alarm& alarm, QStatus reason)
                 ci->state = ChannelInfo::CLOSED;
                 ReleaseChannelInfo(*ci);
             }
+            break;
         }
 
         default:
