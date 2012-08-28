@@ -43,10 +43,8 @@ namespace ajn {
 
 void ClientRouter::AlarmTriggered(const qcc::Alarm& alarm, QStatus reason)
 {
-    if (reason == ER_OK) {
-        if (localEndpoint && nonLocalEndpoint) {
-            localEndpoint->BusIsConnected();
-        }
+    if (localEndpoint && nonLocalEndpoint) {
+        localEndpoint->BusIsConnected();
     }
 }
 

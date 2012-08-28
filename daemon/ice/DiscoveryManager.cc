@@ -3178,6 +3178,11 @@ void DiscoveryManager::AlarmTriggered(const qcc::Alarm& alarm, QStatus status)
 {
     QCC_DbgPrintf(("DiscoveryManager::AlarmTriggered()"));
 
+    /*
+     * We need to check (status == ER_OK) here because we should not be
+     * waking up the discovery manager thread if the alarm has been triggered
+     * during the shutdown of the timer.
+     */
     if (status == ER_OK) {
         DiscoveryManagerMutex.Lock(MUTEX_CONTEXT);
         /* Set the ForceInterfaceUpdateFlag to update the interfaces and set the wake event to wake the DiscoveryManager thread */

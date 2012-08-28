@@ -246,18 +246,16 @@ void _ServiceDB::AlarmTriggered(const Alarm& alarm, QStatus reason)
 {
     qcc::String* serviceName(reinterpret_cast<qcc::String*>(alarm.GetContext()));
 
-    if (reason == ER_OK) {
-        map<StringMapKey, ServiceInfo>::iterator it(serviceMap.find(*serviceName));
-        if (it != serviceMap.end()) {
-            it->second.lock.Lock(MUTEX_CONTEXT);
-            list<ServiceStartListener*>::iterator cb(it->second.waiting.begin());
-            while (cb != it->second.waiting.end()) {
-                (*cb)->ServiceStarted(*serviceName, ER_TIMEOUT);
-                it->second.waiting.erase(cb);
-                cb = it->second.waiting.begin();
-            }
-            it->second.lock.Unlock(MUTEX_CONTEXT);
+    map<StringMapKey, ServiceInfo>::iterator it(serviceMap.find(*serviceName));
+    if (it != serviceMap.end()) {
+        it->second.lock.Lock(MUTEX_CONTEXT);
+        list<ServiceStartListener*>::iterator cb(it->second.waiting.begin());
+        while (cb != it->second.waiting.end()) {
+            (*cb)->ServiceStarted(*serviceName, ER_TIMEOUT);
+            it->second.waiting.erase(cb);
+            cb = it->second.waiting.begin();
         }
+        it->second.lock.Unlock(MUTEX_CONTEXT);
     }
 
     delete serviceName;
