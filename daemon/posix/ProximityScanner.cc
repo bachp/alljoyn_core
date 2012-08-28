@@ -95,6 +95,7 @@ class MyBusListener : public BusListener, public SessionListener {
     void FoundAdvertisedName(const char* name, TransportMask transport, const char* namePrefix)
     {
         //QCC_DbgPrintf(("\n Found the SERVICE ..... Wooooohoooo !!"));
+
     }
 
     SessionId GetSessionId() const { return sessionId; }
@@ -144,7 +145,7 @@ void ProximityScanner::Scan(bool request_scan) {
     // In case of AllJoyn.apk we will go with the same approach as standalone daemon that is we
     // will have a separate app that handles ICE proximity information
     //
-    if (bus.GetConnectSpec().empty()) {
+    if (bus.GetConnectSpec() == "null:") {
         // Check if proxJVM was initialized
         LOGD("======================= We are running inside a Bundled daemon ==============================");
         if (proxJVM == NULL) {
@@ -255,7 +256,7 @@ void ProximityScanner::Scan(bool request_scan) {
         //
         // We are not running inside bundled daemon
         //
-
+        LOGD("======================= We are NOT running inside a Bundled daemon ==============================");
         QStatus status;
         MyBusListener* g_busListener;
 
