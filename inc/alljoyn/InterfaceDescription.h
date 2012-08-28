@@ -94,7 +94,11 @@ class InterfaceDescription {
         /** %Member constructor */
         Member(const InterfaceDescription* iface, AllJoynMessageType type, const char* name,
                const char* signature, const char* returnSignature, const char* argNames, uint8_t annotation, const char* accessPerms);
+
+        /** %Member copy constructor */
         Member(const Member& other);
+
+        /** %Member destructor */
         ~Member();
 
         /**
@@ -108,9 +112,9 @@ class InterfaceDescription {
         size_t GetAnnotations(qcc::String* names = NULL, qcc::String* values = NULL, size_t size = 0) const;
 
         /**
-         * Check if this member has a given annotation with a given value
-         * @param name   Name of the annotation to look for
-         * @param value  Value to compare with
+         * Get this member's annotation value
+         * @param name   name of the annotation to look for
+         * @param[out]   value  The value of the annotation, if found
          * @return    true iff annotations[name] == value
          */
         bool GetAnnotation(const qcc::String& name, qcc::String& value) const;
@@ -132,9 +136,11 @@ class InterfaceDescription {
         uint8_t access;                /**< Access is #PROP_ACCESS_READ, #PROP_ACCESS_WRITE, or #PROP_ACCESS_RW */
         AnnotationsMap* annotations;    /**< Map of annotations */
 
-        /** Property constructor */
+        /** %Property constructor */
         Property(const char* name, const char* signature, uint8_t access);
+        /** %Property copy constructor */
         Property(const Property& other);
+        /** %Property destructor*/
         ~Property();
 
         /**
