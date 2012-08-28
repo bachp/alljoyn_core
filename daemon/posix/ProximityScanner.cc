@@ -404,11 +404,13 @@ void ProximityScanner::Scan(bool request_scan) {
 
         if (CFStringCompare(CFSTR("en0"), interfaceNameString, 0) == kCFCompareEqualTo) {
 
+            CFStringEncoding encodingMethod = CFStringGetSystemEncoding();
             CFDictionaryRef networkInfo = CNCopyCurrentNetworkInfo(interfaceNameString);
             CFStringRef bssidString = (CFStringRef)CFDictionaryGetValue(networkInfo, kCNNetworkInfoKeyBSSID);
             CFStringRef ssidString = (CFStringRef)CFDictionaryGetValue(networkInfo, kCNNetworkInfoKeySSID);
-            qcc::String bssid_str(CFStringGetCStringPtr(bssidString, kCFStringEncodingUTF8));
-            qcc::String ssid_str(CFStringGetCStringPtr(ssidString, kCFStringEncodingUTF8));
+            qcc::String bssid_str(CFStringGetCStringPtr(bssidString, encodingMethod));
+            qcc::String ssid_str(CFStringGetCStringPtr(ssidString, encodingMethod));
+
             bool attached = true; // always true on iOS, since we can only see the BSSID of the router we are affiliated with.
 
             scanResults.insert(std::map<std::pair<qcc::String, qcc::String>, bool>::value_type(std::make_pair(bssid_str, ssid_str), attached));
@@ -419,13 +421,8 @@ void ProximityScanner::Scan(bool request_scan) {
                 QCC_DbgPrintf(("BSSID = %s , SSID = %s, attached = %s", it->first.first.c_str(), it->first.second.c_str(), (it->second ? "true" : "false")));
             }
 
-//            CFRelease(ssidString);
-//            CFRelease(bssidString);
-//            CFRelease(networkInfo);
             foundWifiInterface = true;
         }
-
-//        CFRelease(interfaceNameString);
 
         if (foundWifiInterface) {
             break;
