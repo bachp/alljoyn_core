@@ -419,20 +419,18 @@ void ProximityScanner::Scan(bool request_scan) {
                 QCC_DbgPrintf(("BSSID = %s , SSID = %s, attached = %s", it->first.first.c_str(), it->first.second.c_str(), (it->second ? "true" : "false")));
             }
 
-            CFRelease(ssidString);
-            CFRelease(bssidString);
-            CFRelease(networkInfo);
+//            CFRelease(ssidString);
+//            CFRelease(bssidString);
+//            CFRelease(networkInfo);
             foundWifiInterface = true;
         }
 
-        CFRelease(interfaceNameString);
+//        CFRelease(interfaceNameString);
 
         if (foundWifiInterface) {
             break;
         }
     }
-
-    CFRelease(supportedInterfaces);
 }
 
 #else
