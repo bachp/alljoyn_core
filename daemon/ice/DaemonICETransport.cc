@@ -2481,6 +2481,11 @@ void DaemonICETransport::AlarmTriggered(const Alarm& alarm, QStatus reason)
 
     AlarmContext* ctx = reinterpret_cast<AlarmContext*>(alarm->GetContext());
 
+    /*
+     * We need to check (reason == ER_OK) here because we should not be
+     * reloading the alarm if it has been triggered during the shutdown
+     * of the timer.
+     */
     if (reason == ER_OK) {
         switch (ctx->contextType) {
         case AlarmContext::CONTEXT_NAT_KEEPALIVE:
