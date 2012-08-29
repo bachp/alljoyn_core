@@ -221,6 +221,9 @@ JNIEXPORT jboolean JNICALL Java_org_alljoyn_bus_samples_simpleservice_Service_st
 
     /* Initialize AllJoyn only once */
     if (!s_bus) {
+
+        jobject gjobj = env->NewGlobalRef(jobj);
+
         const char* packageNameStr = env->GetStringUTFChars(packageNameStrObj, &iscopy);
         s_bus = new BusAttachment("service", true);
 
@@ -253,13 +256,13 @@ JNIEXPORT jboolean JNICALL Java_org_alljoyn_bus_samples_simpleservice_Service_st
         JavaVM* vm;
         env->GetJavaVM(&vm);
         if (ER_OK == status) {
-            s_busListener = new MyBusListener(vm, jobj);
+            s_busListener = new MyBusListener(vm, gjobj);
             s_bus->RegisterBusListener(*s_busListener);
             LOGD("\n Bus Listener registered \n");
         }
 
         /* Register service object */
-        s_obj = new ServiceObject(*s_bus, SIMPLE_SERVICE_OBJECT_PATH, vm, jobj);
+        s_obj = new ServiceObject(*s_bus, SIMPLE_SERVICE_OBJECT_PATH, vm, gjobj);
         s_bus->RegisterBusObject(*s_obj);
 
         /* Bind the session port*/

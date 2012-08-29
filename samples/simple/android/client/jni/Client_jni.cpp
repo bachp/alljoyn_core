@@ -167,6 +167,8 @@ JNIEXPORT jint JNICALL Java_org_alljoyn_bus_samples_simpleclient_Client_simpleOn
     // QCC_SetLogLevels("ALLJOYN=7;ALL=1");
     QCC_UseOSLogging(true);
 
+    jobject gjobj = env->NewGlobalRef(jobj);
+
     jboolean iscopy;
     const char* packageNameStr = env->GetStringUTFChars(packageNameStrObj, &iscopy);
 
@@ -197,7 +199,7 @@ JNIEXPORT jint JNICALL Java_org_alljoyn_bus_samples_simpleclient_Client_simpleOn
     if (ER_OK == status) {
         JavaVM* vm;
         env->GetJavaVM(&vm);
-        s_busListener = new MyBusListener(vm, jobj);
+        s_busListener = new MyBusListener(vm, gjobj);
         s_bus->RegisterBusListener(*s_busListener);
     }
 
