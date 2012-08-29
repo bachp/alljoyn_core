@@ -15,7 +15,9 @@
 
 .PHONY: all clean
 
-all: daemon test_progs
+DAEMON_LIB = libajdaemon.a
+
+all: $(DAEMON_LIB) daemon bundled_obj test_progs
 
 BT_SRCS = BTController.cc BTTransport.cc BTNodeDB.cc
 DAEMON_SRCS = $(wildcard *.cc)
@@ -63,13 +65,23 @@ $(TESTDIR)/bbdaemon.o : $(TESTDIR)/bbdaemon.cc
 $(TESTDIR)/mcmd.o : $(TESTDIR)/mcmd.cc
 $(TESTDIR)/ns.o : $(TESTDIR)/ns.cc
 
+BUNDLED_SRCS = bundled/BundledDaemon.cc
+BUNDLED_OBJ = $(patsubst %.cc,%.o,$(BUNDLED_SRCS))
+
 %.o:%.cc
 	$(CC) $(CXXFLAGS) $(CPPDEFINES) $(INCLUDE) -c -o $@ $<
+
+$(DAEMON_LIB): $(DAEMON_OBJS)
+	$(AR) r $(DAEMON_LIB) $(DAEMON_OBJS)
+	cp $(DAEMON_LIB) $(INSTALLDIR)/dist/lib
 
 daemon : $(DAEMON_OBJS) $(DAEMON_MAIN_OBJ)
 	$(CC) $(CXXFLAGS) $(CPPDEFINES) $(INCLUDE) $(LINKFLAGS) -o alljoyn-daemon $(DAEMON_OBJS) $(DAEMON_MAIN_OBJ) $(LIBS)
 	cp alljoyn-daemon $(INSTALLDIR)/dist/bin
  
+bundled_obj : $(BUNDLED_OBJ)
+	cp $(BUNDLED_OBJ) $(INSTALLDIR)/dist/lib
+
 test_progs: advtunnel bbdaemon mcmd ns
 
 advtunnel : $(DAEMON_OBJS) $(TESTDIR)/advtunnel.o
@@ -93,6 +105,6 @@ ns : $(DAEMON_OBJS) $(TESTDIR)/ns.o
 	cp ns $(INSTALLDIR)/dist/bin
 
 clean:
-	@rm -f *.o *~ $(OS_GROUP)/*.o $(TESTDIR)/*.o bt_bluez/*.o ice/*.o JSON/*.o alljoyn-daemon advtunnel bbdaemon DaemonTest mcmd ns
+	@rm -f *.o *~ $(OS_GROUP)/*.o $(TESTDIR)/*.o bt_bluez/*.o ice/*.o bundled/*.o JSON/*.o alljoyn-daemon advtunnel bbdaemon DaemonTest mcmd ns
 
 
