@@ -68,13 +68,12 @@ CFLAGS=-Wall \
 CXXFLAGS=-Wall \
         -Werror=non-virtual-dtor \
         -pipe \
-        -std=c++98 \
+        -std=c++0x \
         -fno-rtti \
         -fno-exceptions \
         -fno-strict-aliasing \
         -Wno-long-long \
-        -Wno-deprecated \
-		-std=c++0x
+        -Wno-deprecated 
 
 ifeq "$(CPU)" "x86"
 # Force 32-bit builds
