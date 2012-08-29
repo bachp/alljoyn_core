@@ -369,7 +369,7 @@ bool InterfaceDescription::GetMemberAnnotation(const char* member, const qcc::St
 
     const Member& m = mit->second;
     AnnotationsMap::const_iterator ait = m.annotations->find(name);
-    return (ait != defs->annotations.end() ? value = ait->second, true : false);
+    return (ait != m.annotations->end() ? value = ait->second, true : false);
 }
 
 
