@@ -121,7 +121,6 @@ public class P2pManager implements ConnectionInfoListener, DnsSdServiceResponseL
         manager.setDnsSdResponseListeners(channel, this, this);
 
         receiver = new P2pReceiver(manager, channel, this);
-        context.registerReceiver(receiver, intentFilter); // TODO: When to unregister?
 
         mServiceRequestList = new ArrayList<String>();
         mRequestedNames = new ArrayList<String>();
@@ -184,6 +183,8 @@ public class P2pManager implements ConnectionInfoListener, DnsSdServiceResponseL
                 manager.requestConnectionInfo(channel, connInfoListener);
             }
         };
+
+        context.registerReceiver(receiver, intentFilter); // TODO: When to unregister?
     };
 
     private void doDiscoverServices(boolean start) {
