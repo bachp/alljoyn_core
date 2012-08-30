@@ -1851,8 +1851,17 @@ void TCPTransport::RunListenMachine(void)
 
     while (m_listenRequests.empty() == false) {
         QCC_DbgPrintf(("TCPTransport::RunListenMachine(): Do request."));
+
+        /*
+         * Pull a request to do a listen request off of the queue of requests.
+         * These requests relate to starting and stopping discovery and
+         * advertisements; and also whether or not to listen for inbound
+         * connections.
+         */
+        m_listenRequestsLock.Lock(MUTEX_CONTEXT);
         ListenRequest listenRequest = m_listenRequests.front();
         m_listenRequests.pop();
+        m_listenRequestsLock.Unlock(MUTEX_CONTEXT);
 
         /*
          * Do some consistency checks to make sure we're not confused about what
