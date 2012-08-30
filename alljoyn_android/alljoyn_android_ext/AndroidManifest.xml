@@ -14,5 +14,11 @@
               <action android:name="org.alljoyn.jni.alljoynandroidext" />
             </intent-filter>
 	</service>
+	<receiver android:name="org.alljoyn.jni.StartServiceReceiver" android:enabled="true" >
+			<intent-filter>
+				<action android:name="android.intent.action.BOOT_COMPLETED" />
+				<category android:name="android.intent.category.HOME" />
+			</intent-filter>
+	</receiver>
     </application>
 </manifest>
