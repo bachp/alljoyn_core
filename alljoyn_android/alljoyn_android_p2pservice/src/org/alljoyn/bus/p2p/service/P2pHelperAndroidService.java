@@ -54,6 +54,10 @@ public class P2pHelperAndroidService extends Service {
         Log.i(TAG, "onDestroy()");
         if (mP2pHelperService != null) {
             mP2pHelperService.shutdown();
+            mP2pManager.shutdown();
+
+            mP2pHelperService = null;
+            mP2pManager = null;
         }
     }
 
@@ -69,6 +73,19 @@ public class P2pHelperAndroidService extends Service {
     private class DoStartTask extends AsyncTask<Context, Integer, String> {
         @Override
         protected String doInBackground(Context...params) {
+            Log.d(TAG, "P2pHelperService background init");
+
+            if (mP2pManager != null) {
+                Log.d(TAG, "Clean up existing P2pManager");
+                mP2pManager.shutdown();
+                mP2pManager = null;
+            }
+
+            if (mP2pHelperService != null) {
+                Log.d(TAG, "Clean up existing P2pHelperService");
+                mP2pHelperService.shutdown();
+                mP2pHelperService = null;
+            }
 
             System.loadLibrary("P2pHelperService");
             mP2pHelperService = new P2pHelperService();

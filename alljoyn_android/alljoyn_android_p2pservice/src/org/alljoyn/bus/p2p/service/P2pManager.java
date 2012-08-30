@@ -107,6 +107,8 @@ public class P2pManager implements ConnectionInfoListener, DnsSdServiceResponseL
     private static final String ServiceSuffix = "._alljoyn._tcp.local.";
 
     public P2pManager(Context context, P2pInterface busInterface) {
+        Log.d(TAG, "P2pManager construct: " + hashCode());
+
         this.context = context;
         this.busInterface = busInterface;
 
@@ -187,6 +189,13 @@ public class P2pManager implements ConnectionInfoListener, DnsSdServiceResponseL
         context.registerReceiver(receiver, intentFilter); // TODO: When to unregister?
     };
 
+    public void shutdown() {
+        context.unregisterReceiver(receiver);
+        receiver = null;
+        channel = null;
+        manager = null;
+    }
+
     private void doDiscoverServices(boolean start) {
         mHandler.removeCallbacks(mPeriodicDiscovery);
         if (start) {
@@ -199,6 +208,11 @@ public class P2pManager implements ConnectionInfoListener, DnsSdServiceResponseL
         if (start) {
             mPeriodicPeerFind.run();
         }
+    }
+
+    private void setPeerState(PeerState newState) {
+        Log.d(TAG, "Peer state changing from " + peerState + " to " + newState + " for " + hashCode());
+        peerState = newState;
     }
 
     public void setEnabled(boolean enabled) {
@@ -227,18 +241,20 @@ public class P2pManager implements ConnectionInfoListener, DnsSdServiceResponseL
 
         mHandler.removeCallbacks(mRequestConnectionInfo);
 
+        Log.d(TAG, "Peer state: " + peerState);
+
         switch (peerState) {
         case INITIATED:
         case CONNECTING:
             if (info.groupFormed) {
-                peerState = PeerState.CONNECTED;
+                setPeerState(PeerState.CONNECTED);
                 busInterface.OnLinkEstablished(getHandle(peerConfig.deviceAddress));
             } else {
                 int handle = 0;
                 if (peerConfig != null) {
                     handle = getHandle(peerConfig.deviceAddress);
                 }
-                peerState = PeerState.DISCONNECTED;
+                setPeerState(PeerState.DISCONNECTED);
                 peerConfig = null;
                 if (handle != 0) {
                     busInterface.OnLinkError(handle, -1);
@@ -252,7 +268,7 @@ public class P2pManager implements ConnectionInfoListener, DnsSdServiceResponseL
                 if (peerConfig != null) {
                     handle = getHandle(peerConfig.deviceAddress);
                 }
-                peerState = PeerState.DISCONNECTED;
+                setPeerState(PeerState.DISCONNECTED);
                 peerConfig = null;
                 busInterface.OnLinkLost(handle);
             }
@@ -261,8 +277,9 @@ public class P2pManager implements ConnectionInfoListener, DnsSdServiceResponseL
         case DISCONNECTING:
         case DISCONNECTED:
             if (info.groupFormed) {
+                Log.d(TAG, "Incoming connection");
                 // Assume it's an incoming connection
-                peerState = PeerState.CONNECTED;
+                setPeerState(PeerState.CONNECTED);
                 // Dummy, for now
                 peerConfig = new WifiP2pConfig();
                 // Looks like the P2P framework does not tell us who connected.  Confirm?
@@ -273,10 +290,14 @@ public class P2pManager implements ConnectionInfoListener, DnsSdServiceResponseL
                 if (peerConfig != null) {
                     handle = getHandle(peerConfig.deviceAddress);
                 }
-                peerState = PeerState.DISCONNECTED;
+                setPeerState(PeerState.DISCONNECTED);
                 peerConfig = null;
                 busInterface.OnLinkLost(handle);
             }
+            break;
+
+        default:
+            Log.d(TAG, "Bad peer state: " + peerState);
             break;
         }
     }
@@ -812,7 +833,7 @@ public class P2pManager implements ConnectionInfoListener, DnsSdServiceResponseL
         peerConfig.deviceAddress = deviceAddress;
         peerConfig.groupOwnerIntent = groupOwnerIntent;
         peerConfig.wps.setup = WpsInfo.PBC;
-        peerState = PeerState.INITIATED;
+        setPeerState(PeerState.INITIATED);
 
         manager.connect(channel, peerConfig,
                         new ActionListener()
@@ -820,7 +841,7 @@ public class P2pManager implements ConnectionInfoListener, DnsSdServiceResponseL
                             public void onSuccess() {
                                 Log.d(TAG, "Connect initiated");
                                 if (peerState == PeerState.INITIATED) {
-                                    peerState = PeerState.CONNECTING;
+                                    setPeerState(PeerState.CONNECTING);
                                 }
                                 Log.d(TAG, "Post delayed connection info request");
                                 mHandler.postDelayed(mRequestConnectionInfo, connectionTimeout);
@@ -829,7 +850,7 @@ public class P2pManager implements ConnectionInfoListener, DnsSdServiceResponseL
                             public void onFailure(int reasonCode) {
                                 Log.d(TAG, "Connect failed. Reason : " + reasonCode);
                                 int handle = getHandle(peerConfig.deviceAddress);
-                                peerState = PeerState.DISCONNECTED;
+                                setPeerState(PeerState.DISCONNECTED);
                                 peerConfig = null;
                                 busInterface.OnLinkError(handle, reasonCode);
                             }
@@ -861,13 +882,13 @@ public class P2pManager implements ConnectionInfoListener, DnsSdServiceResponseL
         switch (peerState) {
         case INITIATED:
         case CONNECTING:
-            peerState = PeerState.DISCONNECTING;
+            setPeerState(PeerState.DISCONNECTING);
             manager.cancelConnect(channel,
                                   new ActionListener()
                                   {
                                       public void onSuccess() {
                                           Log.d(TAG, "Canceling connect");
-                                          peerState = PeerState.DISCONNECTED;
+                                          setPeerState(PeerState.DISCONNECTED);
                                           peerConfig = null;
                                       }
 
@@ -879,7 +900,7 @@ public class P2pManager implements ConnectionInfoListener, DnsSdServiceResponseL
                                            * removeGroup() and marked the peer as disconnected.  No harm
                                            * in doing it again.
                                            */
-                                          peerState = PeerState.DISCONNECTED;
+                                          setPeerState(PeerState.DISCONNECTED);
                                           peerConfig = null;
                                       }
                                   });
@@ -888,7 +909,7 @@ public class P2pManager implements ConnectionInfoListener, DnsSdServiceResponseL
 
         case CONNECTED:
             // OnLinkLost will be sent via onConnectionInfoAvailable()
-            peerState = PeerState.DISCONNECTING;
+            setPeerState(PeerState.DISCONNECTING);
             manager.removeGroup(channel,
                                 new ActionListener()
                                 {
@@ -902,7 +923,7 @@ public class P2pManager implements ConnectionInfoListener, DnsSdServiceResponseL
                                         if (peerConfig != null) {
                                             handle = getHandle(peerConfig.deviceAddress);
                                         }
-                                        peerState = PeerState.DISCONNECTED;
+                                        setPeerState(PeerState.DISCONNECTED);
                                         peerConfig = null;
                                         if (handle != 0) {
                                             busInterface.OnLinkError(handle, reasonCode);
