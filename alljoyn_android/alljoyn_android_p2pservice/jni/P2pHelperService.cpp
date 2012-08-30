@@ -225,7 +225,7 @@ class P2pService : public BusObject {
     }
 
     void detachEnv(jint jret) {
-        LOGI("deleteEnv()");
+        LOGI("detachEnv()");
         if (jret == JNI_EDETACHED) {
             LOGI("detaching");
             vm->DetachCurrentThread();
@@ -566,7 +566,7 @@ class P2pService : public BusObject {
 
         int result = AdvertiseName(name.c_str(), guid.c_str());
 
-        LOGI("handleAdvertisedName replying with %d", result);
+        LOGI("handleAdvertiseName replying with %d", result);
         MsgArg reply("i", 1, result);
         QStatus status = MethodReply(msg, &reply, 1);
         if (ER_OK != status) {
@@ -610,7 +610,7 @@ class P2pService : public BusObject {
 
     void handleReleaseLink(const InterfaceDescription::Member* member, Message& msg)
     {
-        int handle = msg->GetArg(1)->v_int32;
+        int handle = msg->GetArg(0)->v_int32;
 
         LOGD("handleReleaseLink called from %s with: %d\n", msg->GetSender(), handle);
 
@@ -626,7 +626,7 @@ class P2pService : public BusObject {
 
     void handleGetInterfaceNameFromHandle(const InterfaceDescription::Member* member, Message& msg)
     {
-        int handle = msg->GetArg(1)->v_int32;
+        int handle = msg->GetArg(0)->v_int32;
         char buf[64];
 
         LOGD("handleGetInterfaceNameFromHandle called from %s with: %d\n", msg->GetSender(), handle);
