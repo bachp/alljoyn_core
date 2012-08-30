@@ -352,17 +352,18 @@ public class P2pManager implements ConnectionInfoListener, DnsSdServiceResponseL
 
                 Log.d(TAG, "Adding ServiceRequest for " + instanceName);
                 WifiP2pDnsSdServiceRequest serviceRequest = WifiP2pDnsSdServiceRequest.newInstance(instanceName, "_alljoyn._tcp");
+                mServiceRequestList.add(instanceName);
 
                 manager.addServiceRequest(channel, serviceRequest,
                                           new WifiP2pManager.ActionListener()
                                           {
                                               public void onSuccess() {
                                                   Log.d(TAG, "addServiceRequest( " + instanceName +  " ) success");
-                                                  mServiceRequestList.add(instanceName);
                                               }
 
                                               public void onFailure(int reasonCode) {
                                                   Log.d(TAG, "addServiceRequest (" + instanceName + ") failed: " + reasonCode);
+                                                  mServiceRequestList.remove(instanceName);
                                               }
                                           });
 
@@ -777,9 +778,6 @@ public class P2pManager implements ConnectionInfoListener, DnsSdServiceResponseL
                 return ERROR;
             }
 
-            // Remove pending  calls
-            mHandler.removeCallbacks(mRequestConnectionInfo);
-
             final int handle = getHandle(this.device.deviceAddress);
 
 // This appears to be unnecessary. Would be needed for legacy WiFi compatibility (to appear as AP)
@@ -805,6 +803,9 @@ public class P2pManager implements ConnectionInfoListener, DnsSdServiceResponseL
 
             return handle;
         }
+
+        // Remove pending  calls
+        mHandler.removeCallbacks(mRequestConnectionInfo);
 
         peerConfig = new WifiP2pConfig();
         peerConfig.deviceAddress = deviceAddress;
