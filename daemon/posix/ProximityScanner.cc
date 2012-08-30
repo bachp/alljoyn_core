@@ -309,7 +309,8 @@ void ProximityScanner::Scan(bool request_scan) {
             QCC_LogError(status, ("Problem while calling method Scan on the remote object"));
             qcc::String errorMsg;
             reply->GetErrorName(&errorMsg);
-            QCC_DbgPrintf(("Call to Scan returned error message : %s", errorMsg.c_str()));
+            QCC_LogError(status, ("Call to Scan returned error message : %s", errorMsg.c_str()));
+            scanResults.clear();
             return;
 
         } else {

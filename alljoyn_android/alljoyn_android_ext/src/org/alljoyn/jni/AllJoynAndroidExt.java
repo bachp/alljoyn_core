@@ -294,7 +294,7 @@ public class AllJoynAndroidExt extends Service {
 				
 				boolean isConnected = false; 
 				boolean wifiEnabled = wifiMgr.isWifiEnabled(); 
-				if(wifiEnabled && wifiMgr.getConnectionInfo() != null){
+				if(wifiEnabled && wifiMgr.getConnectionInfo().getBSSID() != null){
 					isConnected = true;
 				}
 						
