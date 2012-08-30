@@ -43,7 +43,6 @@ import android.net.wifi.p2p.nsd.WifiP2pDnsSdServiceRequest;
 import android.net.wifi.p2p.nsd.WifiP2pDnsSdServiceInfo;
 import android.util.Log;
 import android.os.Handler;
-import android.os.Looper;
 
 enum PeerState {
     DISCONNECTED,
@@ -134,7 +133,6 @@ public class P2pManager implements ConnectionInfoListener, DnsSdServiceResponseL
         //Object groupApprover = DialogListenerProxy.newDialogListener(manager, channel);
         //DialogListenerProxy.setDialogListener(manager, channel, groupApprover);
 
-        Looper.prepare();
         mHandler = new Handler();
 
         mPeriodicPeerFind = new Runnable() {
@@ -190,6 +188,7 @@ public class P2pManager implements ConnectionInfoListener, DnsSdServiceResponseL
     };
 
     public void shutdown() {
+        mHandler.removeCallbacks(mPeriodicDiscovery);
         context.unregisterReceiver(receiver);
         receiver = null;
         channel = null;

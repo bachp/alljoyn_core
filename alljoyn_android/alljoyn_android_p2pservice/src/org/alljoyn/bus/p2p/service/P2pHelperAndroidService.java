@@ -15,14 +15,14 @@
  */
 package org.alljoyn.bus.p2p.service;
 
-import android.os.AsyncTask;
 import android.os.IBinder;
 import android.os.Binder;
+import android.os.Looper;
+import android.os.Handler;
 
 import android.app.Service;
 
 import android.content.Intent;
-import android.content.Context;
 
 import android.util.Log;
 
@@ -33,7 +33,6 @@ public class P2pHelperAndroidService extends Service {
         P2pHelperAndroidService getService() {
             return P2pHelperAndroidService.this;
         }
-
     }
 
     private final IBinder mBinder = new LocalBinder();
@@ -43,62 +42,62 @@ public class P2pHelperAndroidService extends Service {
         return mBinder;
     }
 
-    P2pHelperService mP2pHelperService = null;
+    private P2pHelperService mP2pHelperService = null;
     private P2pManager mP2pManager = null;
+    private Handler mHandler = null;
+    private Runnable mConnect = null;
+
+    private final long connectionRetryInterval = 5000;
 
     public void onCreate() {
         Log.i(TAG, "onCreate()");
+        //Looper.prepare();
+        mHandler = new Handler();
+        System.loadLibrary("P2pHelperService");
+
+        mConnect = new Runnable() {
+            public void run() {
+                Log.d(TAG, "Attempting connection");
+                mP2pHelperService = new P2pHelperService();
+
+                if (!mP2pHelperService.isReady()) {
+                    Log.d(TAG, "P2pHelperService could not connect to daemon, retrying");
+                    mP2pHelperService = null;
+                    mHandler.postDelayed(mConnect, connectionRetryInterval);
+                    return;
+                }
+
+                mP2pManager = new P2pManager(getApplicationContext(), mP2pHelperService);
+            }
+        };
+    }
+
+    private void cleanup() {
+        mHandler.removeCallbacks(mConnect);
+
+        if (mP2pManager != null) {
+            mP2pManager.shutdown();
+            mP2pManager = null;
+        }
+
+        if (mP2pHelperService != null) {
+            mP2pHelperService.shutdown();
+            mP2pHelperService = null;
+        }
     }
 
     public void onDestroy() {
         Log.i(TAG, "onDestroy()");
-        if (mP2pHelperService != null) {
-            mP2pHelperService.shutdown();
-            mP2pManager.shutdown();
-
-            mP2pHelperService = null;
-            mP2pManager = null;
-        }
+        cleanup();
     }
 
     public int onStartCommand(Intent intent, int flags, int startId) {
         Log.i(TAG, "onStartCommand()");
 
-        DoStartTask doStartTask = new DoStartTask();
-        doStartTask.execute(this);
+        cleanup();
+        mHandler.post(mConnect);
 
         return START_STICKY;
-    }
-
-    private class DoStartTask extends AsyncTask<Context, Integer, String> {
-        @Override
-        protected String doInBackground(Context...params) {
-            Log.d(TAG, "P2pHelperService background init");
-
-            if (mP2pManager != null) {
-                Log.d(TAG, "Clean up existing P2pManager");
-                mP2pManager.shutdown();
-                mP2pManager = null;
-            }
-
-            if (mP2pHelperService != null) {
-                Log.d(TAG, "Clean up existing P2pHelperService");
-                mP2pHelperService.shutdown();
-                mP2pHelperService = null;
-            }
-
-            System.loadLibrary("P2pHelperService");
-            mP2pHelperService = new P2pHelperService();
-
-            if (!mP2pHelperService.isReady()) {
-                Log.e(TAG, "P2pHelperService could not connect to daemon");
-                return "FAILED";
-            }
-
-            mP2pManager = new P2pManager(getApplicationContext(), mP2pHelperService);
-
-            return "SUCCESS";
-        }
     }
 
     class P2pHelperService implements P2pInterface {
