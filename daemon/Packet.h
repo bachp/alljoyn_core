@@ -52,14 +52,16 @@ class PacketEngineStream;
 
 /* Types */
 struct PacketDest {
-#if defined(QCC_OS_WINRT)
     uint8_t ip[qcc::IPAddress::IPv6_SIZE];
     uint16_t port;
     uint16_t addrSize;
-#else
-    uint64_t data[4];   /** Must be large enough for sockaddr_t */
-#endif
 };
+
+/** Construct a PacketDest from a addr,port */
+PacketDest GetPacketDest(const qcc::String& addr, uint16_t port);
+
+/** Get the addr,port from a PacketDest */
+void GetAddressAndPort(const PacketDest& dest, qcc::IPAddress& addr, uint16_t& port);
 
 class Packet {
   public:

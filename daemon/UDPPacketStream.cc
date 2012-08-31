@@ -36,17 +36,6 @@ using namespace qcc;
 
 namespace ajn {
 
-PacketDest UDPPacketStream::GetPacketDest(const qcc::String& addr, uint16_t port)
-{
-    PacketDest pd;
-    ::memset((uint8_t*)(&pd), 0, sizeof(PacketDest));
-    qcc::IPAddress tmpIpAddr(addr);
-    tmpIpAddr.RenderIPBinary(pd.ip, IPAddress::IPv6_SIZE);
-    pd.addrSize = tmpIpAddr.Size();
-    pd.port = port;
-    return pd;
-}
-
 UDPPacketStream::UDPPacketStream(const char* ifaceName, uint16_t port) :
     ifaceName(ifaceName),
     port(port),
@@ -78,16 +67,27 @@ QStatus UDPPacketStream::Start()
     QStatus status = ER_OK;
     mtu = 1500; // There is no API to get the MTU in WinRT
 
+    status = qcc::Socket(ipAddr.GetAddressFamily(), QCC_SOCK_DGRAM, sock);
+
     /* Bind socket */
     if (status == ER_OK) {
         //  ((sockaddr_in*)&sa)->sin_port = htons(port);
         status = Bind(sock, ipAddr, port);
         if (status == ER_OK) {
+            if (port == 0) {
+                status = GetLocalAddress(sock, ipAddr, port);
+                if (status == ER_OK) {
+                    QCC_DbgPrintf(("Bind: GetLocalAddress failed"));
+                }
+            }
+
             sourceEvent = new qcc::Event(sock, qcc::Event::IO_READ, false);
             sinkEvent = new qcc::Event(sock, qcc::Event::IO_WRITE, false);
         } else {
             QCC_LogError(status, ("UDPPacketStream bind failed"));
         }
+    } else {
+        QCC_LogError(status, ("UDPPacketStream socket() failed"));
     }
 
     if (status != ER_OK) {

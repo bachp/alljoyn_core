@@ -36,9 +36,6 @@ namespace ajn {
 class UDPPacketStream : public PacketStream {
   public:
 
-    /** Construct a PacketDest from a addr,port */
-    static PacketDest GetPacketDest(const qcc::String& addr, uint16_t port);
-
     /** Constructor */
     UDPPacketStream(const char* ifaceName, uint16_t port);
 
@@ -123,7 +120,7 @@ class UDPPacketStream : public PacketStream {
   private:
     qcc::String ifaceName;
     uint16_t port;
-    int sock;
+    qcc::SocketFd sock;
     qcc::Event* sourceEvent;
     qcc::Event* sinkEvent;
     size_t mtu;

@@ -35,7 +35,7 @@
 #include <alljoyn/version.h>
 
 #include "PacketEngine.h"
-#include "posix/UDPPacketStream.h"
+#include "UDPPacketStream.h"
 
 #define QCC_MODULE "PACKET"
 
@@ -66,7 +66,7 @@ class PacketEngineController : public PacketEngineListener {
 
     QStatus Connect(const qcc::String& addr, uint16_t port)
     {
-        return engine.Connect(UDPPacketStream::GetPacketDest(addr, port), udpStream, *this, NULL);
+        return engine.Connect(GetPacketDest(addr, port), udpStream, *this, NULL);
     }
 
     void Disconnect(uint32_t connNum);
