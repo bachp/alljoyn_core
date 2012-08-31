@@ -3660,29 +3660,26 @@ QStatus TCPTransport::Connect(const char* connectSpec, const SessionOpts& opts, 
         QCC_LogError(status, ("TCPTransport::Connect(): qcc::Socket() failed"));
     }
 
-    /*
-     * The underlying transport mechanism is started, but we need to create a
-     * TCPEndpoint object that will orchestrate the movement of data across the
-     * transport.
-     */
     TCPEndpoint* conn = NULL;
     if (status == ER_OK) {
+
+        /*
+         * The underlying transport mechanism is started, but we need to create
+         * a TCPEndpoint object that will orchestrate the movement of data
+         * across the transport.
+         */
         conn = new TCPEndpoint(this, m_bus, false, normSpec, sockFd, ipAddr, port);
+
         /*
          * On the active side of a connection, we don't need an authentication
-         * thread to run since we have the caller thread.  We do have to put the
-         * endpoint on the endpoint list to be assured that errors get logged.
-         * By marking the connection as active, we prevent the server accept thread
-         * from cleaning up this endpoint.  For consistency, we mark the endpoint
-         * as authenticating to avoid ugly surprises.
+         * thread to run since we have the caller thread to fill that role.
          */
         conn->SetActive();
         conn->SetAuthenticating();
-        m_endpointListLock.Lock(MUTEX_CONTEXT);
-        m_endpointList.insert(conn);
-        m_endpointListLock.Unlock(MUTEX_CONTEXT);
 
-        /* Initialized the features for this endpoint */
+        /*
+         * Initialize the "features" for this endpoint
+         */
         conn->GetFeatures().isBusToBus = true;
         conn->GetFeatures().allowRemote = m_bus.GetInternal().AllowRemoteMessages();
         conn->GetFeatures().handlePassing = false;
@@ -3691,9 +3688,10 @@ QStatus TCPTransport::Connect(const char* connectSpec, const SessionOpts& opts, 
         qcc::String redirection;
 
         /*
-         * Go ahead and to the authentication in the context of this thread.  Even
-         * though we have prevented the server accept loop from cleaning up our
-         * endpoint by marking it as active, we keep the states consistent.
+         * Go ahead and do the authentication in the context of this thread.  Even
+         * though we don't have the server accept loop thread watching this endpoint
+         * we keep we keep the states consistent since the endpoint will eventually
+         * to there.
          */
         status = conn->Establish("ANONYMOUS", authName, redirection);
         if (status == ER_OK) {
@@ -3709,21 +3707,20 @@ QStatus TCPTransport::Connect(const char* connectSpec, const SessionOpts& opts, 
         }
 
         /*
-         * We put the endpoint into our list of active endpoints to make life
-         * easier reporting problems up the chain of command behind the scenes
-         * if we got an error during the authentication process and the endpoint
-         * startup.  If we did get an error, we need to remove the endpoint since
-         * we've asked to keep responsibility by doing a SetActive().
+         * If we have a successful authentication, we pass the connection off to the
+         * server accept loop to manage.
          */
-        if (status != ER_OK && conn) {
-            QCC_LogError(status, ("TCPTransport::Connect(): Start TCPEndpoint failed"));
-
+        if (status == ER_OK) {
             m_endpointListLock.Lock(MUTEX_CONTEXT);
-            set<TCPEndpoint*>::iterator i = m_endpointList.find(conn);
-            if (i != m_endpointList.end()) {
-                m_endpointList.erase(i);
-            }
+            m_endpointList.insert(conn);
             m_endpointListLock.Unlock(MUTEX_CONTEXT);
+        } else {
+            QCC_LogError(status, ("TCPTransport::Connect(): Starting the TCPEndpoint failed"));
+
+            /*
+             * Although the destructor of a remote endpoint includes a Stop and Join
+             * call, there are no running threads since Start() failed.
+             */
             delete conn;
             conn = NULL;
         }
@@ -3731,10 +3728,10 @@ QStatus TCPTransport::Connect(const char* connectSpec, const SessionOpts& opts, 
 
     /*
      * If we got an error, we need to cleanup the socket and zero out the
-     * returned endpoint.  If we got this done without a problem, we return
-     * a pointer to the new endpoint.  We aren't going to clean it up since
-     * it is an active connection, so we can safely pass the endoint back
-     * up to higher layers.
+     * returned endpoint.  If we got this connection and its endpoint up without
+     * a problem, we return a pointer to the new endpoint.  We aren't going to
+     * clean it up since it is an active connection, so we can safely pass the
+     * endoint back up to higher layers.
      */
     if (status != ER_OK) {
         if (isConnected) {
@@ -3772,6 +3769,7 @@ QStatus TCPTransport::Connect(const char* connectSpec, const SessionOpts& opts, 
 #endif // defined(QCC_OS_ANDROID) && P2P_HELPER
 
         if (newep) {
+            assert(conn && "TCPTransport::Connect(): If the conn is up, the conn pointer should be non-NULL");
             *newep = conn;
         }
     }
