@@ -73,12 +73,11 @@ namespace ajn {
 PacketDest ICEPacketStream::GetPacketDest(const IPAddress& addr, uint16_t port)
 {
     PacketDest pd;
-
-    struct sockaddr_in* sa = reinterpret_cast<struct sockaddr_in*>(&pd.data);
-    ::memset(&pd.data, 0, sizeof(pd.data));
-    sa->sin_family = AF_INET;
-    addr.RenderIPv4Binary(reinterpret_cast<uint8_t*>(&sa->sin_addr.s_addr), IPAddress::IPv4_SIZE);
-    sa->sin_port = htons(port);
+    ::memset((uint8_t*)(&pd), 0, sizeof(PacketDest));
+    qcc::IPAddress tmpIpAddr(addr);
+    tmpIpAddr.RenderIPBinary(pd.ip, IPAddress::IPv6_SIZE);
+    pd.addrSize = tmpIpAddr.Size();
+    pd.port = port;
     return pd;
 }
 
@@ -335,8 +334,8 @@ QStatus ICEPacketStream::PushPacketBytes(const void* buf, size_t numBytes, Packe
             QCC_LogError(status, ("ComposeStunMessage failed"));
         }
     } else {
-        const struct sockaddr* sa = reinterpret_cast<const struct sockaddr*>(dest.data);
-        sent = sendto(sock, sendBuf, sendBytes, 0, sa, sizeof(struct sockaddr_in));
+        IPAddress ipAddr(dest.ip, dest.addrSize);
+        QStatus status = qcc::SendTo(sock, ipAddr, dest.port, sendBuf, sendBytes, sent);
         status = (sent == sendBytes) ? ER_OK : ER_OS_ERROR;
         if (status != ER_OK) {
             if (sent == (size_t) -1) {
@@ -378,19 +377,21 @@ QStatus ICEPacketStream::PullPacketBytes(void* buf, size_t reqBytes, size_t& act
         recvBytes = interfaceMtu;
     }
 
-    struct sockaddr* sa = reinterpret_cast<struct sockaddr*>(&sender.data);
-    socklen_t saLen = sizeof(PacketDest);
-    size_t rcv = recvfrom(sock, recvBuf, recvBytes, 0, sa, &saLen);
-    if (rcv != (size_t) -1) {
-        actualBytes = rcv;
-    } else {
-        status = ER_OS_ERROR;
+    IPAddress tmpIpAddr;
+    uint16_t tmpPort = 0;
+    status =  qcc::RecvFrom(sock, tmpIpAddr, tmpPort, recvBuf, recvBytes, actualBytes);
+    if (ER_OK != status) {
         QCC_LogError(status, ("recvfrom failed: %s", ::strerror(errno)));
+    } else {
+        tmpIpAddr.RenderIPBinary(sender.ip, IPAddress::IPv6_SIZE);
+        sender.addrSize = tmpIpAddr.Size();
+        sender.port = tmpPort;
     }
 
     if (usingTurn) {
         status = StripStunOverhead(actualBytes, buf, reqBytes, actualBytes);
     }
+
 #if 0
     printf("$$$$$$$$$$$ PullBytes(len=%d, buf=%p)\n", (int) actualBytes, buf);
     for (size_t i = 0; i < actualBytes; ++i) {
@@ -409,10 +410,10 @@ QStatus ICEPacketStream::PullPacketBytes(void* buf, size_t reqBytes, size_t& act
 
 String ICEPacketStream::ToString(const PacketDest& dest) const
 {
-    const struct sockaddr_in* sa = reinterpret_cast<const struct sockaddr_in*>(dest.data);
-    String ret = inet_ntoa(sa->sin_addr);
+    IPAddress ipAddr(dest.ip, dest.addrSize);
+    String ret = ipAddr.ToString();
     ret += " (";
-    ret += U32ToString(ntohs(sa->sin_port));
+    ret += U32ToString(dest.port);
     ret += ")";
     return ret;
 }
