@@ -948,6 +948,18 @@ QStatus TCPTransport::Stop(void)
     m_endpointListLock.Lock(MUTEX_CONTEXT);
 
     /*
+     * Ask any authenticating ACTIVE endpoints to shut down and return to the
+     * caller.  By its presence on the m_activeEndpointsThreadList, we know that
+     * an external (from the point of this module) thread is authenticating and
+     * is probably blocked waiting for the other side to respond.  We can't call
+     * Stop() to stop that thread from running, we have to Alert() it to make it
+     * pop out of its blocking calls.
+     */
+    for (set<Thread*>::iterator i = m_activeEndpointsThreadList.begin(); i != m_activeEndpointsThreadList.end(); ++i) {
+        (*i)->Alert();
+    }
+
+    /*
      * Ask any authenticating endpoints to shut down and exit their threads.  By its
      * presence on the m_authList, we know that the endpoint is authenticating and
      * the authentication thread has responsibility for dealing with the endpoint
@@ -3653,7 +3665,6 @@ QStatus TCPTransport::Connect(const char* connectSpec, const SessionOpts& opts, 
 
     TCPEndpoint* conn = NULL;
     if (status == ER_OK) {
-
         /*
          * The underlying transport mechanism is started, but we need to create
          * a TCPEndpoint object that will orchestrate the movement of data
@@ -3677,6 +3688,31 @@ QStatus TCPTransport::Connect(const char* connectSpec, const SessionOpts& opts, 
 
         qcc::String authName;
         qcc::String redirection;
+
+        /*
+         * This is a little tricky.  We usually manage endpoints in one place
+         * using the main server accept loop thread.  This thread expects
+         * endpoints to have an RX thread and a TX thread running, and these
+         * threads are expected to run through the EndpointExit function when
+         * they are stopped.  The general endpoint management uses these
+         * mechanisms.  However, we are about to get into a state where we are
+         * off trying to start an endpoint, but we are using another thread
+         * which has called into TCPTransport::Connect().  We are about to do
+         * blocking I/O in the authentication establishment dance, but we can't
+         * just kill off this thread since it isn't ours for the whacking.  If
+         * the transport is stopped, we do however need a way to stop an
+         * in-process establishment.  It's not reliable to just close a socket
+         * out from uder a thread, so we really need to Alert() the thread
+         * making the blocking calls.  So we keep a separate list of Thread*
+         * that may need to be Alert()ed and run through that list when the
+         * transport is stopping.  This will cause the I/O calls in Establish()
+         * to return and we can then allow the "external" threads to return
+         * and avoid nasty deadlocks.
+         */
+        Thread* thread = GetThread();
+        m_endpointListLock.Lock(MUTEX_CONTEXT);
+        m_activeEndpointsThreadList.insert(thread);
+        m_endpointListLock.Unlock(MUTEX_CONTEXT);
 
         /*
          * Go ahead and do the authentication in the context of this thread.  Even
@@ -3715,6 +3751,21 @@ QStatus TCPTransport::Connect(const char* connectSpec, const SessionOpts& opts, 
             delete conn;
             conn = NULL;
         }
+
+        /*
+         * In any case, we are done with blocking I/O on the current thread, so
+         * we need to remove its pointer from the list we kept around to break it
+         * out of blocking I/O.  If we were successful, the TCPEndpoint was passed
+         * to the m_endpointList, where the main server accept loop will deal with
+         * it using its RX and TX thread-based mechanisms.  If we were unsuccessful
+         * the TCPEndpoint was destroyed and we will return an error below after
+         * cleaning up the underlying socket.
+         */
+        m_endpointListLock.Lock(MUTEX_CONTEXT);
+        set<Thread*>::iterator i = find(m_activeEndpointsThreadList.begin(), m_activeEndpointsThreadList.end(), thread);
+        assert(i != m_activeEndpointsThreadList.end() && "TCPTransport::Connect(): Thread* not on m_activeEndpointsThreadList");
+        m_activeEndpointsThreadList.erase(i);
+        m_endpointListLock.Unlock(MUTEX_CONTEXT);
     }
 
     /*
