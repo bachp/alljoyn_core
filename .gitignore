@@ -11,6 +11,7 @@ build
 *.suo
 *.aps
 *.user
+*.winmd
 bin
 obj
 gen
