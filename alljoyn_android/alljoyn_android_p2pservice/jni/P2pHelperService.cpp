@@ -551,7 +551,7 @@ class P2pService : public BusObject {
         int result = CancelFindAdvertisedName(namePrefix.c_str());
 
         LOGI("handleCancelFindAdvertisedName replying with %d", result);
-        MsgArg reply("i", 1, result);
+        MsgArg reply("i", result);
         QStatus status = MethodReply(msg, &reply, 1);
         if (ER_OK != status) {
             LOGE("handleCancelAdvertisedName: Error sending reply (%s)", QCC_StatusText(status));
@@ -568,7 +568,7 @@ class P2pService : public BusObject {
         int result = AdvertiseName(name.c_str(), guid.c_str());
 
         LOGI("handleAdvertiseName replying with %d", result);
-        MsgArg reply("i", 1, result);
+        MsgArg reply("i", result);
         QStatus status = MethodReply(msg, &reply, 1);
         if (ER_OK != status) {
             LOGE("handleAdvertiseName: Error sending reply (%s)", QCC_StatusText(status));
@@ -585,7 +585,7 @@ class P2pService : public BusObject {
         int result = CancelAdvertiseName(name.c_str(), guid.c_str());
 
         LOGI("handleCancelAdvertisedName replying with %d", result);
-        MsgArg reply("i", 1, result);
+        MsgArg reply("i", result);
         QStatus status = MethodReply(msg, &reply, 1);
         if (ER_OK != status) {
             LOGE("handleCancelAdvertiseName: Error sending reply (%s)", QCC_StatusText(status));
@@ -602,7 +602,7 @@ class P2pService : public BusObject {
         int result = EstablishLink(device.c_str(), intent);
 
         LOGI("handleEstablishLink replying with %d", result);
-        MsgArg reply("i", 1, result);
+        MsgArg reply("i", result);
         QStatus status = MethodReply(msg, &reply, 1);
         if (ER_OK != status) {
             LOGE("handleEstablishLink: Error sending reply (%s)", QCC_StatusText(status));
@@ -618,7 +618,7 @@ class P2pService : public BusObject {
         int result = ReleaseLink(handle);
 
         LOGI("handleReleaseLink replying with %d", result);
-        MsgArg reply("i", 1, result);
+        MsgArg reply("i", result);
         QStatus status = MethodReply(msg, &reply, 1);
         if (ER_OK != status) {
             LOGE("handleReleaseLink: Error sending reply (%s)", QCC_StatusText(status));
@@ -635,7 +635,7 @@ class P2pService : public BusObject {
         int result = GetInterfaceNameFromHandle(handle, buf, 64);
 
         LOGI("handleGetInterfaceName replying with %d", result);
-        MsgArg reply("s", 1, buf);
+        MsgArg reply("s", buf);
         QStatus status = MethodReply(msg, &reply, 1);
         if (ER_OK != status) {
             LOGE("handleGetInterfaceNameFromHandle: Error sending reply (%s)", QCC_StatusText(status));
