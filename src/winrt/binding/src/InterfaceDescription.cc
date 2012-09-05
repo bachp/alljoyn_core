@@ -741,7 +741,7 @@ uint32_t InterfaceDescription::GetAnnotations(Platform::WriteOnlyArray<Platform:
     qcc::String* namesArray = NULL;
     qcc::String* valuesArray = NULL;
     size_t result = -1;
-    size_t numberToGet = size;
+    uint32_t numberToGet = size;
 
     while (true) {
         if (nullptr != names && nullptr != values) {
