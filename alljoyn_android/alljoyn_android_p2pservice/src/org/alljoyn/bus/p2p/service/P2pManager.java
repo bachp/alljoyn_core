@@ -137,7 +137,7 @@ public class P2pManager implements ConnectionInfoListener, DnsSdServiceResponseL
 
         mPeriodicPeerFind = new Runnable() {
             public void run() {
-                if (!isEnabled /* || (mFindState == FindState.IDLE && not discovering)*/) {
+                if (!isEnabled || manager == null || channel == null /* || (mFindState == FindState.IDLE && not discovering)*/) {
                     return;
                 }
 
@@ -189,7 +189,14 @@ public class P2pManager implements ConnectionInfoListener, DnsSdServiceResponseL
 
     public void shutdown() {
         mHandler.removeCallbacks(mPeriodicDiscovery);
-        context.unregisterReceiver(receiver);
+        mHandler.removeCallbacks(mRequestConnectionInfo);
+        if (receiver != null) {
+            context.unregisterReceiver(receiver);
+        }
+        if (manager != null && channel != null) {
+            manager.clearLocalServices(channel, null);
+            manager.clearServiceRequests(channel, null);
+        }
         receiver = null;
         channel = null;
         manager = null;
@@ -724,7 +731,7 @@ public class P2pManager implements ConnectionInfoListener, DnsSdServiceResponseL
 
         Runnable removeService = new Runnable() {
             public void run() {
-                if (!isEnabled /* || (mFindState == FindState.IDLE && not advertising)*/) {
+                if (!isEnabled || manager == null || channel == null /* || (mFindState == FindState.IDLE && not advertising)*/) {
                     return;
                 }
 
@@ -960,7 +967,7 @@ public class P2pManager implements ConnectionInfoListener, DnsSdServiceResponseL
         try {
             Enumeration<NetworkInterface> list = NetworkInterface.getNetworkInterfaces();
 
-            while (list != null&& list.hasMoreElements()) {
+            while (list != null && list.hasMoreElements()) {
                 NetworkInterface nIface = list.nextElement();
                 byte[] macAddr = nIface.getHardwareAddress();
 
@@ -972,7 +979,7 @@ public class P2pManager implements ConnectionInfoListener, DnsSdServiceResponseL
                     macStr.append(String.format("%02x%s", macAddr[i], (i < macAddr.length - 1) ? ":" : ""));
                 }
 
-                if (this.device != null&& this.device.deviceAddress.equals(macStr.toString())) {
+                if (this.device != null && this.device.deviceAddress.equals(macStr.toString())) {
                     Log.d(TAG, "getInterfaceNameFromHandle(): Returning: " + nIface.getDisplayName());
                     return nIface.getDisplayName();
                 }
@@ -991,15 +998,9 @@ public class P2pManager implements ConnectionInfoListener, DnsSdServiceResponseL
 
     @Override
     protected void finalize() throws Throwable {
+        Log.d(TAG, "Finalize");
         try {
-            //TODO We probably don't want to clear ALL requests.
-            // Investigate whether this clears the requests from oother entities.
-            // Maybe just clear the outstanding requests based on mServiceRequestList
-            // plus the general one for "_alljoyn._tcp" type of services (this is also questionable).
-            Log.d(TAG, "Finalize");
-            manager.clearServiceRequests(channel, null);
-            doDiscoverServices(false);
-            manager.stopPeerDiscovery(channel, null);
+            shutdown();
         } finally {
             super.finalize();
         }
