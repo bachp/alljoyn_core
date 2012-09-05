@@ -380,7 +380,7 @@ public ref class InterfaceDescription sealed {
     /// <param name="values"> Values of the retrieved annotations</param>
     /// <param name="size"> Number of annotations to get</param>
     /// <remarks>
-    ///To get the total number of annotations: 
+    ///To get the total number of annotations:
     /// - Call with names and values set to null, and size == 0
     /// - Allocate arrays for names and values sized with the initial return value
     /// - Call again with the properly sized arrays and size parameter
