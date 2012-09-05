@@ -136,10 +136,6 @@ public ref class InterfaceDescription sealed {
 
     /// <summary>Lookup a member description by name</summary>
     /// <param name="name">
-    /// <summary>
-    /// Lookup a member description by name
-    /// </summary>
-    /// <param name="name">
     ///Name of the member to lookup
     /// </param>
     /// <returns>
@@ -327,10 +323,6 @@ public ref class InterfaceDescription sealed {
 
     /// <summary>Check for existence of a property.</summary>
     /// <param name="name">
-    /// <summary>
-    ///Check for existence of a property.
-    /// </summary>
-    /// <param name="name">
     ///Name of the property to lookup
     /// </param>
     /// <returns>
@@ -380,6 +372,23 @@ public ref class InterfaceDescription sealed {
     /// - #ER_BUS_MEMBER_ALREADY_EXISTS if member already exists
     /// </exception>
     void AddAnnotation(Platform::String ^ name, Platform::String ^ value);
+
+    /// <summary>
+    ///Get the names and values of annotations.
+    /// </summary>
+    /// <param name="names"> Names of the retrieved annotations</param>
+    /// <param name="values"> Values of the retrieved annotations</param>
+    /// <param name="size"> Number of annotations to get</param>
+    /// <remarks>
+    ///To get the total number of annotations: 
+    /// - Call with names and values set to null, and size == 0
+    /// - Allocate arrays for names and values sized with the initial return value
+    /// - Call again with the properly sized arrays and size parameter
+    /// </remarks>
+    /// <returns>
+    ///The number of annotations returned.
+    /// </returns>
+    uint32_t GetAnnotations(Platform::WriteOnlyArray<Platform::String ^> ^ names, Platform::WriteOnlyArray<Platform::String ^> ^ values, uint32_t size);
 
     /// <summary>Get the value of an annotation</summary>
     /// <param name="name"> Name of annotation</param>

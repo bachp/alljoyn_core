@@ -735,6 +735,62 @@ void InterfaceDescription::AddAnnotation(Platform::String ^ name, Platform::Stri
     }
 }
 
+uint32_t InterfaceDescription::GetAnnotations(Platform::WriteOnlyArray<Platform::String ^> ^ names, Platform::WriteOnlyArray<Platform::String ^> ^ values, uint32_t size)
+{
+    ::QStatus status = ER_OK;
+    qcc::String* namesArray = NULL;
+    qcc::String* valuesArray = NULL;
+    size_t result = -1;
+    size_t numberToGet = size;
+
+    while (true) {
+        if (nullptr != names && nullptr != values) {
+            // retrieve only as many as there is space allocated
+            numberToGet = std::min(names->Length, values->Length);
+            numberToGet = std::min(numberToGet, size);
+
+            if (numberToGet > 0) {
+                namesArray = new qcc::String[numberToGet];
+                if (NULL == namesArray) {
+                    status = ER_OUT_OF_MEMORY;
+                    break;
+                }
+                valuesArray = new qcc::String[numberToGet];
+                if (NULL == valuesArray) {
+                    status = ER_OUT_OF_MEMORY;
+                    break;
+                }
+            }
+        }
+
+        result = ((ajn::InterfaceDescription*)*_interfaceDescr)->GetAnnotations(namesArray, valuesArray, numberToGet);
+        if (result > 0 && NULL != namesArray && NULL != valuesArray) {
+            for (int i = 0; i < result; i++) {
+                names[i] = MultibyteToPlatformString(namesArray[i].c_str());
+                values[i] = MultibyteToPlatformString(valuesArray[i].c_str());
+            }
+        }
+        break;
+    }
+
+    if (NULL != namesArray) {
+        delete [] namesArray;
+        namesArray = NULL;
+    }
+
+    if (NULL != valuesArray) {
+        delete [] valuesArray;
+        valuesArray = NULL;
+    }
+
+    if (ER_OK != status) {
+        QCC_THROW_EXCEPTION(status);
+    }
+
+    return result;
+
+}
+
 Platform::String ^ InterfaceDescription::GetAnnotation(Platform::String ^ name)
 {
     ::QStatus status = ER_OK;
