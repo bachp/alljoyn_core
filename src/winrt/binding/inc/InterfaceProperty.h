@@ -40,7 +40,7 @@ class _InterfaceProperty {
     friend class qcc::ManagedObj<_InterfaceProperty>;
     friend ref class InterfaceProperty;
     _InterfaceProperty(const char* name, const char* signature, uint8_t access);
-    _InterfaceProperty(ajn::InterfaceDescription::Property* property);
+    _InterfaceProperty(const ajn::InterfaceDescription::Property* property);
     ~_InterfaceProperty();
 
     operator ajn::InterfaceDescription::Property * ();
@@ -85,7 +85,7 @@ public ref class InterfaceProperty sealed {
 
   private:
     friend ref class InterfaceDescription;
-    InterfaceProperty(void* interfaceProperty);
+    InterfaceProperty(const ajn::InterfaceDescription::Property * interfaceProperty);
     ~InterfaceProperty();
 
     qcc::ManagedObj<_InterfaceProperty>* _mProperty;

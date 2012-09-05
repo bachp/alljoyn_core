@@ -28,6 +28,7 @@ namespace AllJoyn {
 
 void Debug::UseOSLogging(bool useOSLog)
 {
+    // Call the real API
     QCC_UseOSLogging(useOSLog);
 }
 
@@ -36,19 +37,24 @@ void Debug::SetDebugLevel(Platform::String ^ module, uint32_t level)
     ::QStatus status = ER_OK;
 
     while (true) {
+        // Check for invalid values in module
         if (nullptr == module) {
             status = ER_BAD_ARG_1;
             break;
         }
+        // Convert module to qcc::String
         qcc::String strModule = PlatformToMultibyteString(module);
+        // Check for conversion error
         if (strModule.empty()) {
             status = ER_OUT_OF_MEMORY;
             break;
         }
+        // Call the real API
         QCC_SetDebugLevel(strModule.c_str(), level);
         break;
     }
 
+    // Bubble up any QStatus error as exception
     if (ER_OK != status) {
         QCC_THROW_EXCEPTION(status);
     }

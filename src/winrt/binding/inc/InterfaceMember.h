@@ -53,7 +53,7 @@ class _InterfaceMember {
     _InterfaceMember(const ajn::InterfaceDescription* iface, ajn::AllJoynMessageType type, const char* name,
                      const char* signature, const char* returnSignature, const char* argNames,
                      uint8_t annotation, const char* accessPerms);
-    _InterfaceMember(ajn::InterfaceDescription::Member* member);
+    _InterfaceMember(const ajn::InterfaceDescription::Member* member);
     ~_InterfaceMember();
 
     operator ajn::InterfaceDescription::Member * ();
@@ -128,14 +128,6 @@ public ref class InterfaceMember sealed {
     }
 
     /// <summary>
-    ///Exclusive OR of flags MEMBER_ANNOTATE_NO_REPLY and MEMBER_ANNOTATE_DEPRECATED
-    /// </summary>
-    //property uint8_t Annotation
-    //{
-    //    uint8_t get();
-    //}
-
-    /// <summary>
     ///Required permissions to invoke this call
     /// </summary>
     property Platform::String ^ AccessPerms
@@ -150,7 +142,7 @@ public ref class InterfaceMember sealed {
     friend ref class ProxyBusObject;
     friend class _MessageReceiver;
     friend ref class InterfaceDescription;
-    InterfaceMember(void* interfaceMember);
+    InterfaceMember(const ajn::InterfaceDescription::Member * interfaceMember);
     ~InterfaceMember();
 
     qcc::ManagedObj<_InterfaceMember>* _mMember;

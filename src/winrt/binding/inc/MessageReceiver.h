@@ -135,7 +135,7 @@ class _MessageReceiver : protected ajn::MessageReceiver {
 
         try {
             while (true) {
-                InterfaceMember ^ imember = ref new InterfaceMember((void*)member);
+                InterfaceMember ^ imember = ref new InterfaceMember(member);
                 if (nullptr == imember) {
                     status = ER_OUT_OF_MEMORY;
                     break;
@@ -166,7 +166,7 @@ class _MessageReceiver : protected ajn::MessageReceiver {
 
         try {
             while (true) {
-                InterfaceMember ^ imember = ref new InterfaceMember((void*)member);
+                InterfaceMember ^ imember = ref new InterfaceMember(member);
                 if (nullptr == imember) {
                     status = ER_OUT_OF_MEMORY;
                     break;

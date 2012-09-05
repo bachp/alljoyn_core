@@ -34,24 +34,31 @@ InterfaceDescription::InterfaceDescription(const ajn::InterfaceDescription* inte
     ::QStatus status = ER_OK;
 
     while (true) {
+        // Check for invalid values specified in interfaceDescr
         if (NULL == interfaceDescr) {
             status = ER_BAD_ARG_1;
             break;
         }
+        // Create _InterfaceDescription
         _InterfaceDescription* intdescr = new _InterfaceDescription(interfaceDescr);
+        // Check for allocation error
         if (NULL == intdescr) {
             status = ER_OUT_OF_MEMORY;
             break;
         }
+        // Attach _InterfaceDescription to a managed object
         _mInterfaceDescr = new qcc::ManagedObj<_InterfaceDescription>(intdescr);
+        // Check for allocation error
         if (NULL == _mInterfaceDescr) {
             status = ER_OUT_OF_MEMORY;
             break;
         }
+        // Store a pointer to _InterfaceDescription for convenience
         _interfaceDescr = &(**_mInterfaceDescr);
         break;
     }
 
+    // Bubble up any QStatus error as an exception
     if (ER_OK != status) {
         QCC_THROW_EXCEPTION(status);
     }
@@ -62,19 +69,23 @@ InterfaceDescription::InterfaceDescription(const qcc::ManagedObj<_InterfaceDescr
     ::QStatus status = ER_OK;
 
     while (true) {
+        // Check for invalid values specified in interfaceDescr
         if (NULL == interfaceDescr) {
             status = ER_BAD_ARG_1;
             break;
         }
+        // Attached to managed object
         _mInterfaceDescr = new qcc::ManagedObj<_InterfaceDescription>(*interfaceDescr);
         if (NULL == _mInterfaceDescr) {
             status = ER_OUT_OF_MEMORY;
             break;
         }
+        // Store a pointer to _InterfaceDescription for convenience
         _interfaceDescr = &(**_mInterfaceDescr);
         break;
     }
 
+    // Bubble up any QStatus error as an exception
     if (ER_OK != status) {
         QCC_THROW_EXCEPTION(status);
     }
@@ -82,6 +93,7 @@ InterfaceDescription::InterfaceDescription(const qcc::ManagedObj<_InterfaceDescr
 
 InterfaceDescription::~InterfaceDescription()
 {
+    // Delete the managed _InterfaceDescription to adjust ref count
     if (NULL != _mInterfaceDescr) {
         delete _mInterfaceDescr;
         _mInterfaceDescr = NULL;
@@ -100,44 +112,58 @@ void InterfaceDescription::AddMember(AllJoynMessageType type,
     ::QStatus status = ER_OK;
 
     while (true) {
+        // Check name for invalid values
         if (nullptr == name) {
             status = ER_BAD_ARG_2;
             break;
         }
+        // Convert name to qcc::String
         qcc::String strName = PlatformToMultibyteString(name);
+        // Check for conversion error
         if (strName.empty()) {
             status = ER_OUT_OF_MEMORY;
             break;
         }
+        // Convert inputSig to qcc::String
         qcc::String strInputSig = PlatformToMultibyteString(inputSig);
+        // Check inputSig conversion error
         if (nullptr != inputSig && strInputSig.empty()) {
             status = ER_OUT_OF_MEMORY;
             break;
         }
+        // Convert outSig to qcc::String
         qcc::String strOutSig = PlatformToMultibyteString(outSig);
+        // Check for conversion error
         if (nullptr != outSig && strOutSig.empty()) {
             status = ER_OUT_OF_MEMORY;
             break;
         }
+        // Check argNames for invalid values
         if (nullptr == argNames) {
             status = ER_BAD_ARG_5;
             break;
         }
+        // Convert argNames to qcc::String
         qcc::String strArgNames = PlatformToMultibyteString(argNames);
+        // Check for conversion error
         if (strArgNames.empty()) {
             status = ER_OUT_OF_MEMORY;
             break;
         }
+        // Convert accessPerms to qcc::String
         qcc::String strAccessPerms = PlatformToMultibyteString(accessPerms);
+        // Check for conversion error
         if (nullptr != accessPerms && strAccessPerms.empty()) {
             status = ER_OUT_OF_MEMORY;
             break;
         }
+        // Call the real API
         status = ((ajn::InterfaceDescription*)*_interfaceDescr)->AddMember((ajn::AllJoynMessageType)(int)type, strName.c_str(), strInputSig.c_str(), strOutSig.c_str(),
                                                                            strArgNames.c_str(), annotation, strAccessPerms.c_str());
         break;
     }
 
+    // Bubble up any QStatus error as an exception
     if (ER_OK != status) {
         QCC_THROW_EXCEPTION(status);
     }
@@ -148,25 +174,33 @@ void InterfaceDescription::AddMemberAnnotation(Platform::String ^ member, Platfo
     ::QStatus status = ER_OK;
 
     while (true) {
+        // Convert member to qcc::String
         qcc::String strMember = PlatformToMultibyteString(member);
+        // Check for conversion error
         if (nullptr != member && strMember.empty()) {
             status = ER_OUT_OF_MEMORY;
             break;
         }
+        // Convert name to qcc::String
         qcc::String strName = PlatformToMultibyteString(name);
+        // Check for conversion error
         if (nullptr != name && strName.empty()) {
             status = ER_OUT_OF_MEMORY;
             break;
         }
+        // Convert value to qcc::String
         qcc::String strValue = PlatformToMultibyteString(value);
+        // Check for conversion error
         if (nullptr != value && strValue.empty()) {
             status = ER_OUT_OF_MEMORY;
             break;
         }
+        // Call the real API
         status = ((ajn::InterfaceDescription*)*_interfaceDescr)->AddMemberAnnotation(strMember.c_str(), strName, strValue);
         break;
     }
 
+    // Bubble up any QStatus error as an exception
     if (ER_OK != status) {
         QCC_THROW_EXCEPTION(status);
     }
@@ -178,23 +212,30 @@ Platform::String ^ InterfaceDescription::GetMemberAnnotation(Platform::String ^ 
     Platform::String ^ result = nullptr;
 
     while (true) {
+        // Convert member to qcc::String
         qcc::String strMember = PlatformToMultibyteString(member);
+        // Check for conversion error
         if (nullptr != member && strMember.empty()) {
             status = ER_OUT_OF_MEMORY;
             break;
         }
+        // Convert name to qcc::String
         qcc::String strName = PlatformToMultibyteString(name);
+        // Check for conversion error
         if (nullptr != name && strName.empty()) {
             status = ER_OUT_OF_MEMORY;
             break;
         }
         qcc::String strValue;
+        // Call the real API
         if (((ajn::InterfaceDescription*)*_interfaceDescr)->GetMemberAnnotation(strMember.c_str(), strName, strValue)) {
+            // Convert result to Platform::String
             result = MultibyteToPlatformString(strValue.c_str());
         }
         break;
     }
 
+    // Bubble up any QStatus error as an exception
     if (ER_OK != status) {
         QCC_THROW_EXCEPTION(status);
     }
@@ -208,21 +249,27 @@ InterfaceMember ^ InterfaceDescription::GetMember(Platform::String ^ name)
     InterfaceMember ^ im = nullptr;
 
     while (true) {
+        // Check name for invalid values
         if (nullptr == name) {
             status = ER_BAD_ARG_1;
             break;
         }
+        // Convert name to qcc::String
         qcc::String strName = PlatformToMultibyteString(name);
+        // Check for conversion error
         if (strName.empty()) {
             status = ER_OUT_OF_MEMORY;
             break;
         }
+        // Call the real API
         const ajn::InterfaceDescription::Member* member = ((ajn::InterfaceDescription*)*_interfaceDescr)->GetMember(strName.c_str());
         if (NULL == member) {
             status = ER_FAIL;
             break;
         }
-        im = ref new InterfaceMember((void*)member);
+        // Convert member to wrapped InterfaceMember
+        im = ref new InterfaceMember(member);
+        // Check for allocation error
         if (nullptr == im) {
             status = ER_OUT_OF_MEMORY;
             break;
@@ -230,6 +277,7 @@ InterfaceMember ^ InterfaceDescription::GetMember(Platform::String ^ name)
         break;
     }
 
+    // Bubble up any QStatus error as an exception
     if (ER_OK != status) {
         QCC_THROW_EXCEPTION(status);
     }
@@ -244,32 +292,41 @@ uint32_t InterfaceDescription::GetMembers(Platform::WriteOnlyArray<InterfaceMemb
     size_t result = -1;
 
     while (true) {
+        // Check for invalid values in members
         if (nullptr != members &&  members->Length >  0) {
+            // Create a unmanaged Member array
             memberArray = new ajn::InterfaceDescription::Member * [members->Length];
+            // Check for allocation error
             if (NULL == memberArray) {
                 status = ER_OUT_OF_MEMORY;
                 break;
             }
         }
+        // Call the real API
         result = ((ajn::InterfaceDescription*)*_interfaceDescr)->GetMembers((const ajn::InterfaceDescription::Member**)memberArray, (nullptr != members) ? members->Length : 0);
         if (result > 0 && NULL != memberArray) {
             for (int i = 0; i < result; i++) {
-                InterfaceMember ^ tempMember = ref new InterfaceMember((void*)memberArray[i]);
+                // Convert to wrapped InterfaceMember
+                InterfaceMember ^ tempMember = ref new InterfaceMember(memberArray[i]);
+                // Check for allocation error
                 if (nullptr == tempMember) {
                     status = ER_OUT_OF_MEMORY;
                     break;
                 }
+                // Store the result
                 members[i] = tempMember;
             }
         }
         break;
     }
 
+    // Delete temporary memberArray used for conversion
     if (NULL != memberArray) {
         delete [] memberArray;
         memberArray = NULL;
     }
 
+    // Bubble up any QStatus error as an exception
     if (ER_OK != status) {
         QCC_THROW_EXCEPTION(status);
     }
@@ -283,29 +340,38 @@ bool InterfaceDescription::HasMember(Platform::String ^ name, Platform::String ^
     bool result = false;
 
     while (true) {
+        // Check name for invalid values
         if (nullptr == name) {
             status = ER_BAD_ARG_1;
             break;
         }
+        // Convert name to qcc::String
         qcc::String strName = PlatformToMultibyteString(name);
+        // Check for conversion failure
         if (strName.empty()) {
             status = ER_OUT_OF_MEMORY;
             break;
         }
+        // Convert inSig to qcc::String
         qcc::String strInputSig = PlatformToMultibyteString(inSig);
+        // Check for conversion error
         if (nullptr != inSig && strInputSig.empty()) {
             status = ER_OUT_OF_MEMORY;
             break;
         }
+        // Convert outSig to qcc::String
         qcc::String strOutSig = PlatformToMultibyteString(outSig);
+        // Check for conversion error
         if (nullptr != outSig && strOutSig.empty()) {
             status = ER_OUT_OF_MEMORY;
             break;
         }
+        // Call the real API
         result = ((ajn::InterfaceDescription*)*_interfaceDescr)->HasMember(strName.c_str(), strInputSig.c_str(), strOutSig.c_str());
         break;
     }
 
+    // Bubble up any QStatus error as an exception
     if (ER_OK != status) {
         QCC_THROW_EXCEPTION(status);
     }
@@ -323,44 +389,58 @@ void InterfaceDescription::AddMethod(Platform::String ^ name,
     ::QStatus status = ER_OK;
 
     while (true) {
+        // Check name for invalid values
         if (nullptr == name) {
             status = ER_BAD_ARG_2;
             break;
         }
+        // Convert name to qcc::String
         qcc::String strName = PlatformToMultibyteString(name);
+        // Check for conversion failure
         if (strName.empty()) {
             status = ER_OUT_OF_MEMORY;
             break;
         }
+        // Convert inputSig to qcc::String
         qcc::String strInputSig = PlatformToMultibyteString(inputSig);
+        // Check for conversion failure
         if (nullptr != inputSig && strInputSig.empty()) {
             status = ER_OUT_OF_MEMORY;
             break;
         }
+        // Convert outSig to qcc::String
         qcc::String strOutSig = PlatformToMultibyteString(outSig);
+        // Check for conversion failure
         if (nullptr != outSig && strOutSig.empty()) {
             status = ER_OUT_OF_MEMORY;
             break;
         }
+        // Check for invalid values in argNames
         if (nullptr == argNames) {
             status = ER_BAD_ARG_5;
             break;
         }
+        // Convert argNames to qcc::String
         qcc::String strArgNames = PlatformToMultibyteString(argNames);
+        // Check for conversion failure
         if (strArgNames.empty()) {
             status = ER_OUT_OF_MEMORY;
             break;
         }
+        // Convert accessPerms to qcc::String
         qcc::String strAccessPerms = PlatformToMultibyteString(accessPerms);
+        // Check for conversion failure
         if (nullptr != accessPerms && strAccessPerms.empty()) {
             status = ER_OUT_OF_MEMORY;
             break;
         }
+        // Call the real API
         status = ((ajn::InterfaceDescription*)*_interfaceDescr)->AddMethod(strName.c_str(), strInputSig.c_str(), strOutSig.c_str(),
                                                                            strArgNames.c_str(), annotation, strAccessPerms.c_str());
         break;
     }
 
+    // Bubble up any QStatus error as an exception
     if (ER_OK != status) {
         QCC_THROW_EXCEPTION(status);
     }
@@ -372,21 +452,28 @@ InterfaceMember ^ InterfaceDescription::GetMethod(Platform::String ^ name)
     InterfaceMember ^ im = nullptr;
 
     while (true) {
+        // Check for invalid values in name
         if (nullptr == name) {
             status = ER_BAD_ARG_1;
             break;
         }
+        // Convert name to qcc::String
         qcc::String strName = PlatformToMultibyteString(name);
+        // Check for conversion failure
         if (strName.empty()) {
             status = ER_OUT_OF_MEMORY;
             break;
         }
+        // Call thre real API
         const ajn::InterfaceDescription::Member* member = ((ajn::InterfaceDescription*)*_interfaceDescr)->GetMethod(strName.c_str());
+        // Check for API failure
         if (NULL == member) {
             status = ER_FAIL;
             break;
         }
-        im = ref new InterfaceMember((void*)member);
+        // Create wrapped InterfaceMember
+        im = ref new InterfaceMember(member);
+        // Check for allocation error
         if (nullptr == im) {
             status = ER_OUT_OF_MEMORY;
             break;
@@ -394,6 +481,7 @@ InterfaceMember ^ InterfaceDescription::GetMethod(Platform::String ^ name)
         break;
     }
 
+    // Bubble up any QStatus error as an exception
     if (ER_OK != status) {
         QCC_THROW_EXCEPTION(status);
     }
@@ -406,42 +494,55 @@ void InterfaceDescription::AddSignal(Platform::String ^ name, Platform::String ^
     ::QStatus status = ER_OK;
 
     while (true) {
+        // Check name for invalid values
         if (nullptr == name) {
             status = ER_BAD_ARG_1;
             break;
         }
+        // Convert name to qcc::String
         qcc::String strName = PlatformToMultibyteString(name);
+        // Check for conversion error
         if (strName.empty()) {
             status = ER_OUT_OF_MEMORY;
             break;
         }
+        // Check sid for invalid values
         if (nullptr == sig) {
             status = ER_BAD_ARG_2;
             break;
         }
+        // Convert sig to qcc::String
         qcc::String strSig = PlatformToMultibyteString(sig);
+        // Check for conversion error
         if (strSig.empty()) {
             status = ER_OUT_OF_MEMORY;
             break;
         }
+        // Check argNames for invalid values
         if (nullptr == argNames) {
             status = ER_BAD_ARG_3;
             break;
         }
+        // Convert argNames to qcc::String
         qcc::String strArgNames = PlatformToMultibyteString(argNames);
+        // Check for conversion error
         if (strArgNames.empty()) {
             status = ER_OUT_OF_MEMORY;
             break;
         }
+        // Convert accessPerms to qcc::String
         qcc::String strAccessPerms = PlatformToMultibyteString(accessPerms);
+        // Check for conversion error
         if (nullptr != accessPerms && strAccessPerms.empty()) {
             status = ER_OUT_OF_MEMORY;
             break;
         }
+        // Call the real API
         status = ((ajn::InterfaceDescription*)*_interfaceDescr)->AddSignal(strName.c_str(), strSig.c_str(), strArgNames.c_str(), annotation, strAccessPerms.c_str());
         break;
     }
 
+    // Bubble up any QStatus error as an exception
     if (ER_OK != status) {
         QCC_THROW_EXCEPTION(status);
     }
@@ -453,21 +554,28 @@ InterfaceMember ^ InterfaceDescription::GetSignal(Platform::String ^ name)
     InterfaceMember ^ im = nullptr;
 
     while (true) {
+        // Check name for invalid values
         if (nullptr == name) {
             status = ER_BAD_ARG_1;
             break;
         }
+        // Convert name to qcc::String
         qcc::String strName = PlatformToMultibyteString(name);
+        // Check for conversion error
         if (strName.empty()) {
             status = ER_OUT_OF_MEMORY;
             break;
         }
+        // Call the real API
         const ajn::InterfaceDescription::Member* member = ((ajn::InterfaceDescription*)*_interfaceDescr)->GetSignal(strName.c_str());
+        // Check for API failure
         if (NULL == member) {
             status = ER_FAIL;
             break;
         }
-        im = ref new InterfaceMember((void*)member);
+        // Convert member to wrapped InterfaceMember
+        im = ref new InterfaceMember(member);
+        // Check for allocation error
         if (nullptr == im) {
             status = ER_OUT_OF_MEMORY;
             break;
@@ -475,6 +583,7 @@ InterfaceMember ^ InterfaceDescription::GetSignal(Platform::String ^ name)
         break;
     }
 
+    // Bubble up any QStatus error as an exception
     if (ER_OK != status) {
         QCC_THROW_EXCEPTION(status);
     }
@@ -488,21 +597,28 @@ InterfaceProperty ^ InterfaceDescription::GetProperty(Platform::String ^ name)
     InterfaceProperty ^ ip = nullptr;
 
     while (true) {
+        // Chek name for invalid values
         if (nullptr == name) {
             status = ER_BAD_ARG_1;
             break;
         }
+        // Convert name to qcc::String
         qcc::String strName = PlatformToMultibyteString(name);
+        // Check for conversion error
         if (strName.empty()) {
             status = ER_OUT_OF_MEMORY;
             break;
         }
+        // Call the real API
         const ajn::InterfaceDescription::Property* property = ((ajn::InterfaceDescription*)*_interfaceDescr)->GetProperty(strName.c_str());
+        // Check for API failure
         if (NULL == property) {
             status = ER_FAIL;
             break;
         }
-        ip = ref new InterfaceProperty((void*)property);
+        // Convert property to wrapped InterfaceProperty
+        ip = ref new InterfaceProperty(property);
+        // Check for allocation error
         if (nullptr == ip) {
             status = ER_OUT_OF_MEMORY;
             break;
@@ -510,6 +626,7 @@ InterfaceProperty ^ InterfaceDescription::GetProperty(Platform::String ^ name)
         break;
     }
 
+    // Bubble up any QStatus error as an exception
     if (ER_OK != status) {
         QCC_THROW_EXCEPTION(status);
     }
@@ -524,32 +641,41 @@ uint32_t InterfaceDescription::GetProperties(Platform::WriteOnlyArray<InterfaceP
     size_t result = -1;
 
     while (true) {
+        // Check props for invalid vlaues
         if (nullptr != props && props->Length > 0) {
+            // Allocate temporary array for properties
             propertyArray = new ajn::InterfaceDescription::Property * [props->Length];
+            // Check for allocation error
             if (NULL == propertyArray) {
                 status = ER_OUT_OF_MEMORY;
                 break;
             }
         }
+        // Call the real API
         result = ((ajn::InterfaceDescription*)*_interfaceDescr)->GetProperties((const ajn::InterfaceDescription::Property**)propertyArray, (nullptr != props) ? props->Length : 0);
         if (result > 0 && NULL != propertyArray) {
             for (int i = 0; i < result; i++) {
-                InterfaceProperty ^ tempProperty = ref new InterfaceProperty((void*)propertyArray[i]);
+                // Create wrapped InterfaceProperty from unmanaged value
+                InterfaceProperty ^ tempProperty = ref new InterfaceProperty(propertyArray[i]);
+                // Check for allocation error
                 if (nullptr == tempProperty) {
                     status = ER_OUT_OF_MEMORY;
                     break;
                 }
+                // Store the result
                 props[i] = tempProperty;
             }
         }
         break;
     }
 
+    // Delete temporary property array
     if (NULL != propertyArray) {
         delete [] propertyArray;
         propertyArray = NULL;
     }
 
+    // Bubble up any QStatus error as an exception
     if (ER_OK != status) {
         QCC_THROW_EXCEPTION(status);
     }
@@ -562,28 +688,36 @@ void InterfaceDescription::AddProperty(Platform::String ^ name, Platform::String
     ::QStatus status = ER_OK;
 
     while (true) {
+        // Check name for invalid alues
         if (nullptr == name) {
             status = ER_BAD_ARG_1;
             break;
         }
+        // Convert name to qcc::String
         qcc::String strName = PlatformToMultibyteString(name);
+        // Check for conversion error
         if (strName.empty()) {
             status = ER_OUT_OF_MEMORY;
             break;
         }
+        // Check signature for invalid values
         if (nullptr == signature) {
             status = ER_BAD_ARG_2;
             break;
         }
+        // Convert signature to qcc::String
         qcc::String strSignature = PlatformToMultibyteString(signature);
+        // Check for conversion error
         if (strSignature.empty()) {
             status = ER_OUT_OF_MEMORY;
             break;
         }
+        // Call the real API
         status = ((ajn::InterfaceDescription*)*_interfaceDescr)->AddProperty(strName.c_str(), strSignature.c_str(), access);
         break;
     }
 
+    // Bubble up any QStatus error as an exception
     if (ER_OK != status) {
         QCC_THROW_EXCEPTION(status);
     }
@@ -594,25 +728,33 @@ void InterfaceDescription::AddPropertyAnnotation(Platform::String ^ member, Plat
     ::QStatus status = ER_OK;
 
     while (true) {
+        // Convert member to qcc::String
         qcc::String strMember = PlatformToMultibyteString(member);
+        // Check for conversion error
         if (nullptr != member && strMember.empty()) {
             status = ER_OUT_OF_MEMORY;
             break;
         }
+        // Convert name to qcc::String
         qcc::String strName = PlatformToMultibyteString(name);
+        // Check for conversion error
         if (nullptr != name && strName.empty()) {
             status = ER_OUT_OF_MEMORY;
             break;
         }
+        // Convert value to qcc::String
         qcc::String strValue = PlatformToMultibyteString(value);
+        // Check for conversion error
         if (nullptr != value && strValue.empty()) {
             status = ER_OUT_OF_MEMORY;
             break;
         }
+        // Call the real API
         status = ((ajn::InterfaceDescription*)*_interfaceDescr)->AddPropertyAnnotation(strMember.c_str(), strName, strValue);
         break;
     }
 
+    // Bubble up any QStatus error as an exception
     if (ER_OK != status) {
         QCC_THROW_EXCEPTION(status);
     }
@@ -624,23 +766,30 @@ Platform::String ^ InterfaceDescription::GetPropertyAnnotation(Platform::String 
     Platform::String ^ result = nullptr;
 
     while (true) {
+        // Convert member to qcc::String
         qcc::String strMember = PlatformToMultibyteString(member);
+        // Check for conversion error
         if (nullptr != member && strMember.empty()) {
             status = ER_OUT_OF_MEMORY;
             break;
         }
+        // Convert name to qcc::String
         qcc::String strName = PlatformToMultibyteString(name);
+        // Check for conversion error
         if (nullptr != name && strName.empty()) {
             status = ER_OUT_OF_MEMORY;
             break;
         }
         qcc::String strValue;
+        // Call the real API
         if (((ajn::InterfaceDescription*)*_interfaceDescr)->GetPropertyAnnotation(strMember.c_str(), strName, strValue)) {
+            // Convert result to Platform::String
             result = MultibyteToPlatformString(strValue.c_str());
         }
         break;
     }
 
+    // Bubble up any QStatus error as an exception
     if (ER_OK != status) {
         QCC_THROW_EXCEPTION(status);
     }
@@ -654,19 +803,24 @@ bool InterfaceDescription::HasProperty(Platform::String ^ name)
     bool result = false;
 
     while (true) {
+        // Check name for invalid values
         if (nullptr == name) {
             status = ER_BAD_ARG_1;
             break;
         }
+        // Convert name to qcc::String
         qcc::String strName = PlatformToMultibyteString(name);
+        // Check for conversion error
         if (strName.empty()) {
             status = ER_OUT_OF_MEMORY;
             break;
         }
+        // Call the real API
         result = ((ajn::InterfaceDescription*)*_interfaceDescr)->HasProperty(strName.c_str());
         break;
     }
 
+    // Bubble up any QStatus error as an exception
     if (ER_OK != status) {
         QCC_THROW_EXCEPTION(status);
     }
@@ -676,6 +830,7 @@ bool InterfaceDescription::HasProperty(Platform::String ^ name)
 
 bool InterfaceDescription::HasProperties()
 {
+    // Call the real API
     return ((ajn::InterfaceDescription*)*_interfaceDescr)->HasProperties();
 }
 
@@ -685,8 +840,11 @@ Platform::String ^ InterfaceDescription::Introspect(uint32_t indent)
     Platform::String ^ result = nullptr;
 
     while (true) {
+        // Call the real API
         qcc::String strResult = ((ajn::InterfaceDescription*)*_interfaceDescr)->Introspect(indent);
+        // Convert the result to Platform::String
         result = MultibyteToPlatformString(strResult.c_str());
+        // Check for conversion failure
         if (nullptr == result && !strResult.empty()) {
             status = ER_OUT_OF_MEMORY;
             break;
@@ -694,6 +852,7 @@ Platform::String ^ InterfaceDescription::Introspect(uint32_t indent)
         break;
     }
 
+    // Bubble up any QStatus error as an exception
     if (ER_OK != status) {
         QCC_THROW_EXCEPTION(status);
     }
@@ -703,11 +862,13 @@ Platform::String ^ InterfaceDescription::Introspect(uint32_t indent)
 
 void InterfaceDescription::Activate()
 {
+    // Call the real API
     ((ajn::InterfaceDescription*)*_interfaceDescr)->Activate();
 }
 
 bool InterfaceDescription::IsSecure()
 {
+    // Call the real API
     return ((ajn::InterfaceDescription*)*_interfaceDescr)->IsSecure();
 }
 
@@ -716,20 +877,26 @@ void InterfaceDescription::AddAnnotation(Platform::String ^ name, Platform::Stri
     ::QStatus status = ER_OK;
 
     while (true) {
+        // Convert name to qcc::String
         qcc::String strName = PlatformToMultibyteString(name);
+        // Check for conversion error
         if (nullptr != name && strName.empty()) {
             status = ER_OUT_OF_MEMORY;
             break;
         }
+        // Convert value to qcc::String
         qcc::String strValue = PlatformToMultibyteString(value);
+        // Check for conversion error
         if (nullptr != value && strValue.empty()) {
             status = ER_OUT_OF_MEMORY;
             break;
         }
+        // Call the real API
         status = ((ajn::InterfaceDescription*)*_interfaceDescr)->AddAnnotation(strName, strValue);
         break;
     }
 
+    // Bubble up any QStatus error as an exception
     if (ER_OK != status) {
         QCC_THROW_EXCEPTION(status);
     }
@@ -797,18 +964,23 @@ Platform::String ^ InterfaceDescription::GetAnnotation(Platform::String ^ name)
     Platform::String ^ result = nullptr;
 
     while (true) {
+        // Convert name to qcc::String
         qcc::String strName = PlatformToMultibyteString(name);
+        // Check for conversion failure
         if (nullptr != name && strName.empty()) {
             status = ER_OUT_OF_MEMORY;
             break;
         }
         qcc::String strValue;
+        // Call the real API
         if (((ajn::InterfaceDescription*)*_interfaceDescr)->GetAnnotation(strName, strValue)) {
+            // Convert result to Platform::String
             result = MultibyteToPlatformString(strValue.c_str());
         }
         break;
     }
 
+    // Bubble up any QStatus error as an exception
     if (ER_OK != status) {
         QCC_THROW_EXCEPTION(status);
     }
@@ -822,20 +994,27 @@ Platform::String ^ InterfaceDescription::Name::get()
     Platform::String ^ result = nullptr;
 
     while (true) {
+        // Check if wrapped value already exists
         if (nullptr == _interfaceDescr->_eventsAndProperties->Name) {
+            // Call the real API
             qcc::String name = ((ajn::InterfaceDescription*)*_interfaceDescr)->GetName();
+            // Convert result to Platform::String
             result = MultibyteToPlatformString(name.c_str());
+            // Check for conversion error
             if (nullptr == result && !name.empty()) {
                 status = ER_OUT_OF_MEMORY;
                 break;
             }
+            // Store the result
             _interfaceDescr->_eventsAndProperties->Name = result;
         } else {
+            // Return Name
             result = _interfaceDescr->_eventsAndProperties->Name;
         }
         break;
     }
 
+    // Bubble up any QStatus error as an exception
     if (ER_OK != status) {
         QCC_THROW_EXCEPTION(status);
     }
@@ -848,7 +1027,9 @@ _InterfaceDescription::_InterfaceDescription(const ajn::InterfaceDescription* in
     ::QStatus status = ER_OK;
 
     while (true) {
+        // Create the private ref class
         _eventsAndProperties = ref new __InterfaceDescription();
+        // Check for allocation error
         if (nullptr == _eventsAndProperties) {
             status = ER_OUT_OF_MEMORY;
             break;
@@ -857,6 +1038,7 @@ _InterfaceDescription::_InterfaceDescription(const ajn::InterfaceDescription* in
         break;
     }
 
+    // Bubble up any QStatus error as an exception
     if (ER_OK != status) {
         QCC_THROW_EXCEPTION(status);
     }

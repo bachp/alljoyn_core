@@ -501,7 +501,7 @@ public ref class BusAttachment sealed {
     /// <param name="receiver">The object receiving the signal.</param>
     /// <param name="member">The interface/member of the signal.</param>
     /// <param name="srcPath">The object path of the emitter of the signal or NULL for all paths.</param>
-    void RegisterSignalHandler(Platform::Object ^ receiver,
+    void RegisterSignalHandler(MessageReceiver ^ receiver,
                                InterfaceMember ^ member,
                                Platform::String ^ srcPath);
 
@@ -514,7 +514,7 @@ public ref class BusAttachment sealed {
     /// <param name="receiver">The object receiving the signal.</param>
     /// <param name="member">The interface/member of the signal.</param>
     /// <param name="srcPath">The object path of the emitter of the signal or NULL for all paths.</param>
-    void UnregisterSignalHandler(Platform::Object ^ receiver,
+    void UnregisterSignalHandler(MessageReceiver ^ receiver,
                                  InterfaceMember ^ member,
                                  Platform::String ^ srcPath);
 

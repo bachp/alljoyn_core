@@ -31,67 +31,84 @@ InterfaceProperty::InterfaceProperty(Platform::String ^ name, Platform::String ^
     ::QStatus status = ER_OK;
 
     while (true) {
+        // Check name for invalid values
         if (nullptr == name) {
             status = ER_BAD_ARG_1;
             break;
         }
+        // Convert name to qcc::String
         qcc::String strName = PlatformToMultibyteString(name);
+        // Check for conversion error
         if (strName.empty()) {
             status = ER_OUT_OF_MEMORY;
             break;
         }
+        // Check signature for invalid values
         if (nullptr == signature) {
             status = ER_BAD_ARG_2;
             break;
         }
+        // Convert signature to qcc::String
         qcc::String strSignature = PlatformToMultibyteString(signature);
+        // Check for conversion error
         if (strSignature.empty()) {
             status = ER_OUT_OF_MEMORY;
             break;
         }
+        // Create _InterfaceProperty
         _InterfaceProperty* p = new _InterfaceProperty(strName.c_str(), strSignature.c_str(), access);
+        // Check for allocation error
         if (NULL == p) {
             status = ER_OUT_OF_MEMORY;
             break;
         }
+        // Create managed _InterfaceProperty from p
         _mProperty = new qcc::ManagedObj<_InterfaceProperty>(p);
+        // Check for allocation error
         if (NULL == _mProperty) {
             status = ER_OUT_OF_MEMORY;
             break;
         }
+        // Store a pointer to _InterfaceProperty for convenience
         _property = &(**_mProperty);
         break;
     }
 
+    // Bubble up any QStatus error as an exception
     if (ER_OK != status) {
         QCC_THROW_EXCEPTION(status);
     }
 }
 
-InterfaceProperty::InterfaceProperty(void* interfaceProperty)
+InterfaceProperty::InterfaceProperty(const ajn::InterfaceDescription::Property* interfaceProperty)
 {
     ::QStatus status = ER_OK;
 
     while (true) {
+        // Check interfaceProperty for invalid values
         if (NULL == interfaceProperty) {
             status = ER_BAD_ARG_1;
             break;
         }
-        ajn::InterfaceDescription::Property* property = reinterpret_cast<ajn::InterfaceDescription::Property*>(interfaceProperty);
-        _InterfaceProperty* p = new _InterfaceProperty(property->name.c_str(), property->signature.c_str(), property->access);
+        // Create _InterfaceProperty
+        _InterfaceProperty* p = new _InterfaceProperty(interfaceProperty->name.c_str(), interfaceProperty->signature.c_str(), interfaceProperty->access);
         if (NULL == p) {
             status = ER_OUT_OF_MEMORY;
             break;
         }
+        // Attach _InterfaceProperty to managed obj
         _mProperty = new qcc::ManagedObj<_InterfaceProperty>(p);
+        // Check for allocation error
         if (NULL == _mProperty) {
             status = ER_OUT_OF_MEMORY;
             break;
         }
+        // Store a poitner to _InterfaceProperty for convenience
         _property = &(**_mProperty);
         break;
     }
 
+    // Bubble up any QStatus error as an exception
     if (ER_OK != status) {
         QCC_THROW_EXCEPTION(status);
     }
@@ -99,6 +116,7 @@ InterfaceProperty::InterfaceProperty(void* interfaceProperty)
 
 InterfaceProperty::~InterfaceProperty()
 {
+    // Delete the _InterfaceProperty managed object to adjust ref count
     if (NULL != _mProperty) {
         delete _mProperty;
         _mProperty = NULL;
@@ -112,20 +130,26 @@ Platform::String ^ InterfaceProperty::Name::get()
     Platform::String ^ result = nullptr;
 
     while (true) {
+        // Check if the wrapped value already exists
         if (nullptr == _property->_eventsAndProperties->Name) {
             qcc::String strName = _property->_property->name;
+            // Convert value to Platform::String
             result = MultibyteToPlatformString(strName.c_str());
+            // Check for conversion error
             if (nullptr == result && !strName.empty()) {
                 status = ER_OUT_OF_MEMORY;
                 break;
             }
+            // Store the result
             _property->_eventsAndProperties->Name = result;
         } else {
+            // Return Name
             result = _property->_eventsAndProperties->Name;
         }
         break;
     }
 
+    // Bubble up any QStatus error as an exception
     if (ER_OK != status) {
         QCC_THROW_EXCEPTION(status);
     }
@@ -139,20 +163,26 @@ Platform::String ^ InterfaceProperty::Signature::get()
     Platform::String ^ result = nullptr;
 
     while (true) {
+        // Check if the wrapper value already exists
         if (nullptr == _property->_eventsAndProperties->Signature) {
             qcc::String strSignature = _property->_property->signature;
+            // Convert value to Platform::String
             result = MultibyteToPlatformString(strSignature.c_str());
+            // Check for conversion error
             if (nullptr == result && !strSignature.empty()) {
                 status = ER_OUT_OF_MEMORY;
                 break;
             }
+            // Store the result
             _property->_eventsAndProperties->Signature = result;
         } else {
+            // Return Signature
             result = _property->_eventsAndProperties->Signature;
         }
         break;
     }
 
+    // Bubble up any QStatus error as an exception
     if (ER_OK != status) {
         QCC_THROW_EXCEPTION(status);
     }
@@ -166,15 +196,19 @@ uint8_t InterfaceProperty::Access::get()
     uint8_t result = (uint8_t)-1;
 
     while (true) {
+        // Check the wrapped value already exists
         if ((uint8_t)-1 == _property->_eventsAndProperties->Access) {
             result = _property->_property->access;
+            // Store the result
             _property->_eventsAndProperties->Access = result;
         } else {
+            // Return Access
             result = _property->_eventsAndProperties->Access;
         }
         break;
     }
 
+    // Bubble up any QStatus error as an exception
     if (ER_OK != status) {
         QCC_THROW_EXCEPTION(status);
     }
@@ -187,12 +221,16 @@ _InterfaceProperty::_InterfaceProperty(const char* name, const char* signature, 
     ::QStatus status = ER_OK;
 
     while (true) {
+        // Create the private ref class
         _eventsAndProperties = ref new __InterfaceProperty();
+        // Check for allocation error
         if (nullptr == _eventsAndProperties) {
             status = ER_OUT_OF_MEMORY;
             break;
         }
+        // Create the Property
         _property = new ajn::InterfaceDescription::Property(name, signature, access);
+        // Check for allocation error
         if (NULL == _property) {
             status = ER_OUT_OF_MEMORY;
             break;
@@ -200,25 +238,30 @@ _InterfaceProperty::_InterfaceProperty(const char* name, const char* signature, 
         break;
     }
 
+    // Bubble up any QStatus error as an exception
     if (ER_OK != status) {
         QCC_THROW_EXCEPTION(status);
     }
 }
 
-_InterfaceProperty::_InterfaceProperty(ajn::InterfaceDescription::Property* property)
+_InterfaceProperty::_InterfaceProperty(const ajn::InterfaceDescription::Property* property)
 {
     ::QStatus status = ER_OK;
 
     while (true) {
+        // Create private ref class
         _eventsAndProperties = ref new __InterfaceProperty();
+        // Check for allocation error
         if (nullptr == _eventsAndProperties) {
             status = ER_OUT_OF_MEMORY;
             break;
         }
+        // Check property for invalid values
         if (NULL == property) {
             status = ER_BAD_ARG_1;
             break;
         }
+        // Create Property
         _property = new ajn::InterfaceDescription::Property(property->name.c_str(), property->signature.c_str(), property->access);
         if (NULL == _property) {
             status = ER_OUT_OF_MEMORY;
@@ -227,6 +270,7 @@ _InterfaceProperty::_InterfaceProperty(ajn::InterfaceDescription::Property* prop
         break;
     }
 
+    // Bubble up any QStatus error as an exception
     if (ER_OK != status) {
         QCC_THROW_EXCEPTION(status);
     }
@@ -235,6 +279,7 @@ _InterfaceProperty::_InterfaceProperty(ajn::InterfaceDescription::Property* prop
 _InterfaceProperty::~_InterfaceProperty()
 {
     _eventsAndProperties = nullptr;
+    // Clean up allocated Property
     if (NULL != _property) {
         delete _property;
         _property = NULL;
