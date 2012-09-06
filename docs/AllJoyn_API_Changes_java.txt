@@ -11,7 +11,7 @@ Each Status, Method, or class will be marked as follows:
 Each addition should contain a short explanation of what added or changed.
 For more information please refer to the API documentation. 
 -------------------------------------------------------------------------------
-AllJoyn API Changes between v2.3.0 and v2.5.0 (Java API)
+AllJoyn API Changes between v2.3.0 and v2.6.0 (Java API)
 
 NEW STATUS
 THREADPOOL_EXHAUSTED  value = 0x101f 
@@ -232,6 +232,32 @@ RENDEZVOUS_SERVER_UNRECOVERABLE_ERROR value = 0x90d7
 NEW STATUS
 RENDEZVOUS_SERVER_ROOT_CERTIFICATE_UNINITIALIZED value = 0x90d8 
     Rendezvous Server root ceritificate uninitialized.
+
+NEW STATUS
+BUS_NO_SUCH_ANNOTATION value = 0x90d9
+    Attempt to add an annotation to an interface or property that already exists.
+
+NEW STATUS
+BUS_ANNOTATION_ALREADY_EXISTS value = 0x90da
+    Attempt to add an annotation to an interface or property that already exists.
+
+NEW STATUS
+SOCK_CLOSING value = 0x90db
+    Socket close in progress
+
+NEW METHOD
+BusAttachment.emitChangedSignal(BusObject busObject, 
+                                String ifcName, 
+                                String propName, 
+                                Object val, 
+                                int sessionId)
+    Emit PropertiesChanged to signal the bus that this property has been updated
+    [param] busObject - The BusObject that is the source of this signal
+    [param] ifcName   - The name of the interface
+    [param] propName  - The name of the property being changed
+    [param] val       - The new value of the property
+    [param] sessionId - Id of the session we broadcast to (0 for all)
+
     
 NEW METHOD
 BusAttachment.enableConcurrentCallbacks()
@@ -256,9 +282,51 @@ BusListener.busDisconnected()
     Called when a BusAttachment this listener is registered with is has become 
     disconnected from the bus
 
+NEW LISTENER
+BusListener.propertyChanged(String propName, Variant propValue)
+    Called by the bus when the value of a property changes if that property has annotation
+    org.freedesktop.DBus.Properties.PropertiesChanged=true
+     
+    Any implementation of this function must be multithread safe.  See the
+    class documentation for details.
+    [param] propName  - The well-known name that has changed.
+    [param] propValue - The new value of the property; NULL if not present
+
+NEW LISTENER
+BusListener.busDisconnected()
+    Called when a BusAttachment this listener is registered with is has become disconnected from
+    the bus.
+    
+    Any implementation of this function must be multithread safe.  See the
+    class documentation for details.
+CHANGED METHOD
+InterfaceDescription.Property(String name, String signature, TreeMap<String, String> annotations)
+   Now able to specify generic Key/Value pair for property annotation.
+
+NEW METHOD
+InterfaceDescription.addMemberAnnotation(String member, String annotation, String value)
+    Add an annotation to the specified interface member
+
+NEW METHOD
+InterfaceDescription.addPropertyAnnotation(String property, String annotation, String value)
+    Add an annotation to the specified interface property
+
+NEW METHOD
+InterfaceDescription.addAnnotation(String annotation, String value)
+    Add an annotation to the interface
+
 NEW CONSTANT
 SessionOpts.TRANSPORT_ICE
     Use only ICE transport to communicate with a given session
+
+NEW BUSSIGNAL
+PropertiesChanged(String name, Map<String, Variant> changed, String[] invalidated) throws BusException
+    Signal sent when one or more properties change on an object.
+    [param] name        - the interface name
+    [param] changed     - the changed properties with their new values
+    [param] invalidated - the changed properties without their new values
+
+
 
 
 -------------------------------------------------------------------------------
