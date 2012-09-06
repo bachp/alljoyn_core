@@ -58,6 +58,7 @@ class ServiceBusListener;
 class ThreadClass;
 
 static bool s_noDestruct = false;
+static bool s_useMultipointSessions = true;
 static OperationMode s_operationMode;
 static volatile sig_atomic_t g_interrupt = false;
 
@@ -156,7 +157,7 @@ class ClientBusListener : public BusListener, public SessionListener {
             // We found a remote bus that is advertising basic service's  well-known name so connect to it
             /* Since we are in a callback we must enable concurrent callbacks before calling a synchronous method. */
             owner->bus->EnableConcurrentCallbacks();
-            SessionOpts opts(SessionOpts::TRAFFIC_MESSAGES, false, SessionOpts::PROXIMITY_ANY, TRANSPORT_ANY);
+            SessionOpts opts(SessionOpts::TRAFFIC_MESSAGES, s_useMultipointSessions, SessionOpts::PROXIMITY_ANY, TRANSPORT_ANY);
             QStatus status = owner->bus->JoinSession(name, SERVICE_PORT, this, owner->sessionId, opts);
             if (ER_OK != status) {
                 QCC_SyncPrintf("JoinSession failed (status=%s)\n", QCC_StatusText(status));
@@ -242,22 +243,17 @@ inline void ThreadClass::ClientRun() {
 
     /* Wait for join session to complete */
     int count = 0;
-    int limit = rand() % 10;
+    int limit = 10 + (rand() % 50);
     bool limitReached = false;
     while (!joinComplete && !limitReached) {
-#ifdef _WIN32
-        Sleep(100);
-#else
-        usleep(100 * 1000);
-#endif
+        qcc::Sleep(100);
         if (count > limit) {
             limitReached = true;
         }
         count++;
-
-        if (g_interrupt) {
-            break;
-        }
+//        if (g_interrupt) {
+//            break;
+//        }
     }
 
     if (joinComplete && limitReached == false) {
@@ -341,7 +337,7 @@ inline void ThreadClass::ServiceRun() {
     }
 
     /* Create session */
-    SessionOpts opts(SessionOpts::TRAFFIC_MESSAGES, false, SessionOpts::PROXIMITY_ANY, TRANSPORT_ANY);
+    SessionOpts opts(SessionOpts::TRAFFIC_MESSAGES, s_useMultipointSessions, SessionOpts::PROXIMITY_ANY, TRANSPORT_ANY);
     if (ER_OK == status) {
         SessionPort sp = SERVICE_PORT;
         status = bus->BindSessionPort(sp, opts, *serviceBusListener);
@@ -360,21 +356,17 @@ inline void ThreadClass::ServiceRun() {
 
     if (ER_OK == status) {
         int count = 0;
-        int limit = rand() % 10;
+        int limit = 10 + (rand() % 50);
         bool limitReached = false;
         while (!limitReached) {
-#ifdef _WIN32
-            Sleep(100);
-#else
-            usleep(100 * 1000);
-#endif
+            qcc::Sleep(100);
             if (count > limit) {
                 limitReached = true;
             }
             count++;
-            if (g_interrupt) {
-                break;
-            }
+//            if (g_interrupt) {
+//                break;
+//            }
         }
     }
 
@@ -429,6 +421,7 @@ static void usage(void)
     QCC_SyncPrintf("   -d                    = Don't delete the bus attachments - implies \"-i 1\"r\n");
     QCC_SyncPrintf("   -oc                   = Operate in client mode\n");
     QCC_SyncPrintf("   -os                   = Operate in service mode\n");
+    QCC_SyncPrintf("   -p                    = Use point-to-point sessions, default is multipoint\n");
 }
 
 /** Main entry point */
@@ -468,6 +461,8 @@ int main(int argc, char**argv)
             s_operationMode = Client;
         } else if (0 == strcmp("-os", argv[i])) {
             s_operationMode = Service;
+        } else if (0 == strcmp("-p", argv[i])) {
+            s_useMultipointSessions = false;
         } else {
             usage();
             exit(1);
