@@ -251,17 +251,52 @@ void BusAttachment::CreateInterfacesFromXml(Platform::String ^ xml)
     }
 }
 
-uint32_t BusAttachment::GetInterfaces(Platform::WriteOnlyArray<InterfaceDescription ^> ^ iface, uint32_t numIfaces)
+uint32_t BusAttachment::GetInterfaces(Platform::WriteOnlyArray<InterfaceDescription ^> ^ ifaces)
 {
-    const ajn::InterfaceDescription* id = NULL;
-    // Call the real API
-    size_t result = _busAttachment->GetInterfaces(nullptr == iface ? NULL : &id, numIfaces);
-    if (result > 0 && NULL != id) {
-        // Convert the unmanaged version
-        InterfaceDescription ^ refId = ref new InterfaceDescription(id);
-        // Return the result
-        iface[0] = refId;
+    ::QStatus status = ER_OK;
+    ajn::InterfaceDescription** idescArray = NULL;
+    size_t result = -1;
+
+    while (true) {
+        // Check if out array has been specified
+        if (nullptr != ifaces && ifaces->Length > 0) {
+            // Allocate unmanaged InterfaceDescription* array
+            idescArray = new ajn::InterfaceDescription *[ifaces->Length];
+            // Check for allocation error
+            if (NULL == idescArray) {
+                status = ER_OUT_OF_MEMORY;
+                break;
+            }
+        }
+        // Call the real API
+        result = _busAttachment->GetInterfaces((const ajn::InterfaceDescription**)idescArray, ifaces->Length);
+        if (result > 0 && NULL != idescArray) {
+            for (int i = 0; i < result; i++) {
+                // Create InterfaceDescription
+                InterfaceDescription ^ id = ref new InterfaceDescription(idescArray[i]);
+                // Check for allocation error
+                if (nullptr == id) {
+                    status = ER_OUT_OF_MEMORY;
+                    break;
+                }
+                // Store the result
+                ifaces[i] = id;
+            }
+        }
+        break;
     }
+
+    // Delete the temporary InterfaceDescription* array
+    if (NULL != idescArray) {
+        delete [] idescArray;
+        idescArray = NULL;
+    }
+
+    // Bubble up any QStatus error as an exception
+    if (ER_OK != status) {
+        QCC_THROW_EXCEPTION(status);
+    }
+
     return result;
 }
 

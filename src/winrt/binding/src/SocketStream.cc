@@ -41,11 +41,13 @@ SocketStream::SocketStream() : _sockfd(nullptr)
 
 SocketStream::SocketStream(qcc::winrt::SocketWrapper ^ sockfd) : _sockfd(sockfd)
 {
+    // Change to blocking mode
     sockfd->SetBlocking(true);
 }
 
 SocketStream::~SocketStream()
 {
+    // Cleanup the underlying sockfd
     if (nullptr != _sockfd) {
         _sockfd->Close();
         _sockfd = nullptr;
@@ -57,29 +59,35 @@ void SocketStream::SocketDup(Platform::WriteOnlyArray<SocketStream ^> ^ dupSocke
     ::QStatus result = ER_FAIL;
 
     while (true) {
+        // Check dupSocket for invalid values
         if (nullptr == dupSocket || dupSocket->Length != 1) {
             result = ER_BAD_ARG_1;
             break;
         }
         if (nullptr != _sockfd) {
+            // Allocate temporary SocketWrapper array
             Platform::Array<qcc::winrt::SocketWrapper ^> ^ dup = ref new Platform::Array<qcc::winrt::SocketWrapper ^>(1);
             if (nullptr == dup) {
                 result = ER_OUT_OF_MEMORY;
                 break;
             }
+            // Call the SocketWrapper SocketDup API
             result = (::QStatus)_sockfd->SocketDup(dup);
             if (ER_OK == result) {
+                // Create SocketStream
                 SocketStream ^ ret = ref new SocketStream(dup[0]);
                 if (nullptr == ret) {
                     result = ER_OUT_OF_MEMORY;
                     break;
                 }
+                // Store the result
                 dupSocket[0] = ret;
             }
         }
         break;
     }
 
+    // Bubble up any QStatus errors as an exception
     if (ER_OK != result) {
         QCC_THROW_EXCEPTION(result);
     }
@@ -90,9 +98,11 @@ void SocketStream::Send(const Platform::Array<uint8> ^ buf, int len, Platform::W
     ::QStatus result = ER_FAIL;
 
     if (nullptr != _sockfd) {
+        // Call the SocketWrapper Send API
         result = (::QStatus)_sockfd->Send(buf, len, sent);
     }
 
+    // Bubble up any QStatus errors as an exception
     if (ER_OK != result) {
         QCC_THROW_EXCEPTION(result);
     }
@@ -103,9 +113,11 @@ void SocketStream::Recv(Platform::WriteOnlyArray<uint8> ^ buf, int len, Platform
     ::QStatus result = ER_FAIL;
 
     if (nullptr != _sockfd) {
+        // Call teh SocketWrapper Recv API
         result = (::QStatus)_sockfd->Recv(buf, len, received);
     }
 
+    // Bubble up any QStatus errors as an exception
     if (ER_OK != result) {
         QCC_THROW_EXCEPTION(result);
     }
@@ -113,16 +125,19 @@ void SocketStream::Recv(Platform::WriteOnlyArray<uint8> ^ buf, int len, Platform
 
 bool SocketStream::CanRead()
 {
+    // Return if can read
     return (_sockfd->GetEvents() & (int)qcc::winrt::Events::Read) != 0;
 }
 
 bool SocketStream::CanWrite()
 {
+    // Return if can write
     return (_sockfd->GetEvents() & (int)qcc::winrt::Events::Write) != 0;
 }
 
 void SocketStream::SetBlocking(bool block)
 {
+    // Change the blocking mode of the sockfd
     _sockfd->SetBlocking(block);
 }
 

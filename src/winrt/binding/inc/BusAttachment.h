@@ -298,11 +298,8 @@ public ref class BusAttachment sealed {
     /// <param name="iface">A pointer to an InterfaceDescription array to receive the interfaces. Can be NULL in
     /// which case no interfaces are returned and the return value gives the number of interface available.
     /// </param>
-    /// <param name="numIfaces">The size of the InterfaceDescription array. If this value is smaller than the total
-    /// number of interfaces only numIfaces will be returned.
-    /// </param>
     /// <returns>The number of interfaces returned or the total number of interfaces if ifaces is NULL.</returns>
-    uint32_t GetInterfaces(Platform::WriteOnlyArray<InterfaceDescription ^> ^ iface, uint32_t numIfaces);
+    uint32_t GetInterfaces(Platform::WriteOnlyArray<InterfaceDescription ^> ^ ifaces);
 
     /// <summary>
     /// Retrieve an existing activated InterfaceDescription.

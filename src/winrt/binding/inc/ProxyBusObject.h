@@ -201,6 +201,7 @@ public ref class SetPropertyResult sealed {
   public:
     property ProxyBusObject ^ Proxy;
     property Platform::Object ^ Context;
+    property QStatus Status;
 
   private:
     friend ref class ProxyBusObject;
@@ -210,6 +211,7 @@ public ref class SetPropertyResult sealed {
     {
         Proxy = proxy;
         Context = context;
+        Status = QStatus::ER_OK;
         _exception = nullptr;
         _stdException = NULL;
     }

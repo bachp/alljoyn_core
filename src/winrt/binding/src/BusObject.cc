@@ -1005,7 +1005,7 @@ void _BusObject::Introspect(const ajn::InterfaceDescription::Member* member, ajn
             status = ER_OUT_OF_MEMORY;
             break;
         }
-        // Call the Introspect handler throug the dispatcher
+        // Call the Introspect handler through the dispatcher
         _eventsAndProperties->Bus->_busAttachment->DispatchCallback(ref new Windows::UI::Core::DispatchedHandler([&]() {
                                                                                                                      _eventsAndProperties->Introspect(imember, m);
                                                                                                                  }));

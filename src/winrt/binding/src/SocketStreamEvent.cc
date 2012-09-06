@@ -25,10 +25,11 @@ namespace AllJoyn {
 
 SocketStreamEvent::SocketStreamEvent(SocketStream ^ sock)
 {
+    // Add default handler for DataReceived
     DataReceived += ref new SocketStreamDataReceivedHandler([&]() {
                                                                 DefaultSocketStreamDataReceivedHandler();
                                                             });
-
+    // Add event handler for sockfd SocketEventsChanged
     sock->_sockfd->SocketEventsChanged += ref new qcc::winrt::SocketWrapperEventsChangedHandler([&](Platform::Object ^ source, int events) {
                                                                                                     SocketEventsChangedHandler(source, events);
                                                                                                 });
@@ -44,6 +45,7 @@ void SocketStreamEvent::DefaultSocketStreamDataReceivedHandler()
 
 void SocketStreamEvent::SocketEventsChangedHandler(Platform::Object ^ source, int events)
 {
+    // Pulse data reeived Event if sockfd is read ready
     if (events & (int)qcc::winrt::Events::Read) {
         DataReceived();
     }
