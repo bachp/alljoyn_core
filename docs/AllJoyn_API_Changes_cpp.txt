@@ -9,7 +9,12 @@ Each Status, class, Method, Function, or MACRO will be marked as follows:
 Each addition should contain a short explanation of what added or changed.
 For more information please refer to the API documentation.
 -------------------------------------------------------------------------------
-AllJoyn API Changes between v2.3.0 and v2.5.0 (C++ API)
+AllJoyn API Changes between v2.3.0 and v2.6.0 (C++ API)
+NEW MACRO
+ALLJOYN_DLLExport
+    Macro used for ectern C functions that will add __declspec(dllexport) when 
+    building on a windows OS
+
 NEW STATUS
 ER_THREADPOOL_EXHAUSTED  value = 0x101f 
     A thread pool has reached its specified concurrency
@@ -229,6 +234,19 @@ ER_RENDEZVOUS_SERVER_UNRECOVERABLE_ERROR value = 0x90d7
 NEW STATUS
 ER_RENDEZVOUS_SERVER_ROOT_CERTIFICATE_UNINITIALIZED value = 0x90d8 
     Rendezvous Server root ceritificate uninitialized.
+
+NEW STATUS
+ER_BUS_NO_SUCH_ANNOTATION  value = 0x90d9 
+    No such annotation for a GET or SET operation
+
+NEW STATUS
+ER_BUS_ANNOTATION_ALREADY_EXISTS  value = 0x90da 
+    Attempt to add an annotation to an interface or property that already exists
+
+NEW STATUS
+ER_SOCK_CLOSING value = 0x90db 
+    Socket close in progress
+
 NEW CLASS
 ajn::SetLinkTimeoutAsyncCB
     Pure virtual base class implemented by classes that wish to call 
@@ -239,21 +257,114 @@ ajn::BusAttachment.BusAttachment(const char* applicationName,
                                  bool allowRemoteMessages = false, 
                                  uint32_t concurrency = 4)
     Construct a BusAttachment.
-
     [param] applicationName     - Name of the application.
     [param] allowRemoteMessages - True if this attachment is allowed to receive 
                                   messages from remote devices.
     [param] concurrency         - The maximum number of concurrent method and 
                                   signal handlers locally executing.
+NEW COPY CONSTRUCTOR
+ajn::AuthListener::Credentials
+    [param] other - Credentials to copy
+
+CHANGED METHOD
+ajn::AuthListener::RequestCredentials(const char* authMechanism, 
+                                      const char* peerName, 
+                                      uint16_t authCount, 
+                                      const char* userName, 
+                                      uint16_t credMask, 
+                                      Credentials& credentials)
+    Changed from pure virtual function to virtual functions.  If 
+    ajn::AuthListener::RequestCredentialsAsync is used then there is no need to 
+    provide a RequestCredentials method.
+
+NEW METHOD
+ajn::AuthListener::RequestCredentialsAsync(const char* authMechanism, 
+                                           const char* peerName, 
+                                           uint16_t authCount, 
+                                           const char* userName, 
+                                           uint16_t credMask, 
+                                           void* authContext)
+    Authentication mechanism asynchronous request for credentials. If the user 
+    name is not an empty string the request is for credentials for that 
+    specific user. A count allows the listener to decide whether to allow or 
+    reject multiple authentication attempts to the same peer.
+    
+    An implementation must provide RequestCredentials or RequestCredentialsAsync 
+    but not both.
+    [param] authMechanism - The name of the authentication mechanism issuing 
+                            the request.
+    [param] peerName      - The name of the remote peer being authenticated.  
+                            On the initiating side this will be a 
+                            well-known-name for the remote peer. On the 
+                            accepting side this will be the unique bus name for 
+                            the remote peer.
+    [param] authCount     - Count (starting at 1) of the number of authentication 
+                            request attempts made.
+    [param] userName      - The user name for the credentials being requested.
+    [param] credMask      - A bit mask identifying the credentials being requested.
+    [param] authContext   - Callback context for associating the request with the 
+                            returned credentials.
+
+
+NEW VIRTUAL METHOD
+ajn::AuthListener::RequestCredentialsResponse(void* authContext, 
+                                              bool accept, 
+                                              Credentials& credentials)
+    Respond to a call to RequestCredentialsAsync.          
+    [param] authContext - Context that was passed in the call out to RequestCredentialsAsync.
+    [param] accept      - Returns true to accept the credentials request or false to reject it.
+    [param] credentials - The credentials being returned if accept is true.
+    
+NEW VIRTUAL METHOD
+ajn::AuthListener::VerifyCredentialsAsync(const char* authMechanism, 
+                                          const char* peerName, 
+                                          const Credentials& credentials, 
+                                          void* authContext)
+    Authentication mechanism asynchronous request for verification of 
+    credentials from a remote peer.
+    [param] authMechanism - The name of the authentication mechanism issuing the request.
+    [param] peerName      - The name of the remote peer being authenticated.  On the initiating
+                            side this will be a well-known-name for the remote peer. On the
+                            accepting side this will be the unique bus name for the remote peer.
+    [param] credentials   - The credentials to be verified.
+    [param] authContext   - Callback context for associating the request with the verification response.
+
+NEW VIRTUAL METHOD
+ajn::AuthListener::VerifyCredentialsResponse(void* authContext, bool accept)
+    Respond to a call to VerifyCredentialsAsync.
+    [param] authContext - Context that was passed in the call out to 
+                          RequestCredentialsAsync.
+    [param] accept      - Returns true to accept the credentials or false to 
+                          reject it.
+
+NEW CALLBACK CLASS
+ajn::BusAttachment.SetLinkTimeOutAsyncCB
+    Pure virtual base class implemented by classes that wish to call SetLinkTimeoutAsync()
+
+CHANGED CONSTRUCTOR
+ajn::BusAttachment(const char* applicationName, 
+                  bool allowRemoteMessages = false, 
+                  uint32_t concurrency = 4)
+    Added ability to specify concurrency when creating a new BusAttachment.
 
 NEW METHOD
 ajn::BusAttachment.GetConcurrency()
     Get the concurrent method and signal handler limit.
+    
+NEW METHOD
+ajn::BusAttachment.GetConnectSpec()
+    Get the connect spec used by the BusAttachment
 
 NEW METHOD
 ajn::BusAttachment.EnableConcurrentCallbacks()
     Allow the currently executing method/signal handler to enable concurrent 
     callbacks during the scope of the handler's execution.
+
+NEW METHOD
+ajn::BusAttachment.UnregisterKeyStoreListener()
+    Set a key store listener to listen for key store load and store requests.
+    This overrides the internal key store listener.
+
 
 NEW METHOD
 ajn::BusAttachment.SetLinkTimeoutAsync(SessionId sessionid,
@@ -272,7 +383,6 @@ ajn::BusAttachment.SetLinkTimeoutAsync(SessionId sessionid,
 
     This call executes asynchronously. When the JoinSession response is received, 
     the callback will be called.
-
     [param] sessionid     Id of session whose link timeout will be modified.
     [param] linkTimeout   Max number of seconds that a link can be unresponsive 
                           before being declared lost. 0 indicates that AllJoyn 
@@ -286,6 +396,9 @@ ajn::BusAttachment.SetLinkTimeoutAsync(SessionId sessionid,
 NEW METHOD
 ajn::BusAttachment.GetLinkTimeoutResponse(Message& reply, uint32_t& timeout)
     Validate the response to SetLinkTimeout
+    [param] propName    - The well-known name that has changed.
+    [param] propValue   - The new value of the property; NULL if not present
+
 
 NEW METHOD
 ajn::BusAttachment.GetJoinSessionResponse(Message& reply, SessionId& sessionId, SessionOpts& opts)
@@ -295,13 +408,32 @@ NEW CLASS PROPERTY
 ajn::BusAttachment.concurrency
     The maximum number of concurrent method and signal handlers locally executing
 
+NEW VIRTUAL METHOD
+ajn::BusListener.PropertyChanged(const char* propName, const MsgArg* propValue)
+    Called by the bus when the value of a property changes if that property has 
+    annotation
+
+
+NEW METHOD
+ajn::BusObject.EmitPropChanged(const char* ifcName, 
+                               const char* propName, 
+                               MsgArg& val, 
+                               SessionId id)
+    Emit PropertiesChanged to signal the bus that this property has been updated
+    
+    This is not protected because JNI needs to be able to call it
+    [param] ifcName  - The name of the interface
+    [param] propName - The name of the property being changed
+    [param] val      - The new value of the property
+    [param] id       - ID of the session we broadcast the signal to (0 for all)
+
+
 CHANGED METHOD
 ajn::BusObject.AddMethodHandler(const InterfaceDescription::Member* member, 
                                 MessageReceiver::MethodHandler handler, 
                                 void* context = NULL)
     Add a method handler to this object. The interface for the method handler 
     must have already been added by calling AddInterface().
-
     [param] member  - Interface member implemented by handler.
     [param] handler - Method handler.
     [param] context - An optional context. This is mainly intended for 
@@ -313,13 +445,120 @@ ajn::BusObject.CallMethodHandler(MessageReceiver::MethodHandler handler,
                                  Message& message, void* context)
     This method can be overridden to provide access to the context registered in 
     the AddMethodHandler() call.
-
     [param] member  - The method being called.
     [param] handler - The handler to call.
     [param] message - The message containing the method call arguments.
     [param] context - NULL or a private context passed in when the method handler 
                       was registered.
 
+NEW COPY CONSTRUCTOR
+ajn::InterfaceDescription::Member(const Member& other)
+    Member copy constructor
+
+NEW DESTRUCTOR
+ajn::InterfaceDescription::~Member()
+    Member destructor
+
+NEW METHOD
+ajn::InterfaceDescription::Member.GetAnnotations(qcc::String* names = NULL, 
+                                                 qcc::String* values = NULL,
+                                                 size_t size = 0) const
+    Get the names and values of all annotations
+    [param][out] names - Annotation names
+    [param][out] value - Annotation values
+    [param]    size  - Number of annotations to get
+
+NEW METHOD
+ajn::InterfaceDescription::Member.GetAnnotation(const qcc::String& name, 
+                                                qcc::String& value) const
+    Get this member's annotation value
+    [param]    name  - name of the annotation to look for
+    [param][out] value - The value of the annotation, if found
+
+NEW COPY CONSTRUCTOR
+ajn::InterfaceDescription::Property(const Property&other)
+    Property copy Constructor
+    
+NEW DESTRUCTOR
+ajn::InterfaceDescription::~Property()
+    Property destructor
+    
+NEW METHOD
+ajn::InterfaceDescription::Property.GetAnnotations(qcc::String* names = NULL, 
+                                                 qcc::String* values = NULL,
+                                                 size_t size = 0) const
+    Get the names and values of all annotations
+    [param][out] names - Annotation names
+    [param][out] value - Annotation values
+    [param]    size  - Number of annotations to get
+
+NEW METHOD
+ajn::InterfaceDescription::Property.GetAnnotation(const qcc::String& name, 
+                                                qcc::String& value) const
+    Get this property's annotation value
+    [param]    name  - name of the annotation to look for
+    [param][out] value - The value of the annotation, if found 
+
+NEW METHOD
+ajn::InterfaceDescription.AddMemberAnnotation(const char* member, 
+                                              const qcc::String& name, 
+                                              const qcc::String& value)
+    Add an annotation to an existing member (signal or method).
+    [param] member - Name of member
+    [param] name   - Name of annotation
+    [param] value  - Value for the annotation
+
+NEW METHOD
+ajn::InterfaceDescription.GetMemberAnnotation(const char* member, 
+                                              const qcc::String& name, 
+                                              qcc::String& value) const
+    Get annotation to an existing member (signal or method).
+    [param] member - Name of member
+    [param] name   - Name of annotation
+    [param] value  - Output value for the annotation
+
+NEW METHOD
+ajn::InterfaceDescription.AddPropertyAnnotation(const qcc::String& p_name, 
+                                                const qcc::String& name, 
+                                                const qcc::String& value)
+    Add an annotation to an existing property
+    [param] p_name - Name of the property
+    [param] name   - Name of annotation
+    [param] value  - Value for the annotation
+
+NEW METHOD
+ajn::InterfaceDescription.GetPropertyAnnotation(const qcc::String& p_name, 
+                                                const qcc::String& name, 
+                                                qcc::String& value) const
+    Get the annotation value for a property
+    [param] p_name - Name of the property
+    [param] name   - Name of annotation
+    [param] value  - Value for the annotation
+                                                
+NEW METHOD
+ajn::InterfaceDescription.AddAnnotation(const qcc::String& name, 
+                                        const qcc::String& value)
+    Add an annotation to the interface.
+    [param] name  - Name of annotation.
+    [param] value - Value of the annotation
+    
+NEW METHOD
+ajn::InterfaceDescription.GetAnnotation(const qcc::String& name, 
+                                        qcc::String& value) const
+    Get the value of an annotation
+    [param] name  - Name of annotation.
+    [param] value - Returned value of the annotation
+
+NEW METHOD
+ajn::InterfaceDescription.GetAnnotations(qcc::String* names = NULL, 
+                                         qcc::String* values = NULL, 
+                                         size_t size = 0) const;
+     Get the names and values of all annotations
+     [param][out] names - Annotation names
+     [param][out] value - Annotation values
+     [param][out] size  - Number of annotations
+                                         
+    
 NEW METHOD 
 ajn::_Message::GetErrorDescription() const
     Returns a complete description of an error by concatenating the error name and the error
@@ -329,25 +568,191 @@ ajn::_Message::GetErrorDescription() const
 NEW METHOD
 ajn::_Message.SetEndianess(const char endian)
     Set the endianess for outgoing messages. This is mainly for testing purposes.
-    
     [param] endian - Either ALLJOYN_LITTLE_ENDIAN or ALLJOYN_BIG_ENDIAN. Any 
                      other value sets the endianess to the native endianess for 
                      this platform.
-                   
+NEW COPY CONSTRUCTOR
+ajn::_Message._Message(const _Message& other)
+    Copy constructor.
+    [param] other - The other message to copy.
+
+NEW CALLBACK
+ajn::Listener.(ProxyBusObject::Listener::* GetPropertyCB)(QStatus status, ProxyBusObject* obj, const MsgArg& value, void* context)
+    Callback registered with GetPropertyAsync()
+    [param] status -  - ER_OK if the property get request was successfull or:
+                      - #ER_BUS_OBJECT_NO_SUCH_INTERFACE if the specified interfaces does not exist on the remote object.
+                      - #ER_BUS_NO_SUCH_PROPERTY if the property does not exist
+                      - Other error status codes indicating the reason the get request failed.
+    [param] obj    -   Remote bus object that was introspected
+    [param] value  -   If status is ER_OK a MsgArg containing the returned property value
+    [param] context-   Caller provided context passed in to GetPropertyAsync()
+
+NEW CALLBACK
+ajn::Listener.(ProxyBusObject::Listener::* GetAllPropertiesCB)(QStatus status, ProxyBusObject* obj, const MsgArg& values, void* context)
+    Callback registered with GetAllPropertiesAsync()
+    [param] status      - - ER_OK if the get all properties request was successfull or:
+                          - #ER_BUS_OBJECT_NO_SUCH_INTERFACE if the specified interfaces does not exist on the remote object.
+                          - Other error status codes indicating the reason the get request failed.
+    [param] obj             Remote bus object that was introspected
+    [param][out] values - If status is ER_OK an array of dictionary entries, signature "a{sv}" listing the properties.
+    [param] context     - Caller provided context passed in to GetPropertyAsync()
+    
+NEW CALLBACK
+ajn::Listener.(ProxyBusObject::Listener::* SetPropertyCB)(QStatus status, ProxyBusObject* obj, void* context)
+    Callback registered with SetPropertyAsync()
+    [param] status   - - ER_OK if the property was successfully set or:
+                       - #ER_BUS_OBJECT_NO_SUCH_INTERFACE if the specified interfaces does not exist on the remote object.
+                       - #ER_BUS_NO_SUCH_PROPERTY if the property does not exist
+                       - Other error status codes indicating the reason the set request failed.
+    [param] obj      - Remote bus object that was introspected
+    [param] context  - Caller provided context passed in to SetPropertyAsync()
+
+CHANGED METHOD
+ajn::ProxyBusObject.IntrospectRemoteObject(uint32_t timeout = DefaultCallTimeout)
+    Added abbility to set timeout when Introspecting a remote object
+
+CHANGED METHOD
+ajn::ProxyBusObject.IntrospectRemoteObjectAsync(ProxyBusObject::Listener* listener, 
+                                                ProxyBusObject::Listener::IntrospectCB callback, 
+                                                void* context, 
+                                                uint32_t timeout = DefaultCallTimeout)
+    Added abbility to set timeout when Introspecting a remote object
+
+CHANGED METHOD
+ajn::ProxyBusObject.GetProperty(const char* iface, 
+                                const char* property, 
+                                MsgArg& value, 
+                                uint32_t timeout = DefaultCallTimeout) const
+    Added abbility to set timeout when getting a property from a remote object
+
+NEW METHOD
+ajn::ProxyBusObject.GetPropertyAsync(const char* iface,
+                                     const char* property,
+                                     ProxyBusObject::Listener* listener,
+                                     ProxyBusObject::Listener::GetPropertyCB callback,
+                                     void* context,
+                                     uint32_t timeout = DefaultCallTimeout)
+    Make an asynchronous request to get a property from an interface on the 
+    remote object.
+    The property value is passed to the callback function.
+    [param] iface    - Name of interface to retrieve property from.
+    [param] property - The name of the property to get.
+    [param] listener - Pointer to the object that will receive the callback.
+    [param] callback - Method on listener that will be called.
+    [param] context  - User defined context which will be passed as-is to callback.
+    [param] timeout  - Timeout specified in milliseconds to wait for a reply
+
+CHANGE METHOD
+ajn::ProxyBusObject.GetAllProperties(const char* iface, 
+                                     MsgArg& values, 
+                                     uint32_t timeout = DefaultCallTimeout) const
+    Added abbility to set timeout when getting all properties from a remote object
+
+NEW METHOD
+ajn::ProxyBusObject.SetPropertyAsync(const char* iface,
+                                     const char* property,
+                                     MsgArg& value,
+                                     ProxyBusObject::Listener* listener,
+                                     ProxyBusObject::Listener::SetPropertyCB callback,
+                                     void* context,
+                                     uint32_t timeout = DefaultCallTimeout)
+    Make an asynchronous request to set a property on an interface on the remote object.
+    A callback function reports the success or failure of ther operation.
+    [param] iface    - Remote object's interface on which the property is defined.
+    [param] property - The name of the property to set.
+    [param] value    - The value to set
+    [param] listener - Pointer to the object that will receive the callback.
+    [param] callback - Method on listener that will be called.
+    [param] context  - User defined context which will be passed as-is to callback.
+    [param] timeout  - Timeout specified in milliseconds to wait for a reply
+
+CHANGED METHOD
+ajn::ProxyBusObject.SetProperty(const char* iface, 
+                                const char* property, 
+                                int32_t i, 
+                                uint32_t timeout = DefaultCallTimeout) const
+    Added abbility to specify timeout when Setting an int32 property from a remote object
+
+CHANGED METHOD
+ajn::ProxyBusObject.SetProperty(const char* iface, 
+                                const char* property, 
+                                const char* s, uint32_t timeout = DefaultCallTimeout) const
+    Added the abbility to specify a timeout when setting a string property  
+    from a remote object using a C string
+
+CHANGED METHOD
+ajn::ProxyBusObject.SetProperty(const char* iface, 
+                                const char* property, 
+                                const qcc::String& s, 
+                                uint32_t timeout = DefaultCallTimeout) const
+    Added the abbility to specify a timeout when setting a string property from 
+    a remote object using a qcc::String 
+
+NEW METHOD
+ajn::ProxyBusObject.GetManagedChildren(void* children = NULL, size_t numChildren = 0)
+    Returns an array of _ProxyBusObjects for the children of this ProxyBusObject.
+    Unlike the unmanaged version of GetChildren, it is expected the caller will call
+    delete on each _ProxyBusObject in the array returned.
+    [param] children    - A pointer to a _ProxyBusObject array to receive the children. Can be NULL in
+                          which case no children are returned and the return value gives the number
+                          of children available.
+    [param] numChildren - The size of the _ProxyBusObject array. If this value is smaller than the total
+                          number of children only numChildren will be returned.
+
+NEW METHOD
+ajn::ProxyBusObject.GetManagedChild(const char* inPath)
+    Get a path descendant _ProxyBusObject (child) by its relative path name.
+    
+    For example, if this _ProxyBusObject's path is "/foo/bar", then you can
+    retrieve the _ProxyBusObject for "/foo/bar/bat/baz" by calling
+    GetChild("bat/baz"). Unlike the unmanaged version of GetChild, it is
+    expected the caller will call delete on the _ProxyBusObject returned. 
+    [param] inPath - the relative path for the child.
+
+
 NEW BIT MASK
 TRANSPORT_ICE value = 0x0020
     TrasportMask identifying transport ICE protocol
 
+NEW BIT MASK
+TRANSPORT_PROXIMITY value = 0x0040
+    Transport using WinRT proximity  framework 
+
+NEW METHOD
+qcc::ManagedObj.cast()
+    Templated Type conversion between managed objects of related types
+    
 NEW METHOD
 qcc::ManagedObj.GetRefCount()
     Get the reference count
 
+NEW MACRO
+QCC_BOOL
+    Boolean type for C
+
+NEW MACRO
+QCC_TRUE
+    Boolean logic true for QCC_BOOL
+
+NEW MACRO
+QCC_FALSE
+    Boolean logic false for QCC_BOOL
+
+NEW CONSTANT
+qcc::MAX_LISTEN_CONNECTIONS
+    Platform dependent value for a max listen backlog
+    
 NEW METHOD
 qcc::String.append(const char c)
     Append a single character to string.
 
     [param] c - Character to append to string.
 
+NEW METHOD
+qcc::String.append(const char c)
+    Append a single character to string.
+    [param] c - Character to append to string.
+    
 NEW METHOD
 qcc::String.operator+=(const char c)
     Append a character.
@@ -357,6 +762,10 @@ qcc::String.operator+=(const char c)
 NEW CONSTANT
 qcc::String.Empty
     Returns a reference to the empty string
+
+NEW TYPEDEF
+qcc_SocketFd
+    Socket file descriptor type to be used in C only code.
 
 -------------------------------------------------------------------------------
 AllJoyn API Changes between v2.2.0 and v2.3.0 (C++ API)
