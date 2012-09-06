@@ -266,7 +266,7 @@ inline void ThreadClass::ClientRun() {
         status = remoteObj.IntrospectRemoteObject();
         if (status != ER_OK) {
             QCC_SyncPrintf("Failed to introspect remote bus object.\n");
-        } else   {
+        } else {
             QCC_SyncPrintf("Successfully introspected remote bus object.\n");
         }
 
@@ -404,9 +404,9 @@ inline qcc::ThreadReturn STDCALL ThreadClass::Run(void* arg) {
     //
     if (s_operationMode == Default) {
         DefaultRun();
-    } else if (s_operationMode == Client)   {
+    } else if (s_operationMode == Client) {
         ClientRun();
-    } else if (s_operationMode == Service)   {
+    } else if (s_operationMode == Service) {
         ServiceRun();
     }
 
