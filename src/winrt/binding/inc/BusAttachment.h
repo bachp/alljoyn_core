@@ -295,7 +295,7 @@ public ref class BusAttachment sealed {
     /// <summary>
     /// Returns the existing activated InterfaceDescriptions.
     /// </summary>
-    /// <param name="iface">A pointer to an InterfaceDescription array to receive the interfaces. Can be NULL in
+    /// <param name="ifaces">A pointer to an InterfaceDescription array to receive the interfaces. Can be NULL in
     /// which case no interfaces are returned and the return value gives the number of interface available.
     /// </param>
     /// <returns>The number of interfaces returned or the total number of interfaces if ifaces is NULL.</returns>
