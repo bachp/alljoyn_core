@@ -36,19 +36,24 @@ ITypeCoercer* TypeCoercerFactory::GetTypeCoercer(Platform::String ^ name)
 {
     ITypeCoercer* result = NULL;
 
+	// Check if factory requested is "strict" or "weak"
     if (wcscmp(L"strict", name->Data()) == 0) {
         _typeFactoryMutex.Lock();
+		// Allocate StrictTypeCoercer type coercer
         if (NULL == _strictCoercer) {
             _strictCoercer = new StrictTypeCoercer();
         }
         _typeFactoryMutex.Unlock();
+		// Store the result
         result =  _strictCoercer;
     } else if (wcscmp(L"weak", name->Data()) == 0) {
         _typeFactoryMutex.Lock();
+		// Allocate WeakTypeCoercer type coercer
         if (NULL == _weakCoercer) {
             _weakCoercer = new WeakTypeCoercer();
         }
         _typeFactoryMutex.Unlock();
+		// Store the result
         result = _weakCoercer;
     }
 
