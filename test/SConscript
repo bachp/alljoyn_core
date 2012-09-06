@@ -19,6 +19,7 @@ if env['OS'] != 'win8':
     # Test Programs
     progs = [
         env.Program('bastress',      ['bastress.cc']),
+        env.Program('bastress2',     ['bastress2.cc']),        
         env.Program('bignum',        ['bignum.cc']),
         env.Program('socktest',      ['socktest.cc']),
         env.Program('autochat',      ['autochat.cc']),
