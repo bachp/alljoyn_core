@@ -105,7 +105,7 @@ class InterfaceDescription {
          * Get the names and values of all annotations
          *
          * @param[out] names    Annotation names
-         * @param[out] values   Annotation values
+         * @param[out] values    Annotation values
          * @param      size     Number of annotations to get
          * @return              The number of annotations returned or the total number of annotations if props is NULL.
          */
@@ -147,7 +147,7 @@ class InterfaceDescription {
          * Get the names and values of all annotations
          *
          * @param[out] names    Annotation names
-         * @param[out] value    Annotation values
+         * @param[out] values    Annotation values
          * @param      size     Number of annotations to get
          * @return              The number of annotations returned or the total number of annotations if props is NULL.
          */
@@ -414,7 +414,7 @@ class InterfaceDescription {
      * Get the names and values of all annotations
      *
      * @param[out] names    Annotation names
-     * @param[out] value    Annotation values
+     * @param[out] values    Annotation values
      * @param[out] size     Number of annotations
      * @return              The number of annotations returned or the total number of annotations if props is NULL.
      */
