@@ -666,7 +666,7 @@ void ProximityNameService::NotifyDisconnected()
     }
 }
 
-extern bool WildcardMatch(qcc::String str, qcc::String pat);
+extern bool IpNameServiceImplWildcardMatch(qcc::String str, qcc::String pat);
 
 void ProximityNameService::Locate(const qcc::String& namePrefix)
 {
@@ -827,7 +827,7 @@ void ProximityNameService::HandleProtocolQuestion(WhoHas whoHas, qcc::IPAddress 
             // The requested name comes in from the WhoHas message and we
             // allow wildcards there.
             //
-            if (WildcardMatch((*j), wkn)) {
+            if (IpNameServiceImplWildcardMatch((*j), wkn)) {
                 QCC_DbgHLPrintf(("ProximityNameService::HandleProtocolQuestion(): request for %s does not match my %s",
                                  wkn.c_str(), (*j).c_str()));
                 continue;
