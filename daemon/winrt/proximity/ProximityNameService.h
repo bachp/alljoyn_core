@@ -34,7 +34,7 @@
 #include <qcc/Debug.h>
 #include <qcc/GUID.h>
 
-#include "NsProtocol.h"
+#include <ns/IpNsProtocol.h>
 #include "ProximityListener.h"
 
 namespace ajn {
