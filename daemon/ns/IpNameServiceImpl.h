@@ -1,10 +1,10 @@
 /**
  * @file
- * Data structures used for the AllJoyn lightweight Name Service
+ * Data structures used for the AllJoyn IP Name Service
  */
 
 /******************************************************************************
- * Copyright 2010-2011, Qualcomm Innovation Center, Inc.
+ * Copyright 2010-2012, Qualcomm Innovation Center, Inc.
  *
  *    Licensed under the Apache License, Version 2.0 (the "License");
  *    you may not use this file except in compliance with the License.
@@ -19,11 +19,11 @@
  *    limitations under the License.
  ******************************************************************************/
 
-#ifndef _NAME_SERVICE_H
-#define _NAME_SERVICE_H
+#ifndef _IP_NAME_SERVICE_IMPL_H
+#define _IP_NAME_SERVICE_IMPL_H
 
 #ifndef __cplusplus
-#error Only include NameService.h in C++ code.
+#error Only include IpNameService.h in C++ code.
 #endif
 
 #include <vector>
@@ -37,12 +37,13 @@
 #include <Status.h>
 #include <Callback.h>
 
-#include "NsProtocol.h"
+#include "IpNsProtocol.h"
 
 namespace ajn {
 
 /**
- * @brief API to provide an implementation dependent Name Service for AllJoyn.
+ * @brief API to provide an implementation dependent IP (Layer 3) Name Service
+ * for AllJoyn.
  *
  * The basic goal of this class is to provide a way for AllJoyn daemons, clients
  * and services to find an IP address and socket to use when connecting to
@@ -58,7 +59,7 @@ namespace ajn {
  * 9955 and another is at IP address 10.0.0.2, listening on port 9955".  The
  * client can then do a TCP connect to one of those addresses and ports.
  */
-class NameService : public qcc::Thread {
+class IpNameServiceImpl : public qcc::Thread {
   public:
 
     /**
@@ -183,16 +184,16 @@ class NameService : public qcc::Thread {
     /**
      * @internal
      *
-     * @brief Construct a name service object.
+     * @brief Construct an IP name service object.
      */
-    NameService();
+    IpNameServiceImpl();
 
     /**
      * @internal
      *
-     * @brief Destroy a name service object.
+     * @brief Destroy an IP name service object.
      */
-    virtual ~NameService();
+    virtual ~IpNameServiceImpl();
 
     /**
      * @brief Initialize the name service.
@@ -227,6 +228,26 @@ class NameService : public qcc::Thread {
         bool enableIPv6,
         bool disableBroadcast,
         bool loopback = false);
+
+    /**
+     * @brief Start any required name service threads.
+     */
+    QStatus Start();
+
+    /**
+     * @brief return true if name service threads are running
+     */
+    bool Started();
+
+    /**
+     * @brief Stop any name service threads.
+     */
+    QStatus Stop();
+
+    /**
+     * @brief Join any name service threads.
+     */
+    QStatus Join();
 
     /**
      * @brief Provide parameters to define the general operation of the protocol.
@@ -458,7 +479,7 @@ class NameService : public qcc::Thread {
      *     ...
      *
      *     MyClass myClass;
-     *     NameService nameService;
+     *     IpNameServiceImpl nameService;
      * @endcode
      *
      * The callback is connected using the SetCallback() method of this
@@ -633,21 +654,16 @@ class NameService : public qcc::Thread {
      */
     bool Enabled(void) { return m_enabled || m_doEnable; }
 
-    /**
-     * Stop the name service and the underlying thread
-     */
-    QStatus Stop();
-
   private:
     /**
-     * @brief Copying a NameService object is forbidden.
+     * @brief Copying an IpNameServiceImpl object is forbidden.
      */
-    NameService(const NameService& other);
+    IpNameServiceImpl(const IpNameServiceImpl& other);
 
     /**
-     * @brief Assigning a NameService object is forbidden.
+     * @brief Assigning an IpNameServiceImpl object is forbidden.
      */
-    NameService& operator =(const NameService& other);
+    IpNameServiceImpl& operator =(const IpNameServiceImpl& other);
 
     /**
      * @brief The temporary IPv4 multicast address for the multicast name
@@ -995,4 +1011,4 @@ class NameService : public qcc::Thread {
 
 } // namespace ajn
 
-#endif // _NAME_SERVICE_H
+#endif // _IP_NAME_SERVICE_IMPL_H

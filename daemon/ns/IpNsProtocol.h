@@ -24,7 +24,7 @@
 #define _NS_PROTOCOL_H
 
 #ifndef __cplusplus
-#error Only include NsProtocol.h in C++ code.
+#error Only include IpNsProtocol.h in C++ code.
 #endif
 
 #include <vector>

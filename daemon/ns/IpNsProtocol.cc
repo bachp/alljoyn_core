@@ -24,7 +24,7 @@
 #include <qcc/SocketTypes.h>
 #include <qcc/IPAddress.h>
 
-#include "NsProtocol.h"
+#include "IpNsProtocol.h"
 
 #define QCC_MODULE "NS"
 

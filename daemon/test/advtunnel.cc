@@ -40,7 +40,7 @@
 #include <qcc/StringUtil.h>
 
 #include <Callback.h>
-#include <NameService.h>
+#include <ns/IpNameServiceImpl.h>
 #include <Transport.h>
 
 #include <Status.h>
@@ -49,7 +49,7 @@
 
 using namespace ajn;
 
-static NameService* g_ns;
+static IpNameServiceImpl* g_ns;
 
 /*
  * If true sniffs advertisements but doesn't send them.
@@ -70,7 +70,7 @@ const uint16_t TUNNEL_PORT = 9973;
 static void SigIntHandler(int sig)
 {
     if (g_ns) {
-        NameService* ns = g_ns;
+        IpNameServiceImpl* ns = g_ns;
         g_ns = NULL;
         ns->Stop();
     }
@@ -148,7 +148,7 @@ class AdvTunnel {
     /*
      * Maps from guid to name service
      */
-    std::map<qcc::String, NameService*> nsRelay;
+    std::map<qcc::String, IpNameServiceImpl*> nsRelay;
 };
 
 QStatus AdvTunnel::VersionExchange()
@@ -296,10 +296,16 @@ QStatus AdvTunnel::RelayAdv()
     /*
      * Lookup or create a name service for relaying advertisements for this quid
      */
-    NameService* ns;
+    IpNameServiceImpl* ns;
     if (nsRelay.count(guid) == 0) {
-        ns = new NameService();
+        ns = new IpNameServiceImpl();
         status = ns->Init(guid, true, true, false);
+        if (status != ER_OK) {
+            delete ns;
+            return status;
+        }
+
+        status = ns->Start();
         if (status != ER_OK) {
             delete ns;
             return status;
@@ -408,7 +414,7 @@ static void usage(void)
 int main(int argc, char** argv)
 {
     QStatus status;
-    NameService ns;
+    IpNameServiceImpl ns;
     AdvTunnel tunnel;
     bool listen = false;
     qcc::String addr;
@@ -470,6 +476,7 @@ int main(int argc, char** argv)
      */
     if (sniffMode) {
         ns.Init(guid, true, true, false);
+        ns.Start();
         ns.OpenInterface("*");
         ns.Locate("");
         printf("Started sniffing for advertised names\n");
@@ -489,6 +496,7 @@ int main(int argc, char** argv)
             printf("Relay established\n");
 
             ns.Init(guid, true, true, false);
+            ns.Start();
 
             ns.OpenInterface("*");
             ns.Locate("");

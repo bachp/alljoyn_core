@@ -36,7 +36,7 @@
 
 #include <Status.h>
 
-#include <NameService.h>
+#include <ns/IpNameServiceImpl.h>
 
 #define QCC_MODULE "ALLJOYN"
 
@@ -230,7 +230,7 @@ int main(int argc, char** argv)
         exit(0);
     }
 
-    NameService ns;
+    IpNameServiceImpl ns;
 
     //
     // Initialize to a random quid, and talk to ourselves.
@@ -240,6 +240,12 @@ int main(int argc, char** argv)
     status = ns.Init(qcc::GUID128().ToString(), enableIPv4, enableIPv6, false, loopback);
     if (status != ER_OK) {
         QCC_LogError(status, ("Init failed"));
+        ERROR_EXIT;
+    }
+
+    status = ns.Start();
+    if (status != ER_OK) {
+        QCC_LogError(status, ("Start failed"));
         ERROR_EXIT;
     }
 

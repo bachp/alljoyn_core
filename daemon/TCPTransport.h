@@ -42,7 +42,7 @@
 #include "Transport.h"
 #include "RemoteEndpoint.h"
 
-#include "NameService.h"
+#include "ns/IpNameService.h"
 
 #define P2P_HELPER 0
 
@@ -305,7 +305,6 @@ class TCPTransport : public Transport, public RemoteEndpoint::EndpointListener, 
     TCPTransport& operator =(const TCPTransport& other);
 
     BusAttachment& m_bus;                                          /**< The message bus for this transport */
-    NameService* m_ns;                                             /**< The name service used for bus name discovery */
     bool m_stopping;                                               /**< True if Stop() has been called but endpoints still exist */
     TransportListener* m_listener;                                 /**< Registered TransportListener */
     std::set<TCPEndpoint*> m_authList;                             /**< List of authenticating endpoints */
@@ -496,7 +495,7 @@ class TCPTransport : public Transport, public RemoteEndpoint::EndpointListener, 
         TransportListener * &m_listener;
     };
 
-    FoundCallback m_foundCallback;  /**< Called by NameService when new busses are discovered */
+    FoundCallback m_foundCallback;  /**< Called by IpNameService when new busses are discovered */
 
     /**
      * @brief The default timeout for in-process authentications.

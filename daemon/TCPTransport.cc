@@ -35,7 +35,7 @@
 #include "RemoteEndpoint.h"
 #include "Router.h"
 #include "DaemonConfig.h"
-#include "NameService.h"
+#include "ns/IpNameService.h"
 #include "TCPTransport.h"
 
 /*
@@ -714,7 +714,7 @@ void* TCPEndpoint::AuthThread::Run(void* arg)
 }
 
 TCPTransport::TCPTransport(BusAttachment& bus)
-    : Thread("TCPTransport"), m_bus(bus), m_ns(0), m_stopping(false), m_listener(0),
+    : Thread("TCPTransport"), m_bus(bus), m_stopping(false), m_listener(0),
 #if defined(QCC_OS_ANDROID) && P2P_HELPER
     m_foundCallback(this, m_listener),
 #else
@@ -850,28 +850,6 @@ QStatus TCPTransport::Start()
         return ER_BUS_BUS_ALREADY_STARTED;
     }
 
-    /*
-     * In order to pass the IsRunning() gate above, there must be no server
-     * accept thread running.  Running includes a thread that has been asked to
-     * stop but has not been Join()ed yet.  So we know that there is no thread
-     * and that either a Start() has never happened, or a Start() followed by a
-     * Stop() and a Join() has happened.  Since Join() does a Thread::Join and
-     * then deletes the name service, it is possible that a Join() done on one
-     * thread is done enough to pass the gate above, but has not yet finished
-     * deleting the name service instance when a Start() comes in on another
-     * thread.  Because of this (rare and unusual) possibility we also check the
-     * name service instance and return an error if we find it non-zero.  If the
-     * name service is NULL, the Stop() and Join() is totally complete and we
-     * can safely proceed.
-     */
-    if (m_ns != NULL) {
-        QCC_LogError(ER_BUS_BUS_ALREADY_STARTED, ("TCPTransport::Start(): Name service already started"));
-        return ER_BUS_BUS_ALREADY_STARTED;
-    }
-
-    m_ns = new NameService;
-    assert(m_ns);
-
     m_stopping = false;
 
     /*
@@ -880,7 +858,13 @@ QStatus TCPTransport::Start()
      */
     qcc::String guidStr = m_bus.GetInternal().GetGlobalGUID().ToString();
 
-    QStatus status = m_ns->Init(guidStr, enableIPv4, enableIPv6, disableBroadcast);
+    QStatus status = IpNameService::Instance().Init(guidStr, enableIPv4, enableIPv6, disableBroadcast);
+    if (status != ER_OK) {
+        QCC_LogError(status, ("TCPTransport::Start(): Error initializing name service"));
+        return status;
+    }
+
+    status = IpNameService::Instance().Start();
     if (status != ER_OK) {
         QCC_LogError(status, ("TCPTransport::Start(): Error starting name service"));
         return status;
@@ -890,7 +874,7 @@ QStatus TCPTransport::Start()
      * Tell the name service to call us back on our FoundCallback method when
      * we hear about a new well-known bus name.
      */
-    m_ns->SetCallback(
+    IpNameService::Instance().SetCallback(
         new CallbackImpl<FoundCallback, void, const qcc::String&, const qcc::String&, std::vector<qcc::String>&, uint8_t>
             (&m_foundCallback, &FoundCallback::Found));
 
@@ -917,23 +901,7 @@ QStatus TCPTransport::Stop(void)
      * called more than once in the chain of destruction) so the pointer is not
      * required to be non-NULL.
      */
-    if (m_ns) {
-        m_ns->SetCallback(NULL);
-        /*
-         * The use model for TCPTransport is that it works like a thread.
-         * There is a call to Start() that spins up the server accept loop in order
-         * to get it running.  When someone wants to tear down the transport, they
-         * call Stop() which requests the transport to stop.  This is followed by
-         * Join() which waits for all of the threads to actually stop.
-         *
-         * The name service should play by those rules as well.  We allocate and
-         * initialize it in Start(), which will spin up the main thread there.
-         * We need to Stop() the name service here and Join its thread in
-         * TCPTransport::Join().  If someone just deletes the transport
-         * there is an implied Stop() and Join() so it behaves correctly.
-         */
-        m_ns->Stop();
-    }
+    IpNameService::Instance().SetCallback(NULL);
 
     /*
      * Tell the server accept loop thread to shut down through the thead
@@ -984,6 +952,22 @@ QStatus TCPTransport::Stop(void)
 
     m_endpointListLock.Unlock(MUTEX_CONTEXT);
 
+    /*
+     * The use model for TCPTransport is that it works like a thread.
+     * There is a call to Start() that spins up the server accept loop in order
+     * to get it running.  When someone wants to tear down the transport, they
+     * call Stop() which requests the transport to stop.  This is followed by
+     * Join() which waits for all of the threads to actually stop.
+     *
+     * The name service should play by those rules as well.  We initialize and
+     * call its Start() method in our Start() method.  This spins up the main
+     * transport server accept loop thread as well.  We similarly need to Stop()
+     * the name service here and Join() its thread in TCPTransport::Join().  If
+     * someone just deletes the transport there is an implied Stop() and Join()
+     * so it behaves as correctly as possible.
+     */
+    IpNameService::Instance().Stop();
+
     return ER_OK;
 }
 
@@ -993,10 +977,16 @@ QStatus TCPTransport::Join(void)
 
     /*
      * It is legal to call Join() more than once, so it must be possible to
-     * call Join() on a joined transport.
+     * call Join() on a joined transport and also on a joined name service.
      */
     QStatus status = Thread::Join();
     if (status != ER_OK) {
+        return status;
+    }
+
+    status = IpNameService::Instance().Join();
+    if (status != ER_OK) {
+        QCC_LogError(status, ("TCPTransport::Join(): Error Joining name service"));
         return status;
     }
 
@@ -1053,23 +1043,7 @@ QStatus TCPTransport::Join(void)
 
     m_endpointListLock.Unlock(MUTEX_CONTEXT);
 
-    /*
-     * The use model for TCPTransport is that it works like a thread.
-     * There is a call to Start() that spins up the server accept loop in order
-     * to get it running.  When someone wants to tear down the transport, they
-     * call Stop() which requests the transport to stop.  This is followed by
-     * Join() which waits for all of the threads to actually stop.
-     *
-     * The name service needs to play by the use model for the transport (see
-     * Start()).  We allocate and initialize it in Start() so we need to Join
-     * and delete the name service here.  Since there is an implied Join() in
-     * the destructor we just delete the name service to play by the rules.
-     */
-    delete m_ns;
-    m_ns = NULL;
-
     m_stopping = false;
-
     return ER_OK;
 }
 
@@ -1110,16 +1084,17 @@ QStatus TCPTransport::GetListenAddresses(const SessionOpts& opts, std::vector<qc
     }
 
     /*
-     * The name service is allocated in Start(), Started by the call to Init()
-     * in Start(), Stopped in our Stop() method and deleted in our Join().  In
-     * this case, the transport will probably be started, and we will probably
-     * find m_ns set, but there is no requirement to ensure this.  If m_ns is
-     * NULL, we need to complain so the user learns to Start() the transport
-     * before calling IfConfig.  A call to IsRunning() here is superfluous since
-     * we really don't care about anything but the name service in this method.
+     * The name service is initialized by the call to Init() in our Start()
+     * method and then started there.  It is Stop()ped in our Stop() method and
+     * joined in our Join().  In the case of a call here, the transport will
+     * probably be started, and we will probably find the name service started,
+     * but there is no requirement to ensure this.  If m_ns is NULL, we need to
+     * complain so the user learns to Start() the transport before calling
+     * IfConfig.  A call to IsRunning() here is superfluous since we really
+     * don't care about anything but the name service in this method.
      */
-    if (m_ns == NULL) {
-        QCC_LogError(ER_BUS_TRANSPORT_NOT_STARTED, ("TCPTransport::GetListenAddresses(): NameService not initialized"));
+    if (IpNameService::Instance().Started() == false) {
+        QCC_LogError(ER_BUS_TRANSPORT_NOT_STARTED, ("TCPTransport::GetListenAddresses(): NameService not started"));
         return ER_BUS_TRANSPORT_NOT_STARTED;
     }
 
@@ -1241,7 +1216,7 @@ QStatus TCPTransport::GetListenAddresses(const SessionOpts& opts, std::vector<qc
                     qcc::String ipv4address;
                     qcc::String ipv6address;
                     uint16_t port;
-                    m_ns->GetEndpoints(ipv4address, ipv6address, port);
+                    IpNameService::Instance().GetEndpoints(ipv4address, ipv6address, port);
                     /*
                      * If the port is zero, then it hasn't been set and this
                      * implies that TCPTransport::StartListen hasn't
@@ -1344,7 +1319,7 @@ void TCPTransport::EndpointExit(RemoteEndpoint* ep)
          */
         qcc::String interface = info->GetInterface();
         QCC_DbgPrintf(("TCPTransport::EndpointExit(): CloseInterface()"));
-        QStatus status = m_ns->CloseInterface(interface);
+        QStatus status = IpNameService::Instance().CloseInterface(interface);
         if (status != ER_OK) {
             QCC_LogError(status, ("TCPTransport::Disconnect(): Cannot close interface \"%s\"", interface.c_str()));
         }
@@ -1503,7 +1478,7 @@ void* TCPTransport::Run(void* arg)
      * that the name service be started before the Thread that will call us
      * here.
      */
-    assert(m_ns);
+    assert(IpNameService::Instance().Started() && "TCPTransport::Run():  IpNameService not started");
 
     /*
      * We need to find the defaults for our connection limits.  These limits
@@ -1542,7 +1517,7 @@ void* TCPTransport::Run(void* arg)
          * Thread that called us here; and we require that the name service stay
          * around until after we leave.
          */
-        assert(m_ns);
+        assert(IpNameService::Instance().Started() && "TCPTransport::Run(): IpNameService not remaining started");
 
         /*
          * Each time through the loop we create a set of events to wait on.
@@ -1898,7 +1873,6 @@ void TCPTransport::RunListenMachine(void)
          * advertisements or discovery requests.
          */
         if (m_isNsEnabled) {
-            // assert(m_ns->Enabled());
             assert(m_isAdvertising || m_isDiscovering);
             assert(m_isListening);
         }
@@ -2008,7 +1982,7 @@ void TCPTransport::StopListenInstance(ListenRequest& listenRequest)
     if (empty && m_isAdvertising) {
         QCC_LogError(ER_FAIL, ("TCPTransport::StopListenInstance(): No listeners with outstanding advertisements."));
         for (list<qcc::String>::iterator i = m_advertising.begin(); i != m_advertising.end(); ++i) {
-            m_ns->Cancel(*i);
+            IpNameService::Instance().CancelAdvertiseName(*i);
         }
     }
 
@@ -2059,7 +2033,7 @@ void TCPTransport::EnableAdvertisementInstance(ListenRequest& listenRequest)
          */
         if (m_isListening) {
             if (!m_isNsEnabled) {
-                m_ns->Enable();
+                IpNameService::Instance().Enable();
                 m_isNsEnabled = true;
             }
         } else {
@@ -2073,9 +2047,9 @@ void TCPTransport::EnableAdvertisementInstance(ListenRequest& listenRequest)
      */
     assert(m_isListening);
     assert(m_isNsEnabled);
-    assert(m_ns);
+    assert(IpNameService::Instance().Started() && "TCPTransport::EnableAdvertisementInstance(): IpNameService not started");
 
-    QStatus status = m_ns->Advertise(listenRequest.m_requestParam);
+    QStatus status = IpNameService::Instance().AdvertiseName(listenRequest.m_requestParam);
     if (status != ER_OK) {
         QCC_LogError(status, ("TCPTransport::EnableAdvertisementInstance(): Failed to advertise \"%s\"", listenRequest.m_requestParam.c_str()));
     }
@@ -2214,7 +2188,7 @@ void TCPTransport::DisableAdvertisementInstance(ListenRequest& listenRequest)
      * We always cancel any advertisement to allow the name service to
      * send out its lost advertisement message.
      */
-    QStatus status = m_ns->Cancel(listenRequest.m_requestParam);
+    QStatus status = IpNameService::Instance().CancelAdvertiseName(listenRequest.m_requestParam);
     if (status != ER_OK) {
         QCC_LogError(status, ("TCPTransport::DisableAdvertisementInstance(): Failed to Cancel \"%s\"", listenRequest.m_requestParam.c_str()));
     }
@@ -2277,7 +2251,7 @@ void TCPTransport::DisableAdvertisementInstance(ListenRequest& listenRequest)
          * Since the cancel advertised name has been sent, we can disable the
          * name service.
          */
-        m_ns->Disable();
+        IpNameService::Instance().Disable();
         m_isNsEnabled = false;
 
         /*
@@ -2336,7 +2310,7 @@ void TCPTransport::EnableDiscoveryInstance(ListenRequest& listenRequest)
          */
         if (m_isListening) {
             if (!m_isNsEnabled) {
-                m_ns->Enable();
+                IpNameService::Instance().Enable();
                 m_isNsEnabled = true;
             }
         } else {
@@ -2346,11 +2320,11 @@ void TCPTransport::EnableDiscoveryInstance(ListenRequest& listenRequest)
     }
 
     /*
-     * We think we're ready to send the locate.  Are we really?
+     * We think we're ready to send the FindAdvertisedName.  Are we really?
      */
     assert(m_isListening);
     assert(m_isNsEnabled);
-    assert(m_ns);
+    assert(IpNameService::Instance().Started() && "TCPTransport::EnableDiscoveryInstance(): IpNameService not started");
 
     /*
      * When a bus name is advertised, the source may append a string that
@@ -2376,7 +2350,7 @@ void TCPTransport::EnableDiscoveryInstance(ListenRequest& listenRequest)
     String starred = listenRequest.m_requestParam;
     starred.append('*');
 
-    QStatus status = m_ns->Locate(starred);
+    QStatus status = IpNameService::Instance().FindAdvertisedName(starred);
     if (status != ER_OK) {
         QCC_LogError(status, ("TCPTransport::EnableDiscoveryInstance(): Failed to begin discovery with multicast NS \"%s\"", starred.c_str()));
     }
@@ -2487,7 +2461,7 @@ void TCPTransport::DisableDiscoveryInstance(ListenRequest& listenRequest)
      */
     if (isEmpty && !m_isAdvertising) {
 
-        m_ns->Disable();
+        IpNameService::Instance().Disable();
         m_isNsEnabled = false;
 
         /*
@@ -3107,14 +3081,14 @@ QStatus TCPTransport::CreateConnectSpec(const qcc::String& interface, const qcc:
 {
     QCC_DbgPrintf(("TCPTransport::CreateConnectSpec(\"%s\", \"%s\", ...)", interface.c_str(), guid.c_str()));
 
-    assert(m_ns);
+    assert(IpNameService::Instance().Started() && "TCPTransport::CreateConnectSpec(): IpNameService not started");
 
     /*
      * Open the interface in the name service to enable it to transmit and receive
      * name service messages on the new Wi-Fi P2P group.
      */
     QCC_DbgPrintf(("TCPTransport::CreateConnectSpec(): OpenInterface()"));
-    QStatus status = m_ns->OpenInterface(interface);
+    QStatus status = IpNameService::Instance().OpenInterface(interface);
     if (status != ER_OK) {
         QCC_LogError(status, ("TCPTransport::CreateConnectSpec(): Cannot open interface \"%s\"", interface.c_str()));
         return status;
@@ -3156,7 +3130,7 @@ QStatus TCPTransport::CreateConnectSpec(const qcc::String& interface, const qcc:
      * Ask all of the daemons to respond with their GUIDs, IP addresses and ports.
      */
     QCC_DbgPrintf(("TCPTransport::CreateConnectSpec(): Locate(*)"));
-    status = m_ns->Locate("*");
+    status = IpNameService::Instance().FindAdvertisedName("*");
     if (status != ER_OK) {
         QCC_LogError(status, ("TCPTransport::CreateConnectSpec(): Cannot open locate service \"*\""));
         return status;
@@ -3424,11 +3398,11 @@ QStatus TCPTransport::Connect(const char* connectSpec, const SessionOpts& opts, 
     /*
      * If we pass the IsRunning() gate above, we must have a server accept
      * thread spinning up or shutting down but not yet joined.  Since the name
-     * service is created before the server accept thread is spun up, and
-     * deleted after it is joined, we must have a valid name service or someone
+     * service is started before the server accept thread is spun up, and
+     * deleted after it is joined, we must have a started name service or someone
      * isn't playing by the rules; so an assert is appropriate here.
      */
-    assert(m_ns);
+    assert(IpNameService::Instance().Started() && "TCPTransport::Connect(): IpNameService not started");
 
     /*
      * Parse and normalize the connectArgs.  When connecting to the outside
@@ -3854,11 +3828,11 @@ QStatus TCPTransport::Disconnect(const char* connectSpec)
     /*
      * If we pass the IsRunning() gate above, we must have a server accept
      * thread spinning up or shutting down but not yet joined.  Since the name
-     * service is created before the server accept thread is spun up, and
-     * deleted after it is joined, we must have a valid name service or someone
-     * isn't playing by the rules; so an assert is appropriate here.
+     * service is started before the server accept thread is spun up, and
+     * stopped after it is stopped, we must have a started name service or
+     * someone isn't playing by the rules; so an assert is appropriate here.
      */
-    assert(m_ns);
+    assert(IpNameService::Instance().Started() && "TCPTransport::Disconnect(): IpNameService not started");
 
     /*
      * Higher level code tells us which connection is refers to by giving us the
@@ -3911,7 +3885,7 @@ QStatus TCPTransport::Disconnect(const char* connectSpec)
 
             qcc::String interface = info->GetInterface();
             QCC_DbgPrintf(("TCPTransport::Disconnect(): CloseInterface()"));
-            status = m_ns->CloseInterface(interface);
+            status = IpNameService::Instance().CloseInterface(interface);
             if (status != ER_OK) {
                 QCC_LogError(status, ("TCPTransport::Disconnect(): Cannot close interface \"%s\"", interface.c_str()));
             }
@@ -4045,10 +4019,10 @@ void TCPTransport::DoStartListen(qcc::String& normSpec)
 
     /*
      * Since the name service is created before the server accept thread is spun
-     * up, and deleted after it is joined, we must have a valid name service or
+     * up, and stopped when it is stopped, we must have a started name service or
      * someone isn't playing by the rules; so an assert is appropriate here.
      */
-    assert(m_ns);
+    assert(IpNameService::Instance().Started() && "TCPTransport::DoStartListen(): IpNameService not started");
 
     /*
      * Parse the normalized listen spec.  The easiest way to do this is to
@@ -4111,18 +4085,18 @@ void TCPTransport::DoStartListen(qcc::String& normSpec)
             currentInterface = interfaces;
             interfaces.clear();
         }
+
         /*
-         * If we were given and IP address use it to find the interface names
+         * If we were given an IP address, use it to find the interface names
          * otherwise use the interface name that was specified. Note we need
          * to disallow hostnames otherwise SetAddress will attempt to treat
          * the interface name as a host name and start doing DNS lookups.
          */
-        assert(m_ns);
         IPAddress currentAddress;
         if (currentAddress.SetAddress(currentInterface, false) == ER_OK) {
-            status = m_ns->OpenInterface(currentAddress);
+            status = IpNameService::Instance().OpenInterface(currentAddress);
         } else {
-            status = m_ns->OpenInterface(currentInterface);
+            status = IpNameService::Instance().OpenInterface(currentInterface);
         }
         if (status != ER_OK) {
             QCC_LogError(status, ("TCPTransport::DoStartListen(): OpenInterface() failed for %s", currentInterface.c_str()));
@@ -4218,12 +4192,11 @@ void TCPTransport::DoStartListen(qcc::String& normSpec)
      * combination of IPv4 address, IPv6 address and port -- it uses the last
      * one set.  If no addresses are provided, the name service advertises the
      * IP address of each of the interfaces it chooses using the last provided
-     * port.  Each call to SetEndpoints() below will then overrwite the
+     * port.  Each call to SetEndpoints() below will then overwrite the
      * advertised daemon listen port.  It is not currently possible to have
      * a daemon listening on multiple TCP ports.
      */
-    assert(m_ns);
-    m_ns->SetEndpoints(String::Empty, String::Empty, listenPort);
+    IpNameService::Instance().SetEndpoints(String::Empty, String::Empty, listenPort);
     m_listenFdsLock.Unlock(MUTEX_CONTEXT);
 
     /*
@@ -4333,11 +4306,11 @@ void TCPTransport::DoStopListen(qcc::String& normSpec)
     QCC_DbgPrintf(("TCPTransport::DoStopListen()"));
 
     /*
-     * Since the name service is created before the server accept thread is spun
-     * up, and deleted after it is joined, we must have a valid name service or
+     * Since the name service is started before the server accept thread is spun
+     * up, and stopped after it is stopped, we must have a started name service or
      * someone isn't playing by the rules; so an assert is appropriate here.
      */
-    assert(m_ns);
+    assert(IpNameService::Instance().Started() && "TCPTransport::DoStopListen(): IpNameService not started");
 
     /*
      * Find the (single) listen spec and remove it from the list of active FDs
