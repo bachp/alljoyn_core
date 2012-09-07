@@ -115,6 +115,9 @@ ICEPacketStream::ICEPacketStream(ICESession& iceSession, Stun& stun, const ICECa
      * through the relay server */
     mtuWithStunOverhead = interfaceMtu - STUN_OVERHEAD;
 
+    /* Retrieve the local server reflexive candidate */
+    stun.GetLocalSrflxCandidate(localSrflxAddress, localSrflxPort);
+
     /* Set remoteMappedAddress to the remote's most external address (regardless of candidate type) */
     switch (selectedPair.remote->GetType()) {
     case _ICECandidate::Relayed_Candidate:
@@ -137,11 +140,13 @@ ICEPacketStream::ICEPacketStream() :
     remoteAddress(),
     remotePort(0),
     remoteMappedAddress(),
-    remoteMappedPort(),
+    remoteMappedPort(0),
     turnAddress(),
     turnPort(0),
     relayServerAddress(),
-    relayServerPort(),
+    relayServerPort(0),
+    localSrflxAddress(),
+    localSrflxPort(0),
     sock(SOCKET_ERROR),
     sourceEvent(&Event::neverSet),
     sinkEvent(&Event::alwaysSet),
@@ -172,6 +177,8 @@ ICEPacketStream::ICEPacketStream(const ICEPacketStream& other) :
     turnPort(other.turnPort),
     relayServerAddress(other.relayServerAddress),
     relayServerPort(other.relayServerPort),
+    localSrflxAddress(other.localSrflxAddress),
+    localSrflxPort(other.localSrflxPort),
     mtuWithStunOverhead(other.mtuWithStunOverhead),
     interfaceMtu(other.interfaceMtu),
     usingTurn(other.usingTurn),
@@ -220,6 +227,8 @@ ICEPacketStream& ICEPacketStream::operator=(const ICEPacketStream& other)
         turnPort = other.turnPort;
         relayServerAddress = other.relayServerAddress;
         relayServerPort = other.relayServerPort;
+        localSrflxAddress = other.localSrflxAddress;
+        localSrflxPort = other.localSrflxPort;
         mtuWithStunOverhead = other.mtuWithStunOverhead;
         interfaceMtu = other.interfaceMtu;
         usingTurn = other.usingTurn;
@@ -437,6 +446,9 @@ QStatus ICEPacketStream::ComposeStunMessage(const void* buf,
     status = msg.AddAttribute(new StunAttributeUsername(turnUsername));
     if (status == ER_OK) {
         status = msg.AddAttribute(new StunAttributeXorPeerAddress(msg, remoteMappedAddress, remoteMappedPort));
+    }
+    if (status == ER_OK) {
+        status = msg.AddAttribute(new StunAttributeAllocatedXorServerReflexiveAddress(msg, localSrflxAddress, localSrflxPort));
     }
     if (status == ER_OK) {
         status = msg.AddAttribute(new StunAttributeData(sg));

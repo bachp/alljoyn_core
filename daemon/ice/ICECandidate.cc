@@ -352,6 +352,11 @@ QStatus _ICECandidate::ReadReceivedMessage(uint32_t timeoutMsec)
 
             sa.GetAddress(reflexive.addr, reflexive.port);
 
+            // Set the local Server reflexive candidate in the associated STUN object. We don't
+            // care if the returned Server reflexive candidate is same as the local host
+            // candidate for this setting
+            stunActivity->stun->SetLocalSrflxCandidate(reflexive);
+
             if (ICESession::ICEGatheringCandidates ==
                 component->GetICEStream()->GetSession()->GetState()) {
                 if (relayedCandidate->GetType() == _ICECandidate::Relayed_Candidate) {
@@ -393,7 +398,11 @@ QStatus _ICECandidate::ReadReceivedMessage(uint32_t timeoutMsec)
 
         case STUN_ATTR_XOR_PEER_ADDRESS:
         {
+            break;
+        }
 
+        case STUN_ATTR_ALLOCATED_XOR_SERVER_REFLEXIVE_ADDRESS:
+        {
             break;
         }
 
@@ -807,7 +816,12 @@ QStatus _ICECandidate::SendResponse(uint16_t checkStatus, IPEndpoint& dest,
                    tid.ToString().c_str(),
                    dest.addr.ToString().c_str(), dest.port));
 
-    msg->AddAttribute(new StunAttributeXorMappedAddress(*msg, dest.addr, dest.port));
+    /*
+     * We don't need to include the XOR_MAPPED_ADDRESS attribute in binding responses as this
+     * attribute is not used in any way by either the Server or the daemon. This attribute
+     * may be required if the support for peer reflexive candidates are enabled.
+     */
+    //msg->AddAttribute(new StunAttributeXorMappedAddress(*msg, dest.addr, dest.port));
     msg->AddAttribute(new StunAttributeRequestedTransport(REQUESTED_TRANSPORT_TYPE_UDP));
     msg->AddAttribute(new StunAttributeMessageIntegrity(*msg));
     msg->AddAttribute(new StunAttributeFingerprint(*msg));

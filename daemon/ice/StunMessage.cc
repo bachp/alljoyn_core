@@ -177,6 +177,10 @@ static QStatus ParseAttribute(const StunMessage& msg,
         attr = new StunAttributeXorPeerAddress(msg);
         break;
 
+    case STUN_ATTR_ALLOCATED_XOR_SERVER_REFLEXIVE_ADDRESS:
+        attr = new StunAttributeAllocatedXorServerReflexiveAddress(msg);
+        break;
+
     case STUN_ATTR_DATA:
         attr = new StunAttributeData();
         break;

@@ -376,6 +376,22 @@ class Stun {
      */
     size_t GetHMACKeyLength(void) const { return hmacKeyLen; }
 
+    /**
+     * Set the local server reflexive candidate details
+     */
+    void SetLocalSrflxCandidate(IPEndpoint& srflxCandidate) {
+        localSrflxCandidate.addr = srflxCandidate.addr;
+        localSrflxCandidate.port = srflxCandidate.port;
+    }
+
+    /**
+     * Get the local server reflexive candidate details
+     */
+    void GetLocalSrflxCandidate(IPAddress& addr, uint16_t& port) {
+        addr = localSrflxCandidate.addr;
+        port = localSrflxCandidate.port;
+    }
+
   private:
     struct StunBuffer {
         uint8_t* storage;
@@ -411,6 +427,8 @@ class Stun {
 
     IPAddress localAddr;   ///< Local host address.
     uint16_t localPort;    ///< Local port.
+
+    IPEndpoint localSrflxCandidate;   ///< Local Server Reflexive candidate.
 
     SocketFd sockfd;       ///< Socket file descriptor.
     SocketType type;     ///< Socket type.

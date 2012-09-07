@@ -403,6 +403,9 @@ QStatus Stun::SendStunMessage(const StunMessage& msg, IPAddress addr, uint16_t p
                 status = rMsg.AddAttribute(new StunAttributeXorPeerAddress(rMsg, addr, port));
             }
             if (status == ER_OK) {
+                status = rMsg.AddAttribute(new StunAttributeAllocatedXorServerReflexiveAddress(rMsg, localSrflxCandidate.addr, localSrflxCandidate.port));
+            }
+            if (status == ER_OK) {
                 status = rMsg.AddAttribute(new StunAttributeData(msgSG));
             }
             if (status == ER_OK) {
@@ -854,6 +857,9 @@ QStatus Stun::AppSendSG(const ScatterGatherList& sg, size_t& sent)
         size_t renderSize;
 
         status = msg.AddAttribute(new StunAttributeXorPeerAddress(msg, remoteAddr, remotePort));
+        if (status == ER_OK) {
+            status = msg.AddAttribute(new StunAttributeAllocatedXorServerReflexiveAddress(msg, localSrflxCandidate.addr, localSrflxCandidate.port));
+        }
         if (status == ER_OK) {
             status = msg.AddAttribute(new StunAttributeData(sg));
         }
