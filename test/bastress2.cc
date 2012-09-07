@@ -121,6 +121,7 @@ class ThreadClass : public Thread {
     ThreadClass(char*name, int index);
 
     friend class ClientBusListener;
+    
 
   protected:
     bool joinComplete;
@@ -147,7 +148,7 @@ class ThreadClass : public Thread {
 
 class ClientBusListener : public BusListener, public SessionListener {
   public:
-    ClientBusListener(ThreadClass* owner) : owner(owner) { }
+    ClientBusListener(ThreadClass* owner) : owner(owner), wasNameFoundAlready(false) { }
 
     void FoundAdvertisedName(const char* name, TransportMask transport, const char* namePrefix)
     {
@@ -156,10 +157,12 @@ class ClientBusListener : public BusListener, public SessionListener {
         if (0 == strcmp(namePrefix, SERVICE_NAME)) {
 
             mutex.Lock();
-            bool shouldReturn = owner->joinComplete;
+            bool shouldReturn = wasNameFoundAlready;
+            wasNameFoundAlready = true;
             mutex.Unlock();
             
             if(shouldReturn) {
+                QCC_SyncPrintf("Will not form a session with(name=%s, prefix=%s) because we already joined a session.\n", name, namePrefix);                
                 return;
             }
             
@@ -173,12 +176,12 @@ class ClientBusListener : public BusListener, public SessionListener {
 
             } else {
                 QCC_SyncPrintf("JoinSession to %s SUCCEEDED (Session id=%d)\n", name, owner->sessionId);
-                mutex.Lock();
+
                 if (!owner->joinComplete) {
                     owner->joinComplete = true;
                     owner->discoveredServiceName = name;
                 }
-                mutex.Unlock();
+
             }
         }
     }
@@ -196,6 +199,7 @@ class ClientBusListener : public BusListener, public SessionListener {
   protected:
     ThreadClass* owner;
     Mutex mutex;
+    bool wasNameFoundAlready;
 };
 
 class ServiceBusListener : public BusListener, public SessionPortListener {
@@ -355,6 +359,10 @@ inline void ThreadClass::ServiceRun() {
 
     qcc::String serviceName(buf);
 
+    QCC_SyncPrintf("------------------------------------------------------------\n");
+    QCC_SyncPrintf("Service named %s is starting...\n", buf);
+    QCC_SyncPrintf("------------------------------------------------------------\n");
+
     /* Request name */
     if (ER_OK == status) {
         uint32_t flags = DBUS_NAME_FLAG_REPLACE_EXISTING | DBUS_NAME_FLAG_DO_NOT_QUEUE;
@@ -398,6 +406,10 @@ inline void ThreadClass::ServiceRun() {
         }
     }
 
+    QCC_SyncPrintf("------------------------------------------------------------\n");
+    QCC_SyncPrintf("Service named %s is stopping...\n", buf);
+    QCC_SyncPrintf("------------------------------------------------------------\n");    
+    
     if (busObject) {
         bus->UnregisterBusObject(*busObject);
         delete busObject;
