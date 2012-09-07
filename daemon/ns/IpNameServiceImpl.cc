@@ -703,6 +703,8 @@ void IpNameServiceImpl::ClearLiveInterfaces(void)
             continue;
         }
 
+        QCC_DbgPrintf(("IpNameServiceImpl::ClearLiveInterfaces(): clear interface %d", i));
+
         //
         // If the multicast bit is set, we have done an IGMP join.  In this
         // case, we must arrange an IGMP drop via the appropriate socket option
@@ -736,10 +738,12 @@ void IpNameServiceImpl::ClearLiveInterfaces(void)
 
         qcc::Close(m_liveInterfaces[i].m_sockFd);
         m_liveInterfaces[i].m_sockFd = -1;
-
     }
 
+    QCC_DbgPrintf(("IpNameServiceImpl::ClearLiveInterfaces(): Clear interfaces"));
     m_liveInterfaces.clear();
+
+    QCC_DbgPrintf(("IpNameServiceImpl::ClearLiveInterfaces(): Done"));
 }
 
 //
@@ -1837,6 +1841,8 @@ void* IpNameServiceImpl::Run(void* arg)
     GetTimeNow(&tLastLazyUpdate);
 
     while (m_state == IMPL_RUNNING || m_terminal) {
+        QCC_DbgPrintf(("IpNameServiceImpl::Run(): m_state == %d., m_terminal == %d.", m_state, m_terminal));
+
         //
         // If we are shutting down, we need to make sure that we send out the
         // terminal is-at messages that correspond to a CancelAdvertiseName for
@@ -1847,12 +1853,15 @@ void* IpNameServiceImpl::Run(void* arg)
         // we can exit.  So if we find m_terminal true and m_outbound.empty()
         // true, we break out of the loop and exit.
         //
+        QCC_DbgPrintf(("IpNameServiceImpl::Run(): Check for terminal send completion"));
         if (m_terminal && m_outbound.empty()) {
+            QCC_DbgPrintf(("IpNameServiceImpl::Run(): m_terminal && m_outbound.empty() -> m_terminal = false"));
             m_terminal = false;
             break;
         }
 
         GetTimeNow(&tNow);
+        QCC_DbgPrintf(("IpNameServiceImpl::Run(): Taking mutex"));
         m_mutex.Lock();
 
         //
@@ -1862,12 +1871,15 @@ void* IpNameServiceImpl::Run(void* arg)
         // about turning things off before we've sent out all possibly queued
         // packets.
         //
+        QCC_DbgPrintf(("IpNameServiceImpl::Run(): Check for enable transition"));
         if (m_doEnable) {
             m_enabled = true;
             m_doEnable = false;
         }
 
+        QCC_DbgPrintf(("IpNameServiceImpl::Run(): Check for disable transition"));
         if (m_doDisable && m_outbound.empty()) {
+            QCC_DbgPrintf(("IpNameServiceImpl::Run(): m_doDisable && m_outbound.empty() -> m_enabled = false"));
             m_enabled = false;
             m_doDisable = false;
         }
@@ -1908,10 +1920,12 @@ void* IpNameServiceImpl::Run(void* arg)
         //     3) If LAZY_UPDATE_MAX_INTERVAL has elapsed since the last lazy
         //        update, we need to update.
         //
+        QCC_DbgPrintf(("IpNameServiceImpl::Run(): Check for lazy update requirement"));
         if (m_forceLazyUpdate ||
             (m_outbound.size() && tLastLazyUpdate + qcc::Timespec(LAZY_UPDATE_MIN_INTERVAL * MS_PER_SEC) < tNow) ||
             (tLastLazyUpdate + qcc::Timespec(LAZY_UPDATE_MAX_INTERVAL * MS_PER_SEC) < tNow)) {
 
+            QCC_DbgPrintf(("IpNameServiceImpl::Run(): LazyUpdateInterfaces()"));
             LazyUpdateInterfaces();
             tLastLazyUpdate = tNow;
             m_forceLazyUpdate = false;
@@ -1921,7 +1935,11 @@ void* IpNameServiceImpl::Run(void* arg)
         // We know what interfaces can be currently used to send messages
         // over, so now send any messages we have queued for transmission.
         //
+        QCC_DbgPrintf(("IpNameServiceImpl::Run(): Check for outbound messsages and send"));
         while (m_outbound.size() && (m_state == IMPL_RUNNING || m_terminal)) {
+
+            QCC_DbgPrintf(("IpNameServiceImpl::Run(): m_outbound.size() == %d.", m_outbound.size()));
+
             //
             // The header contains a number of "questions" and "answers".
             // We just pass on questions (who-has messages) as-is.  If these
@@ -1953,7 +1971,10 @@ void* IpNameServiceImpl::Run(void* arg)
             // Walk the list of live interfaces and send the protocol message
             // out each one.
             //
+            QCC_DbgPrintf(("IpNameServiceImpl::Run(): Walk interfaces"));
             for (uint32_t i = 0; (m_state == IMPL_RUNNING || m_terminal) && (i < m_liveInterfaces.size()); ++i) {
+                QCC_DbgPrintf(("IpNameServiceImpl::Run(): sending to live interface %d.", i));
+
                 qcc::SocketFd sockFd = m_liveInterfaces[i].m_sockFd;
                 qcc::IPAddress interfaceAddress = m_liveInterfaces[i].m_address;
                 uint32_t interfaceAddressPrefixLen = m_liveInterfaces[i].m_prefixlen;
@@ -2033,11 +2054,32 @@ void* IpNameServiceImpl::Run(void* arg)
         }
 
         //
+        // We've emptied the outbound messages, so we're done if we are shutting
+        // down.  The thread stop event was set in IpNameServiceImpl::Stop(),
+        // and we discovered the event was set in the last iteration of the loop
+        // (below).  We also reset that event in the last iteration so we must
+        // not wait again, or we will end up waiting for another stop event that
+        // will likely never come.  We took the time to send out a final
+        // advertisement(s) above, indicating that we are going away so we can
+        // just loop back to the start (where we exit the Run() loop in one
+        // convenient place).
+        //
+        QCC_DbgPrintf(("IpNameServiceImpl::Run(): Check for stopping"));
+        if (IsStopping()) {
+            QCC_DbgPrintf(("IpNameServiceImpl::Run(): Stopping.  ClearLiveInterfaces() and break"));
+            QCC_DbgPrintf(("IpNameServiceImpl::Run(): Giving mutex"));
+            m_mutex.Unlock();
+            ClearLiveInterfaces();
+            break;
+        }
+
+        //
         // Now, worry about what to do next.  Create a set of events to wait on.
         // We always wait on the stop event, the timer event and the event used
         // to signal us when an outging message is queued or a forced wakeup for
         // a lazy update is done.
         //
+        QCC_DbgPrintf(("IpNameServiceImpl::Run(): Build event list"));
         vector<qcc::Event*> checkEvents, signaledEvents;
         checkEvents.push_back(&stopEvent);
         checkEvents.push_back(&timerEvent);
@@ -2059,12 +2101,14 @@ void* IpNameServiceImpl::Run(void* arg)
         // we definitely need to release other (user) threads that might
         // be waiting to talk to us.
         //
+        QCC_DbgPrintf(("IpNameServiceImpl::Run(): Giving mutex"));
         m_mutex.Unlock();
 
         //
         // Wait for something to happen.  if we get an error, there's not
         // much we can do about it but bail.
         //
+        QCC_DbgPrintf(("IpNameServiceImpl::Run(): Wait for events"));
         QStatus status = qcc::Event::Wait(checkEvents, signaledEvents);
         if (status != ER_OK && status != ER_TIMEOUT) {
             QCC_LogError(status, ("IpNameServiceImpl::Run(): Event::Wait(): Failed"));
@@ -2074,6 +2118,7 @@ void* IpNameServiceImpl::Run(void* arg)
         //
         // Loop over the events for which we expect something has happened
         //
+        QCC_DbgPrintf(("IpNameServiceImpl::Run(): Handle events"));
         for (vector<qcc::Event*>::iterator i = signaledEvents.begin(); i != signaledEvents.end(); ++i) {
             if (*i == &stopEvent) {
                 QCC_DbgPrintf(("IpNameServiceImpl::Run(): Stop event fired"));
@@ -2245,6 +2290,7 @@ void IpNameServiceImpl::Retransmit(bool exiting)
     // We are running short on toes, so don't shoot any more off by not being
     // thread-unaware.
     //
+    QCC_DbgPrintf(("IpNameServiceImpl::Retransmit(): Taking lock"));
     m_mutex.Lock();
 
     //
@@ -2360,6 +2406,7 @@ void IpNameServiceImpl::Retransmit(bool exiting)
     QCC_DbgPrintf(("IpNameServiceImpl::Retransmit(): Sending final message "));
     header.AddAnswer(isAt);
     QueueProtocolMessage(header);
+    QCC_DbgPrintf(("IpNameServiceImpl::Retransmit(): Giving lock"));
     m_mutex.Unlock();
 }
 
@@ -2401,6 +2448,7 @@ void IpNameServiceImpl::HandleProtocolQuestion(WhoHas whoHas, qcc::IPAddress add
     // We are running short on toes, so don't shoot any more off by not being
     // thread-unaware.
     //
+    QCC_DbgHLPrintf(("IpNameServiceImpl::HandleProtocolQuestion(): Taking lock"));
     m_mutex.Lock();
 
     //
@@ -2448,6 +2496,7 @@ void IpNameServiceImpl::HandleProtocolQuestion(WhoHas whoHas, qcc::IPAddress add
         }
     }
 
+    QCC_DbgHLPrintf(("IpNameServiceImpl::HandleProtocolQuestion(): Giving lock"));
     m_mutex.Unlock();
 
     //
@@ -2628,9 +2677,12 @@ void IpNameServiceImpl::HandleProtocolMessage(uint8_t const* buffer, uint32_t nb
 
 QStatus IpNameServiceImpl::Start()
 {
+    QCC_DbgPrintf(("IpNameServiceImpl::Start()"));
     m_mutex.Lock();
     assert(IsRunning() == false);
+    QCC_DbgPrintf(("IpNameServiceImpl::Start(): Starting thread"));
     QStatus status = Thread::Start(this);
+    QCC_DbgPrintf(("IpNameServiceImpl::Start(): Started"));
     m_state = IMPL_RUNNING;
     m_mutex.Unlock();
     return status;
@@ -2643,22 +2695,26 @@ bool IpNameServiceImpl::Started()
 
 QStatus IpNameServiceImpl::Stop()
 {
+    QCC_DbgPrintf(("IpNameServiceImpl::Stop()"));
     m_mutex.Lock();
     if (m_state != IMPL_SHUTDOWN) {
         m_state = IMPL_STOPPING;
     }
+    QCC_DbgPrintf(("IpNameServiceImpl::Stop(): Stopping thread"));
     QStatus status = Thread::Stop();
+    QCC_DbgPrintf(("IpNameServiceImpl::Stop(): Stopped"));
     m_mutex.Unlock();
     return status;
 }
 
 QStatus IpNameServiceImpl::Join()
 {
-    m_mutex.Lock();
+    QCC_DbgPrintf(("IpNameServiceImpl::Join()"));
     assert(m_state == IMPL_STOPPING || m_state == IMPL_SHUTDOWN);
+    QCC_DbgPrintf(("IpNameServiceImpl::Join(): Joining thread"));
     QStatus status = Thread::Join();
+    QCC_DbgPrintf(("IpNameServiceImpl::Join(): Joined"));
     m_state = IMPL_SHUTDOWN;
-    m_mutex.Unlock();
     return status;
 }
 
