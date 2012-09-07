@@ -66,8 +66,10 @@ enum StunAttrType {
     STUN_ATTR_EVEN_PORT =           0x0018,  ///< Ensure that TURN server reserves an even port number and optionally port number + 1.
     STUN_ATTR_REQUESTED_TRANSPORT = 0x0019,  ///< Transport protocol for the allocated TURN resources.
     STUN_ATTR_DONT_FRAGMENT =       0x001A,  ///< Tells the TURN server to not fragment the data.
-    STUN_ATTR_RESERVATION_TOKEN =   0x0022   ///< Token referencing allocated resources on the TURN server.
+    STUN_ATTR_RESERVATION_TOKEN =   0x0022,  ///< Token referencing allocated resources on the TURN server.
 
+    STUN_ATTR_ALLOCATED_XOR_SERVER_REFLEXIVE_ADDRESS = 0x002B ///< Token specifying the allocated Server Reflexive candidate. This value is
+                                                              ///  used as a look-up key by the Server for operations over symmetric NATs.
 };
 
 
