@@ -152,21 +152,35 @@ class ClientBusListener : public BusListener, public SessionListener {
     void FoundAdvertisedName(const char* name, TransportMask transport, const char* namePrefix)
     {
         QCC_SyncPrintf("FoundAdvertisedName(name=%s, prefix=%s)\n", name, namePrefix);
-
+        
         if (0 == strcmp(namePrefix, SERVICE_NAME)) {
-            // We found a remote bus that is advertising basic service's  well-known name so connect to it
+
+            mutex.Lock();
+            bool shouldReturn = owner->joinComplete;
+            mutex.Unlock();
+            
+            if(shouldReturn) {
+                return;
+            }
+            
             /* Since we are in a callback we must enable concurrent callbacks before calling a synchronous method. */
             owner->bus->EnableConcurrentCallbacks();
+
             SessionOpts opts(SessionOpts::TRAFFIC_MESSAGES, s_useMultipointSessions, SessionOpts::PROXIMITY_ANY, TRANSPORT_ANY);
             QStatus status = owner->bus->JoinSession(name, SERVICE_PORT, this, owner->sessionId, opts);
             if (ER_OK != status) {
-                QCC_SyncPrintf("JoinSession failed (status=%s)\n", QCC_StatusText(status));
+                QCC_SyncPrintf("JoinSession to %s failed (status=%s)\n", name, QCC_StatusText(status));
+
             } else {
-                QCC_SyncPrintf("JoinSession SUCCESS (Session id=%d)\n", owner->sessionId);
-                owner->discoveredServiceName = name;
+                QCC_SyncPrintf("JoinSession to %s SUCCEEDED (Session id=%d)\n", name, owner->sessionId);
+                mutex.Lock();
+                if (!owner->joinComplete) {
+                    owner->joinComplete = true;
+                    owner->discoveredServiceName = name;
+                }
+                mutex.Unlock();
             }
         }
-        owner->joinComplete = true;
     }
 
     void NameOwnerChanged(const char* busName, const char* previousOwner, const char* newOwner)
@@ -181,6 +195,7 @@ class ClientBusListener : public BusListener, public SessionListener {
 
   protected:
     ThreadClass* owner;
+    Mutex mutex;
 };
 
 class ServiceBusListener : public BusListener, public SessionPortListener {
@@ -206,7 +221,16 @@ class ServiceBusListener : public BusListener, public SessionPortListener {
     }
 };
 
-inline ThreadClass::ThreadClass(char*name, int index) : Thread(name), name(name), index(index) {
+inline ThreadClass::ThreadClass(char*name, int index) : Thread(name),
+joinComplete(false),
+clientBusListener(NULL),
+serviceBusListener(NULL),
+bus(NULL),
+busObject(NULL),
+sessionId(0),
+name(name),
+index(index)
+{
 }
 
 inline void ThreadClass::DefaultRun() {
@@ -229,6 +253,8 @@ inline void ThreadClass::DefaultRun() {
 
 inline void ThreadClass::ClientRun() {
     QStatus status = ER_OK;
+    
+    joinComplete = false;
 
     /* Register a bus listener in order to get discovery indications */
     clientBusListener = new ClientBusListener(this);
@@ -257,8 +283,10 @@ inline void ThreadClass::ClientRun() {
     }
 
     if (joinComplete && limitReached == false) {
+        
+        qcc::String serviceName = discoveredServiceName;
 
-        ProxyBusObject remoteObj(*bus, discoveredServiceName.c_str(), SERVICE_PATH, sessionId);
+        ProxyBusObject remoteObj(*bus, serviceName.c_str(), SERVICE_PATH, sessionId);
         status = remoteObj.IntrospectRemoteObject();
         if (status != ER_OK) {
             QCC_SyncPrintf("Failed to introspect remote bus object.\n");
@@ -272,10 +300,10 @@ inline void ThreadClass::ClientRun() {
         inputs[1].Set("s", "World!");
         status = remoteObj.MethodCall(INTERFACE_NAME, "cat", inputs, 2, reply, 5000);
         if (ER_OK == status) {
-            QCC_SyncPrintf("%s.%s ( path=%s) returned \"%s\"\n", discoveredServiceName.c_str(), "cat",
+            QCC_SyncPrintf("%s.%s ( path=%s) returned \"%s\"\n", serviceName.c_str(), "cat",
                            SERVICE_PATH, reply->GetArg(0)->v_string.str);
         } else {
-            QCC_SyncPrintf("MethodCall on %s.%s failed\n", discoveredServiceName.c_str(), "cat");
+            QCC_SyncPrintf("MethodCall on %s.%s failed\n", serviceName.c_str(), "cat");
         }
     }
 
