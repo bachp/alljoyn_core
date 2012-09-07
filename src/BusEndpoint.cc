@@ -28,6 +28,12 @@
 using namespace qcc;
 using namespace ajn;
 
+BusEndpoint::~BusEndpoint()
+{
+    /* Wait for any threads running in PushMessage to exit */
+    WaitForZeroPushCount();
+}
+
 String BusEndpoint::GetControllerUniqueName() const {
 
     /* An endpoint with unique name :X.Y has a controller with a unique name :X.1 */
@@ -40,6 +46,6 @@ String BusEndpoint::GetControllerUniqueName() const {
 void BusEndpoint::WaitForZeroPushCount()
 {
     while (pushCount > 0) {
-        qcc::Sleep(1);
+        qcc::Sleep(3);
     }
 }

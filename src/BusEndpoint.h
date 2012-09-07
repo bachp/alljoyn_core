@@ -61,7 +61,7 @@ class BusEndpoint : public MessageSink {
     /**
      * Virtual destructor for derivable class.
      */
-    virtual ~BusEndpoint() { }
+    virtual ~BusEndpoint();
 
     /**
      * Push a message into the endpoint
