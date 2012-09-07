@@ -78,7 +78,7 @@ QStatus IpNameService::Stop()
 QStatus IpNameService::Join()
 {
     ASSERT_STATE("Join");
-    return m_pimpl->Start();
+    return m_pimpl->Join();
 }
 
 QStatus IpNameService::Init(
