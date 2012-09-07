@@ -2657,6 +2657,7 @@ QStatus IpNameServiceImpl::Join()
     m_mutex.Lock();
     assert(m_state == IMPL_STOPPING || m_state == IMPL_SHUTDOWN);
     QStatus status = Thread::Join();
+    m_state = IMPL_SHUTDOWN;
     m_mutex.Unlock();
     return status;
 }
