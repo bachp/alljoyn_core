@@ -24,12 +24,13 @@ DAEMON_SRCS = $(wildcard *.cc)
 DAEMON_SRCS += $(wildcard *.c)
 DAEMON_SRCS += $(wildcard ice/*.cc)
 DAEMON_SRCS += $(wildcard JSON/*.cc)
+DAEMON_SRCS += $(wildcard ns/*.cc)
 DAEMON_SRCS += \
 	$(OS_GROUP)/ICEPacketStream.cc \
 	$(OS_GROUP)/ProximityScanner.cc \
 	$(OS_GROUP)/Socket.cc 
 
-INCLUDE += -I$(PWD)/ice -I$(PWD)/$(OS_GROUP) -I$(PWD)/JSON
+INCLUDE += -I$(PWD)/ice -I$(PWD)/$(OS_GROUP) -I$(PWD)/JSON -I$(PWD)/ns
 
 ifeq "$(OS)" "darwin"
     # Darwin has its own version of the daemon transport
@@ -63,7 +64,6 @@ TESTDIR = test
 $(TESTDIR)/advtunnel.o : $(TESTDIR)/advtunnel.cc
 $(TESTDIR)/bbdaemon.o : $(TESTDIR)/bbdaemon.cc
 $(TESTDIR)/mcmd.o : $(TESTDIR)/mcmd.cc
-$(TESTDIR)/ns.o : $(TESTDIR)/ns.cc
 
 BUNDLED_SRCS = bundled/BundledDaemon.cc
 BUNDLED_OBJ = $(patsubst %.cc,%.o,$(BUNDLED_SRCS))
@@ -82,7 +82,7 @@ daemon : $(DAEMON_OBJS) $(DAEMON_MAIN_OBJ)
 bundled_obj : $(BUNDLED_OBJ)
 	cp $(BUNDLED_OBJ) $(INSTALLDIR)/dist/lib
 
-test_progs: advtunnel bbdaemon mcmd ns
+test_progs: advtunnel bbdaemon mcmd 
 
 advtunnel : $(DAEMON_OBJS) $(TESTDIR)/advtunnel.o
 	$(CC) $(CXXFLAGS) $(CPPDEFINES) $(INCLUDE) $(LINKFLAGS) -o advtunnel $(DAEMON_OBJS) $(TESTDIR)/advtunnel.o $(LIBS)
@@ -100,11 +100,7 @@ mcmd : $(DAEMON_OBJS) $(TESTDIR)/mcmd.o
 	$(CC) $(CXXFLAGS) $(CPPDEFINES) $(INCLUDE) $(LINKFLAGS) -o mcmd $(DAEMON_OBJS) $(TESTDIR)/mcmd.o $(LIBS)
 	cp mcmd $(INSTALLDIR)/dist/bin
 
-ns : $(DAEMON_OBJS) $(TESTDIR)/ns.o
-	$(CC) $(CXXFLAGS) $(CPPDEFINES) $(INCLUDE) $(LINKFLAGS) -o ns $(DAEMON_OBJS) $(TESTDIR)/ns.o $(LIBS)
-	cp ns $(INSTALLDIR)/dist/bin
-
 clean:
-	@rm -f *.o *~ $(OS_GROUP)/*.o $(TESTDIR)/*.o bt_bluez/*.o ice/*.o bundled/*.o JSON/*.o alljoyn-daemon advtunnel bbdaemon DaemonTest mcmd ns
+	@rm -f *.o *~ $(OS_GROUP)/*.o $(TESTDIR)/*.o bt_bluez/*.o ice/*.o bundled/*.o JSON/*.o ns/*.o alljoyn-daemon $(DAEMON_LIB) advtunnel bbdaemon DaemonTest mcmd
 
 
