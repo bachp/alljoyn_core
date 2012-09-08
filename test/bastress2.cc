@@ -121,7 +121,7 @@ class ThreadClass : public Thread {
     ThreadClass(char*name, int index);
 
     friend class ClientBusListener;
-    
+
 
   protected:
     bool joinComplete;
@@ -153,19 +153,19 @@ class ClientBusListener : public BusListener, public SessionListener {
     void FoundAdvertisedName(const char* name, TransportMask transport, const char* namePrefix)
     {
         QCC_SyncPrintf("FoundAdvertisedName(name=%s, prefix=%s)\n", name, namePrefix);
-        
+
         if (0 == strcmp(namePrefix, SERVICE_NAME)) {
 
             mutex.Lock();
             bool shouldReturn = wasNameFoundAlready;
             wasNameFoundAlready = true;
             mutex.Unlock();
-            
-            if(shouldReturn) {
-                QCC_SyncPrintf("Will not form a session with(name=%s, prefix=%s) because we already joined a session.\n", name, namePrefix);                
+
+            if (shouldReturn) {
+                QCC_SyncPrintf("Will not form a session with(name=%s, prefix=%s) because we already joined a session.\n", name, namePrefix);
                 return;
             }
-            
+
             /* Since we are in a callback we must enable concurrent callbacks before calling a synchronous method. */
             owner->bus->EnableConcurrentCallbacks();
 
@@ -226,14 +226,14 @@ class ServiceBusListener : public BusListener, public SessionPortListener {
 };
 
 inline ThreadClass::ThreadClass(char*name, int index) : Thread(name),
-joinComplete(false),
-clientBusListener(NULL),
-serviceBusListener(NULL),
-bus(NULL),
-busObject(NULL),
-sessionId(0),
-name(name),
-index(index)
+    joinComplete(false),
+    clientBusListener(NULL),
+    serviceBusListener(NULL),
+    bus(NULL),
+    busObject(NULL),
+    sessionId(0),
+    name(name),
+    index(index)
 {
 }
 
@@ -257,7 +257,7 @@ inline void ThreadClass::DefaultRun() {
 
 inline void ThreadClass::ClientRun() {
     QStatus status = ER_OK;
-    
+
     joinComplete = false;
 
     /* Register a bus listener in order to get discovery indications */
@@ -287,7 +287,7 @@ inline void ThreadClass::ClientRun() {
     }
 
     if (joinComplete && limitReached == false) {
-        
+
         qcc::String serviceName = discoveredServiceName;
 
         ProxyBusObject remoteObj(*bus, serviceName.c_str(), SERVICE_PATH, sessionId);
@@ -408,8 +408,8 @@ inline void ThreadClass::ServiceRun() {
 
     QCC_SyncPrintf("------------------------------------------------------------\n");
     QCC_SyncPrintf("Service named %s is stopping...\n", buf);
-    QCC_SyncPrintf("------------------------------------------------------------\n");    
-    
+    QCC_SyncPrintf("------------------------------------------------------------\n");
+
     if (busObject) {
         bus->UnregisterBusObject(*busObject);
         delete busObject;

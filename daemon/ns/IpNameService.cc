@@ -52,9 +52,9 @@ IpNameService::~IpNameService()
 
 #define ASSERT_STATE(function) \
     { \
-        assert(m_constructed && "IpNameService::" #function "(): Singleton not constructed"); \
-        assert(!m_destroyed && "IpNameService::" #function "(): Singleton destroyed"); \
-        assert(m_pimpl && "IpNameService::" #function "(): Private impl is NULL"); \
+        assert(m_constructed && "IpNameService::" # function "(): Singleton not constructed"); \
+        assert(!m_destroyed && "IpNameService::" # function "(): Singleton destroyed"); \
+        assert(m_pimpl && "IpNameService::" # function "(): Private impl is NULL"); \
     }
 
 QStatus IpNameService::Start()
