@@ -2251,6 +2251,12 @@ void DaemonICETransport::EnableDiscovery(const char* namePrefix)
         return;
     }
 
+    /* If the namePrefix is empty, append the wildcard character so that Server may return all the proximal
+     * advertisements */
+    if (qcc::String(namePrefix).empty()) {
+        namePrefix = "*";
+    }
+
     QStatus status = m_dm->SearchName(namePrefix);
 
     if (status != ER_OK) {
@@ -2276,6 +2282,12 @@ void DaemonICETransport::DisableDiscovery(const char* namePrefix)
     if (IsRunning() == false || m_stopping == true) {
         QCC_LogError(ER_BUS_TRANSPORT_NOT_STARTED, ("DaemonICETransport::DisableDiscovery(): Not running or stopping; exiting"));
         return;
+    }
+
+    /* If the namePrefix is empty, append the wildcard character so that Server may cancel the search for all the proximal
+     * advertisements */
+    if (qcc::String(namePrefix).empty()) {
+        namePrefix = "*";
     }
 
     assert(m_dm);
