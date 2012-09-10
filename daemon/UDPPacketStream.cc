@@ -24,6 +24,7 @@
 #include <errno.h>
 #include <assert.h>
 
+#include <qcc/AdapterUtil.h>
 #include <qcc/Event.h>
 #include <qcc/Debug.h>
 #include <qcc/StringUtil.h>
@@ -37,13 +38,62 @@ using namespace qcc;
 namespace ajn {
 
 UDPPacketStream::UDPPacketStream(const char* ifaceName, uint16_t port) :
-    ifaceName(ifaceName),
+    ipAddr(),
     port(port),
+    mtu(0),
     sock(-1),
     sourceEvent(&Event::neverSet),
-    sinkEvent(&Event::alwaysSet),
-    mtu(0)
+    sinkEvent(&Event::alwaysSet)
 {
+    QCC_DbgPrintf(("UDPPacketStream::UDPPacketStream(ifaceName='ifaceName', port=%u)", ifaceName, port));
+    AdapterUtil* adaptors = AdapterUtil::GetAdapterUtil();
+    adaptors->GetLock();
+    AdapterUtil::const_iterator it = adaptors->Begin();
+    for (; it != adaptors->End(); ++it) {
+        const NetInfo& netinfo = *it;
+
+        if (netinfo.name == ifaceName) {
+            mtu = netinfo.mtu;
+            ipAddr = netinfo.addr;
+        }
+    }
+
+    adaptors->ReleaseLock();
+}
+
+UDPPacketStream::UDPPacketStream(const qcc::IPAddress& addr, uint16_t port) :
+    ipAddr(addr),
+    port(port),
+    mtu(1472),
+    sock(-1),
+    sourceEvent(&Event::neverSet),
+    sinkEvent(&Event::alwaysSet)
+{
+    QCC_DbgPrintf(("UDPPacketStream::UDPPacketStream(addr='%s', port=%u)", ipAddr.ToString().c_str(), port));
+
+    AdapterUtil* adaptors = AdapterUtil::GetAdapterUtil();
+    adaptors->GetLock();
+    AdapterUtil::const_iterator it = adaptors->Begin();
+    for (; it != adaptors->End(); ++it) {
+        const NetInfo& netinfo = *it;
+
+        if (netinfo.addr == addr) {
+            mtu = netinfo.mtu;
+        }
+    }
+
+    adaptors->ReleaseLock();
+}
+
+UDPPacketStream::UDPPacketStream(const qcc::IPAddress& addr, uint16_t port, size_t mtu) :
+    ipAddr(addr),
+    port(port),
+    mtu(mtu),
+    sock(-1),
+    sourceEvent(&Event::neverSet),
+    sinkEvent(&Event::alwaysSet)
+{
+    QCC_DbgPrintf(("UDPPacketStream::UDPPacketStream(addr='%s', port=%u, mtu=%lu)", ipAddr.ToString().c_str(), port, mtu));
 }
 
 UDPPacketStream::~UDPPacketStream()
@@ -64,25 +114,25 @@ UDPPacketStream::~UDPPacketStream()
 
 QStatus UDPPacketStream::Start()
 {
-    QStatus status = ER_OK;
-    mtu = 1500; // There is no API to get the MTU in WinRT
-
-    status = qcc::Socket(ipAddr.GetAddressFamily(), QCC_SOCK_DGRAM, sock);
+    QCC_DbgPrintf(("UDPPacketStream::Start(addr=%s, port=%u)", ipAddr.ToString().c_str(), port));
+    /* Create a socket */
+    QStatus status = qcc::Socket(ipAddr.GetAddressFamily(), QCC_SOCK_DGRAM, sock);
 
     /* Bind socket */
     if (status == ER_OK) {
-        //  ((sockaddr_in*)&sa)->sin_port = htons(port);
         status = Bind(sock, ipAddr, port);
         if (status == ER_OK) {
             if (port == 0) {
                 status = GetLocalAddress(sock, ipAddr, port);
-                if (status == ER_OK) {
-                    QCC_DbgPrintf(("Bind: GetLocalAddress failed"));
+                if (status != ER_OK) {
+                    QCC_DbgPrintf(("UDPPacketStream::Start Bind: GetLocalAddress failed"));
                 }
             }
 
-            sourceEvent = new qcc::Event(sock, qcc::Event::IO_READ, false);
-            sinkEvent = new qcc::Event(sock, qcc::Event::IO_WRITE, false);
+            if (status == ER_OK) {
+                sourceEvent = new qcc::Event(sock, qcc::Event::IO_READ, false);
+                sinkEvent = new qcc::Event(sock, qcc::Event::IO_WRITE, false);
+            }
         } else {
             QCC_LogError(status, ("UDPPacketStream bind failed"));
         }
@@ -105,6 +155,7 @@ String UDPPacketStream::GetIPAddr() const
 
 QStatus UDPPacketStream::Stop()
 {
+    QCC_DbgPrintf(("UDPPacketStream::Stop()"));
     return ER_OK;
 }
 
