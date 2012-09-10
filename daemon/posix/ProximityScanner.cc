@@ -407,6 +407,9 @@ void ProximityScanner::Scan(bool request_scan) {
 
             CFStringEncoding encodingMethod = CFStringGetSystemEncoding();
             CFDictionaryRef networkInfo = CNCopyCurrentNetworkInfo(interfaceNameString);
+            if (NULL == networkInfo) {
+                continue;
+            }
             CFStringRef bssidString = (CFStringRef)CFDictionaryGetValue(networkInfo, kCNNetworkInfoKeyBSSID);
             CFStringRef ssidString = (CFStringRef)CFDictionaryGetValue(networkInfo, kCNNetworkInfoKeySSID);
             qcc::String bssid_str(CFStringGetCStringPtr(bssidString, encodingMethod));
