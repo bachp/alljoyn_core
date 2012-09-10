@@ -247,6 +247,16 @@ PacketDest GetPacketDest(const qcc::String& addr, uint16_t port)
     return pd;
 }
 
+PacketDest GetPacketDest(const qcc::IPAddress& addr, uint16_t port)
+{
+    PacketDest pd;
+    qcc::IPAddress tmpIpAddr(addr);
+    tmpIpAddr.RenderIPBinary(pd.ip, IPAddress::IPv6_SIZE);
+    pd.addrSize = tmpIpAddr.Size();
+    pd.port = port;
+    return pd;
+}
+
 void GetAddressAndPort(const PacketDest& dest, qcc::IPAddress& addr, uint16_t& port)
 {
     IPAddress ipAddr(dest.ip, dest.addrSize);

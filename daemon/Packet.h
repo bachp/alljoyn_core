@@ -60,6 +60,8 @@ struct PacketDest {
 /** Construct a PacketDest from a addr,port */
 PacketDest GetPacketDest(const qcc::String& addr, uint16_t port);
 
+PacketDest GetPacketDest(const qcc::IPAddress& addr, uint16_t port);
+
 /** Get the addr,port from a PacketDest */
 void GetAddressAndPort(const PacketDest& dest, qcc::IPAddress& addr, uint16_t& port);
 

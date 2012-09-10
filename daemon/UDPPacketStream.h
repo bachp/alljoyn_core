@@ -39,6 +39,12 @@ class UDPPacketStream : public PacketStream {
     /** Constructor */
     UDPPacketStream(const char* ifaceName, uint16_t port);
 
+    /** Constructor */
+    UDPPacketStream(const qcc::IPAddress& addr, uint16_t port);
+
+    /** Constructor */
+    UDPPacketStream(const qcc::IPAddress& addr, uint16_t port, size_t mtu);
+
     /** Destructor */
     ~UDPPacketStream();
 
@@ -56,6 +62,11 @@ class UDPPacketStream : public PacketStream {
      * Get UDP port.
      */
     uint16_t GetPort() const { return port; }
+
+    /**
+     * Set a new UDP port.
+     */
+    void SetPort(uint16_t new_port) { port = new_port; }
 
     /**
      * Get UDP IP addr.
@@ -118,15 +129,17 @@ class UDPPacketStream : public PacketStream {
     qcc::String ToString(const PacketDest& dest) const;
 
   private:
-    qcc::String ifaceName;
+
+    UDPPacketStream(const UDPPacketStream& other);
+    UDPPacketStream& operator=(const UDPPacketStream& other);
+
+    qcc::IPAddress ipAddr;
     uint16_t port;
+    size_t mtu;
+
     qcc::SocketFd sock;
     qcc::Event* sourceEvent;
     qcc::Event* sinkEvent;
-    size_t mtu;
-    //struct sockaddr sa;
-    qcc::IPAddress ipAddr;
-    unsigned short family;
 };
 
 }  /* namespace */
