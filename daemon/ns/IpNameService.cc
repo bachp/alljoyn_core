@@ -43,8 +43,6 @@ IpNameService::IpNameService()
 IpNameService::~IpNameService()
 {
     assert(m_pimpl && "IpNameService::~IpNameService(): Private impl is NULL");
-    assert(m_pimpl->Started() == false && "IpNameService::~IpNameService(): Private impl is started");
-
     delete m_pimpl;
     m_pimpl = NULL;
     m_destroyed = true;
