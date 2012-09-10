@@ -311,6 +311,9 @@ inline void ThreadClass::ClientRun() {
         }
     }
 
+
+    bus->LeaveSession(sessionId);
+
     if (clientBusListener) {
         bus->UnregisterBusListener(*clientBusListener);
         delete clientBusListener;
