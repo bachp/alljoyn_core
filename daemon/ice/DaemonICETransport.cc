@@ -1705,6 +1705,7 @@ QStatus DaemonICETransport::Connect(const char* connectSpec, const SessionOpts& 
 
     QStatus status = ER_FAIL;
     ICESession* iceSession = NULL;
+    DaemonICEEndpoint* conn = NULL;
 
     /*
      * We only want to allow this call to proceed if we have a running
@@ -1746,16 +1747,15 @@ QStatus DaemonICETransport::Connect(const char* connectSpec, const SessionOpts& 
         return status;
     }
 
-    pktStreamMapLock.Lock();
     ICEPacketStream* pktStream = AcquireICEPacketStream(normSpec);
     if (!pktStream) {
+        pktStreamMapLock.Lock();
         /*
          * No pktStream exists. Put a dummy one on the pktStreamMap so other join attempts for the
          * same destination (normSpec) will wait for this join's ICE dance to complete.
          */
         ICEPacketStream pks;
-        PacketStreamMap::iterator ins =
-            pktStreamMap.insert(std::make_pair(normSpec, std::make_pair(pks, 1)));
+        PacketStreamMap::iterator ins = pktStreamMap.insert(std::make_pair(normSpec, std::make_pair(pks, 1)));
         pktStream = &(ins->second.first);
         pktStreamMapLock.Unlock();
 
@@ -1774,7 +1774,7 @@ QStatus DaemonICETransport::Connect(const char* connectSpec, const SessionOpts& 
         } else {
             status = ER_FAIL;
             QCC_LogError(status, ("DaemonICETransport::Connect(): Unable to retrieve the STUN server information from the Discovery Manager"));
-            return status;
+            goto exit;
         }
 
         /* Ensure that the TURN user and pwd tokens have not expired. If they have, then get new tokens from the
@@ -1783,7 +1783,7 @@ QStatus DaemonICETransport::Connect(const char* connectSpec, const SessionOpts& 
             status = GetNewTokensFromServer(true, stunInfo, argMap["guid"]);
             if (status != ER_OK) {
                 QCC_LogError(status, ("DaemonICETransport::Connect(): Unable to retrieve new tokens from the Rendezvous Server"));
-                return status;
+                goto exit;
             }
         }
 
@@ -1963,21 +1963,20 @@ QStatus DaemonICETransport::Connect(const char* connectSpec, const SessionOpts& 
          * pktStream may still be initializing from a different session's ICE dance.
          * Wait for a fully functional pktStream or until it disappears.
          */
-        pktStreamMapLock.Unlock();
         while (pktStream && !pktStream->HasSocket()) {
             ReleaseICEPacketStream(*pktStream);
             qcc::Sleep(5);
+            pktStream = NULL;
             pktStream = AcquireICEPacketStream(normSpec);
         }
     }
 
     /* Make sure we have a pktStream */
-    if (!pktStream || !pktStream->HasSocket()) {
+    if (!pktStream) {
         status = ER_BUS_CONNECT_FAILED;
     }
 
     /* If we created or reused an ICEPacketStream, then wrap it in a DamonICEEndpoint */
-    DaemonICEEndpoint* conn = NULL;
     if (status == ER_OK) {
         conn = new DaemonICEEndpoint(this, m_bus, false, normSpec, *pktStream);
         /* Setup the PacketEngine connection */
@@ -2041,10 +2040,21 @@ QStatus DaemonICETransport::Connect(const char* connectSpec, const SessionOpts& 
         m_dm->RemoveSessionDetailFromMap(true, std::pair<String, DiscoveryManager::SessionEntry>(argMap["guid"], entry));
     }
 
+exit:
     /* Set caller's ep ref */
     if (status != ER_OK) {
         if (newep) {
             *newep = NULL;
+        }
+
+        /* If an endpoint was not created, there is most likely a dummy packetStream entry corresponding to this connect
+         * attempt that is hanging around in the packetStreamMap. We need to release that here or else any subsequent
+         * connect attempt to the same remote daemon will wait infinitely on this packetStream which is never going to
+         * come up. */
+        if (!conn) {
+            if (pktStream) {
+                ReleaseICEPacketStream(*pktStream);
+            }
         }
     } else {
         if (newep && (conn != NULL)) {
