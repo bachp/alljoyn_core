@@ -70,17 +70,6 @@ using namespace qcc;
 
 namespace ajn {
 
-PacketDest ICEPacketStream::GetPacketDest(const IPAddress& addr, uint16_t port)
-{
-    PacketDest pd;
-    ::memset((uint8_t*)(&pd), 0, sizeof(PacketDest));
-    qcc::IPAddress tmpIpAddr(addr);
-    tmpIpAddr.RenderIPBinary(pd.ip, IPAddress::IPv6_SIZE);
-    pd.addrSize = tmpIpAddr.Size();
-    pd.port = port;
-    return pd;
-}
-
 ICEPacketStream::ICEPacketStream(ICESession& iceSession, Stun& stun, const ICECandidatePair& selectedPair) :
     ipAddress(stun.GetLocalAddr()),
     port(stun.GetLocalPort()),
