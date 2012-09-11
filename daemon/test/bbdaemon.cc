@@ -446,19 +446,20 @@ int main(int argc, char** argv)
 #endif /* !QCC_OS_GROUP_WINDOWS */
 
     /*
-     * Teach the transport list how to make transports it may see referred to
-     * in the serverArgs above.  The daemon transport is created by default because
-     * it is always required. The other transports are only created if specified in
-     * the environment.
+     * Teach the transport list how to make transports it may see referred to in
+     * the serverArgs above.  The daemon transport is created by default (the
+     * isDefault parameter is "true") because it is always required. The other
+     * transport(s) are only created if specified in the environment as
+     * indicated in serverArgs.
      */
     TransportFactoryContainer cntr;
     cntr.Add(new TransportFactory<DaemonTransport>(DaemonTransport::TransportName, true));
-    cntr.Add(new TransportFactory<TCPTransport>("tcp", false));
+    cntr.Add(new TransportFactory<TCPTransport>(TCPTransport::TransportName, false));
 
 #if !defined(QCC_OS_DARWIN)
 #if !defined(QCC_OS_GROUP_WINDOWS)
     if (!noBT) {
-        cntr.Add(new TransportFactory<BTTransport>("bluetooth", false));
+        cntr.Add(new TransportFactory<BTTransport>(BTTransport::TransportName, false));
     }
 #endif
 #endif

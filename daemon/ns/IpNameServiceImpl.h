@@ -34,6 +34,8 @@
 #include <qcc/Mutex.h>
 #include <qcc/Socket.h>
 
+#include <alljoyn/TransportMask.h>
+
 #include <Status.h>
 #include <Callback.h>
 
@@ -205,16 +207,6 @@ class IpNameServiceImpl : public qcc::Thread {
      * at a later time if an error is returned.
      *
      * @param guid The daemon guid of the daemon using this service.
-     * @param enableIPv4 If true, advertise and listen over interfaces that
-     *     have IPv4 addresses assigned.  If false, this bit trumps any
-     *     OpenInterface() requests for specific IPv4 addresses.
-     * @param enableIPv6 If true, advertise and listen over interfaces that
-     *     have IPv6 addresses assigned.  If false, this bit trumps any
-     *     OpenInterface() requests for specific IPv6 addresses.
-     * @param disableBroadcast If true, do not send IPv4 subnet directed
-     *     broadcasts.  Note that sending these broadcasts is often the only
-     *     way to get IPv4 name service  packets out on APs that block
-     *     multicast.
      * @param loopback If true, receive our own advertisements.
      *     Typically used for test programs to listen to themselves talk.
      *
@@ -222,12 +214,7 @@ class IpNameServiceImpl : public qcc::Thread {
      *
      * @see OpenInterface()
      */
-    QStatus Init(
-        const qcc::String& guid,
-        bool enableIPv4,
-        bool enableIPv6,
-        bool disableBroadcast,
-        bool loopback = false);
+    QStatus Init(const qcc::String& guid, bool loopback = false);
 
     /**
      * @brief Start any required name service threads.
@@ -273,6 +260,8 @@ class IpNameServiceImpl : public qcc::Thread {
      * check to see if one comes up and will begin to use it whenever it
      * can.
      *
+     * @param transportMask A bitmask containing the transport requesting the
+     *     advertisements.
      * @param name The interface name of the interface to start talking to
      *     and listening on (e.g., eth1 or wlan0).
      *
@@ -281,7 +270,7 @@ class IpNameServiceImpl : public qcc::Thread {
      * @see qcc::IfConfig()
      * @see qcc::IfConfigEntry
      */
-    QStatus OpenInterface(const qcc::String& name);
+    QStatus OpenInterface(/* TransportMask transportMask, */ const qcc::String& name);
 
     /**
      * @brief Tell the name service to begin listening and transmitting
@@ -299,6 +288,8 @@ class IpNameServiceImpl : public qcc::Thread {
      * the name service will periodically check to see if one comes up
      * and will begin to use it whenever it can.
      *
+     * @param transportMask A bitmask containing the transport requesting the
+     *     advertisements.
      * @param name The interface name of the interface to start talking to
      *     and listening on (e.g., eth1 or wlan0).
      *
@@ -307,12 +298,14 @@ class IpNameServiceImpl : public qcc::Thread {
      * @see qcc::IfConfig()
      * @see qcc::IfConfigEntry
      */
-    QStatus OpenInterface(const qcc::IPAddress& address);
+    QStatus OpenInterface(/* TransportMask transportMask, */ const qcc::IPAddress& address);
 
     /**
      * @brief Tell the name service to stop listening and transmitting
      * on the provided network interface.
      *
+     * @param transportMask A bitmask containing the transport requesting the
+     *     advertisements.
      * @param address The interface name of the interface to stop talking
      *     to and listening on.
      *
@@ -320,12 +313,14 @@ class IpNameServiceImpl : public qcc::Thread {
      *
      * @see OpenInterface
      */
-    QStatus CloseInterface(const qcc::String& name);
+    QStatus CloseInterface(/* TransportMask transportMask, */ const qcc::String& name);
 
     /**
      * @brief Tell the name service to stop listening and transmitting
      * on the provided network interface.
      *
+     * @param transportMask A bitmask containing the transport requesting the
+     *     advertisements.
      * @param address The IP address the interface to stop talking
      *     to and listening on.
      *
@@ -333,47 +328,114 @@ class IpNameServiceImpl : public qcc::Thread {
      *
      * @see OpenInterface
      */
-    QStatus CloseInterface(const qcc::IPAddress& address);
+    QStatus CloseInterface(/* TransportMask transportMask, */ const qcc::IPAddress& address);
 
     /**
-     * @brief Enable communication with the outside world.
+     * @brief Notify the name service that that there is or is not a listener on
+     *     the specified endpoints.
      *
-     * The Android Compatibility Test Suite (CTS) is used by Google to enforce
-     * a common idea of what it means to be Android.  One of their tests is to
-     * make sure there are no TCP or UDP listeners in running processes when the
-     * phone is idle.  Since we want to be able to run our daemon on idle phones
-     * and manufacturers want their Android phones to pass the CTS, we have got
-     * to be able to shut off UDP listeners unless they are actually required.
+     * The IpNameService is shared among several transports.  In order to
+     * advertise the presence of a network endpoint managed by a transport, the
+     * transports need to advise us of the IP addresses and ports on which it
+     * can be contacted.  Each transport may use a different set of addresses
+     * and ports, and so each transport must identify itself to the name
+     * service.  This is done using the TransportMask.  There is a bit in the
+     * TransportMask for each transport in the system.
      *
-     * To do this, the DaemonTCPTRansport keeps track of whether or not it needs
-     * to advertise or discover something.  If it has something to advetise or
-     * discover it will call Enable.
+     * A transport is defined as a module that provides reliable and/or
+     * unreliable data transfer over IPv4 and/or IPv6.  Support for reliable and
+     * unreliable modes is optional, as is support for IPv4 and IPv6.  Port
+     * numbers for reliable, unreliable, IPv4 and IPv6 may also differ.  An
+     * enable bit is conceptually required since support for each endpoint type
+     * is optional.  This makes for thirteen parameters.
      *
-     * Enable() will force a lazy update of the required network
-     * interfaces, and since communication with the outside world is allowed
-     * this will result in all specified UDP listeners being created.
+     *     transportMask,
+     *     enableReliableIPv4, reliableIPv4Addr, reliableIPv4Port
+     *     enableReliableIPv6, reliableIPv6Addr, reliableIPv6Port
+     *     enableUnreliableIPv4, unreliableIPv4Addr, unreliableIPv4Port
+     *     enableUnReliableIPv6, unreliableIPv6Addr, unreliableIPv6Port
+     *
+     * It turns out that since AllJoyn lives in a mobile environment, the
+     * transport must listen on the "any" address.  This is because an IP
+     * address assigned to a given network interface cannot generally be
+     * predicted in advance.
+     *
+     * The mechanism used to "control" which network interfaces can accept
+     * incoming connections, is the presence of outgoing advertisements on those
+     * interfaces.  If a transport desires to accept connections over an
+     * interface, it performs an OpenInterface() on that interface which begins
+     * the process of sending advertisements.  The IP (V4 and or V6) address of
+     * the interface is added to advertisements and sent out over the network.
+     * This which provides the receiver of the advertisements with an IP address
+     * and port to connect to.  The advertising transport, since it is listening
+     * on the "any" address, will respond to all connect requests coming from
+     * clients on the associated network.  If the transport wants to filter
+     * further on source IP addresses, it certainly can; but this is not a
+     * concern of the name service.
+     *
+     * This all means that we do not need to specify the IP addresses on which
+     * the reliable and unreliable protocols are listening.  Additionally, it
+     * turns out that TCP and UDP port numbers zero are reserved by IANA and so
+     * we can use a port number of zero to indicate a non-enabled condition.
+     * This means that the enabled parameters are not required.  This means that
+     * there are five required parameters to this call instead of thirteen:
+     *
+     *     transportMask,
+     *     reliableIPv4Port, reliableIPv6Port,
+     *     unreliableIPv4Port, unreliableIPv6Port
+     *
+     * In many cases, the transports will not support all combinations.  For
+     * example, the tcp transport currently only supports reliable IPv4
+     * connections, and so the call for this transport might be:
+     *
+     *     SetEndpointsForTransport(TRANSPORT_WLAN, 9955, 0, 0, 0);
+     *
+     * The Android Compatibility Test Suite demands that an Android phone may
+     * not hold an open socket in the quiescent state.  Since we provide a
+     * native daemon that always runs on the phone, and the daemon has
+     * transports that want to listen on sockets, there must be a way to close
+     * those sockets (and the multicast sockets in the name service) and not
+     * use them at all when there are no advertisements or discovery operations
+     * in progress.  This also helps with power consumption.
+     *
+     * Enable() communicates the fact that there is or is not a listener for the
+     * specified transport port and this, in turn, implies whether or not
+     * advertisements should be sent and received over the interfaces opened by
+     * the given transport.
+     *
+     * @param transportMask A bitmask containing the transport handling the specified
+     *     endpoints.
+     * @param reliableIPv4Port If zero, indicates this protocol is not enabled.  If
+     *     non-zero, indicates the port number of a server listening for connections.
+     * @param reliableIPv6Port If zero, indicates this protocol is not enabled.  If
+     *     non-zero, indicates the port number of a server listening for connections.
+     * @param unreliableIPv4Port If zero, indicates this protocol is not enabled.  If
+     *     non-zero, indicates the port number of a server listening for connections.
+     * @param unreliableIPv6Port If zero, indicates this protocol is not enabled.  If
+     *     non-zero, indicates the port number of a server listening for connections.
      */
-    void Enable(void);
+    QStatus Enable(TransportMask transportMask,
+                   uint16_t reliableIPv4Port, uint16_t reliableIPv6Port,
+                   uint16_t unreliableIPv4Port, uint16_t unreliableIPv6Port);
 
     /**
-     * @brief Disable communication with the outside world.
+     * @brief Ask the name service whether or not it thinks there is or is not a
+     *     listener on the specified ports for the given transport.
      *
-     * The Android Compatibility Test Suite (CTS) is used by Google to enforce
-     * a common idea of what it means to be Android.  One of their tests is to
-     * make sure there are no TCP or UDP listeners in running processes when the
-     * phone is idle.  Since we want to be able to run our daemon on idle phones
-     * and manufacturers want their Android phones to pass the CTS, we have got
-     * to be able to shut off UDP listeners unless they are actually required.
-     *
-     * To do this, the DaemonTCPTRansport keeps track of whether or not it needs
-     * to advertise or discover something.  If it has nothing to advetise or
-     * discover it will call Disable.
-     *
-     * Disable() will force a lazy update of the required network
-     * interfaces, and since communication with the outside world is disallowed
-     * this will result in all UDP listeners being destroyed.
+     * @param transportMask A bitmask containing the transport handling the specified
+     *     endpoints.
+     * @param reliableIPv4Port If zero, indicates this protocol is not enabled.  If
+     *     non-zero, indicates the port number of a server listening for connections.
+     * @param reliableIPv6Port If zero, indicates this protocol is not enabled.  If
+     *     non-zero, indicates the port number of a server listening for connections.
+     * @param unreliableIPv4Port If zero, indicates this protocol is not enabled.  If
+     *     non-zero, indicates the port number of a server listening for connections.
+     * @param unreliableIPv6Port If zero, indicates this protocol is not enabled.  If
+     *     non-zero, indicates the port number of a server listening for connections.
      */
-    void Disable(void);
+    QStatus Enabled(TransportMask transportMask,
+                    uint16_t& reliableIPv4Port, uint16_t& reliableIPv6Port,
+                    uint16_t& unreliableIPv4Port, uint16_t& unreliableIPv6Port);
 
     /**
      * Allow a user to select what kind of retry policy should be used when
@@ -428,6 +490,8 @@ class IpNameServiceImpl : public qcc::Thread {
      * @see SetLostCallback()
      * @see LocatePolicy
      *
+     * @param[in] transportMask A bitmask containing the transport requesting the
+     *     discovery operation.
      * @param[in] wkn The AllJoyn well-known name to find (e.g.,
      *     "org.freedesktop.Sensor").  Wildcards are supported in the
      *     sense of Linux shell wildcards.  See fnmatch(3C) for details.
@@ -435,7 +499,7 @@ class IpNameServiceImpl : public qcc::Thread {
      *
      * @return Status of the operation.  Returns ER_OK on success.
      */
-    QStatus Locate(const qcc::String& wkn, LocatePolicy policy = ALWAYS_RETRY);
+    QStatus Locate(/* TransportMask transportMask, */ const qcc::String& wkn, LocatePolicy policy = ALWAYS_RETRY);
 
     /**
      * @brief Set the Callback for notification of discovery events.
@@ -507,71 +571,8 @@ class IpNameServiceImpl : public qcc::Thread {
      *
      * @param[in] cb the Callback pointer.
      */
-    void SetCallback(Callback<void, const qcc::String&, const qcc::String&, std::vector<qcc::String>&, uint8_t>* cb);
-
-    /**
-     * @brief Set the endpoint information for the current daemon.
-     *
-     * If an AllJoyn daemon wants to advertise its presence on the local subnet(s)
-     * it must call this method before making any actual advertisements in order
-     * to set its IPv4 address (if any), its IPv6 address (if any) and port.
-     *
-     * Addresses must be provided in presentation format (dotted decimal for
-     * IPV4 or colon-separated hex for IPV6).  It must also provide the port on
-     * which it may be contacted.
-     *
-     * In order to avoid confusion on the network, this method may only be called
-     * once.
-     *
-     * @param[in] ipv4address The IPv4 address of the calling daemon.  If this
-     *     address is provided it is placed all advertisements and trumps the
-     *     default "IPv4 advertisements get same interface IPv6 address if IFF_UP"
-     *     and "IPv6 advertisements get same interface IPv4 address if IFF_UP"
-     *     behavior.
-     * @param[in] ipv6address The IPv6 address of the calling daemon.  If this
-     *     address is provided it is placed all advertisements and trumps the
-     *     default "IPv4 advertisements get same interface IPv6 address if IFF_UP"
-     *     and "IPv6 advertisements get same interface IPv4 address if IFF_UP"
-     *     behavior.
-     * @param[in] port The port on which the calling daemon listens.  Must be
-     *     the same for IPv4 and IPv6.
-     *
-     * @return Status of the operation.  Returns ER_OK on success.
-     *
-     * @see Init()
-     */
-    QStatus SetEndpoints(const qcc::String& ipv4address, const qcc::String& ipv6address, uint16_t port);
-
-    /**
-     * @brief Set the endpoint information for the current daemon.
-     *
-     * If an AllJoyn daemon wants to advertise its presence on the local subnet(s)
-     * it must call this method before making any actual advertisements in order
-     * to set its IPv4 address (if any), its IPv6 address (if any) and port.
-     *
-     * Addresses must be provided in presentation format (dotted decimal for
-     * IPV4 or colon-separated hex for IPV6).  It must also provide the port on
-     * which it may be contacted.
-     *
-     * In order to avoid confusion on the network, this method may only be called
-     * once.
-     *
-     * @param[out] ipv4address The IPv4 address of the daemon.  If this address
-     *     has been provided to the name service in a previous call to
-     *     SetEndpoints it will be returned, otherwise the referenced string
-     *     will be set to empty.
-     * @param[out] ipv6address The IPv6 address of the daemon.  If this address
-     *     has been provided to the name service in a previous call to
-     *     SetEndpoints it will be returned, otherwise the referenced string
-     *     will be set to empty.
-     * @param[out] port The port on which the calling daemon listens.  Must have
-     *     been previously set in a call to SetEndpoints.
-     *
-     * @return Status of the operation.  Returns ER_OK on success.
-     *
-     * @see Init()
-     */
-    QStatus GetEndpoints(qcc::String& ipv4address, qcc::String& ipv6address, uint16_t& port);
+    void SetCallback( /* TransportMask transportMask, */
+        Callback<void, const qcc::String&, const qcc::String&, std::vector<qcc::String>&, uint8_t>* cb);
 
     /**
      * @brief Advertise an AllJoyn daemon service.
@@ -588,11 +589,13 @@ class IpNameServiceImpl : public qcc::Thread {
      *
      * @see SetEndpoints()
      *
+     * @param[in] transportMask A bitmask containing the transport requesting the
+     *     advertisement.
      * @param[in] wkn The AllJoyn interface (e.g., "org.freedesktop.Sensor").
      *
      * @return Status of the operation.  Returns ER_OK on success.
      */
-    QStatus Advertise(const qcc::String& wkn);
+    QStatus Advertise(/* TransportMask transportMask, */ const qcc::String& wkn);
 
     /**
      * @brief Cancel an AllJoyn daemon service advertisement.
@@ -621,11 +624,13 @@ class IpNameServiceImpl : public qcc::Thread {
      *
      * @see SetEndpoints()
      *
+     * @param[in] transportMask A bitmask containing the transport requesting the
+     *     advertisement.
      * @param[in] wkn A vector of AllJoyn well-known names (e.g., "org.freedesktop.Sensor").
      *
      * @return Status of the operation.  Returns ER_OK on success.
      */
-    QStatus Advertise(std::vector<qcc::String>& wkn);
+    QStatus Advertise(/* TransportMask transportMask, */ std::vector<qcc::String>& wkn);
 
     /**
      * @brief Cancel an AllJoyn daemon service advertisement.
@@ -633,11 +638,13 @@ class IpNameServiceImpl : public qcc::Thread {
      * If an AllJoyn daemon wants to cancel an advertisement of a well-known name
      * on the local subnet(s) it calls this function.
      *
+     * @param[in] transportMask A bitmask containing the transport requesting the
+     *     advertisement be canceled.
      * @param[in] wkn A vector of AllJoyn well-known names (e.g., "org.freedesktop.Sensor").
      *
      * @return Status of the operation.  Returns ER_OK on success.
      */
-    QStatus Cancel(std::vector<qcc::String>& wkn);
+    QStatus Cancel(/* TransportMask transportMask, */ std::vector<qcc::String>& wkn);
 
     /**
      * @brief Returns a count of the number of names currently being advertised
@@ -645,14 +652,6 @@ class IpNameServiceImpl : public qcc::Thread {
      * @return  Returns the number of names currently being advertised
      */
     size_t NumAdvertisements() { return m_advertised.size(); }
-
-    /**
-     * @brief Returns whether or not external network communication is enabled
-     * (or enabling).
-     *
-     * @return Returns true if external communication is enabled, otherwise false.
-     */
-    bool Enabled(void) { return m_enabled || m_doEnable; }
 
   private:
     /**

@@ -299,7 +299,7 @@ QStatus AdvTunnel::RelayAdv()
     IpNameServiceImpl* ns;
     if (nsRelay.count(guid) == 0) {
         ns = new IpNameServiceImpl();
-        status = ns->Init(guid, true, true, false);
+        status = ns->Init(guid);
         if (status != ER_OK) {
             delete ns;
             return status;
@@ -320,9 +320,9 @@ QStatus AdvTunnel::RelayAdv()
             qcc::IPAddress addr(argMap["addr"]);
             uint16_t port = static_cast<uint16_t>(qcc::StringToU32(argMap["port"]));
             if (addr.IsIPv4()) {
-                status = ns->SetEndpoints(addr.ToString(), "", (uint16_t)port);
+                status = ns->Enable(TRANSPORT_TCP, (uint16_t)port, 0, 0, 0);
             } else {
-                status = ns->SetEndpoints("", addr.ToString(), (uint16_t)port);
+                status = ns->Enable(TRANSPORT_TCP, 0, (uint16_t)port, 0, 0);
             }
             if (status == ER_OK) {
                 ns->OpenInterface("*");
@@ -469,13 +469,13 @@ int main(int argc, char** argv)
     ns.SetCallback(new CallbackImpl<AdvTunnel, void, const qcc::String&, const qcc::String&, std::vector<qcc::String>&, uint8_t>
                        (&tunnel, &AdvTunnel::Found));
 
-    ns.Enable();
+    ns.Enable(TRANSPORT_TCP, port, 0, 0, 0);
 
     /*
      * In sniffMode we just report advertisements
      */
     if (sniffMode) {
-        ns.Init(guid, true, true, false);
+        ns.Init(guid);
         ns.Start();
         ns.OpenInterface("*");
         ns.Locate("");
@@ -495,7 +495,7 @@ int main(int argc, char** argv)
         } else {
             printf("Relay established\n");
 
-            ns.Init(guid, true, true, false);
+            ns.Init(guid);
             ns.Start();
 
             ns.OpenInterface("*");

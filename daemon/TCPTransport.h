@@ -39,6 +39,8 @@
 #include <qcc/SocketStream.h>
 #include <qcc/time.h>
 
+#include <alljoyn/TransportMask.h>
+
 #include "Transport.h"
 #include "RemoteEndpoint.h"
 
@@ -649,6 +651,8 @@ class TCPTransport : public Transport, public RemoteEndpoint::EndpointListener, 
     bool m_isDiscovering;
     bool m_isListening;
     bool m_isNsEnabled;
+
+    uint16_t m_listenPort;  /**< If m_isListening, is the port on which we are listening */
 
 #if defined(QCC_OS_ANDROID) && P2P_HELPER
 

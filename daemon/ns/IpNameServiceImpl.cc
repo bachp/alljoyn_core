@@ -39,6 +39,8 @@
 #include <qcc/IfConfig.h>
 #include <qcc/time.h>
 
+#include <DaemonConfig.h>
+
 #include "IpNameServiceImpl.h"
 
 #define QCC_MODULE "IPNS"
@@ -438,12 +440,7 @@ IpNameServiceImpl::IpNameServiceImpl()
     QCC_DbgPrintf(("IpNameServiceImpl::IpNameServiceImpl()"));
 }
 
-QStatus IpNameServiceImpl::Init(
-    const qcc::String& guid,
-    bool enableIPv4,
-    bool enableIPv6,
-    bool disableBroadcast,
-    bool loopback)
+QStatus IpNameServiceImpl::Init(const qcc::String& guid, bool loopback)
 {
     QCC_DbgPrintf(("IpNameServiceImpl::Init()"));
 
@@ -457,16 +454,41 @@ QStatus IpNameServiceImpl::Init(
 
     m_state = IMPL_INITIALIZING;
 
+    DaemonConfig* config = DaemonConfig::Access();
+
+    //
+    // We enable outbound traffic on a per-interface basis.  Whether or not we
+    // will consider using a network interface address to send name service
+    // packets depends on the configuration.
+    //
+    m_enableIPv4 = config->Get("ip_name_service/property@enable_ipv4", "true") == "true";
+    m_enableIPv6 = config->Get("ip_name_service/property@enable_ipv6", "true") == "true";
+    m_broadcast = config->Get("ip_name_service/property@disable_directed_broadcast", "false") == "false";
+
     m_guid = guid;
-    m_enableIPv4 = enableIPv4;
-    m_enableIPv6 = enableIPv6;
-    m_broadcast = !disableBroadcast;
     m_loopback = loopback;
     m_terminal = false;
 
     return ER_OK;
 }
 
+//
+// When we moved the name service out of the TCP transport and promoted it to a
+// singleton, we opened a bit of a can of worms because of the C++ static
+// destruction order fiasco and our interaction with the bundled daemon.
+//
+// Since the bundled daemon may be destroyed after the IP name service singleton
+// it is possible that multiple threads (transports) may be still accessing the
+// name service as it is being destroyed.  This horrific situation will be
+// resolved when we accomplish strict destructor ordering, but for now, we have
+// the possibility.
+//
+// This object was never intended to provide multithread safe destruction and so
+// we are exposed in the case where the object destroys itself around a thread
+// that is executing in one of its methods.  The chances are small that this
+// happens, but the chance is non-zero; and the result might be a crash after
+// the process main() function exits!
+//
 IpNameServiceImpl::~IpNameServiceImpl()
 {
     QCC_DbgPrintf(("IpNameServiceImpl::~IpNameServiceImpl()"));
@@ -480,8 +502,7 @@ IpNameServiceImpl::~IpNameServiceImpl()
     }
 
     //
-    // We may have some open sockets.  We aren't multithreaded any more since
-    // the worker thread has stopped.
+    // We may have some open sockets.
     //
     ClearLiveInterfaces();
 
@@ -1090,24 +1111,46 @@ void IpNameServiceImpl::LazyUpdateInterfaces(void)
     }
 }
 
-void IpNameServiceImpl::Enable(void)
+QStatus IpNameServiceImpl::Enable(TransportMask transportMask,
+                                  uint16_t reliableIPv4Port, uint16_t reliableIPv6Port,
+                                  uint16_t unreliableIPv4Port, uint16_t unreliableIPv6Port)
 {
-    // If the previous disable request has not yet been serviced,
-    // remove the request. Only the latest request must be serviced.
-    m_doDisable = false;
-    m_doEnable = true;
+    m_port = reliableIPv4Port;
+
+    if (reliableIPv4Port) {
+        //
+        // If a previous disable request has not yet been serviced, remove the
+        // request. Only the latest request must be serviced and that is this
+        // enable (since the port is non-zero).
+        //
+        m_doDisable = false;
+        m_doEnable = true;
+    } else {
+        //
+        // If the previous enable request has not yet been serviced, remove the
+        // request. Only the latest request must be serviced and that is this
+        // disable (since the port is zero).
+        //
+        m_doEnable = false;
+        m_doDisable = true;
+    }
+
     m_forceLazyUpdate = true;
     m_wakeEvent.SetEvent();
+
+    return ER_OK;
 }
 
-void IpNameServiceImpl::Disable(void)
+QStatus IpNameServiceImpl::Enabled(TransportMask transportMask,
+                                   uint16_t& reliableIPv4Port, uint16_t& reliableIPv6Port,
+                                   uint16_t& unreliableIPv4Port, uint16_t& unreliableIPv6Port)
 {
-    // If the previous enable request has not yet been serviced,
-    // remove the request. Only the latest request must be serviced.
-    m_doEnable = false;
-    m_doDisable = true;
-    m_forceLazyUpdate = true;
-    m_wakeEvent.SetEvent();
+    reliableIPv4Port = m_port;
+    reliableIPv6Port = 0;
+    unreliableIPv4Port = 0;
+    unreliableIPv4Port = 0;
+
+    return ER_OK;
 }
 
 QStatus IpNameServiceImpl::Locate(const qcc::String& wkn, LocatePolicy policy)
@@ -1166,100 +1209,6 @@ void IpNameServiceImpl::SetCallback(Callback<void, const qcc::String&, const qcc
     m_callback = NULL;
     delete goner;
     m_callback = cb;
-}
-
-QStatus IpNameServiceImpl::SetEndpoints(
-    const qcc::String& ipv4address,
-    const qcc::String& ipv6address,
-    uint16_t port)
-{
-    QCC_DbgHLPrintf(("IpNameServiceImpl::SetEndpoints(%s, %s, %d)", ipv4address.c_str(), ipv6address.c_str(), port));
-
-    m_mutex.Lock();
-
-    //
-    // If getting an IPv4 address, do some reasonableness checking.
-    //
-    if (ipv4address.size()) {
-        if (ipv4address == "0.0.0.0") {
-            QCC_DbgPrintf(("IpNameServiceImpl::SetEndpoints(): IPv4 address looks like INADDR_ANY"));
-            return ER_FAIL;
-        }
-
-        if (IpNameServiceImplWildcardMatch(ipv4address, "*255") == 0) {
-            QCC_DbgPrintf(("IpNameServiceImpl::SetEndpoints(): IPv4 address looks like a broadcast address"));
-            return ER_FAIL;
-        }
-
-        if (IpNameServiceImplWildcardMatch(ipv4address, "127*") == 0) {
-            QCC_DbgPrintf(("IpNameServiceImpl::SetEndpoints(): IPv4 address looks like a loopback address"));
-            return ER_FAIL;
-        }
-    }
-
-    //
-    // If getting an IPv6 address, do some reasonableness checking.
-    //
-    if (ipv6address.size()) {
-        if (ipv6address == "0:0:0:0:0:0:0:1") {
-            QCC_DbgPrintf(("IpNameServiceImpl::SetEndpoints(): IPv6 address looks like a loopback address"));
-            return ER_FAIL;
-        }
-
-        if (ipv6address == "::1") {
-            QCC_DbgPrintf(("IpNameServiceImpl::SetEndpoints(): IPv6 address looks like a loopback address"));
-            return ER_FAIL;
-        }
-
-        if (ipv6address == "::") {
-            QCC_DbgPrintf(("IpNameServiceImpl::SetEndpoints(): IPv6 address looks like in6addr_any"));
-            return ER_FAIL;
-        }
-
-        if (ipv6address == "0::0") {
-            QCC_DbgPrintf(("IpNameServiceImpl::SetEndpoints(): IPv6 address looks like in6addr_any"));
-            return ER_FAIL;
-        }
-
-        if (ipv6address == "ff*") {
-            QCC_DbgPrintf(("IpNameServiceImpl::SetEndpoints(): IPv6 address looks like a multicast address"));
-            return ER_FAIL;
-        }
-    }
-
-    //
-    // You must provide a reasonable port.
-    //
-    if (port == 0) {
-        QCC_DbgPrintf(("IpNameServiceImpl::SetEndpoints(): Must provide non-zero port"));
-        return ER_FAIL;
-    }
-
-    m_ipv4address = ipv4address;
-    m_ipv6address = ipv6address;
-    m_port = port;
-
-    m_forceLazyUpdate = true;
-    m_wakeEvent.SetEvent();
-    m_mutex.Unlock();
-
-    return ER_OK;
-}
-
-QStatus IpNameServiceImpl::GetEndpoints(
-    qcc::String& ipv4address,
-    qcc::String& ipv6address,
-    uint16_t& port)
-{
-    QCC_DbgHLPrintf(("IpNameServiceImpl::GetEndpoints(%s, %s, %d)", ipv4address.c_str(), ipv6address.c_str(), port));
-
-    m_mutex.Lock();
-    ipv4address = m_ipv4address;
-    ipv6address = m_ipv6address;
-    port = m_port;
-    m_mutex.Unlock();
-
-    return ER_OK;
 }
 
 QStatus IpNameServiceImpl::Advertise(const qcc::String& wkn)

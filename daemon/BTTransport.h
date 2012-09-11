@@ -72,8 +72,9 @@ class BTTransport :
   public:
     /**
      * Returns the name of this transport
+     * @return The name of this transport.
      */
-    static const char* TransportName()  { return "bluetooth"; }
+    const char* GetTransportName() const { return TransportName; };
 
     /**
      * Get the transport mask for this transport
@@ -271,6 +272,11 @@ class BTTransport :
     void EndpointExit(RemoteEndpoint* endpoint);
 
     /**
+     * Name of transport used in transport specs.
+     */
+    static const char* TransportName;
+
+    /**
      * Register a listener for transport related events.
      *
      * @param listener The listener to register. If this parameter is NULL the current listener is removed
@@ -310,12 +316,6 @@ class BTTransport :
      * @param nameListEmpty   Indicates whether advertise name list is completely empty (safe to disable OTA advertising).
      */
     void DisableAdvertisement(const qcc::String& advertiseName, bool nameListEmpty);
-
-    /**
-     * Returns the name of this transport
-     * @return The name of this transport.
-     */
-    const char* GetTransportName() const { return TransportName(); };
 
     /**
      * Indicates whether this transport is used for client-to-bus or bus-to-bus connections.

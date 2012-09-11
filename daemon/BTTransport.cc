@@ -62,6 +62,10 @@ using namespace ajn::bluez;
 
 namespace ajn {
 
+/**
+ * Name of transport used in transport specs.
+ */
+const char* BTTransport::TransportName = "bluetooth";
 
 #define BUS_NAME_TTL numeric_limits<uint8_t>::max()
 

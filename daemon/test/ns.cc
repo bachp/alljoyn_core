@@ -20,27 +20,36 @@
  ******************************************************************************/
 
 #include <assert.h>
-
 #include <string.h>
-#include <qcc/platform.h>
-#include <qcc/Debug.h>
-#include <qcc/String.h>
-#include <qcc/IfConfig.h>
-#include <qcc/GUID.h>
 #include <vector>
 #include <stdlib.h>
 #include <stdio.h>
 #include <time.h>
 
+#include <qcc/platform.h>
+#include <qcc/Debug.h>
+#include <qcc/String.h>
+#include <qcc/IfConfig.h>
+#include <qcc/GUID.h>
 #include <qcc/Thread.h>  // For qcc::Sleep()
 
 #include <Status.h>
-
+#include <ns/IpNameService.h>
 #include <ns/IpNameServiceImpl.h>
+#include <DaemonConfig.h>
 
 #define QCC_MODULE "ALLJOYN"
 
 using namespace ajn;
+
+static const char config[] =
+    "<busconfig>"
+    "  <ip_name_service>"
+    "    <property disable_directed_broadcast=\"false\"/>"
+    "    <property enable_ipv4=\"true\"/>"
+    "    <property enable_ipv6=\"true\"/>"
+    "  </ip_name_service>"
+    "</busconfig>";
 
 char const* g_names[] = {
     "org.randomteststring.A",
@@ -230,14 +239,29 @@ int main(int argc, char** argv)
         exit(0);
     }
 
+    //
+    // Load the configuration information
+    //
+    DaemonConfig::Load(config);
+
+    //
+    // Test code
+    //
+    IpNameService::Instance();
+
+    //
+    // Create an instance of the name service implementation.  This cheats
+    // big-time and allows us to get down into the guts of the IP name
+    // service.
+    //
     IpNameServiceImpl ns;
 
     //
-    // Initialize to a random quid, and talk to ourselves.
+    // Initialize to a random quid, and talk to ourselves.  We don't have a
+    // daemon config, so we expect to get the defalt setting for disabling
+    // broadcasts, which is false.
     //
-    bool enableIPv4, enableIPv6, loopback;
-    enableIPv4 = enableIPv6 = loopback = true;
-    status = ns.Init(qcc::GUID128().ToString(), enableIPv4, enableIPv6, false, loopback);
+    status = ns.Init(qcc::GUID128().ToString(), true);
     if (status != ER_OK) {
         QCC_LogError(status, ("Init failed"));
         ERROR_EXIT;
@@ -299,17 +323,17 @@ int main(int argc, char** argv)
     //
     port = rand();
     printf("Picked random port %d\n", port);
-    status = ns.SetEndpoints("", "", port);
+
+    //
+    // Pretend we're the TCP transport and we want to advertise reliable and
+    // unreliable IPv4 and IPv6 ports (all the same).
+    //
+    status = ns.Enable(TRANSPORT_TCP, port, port, port, port);
 
     if (status != ER_OK) {
-        QCC_LogError(status, ("SetEndpoints failed"));
+        QCC_LogError(status, ("Enable failed"));
         ERROR_EXIT;
     }
-
-    //
-    // Enable the name service to communicate with the outside world.
-    //
-    ns.Enable();
 
     Finder finder;
 
@@ -353,6 +377,7 @@ int main(int argc, char** argv)
     // Hang around and mess with advertisements for a while.
     //
     for (uint32_t i = 0; i < 200; ++i) {
+
         //
         // Sleep for a while -- long enough for the name service to respond and
         // humans to observe what is happening.

@@ -97,7 +97,7 @@ QStatus TransportList::Start(const String& transportSpecs)
          * client/service to specify what flavor of transport it wants.  For
          * example, a client will want the lightweight client version of the
          * TCPTransport, but a daemon will want to get the version that supports
-         * the name service.
+         * inbound connections.
          *
          * The higher level code then provides a container of objects that
          * knows how to create transports.  We get a string abstractly
