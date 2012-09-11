@@ -756,17 +756,16 @@ QStatus ProxyBusObject::MethodCall(const InterfaceDescription::Member& method,
             status = bus->GetInternal().GetRouter().PushMessage(msg, localEndpoint);
         }
     } else {
-        ManagedObj<SyncReplyContext> ctxt(*bus);
+        SyncReplyContext ctxt(*bus);
         /*
          * Synchronous calls are really asynchronous calls that block waiting for a builtin
          * reply handler to be called.
          */
-        ManagedObj<SyncReplyContext>* heapCtx = new ManagedObj<SyncReplyContext>(ctxt);
         status = localEndpoint.RegisterReplyHandler(const_cast<MessageReceiver*>(static_cast<const MessageReceiver* const>(this)),
                                                     static_cast<MessageReceiver::ReplyHandler>(&ProxyBusObject::SyncReplyHandler),
                                                     method,
                                                     msg,
-                                                    heapCtx,
+                                                    &ctxt,
                                                     timeout);
         if (status == ER_OK) {
             if (b2bEp) {
@@ -774,9 +773,6 @@ QStatus ProxyBusObject::MethodCall(const InterfaceDescription::Member& method,
             } else {
                 status = bus->GetInternal().GetRouter().PushMessage(msg, localEndpoint);
             }
-        } else {
-            delete heapCtx;
-            heapCtx = NULL;
         }
 
         Thread* thisThread = Thread::GetThread();
@@ -785,32 +781,27 @@ QStatus ProxyBusObject::MethodCall(const InterfaceDescription::Member& method,
             if (!isExiting) {
                 components->waitingThreads.push_back(thisThread);
                 lock->Unlock(MUTEX_CONTEXT);
-                status = Event::Wait(ctxt->event);
+                status = Event::Wait(ctxt.event, timeout);
                 lock->Lock(MUTEX_CONTEXT);
-                vector<Thread*>::iterator it = components->waitingThreads.begin();
-                while (it != components->waitingThreads.end()) {
-                    if (*it == thisThread) {
-                        components->waitingThreads.erase(it);
-                        break;
-                    }
-                    ++it;
+
+                std::vector<Thread*>::iterator it = std::find(components->waitingThreads.begin(), components->waitingThreads.end(), thisThread);
+                if (it != components->waitingThreads.end()) {
+                    components->waitingThreads.erase(it);
                 }
             }
             lock->Unlock(MUTEX_CONTEXT);
         }
+
         if ((status == ER_OK) && (SYNC_METHOD_ALERTCODE_OK == thisThread->GetAlertCode())) {
-            replyMsg = ctxt->replyMsg;
+            replyMsg = ctxt.replyMsg;
         } else if (SYNC_METHOD_ALERTCODE_ABORT == thisThread->GetAlertCode()) {
             /*
              * We can't touch anything in this case since the external thread that was waiting
              * can't know whether this object still exists.
              */
             status = ER_BUS_METHOD_CALL_ABORTED;
-        } else if (localEndpoint.UnregisterReplyHandler(msg)) {
-            /*
-             * The handler was deregistered so we need to delete the context here.
-             */
-            delete heapCtx;
+        } else {
+            localEndpoint.UnregisterReplyHandler(msg);
         }
     }
 
@@ -852,17 +843,16 @@ QStatus ProxyBusObject::MethodCall(const char* ifaceName,
 
 void ProxyBusObject::SyncReplyHandler(Message& msg, void* context)
 {
-    ManagedObj<SyncReplyContext>* ctx = reinterpret_cast<ManagedObj<SyncReplyContext>*> (context);
+    SyncReplyContext* ctx = static_cast<SyncReplyContext*>(context);
 
     /* Set the reply message */
-    (*ctx)->replyMsg = msg;
+    ctx->replyMsg = msg;
 
     /* Wake up sync method_call thread */
-    QStatus status = (*ctx)->event.SetEvent();
+    QStatus status = ctx->event.SetEvent();
     if (ER_OK != status) {
         QCC_LogError(status, ("SetEvent failed"));
     }
-    delete ctx;
 }
 
 QStatus ProxyBusObject::SecureConnection(bool forceAuth)
