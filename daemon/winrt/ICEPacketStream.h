@@ -49,9 +49,6 @@ class ICEPacketStream : public PacketStream {
                                           StunAttributeFingerprint::ATTR_SIZE_WITH_HEADER + TURN_ACCT_TOKEN_MAX_SIZE +
                                           TURN_ACCT_TOKEN_ATTRIBUTE_HEADER_SIZE;
 
-    /** Construct a PacketDest from a addr,port */
-    static PacketDest GetPacketDest(const qcc::IPAddress& addr, uint16_t port);
-
     /** Constructor */
     ICEPacketStream();
 

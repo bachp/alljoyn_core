@@ -472,7 +472,7 @@ QStatus DaemonICEEndpoint::PacketEngineConnect(const IPAddress& addr, uint16_t p
 
     QStatus status;
 
-    PacketDest packDest = ICEPacketStream::GetPacketDest(addr, port);
+    PacketDest packDest = GetPacketDest(addr, port);
 
     /* Connect to dest */
     Event waitEvt;

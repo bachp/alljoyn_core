@@ -39,16 +39,6 @@ using namespace qcc;
 
 namespace ajn {
 
-PacketDest ICEPacketStream::GetPacketDest(const IPAddress& addr, uint16_t port)
-{
-    PacketDest pd;
-    ::memset((uint8_t*)(&pd), 0, sizeof(PacketDest));
-    addr.RenderIPBinary(pd.ip, IPAddress::IPv6_SIZE);
-    pd.addrSize = addr.Size();
-    pd.port = port;
-    return pd;
-}
-
 ICEPacketStream::ICEPacketStream(ICESession& iceSession, Stun& stun, const ICECandidatePair& selectedPair) :
     ipAddress(stun.GetLocalAddr()),
     port(stun.GetLocalPort()),
