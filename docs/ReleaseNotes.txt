@@ -7,32 +7,54 @@ Platform Support
 2) Android Froyo 2.2 (ARM7)
 3) Android Gingerbread 2.3.4 (ARM7)
 4) Android Ice Cream Sandwich 4.0 (ARM7)
-5) Windows XP (32 bit x86)
-6) Windows 7 (32 and 64 bit x86)
+5) Android Jelly Bean 4.1 (ARM7)
+6) Windows XP (32 bit x86)
+7) Windows 7 (32 and 64 bit x86)
 
 
 Features added in this release
 ------------------------------
 
-FIXME ####
+* Re-designed bundled daemon for improved stability and performance.
+
+* Added Unity (http://unity3d.com/) language binding for Android.
+
+* Added support for JavaScript on Linux (Chrome only at this time).
+
 
 Issues Addressed in this Release
 --------------------------------
 
-FIXME ####
+ALLJOYN-1154: The number of names that can be advertised from a
+single AllJoyn daemon instance over TCP is no longer limited to
+1400 bytes.
+
+ALLJOYN-1217: Improved stability when using AllJoyn with four
+devices over Bluetooth.
+
+ALLJOYN-1228: Improved discovery time when using ICE / Rendezvous
+with proximity scanning service.
+
+ALLJOYN-1297: Application now receives LostAdvertisedName if WiFi is
+disabled after receiving FoundAdvertisedName.
+
+ALLJOYN-1324: ICE proximity service is now functional with the AllJoyn
+pre-installed daemon.
+
+ALLJOYN-1331: Windows 7 heap is no longer corrupted when BusAttachment is
+deleted.
+
 
 Known issues and limitations with this release
 ----------------------------------------------
 
-FIXME #### ALLJOYN-1154: The number of names that can be advertised from a single AllJoyn
-daemon instance (either bundled or unbundled) over TCP is limited to about 1400
-bytes.
+ALLJOYN-1229:  Session handling at the edge of an unreliable connected
+network may result in unexpected behavior.
 
-FIXME #### ALLJOYN-1217: AllJoyn operation over Bluetooth is stable with up to 3
-devices. Some instabilites are seen with 4 or more devices.
+ALLJOYN-1311:  NPAPI plugin not functional on Android.
 
-FIXME #### ALLJOYN-1228: Discovery times when using ICE / Rendezvous are sometimes longer
-than necessary due to proximity scanning.
+ALLJOYN-various:  AllJoyn may become unstable if an application rapidly
+creates and destroys a large number of bus objects and bus attachments.
 
 
 Compatibility
@@ -70,12 +92,9 @@ Change history
 --------------
 2.5.1 - Bug fixes.
 
-2.5.0 - Added support for ICE (IETF draft-ietf-mmusic-ice-19) connections.
-        Added BusAttachment.EnableConcurrentCallbacks.
-        Added BusAttachment.SetLinkTimeoutAsync.
-        Added GoogleTest unit test framework.
-
-2.3.6 - AllJoyn Unity Extension
+2.5.0 - Support for ICE transport.  Support for Concurrent Methods/Signals.
+        Added new API BusAttachment.SetLinkTimeoutAsync. Added GoogleTest
+        Suite for AllJoyn core.
 
 2.3.5 - Bug fixes.
 
