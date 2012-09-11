@@ -261,6 +261,8 @@ class ICEPacketStream : public PacketStream {
     uint16_t turnPort;
     qcc::IPAddress relayServerAddress;
     uint16_t relayServerPort;
+    qcc::IPAddress localSrflxAddress;
+    uint16_t localSrflxPort;
     qcc::SocketFd sock;
     qcc::Event* sourceEvent;
     qcc::Event* sinkEvent;
