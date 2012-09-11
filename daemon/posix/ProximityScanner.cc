@@ -386,6 +386,7 @@ void ProximityScanner::Scan(bool request_scan) {
     QCC_DbgTrace(("ProximityScanner::Scan()"));
 
     QCC_DbgPrintf(("Retrieving BSSID from CaptiveNetwork API for iOS..."));
+    
 
     // Start with a clean slate
     //
@@ -409,12 +410,14 @@ void ProximityScanner::Scan(bool request_scan) {
             CFDictionaryRef networkInfo = CNCopyCurrentNetworkInfo(interfaceNameString);
             if (NULL == networkInfo) {
                 continue;
-            }
+            }            
             CFStringRef bssidString = (CFStringRef)CFDictionaryGetValue(networkInfo, kCNNetworkInfoKeyBSSID);
             CFStringRef ssidString = (CFStringRef)CFDictionaryGetValue(networkInfo, kCNNetworkInfoKeySSID);
             qcc::String bssid_str(CFStringGetCStringPtr(bssidString, encodingMethod));
             qcc::String ssid_str(CFStringGetCStringPtr(ssidString, encodingMethod));
-
+            
+            CFRelease(networkInfo);
+            
             bool attached = true; // always true on iOS, since we can only see the BSSID of the router we are affiliated with.
 
             scanResults.insert(std::map<std::pair<qcc::String, qcc::String>, bool>::value_type(std::make_pair(bssid_str, ssid_str), attached));
@@ -432,6 +435,8 @@ void ProximityScanner::Scan(bool request_scan) {
             break;
         }
     }
+    
+    CFRelease(supportedInterfaces);
 }
 
 #else
