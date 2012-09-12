@@ -100,9 +100,11 @@ class LocalEndpoint::ReplyContext {
         method(method),
         callFlags(methodCall->GetFlags()),
         serial(methodCall->msgHeader.serialNum),
-        context(context),
-        alarm(timeout, ep, this)
+        context(context)
     {
+        uint32_t zero = 0;
+        void* tempContext = (void*)this;
+        alarm = Alarm(timeout, ep, tempContext, zero);
     }
 
     ~ReplyContext() {
