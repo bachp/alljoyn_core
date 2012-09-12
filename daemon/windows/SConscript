@@ -16,7 +16,7 @@
 Import('env', 'daemon_objs')
 
 # OS specific objects for daemon
-os_objs = []
+os_objs = env.Object(['Socket.cc', 'ProximityScanner.cc'])
 
 env.Append(CPPPATH=[env.Dir('../../daemon').srcnode()])
 
@@ -24,7 +24,7 @@ env.Append(CPPPATH=[env.Dir('../../daemon').srcnode()])
 rsc = env.RES('DaemonResources.rc')
 
 # Build the Windows daemon.
-daemon_libs = env.SharedLibrary('daemonlib', ['daemon-service.cc', 'daemon-main.cc', 'Socket.cc'] + daemon_objs + rsc)
+daemon_libs = env.SharedLibrary('daemonlib', ['daemon-service.cc', 'daemon-main.cc'] + daemon_objs + rsc + os_objs)
 env.Install('$DISTDIR/lib', daemon_libs[1]) #put the *.lib file in the lib folder
 env2 = env.Clone();
 env2.Append(LIBS=['daemonlib'])
