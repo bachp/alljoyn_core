@@ -36,12 +36,11 @@ ns_srcs = env.SConscript('ns/SConscript')
 base_objs.extend(env.Object(ns_srcs))
 
 # Add in ICE support
-if env['OS_GROUP'] == 'posix' or  env['OS_GROUP'] == 'winrt':
-    env.Append(CPPPATH=[env.Dir(env['OS_GROUP']).srcnode()])
-    ice_srcs = env.SConscript('ice/SConscript')
-    base_objs.extend(env.Object(ice_srcs))
-    json_srcs = env.SConscript('JSON/SConscript')
-    base_objs.extend(env.Object(json_srcs))   
+env.Append(CPPPATH=[env.Dir(env['OS_GROUP']).srcnode()])
+ice_srcs = env.SConscript('ice/SConscript')
+base_objs.extend(env.Object(ice_srcs))
+json_srcs = env.SConscript('JSON/SConscript')
+base_objs.extend(env.Object(json_srcs))   
 
 # Add in P2P Helper support for Android only
 if env['OS'] == "android":

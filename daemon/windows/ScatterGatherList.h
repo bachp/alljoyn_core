@@ -31,6 +31,7 @@
 #include <list>
 #include <string.h>
 
+#include <qcc/IPAddress.h>
 #include <qcc/Debug.h>
 #include <qcc/SocketTypes.h>
 
