@@ -45,10 +45,7 @@
 #include "RendezvousServerInterface.h"
 #include "PacketEngine.h"
 #include "STUNSocketStream.h"
-
-#ifdef QCC_OS_GROUP_POSIX
-#include "posix/ICEPacketStream.h"
-#endif
+#include "ICEPacketStream.h"
 
 #define QCC_MODULE "ICE"
 

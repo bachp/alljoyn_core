@@ -21,16 +21,21 @@
 
 #include <qcc/platform.h>
 
+#ifdef QCC_OS_GROUP_POSIX
 #include <sys/ioctl.h>
 #include <sys/types.h>
 #include <sys/socket.h>
 #include <net/if.h>
 #include <netinet/in.h>
 #include <netinet/ip.h>
+#include <arpa/inet.h>
+
 #if !defined(QCC_OS_IPHONE)
 #include <netinet/udp.h>
 #endif
-#include <arpa/inet.h>
+
+#endif
+
 #include <errno.h>
 #include <assert.h>
 
@@ -231,7 +236,7 @@ ICEPacketStream& ICEPacketStream::operator=(const ICEPacketStream& other)
         stunKeepAlivePeriod = other.stunKeepAlivePeriod;
 
         if (sock != SOCKET_ERROR) {
-            ::close(sock);
+            Close(sock);
             delete sourceEvent;
             delete sinkEvent;
             delete [] rxRenderBuf;
@@ -282,7 +287,7 @@ ICEPacketStream::~ICEPacketStream()
         delete[] txRenderBuf;
     }
     if (sock != SOCKET_ERROR) {
-        ::close(sock);
+        Close(sock);
     }
 }
 
@@ -308,7 +313,7 @@ QStatus ICEPacketStream::Stop()
 
 QStatus ICEPacketStream::PushPacketBytes(const void* buf, size_t numBytes, PacketDest& dest)
 {
-    QCC_DbgTrace(("ICEPacketStream::PushPacketBytes"));
+    QCC_DbgTrace(("ICEPacketStream::PushPacketBytes numBytes =%d", numBytes));
 
 #ifndef NDEBUG
     size_t messageMtu = usingTurn ? mtuWithStunOverhead : interfaceMtu;
@@ -333,7 +338,7 @@ QStatus ICEPacketStream::PushPacketBytes(const void* buf, size_t numBytes, Packe
         }
     } else {
         IPAddress ipAddr(dest.ip, dest.addrSize);
-        QStatus status = qcc::SendTo(sock, ipAddr, dest.port, sendBuf, sendBytes, sent);
+        status = qcc::SendTo(sock, ipAddr, dest.port, sendBuf, sendBytes, sent);
         status = (sent == sendBytes) ? ER_OK : ER_OS_ERROR;
         if (status != ER_OK) {
             if (sent == (size_t) -1) {
@@ -363,7 +368,7 @@ QStatus ICEPacketStream::PushPacketBytes(const void* buf, size_t numBytes, Packe
 QStatus ICEPacketStream::PullPacketBytes(void* buf, size_t reqBytes, size_t& actualBytes,
                                          PacketDest& sender, uint32_t timeout)
 {
-    QCC_DbgTrace(("ICEPacketStream::PullPacketBytes"));
+    QCC_DbgTrace(("ICEPacketStream::PullPacketBytes reqBytes=%d", reqBytes));
 
     QStatus status = ER_OK;
 
@@ -402,6 +407,7 @@ QStatus ICEPacketStream::PullPacketBytes(void* buf, size_t reqBytes, size_t& act
     }
     printf("\n");
 #endif
+    QCC_DbgTrace(("ICEPacketStream::PullPacketBytes Done actualBytes=%d", actualBytes));
 
     return status;
 }
@@ -571,7 +577,7 @@ QStatus ICEPacketStream::StripStunOverhead(size_t rcvdBytes, void* dataBuf, size
 
             // Parse message and extract DATA attribute contents.
             size_t keyLen  = hmacKey.size();
-            uint8_t dummyHmac[keyLen];
+            uint8_t* dummyHmac = new uint8_t[keyLen];
             StunMessage msg("", dummyHmac, keyLen);
             QStatus status;
 
@@ -599,11 +605,12 @@ QStatus ICEPacketStream::StripStunOverhead(size_t rcvdBytes, void* dataBuf, size
                          * regions.
                          */
                         assert(dataBufLen >= sgiter->len);
-                        actualBytes = ::min(dataBufLen, sgiter->len);
+                        actualBytes = (dataBufLen <= sgiter->len) ? dataBufLen : sgiter->len;
                         ::memcpy(dataBuf, sgiter->buf, actualBytes);
                     }
                 }
             }
+            delete [] dummyHmac;
         } else {
 
             QCC_DbgPrintf(("%s: Received NAT keepalive or TURN refresh response", __FUNCTION__));
@@ -634,7 +641,7 @@ QStatus ICEPacketStream::StripStunOverhead(size_t rcvdBytes, void* dataBuf, size
 
                     // Parse message and extract Lifetime attribute contents.
                     size_t keyLen  = hmacKey.size();
-                    uint8_t dummyHmac[keyLen];
+                    uint8_t* dummyHmac = new uint8_t[keyLen];
                     StunMessage msg("", dummyHmac, keyLen);
                     QStatus status;
 
@@ -661,7 +668,7 @@ QStatus ICEPacketStream::StripStunOverhead(size_t rcvdBytes, void* dataBuf, size
                             }
                         }
                     }
-
+                    delete [] dummyHmac;
                 } else {
                     QCC_DbgPrintf(("%s: Received message is not a STUN response", __FUNCTION__));
                 }
