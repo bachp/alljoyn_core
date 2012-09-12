@@ -21,21 +21,6 @@
 
 #include <qcc/platform.h>
 
-#ifdef QCC_OS_GROUP_POSIX
-#include <sys/ioctl.h>
-#include <sys/types.h>
-#include <sys/socket.h>
-#include <net/if.h>
-#include <netinet/in.h>
-#include <netinet/ip.h>
-#include <arpa/inet.h>
-
-#if !defined(QCC_OS_IPHONE)
-#include <netinet/udp.h>
-#endif
-
-#endif
-
 #include <errno.h>
 #include <assert.h>
 
@@ -46,27 +31,6 @@
 #include "ICECandidatePair.h"
 #include "Stun.h"
 #include "ICEPacketStream.h"
-
-#if defined(QCC_OS_DARWIN)
-
-#define iphdr ip
-
-#endif
-
-#if defined(QCC_OS_IPHONE)
-
-/*
- * Udp protocol header.
- * Per RFC 768, September, 1981.
- */
-struct udphdr {
-    u_short uh_sport;                   /* source port */
-    u_short uh_dport;                   /* destination port */
-    u_short uh_ulen;                    /* udp length */
-    u_short uh_sum;                     /* udp checksum */
-};
-
-#endif
 
 #define QCC_MODULE "PACKET"
 
@@ -134,11 +98,11 @@ ICEPacketStream::ICEPacketStream() :
     remoteAddress(),
     remotePort(0),
     remoteMappedAddress(),
-    remoteMappedPort(0),
+    remoteMappedPort(),
     turnAddress(),
     turnPort(0),
     relayServerAddress(),
-    relayServerPort(0),
+    relayServerPort(),
     localSrflxAddress(),
     localSrflxPort(0),
     sock(SOCKET_ERROR),
@@ -337,8 +301,10 @@ QStatus ICEPacketStream::PushPacketBytes(const void* buf, size_t numBytes, Packe
             QCC_LogError(status, ("ComposeStunMessage failed"));
         }
     } else {
+
         IPAddress ipAddr(dest.ip, dest.addrSize);
         status = qcc::SendTo(sock, ipAddr, dest.port, sendBuf, sendBytes, sent);
+
         status = (sent == sendBytes) ? ER_OK : ER_OS_ERROR;
         if (status != ER_OK) {
             if (sent == (size_t) -1) {
@@ -380,9 +346,11 @@ QStatus ICEPacketStream::PullPacketBytes(void* buf, size_t reqBytes, size_t& act
         recvBytes = interfaceMtu;
     }
 
+
     IPAddress tmpIpAddr;
     uint16_t tmpPort = 0;
     status =  qcc::RecvFrom(sock, tmpIpAddr, tmpPort, recvBuf, recvBytes, actualBytes);
+
     if (ER_OK != status) {
         QCC_LogError(status, ("recvfrom failed: %s", ::strerror(errno)));
     } else {
@@ -394,7 +362,6 @@ QStatus ICEPacketStream::PullPacketBytes(void* buf, size_t reqBytes, size_t& act
     if (usingTurn) {
         status = StripStunOverhead(actualBytes, buf, reqBytes, actualBytes);
     }
-
 #if 0
     printf("$$$$$$$$$$$ PullBytes(len=%d, buf=%p)\n", (int) actualBytes, buf);
     for (size_t i = 0; i < actualBytes; ++i) {
@@ -408,12 +375,12 @@ QStatus ICEPacketStream::PullPacketBytes(void* buf, size_t reqBytes, size_t& act
     printf("\n");
 #endif
     QCC_DbgTrace(("ICEPacketStream::PullPacketBytes Done actualBytes=%d", actualBytes));
-
     return status;
 }
 
 String ICEPacketStream::ToString(const PacketDest& dest) const
 {
+
     IPAddress ipAddr(dest.ip, dest.addrSize);
     String ret = ipAddr.ToString();
     ret += " (";
