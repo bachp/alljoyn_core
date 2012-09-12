@@ -46,7 +46,14 @@
 #include "PeerCandidateListener.h"
 #include "PacketEngine.h"
 #include "TokenRefreshListener.h"
-#include "ICEPacketStream.h"
+
+#ifdef QCC_OS_GROUP_POSIX
+#include "posix/ICEPacketStream.h"
+#endif
+
+#ifdef QCC_OS_GROUP_WINRT
+#include "../winrt/ICEPacketStream.h"
+#endif
 
 using namespace qcc;
 
