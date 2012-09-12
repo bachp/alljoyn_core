@@ -16,7 +16,7 @@
 Import('env', 'daemon_objs')
 
 # Add OS specific daemon_objs
-os_objs = env.Object(['ICEPacketStream.cc', 'ProximityScanner.cc','Socket.cc'])
+os_objs = env.Object(['ProximityScanner.cc','Socket.cc'])
 
 # Build the posix daemon and service launcher helper.
 if env['OS'] == 'android' or env['OS'] == 'android_donut' or env['OS'] == 'linux':
