@@ -27,7 +27,7 @@
 
 #include "DiscoveryManager.h"
 #include "ProximityScanEngine.h"
-#include <ProximityScanner.h>
+#include "ProximityScanner.h"
 
 using namespace std;
 using namespace qcc;
