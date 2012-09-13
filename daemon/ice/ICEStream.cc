@@ -812,8 +812,19 @@ ICECandidatePair* ICEStream::MatchCheckListEndpoint(IPEndpoint& localEndpoint, I
     checkListIterator iter;
 
     for (iter = CheckListBegin(); iter != CheckListEnd(); ++iter) {
+        // We should just be matching the IP address for the remote endpoint with the
+        // one in our candidate pair remote candidate because if the NAT in between
+        // is a symmetric NAT, the port number for server reflexive candidate will be
+        // different than what was previously allocated.
+        // TODO: Account for the case wherein the IP address can also be different
+        // than the allocated one
         if ((*iter)->local->GetEndpoint() == localEndpoint &&
-            (*iter)->remote->GetEndpoint() == remoteEndpoint) {
+            (*iter)->remote->GetEndpoint().addr == remoteEndpoint.addr) {
+            QCC_DbgPrintf(("%s: Matched %s:%d %s:%d  %s:%s",
+                           __FUNCTION__,
+                           (*iter)->local->GetEndpoint().addr.ToString().c_str(), (*iter)->local->GetEndpoint().port,
+                           localEndpoint.addr.ToString().c_str(), localEndpoint.port,
+                           (*iter)->remote->GetEndpoint().addr.ToString().c_str(), remoteEndpoint.addr.ToString().c_str()));
             pair = (*iter);
             break;
         }

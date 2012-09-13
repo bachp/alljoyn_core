@@ -624,6 +624,7 @@ QStatus _ICECandidate::ReadReceivedMessage(uint32_t timeoutMsec)
         if (ER_OK == status &&
             checkStatus == ICECandidatePair::CheckResponseSent) {
 
+#if 0
             // Section 7.2.1.3 draft-ietf-mmusic-ice-19
             String uniqueFoundation;
             ICECandidate remoteCandidate = component->GetICEStream()->MatchRemoteCandidate(remote, uniqueFoundation);
@@ -639,6 +640,7 @@ QStatus _ICECandidate::ReadReceivedMessage(uint32_t timeoutMsec)
                 // Add remote peer-reflexive candidate to our list.
                 component->GetICEStream()->AddRemoteCandidate(remoteCandidate);
             }
+#endif
 
             // Section 7.2.1.4 draft-ietf-mmusic-ice-19
             // 'Construct' a pair, meaning find a pair whose local candidate is equal to
@@ -649,10 +651,13 @@ QStatus _ICECandidate::ReadReceivedMessage(uint32_t timeoutMsec)
             // candidates (host, server-reflexive, relayed,) each belonging to perhaps multiple candidate pairs.
             ICECandidatePair* constructedPair = NULL;
             if (receivedMsgWasRelayed && sharedStunRelayedCandidate) {
+                QCC_DbgPrintf(("%s: receivedMsgWasRelayed && sharedStunRelayedCandidate", __FUNCTION__));
                 constructedPair = component->GetICEStream()->MatchCheckListEndpoint((*sharedStunRelayedCandidate)->endPoint, remote);
             } else {
+                QCC_DbgPrintf(("%s: !(receivedMsgWasRelayed && sharedStunRelayedCandidate)", __FUNCTION__));
                 constructedPair = component->GetICEStream()->MatchCheckListEndpoint(endPoint, remote);
                 if ((NULL == constructedPair) && sharedStunServerReflexiveCandidate) {
+                    QCC_DbgPrintf(("%s: ((NULL == constructedPair) && sharedStunServerReflexiveCandidate)", __FUNCTION__));
                     constructedPair = component->GetICEStream()->MatchCheckListEndpoint((*sharedStunServerReflexiveCandidate)->endPoint, remote);
                 }
             }
