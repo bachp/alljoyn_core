@@ -1295,7 +1295,7 @@ void TCPTransport::EndpointExit(RemoteEndpoint* ep)
          */
         qcc::String interface = info->GetInterface();
         QCC_DbgPrintf(("TCPTransport::EndpointExit(): CloseInterface()"));
-        QStatus status = IpNameService::Instance().CloseInterface(interface);
+        QStatus status = IpNameService::Instance().CloseInterface(TRANSPORT_TCP, interface);
         if (status != ER_OK) {
             QCC_LogError(status, ("TCPTransport::Disconnect(): Cannot close interface \"%s\"", interface.c_str()));
         }
@@ -3082,7 +3082,7 @@ QStatus TCPTransport::CreateConnectSpec(const qcc::String& interface, const qcc:
      * name service messages on the new Wi-Fi P2P group.
      */
     QCC_DbgPrintf(("TCPTransport::CreateConnectSpec(): OpenInterface()"));
-    QStatus status = IpNameService::Instance().OpenInterface(interface);
+    QStatus status = IpNameService::Instance().OpenInterface(TRANSPORT_TCP, interface);
     if (status != ER_OK) {
         QCC_LogError(status, ("TCPTransport::CreateConnectSpec(): Cannot open interface \"%s\"", interface.c_str()));
         return status;
@@ -3124,7 +3124,7 @@ QStatus TCPTransport::CreateConnectSpec(const qcc::String& interface, const qcc:
      * Ask all of the daemons to respond with their GUIDs, IP addresses and ports.
      */
     QCC_DbgPrintf(("TCPTransport::CreateConnectSpec(): Locate(*)"));
-    status = IpNameService::Instance().FindAdvertisedName("*");
+    status = IpNameService::Instance().FindAdvertisedName(TRANSPORT_TCP, "*");
     if (status != ER_OK) {
         QCC_LogError(status, ("TCPTransport::CreateConnectSpec(): Cannot open locate service \"*\""));
         return status;
@@ -3879,7 +3879,7 @@ QStatus TCPTransport::Disconnect(const char* connectSpec)
 
             qcc::String interface = info->GetInterface();
             QCC_DbgPrintf(("TCPTransport::Disconnect(): CloseInterface()"));
-            status = IpNameService::Instance().CloseInterface(interface);
+            status = IpNameService::Instance().CloseInterface(TRANSPORT_TCP, interface);
             if (status != ER_OK) {
                 QCC_LogError(status, ("TCPTransport::Disconnect(): Cannot close interface \"%s\"", interface.c_str()));
             }
