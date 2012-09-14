@@ -29,6 +29,7 @@
 
 #include <vector>
 #include <qcc/String.h>
+#include <alljoyn/TransportMask.h>
 #include <Status.h>
 
 namespace ajn {
@@ -97,11 +98,15 @@ namespace ajn {
  *
  * <b>IS-AT Message</b>
  *
- * The IS-AT message is an answer message used to advertise the existence
+ * The IS-AT message is an "answer" message used to advertise the existence
  * of a number of bus names on a given AllJoyn daemon.  IS-AT messages can
  * be sent as part of a response to a question, or they can be sent
  * gratuitously when an AllJoyn daemon decides to export the fact that it
  * supports some number of bus names.
+ *
+ * <b>Version 0</b>
+ *
+ * Version zero of the protocol includes the following fields:
  *
  * @verbatim
  *      0                   1                   2                   3
@@ -146,10 +151,92 @@ namespace ajn {
  * @li @c IPv6Address The IPv6 address on which the responding daemon is listening.
  *     Present if the 'S' bit is set to '1'.
  *
+ * <b>Version 1</b>
+ *
+ * Version one of the protocol extends version zero to include the type of the
+ * transport that is doing the advertisement and admit the possibility of
+ * reliable and unreliable transports over both IPv4 and IPv6.
+ *
+ * The most general form of an advertisement containing this information includes
+ * Four address/port pairs:
+ *
+ *     R4: IPv4 address, port of a TCP-based endpoint present;
+ *     U4: IPv4 address, port of a UDP-based endpoint present;
+ *     R6: IPv6 address, port of a TCP-based endpoint present;
+ *     U6: IPv6 address, port of a UDP-based endpoint present.
+ *
+ * One can contemplate various optimizations which would allow us to elide
+ * addresses in some case, but the complexity of managing such optimizations is
+ * such that we do the simple thing and send a complete endpoint description for
+ * every endpoint.  It is the most general case and if we were able to optimize
+ * all four addresses out we are talking about forty bytes.  The code complexity
+ * just doesn't seem worth it; and so the four cases above replace the F, S, U,
+ * T bits of the version zero protocol.
+ *
+ * Since the port is now associated to the provided addresses, the port field in the version
+ * zero is-at message becomes a TransportMask which indicates the AllJoyn transport that is making the
+ * advertisement.
+ *
+ * @verbatim
+ *      0                   1                   2                   3
+ *      0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
+ *     +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+ *     |R U R U C G| M |     Count     |         TransportMask         |
+ *     |4 4 6 6    |   |               |                               |
+ *     +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+ *     |         R4 IPv4Address present if 'R4' bit is set             |
+ *     +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+ *     |  R4 Port if 'R4' bit is set   |  U4 Ipv4Address present if    |
+ *     |-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+ *     |       'U4' bit is set         |  U4 Port if 'U4' bit is set   |
+ *     +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+ *     |                                                               |
+ *     |         R6 IPv6Address present if 'R6' bit is set             |
+ *     |                                                               |
+ *     |                                                               |
+ *     +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+ *     |  R6 Port if 'R6' bit is set   |                               |
+ *     +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+                               |
+ *     |                                                               |
+ *     |         R6 IPv6Address present if 'R6' bit is set             |
+ *     |                               +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+ *     |                               |                               |
+ *     +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+                               |
+ *     |                                                               |
+ *     ~       Daemon GUID StringData present if 'G' bit is set        ~
+ *     |                                                               |
+ *     +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+ *     |                                                               |
+ *     ~            Variable Number of StringData Records              ~
+ *     |                                                               |
+ *     +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+ * @endverbatim
+ *
+ * @li @c M The message type of the IS-AT message.  Defined to be '01' (1).
+ * @li @c G If '1' indicates that a variable length daemon GUID string is present.
+ * @li @c C If '1' indicates that the list of StringData records is a complete
+ *     list of all well-known names exported by the responding daemon.
+ * @li @c R4 If '1' indicates that the IPv4 endpoint of a reliable method (TCP)
+ *     transport (IP address and port) is present
+ * @li @c U4 If '1' indicates that the IPv4 endpoint of an unreliable method (UDP)
+ *     transport (IP address and port) is present
+ * @li @c R6 If '1' indicates that the IPv6 endpoint of a reliable method (TCP)
+ *     transport (IP address and port) is present
+ * @li @c U6 If '1' indicates that the IPv6 endpoint of an unreliable method (UDP)
+ *     transport (IP address and port) is present
+ * @li @c Count The number of StringData items that follow.  Each StringData item
+ *     describes one well-known bus name supported by the responding daemon.
+ * @li @c TransportMask The bit mask of transport identifiers that indicates which
+ *     AllJoyn transport is making the advertisement.
+ *
  * <b>WHO-HAS Message</b>
  *
- * The WHO-HAS message is a question message used to ask AllJoyn daemons if they
- * support one or more bus names.
+ * The WHO-HAS message is a "question" message used to ask AllJoyn daemons if
+ * they support one or more bus names.
+ *
+ * <b>Version 0</b>
+ *
+ * Version zero of the protocol includes the following fields:
  *
  * @verbatim
  *      0                   1                   2                   3
@@ -173,6 +260,32 @@ namespace ajn {
  *     information about services accessible via IPv6 addressing.
  * @li @c F If '1' indicates that the responding daemon is interested in receiving
  *     information about services accessible via IPv4 addressing.
+ * @li @c Count The number of StringData items that follow.  Each StringData item
+ *     describes one well-known bus name that the querying daemon is interested in.
+ *
+ * <b>Version 1</b>
+ *
+ * Version one of the protocol removes the T, U, S and F bits; converting them to
+ * reserved bits.  The rationale is that passive observers of name service packets
+ * could be interested in all available configurations and artificially limiting
+ * responses could mislead those observers.
+ *
+ * Version one of the protocol includes the following fields:
+ *
+ * @verbatim
+ *      0                   1                   2                   3
+ *      0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
+ *     +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+ *     |R R R R R R| M |     Count     |                               |
+ *     +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+                               |
+ *     |                                                               |
+ *     ~              Variable Number of StringData Records            ~
+ *     |                                                               |
+ *     +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+ * @endverbatim
+ *
+ * @li @c M The message type of the WHO-HAS message.  Defined to be '10' (2)
+ * @li @c R Reserved bit.
  * @li @c Count The number of StringData items that follow.  Each StringData item
  *     describes one well-known bus name that the querying daemon is interested in.
  *
@@ -233,9 +346,9 @@ namespace ajn {
  *     |                                                               |
  *     |     '.'             'f'             'o'             'o'       |
  *     +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
- *     |     IS-AT     |  Count = 1    |  Port = 9955  |      192      |  (D)
+ *     |     IS-AT     |  Count = 1    |     192       |      168      |  (D)
  *     +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
- *     |      168             10              10       |  Count = 13   |  (E)
+ *     |      10              10       |    9955       |  Count = 13   |  (E)
  *     +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
  *     |      'o'            'r'             'g'             '.'       |
  *     |                                                               |
@@ -248,7 +361,7 @@ namespace ajn {
  * @endverbatim
  *
  * The notation (A) indicates the name service header.  This header tells
- * us that the version is zero, there is one question and one answer
+ * us that the version is one, there is one question and one answer
  * message following, and that the timeout value of any answer messages
  * present in this message is set to be 255 (infinite).
  *
@@ -264,10 +377,10 @@ namespace ajn {
  * Next, the (D) notation shows the single answer message described in
  * the header.  Answer messages are called IS-AT messages.  There is a
  * count of one bus name in the IS-AT messsage which, the message is
- * telling us, can be found at port 9955 of IPv4 address 192.168.10.10
- * which come next in the serialized message.  The single SDATA record
- * (E) with a count of 13 indicates that the sending daemon supports the
- * bus name "org.yadda.bar" at that address.
+ * telling us, can be found at IPv4 address 192.168.10.10 port 9955.
+ * The single SDATA record (E) with a count of 13 indicates that the
+ * sending daemon supports the bus name "org.yadda.bar" at that address
+ * and port.
  * @} End of "defgroup name_service_protocol"
  */
 
@@ -462,6 +575,64 @@ class IsAt : public ProtocolElement {
 
     /**
      * @internal
+     * @brief Set the wire protocol version that the object will use.
+     *
+     * The name service protocol is versioned. This tells the object which version
+     * of the wire protocol to use when serializing the bits and which version to
+     * expect when deserializing the bits.
+     *
+     * The version is found in the Header, so we will know for sure what version
+     * the overall packet will take.  Objects of class IsAt support all versions
+     * known at the time of compilation.  If the version of the wire protocol
+     * read does not provide a value for a given field, a default value will be
+     * provided.  Objects of class IsAt can support writing down-version packets
+     * for compatibility.
+     *
+     * It is up to higher levels to understand the contextual implications, if any,
+     * of writing or reading down-version packets.
+     *
+     * @param version The version  (0 .. 255) of the protocol.
+     */
+    void SetVersion(uint8_t version) { m_version = version; }
+
+    /**
+     * @internal
+     * @brief Get the wire protocol version that the object will use.
+     *
+     * @return The version  (0 .. 255) of the protocol.
+     *
+     * @see SetVersion()
+     */
+    uint8_t GetVersion() { return m_version; }
+
+    /**
+     * @internal
+     * @brief Set the transport mask of the transport sending the advertisement
+     *
+     * The IP name service protocol can be used by a number of different AllJoyn
+     * transports.  These transports may need to build a wall around their own
+     * advertisements so we provide the name service with a way to plumb the
+     * advertisements from end-to-end according to transport.
+     *
+     * It is up to higher levels to understand the contextual implications, if any,
+     * of peeking at other transports' advertisements or discovery requests.
+     *
+     * @param mask The transport mask of the object.
+     */
+    void SetTransportMask(TransportMask mask) { m_transportMask = mask; }
+
+    /**
+     * @internal
+     * @brief Get the transport mask of the transport that is sending the message.
+     *
+     * @return The transport mask of the transport that is sending the message.
+     *
+     * @see SetVersion()
+     */
+    TransportMask GetTransportMask(TransportMask mask) { return m_transportMask; }
+
+    /**
+     * @internal
      * @brief Set the protocol flag indicating that the daemon generating
      * this answer is providing its entire well-known name list.
      *
@@ -475,7 +646,7 @@ class IsAt : public ProtocolElement {
      * @brief Set the protocol flag indicating that the daemon generating
      * this answer is providing its entire well-known name list.
      *
-     * @param flag True if the daemon is providing the entire well-known name
+     * @return True if the daemon is providing the entire well-known name
      * list.
      */
     bool GetCompleteFlag(void) const { return m_flagC; }
@@ -486,6 +657,8 @@ class IsAt : public ProtocolElement {
      * this answer is listening on a TCP socket.
      *
      * @param flag True if the daemon is listening on TCP.
+     *
+     * @warning Useful for version zero objects only.
      */
     void SetTcpFlag(bool flag) { m_flagT = flag; }
 
@@ -495,6 +668,8 @@ class IsAt : public ProtocolElement {
      * this answer is listening on a TCP socket.
      *
      * @return True if the daemon is listening on TCP.
+     *
+     * @warning Useful for version zero objects only.
      */
     bool GetTcpFlag(void) const { return m_flagT; }
 
@@ -504,6 +679,8 @@ class IsAt : public ProtocolElement {
      * this answer is listening on a UDP socket.
      *
      * @param flag True if the daemon is listening on UDP.
+     *
+     * @warning Useful for version zero objects only.
      */
     void SetUdpFlag(bool flag) { m_flagU = flag; }
 
@@ -513,8 +690,58 @@ class IsAt : public ProtocolElement {
      * this answer is listening on a UDP socket.
      *
      * @return True if the daemon is listening on UDP.
+     *
+     * @warning Useful for version zero objects only.
      */
     bool GetUdpFlag(void) const { return m_flagU; }
+
+    /**
+     * @internal
+     * @brief Get the protocol flag indicating that the daemon generating
+     * this answer is listening on a reliable IPv4 endpoint and has provided
+     * a reliable IPv4 IP address and port.
+     *
+     * @return True if the daemon is listening on a reliable IPv4 endpoint.
+     *
+     * @warning Useful for version one objects only.
+     */
+    bool GetReliableIPv4Flag(void) const { return m_flagR4; }
+
+    /**
+     * @internal
+     * @brief Get the protocol flag indicating that the daemon generating
+     * this answer is listening on an unreliable IPv4 endpoint and has provided
+     * an unreliable IPv4 IP address and port.
+     *
+     * @return True if the daemon is listening on an unreliable IPv4 endpoint.
+     *
+     * @warning Useful for version one objects only.
+     */
+    bool GetUnreliableIPv4Flag(void) const { return m_flagU4; }
+
+    /**
+     * @internal
+     * @brief Get the protocol flag indicating that the daemon generating
+     * this answer is listening on a reliable IPv6 endpoint and has provided
+     * a reliable IPv6 IP address and port.
+     *
+     * @return True if the daemon is listening on a reliable IPv6 endpoint.
+     *
+     * @warning Useful for version one objects only.
+     */
+    bool GetReliableIPv6Flag(void) const { return m_flagR6; }
+
+    /**
+     * @internal
+     * @brief Get the protocol flag indicating that the daemon generating
+     * this answer is listening on an unreliable IPv6 endpoint and has provided
+     * an unreliable IPv6 IP address and port.
+     *
+     * @return True if the daemon is listening on an unreliable IPv6 endpoint.
+     *
+     * @warning Useful for version one objects only.
+     */
+    bool GetUnreliableIPv6Flag(void) const { return m_flagU6; }
 
     /**
      * @internal
@@ -539,6 +766,8 @@ class IsAt : public ProtocolElement {
      * address is provided in the message.
      *
      * @return True if the daemon is listening on IPv6.
+     *
+     * @warning Useful for version zero objects only.
      */
     bool GetIPv6Flag(void) const { return m_flagS; }
 
@@ -552,6 +781,8 @@ class IsAt : public ProtocolElement {
      * address is provided in the message.
      *
      * @return True if the daemon is listening on IPv4.
+     *
+     * @warning Useful for version zero objects only.
      */
     bool GetIPv4Flag(void) const { return m_flagF; }
 
@@ -590,6 +821,8 @@ class IsAt : public ProtocolElement {
      * listening.
      *
      * @param port The port on which the daemon is listening.
+     *
+     * @warning Useful for version zero objects only.
      */
     void SetPort(uint16_t port);
 
@@ -599,12 +832,16 @@ class IsAt : public ProtocolElement {
      * listening.
      *
      * @return The port on which the daemon is listening.
+     *
+     * @warning Useful for version zero objects only.
      */
     uint16_t GetPort(void) const;
 
     /**
      * @internal
      * @brief Clear the IPv4 address.
+     *
+     * @warning Useful for version zero objects only.
      */
     void ClearIPv4(void);
 
@@ -619,6 +856,8 @@ class IsAt : public ProtocolElement {
      * the IPv4 flag.
      *
      * @param ipv4Addr The IPv4 address on which the daemon is listening.
+     *
+     * @warning Useful for version zero objects only.
      */
     void SetIPv4(qcc::String ipv4Addr);
 
@@ -631,12 +870,15 @@ class IsAt : public ProtocolElement {
      * If the IPv4 flag is not set, the results are undefined.
      *
      * @return The IPv4 address on which the daemon is listening.
+     *
+     * @warning Useful for version zero objects only.
      */
     qcc::String GetIPv4(void) const;
 
     /**
      * @internal
      * @brief Clear the IPv6 address.
+     * @warning Useful for version zero objects only.
      */
     void ClearIPv6(void);
 
@@ -651,6 +893,8 @@ class IsAt : public ProtocolElement {
      * the IPv6 flag.
      *
      * @param ipv6Addr The IPv6 address on which the daemon is listening.
+     *
+     * @warning Useful for version zero objects only.
      */
     void SetIPv6(qcc::String ipv6Addr);
 
@@ -663,8 +907,218 @@ class IsAt : public ProtocolElement {
      * If the IPv6 flag is not set, the results are undefined.
      *
      * @return The IPv6 address on which the daemon is listening.
+     *
+     * @warning Useful for version zero objects only.
      */
     qcc::String GetIPv6(void) const;
+
+    /**
+     * @internal
+     * @brief Clear the ReliableIPv4 address and port
+     *
+     * @warning Useful for version one objects only.
+     */
+    void ClearReliableIPv4(void);
+
+    /**
+     * @internal
+     * @brief Set the reliable IPv4 address and port
+     *
+     * This method takes an IPv4 address string in presentation format and
+     * arranges for it to be written out in the protocol message in network
+     * format (32-bits, big endian).  It also takes a port number and arranges
+     * for it to be written out in network format (16-bits, big endian).  This
+     * method has the side-effect of setting the reliableIPv4 flag.
+     *
+     * @param addr The reliable method IPv4 address on which the daemon can be
+     *     contacted.
+     * @param port The port on which the daemon is listening for connections.
+     *
+     * @warning Useful for version one objects only.
+     */
+    void SetReliableIPv4(qcc::String addr, uint16_t port);
+
+    /**
+     * @internal
+     * @brief Get the reliable IPv4 address
+     *
+     * This method returns an IPv4 address string in presentation format.
+     * If the reliableIPv4 flag is not set, the results are undefined.
+     *
+     * @return The reliable IPv4 address on which the daemon is listening.
+     *
+     * @warning Useful for version one objects only.
+     */
+    qcc::String GetReliableIPv4Address(void) const;
+
+    /**
+     * @internal
+     * @brief Get the reliable IPv4 port
+     *
+     * This method returns an IPv4 port.  If the reliableIPv4 flag is not set,
+     * the results are undefined.
+     *
+     * @return The reliable IPv4 port on which the daemon is listening.
+     *
+     * @warning Useful for version one objects only.
+     */
+    uint16_t GetReliableIPv4Port(void) const;
+
+    /**
+     * @internal
+     * @brief Clear the UnreliableIPv4 address and port
+     *
+     * @warning Useful for version one objects only.
+     */
+    void ClearUnreliableIPv4(void);
+
+    /**
+     * @internal
+     * @brief Set the unreliable IPv4 address and port
+     *
+     * This method takes an IPv4 address string in presentation format and
+     * arranges for it to be written out in the protocol message in network
+     * format (32-bits, big endian).  It also takes a port number and arranges
+     * for it to be written out in network format (16-bits, big endian).  This
+     * method has the side-effect of setting the unreliableIPv4 flag.
+     *
+     * @param addr The unreliable method IPv4 address on which the daemon can be
+     *     contacted.
+     * @param port The port on which the daemon is listening for connections.
+     *
+     * @warning Useful for version one objects only.
+     */
+    void SetUnreliableIPv4(qcc::String addr, uint16_t port);
+
+    /**
+     * @internal
+     * @brief Get the unreliable IPv4 address
+     *
+     * This method returns an IPv4 address string in presentation format.
+     * If the unreliableIPv4 flag is not set, the results are undefined.
+     *
+     * @return The unreliable IPv4 address on which the daemon is listening.
+     *
+     * @warning Useful for version one objects only.
+     */
+    qcc::String GetUnreliableIPv4Address(void) const;
+
+    /**
+     * @internal
+     * @brief Get the unreliable IPv4 port
+     *
+     * This method returns an IPv4 port.  If the unreliableIPv4 flag is not set,
+     * the results are undefined.
+     *
+     * @return The unreliable IPv4 port on which the daemon is listening.
+     *
+     * @warning Useful for version one objects only.
+     */
+    uint16_t GetUnreliableIPv4Port(void) const;
+
+    /**
+     * @internal
+     * @brief Clear the ReliableIPv6 address and port
+     *
+     * @warning Useful for version one objects only.
+     */
+    void ClearReliableIPv6(void);
+
+    /**
+     * @internal
+     * @brief Set the reliable IPv6 address and port
+     *
+     * This method takes an IPv6 address string in presentation format and
+     * arranges for it to be written out in the protocol message in network
+     * format (128-bits, big endian).  It also takes a port number and arranges
+     * for it to be written out in network format (16-bits, big endian).  This
+     * method has the side-effect of setting the reliableIPv6 flag.
+     *
+     * @param addr The reliable method IPv6 address on which the daemon can be
+     *     contacted.
+     * @param port The port on which the daemon is listening for connections.
+     *
+     * @warning Useful for version one objects only.
+     */
+    void SetReliableIPv6(qcc::String addr, uint16_t port);
+
+    /**
+     * @internal
+     * @brief Get the reliable IPv6 address
+     *
+     * This method returns an IPv6 address string in presentation format.
+     * If the reliableIPv6 flag is not set, the results are undefined.
+     *
+     * @return The reliable IPv6 address on which the daemon is listening.
+     *
+     * @warning Useful for version one objects only.
+     */
+    qcc::String GetReliableIPv6Address(void) const;
+
+    /**
+     * @internal
+     * @brief Get the reliable IPv6 port
+     *
+     * This method returns an IPv6 port.  If the reliableIPv6 flag is not set,
+     * the results are undefined.
+     *
+     * @return The reliable IPv6 port on which the daemon is listening.
+     *
+     * @warning Useful for version one objects only.
+     */
+    uint16_t GetReliableIPv6Port(void) const;
+
+    /**
+     * @internal
+     * @brief Clear the UnreliableIPv6 address and port
+     *
+     * @warning Useful for version one objects only.
+     */
+    void ClearUnreliableIPv6(void);
+
+    /**
+     * @internal
+     * @brief Set the unreliable IPv6 address and port
+     *
+     * This method takes an IPv6 address string in presentation format and
+     * arranges for it to be written out in the protocol message in network
+     * format (128-bits, big endian).  It also takes a port number and arranges
+     * for it to be written out in network format (16-bits, big endian).  This
+     * method has the side-effect of setting the unreliableIPv6 flag.
+     *
+     * @param addr The unreliable method IPv6 address on which the daemon can be
+     *     contacted.
+     * @param port The port on which the daemon is listening for connections.
+     *
+     * @warning Useful for version one objects only.
+     */
+    void SetUnreliableIPv6(qcc::String addr, uint16_t port);
+
+    /**
+     * @internal
+     * @brief Get the unreliable IPv6 address
+     *
+     * This method returns an IPv6 address string in presentation format.
+     * If the unreliableIPv6 flag is not set, the results are undefined.
+     *
+     * @return The unreliable IPv6 address on which the daemon is listening.
+     *
+     * @warning Useful for version one objects only.
+     */
+    qcc::String GetUnreliableIPv6Address(void) const;
+
+    /**
+     * @internal
+     * @brief Get the unreliable IPv6 port
+     *
+     * This method returns an IPv6 port.  If the unreliableIPv6 flag is not set,
+     * the results are undefined.
+     *
+     * @return The unreliable IPv6 port on which the daemon is listening.
+     *
+     * @warning Useful for version one objects only.
+     */
+    uint16_t GetUnreliableIPv6Port(void) const;
 
     /**
      * @internal @brief Clear any objects from the list names, effectively
@@ -758,16 +1212,38 @@ class IsAt : public ProtocolElement {
     size_t Deserialize(uint8_t const* buffer, uint32_t bufsize);
 
   private:
+    uint8_t m_version;
+
+    TransportMask m_transportMask; /**< Version one only */
+
     bool m_flagG;
     bool m_flagC;
-    bool m_flagT;
-    bool m_flagU;
-    bool m_flagS;
-    bool m_flagF;
-    uint16_t m_port;
+
+    bool m_flagT; /**< Version zero only */
+    bool m_flagU; /**< Version zero only */
+    bool m_flagS; /**< Version zero only */
+    bool m_flagF; /**< Version zero only */
+
+    bool m_flagR4; /**< Version one only */
+    bool m_flagU4; /**< Version one only */
+    bool m_flagR6; /**< Version one only */
+    bool m_flagU6; /**< Version one only */
+
+    uint16_t m_port;     /**< Version zero only */
+    qcc::String m_ipv4;  /**< Version zero only */
+    qcc::String m_ipv6;  /**< Version zero only */
+
+    qcc::String m_reliableIPv4Address;    /**< Version one only */
+    uint16_t m_reliableIPv4Port;          /**< Version one only */
+    qcc::String m_unreliableIPv4Address;  /**< Version one only */
+    uint16_t m_unreliableIPv4Port;        /**< Version one only */
+
+    qcc::String m_reliableIPv6Address;    /**< Version one only */
+    uint16_t m_reliableIPv6Port;          /**< Version one only */
+    qcc::String m_unreliableIPv6Address;  /**< Version one only */
+    uint16_t m_unreliableIPv6Port;        /**< Version one only */
+
     qcc::String m_guid;
-    qcc::String m_ipv4;
-    qcc::String m_ipv6;
     std::vector<qcc::String> m_names;
 };
 
@@ -795,6 +1271,38 @@ class WhoHas : public ProtocolElement {
      * @brief Destroy a name service protocol answer object.
      */
     ~WhoHas();
+
+    /**
+     * @internal
+     * @brief Set the wire protocol version that the object will use.
+     *
+     * The name service protocol is versioned. This tells the object which version
+     * of the wire protocol to use when serializing the bits and which version to
+     * expect when deserializing the bits.
+     *
+     * The version is found in the Header, so we will know for sure what version
+     * the overall packet will take.  Objects of class WhoHas support all
+     * versions known at the time of compilation.  If the version of the wire
+     * protocol read does not provide a value for a given field, a default value
+     * will be provided.  Objects of class WhoHas can support writing
+     * down-version packets for compatibility.
+     *
+     * It is up to higher levels to understand the contextual implications, if any,
+     * of writing or reading down-version packets.
+     *
+     * @param version The version  (0 .. 255) of the protocol.
+     */
+    void SetVersion(uint8_t version) { m_version = version; }
+
+    /**
+     * @internal
+     * @brief Set the wire protocol version that the object will use.
+     *
+     * @return version The version  (0 .. 255) of the protocol.
+     *
+     * @see SetVersion()
+     */
+    uint8_t GetVersion() { return m_version; }
 
     /**
      * @internal
@@ -964,6 +1472,7 @@ class WhoHas : public ProtocolElement {
     size_t Deserialize(uint8_t const* buffer, uint32_t bufsize);
 
   private:
+    uint8_t m_version;
     bool m_flagT;
     bool m_flagU;
     bool m_flagS;
