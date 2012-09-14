@@ -239,7 +239,9 @@ inline ThreadClass::ThreadClass(char*name, int index) : Thread(name),
 
 inline void ThreadClass::DefaultRun() {
     char buf[256];
-    sprintf(buf, "Thread.i%d", 100 * qcc::Rand8());
+    // Don't use qcc::Rand16() because it can result in the same exact sequence
+    // for multiple threads.
+    sprintf(buf, "Thread.i%05d", qcc::Rand32() & 0xffff);
     QStatus status = bus->RequestName(name.c_str(), DBUS_NAME_FLAG_REPLACE_EXISTING | DBUS_NAME_FLAG_DO_NOT_QUEUE);
     if (status != ER_OK) {
         QCC_LogError(status, ("RequestName(%s) failed.", name.c_str()));
@@ -273,7 +275,9 @@ inline void ThreadClass::ClientRun() {
 
     /* Wait for join session to complete */
     int count = 0;
-    int limit = 10 + (rand() % 50);
+    // Don't use qcc::Rand16() because it can result in the same exact sequence
+    // for multiple threads.
+    int limit = 10 + (qcc::Rand32() % 50);
     bool limitReached = false;
     while (!joinComplete && !limitReached) {
         qcc::Sleep(100);
@@ -358,7 +362,9 @@ inline void ThreadClass::ServiceRun() {
      * 3) Advertise the well-known name
      */
     char buf[512];
-    sprintf(buf, "%s.i%d", SERVICE_NAME, rand());
+    // Don't use qcc::Rand16() because it can result in the same exact sequence
+    // for multiple threads.
+    sprintf(buf, "%s.i%05d", SERVICE_NAME, qcc::Rand32() & 0xffff);
 
     qcc::String serviceName(buf);
 
@@ -395,7 +401,9 @@ inline void ThreadClass::ServiceRun() {
 
     if (ER_OK == status) {
         int count = 0;
-        int limit = 10 + (rand() % 50);
+        // Don't use qcc::Rand16() because it can result in the same exact sequence
+        // for multiple threads.
+        int limit = 10 + (qcc::Rand32() % 50);
         bool limitReached = false;
         while (!limitReached) {
             qcc::Sleep(100);
@@ -535,8 +543,9 @@ int main(int argc, char**argv)
         if (stop) {
             /*
              * Sleep a random time before stopping of bus attachments is tested at different states of up and running
+             * Don't use qcc::Rand16() because it can result in the same exact sequence for multiple threads.
              */
-            qcc::Sleep(1000 + (rand() % 4000));
+            qcc::Sleep(1000 + (qcc::Rand32() % 4000));
             QCC_SyncPrintf("stopping threads... \n");
             for (unsigned int i = 0; i < threads; i++) {
                 QCC_SyncPrintf("stopping threadList[%d]... \n", i);
