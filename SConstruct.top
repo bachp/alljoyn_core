@@ -21,7 +21,6 @@ env = SConscript(['build_core/SConscript'])
 # Add/remove projects from build
 env.SConscript(['alljoyn_core/SConscript'])
 env.SConscript(['alljoyn_java/SConscript'])
-env.SConscript(['alljoyn_streaming/SConscript'])
 env.SConscript(['alljoyn_js/SConscript'])
 env.SConscript(['alljoyn_c/SConscript'])
 env.SConscript(['alljoyn_unity/SConscript'])
