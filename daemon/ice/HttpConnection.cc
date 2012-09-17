@@ -405,6 +405,7 @@ QStatus HttpConnection::ParseResponse(HTTPResponse& response)
                                 status = ER_FAIL;
                                 QCC_LogError(status, ("HttpConnection::ParseResponse(): Payload parsing failed"));
                             }
+                            free(buf);
                         } else {
                             QCC_DbgPrintf(("HttpConnection::ParseResponse(): Received a response with no payload"));
                         }
