@@ -93,16 +93,21 @@ else:
     env['bdlib'] = daemon_lib
     env['bdobj'] = daemon_obj
 
-# Test programs 
-progs = env.SConscript('$OBJDIR/test/SConscript')
-env.Install('$DISTDIR/bin', progs)
+# only include command line samples, unit test, test programs if we are not 
+# building for iOS. No support on iOS for command line applications.
+if env['OS'] == 'darwin' and (env['CPU'] == 'arm' or env['CPU'] == 'armv7' or env['CPU'] == 'armv7s'):
+    progs = []
+else:
+    # Test programs
+    progs = env.SConscript('$OBJDIR/test/SConscript')
+    env.Install('$DISTDIR/bin', progs)
 
-# Build unit Tests
-env.SConscript('unit_test/SConscript', variant_dir='$OBJDIR/unittest', duplicate=0)
+    # Build unit Tests
+    env.SConscript('unit_test/SConscript', variant_dir='$OBJDIR/unittest', duplicate=0)
 
-# Sample programs
-progs = env.SConscript('$OBJDIR/samples/SConscript')
-env.Install('$DISTDIR/bin/samples', progs)
+    # Sample programs
+    progs = env.SConscript('$OBJDIR/samples/SConscript')
+    env.Install('$DISTDIR/bin/samples', progs)
 
 # Android daemon runner
 progs = env.SConscript('$OBJDIR/alljoyn_android/SConscript')

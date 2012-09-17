@@ -82,8 +82,13 @@ else:
 # AllJoyn Daemon test programs
 if env['OS_GROUP']=='winrt':
     tests = []
-elif env['OS']=='darwin' and env['CPU']=='arm':
-    tests = []
+elif env['OS']=='darwin':
+    if env['CPU']=='arm' or env['CPU']=='armv7' or env['CPU']=='armv7s':
+        print 'Not building unit tests for iOS...'    
+        tests = []
+    else:
+        print 'Building unit tests for darwin...'
+        tests = env.SConscript('test/SConscript', exports=['daemon_objs'])    
 else:
     tests = env.SConscript('test/SConscript', exports=['daemon_objs'])
     
