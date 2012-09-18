@@ -607,6 +607,10 @@ void ProximityNameService::SocketError(qcc::String& errMsg)
         m_socket = nullptr;
         m_listenAddr = qcc::String::Empty;
         m_currentState = PROXIM_DISCONNECTED;
+        // start-over again
+        if (m_doDiscovery) {
+            BrowsePeers();
+        }
     }
 
     // TODO Should re-browser peers for connection?

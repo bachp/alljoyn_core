@@ -42,6 +42,14 @@ namespace ajn {
 ref class ProximityNameService sealed {
   public:
     void ConnectionRequestedEventHandler(Platform::Object ^ sender, Windows::Networking::Proximity::ConnectionRequestedEventArgs ^ TriggeredConnectionStateChangedEventArgs);
+    /**
+     * Increase the number of overlay TCP connections that depends on the current proximity connection
+     */
+    int32_t IncreaseOverlayTCPConnection();
+    /**
+     * Decrease the number of overlay TCP connections that depends on the current proximity connection
+     */
+    int32_t DecreaseOverlayTCPConnection();
 
   private:
     friend class ProximityTransport;
@@ -125,14 +133,6 @@ ref class ProximityNameService sealed {
 
     QStatus GetEndpoints(qcc::String& ipv6address, uint16_t& port);
     void SetEndpoints(const qcc::String& ipv6address, const uint16_t port);
-    /**
-     * Increase the number of overlay TCP connections that depends on the current proximity connection
-     */
-    int32_t IncreaseOverlayTCPConnection();
-    /**
-     * Decrease the number of overlay TCP connections that depends on the current proximity connection
-     */
-    int32_t DecreaseOverlayTCPConnection();
     bool IsConnected() { return m_currentState == PROXIM_CONNECTED; }
     ProximState GetCurrentState() { return m_currentState; }
     void RegisterProximityListener(ProximityListener* listener);

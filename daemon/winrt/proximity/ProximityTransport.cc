@@ -401,6 +401,9 @@ void* ProximityEndpoint::AuthThread::Run(void* arg)
      * without being worried about blocking since the next thing we do is exit.
      */
     conn->m_authState = AUTH_SUCCEEDED;
+    if (conn->m_transport->m_pns != nullptr) {
+        conn->m_transport->m_pns->IncreaseOverlayTCPConnection();
+    }
     return (void*)status;
 }
 
@@ -924,9 +927,6 @@ void ProximityTransport::ManageEndpoints(Timespec tTimeout)
             QCC_DbgHLPrintf(("ProximityTransport::ManageEndpoints(): Scavenging failed authenticator"));
             ep->AuthJoin();
             ep->SetAuthDone();
-            if (m_pns != nullptr) {
-                m_pns->IncreaseOverlayTCPConnection();
-            }
             continue;
         }
 
