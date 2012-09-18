@@ -384,6 +384,7 @@ class LocalTestObject : public BusObject {
                 delayedResponseLock.Lock(MUTEX_CONTEXT);
                 GetTimeNow(&now);
                 nowms = now.GetAbsoluteMillis();
+                it = delayedResponses.begin();
                 while ((it != delayedResponses.end()) && (nextms <= nowms)) {
                     Message msg = it->second->msg;
                     MsgArg* args = it->second->argList;
