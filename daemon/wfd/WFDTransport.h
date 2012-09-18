@@ -1,7 +1,7 @@
 /**
  * @file
- * TCPTransport is a specialization of class Transport for daemons talking over
- * TCP.
+ * WFDTransport is a specialization of class Transport for daemons using Wi-Fi
+ * direct to establishy temporary networks and then talking over TCP.
  */
 
 /******************************************************************************
@@ -20,11 +20,11 @@
  *    limitations under the License.
  ******************************************************************************/
 
-#ifndef _ALLJOYN_TCPTRANSPORT_H
-#define _ALLJOYN_TCPTRANSPORT_H
+#ifndef _ALLJOYN_WFDTRANSPORT_H
+#define _ALLJOYN_WFDTRANSPORT_H
 
 #ifndef __cplusplus
-#error Only include TCPTransport.h in C++ code.
+#error Only include WFDTransport.h in C++ code.
 #endif
 
 #include <list>
@@ -46,34 +46,32 @@
 
 #include "ns/IpNameService.h"
 
+#include "android/P2PHelperInterface.h"
+
 namespace ajn {
 
-class TCPEndpoint;
+class WFDEndpoint;
+
+#define QCC_MODULE "WFD"
 
 /**
- * @brief A class for TCP Transports used in daemons.
- *
- * The TCPTransport class has different incarnations depending on whether or not
- * an instantiated endpoint using the transport resides in a daemon, or in the
- * case of Windows, on a service or client.  The differences between these
- * versions revolves around routing and discovery. This class provides a
- * specialization of class Transport for use by daemons.
+ * @brief A class for WFD Transports used in daemons.
  */
-class TCPTransport : public Transport, public RemoteEndpoint::EndpointListener, public qcc::Thread {
-    friend class TCPEndpoint;
+class WFDTransport : public Transport, public RemoteEndpoint::EndpointListener, public qcc::Thread {
+    friend class WFDEndpoint;
 
   public:
     /**
-     * Create a TCP based transport for use by daemons.
+     * Create a WFD based transport for use by daemons.
      *
      * @param bus The BusAttachment associated with this endpoint
      */
-    TCPTransport(BusAttachment& bus);
+    WFDTransport(BusAttachment& bus);
 
     /**
      * Destructor
      */
-    virtual ~TCPTransport();
+    virtual ~WFDTransport();
 
     /**
      * Start the transport and associate it with a router.
@@ -152,10 +150,10 @@ class TCPTransport : public Transport, public RemoteEndpoint::EndpointListener, 
      * Start listening for incomming connections on a specified bus address.
      *
      * @param listenSpec  Transport specific key/value arguments that specify the physical interface to listen on.
-     *                    - Valid transport is @c "tcp". All others ignored.
+     *                    - Valid transport is @c "wfd". All others ignored.
      *                    - Valid keys are:
-     *                        - @c addr = IP address of server to connect to.
-     *                        - @c port = Port number of server to connect to.
+     *                        - @c r4addr = IP address of server to connect to.
+     *                        - @c r4port = Port number of server to connect to.
      *
      * @return
      *      - ER_OK if successful.
@@ -170,10 +168,10 @@ class TCPTransport : public Transport, public RemoteEndpoint::EndpointListener, 
      * match previous call to StartListen().
      *
      * @param listenSpec  Transport specific key/value arguments that specify the physical interface to listen on.
-     *                    - Valid transport is @c "tcp". All others ignored.
+     *                    - Valid transport is @c "wfd". All others ignored.
      *                    - Valid keys are:
-     *                        - @c addr = IP address of server to connect to.
-     *                        - @c port = Port number of server to connect to.
+     *                        - @c r4addr = IP address of server to connect to.
+     *                        - @c r4port = Port number of server to connect to.
      *
      * @return
      *      - ER_OK if successful.
@@ -265,14 +263,14 @@ class TCPTransport : public Transport, public RemoteEndpoint::EndpointListener, 
     /**
      * Indicates whether this transport is used for client-to-bus or bus-to-bus connections.
      *
-     * @return  Always returns true, TCP is a bus-to-bus transport.
+     * @return  Always returns true, WFD is a bus-to-bus transport.
      */
     bool IsBusToBus() const { return true; }
 
     /**
-     * Callback for TCPEndpoint exit.
+     * Callback for WFDEndpoint exit.
      *
-     * @param endpoint   TCPEndpoint instance that has exited.
+     * @param endpoint   WFDEndpoint instance that has exited.
      */
     void EndpointExit(RemoteEndpoint* endpoint);
 
@@ -281,15 +279,24 @@ class TCPTransport : public Transport, public RemoteEndpoint::EndpointListener, 
      */
     static const char* TransportName;
 
+    void OnFoundAdvertisedName(const char* name, const char* namePrefix, const char*  guid, const char* device);
+    void OnLostAdvertisedName(const char* name, const char* namePrefix, const char*  guid, const char* device);
+    void OnLinkEstablished(int handle);
+    void OnLinkError(int thandle, int error);
+    void OnLinkLost(int handle) { /* TODO This needs to drive a CloseInterface on the name service */ }
+
+    void HandleEstablishLinkReply(int32_t handle);
+    void HandleGetInterfaceNameFromHandleReply(qcc::String interface);
+
   private:
-    TCPTransport(const TCPTransport& other);
-    TCPTransport& operator =(const TCPTransport& other);
+    WFDTransport(const WFDTransport& other);
+    WFDTransport& operator =(const WFDTransport& other);
 
     BusAttachment& m_bus;                                          /**< The message bus for this transport */
     bool m_stopping;                                               /**< True if Stop() has been called but endpoints still exist */
     TransportListener* m_listener;                                 /**< Registered TransportListener */
-    std::set<TCPEndpoint*> m_authList;                             /**< List of authenticating endpoints */
-    std::set<TCPEndpoint*> m_endpointList;                         /**< List of active endpoints */
+    std::set<WFDEndpoint*> m_authList;                             /**< List of authenticating endpoints */
+    std::set<WFDEndpoint*> m_endpointList;                         /**< List of active endpoints */
     std::set<Thread*> m_activeEndpointsThreadList;                 /**< List of threads starting up active endpoints */
     qcc::Mutex m_endpointListLock;                                 /**< Mutex that protects the endpoint and auth lists */
 
@@ -350,7 +357,7 @@ class TCPTransport : public Transport, public RemoteEndpoint::EndpointListener, 
      * @internal
      * @brief Queue a StartListen request for the server accept loop
      *
-     * The server accept loop (executing in TCPTransport::Run() uses the
+     * The server accept loop (executing in WFDTransport::Run() uses the
      * socket FD resources that are used to listen on the endpoints specified
      * by the listenSpec parameters.  Creation and deletion of these resources
      * then happen with the involvement of two threads.
@@ -395,7 +402,7 @@ class TCPTransport : public Transport, public RemoteEndpoint::EndpointListener, 
      * @internal
      * @brief Queue a StopListen request for the server accept loop
      *
-     * The server accept loop (executing in TCPTransport::Run() uses the
+     * The server accept loop (executing in WFDTransport::Run() uses the
      * socket FD resources that are used to listen on the endpoints specified
      * by the listenSpec parameters.  Creation and deletion of these resources
      * then happen with the involvement of two threads.
@@ -440,9 +447,9 @@ class TCPTransport : public Transport, public RemoteEndpoint::EndpointListener, 
      * @internal
      * @brief Authentication complete notificiation.
      *
-     * @param conn Pointer to the TCPEndpoint that completed authentication.
+     * @param conn Pointer to the WFDEndpoint that completed authentication.
      */
-    void Authenticated(TCPEndpoint* conn);
+    void Authenticated(WFDEndpoint* conn);
 
     /**
      * @internal
@@ -463,10 +470,11 @@ class TCPTransport : public Transport, public RemoteEndpoint::EndpointListener, 
 
     class FoundCallback {
       public:
-        FoundCallback(TransportListener*& listener) : m_listener(listener) { }
+        FoundCallback(WFDTransport* transport, TransportListener*& listener) : m_transport(transport), m_listener(listener) { }
         void Found(const qcc::String& busAddr, const qcc::String& guid, std::vector<qcc::String>& nameList, uint8_t timer);
       private:
-        TransportListener*& m_listener;
+        WFDTransport * m_transport;
+        TransportListener * &m_listener;
     };
 
     FoundCallback m_foundCallback;  /**< Called by IpNameService when new busses are discovered */
@@ -489,22 +497,22 @@ class TCPTransport : public Transport, public RemoteEndpoint::EndpointListener, 
      * connections.
      *
      * This corresponds to the configuration item "max_incomplete_connections"
-     * in the DBus configuration, but it applies only to the TCP transport.  To
-     * override this value, change the limit, "max_incomplete_connections_tcp".
+     * in the DBus configuration, but it applies only to the WFD transport.  To
+     * override this value, change the limit, "max_incomplete_connections_wfd".
      * Typically, DBus sets this value to 10,000 which is essentially infinite
      * from the perspective of a phone.  Since this represents a transient state
      * in connection establishment, there should be few connections in this
      * state, so we default to a quite low number.
      */
-    static const uint32_t ALLJOYN_MAX_INCOMPLETE_CONNECTIONS_TCP_DEFAULT = 10;
+    static const uint32_t ALLJOYN_MAX_INCOMPLETE_CONNECTIONS_WFD_DEFAULT = 10;
 
     /**
-     * @brief The default value for the maximum number of TCP connections
+     * @brief The default value for the maximum number of WFD connections
      * (remote endpoints).
      *
      * This corresponds to the configuration item "max_completed_connections"
-     * in the DBus configuration, but it applies only to the TCP transport.
-     * To override this value, change the limit, "max_completed_connections_tcp".
+     * in the DBus configuration, but it applies only to the WFD transport.
+     * To override this value, change the limit, "max_completed_connections_wfd".
      * Typically, DBus sets this value to 100,000 which is essentially infinite
      * from the perspective of a phone.  Since we expect bus topologies to be
      * relatively small, we default to a quite low number.
@@ -515,9 +523,9 @@ class TCPTransport : public Transport, public RemoteEndpoint::EndpointListener, 
      * connections will be accepted.  This is because we are defending against
      * attacks from "abroad" and trust ourselves implicitly.
      */
-    static const uint32_t ALLJOYN_MAX_COMPLETED_CONNECTIONS_TCP_DEFAULT = 50;
+    static const uint32_t ALLJOYN_MAX_COMPLETED_CONNECTIONS_WFD_DEFAULT = 50;
 
-    /*
+    /**
      * The Android Compatibility Test Suite (CTS) is used by Google to enforce a
      * common idea of what it means to be Android.  One of their tests is to
      * make sure there are no TCP or UDP listeners in running processes when the
@@ -597,7 +605,7 @@ class TCPTransport : public Transport, public RemoteEndpoint::EndpointListener, 
      * on.  This lest is kept so we can tear down the listeners if there are no
      * advertisements and recreate it if an advertisement is started.
      *
-     * This is keep TCP from having a listener so that the Android Compatibility
+     * This is keep WFD from having a listener so that the Android Compatibility
      * test suite can pass with when the daemon is in the quiescent state.
      *
      * @return true if the list of listeners is empty as a result of the
@@ -625,8 +633,233 @@ class TCPTransport : public Transport, public RemoteEndpoint::EndpointListener, 
     bool m_isNsEnabled;
 
     uint16_t m_listenPort;  /**< If m_isListening, is the port on which we are listening */
+
+    class P2PConnectionInfo {
+      public:
+        P2PConnectionInfo(WFDEndpoint* endpoint, int32_t handle, qcc::String& interface)
+            : m_wfdEndpoint(endpoint), m_handle(handle), m_interface(interface) { }
+
+        virtual ~P2PConnectionInfo()
+        { m_wfdEndpoint = 0; m_handle = -1; m_interface = ""; }
+
+        WFDEndpoint* GetEndpoint() { return m_wfdEndpoint; }
+        int32_t GetHandle() { return m_handle; }
+        qcc::String GetInterface() { return m_interface; }
+
+      private:
+        WFDEndpoint* m_wfdEndpoint;
+        int32_t m_handle;
+        qcc::String m_interface;
+    };
+
+    P2PConnectionInfo* GetP2PInfoForEndpoint(WFDEndpoint* wfdEndpoint)
+    {
+        QCC_DbgPrintf(("P2PConnectionInfo::GetP2PInfoForEndpoint(%p)\n", wfdEndpoint));
+        for (std::list<P2PConnectionInfo*>::iterator i = m_p2pConnectionInfo.begin(); i != m_p2pConnectionInfo.end(); ++i) {
+            QCC_DbgPrintf(("P2PConnectionInfo::GetP2PInfoForEndpoint(): check out %p\n", *i));
+            if ((*i)->GetEndpoint() == wfdEndpoint) {
+                return *i;
+            }
+        }
+
+        return NULL;
+    }
+
+    void RememberP2PConnection(WFDEndpoint* endpoint, int32_t handle, qcc::String& interface)
+    {
+        assert(m_p2pConnectionInfo.empty() && "P2PConnectionInfo::RememberP2PConnection(): Multiple P2P Connections!?");
+        P2PConnectionInfo* info = new P2PConnectionInfo(endpoint, handle, interface);
+        m_p2pConnectionInfo.push_back(info);
+    }
+
+    void ForgetP2PConnection(WFDEndpoint* wfdEndpoint)
+    {
+        for (std::list<P2PConnectionInfo*>::iterator i = m_p2pConnectionInfo.begin(); i != m_p2pConnectionInfo.end(); ++i) {
+            QCC_DbgPrintf(("P2PConnectionInfo::forgetP2PConnection(): check out %p\n", *i));
+            if ((*i)->GetEndpoint() == wfdEndpoint) {
+                QCC_DbgPrintf(("P2PConnectionInfo::ForgetP2PConnection(): delete %p\n", *i));
+                delete *i;
+                m_p2pConnectionInfo.erase(i);
+                return;
+            }
+        }
+    }
+
+    std::list<P2PConnectionInfo*> m_p2pConnectionInfo;
+
+    P2PHelperInterface* m_p2pHelperInterface;
+
+    class MyP2PHelperListener : public P2PHelperListener {
+      public:
+        MyP2PHelperListener(WFDTransport* transport) : m_transport(transport) { }
+        ~MyP2PHelperListener() { }
+
+        virtual void OnFoundAdvertisedName(qcc::String& name, qcc::String& namePrefix, qcc::String& guid, qcc::String& device)
+        {
+            QCC_DbgPrintf(("MyP2PHelperListener::OnFoundAdvertisedname(\"%s\", \"%s\", \"%s\", \"%s\")\n",
+                           name.c_str(), namePrefix.c_str(), guid.c_str(), device.c_str()));
+
+            assert(m_transport);
+            m_transport->OnFoundAdvertisedName(name.c_str(), namePrefix.c_str(), guid.c_str(), device.c_str());
+        }
+
+        virtual void OnLostAdvertisedName(qcc::String& name, qcc::String& namePrefix, qcc::String& guid, qcc::String& device)
+        {
+            QCC_DbgPrintf(("MyP2PHelperListener::OnLostAdvertisedname(\"%s\", \"%s\", \"%s\", \"%s\")\n",
+                           name.c_str(), namePrefix.c_str(), guid.c_str(), device.c_str()));
+
+            assert(m_transport);
+            m_transport->OnLostAdvertisedName(name.c_str(), namePrefix.c_str(), guid.c_str(), device.c_str());
+        }
+
+        virtual void OnLinkEstablished(int32_t handle)
+        {
+            QCC_DbgPrintf(("MyP2PHelperListener::OnLinkEstablished(%d)\n", handle));
+
+            assert(m_transport);
+            m_transport->OnLinkEstablished(handle);
+        }
+
+        virtual void OnLinkError(int32_t handle, int32_t error)
+        {
+            QCC_DbgPrintf(("MyP2PHelperListener::OnLinkError(%d, %d)\n", handle, error));
+
+            assert(m_transport);
+            m_transport->OnLinkError(handle, error);
+        }
+
+        virtual void OnLinkLost(int32_t handle)
+        {
+            QCC_DbgPrintf(("MyP2PHelperListener::OnLinkLost(%d)\n", handle));
+
+            assert(m_transport);
+            m_transport->OnLinkLost(handle);
+        }
+
+        virtual void HandleFindAdvertisedNameReply(int32_t result)
+        {
+            QCC_DbgPrintf(("MyP2PHelperListener::HandleFindAdvertisedNameReply(%d)\n", result));
+            if (result != P2PHelperInterface::P2P_OK) {
+                QCC_LogError(ER_FAIL, ("MyP2PHelperListener::HandleFindAdvertisedNameReply(%d)\n", result));
+            }
+        }
+
+        virtual void HandleCancelFindAdvertisedNameReply(int32_t result)
+        {
+            QCC_DbgPrintf(("MyP2PHelperListener::HandleCancelFindAdvertisedNameReply(%d)\n", result));
+            if (result != P2PHelperInterface::P2P_OK) {
+                QCC_LogError(ER_FAIL, ("MyP2PHelperListener::HandleCancelFindAdvertisedNameReply(%d)\n", result));
+            }
+        }
+
+        virtual void HandleAdvertiseNameReply(int32_t result)
+        {
+            QCC_DbgPrintf(("MyP2PHelperListener::HandleAdvertiseNameReply(%d)\n", result));
+            if (result != P2PHelperInterface::P2P_OK) {
+                QCC_LogError(ER_FAIL, ("MyP2PHelperListener::HandleAdvertiseNameReply(%d)\n", result));
+            }
+        }
+
+        virtual void HandleCancelAdvertiseNameReply(int32_t result)
+        {
+            QCC_DbgPrintf(("MyP2PHelperListener::HandleCancelAdvertiseNameReply(%d)\n", result));
+            if (result != P2PHelperInterface::P2P_OK) {
+                QCC_LogError(ER_FAIL, ("MyP2PHelperListener::HandleCancelAdvertiseNameReply(%d)\n", result));
+            }
+        }
+
+        virtual void HandleEstablishLinkReply(int32_t handle)
+        {
+            QCC_DbgPrintf(("MyP2PHelperListener::HandleEstablishLinkReply(%d)\n", handle));
+            assert(m_transport);
+            m_transport->HandleEstablishLinkReply(handle);
+        }
+
+        virtual void HandleReleaseLinkReply(int32_t result)
+        {
+            QCC_DbgPrintf(("MyP2PHelperListener::HandleReleaseLinkReply(%d)\n", result));
+        }
+
+        virtual void HandleGetInterfaceNameFromHandleReply(qcc::String& interface)
+        {
+            QCC_DbgPrintf(("MyP2PHelperListener::HandleGetInterfaceNameFromHandleReply(\"%s\")\n", interface.c_str()));
+            assert(m_transport);
+            m_transport->HandleGetInterfaceNameFromHandleReply(interface);
+        }
+
+      private:
+        WFDTransport* m_transport;
+    };
+
+    MyP2PHelperListener* m_myP2pHelperListener;
+
+    qcc::Event m_establishLinkEvent;
+    bool m_establishLinkResult;
+
+    qcc::Event m_getInterfaceNameFromHandleEvent;
+    bool m_getInterfaceNameFromHandleResult;
+    qcc::String m_foundInterface;
+
+    int m_goHandle;
+
+    qcc::Mutex m_deviceListLock;
+    typedef std::list<std::pair<qcc::String, qcc::String> > DeviceList;
+    DeviceList m_deviceList;
+
+    class P2pDeviceRequest {
+      public:
+        P2pDeviceRequest(int handle, qcc::Event* event) : m_handle(handle), m_event(event), m_result(-1) { }
+
+        int GetHandle(void) { return m_handle; }
+
+        void SetEvent(void) { m_event->SetEvent(); }
+
+        void SetResult(int result) { m_result = result; }
+        int GetResult(void) { return m_result; }
+
+      private:
+        int m_handle;
+        qcc::Event* m_event;
+        int m_result;
+    };
+
+    qcc::Mutex m_deviceRequestListLock;
+    typedef std::list<P2pDeviceRequest> P2pDeviceRequestList;
+    P2pDeviceRequestList m_deviceRequestList;
+
+    class P2pAddressRequest {
+      public:
+        P2pAddressRequest(qcc::String guid, qcc::Event* event) : m_guid(guid), m_event(event) { }
+        qcc::String GetGuid(void) { return m_guid; }
+
+        void SetEvent(void) { m_event->SetEvent(); }
+
+        void SetAddress(qcc::String address) { m_address = address; }
+        qcc::String GetAddress(void) { return m_address; }
+
+        void SetPort(qcc::String port) { m_port = port; }
+        qcc::String GetPort(void) { return m_port; }
+
+      private:
+        qcc::String m_guid;
+        qcc::Event* m_event;
+        qcc::String m_address;
+        qcc::String m_port;
+    };
+
+    qcc::Mutex m_addressRequestListLock;
+    typedef std::list<P2pAddressRequest> P2pAddressRequestList;
+    P2pAddressRequestList m_addressRequestList;
+
+    QStatus CreateTemporaryNetwork(const qcc::String& guid, qcc::String& interface);
+    QStatus CreateConnectSpec(const qcc::String& interface, const qcc::String& guid, qcc::String& connectSpec);
+
+  public:
+    void OnFound(const qcc::String& busAddr, const qcc::String& guid);
 };
+
+#undef QCC_MODULE
 
 } // namespace ajn
 
-#endif // _ALLJOYN_TCPTRANSPORT_H
+#endif // _ALLJOYN_WFDTRANSPORT_H

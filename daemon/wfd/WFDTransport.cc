@@ -1,6 +1,6 @@
 /**
  * @file
- * TCPTransport is an implementation of TCPTransportBase for daemons.
+ * WFDTransport is an implementation of WFDTransportBase for daemons.
  */
 
 /******************************************************************************
@@ -36,7 +36,7 @@
 #include "Router.h"
 #include "DaemonConfig.h"
 #include "ns/IpNameService.h"
-#include "TCPTransport.h"
+#include "WFDTransport.h"
 
 /*
  * How the transport fits into the system
@@ -46,8 +46,8 @@
  * abstract way for the daemon to use different network mechanisms for getting
  * Messages from place to another.  Conceptually, think of, for example, a Unix
  * transport that moves bits using unix domain sockets, a Bluetooth transport
- * that moves bits over a Bluetooth link and a TCP transport that moves Messages
- * over a TCP connection.
+ * that moves bits over a Bluetooth link and a WFD transport that moves Messages
+ * over a WFD connection.
  *
  * In networking 101, one discovers that BSD sockets is oriented toward clients
  * and servers.  There are different sockets calls required for a program
@@ -59,19 +59,19 @@
  * sockets client-server pair, it turns out that while daemons obviously must
  * listen for incoming connections, they also must be able to initiate
  * connection requests to other daemons.  It turns out that there is very little
- * in the way of common code when comparing the client version of a TCP
- * transport and a daemon version.  Therefore you will find a TCPTransport
+ * in the way of common code when comparing the client version of a WFD
+ * transport and a daemon version.  Therefore you will find a WFDTransport
  * class in here the dameon directory and a client version, called simply
- * TCPTransport, in the src directory.
+ * WFDTransport, in the src directory.
  *
- * This file is the TCPTransport.  It needs to act as both a client and a
+ * This file is the WFDTransport.  It needs to act as both a client and a
  * server explains the presence of both connect-like methods and listen-like
  * methods here.
  *
  * A fundamental idiom in the AllJoyn system is that of a thread.  Active
  * objects in the system that have threads wandering through them will implement
  * Start(), Stop() and Join() methods.  These methods work together to manage
- * the autonomous activities that can happen in a TCPTransport.  These
+ * the autonomous activities that can happen in a WFDTransport.  These
  * activities are carried out by so-called hardware threads.  POSIX defines
  * functions used to control hardware threads, which it calls pthreads.  Many
  * threading packages use similar constructs.
@@ -80,7 +80,7 @@
  * for the start of thread execution.  Threads are not necessarily running when
  * the start method returns, but they are being *started*.  Some time later, a
  * thread of execution appears in a thread run function, at which point the
- * thread is considered *running*.  In the case of the TCPTransport, the Start() method
+ * thread is considered *running*.  In the case of the WFDTransport, the Start() method
  * spins up a thread to run the BSD sockets' server accept loop.  This
  * also means that as soon as Start() is executed, a thread may be using underlying
  * socket file descriptors and one must be very careful about convincing the
@@ -91,7 +91,7 @@
  * sends a message to the thread to ask it to stop doing what it is doing.  The
  * thread is running until it responds to the stop message, at which time the
  * run method exits and the thread is considered *stopping*.  The
- * TCPTransport provides a Stop() method to do exactly that.
+ * WFDTransport provides a Stop() method to do exactly that.
  *
  * Note that neither of Start() nor Stop() are synchronous in the sense that one
  * has actually accomplished the desired effect upon the return from a call.  Of
@@ -100,10 +100,10 @@
  *
  * In order to wait until all of the threads have actually stopped, a blocking
  * call is required.  In threading packages this is typically called join, and
- * our corresponding method is called Join().  A user of the DaemonTcpTransport
+ * our corresponding method is called Join().  A user of the DaemonWfdTransport
  * must assume that immediately after a call to Start() is begun, and until a
  * call to Join() returns, there may be threads of execution wandering anywhere
- * in the DaemonTcpTransport and in any callback registered by the caller.
+ * in the DaemonWfdTransport and in any callback registered by the caller.
  *
  * The high-level process for how an advertisement translates into a transport
  * Connect() is a bit opaque, so we paint a high-level picture here.
@@ -111,7 +111,7 @@
  * First, a service (that will be handling RPC calls and emitting signals)
  * acquires a name on the bus, binds a session and calls AdvertiseName.  This
  * filters down (possibly through language bindings) to the AllJoyn object, into
- * the transports on the transport list (the TCP transport is one of those) and
+ * the transports on the transport list (the WFD transport is one of those) and
  * eventually to the IpNameService::AdvertiseName() method we call since we are
  * an IP-based transport.  The IP name service will multicast the advertisements
  * to other daemons listening on our device's connected networks.
@@ -126,14 +126,14 @@
  * The daemon remembers which clients have expressed interest in which services,
  * and expects name services to call back with the bus addresses of daemons they
  * find which have the associated services.  In version zero of the protocol,
- * the only endpoint type supported was a TCP endpoint.  In the case of version
+ * the only endpoint type supported was a WFD endpoint.  In the case of version
  * one, we have four, so we now see "different" bus addresses coming from the
  * name service and "different" connect specs coming from AllJoyn proper.
  *
  * When a new advertisement is received (because we called our listener's
  * Found() method here, the bus address is "hidden" from interested clients and
  * replaced with a more generic TransportMask bit (for us it will be
- * TRANSPORT_TCP).  The client either responds by ignoring the advertisement,
+ * TRANSPORT_WFD).  The client either responds by ignoring the advertisement,
  * waits to accumulate more answers or joins a session to the implied
  * daemon/service.  A reference to a SessionOpts object is provided as a
  * parameter to a JoinSession call if the client wants to connect.  This
@@ -155,7 +155,7 @@
  * connect spec in the Connect() method) the transport should choose that one.
  * If both IPv4 or IPv6 are available, it is up to the transport (again, us) to
  * choose the "best" method since we don't bother clients with that level of
- * detail.  We (TCP) generally choose IPv6 when given the choice since DHCP on
+ * detail.  We (WFD) generally choose IPv6 when given the choice since DHCP on
  * IPv4 is sometimes problematic in some networks.
  *
  * Internals
@@ -166,7 +166,7 @@
  * the bugs live.
  *
  * As mentioned above, the AllJoyn system uses the concept of a Transport.  You
- * are looking at the TCPTransport.  Each transport also has the concept
+ * are looking at the WFDTransport.  Each transport also has the concept
  * of an Endpoint.  The most important function fo an endpoint is to provide
  * non-blocking semantics to higher level code.  This is provided by a transmit
  * thread on the write side which can block without blocking the higher level
@@ -177,12 +177,12 @@
  * classes.  LocalEndpoint represents a connection from a router to the local
  * bus attachment or daemon (within the "current" process).  A RemoteEndpoint
  * represents a connection from a router to a remote attachment or daemon.  By
- * definition, the TCPTransport provides RemoteEndpoint functionality.
+ * definition, the WFDTransport provides RemoteEndpoint functionality.
  *
  * RemoteEndpoints are further specialized according to the flavor of the
- * corresponding transport, and so you will see a TCPEndpoint class
+ * corresponding transport, and so you will see a WFDEndpoint class
  * defined below which provides functionality to send messages from the local
- * router to a destination off of the local process using a TCP transport
+ * router to a destination off of the local process using a WFD transport
  * mechanism.
  *
  * RemoteEndpoints use AllJoyn stream objects to actually move bits.  This
@@ -199,9 +199,9 @@
  * by a Message router, the transmit thread will pull it off and marshal it,
  * then it will write the bytes to the transport mechanism.
  *
- * The TCPEndpoint inherits the infrastructure requred to do most of its
+ * The WFDEndpoint inherits the infrastructure requred to do most of its
  * work from the more generic RemoteEndpoint class.  It needs to do specific
- * TCP-related work and also provide for authenticating the endpoint before it
+ * WFD-related work and also provide for authenticating the endpoint before it
  * is allowed to start pumping messages.  Authentication means running some
  * mysterious (to us) process that may involve some unknown number of challenge
  * and response messsages being exchanged between the client and server side of
@@ -234,39 +234,39 @@
  * another out from under an Event without its knowledge.
  *
  * To summarize, consider the following "big picture' view of the transport.  A
- * single TCPTransport is constructed if the daemon TransportList
- * indicates that TCP support is required.  The high-level daemon code (see
+ * single WFDTransport is constructed if the daemon TransportList
+ * indicates that WFD support is required.  The high-level daemon code (see
  * bbdaemon.cc for example) builds a TransportFactoryContainer that is
- * initialized with a factory that knows how to make TCPTransport objects
- * if they are needed, and associates the factory with the string "tcp".  The
- * daemon also constructs "server args" which may contain the string "tcp" or
- * "bluetooth" or "unix".  If the factory container provides a "tcp" factory and
- * the server args specify a "tcp" transport is needed then a TCPTransport
+ * initialized with a factory that knows how to make WFDTransport objects
+ * if they are needed, and associates the factory with the string "wfd".  The
+ * daemon also constructs "server args" which may contain the string "wfd" or
+ * "bluetooth" or "unix".  If the factory container provides a "wfd" factory and
+ * the server args specify a "wfd" transport is needed then a WFDTransport
  * object is instantiated and entered into the daemon's internal transport list
  * (list of available transports).  Also provided for each transport is an abstract
  * address to listen for incoming connection requests on.
  *
  * When the daemon is brought up, its TransportList is Start()ed.  The transport
- * specs string (e.g., "unix:abstract=alljoyn;tcp:;bluetooth:") is provided to
+ * specs string (e.g., "unix:abstract=alljoyn;wfd:;bluetooth:") is provided to
  * TransportList::Start() as a parameter.  The transport specs string is parsed
- * and in the example above, results in "unix" transports, "tcp" transports and
+ * and in the example above, results in "unix" transports, "wfd" transports and
  * "bluetooth" transports being instantiated and started.  As mentioned
- * previously "tcp" in the daemon translates into TCPTransport.  Once the
+ * previously "wfd" in the daemon translates into WFDTransport.  Once the
  * desired transports are instantiated, each is Start()ed in turn.  In the case
- * of the TCPTransport, this will start the server accept loop.  Initially
+ * of the WFDTransport, this will start the server accept loop.  Initially
  * there are no sockets to listen on.
  *
  * The daemon then needs to start listening on some inbound addresses and ports.
  * This is done by the StartListen() command which you can find in bbdaemon, for
  * example.  This alwo takes the same king of server args string shown above but
  * this time the address and port information are used.  For example, one might
- * use the string "tcp:addr=0.0.0.0,port=9955;" to specify which address and
+ * use the string "wfd:addr=0.0.0.0,port=9955;" to specify which address and
  * port to listen to.  This Bus::StartListen() call is translated into a
- * TCPTransport::StartListen() call which is provided with the string
+ * WFDTransport::StartListen() call which is provided with the string
  * which we call a "listen spec".  Our StartListen() will create a Socket, bind
  * the socket to the address and port provided and save the new socket on a list
  * of "listenFds." It will then Alert() the already running server accept loop
- * thread -- see TCPTransport::Run().  Each time through the server accept
+ * thread -- see WFDTransport::Run().  Each time through the server accept
  * loop, Run() will examine the list of listenFds and will associate an Event
  * with the corresponding socketFd and wait for connection requests.
  *
@@ -276,25 +276,25 @@
  * coordinated way.
  *
  * When an inbound connection request is received, the accept loop will wake up
- * and create a TCPEndpoint for the *proposed* new connection.  Recall
+ * and create a WFDEndpoint for the *proposed* new connection.  Recall
  * that an endpoint is not brought up immediately, but an authentication step
  * must be performed.  The server accept loop starts this process by placing the
- * new TCPEndpoint on an authList, or list of authenticating endpoints.
+ * new WFDEndpoint on an authList, or list of authenticating endpoints.
  * It then calls the endpoint Authenticate() method which spins up an
  * authentication thread and returns immediately.  This process transfers the
  * responsibility for the connection and its resources to the authentication
  * thread.  Authentication can succeed, fail, or take to long and be aborted.
  *
  * If authentication succeeds, the authentication thread calls back into the
- * TCPTransport's Authenticated() method.  Along with indicating that
+ * WFDTransport's Authenticated() method.  Along with indicating that
  * authentication has completed successfully, this transfers ownership of the
- * TCPEndpoint back to the TCPTransport from the authentication
- * thread.  At this time, the TCPEndpoint is Start()ed which spins up
+ * WFDEndpoint back to the WFDTransport from the authentication
+ * thread.  At this time, the WFDEndpoint is Start()ed which spins up
  * the transmit and receive threads and enables Message routing across the
  * transport.
  *
  * If the authentication fails, the authentication thread simply sets a the
- * TCPEndpoint state to FAILED and exits.  The server accept loop looks at
+ * WFDEndpoint state to FAILED and exits.  The server accept loop looks at
  * authenticating endpoints (those on the authList)each time through its loop.
  * If an endpoint has failed authentication, and its thread has actually gone
  * away (or more precisely is at least going away in such a way that it will
@@ -326,7 +326,7 @@
  * byte is only meaningful in Unix domain sockets transports, but we must send it
  * anyway.
  *
- * The next step is to create a TCPEndpoint and to put it on the endpointList.
+ * The next step is to create a WFDEndpoint and to put it on the endpointList.
  * Note that the endpoint doesn't go on the authList as in the server case, it
  * goes on the list of active endpoints.  This is because a failure to authenticate
  * on the client side results in a call to EndpointExit which is the same code path as
@@ -342,7 +342,7 @@
  * is the one deleting the endpoint; and no rx or tx thread is spun up if the
  * authentication fails.
  *
- * Shutting the TCPTransport down involves orchestrating the orderly termination
+ * Shutting the WFDTransport down involves orchestrating the orderly termination
  * of:
  *
  *   1) Threads that may be running in the server accept loop with associated Events
@@ -378,27 +378,27 @@
  * the socket now used by the other module).
  */
 
-#define QCC_MODULE "TCP"
+#define QCC_MODULE "WFD"
 
 using namespace std;
 using namespace qcc;
 
-const uint32_t TCP_LINK_TIMEOUT_PROBE_ATTEMPTS       = 1;
-const uint32_t TCP_LINK_TIMEOUT_PROBE_RESPONSE_DELAY = 10;
-const uint32_t TCP_LINK_TIMEOUT_MIN_LINK_TIMEOUT     = 40;
+const uint32_t WFD_LINK_TIMEOUT_PROBE_ATTEMPTS       = 1;
+const uint32_t WFD_LINK_TIMEOUT_PROBE_RESPONSE_DELAY = 10;
+const uint32_t WFD_LINK_TIMEOUT_MIN_LINK_TIMEOUT     = 40;
 
 namespace ajn {
 
 /**
  * Name of transport used in transport specs.
  */
-const char* TCPTransport::TransportName = "tcp";
+const char* WFDTransport::TransportName = "wfd";
 
 /*
  * An endpoint class to handle the details of authenticating a connection in a
  * way that avoids denial of service attacks.
  */
-class TCPEndpoint : public RemoteEndpoint {
+class WFDEndpoint : public RemoteEndpoint {
   public:
     /**
      * There are three threads that can be running around in this data
@@ -451,14 +451,14 @@ class TCPEndpoint : public RemoteEndpoint {
         SIDE_PASSIVE         /**< This endpoint is the passive side of a connection */
     };
 
-    TCPEndpoint(TCPTransport* transport,
+    WFDEndpoint(WFDTransport* transport,
                 BusAttachment& bus,
                 bool incoming,
                 const qcc::String connectSpec,
                 qcc::SocketFd sock,
                 const qcc::IPAddress& ipAddr,
                 uint16_t port)
-        : RemoteEndpoint(bus, incoming, connectSpec, &m_stream, "tcp"),
+        : RemoteEndpoint(bus, incoming, connectSpec, &m_stream, "wfd"),
         m_transport(transport),
         m_sideState(SIDE_INITIALIZED),
         m_authState(AUTH_INITIALIZED),
@@ -470,7 +470,7 @@ class TCPEndpoint : public RemoteEndpoint {
         m_port(port),
         m_wasSuddenDisconnect(!incoming) { }
 
-    virtual ~TCPEndpoint() { }
+    virtual ~WFDEndpoint() { }
 
     void SetStartTime(qcc::Timespec tStart) { m_tStart = tStart; }
     qcc::Timespec GetStartTime(void) { return m_tStart; }
@@ -536,11 +536,11 @@ class TCPEndpoint : public RemoteEndpoint {
     {
         QStatus status = ER_OK;
         if (linkTimeout > 0) {
-            uint32_t to = max(linkTimeout, TCP_LINK_TIMEOUT_MIN_LINK_TIMEOUT);
-            to -= TCP_LINK_TIMEOUT_PROBE_RESPONSE_DELAY * TCP_LINK_TIMEOUT_PROBE_ATTEMPTS;
-            status = RemoteEndpoint::SetLinkTimeout(to, TCP_LINK_TIMEOUT_PROBE_RESPONSE_DELAY, TCP_LINK_TIMEOUT_PROBE_ATTEMPTS);
+            uint32_t to = max(linkTimeout, WFD_LINK_TIMEOUT_MIN_LINK_TIMEOUT);
+            to -= WFD_LINK_TIMEOUT_PROBE_RESPONSE_DELAY * WFD_LINK_TIMEOUT_PROBE_ATTEMPTS;
+            status = RemoteEndpoint::SetLinkTimeout(to, WFD_LINK_TIMEOUT_PROBE_RESPONSE_DELAY, WFD_LINK_TIMEOUT_PROBE_ATTEMPTS);
             if ((status == ER_OK) && (to > 0)) {
-                linkTimeout = to + TCP_LINK_TIMEOUT_PROBE_RESPONSE_DELAY * TCP_LINK_TIMEOUT_PROBE_ATTEMPTS;
+                linkTimeout = to + WFD_LINK_TIMEOUT_PROBE_RESPONSE_DELAY * WFD_LINK_TIMEOUT_PROBE_ATTEMPTS;
             }
 
         } else {
@@ -564,14 +564,14 @@ class TCPEndpoint : public RemoteEndpoint {
   private:
     class AuthThread : public qcc::Thread {
       public:
-        AuthThread(TCPEndpoint* conn, TCPTransport* trans) : Thread("auth"), m_transport(trans) { }
+        AuthThread(WFDEndpoint* conn, WFDTransport* trans) : Thread("auth"), m_transport(trans) { }
       private:
         virtual qcc::ThreadReturn STDCALL Run(void* arg);
 
-        TCPTransport* m_transport;
+        WFDTransport* m_transport;
     };
 
-    TCPTransport* m_transport;  /**< The server holding the connection */
+    WFDTransport* m_transport;  /**< The server holding the connection */
     volatile SideState m_sideState;   /**< Is this an active or passive connection */
     volatile AuthState m_authState;   /**< The state of the endpoint authentication process */
     volatile EndpointState m_epState; /**< The state of the endpoint authentication process */
@@ -583,9 +583,9 @@ class TCPEndpoint : public RemoteEndpoint {
     bool m_wasSuddenDisconnect;       /**< If true, assumption is that any disconnect is unexpected due to lower level error */
 };
 
-QStatus TCPEndpoint::Authenticate(void)
+QStatus WFDEndpoint::Authenticate(void)
 {
-    QCC_DbgTrace(("TCPEndpoint::Authenticate()"));
+    QCC_DbgTrace(("WFDEndpoint::Authenticate()"));
     /*
      * Start the authentication thread.
      */
@@ -596,9 +596,9 @@ QStatus TCPEndpoint::Authenticate(void)
     return status;
 }
 
-void TCPEndpoint::AuthStop(void)
+void WFDEndpoint::AuthStop(void)
 {
-    QCC_DbgTrace(("TCPEndpoint::AuthStop()"));
+    QCC_DbgTrace(("WFDEndpoint::AuthStop()"));
 
     /*
      * Ask the auth thread to stop executing.  The only ways out of the thread
@@ -613,9 +613,9 @@ void TCPEndpoint::AuthStop(void)
     m_authThread.Stop();
 }
 
-void TCPEndpoint::AuthJoin(void)
+void WFDEndpoint::AuthJoin(void)
 {
-    QCC_DbgTrace(("TCPEndpoint::AuthJoin()"));
+    QCC_DbgTrace(("WFDEndpoint::AuthJoin()"));
 
     /*
      * Join the auth thread to stop executing.  All threads must be joined in
@@ -626,11 +626,11 @@ void TCPEndpoint::AuthJoin(void)
     m_authThread.Join();
 }
 
-void* TCPEndpoint::AuthThread::Run(void* arg)
+void* WFDEndpoint::AuthThread::Run(void* arg)
 {
-    QCC_DbgTrace(("TCPEndpoint::AuthThread::Run()"));
+    QCC_DbgTrace(("WFDEndpoint::AuthThread::Run()"));
 
-    TCPEndpoint* conn = reinterpret_cast<TCPEndpoint*>(arg);
+    WFDEndpoint* conn = reinterpret_cast<WFDEndpoint*>(arg);
 
     conn->m_authState = AUTH_AUTHENTICATING;
 
@@ -716,7 +716,7 @@ void* TCPEndpoint::AuthThread::Run(void* arg)
     status = conn->Establish("ANONYMOUS", authName, redirection);
     if (status != ER_OK) {
         conn->m_stream.Close();
-        QCC_LogError(status, ("Failed to establish TCP endpoint"));
+        QCC_LogError(status, ("Failed to establish WFD endpoint"));
 
         /*
          * Management of the resources used by the authentication thread is done
@@ -744,7 +744,7 @@ void* TCPEndpoint::AuthThread::Run(void* arg)
      */
     conn->m_transport->Authenticated(conn);
 
-    QCC_DbgTrace(("TCPEndpoint::AuthThread::Run(): Returning"));
+    QCC_DbgTrace(("WFDEndpoint::AuthThread::Run(): Returning"));
 
     /*
      * We are now done with the authentication process.  We have succeeded doing
@@ -766,12 +766,13 @@ void* TCPEndpoint::AuthThread::Run(void* arg)
     return (void*)status;
 }
 
-TCPTransport::TCPTransport(BusAttachment& bus)
-    : Thread("TCPTransport"), m_bus(bus), m_stopping(false), m_listener(0),
-    m_foundCallback(m_listener),
-    m_isAdvertising(false), m_isDiscovering(false), m_isListening(false), m_isNsEnabled(false), m_listenPort(0)
+WFDTransport::WFDTransport(BusAttachment& bus)
+    : Thread("WFDTransport"), m_bus(bus), m_stopping(false), m_listener(0),
+      m_foundCallback(this, m_listener),
+      m_isAdvertising(false), m_isDiscovering(false), m_isListening(false), m_isNsEnabled(false), m_listenPort(0),
+      m_p2pHelperInterface(0), m_myP2pHelperListener(0), m_goHandle(-1)
 {
-    QCC_DbgTrace(("TCPTransport::TCPTransport()"));
+    QCC_DbgTrace(("WFDTransport::WFDTransport()"));
     /*
      * We know we are daemon code, so we'd better be running with a daemon
      * router.  This is assumed elsewhere.
@@ -779,16 +780,26 @@ TCPTransport::TCPTransport(BusAttachment& bus)
     assert(m_bus.GetInternal().GetRouter().IsDaemon());
 }
 
-TCPTransport::~TCPTransport()
+WFDTransport::~WFDTransport()
 {
-    QCC_DbgTrace(("TCPTransport::~TCPTransport()"));
+    QCC_DbgTrace(("WFDTransport::~WFDTransport()"));
     Stop();
     Join();
+
+    QCC_DbgTrace(("WFDTransport::~WFDTransport(): deleting m_p2pHelperInterface"));
+
+    delete m_p2pHelperInterface;
+    m_p2pHelperInterface = NULL;
+
+    QCC_DbgTrace(("WFDTransport::~WFDTransport(): deleting m_p2pHelperListener"));
+
+    delete m_myP2pHelperListener;
+    m_myP2pHelperListener = NULL;
 }
 
-void TCPTransport::Authenticated(TCPEndpoint* conn)
+void WFDTransport::Authenticated(WFDEndpoint* conn)
 {
-    QCC_DbgTrace(("TCPTransport::Authenticated()"));
+    QCC_DbgTrace(("WFDTransport::Authenticated()"));
 
     /*
      * If Authenticated() is being called, it is as a result of the
@@ -803,8 +814,8 @@ void TCPTransport::Authenticated(TCPEndpoint* conn)
      */
     m_endpointListLock.Lock(MUTEX_CONTEXT);
 
-    set<TCPEndpoint*>::iterator i = find(m_authList.begin(), m_authList.end(), conn);
-    assert(i != m_authList.end() && "TCPTransport::Authenticated(): Conn not on m_authList");
+    set<WFDEndpoint*>::iterator i = find(m_authList.begin(), m_authList.end(), conn);
+    assert(i != m_authList.end() && "WFDTransport::Authenticated(): Conn not on m_authList");
 
     /*
      * Note here that we have not yet marked the authState as AUTH_SUCCEEDED so
@@ -819,7 +830,7 @@ void TCPTransport::Authenticated(TCPEndpoint* conn)
     conn->SetListener(this);
     QStatus status = conn->Start();
     if (status != ER_OK) {
-        QCC_LogError(status, ("TCPTransport::Authenticated(): Failed to start TCP endpoint"));
+        QCC_LogError(status, ("WFDTransport::Authenticated(): Failed to start WFD endpoint"));
         /*
          * We were unable to start up the endpoint for some reason.  As soon as
          * we set this state to EP_FAILED, we are telling the server accept loop
@@ -844,7 +855,7 @@ void TCPTransport::Authenticated(TCPEndpoint* conn)
     }
 }
 
-QStatus TCPTransport::Start()
+QStatus WFDTransport::Start()
 {
     /*
      * We rely on the status of the server accept thead as the primary
@@ -868,7 +879,7 @@ QStatus TCPTransport::Start()
      * start requests.
      */
     if (IsRunning()) {
-        QCC_LogError(ER_BUS_BUS_ALREADY_STARTED, ("TCPTransport::Start(): Already started"));
+        QCC_LogError(ER_BUS_BUS_ALREADY_STARTED, ("WFDTransport::Start(): Already started"));
         return ER_BUS_BUS_ALREADY_STARTED;
     }
 
@@ -881,7 +892,7 @@ QStatus TCPTransport::Start()
     qcc::String guidStr = m_bus.GetInternal().GetGlobalGUID().ToString();
 
     /*
-     * We're a TCP transport, and TCP is an IP protocol, so we want to use the IP
+     * We're a WFD transport, and WFD is an IP protocol, so we want to use the IP
      * name service for our advertisement and discovery work.  When we acquire
      * the name service, we are basically bumping a reference count and starting
      * it if required.
@@ -892,7 +903,7 @@ QStatus TCPTransport::Start()
      * Tell the name service to call us back on our FoundCallback method when
      * we hear about a new well-known bus name.
      */
-    IpNameService::Instance().SetCallback(TRANSPORT_TCP,
+    IpNameService::Instance().SetCallback(TRANSPORT_WFD,
                                           new CallbackImpl<FoundCallback, void, const qcc::String&, const qcc::String&, std::vector<qcc::String>&, uint8_t>
                                               (&m_foundCallback, &FoundCallback::Found));
 
@@ -904,9 +915,9 @@ QStatus TCPTransport::Start()
     return Thread::Start();
 }
 
-QStatus TCPTransport::Stop(void)
+QStatus WFDTransport::Stop(void)
 {
-    QCC_DbgTrace(("TCPTransport::Stop()"));
+    QCC_DbgTrace(("WFDTransport::Stop()"));
 
     /*
      * It is legal to call Stop() more than once, so it must be possible to
@@ -919,7 +930,7 @@ QStatus TCPTransport::Stop(void)
      * called more than once in the chain of destruction) so the pointer is not
      * required to be non-NULL.
      */
-    IpNameService::Instance().SetCallback(TRANSPORT_TCP, NULL);
+    IpNameService::Instance().SetCallback(TRANSPORT_WFD, NULL);
 
     /*
      * Tell the server accept loop thread to shut down through the thead
@@ -927,7 +938,7 @@ QStatus TCPTransport::Stop(void)
      */
     QStatus status = Thread::Stop();
     if (status != ER_OK) {
-        QCC_LogError(status, ("TCPTransport::Stop(): Failed to Stop() server thread"));
+        QCC_LogError(status, ("WFDTransport::Stop(): Failed to Stop() server thread"));
         return status;
     }
 
@@ -952,7 +963,7 @@ QStatus TCPTransport::Stop(void)
      * data structure.  We call Stop() to stop that thread from running.  The
      * endpoint Rx and Tx threads will not be running yet.
      */
-    for (set<TCPEndpoint*>::iterator i = m_authList.begin(); i != m_authList.end(); ++i) {
+    for (set<WFDEndpoint*>::iterator i = m_authList.begin(); i != m_authList.end(); ++i) {
         (*i)->AuthStop();
     }
 
@@ -964,7 +975,7 @@ QStatus TCPTransport::Stop(void)
      * the connnection is on the m_endpointList, we know that the authentication
      * thread has handed off responsibility.
      */
-    for (set<TCPEndpoint*>::iterator i = m_endpointList.begin(); i != m_endpointList.end(); ++i) {
+    for (set<WFDEndpoint*>::iterator i = m_endpointList.begin(); i != m_endpointList.end(); ++i) {
         (*i)->Stop();
     }
 
@@ -973,9 +984,9 @@ QStatus TCPTransport::Stop(void)
     return ER_OK;
 }
 
-QStatus TCPTransport::Join(void)
+QStatus WFDTransport::Join(void)
 {
-    QCC_DbgTrace(("TCPTransport::Join()"));
+    QCC_DbgTrace(("WFDTransport::Join()"));
 
     /*
      * It is legal to call Join() more than once, so it must be possible to
@@ -1016,9 +1027,9 @@ QStatus TCPTransport::Join(void)
      * authentication threads in a previously required Stop().  We need to
      * Join() all of these auth threads here.
      */
-    set<TCPEndpoint*>::iterator it = m_authList.begin();
+    set<WFDEndpoint*>::iterator it = m_authList.begin();
     while (it != m_authList.end()) {
-        TCPEndpoint* ep = *it;
+        WFDEndpoint* ep = *it;
         m_authList.erase(it);
         m_endpointListLock.Unlock(MUTEX_CONTEXT);
         ep->AuthJoin();
@@ -1036,7 +1047,7 @@ QStatus TCPTransport::Join(void)
      */
     it = m_endpointList.begin();
     while (it != m_endpointList.end()) {
-        TCPEndpoint* ep = *it;
+        WFDEndpoint* ep = *it;
         m_endpointList.erase(it);
         m_endpointListLock.Unlock(MUTEX_CONTEXT);
         ep->Join();
@@ -1059,19 +1070,19 @@ QStatus TCPTransport::Join(void)
  */
 static const char* INTERFACES_DEFAULT = "*";
 
-QStatus TCPTransport::GetListenAddresses(const SessionOpts& opts, std::vector<qcc::String>& busAddrs) const
+QStatus WFDTransport::GetListenAddresses(const SessionOpts& opts, std::vector<qcc::String>& busAddrs) const
 {
-    QCC_DbgTrace(("TCPTransport::GetListenAddresses()"));
+    QCC_DbgTrace(("WFDTransport::GetListenAddresses()"));
 
     /*
      * We are given a session options structure that defines the kind of
-     * transports that are being sought.  TCP provides reliable traffic as
+     * transports that are being sought.  WFD provides reliable traffic as
      * understood by the session options, so we only return someting if
      * the traffic type is TRAFFIC_MESSAGES or TRAFFIC_RAW_RELIABLE.  It's
      * not an error if we don't match, we just don't have anything to offer.
      */
     if (opts.traffic != SessionOpts::TRAFFIC_MESSAGES && opts.traffic != SessionOpts::TRAFFIC_RAW_RELIABLE) {
-        QCC_DbgPrintf(("TCPTransport::GetListenAddresses(): traffic mismatch"));
+        QCC_DbgPrintf(("WFDTransport::GetListenAddresses(): traffic mismatch"));
         return ER_OK;
     }
 
@@ -1083,7 +1094,7 @@ QStatus TCPTransport::GetListenAddresses(const SessionOpts& opts, std::vector<qc
      * those: cogito ergo some.
      */
     if (!(opts.transports & (TRANSPORT_WLAN | TRANSPORT_WWAN | TRANSPORT_LAN))) {
-        QCC_DbgPrintf(("TCPTransport::GetListenAddresses(): transport mismatch"));
+        QCC_DbgPrintf(("WFDTransport::GetListenAddresses(): transport mismatch"));
         return ER_OK;
     }
 
@@ -1098,7 +1109,7 @@ QStatus TCPTransport::GetListenAddresses(const SessionOpts& opts, std::vector<qc
      * don't care about anything but the name service in this method.
      */
     if (IpNameService::Instance().Started() == false) {
-        QCC_LogError(ER_BUS_TRANSPORT_NOT_STARTED, ("TCPTransport::GetListenAddresses(): NameService not started"));
+        QCC_LogError(ER_BUS_TRANSPORT_NOT_STARTED, ("WFDTransport::GetListenAddresses(): NameService not started"));
         return ER_BUS_TRANSPORT_NOT_STARTED;
     }
 
@@ -1113,12 +1124,12 @@ QStatus TCPTransport::GetListenAddresses(const SessionOpts& opts, std::vector<qc
      * and out of range of this and that and the underlying IP addresses change
      * as DHCP doles out whatever it feels like at any moment.
      */
-    QCC_DbgPrintf(("TCPTransport::GetListenAddresses(): IfConfig()"));
+    QCC_DbgPrintf(("WFDTransport::GetListenAddresses(): IfConfig()"));
 
     std::vector<qcc::IfConfigEntry> entries;
     QStatus status = qcc::IfConfig(entries);
     if (status != ER_OK) {
-        QCC_LogError(status, ("TCPTransport::GetListenAddresses(): ns.IfConfig() failed"));
+        QCC_LogError(status, ("WFDTransport::GetListenAddresses(): ns.IfConfig() failed"));
         return status;
     }
 
@@ -1128,7 +1139,7 @@ QStatus TCPTransport::GetListenAddresses(const SessionOpts& opts, std::vector<qc
      * with '*' being a wildcard indicating that we want to match any interface.
      * If there is no configuration item, we default to something rational.
      */
-    QCC_DbgPrintf(("TCPTransport::GetListenAddresses(): GetProperty()"));
+    QCC_DbgPrintf(("WFDTransport::GetListenAddresses(): GetProperty()"));
     qcc::String interfaces = DaemonConfig::Access()->Get("ip_name_service/property@interfaces");
     if (interfaces.size() == 0) {
         interfaces = INTERFACES_DEFAULT;
@@ -1143,7 +1154,7 @@ QStatus TCPTransport::GetListenAddresses(const SessionOpts& opts, std::vector<qc
     const char*wildcard = "*";
     size_t i = interfaces.find(wildcard);
     if (i != qcc::String::npos) {
-        QCC_DbgPrintf(("TCPTransport::GetListenAddresses(): wildcard search"));
+        QCC_DbgPrintf(("WFDTransport::GetListenAddresses(): wildcard search"));
         haveWildcard = true;
         interfaces = wildcard;
     }
@@ -1168,14 +1179,14 @@ QStatus TCPTransport::GetListenAddresses(const SessionOpts& opts, std::vector<qc
             interfaces.clear();
         }
 
-        QCC_DbgPrintf(("TCPTransport::GetListenAddresses(): looking for interface %s", currentInterface.c_str()));
+        QCC_DbgPrintf(("WFDTransport::GetListenAddresses(): looking for interface %s", currentInterface.c_str()));
 
         /*
          * Walk the list of interfaces that we got from the system and see if
          * we find a match.
          */
         for (uint32_t i = 0; i < entries.size(); ++i) {
-            QCC_DbgPrintf(("TCPTransport::GetListenAddresses(): matching %s", entries[i].m_name.c_str()));
+            QCC_DbgPrintf(("WFDTransport::GetListenAddresses(): matching %s", entries[i].m_name.c_str()));
             /*
              * To match a configuration entry, the name of the interface must:
              *
@@ -1188,17 +1199,17 @@ QStatus TCPTransport::GetListenAddresses(const SessionOpts& opts, std::vector<qc
             uint32_t state = qcc::IfConfigEntry::UP;
 
             if ((entries[i].m_flags & mask) == state) {
-                QCC_DbgPrintf(("TCPTransport::GetListenAddresses(): %s has correct state", entries[i].m_name.c_str()));
+                QCC_DbgPrintf(("WFDTransport::GetListenAddresses(): %s has correct state", entries[i].m_name.c_str()));
                 if (haveWildcard || entries[i].m_name == currentInterface) {
-                    QCC_DbgPrintf(("TCPTransport::GetListenAddresses(): %s has correct name", entries[i].m_name.c_str()));
+                    QCC_DbgPrintf(("WFDTransport::GetListenAddresses(): %s has correct name", entries[i].m_name.c_str()));
                     /*
                      * This entry matches our search criteria, so we need to
                      * turn the IP address that we found into a busAddr.  We
-                     * must be a TCP transport, and we have an IP address
+                     * must be a WFD transport, and we have an IP address
                      * already in a string, so we can easily put together the
                      * desired busAddr.
                      */
-                    QCC_DbgTrace(("TCPTransport::GetListenAddresses(): %s match found", entries[i].m_name.c_str()));
+                    QCC_DbgTrace(("WFDTransport::GetListenAddresses(): %s match found", entries[i].m_name.c_str()));
                     /*
                      * We know we have an interface that speaks IP and
                      * which has an IP address we can pass back. We know
@@ -1207,7 +1218,7 @@ QStatus TCPTransport::GetListenAddresses(const SessionOpts& opts, std::vector<qc
                      * and what port is that listener listening on.
                      *
                      * There is one name service associated with the daemon
-                     * TCP transport, and it is advertising at most one port.
+                     * WFD transport, and it is advertising at most one port.
                      * It may be advertising that port over multiple
                      * interfaces, but there is currently just one port being
                      * advertised.  If multiple listeners are created, the
@@ -1220,12 +1231,12 @@ QStatus TCPTransport::GetListenAddresses(const SessionOpts& opts, std::vector<qc
                     qcc::String ipv4address;
                     qcc::String ipv6address;
                     uint16_t reliableIpv4Port, reliableIpv6Port, unreliableIpv4Port, unreliableIpv6port;
-                    IpNameService::Instance().Enabled(TRANSPORT_TCP,
+                    IpNameService::Instance().Enabled(TRANSPORT_WFD,
                                                       reliableIpv4Port, reliableIpv6Port,
                                                       unreliableIpv4Port, unreliableIpv6port);
                     /*
                      * If the port is zero, then it hasn't been set and this
-                     * implies that TCPTransport::StartListen hasn't
+                     * implies that WFDTransport::StartListen hasn't
                      * been called and there is no listener for this transport.
                      * We should only return an address if we have a listener.
                      */
@@ -1237,7 +1248,7 @@ QStatus TCPTransport::GetListenAddresses(const SessionOpts& opts, std::vector<qc
                          * at this time.)
                          */
                         if (!entries[i].m_addr.empty() && (entries[i].m_family == QCC_AF_INET)) {
-                            qcc::String busAddr = "tcp:r4addr=" + entries[i].m_addr + ","
+                            qcc::String busAddr = "wfd:r4addr=" + entries[i].m_addr + ","
                                                   "r4port=" + U32ToString(reliableIpv4Port) + ","
                                                   "family=ipv4";
                             busAddrs.push_back(busAddr);
@@ -1253,15 +1264,15 @@ QStatus TCPTransport::GetListenAddresses(const SessionOpts& opts, std::vector<qc
      * error to have no available interfaces.  In fact, it is quite expected
      * in a phone if it is not associated with an access point over wi-fi.
      */
-    QCC_DbgPrintf(("TCPTransport::GetListenAddresses(): done"));
+    QCC_DbgPrintf(("WFDTransport::GetListenAddresses(): done"));
     return ER_OK;
 }
 
-void TCPTransport::EndpointExit(RemoteEndpoint* ep)
+void WFDTransport::EndpointExit(RemoteEndpoint* ep)
 {
     /*
      * This is a callback driven from the remote endpoint thread exit function.
-     * Our TCPEndpoint inherits from class RemoteEndpoint and so when
+     * Our WFDEndpoint inherits from class RemoteEndpoint and so when
      * either of the threads (transmit or receive) of one of our endpoints exits
      * for some reason, we get called back here.  We only get called if either
      * the tx or rx thread exits, which implies that they have been run.  It
@@ -1271,9 +1282,9 @@ void TCPTransport::EndpointExit(RemoteEndpoint* ep)
      * authentication error since authentication is done in the context of the
      * Connect()ing thread and may be reported through EndpointExit.
      */
-    QCC_DbgTrace(("TCPTransport::EndpointExit()"));
+    QCC_DbgTrace(("WFDTransport::EndpointExit()"));
 
-    TCPEndpoint* tep = static_cast<TCPEndpoint*>(ep);
+    WFDEndpoint* tep = static_cast<WFDEndpoint*>(ep);
     assert(tep);
 
     /*
@@ -1304,12 +1315,43 @@ void TCPTransport::EndpointExit(RemoteEndpoint* ep)
     tep->SetEpStopping();
 
     /*
+     * If this endpoint was running over a Wi-Fi P2P interface, we have to
+     * tear that link down "manually."
+     */
+    QCC_DbgPrintf(("WFDTransport::EndpointExit(): Check for P2P endpoint exiting"));
+    P2PConnectionInfo* info = GetP2PInfoForEndpoint(tep);
+    if (info) {
+        QCC_DbgPrintf(("WFDTransport::EndpointExit(): P2P endpoint is exiting"));
+        /*
+         * This is ugly, but since there can be only one P2P link, we are just
+         * using the m_goHandle variable.
+         */
+        QCC_DbgPrintf(("WFDTransport::EndpointExit(): ReleaseLinkAsync()"));
+        m_p2pHelperInterface->ReleaseLinkAsync(m_goHandle);
+        m_goHandle = -1;
+
+#if 0
+        /*
+         * We don't currently have any way to know if this was a GO or STA or
+         * what kind of advertisements or discovery operations are happening
+         * but the least we can turn off the interface.
+         */
+        qcc::String interface = info->GetInterface();
+        QCC_DbgPrintf(("WFDTransport::EndpointExit(): CloseInterface()"));
+        QStatus status = IpNameService::Instance().CloseInterface(TRANSPORT_WFD, interface);
+        if (status != ER_OK) {
+            QCC_LogError(status, ("WFDTransport::Disconnect(): Cannot close interface \"%s\"", interface.c_str()));
+        }
+#endif
+    }
+
+    /*
      * Wake up the server accept loop so that it deals with our passing immediately.
      */
     Alert();
 }
 
-void TCPTransport::ManageEndpoints(Timespec tTimeout)
+void WFDTransport::ManageEndpoints(Timespec tTimeout)
 {
     m_endpointListLock.Lock(MUTEX_CONTEXT);
 
@@ -1318,19 +1360,19 @@ void TCPTransport::ManageEndpoints(Timespec tTimeout)
      * any that are no longer running or are taking too long to authenticate
      * (we assume a denial of service attack in this case).
      */
-    set<TCPEndpoint*>::iterator i = m_authList.begin();
+    set<WFDEndpoint*>::iterator i = m_authList.begin();
     while (i != m_authList.end()) {
-        TCPEndpoint* ep = *i;
-        TCPEndpoint::AuthState authState = ep->GetAuthState();
+        WFDEndpoint* ep = *i;
+        WFDEndpoint::AuthState authState = ep->GetAuthState();
 
-        if (authState == TCPEndpoint::AUTH_FAILED) {
+        if (authState == WFDEndpoint::AUTH_FAILED) {
             /*
              * The endpoint has failed authentication and the auth thread is
              * gone or is going away.  Since it has failed there is no way this
              * endpoint is going to be started so we can get rid of it as soon
              * as we Join() the (failed) authentication thread.
              */
-            QCC_DbgHLPrintf(("TCPTransport::ManageEndpoints(): Scavenging failed authenticator"));
+            QCC_DbgHLPrintf(("WFDTransport::ManageEndpoints(): Scavenging failed authenticator"));
             m_authList.erase(i);
             m_endpointListLock.Unlock(MUTEX_CONTEXT);
             ep->AuthJoin();
@@ -1354,7 +1396,7 @@ void TCPTransport::ManageEndpoints(Timespec tTimeout)
              * here and now, we take our thread off the OS ready list (Sleep)
              * and let the other thread run before looping back.
              */
-            QCC_DbgHLPrintf(("TCPTransport::ManageEndpoints(): Scavenging slow authenticator"));
+            QCC_DbgHLPrintf(("WFDTransport::ManageEndpoints(): Scavenging slow authenticator"));
             ep->AuthStop();
             qcc::Sleep(1);
         }
@@ -1368,22 +1410,22 @@ void TCPTransport::ManageEndpoints(Timespec tTimeout)
      */
     i = m_endpointList.begin();
     while (i != m_endpointList.end()) {
-        TCPEndpoint* ep = *i;
+        WFDEndpoint* ep = *i;
 
         /*
          * We are only managing passive connections here, or active connections
          * that are done and are explicitly ready to be cleaned up.
          */
-        TCPEndpoint::SideState sideState = ep->GetSideState();
-        if (sideState == TCPEndpoint::SIDE_ACTIVE) {
+        WFDEndpoint::SideState sideState = ep->GetSideState();
+        if (sideState == WFDEndpoint::SIDE_ACTIVE) {
             ++i;
             continue;
         }
 
-        TCPEndpoint::AuthState authState = ep->GetAuthState();
-        TCPEndpoint::EndpointState endpointState = ep->GetEpState();
+        WFDEndpoint::AuthState authState = ep->GetAuthState();
+        WFDEndpoint::EndpointState endpointState = ep->GetEpState();
 
-        if (authState == TCPEndpoint::AUTH_SUCCEEDED) {
+        if (authState == WFDEndpoint::AUTH_SUCCEEDED) {
             /*
              * The endpoint has succeeded authentication and the auth thread is
              * gone or is going away.  Take this opportunity to join the auth
@@ -1393,7 +1435,7 @@ void TCPTransport::ManageEndpoints(Timespec tTimeout)
              * to enable this single special case where we are allowed to set
              * the state.
              */
-            QCC_DbgHLPrintf(("TCPTransport::ManageEndpoints(): Scavenging failed authenticator"));
+            QCC_DbgHLPrintf(("WFDTransport::ManageEndpoints(): Scavenging failed authenticator"));
             m_endpointListLock.Unlock(MUTEX_CONTEXT);
             ep->AuthJoin();
             ep->SetAuthDone();
@@ -1410,7 +1452,7 @@ void TCPTransport::ManageEndpoints(Timespec tTimeout)
          * it.  Since the threads were never started, they must not be
          * joined.
          */
-        if (endpointState == TCPEndpoint::EP_FAILED) {
+        if (endpointState == WFDEndpoint::EP_FAILED) {
             m_endpointList.erase(i);
             m_endpointListLock.Unlock(MUTEX_CONTEXT);
             delete ep;
@@ -1431,7 +1473,7 @@ void TCPTransport::ManageEndpoints(Timespec tTimeout)
          * the endpoint Join() to join the TX and RX threads and not
          * the endpoint AuthJoin() to join the auth thread.
          */
-        if (endpointState == TCPEndpoint::EP_STOPPING) {
+        if (endpointState == WFDEndpoint::EP_STOPPING) {
             m_endpointList.erase(i);
             m_endpointListLock.Unlock(MUTEX_CONTEXT);
             ep->Join();
@@ -1445,9 +1487,9 @@ void TCPTransport::ManageEndpoints(Timespec tTimeout)
     m_endpointListLock.Unlock(MUTEX_CONTEXT);
 }
 
-void* TCPTransport::Run(void* arg)
+void* WFDTransport::Run(void* arg)
 {
-    QCC_DbgTrace(("TCPTransport::Run()"));
+    QCC_DbgTrace(("WFDTransport::Run()"));
 
     /*
      * We need to find the defaults for our connection limits.  These limits
@@ -1469,14 +1511,14 @@ void* TCPTransport::Run(void* arg)
      * the process of authenticating.  If starting to authenticate a new
      * connection would mean exceeding this number, we drop the new connection.
      */
-    uint32_t maxAuth = config->Get("limit@max_incomplete_connections", ALLJOYN_MAX_INCOMPLETE_CONNECTIONS_TCP_DEFAULT);
+    uint32_t maxAuth = config->Get("limit@max_incomplete_connections", ALLJOYN_MAX_INCOMPLETE_CONNECTIONS_WFD_DEFAULT);
 
     /*
      * maxConn is the maximum number of active connections possible over the
-     * TCP transport.  If starting to process a new connection would mean
+     * WFD transport.  If starting to process a new connection would mean
      * exceeding this number, we drop the new connection.
      */
-    uint32_t maxConn = config->Get("limit@max_completed_connections", ALLJOYN_MAX_COMPLETED_CONNECTIONS_TCP_DEFAULT);
+    uint32_t maxConn = config->Get("limit@max_completed_connections", ALLJOYN_MAX_COMPLETED_CONNECTIONS_WFD_DEFAULT);
 
     QStatus status = ER_OK;
 
@@ -1494,7 +1536,7 @@ void* TCPTransport::Run(void* arg)
          * name service to advertise.
          */
         if (IpNameService::Instance().Started() == false) {
-            QCC_DbgTrace(("TCPTransport::Run(): Wait for IP name service"));
+            QCC_DbgTrace(("WFDTransport::Run(): Wait for IP name service"));
             qcc::Sleep(1);
             continue;
         }
@@ -1573,12 +1615,12 @@ void* TCPTransport::Run(void* arg)
                     break;
                 }
 
-                QCC_DbgHLPrintf(("TCPTransport::Run(): Accepting connection newSock=%d", newSock));
+                QCC_DbgHLPrintf(("WFDTransport::Run(): Accepting connection newSock=%d", newSock));
 
-                QCC_DbgPrintf(("TCPTransport::Run(): maxAuth == %d", maxAuth));
-                QCC_DbgPrintf(("TCPTransport::Run(): maxConn == %d", maxConn));
-                QCC_DbgPrintf(("TCPTransport::Run(): mAuthList.size() == %d", m_authList.size()));
-                QCC_DbgPrintf(("TCPTransport::Run(): mEndpointList.size() == %d", m_endpointList.size()));
+                QCC_DbgPrintf(("WFDTransport::Run(): maxAuth == %d", maxAuth));
+                QCC_DbgPrintf(("WFDTransport::Run(): maxConn == %d", maxConn));
+                QCC_DbgPrintf(("WFDTransport::Run(): mAuthList.size() == %d", m_authList.size()));
+                QCC_DbgPrintf(("WFDTransport::Run(): mEndpointList.size() == %d", m_endpointList.size()));
                 assert(m_authList.size() + m_endpointList.size() <= maxConn);
 
                 /*
@@ -1587,7 +1629,7 @@ void* TCPTransport::Run(void* arg)
                  */
                 m_endpointListLock.Lock(MUTEX_CONTEXT);
                 if ((m_authList.size() < maxAuth) && (m_authList.size() + m_endpointList.size() < maxConn)) {
-                    TCPEndpoint* conn = new TCPEndpoint(this, m_bus, true, "", newSock, remoteAddr, remotePort);
+                    WFDEndpoint* conn = new WFDEndpoint(this, m_bus, true, "", newSock, remoteAddr, remotePort);
                     conn->SetPassive();
                     Timespec tNow;
                     GetTimeNow(&tNow);
@@ -1601,7 +1643,7 @@ void* TCPTransport::Run(void* arg)
                      * here.  Since there are no threads running we can just
                      * pitch the connection.
                      */
-                    std::pair<std::set<TCPEndpoint*>::iterator, bool> ins = m_authList.insert(conn);
+                    std::pair<std::set<WFDEndpoint*>::iterator, bool> ins = m_authList.insert(conn);
                     status = conn->Authenticate();
                     if (status != ER_OK) {
                         m_authList.erase(ins.first);
@@ -1614,7 +1656,7 @@ void* TCPTransport::Run(void* arg)
                     qcc::Shutdown(newSock);
                     qcc::Close(newSock);
                     status = ER_AUTH_FAIL;
-                    QCC_LogError(status, ("TCPTransport::Run(): No slot for new connection"));
+                    QCC_LogError(status, ("WFDTransport::Run(): No slot for new connection"));
                 }
             }
 
@@ -1626,7 +1668,7 @@ void* TCPTransport::Run(void* arg)
             }
 
             if (status != ER_OK) {
-                QCC_LogError(status, ("TCPTransport::Run(): Error accepting new connection. Ignoring..."));
+                QCC_LogError(status, ("WFDTransport::Run(): Error accepting new connection. Ignoring..."));
             }
         }
 
@@ -1654,7 +1696,7 @@ void* TCPTransport::Run(void* arg)
          * current state of the list (after we remove or add anything here).
          *
          * We also take this opportunity to run the state machine that deals
-         * with whether or not to enable TCP listeners and the name service
+         * with whether or not to enable WFD listeners and the name service
          * UDP listeners.
          */
         RunListenMachine();
@@ -1665,7 +1707,7 @@ void* TCPTransport::Run(void* arg)
      * we are listening to.  Since we've gotten a Stop() and are exiting the
      * server loop, and FDs are added in the server loop, this is the place to
      * get rid of them.  We don't have to take the list lock since a Stop()
-     * request to the TCPTransport is required to lock out any new
+     * request to the WFDTransport is required to lock out any new
      * requests that may possibly touch the listen FDs list.
      */
     m_listenFdsLock.Lock(MUTEX_CONTEXT);
@@ -1676,7 +1718,7 @@ void* TCPTransport::Run(void* arg)
     m_listenFds.clear();
     m_listenFdsLock.Unlock(MUTEX_CONTEXT);
 
-    QCC_DbgPrintf(("TCPTransport::Run is exiting status=%s", QCC_StatusText(status)));
+    QCC_DbgPrintf(("WFDTransport::Run is exiting status=%s", QCC_StatusText(status)));
     return (void*) status;
 }
 
@@ -1684,7 +1726,7 @@ void* TCPTransport::Run(void* arg)
  * The purpose of this code is really to ensure that we don't have any listeners
  * active on Android systems if we have no ongoing advertisements.  This is to
  * satisfy a requirement driven from the Android Compatibility Test Suite (CTS)
- * which fails systems that have processes listening for TCP connections when
+ * which fails systems that have processes listening for WFD connections when
  * the test is run.
  *
  * Listeners and advertisements are interrelated.  In order to Advertise a
@@ -1744,7 +1786,7 @@ void* TCPTransport::Run(void* arg)
  * time an advertisement or discover operation is disabled, we remove the
  * corresponding entry in the associated list.  As soon as all advertisements
  * and discovery operations are disabled, we disable the name service and remove
- * our TCP listeners, and therefore remove all listeners from the system.  Since
+ * our WFD listeners, and therefore remove all listeners from the system.  Since
  * we have a saved a list of listeners, they can be restarted if another
  * advertisement or discovery request comes in.
  *
@@ -1778,7 +1820,7 @@ void* TCPTransport::Run(void* arg)
  *     to the name service.  If we decide that this is the last of our ongoing
  *     advertisements, we need to continue and disable the name service from
  *     talking to the outside world.  For completeness, we remove endpoint
- *     information from the name service.  Finally, we shut down our TCP
+ *     information from the name service.  Finally, we shut down our WFD
  *     transport listeners.
  *
  *   ENABLE_DISCOVERY_INSTANCE: An instance of an EnableDiscovery() has
@@ -1812,12 +1854,12 @@ void* TCPTransport::Run(void* arg)
  *   m_isDiscovering: The list of discovery requests has been sent to the name
  *     service.  if we are m_isDiscovering then m_isNsEnabled must be true.
  */
-void TCPTransport::RunListenMachine(void)
+void WFDTransport::RunListenMachine(void)
 {
-    QCC_DbgPrintf(("TCPTransport::RunListenMachine()"));
+    QCC_DbgPrintf(("WFDTransport::RunListenMachine()"));
 
     while (m_listenRequests.empty() == false) {
-        QCC_DbgPrintf(("TCPTransport::RunListenMachine(): Do request."));
+        QCC_DbgPrintf(("WFDTransport::RunListenMachine(): Do request."));
 
         /*
          * Pull a request to do a listen request off of the queue of requests.
@@ -1918,9 +1960,9 @@ void TCPTransport::RunListenMachine(void)
     }
 }
 
-void TCPTransport::StartListenInstance(ListenRequest& listenRequest)
+void WFDTransport::StartListenInstance(ListenRequest& listenRequest)
 {
-    QCC_DbgPrintf(("TCPTransport::StartListenInstance()"));
+    QCC_DbgPrintf(("WFDTransport::StartListenInstance()"));
 
     /*
      * We have a new StartListen request, so save the listen spec so we
@@ -1930,7 +1972,7 @@ void TCPTransport::StartListenInstance(ListenRequest& listenRequest)
 
     /*
      * If we're running on Windows, we always start listening immediately
-     * since Windows uses TCP as the client to daemon communication link.
+     * since Windows uses WFD as the client to daemon communication link.
      *
      * On other operating systems (i.e. Posix) we use unix domain sockets and so
      * we can delay listening to passify the Android Compatibility Test Suite.
@@ -1942,9 +1984,9 @@ void TCPTransport::StartListenInstance(ListenRequest& listenRequest)
     }
 }
 
-void TCPTransport::StopListenInstance(ListenRequest& listenRequest)
+void WFDTransport::StopListenInstance(ListenRequest& listenRequest)
 {
-    QCC_DbgPrintf(("TCPTransport::StopListenInstance()"));
+    QCC_DbgPrintf(("WFDTransport::StopListenInstance()"));
 
     /*
      * We have a new StopListen request, so we need to remove this
@@ -1964,9 +2006,9 @@ void TCPTransport::StopListenInstance(ListenRequest& listenRequest)
      * are soon to be meaningless.
      */
     if (empty && m_isAdvertising) {
-        QCC_LogError(ER_FAIL, ("TCPTransport::StopListenInstance(): No listeners with outstanding advertisements."));
+        QCC_LogError(ER_FAIL, ("WFDTransport::StopListenInstance(): No listeners with outstanding advertisements."));
         for (list<qcc::String>::iterator i = m_advertising.begin(); i != m_advertising.end(); ++i) {
-            IpNameService::Instance().CancelAdvertiseName(TRANSPORT_TCP, *i);
+            IpNameService::Instance().CancelAdvertiseName(TRANSPORT_WFD, *i);
         }
     }
 
@@ -1979,9 +2021,9 @@ void TCPTransport::StopListenInstance(ListenRequest& listenRequest)
     DoStopListen(listenRequest.m_requestParam);
 }
 
-void TCPTransport::EnableAdvertisementInstance(ListenRequest& listenRequest)
+void WFDTransport::EnableAdvertisementInstance(ListenRequest& listenRequest)
 {
-    QCC_DbgPrintf(("TCPTransport::EnableAdvertisementInstance()"));
+    QCC_DbgPrintf(("WFDTransport::EnableAdvertisementInstance()"));
 
     /*
      * We have a new advertisement request to deal with.  The first
@@ -2018,11 +2060,11 @@ void TCPTransport::EnableAdvertisementInstance(ListenRequest& listenRequest)
          */
         if (m_isListening) {
             if (!m_isNsEnabled) {
-                IpNameService::Instance().Enable(TRANSPORT_TCP, m_listenPort, 0, 0, 0);
+                IpNameService::Instance().Enable(TRANSPORT_WFD, m_listenPort, 0, 0, 0);
                 m_isNsEnabled = true;
             }
         } else {
-            QCC_LogError(ER_FAIL, ("TCPTransport::EnableAdvertisementInstance(): Advertise with no TCP listeners"));
+            QCC_LogError(ER_FAIL, ("WFDTransport::EnableAdvertisementInstance(): Advertise with no WFD listeners"));
             return;
         }
     }
@@ -2033,20 +2075,131 @@ void TCPTransport::EnableAdvertisementInstance(ListenRequest& listenRequest)
     assert(m_isListening);
     assert(m_listenPort);
     assert(m_isNsEnabled);
-    assert(IpNameService::Instance().Started() && "TCPTransport::EnableAdvertisementInstance(): IpNameService not started");
+    assert(IpNameService::Instance().Started() && "WFDTransport::EnableAdvertisementInstance(): IpNameService not started");
 
-    QStatus status = IpNameService::Instance().AdvertiseName(TRANSPORT_TCP, listenRequest.m_requestParam);
+    QStatus status = IpNameService::Instance().AdvertiseName(TRANSPORT_WFD, listenRequest.m_requestParam);
     if (status != ER_OK) {
-        QCC_LogError(status, ("TCPTransport::EnableAdvertisementInstance(): Failed to advertise \"%s\"", listenRequest.m_requestParam.c_str()));
+        QCC_LogError(status, ("WFDTransport::EnableAdvertisementInstance(): Failed to advertise \"%s\"", listenRequest.m_requestParam.c_str()));
     }
 
-    QCC_DbgPrintf(("TCPTransport::EnableAdvertisementInstance(): Done"));
+    /*
+     * We've advertised the name with the multicast name service so now we need
+     * to deal with the possibility that we are on a system which supports Wi-Fi
+     * P2P.  In this case, the supported system is Android and the only way to
+     * talk to P2P is via the Android Application Framework.  This means we need
+     * to call out to a service that is implemented in a process which has the
+     * framework present.  We use a helper to make life easier for us.
+     *
+     * We lazily create the helper since there's no easy way for us to know when
+     * the initialization sequence has completed enough for us to find the DBus
+     * interface.  If some service is advertising, though, we must be
+     * initialized since a service fhas connected to the daemon and is doing an
+     * advertise name.
+     */
+    if (m_p2pHelperInterface == NULL) {
+        QCC_DbgPrintf(("WFDTransport::EnableAdvertisementInstance(): new P2PHelperInterface"));
+        m_p2pHelperInterface = new P2PHelperInterface();
+        m_p2pHelperInterface->Init(&m_bus);
+
+        QCC_DbgPrintf(("WFDTransport::EnableAdvertisementInstance(): new P2PHelperListener"));
+        m_myP2pHelperListener = new MyP2PHelperListener(this);
+        m_p2pHelperInterface->SetListener(m_myP2pHelperListener);
+    }
+
+    /*
+     * If we are on an Android system, we need to call back into the helper
+     * service to make this happen.
+     *
+     * First, if we are going to advertise a name, it means we are a service.
+     * In this case, we need to act as the group owner (GO) of a P2P group which
+     * AllJoyn clients will join as STA nodes when they discover the name over
+     * Wi-Fi P2P.  We want to instantiate a group (act as a GO) whenever we start
+     * advertising and keep the group up and running until we get a cancel
+     * advertise name.
+     *
+     * We need to create the GO irrespective of whether or not a concurrent
+     * infrastructure mode interface is up or not.  This is so we can connect via
+     * Wi-Fi P2P if the corresponding AP is blocking communication between STAs
+     * for example.
+     *
+     * The call to EstablishLink returns a handle for the group, so we have to
+     * wait for the response.  There is a lot of action happening in the main
+     * thread of the WFD transport so the thread is constantly in the Alerted
+     * state, so we use an asynchrounous method call.  Note that we are blocking
+     * the the WFDTransport main thread here, so inbound connections will be
+     * delayed for the time it takes to get the response.  The response comes
+     * back in MyP2PHelperListener::HandleEstablishLinkReply() found in
+     * WFDTransport.h, BTW.
+     */
+    if (!m_isAdvertising) {
+        m_establishLinkEvent.ResetEvent();
+        m_establishLinkResult = false;
+        qcc::String localDevice("");
+        QCC_DbgPrintf(("WFDTransport::EnableAdvertisementInstance(): EstablishLink()"));
+        status = m_p2pHelperInterface->EstablishLinkAsync(localDevice, P2PHelperInterface::DEVICE_MUST_BE_GO);
+        if (status == ER_OK) {
+            /*
+             * Only wait for a rational amount of time for this RPC to complete.
+             * If the system is working, this should happen very quickly, so
+             * we'll pick the generic five second timeout out of the air.
+             */
+            uint32_t msWaited = 0;
+
+            for (;;) {
+                QCC_DbgPrintf(("WFDTransport::EnableAdvertisementInstance(): Gag, polling m_establishLinkResult"));
+                if (m_establishLinkResult) {
+                    break;
+                }
+
+                if (msWaited > 5000) {
+                    status = ER_TIMEOUT;
+                    break;
+                }
+
+                qcc::Sleep(100);
+                msWaited += 100;
+            }
+        } else {
+            QCC_LogError(status, ("WFDTransport::EnableAdvertisementInstance(): EstablishLink for GO fails"));
+        }
+
+        if (status != ER_OK || m_goHandle < P2PHelperInterface::P2P_OK) {
+            /*
+             * We were unable to start a P2P Group, but this doesn't mean that
+             * the entire advertisement process has not been successful.  It is
+             * possible that there are existing groups (P2P, legacy, soft AP,
+             * ethernet, etc.) that are working just fine, so we do not error
+             * out if we can't create the group -- we just report the error and
+             * don't try to pre-association advertise the corresponding service.
+             * We will have advertised over the multicast name service at this
+             * point.
+             */
+            QCC_LogError(status, ("WFDTransport::EnableAdvertisementInstance(): Could not start P2P group"));
+        } else {
+            /*
+             * The P2P group has come up, or the service assures us that it will
+             * during a group owner negotiaion, so we can confidently advertise
+             * the corresponding service over pre-association service discovery.
+             * There's not much we can do if the Android Application Framework
+             * balks, so we just throw the RPC over the fence and hope it sticks.
+             */
+            QCC_DbgPrintf(("WFDTransport::EnableAdvertisementInstance(): AdvertiseNameAsync()"));
+            status = m_p2pHelperInterface->AdvertiseNameAsync(listenRequest.m_requestParam,
+                                                              m_bus.GetInternal().GetGlobalGUID().ToString());
+            if (status != ER_OK) {
+                QCC_LogError(status, ("WFDTransport::EnableAdvertisementInstance(): Failed to advertise \"%s\" to P2P",
+                                      listenRequest.m_requestParam.c_str()));
+            }
+        }
+    }
+
+    QCC_DbgPrintf(("WFDTransport::EnableAdvertisementInstance(): Done"));
     m_isAdvertising = true;
 }
 
-void TCPTransport::DisableAdvertisementInstance(ListenRequest& listenRequest)
+void WFDTransport::DisableAdvertisementInstance(ListenRequest& listenRequest)
 {
-    QCC_DbgPrintf(("TCPTransport::DisableAdvertisementInstance()"));
+    QCC_DbgPrintf(("WFDTransport::DisableAdvertisementInstance()"));
 
     /*
      * We have a new disable advertisement request to deal with.  The first
@@ -2059,9 +2212,52 @@ void TCPTransport::DisableAdvertisementInstance(ListenRequest& listenRequest)
      * We always cancel any advertisement to allow the name service to
      * send out its lost advertisement message.
      */
-    QStatus status = IpNameService::Instance().CancelAdvertiseName(TRANSPORT_TCP, listenRequest.m_requestParam);
+    QStatus status = IpNameService::Instance().CancelAdvertiseName(TRANSPORT_WFD, listenRequest.m_requestParam);
     if (status != ER_OK) {
-        QCC_LogError(status, ("TCPTransport::DisableAdvertisementInstance(): Failed to Cancel \"%s\"", listenRequest.m_requestParam.c_str()));
+        QCC_LogError(status, ("WFDTransport::DisableAdvertisementInstance(): Failed to Cancel \"%s\"", listenRequest.m_requestParam.c_str()));
+    }
+
+    /*
+     * We've advertised the name with the multicast name service so now we need
+     * to deal with the possibility that we are on a system which supports Wi-Fi
+     * P2P.  In this case, the supported system is Android and the only way to
+     * talk to P2P is via the Android Application Framework.  This means we need
+     * to call out to a service that is implemented in a process which has the
+     * framework present.  We use a helper to make life easier for us.
+     *
+     * We lazily create the helper since there's no easy way for us to know when
+     * the initialization sequence has completed enough for us to find the DBus
+     * interface.  If some service is advertising, though, we must be
+     * initialized since a service fhas connected to the daemon and is doing an
+     * advertise name.
+     */
+    if (m_p2pHelperInterface == NULL) {
+        QCC_DbgPrintf(("WFDTransport::DisableAdvertisementInstance(): new P2PHelperInterface"));
+        m_p2pHelperInterface = new P2PHelperInterface();
+        m_p2pHelperInterface->Init(&m_bus);
+
+        QCC_DbgPrintf(("WFDTransport::DisableAdvertisementInstance(): new P2PHelperListener"));
+        m_myP2pHelperListener = new MyP2PHelperListener(this);
+        m_p2pHelperInterface->SetListener(m_myP2pHelperListener);
+    }
+
+    /*
+     * If we are on an Android system, we need to call back into the helper
+     * service to make this happen.  If the framework balks at the request to
+     * release the link, there's not much we can do about it.
+     */
+    if (isEmpty && m_isAdvertising) {
+        QCC_DbgPrintf(("WFDTransport::DisableAdvertisementInstance(): ReleaseLinkAsync()"));
+        m_p2pHelperInterface->ReleaseLinkAsync(m_goHandle);
+        m_goHandle = -1;
+    }
+
+    QCC_DbgPrintf(("WFDTransport::DisableAdvertisementInstance(): CancelAdvertiseNameAsync()"));
+    status = m_p2pHelperInterface->CancelAdvertiseNameAsync(listenRequest.m_requestParam.c_str(),
+                                                            m_bus.GetInternal().GetGlobalGUID().ToString().c_str());
+    if (status != ER_OK) {
+        QCC_LogError(status, ("WFDTransport::DisableAdvertisementInstance(): Failed to cancel advertise \"%s\" to P2P",
+                              listenRequest.m_requestParam.c_str()));
     }
 
     /*
@@ -2076,7 +2272,7 @@ void TCPTransport::DisableAdvertisementInstance(ListenRequest& listenRequest)
          * name service.  We do this by telling it we don't want it to be
          * enabled on any of the possible ports.
          */
-        IpNameService::Instance().Enable(TRANSPORT_TCP, 0, 0, 0, 0);
+        IpNameService::Instance().Enable(TRANSPORT_WFD, 0, 0, 0, 0);
         m_isNsEnabled = false;
 
         /*
@@ -2084,7 +2280,7 @@ void TCPTransport::DisableAdvertisementInstance(ListenRequest& listenRequest)
          * waiting for connections due to the name service.  We need to stop
          * them all now, but only if we are not running on a Windows box.
          * Windows needs the listeners running at all times since it uses
-         * TCP for the client to daemon connections.
+         * WFD for the client to daemon connections.
          */
         for (list<qcc::String>::iterator i = m_listening.begin(); i != m_listening.end(); ++i) {
             DoStopListen(*i);
@@ -2099,9 +2295,9 @@ void TCPTransport::DisableAdvertisementInstance(ListenRequest& listenRequest)
     }
 }
 
-void TCPTransport::EnableDiscoveryInstance(ListenRequest& listenRequest)
+void WFDTransport::EnableDiscoveryInstance(ListenRequest& listenRequest)
 {
-    QCC_DbgPrintf(("TCPTransport::EnableDiscoveryInstance()"));
+    QCC_DbgPrintf(("WFDTransport::EnableDiscoveryInstance()"));
 
     /*
      * We have a new discovery request to deal with.  The first
@@ -2138,11 +2334,11 @@ void TCPTransport::EnableDiscoveryInstance(ListenRequest& listenRequest)
          */
         if (m_isListening) {
             if (!m_isNsEnabled) {
-                IpNameService::Instance().Enable(TRANSPORT_TCP, m_listenPort, 0, 0, 0);
+                IpNameService::Instance().Enable(TRANSPORT_WFD, m_listenPort, 0, 0, 0);
                 m_isNsEnabled = true;
             }
         } else {
-            QCC_LogError(ER_FAIL, ("TCPTransport::EnableDiscoveryInstance(): Discover with no TCP listeners"));
+            QCC_LogError(ER_FAIL, ("WFDTransport::EnableDiscoveryInstance(): Discover with no WFD listeners"));
             return;
         }
     }
@@ -2153,7 +2349,7 @@ void TCPTransport::EnableDiscoveryInstance(ListenRequest& listenRequest)
     assert(m_isListening);
     assert(m_listenPort);
     assert(m_isNsEnabled);
-    assert(IpNameService::Instance().Started() && "TCPTransport::EnableDiscoveryInstance(): IpNameService not started");
+    assert(IpNameService::Instance().Started() && "WFDTransport::EnableDiscoveryInstance(): IpNameService not started");
 
     /*
      * When a bus name is advertised, the source may append a string that
@@ -2179,17 +2375,52 @@ void TCPTransport::EnableDiscoveryInstance(ListenRequest& listenRequest)
     qcc::String starred = listenRequest.m_requestParam;
     starred.append('*');
 
-    QStatus status = IpNameService::Instance().FindAdvertisedName(TRANSPORT_TCP, starred);
+    QStatus status = IpNameService::Instance().FindAdvertisedName(TRANSPORT_WFD, starred);
     if (status != ER_OK) {
-        QCC_LogError(status, ("TCPTransport::EnableDiscoveryInstance(): Failed to begin discovery with multicast NS \"%s\"", starred.c_str()));
+        QCC_LogError(status, ("WFDTransport::EnableDiscoveryInstance(): Failed to begin discovery with multicast NS \"%s\"", starred.c_str()));
+    }
+
+    /*
+     * We've tried to find the name with the multicast name service so now we
+     * need to deal with the possibility that we are on a system which supports
+     * Wi-Fi P2P.  In this case, the supported system is Android and the only
+     * way to talk to P2P is via the Android Application Framework.  This means
+     * we need to call out to a service that is implemented in a process which
+     * has the framework present.  We use a helper to make life easier for us.
+     *
+     * We lazily create the helper since there's no easy way for us to know when
+     * the initialization sequence has completed enough for us to find the DBus
+     * interface.  If some service is doing discovery, though, we must be
+     * initialized since a service fhas connected to the daemon and is doing an
+     * advertise name.
+     */
+    if (m_p2pHelperInterface == NULL) {
+        QCC_DbgPrintf(("WFDTransport::EnableDiscoveryInstance(): new P2PHelperInterface"));
+        m_p2pHelperInterface = new P2PHelperInterface();
+        m_p2pHelperInterface->Init(&m_bus);
+
+        QCC_DbgPrintf(("WFDTransport::EnableDiscoveryInstance(): new P2PHelperListener"));
+        m_myP2pHelperListener = new MyP2PHelperListener(this);
+        m_p2pHelperInterface->SetListener(m_myP2pHelperListener);
+    }
+
+    /*
+     * If we are on an Android system, we need to call back into the helper
+     * service to make this happen.  We don't hang around waiting or a response
+     * since there's not much we can do if it fails.
+     */
+    QCC_DbgPrintf(("WFDTransport::EnableDiscoveryInstance(): FindAdvertisedNameAsync()"));
+    status = m_p2pHelperInterface->FindAdvertisedNameAsync(starred);
+    if (status != ER_OK) {
+        QCC_LogError(status, ("WFDTransport::EnableDiscoveryInstance(): Failed to begin discovery with P2P \"%s\"", starred.c_str()));
     }
 
     m_isDiscovering = true;
 }
 
-void TCPTransport::DisableDiscoveryInstance(ListenRequest& listenRequest)
+void WFDTransport::DisableDiscoveryInstance(ListenRequest& listenRequest)
 {
-    QCC_DbgPrintf(("TCPTransport::DisableDiscoveryInstance()"));
+    QCC_DbgPrintf(("WFDTransport::DisableDiscoveryInstance()"));
 
     /*
      * We have a new disable discovery request to deal with.  The first
@@ -2197,6 +2428,43 @@ void TCPTransport::DisableDiscoveryInstance(ListenRequest& listenRequest)
      */
     bool isFirst;
     bool isEmpty = NewDiscoveryOp(DISABLE_DISCOVERY, listenRequest.m_requestParam, isFirst);
+
+    qcc::String starred = listenRequest.m_requestParam;
+    starred.append('*');
+
+    /*
+     * We've tried to find the name with the multicast name service so now we
+     * need to deal with the possibility that we are on a system which supports
+     * Wi-Fi P2P.  In this case, the supported system is Android and the only
+     * way to talk to P2P is via the Android Application Framework.  This means
+     * we need to call out to a service that is implemented in a process which
+     * has the framework present.  We use a helper to make life easier for us.
+     *
+     * We lazily create the helper since there's no easy way for us to know when
+     * the initialization sequence has completed enough for us to find the DBus
+     * interface.  If some service is doing discovery, though, we must be
+     * initialized since a service fhas connected to the daemon and is doing an
+     * advertise name.
+     */
+    if (m_p2pHelperInterface == NULL) {
+        QCC_DbgPrintf(("WFDTransport::DisableDiscoveryInstance(): new P2PHelperInterface"));
+        m_p2pHelperInterface = new P2PHelperInterface();
+        m_p2pHelperInterface->Init(&m_bus);
+
+        QCC_DbgPrintf(("WFDTransport::DisableDiscoveryInstance(): new P2PHelperListener"));
+        m_myP2pHelperListener = new MyP2PHelperListener(this);
+        m_p2pHelperInterface->SetListener(m_myP2pHelperListener);
+    }
+
+    /*
+     * If we are on an Android system, we need to call back into the helper
+     * service to make this happen.
+     */
+    QCC_DbgPrintf(("WFDTransport::DisableDiscoveryInstance(): CancelFindAdvertisedNameAsync()"));
+    QStatus status = m_p2pHelperInterface->CancelFindAdvertisedNameAsync(starred);
+    if (status != ER_OK) {
+        QCC_LogError(status, ("WFDTransport::DisableDiscoveryInstance(): Failed to cancel discovery with P2P \"%s\"", starred.c_str()));
+    }
 
     /*
      * There is no state in the name service with respect to ongoing discovery.
@@ -2210,7 +2478,7 @@ void TCPTransport::DisableDiscoveryInstance(ListenRequest& listenRequest)
      */
     if (isEmpty && !m_isAdvertising) {
 
-        IpNameService::Instance().Enable(TRANSPORT_TCP, 0, 0, 0, 0);
+        IpNameService::Instance().Enable(TRANSPORT_WFD, 0, 0, 0, 0);
         m_isNsEnabled = false;
 
         /*
@@ -2218,7 +2486,7 @@ void TCPTransport::DisableDiscoveryInstance(ListenRequest& listenRequest)
          * waiting for connections due to the name service.  We need to stop
          * them all now, but only if we are not running on a Windows box.
          * Windows needs the listeners running at all times since it uses
-         * TCP for the client to daemon connections.
+         * WFD for the client to daemon connections.
          */
         for (list<qcc::String>::iterator i = m_listening.begin(); i != m_listening.end(); ++i) {
             DoStopListen(*i);
@@ -2235,23 +2503,23 @@ void TCPTransport::DisableDiscoveryInstance(ListenRequest& listenRequest)
 
 /*
  * The default address for use in listen specs.  INADDR_ANY means to listen
- * for TCP connections on any interfaces that are currently up or any that may
+ * for WFD connections on any interfaces that are currently up or any that may
  * come up in the future.
  */
 static const char* ADDR4_DEFAULT = "0.0.0.0";
 
 #if 0
 /*
- * The TCP transport does not support IPv6 at this time
+ * The WFD transport does not support IPv6 at this time
  */
 static const char* ADDR6_DEFAULT = "0::0";
 #endif
 
 /*
- * The default port for use in listen specs.  This port is used by the TCP
+ * The default port for use in listen specs.  This port is used by the WFD
  * listener to listen for incoming connection requests.  This is the default
  * port for a "reliable" IPv4 listener since being able to deal with IPv4
- * connection requests is required as part of the definition of the TCP
+ * connection requests is required as part of the definition of the WFD
  * transport.
  *
  * All other mechanisms (unreliable IPv4, reliable IPv6, unreliable IPv6)
@@ -2260,7 +2528,7 @@ static const char* ADDR6_DEFAULT = "0::0";
  */
 static const uint16_t PORT_DEFAULT = 9955;
 
-QStatus TCPTransport::NormalizeListenSpec(const char* inSpec, qcc::String& outSpec, map<qcc::String, qcc::String>& argMap) const
+QStatus WFDTransport::NormalizeListenSpec(const char* inSpec, qcc::String& outSpec, map<qcc::String, qcc::String>& argMap) const
 {
     qcc::String family;
 
@@ -2268,7 +2536,7 @@ QStatus TCPTransport::NormalizeListenSpec(const char* inSpec, qcc::String& outSp
      * We don't make any calls that require us to be in any particular state
      * with respect to threading so we don't bother to call IsRunning() here.
      *
-     * Take the string in inSpec, which must start with "tcp:" and parse it,
+     * Take the string in inSpec, which must start with "wfd:" and parse it,
      * looking for comma-separated "key=value" pairs and initialize the
      * argMap with those pairs.
      *
@@ -2279,7 +2547,7 @@ QStatus TCPTransport::NormalizeListenSpec(const char* inSpec, qcc::String& outSp
      * We expect to end up with a normalized outSpec that looks something
      * like:
      *
-     *     "tcp:r4addr=0.0.0.0,r4port=9955"
+     *     "wfd:r4addr=0.0.0.0,r4port=9955"
      *
      * That's all.  Everything else, family, port, addr, u4addr, etc.,
      * is summarily pitched.
@@ -2299,69 +2567,69 @@ QStatus TCPTransport::NormalizeListenSpec(const char* inSpec, qcc::String& outSp
     iter = argMap.find("family");
     if (iter != argMap.end()) {
         QCC_LogError(ER_BUS_BAD_TRANSPORT_ARGS,
-                     ("TCPTransport::NormalizeListenSpec(): The key \"family\" is deprecated and ignored."));
+                     ("WFDTransport::NormalizeListenSpec(): The key \"family\" is deprecated and ignored."));
         argMap.erase(iter);
     }
 
     iter = argMap.find("addr");
     if (iter != argMap.end()) {
         QCC_LogError(ER_BUS_BAD_TRANSPORT_ARGS,
-                     ("TCPTransport::NormalizeListenSpec(): The key \"addr\" is deprecated and ignored."));
+                     ("WFDTransport::NormalizeListenSpec(): The key \"addr\" is deprecated and ignored."));
         argMap.erase(iter);
     }
 
     iter = argMap.find("port");
     if (iter != argMap.end()) {
         QCC_LogError(ER_BUS_BAD_TRANSPORT_ARGS,
-                     ("TCPTransport::NormalizeListenSpec(): The key \"port\" is deprecated and ignored."));
+                     ("WFDTransport::NormalizeListenSpec(): The key \"port\" is deprecated and ignored."));
         argMap.erase(iter);
     }
 
     /*
      * Transports, by definition, may support reliable Ipv4, unreliable IPv4,
      * reliable IPv6 and unreliable IPv6 mechanisms to move bits.  In this
-     * incarnation, the TCP transport will only support reliable IPv4; so we
+     * incarnation, the WFD transport will only support reliable IPv4; so we
      * log errors and ignore any requests for other mechanisms.
      */
     iter = argMap.find("u4addr");
     if (iter != argMap.end()) {
         QCC_LogError(ER_BUS_BAD_TRANSPORT_ARGS,
-                     ("TCPTransport::NormalizeListenSpec(): The mechanism implied by \"u4addr\" is not supported."));
+                     ("WFDTransport::NormalizeListenSpec(): The mechanism implied by \"u4addr\" is not supported."));
         argMap.erase(iter);
     }
 
     iter = argMap.find("u4port");
     if (iter != argMap.end()) {
         QCC_LogError(ER_BUS_BAD_TRANSPORT_ARGS,
-                     ("TCPTransport::NormalizeListenSpec(): The mechanism implied by \"u4port\" is not supported."));
+                     ("WFDTransport::NormalizeListenSpec(): The mechanism implied by \"u4port\" is not supported."));
         argMap.erase(iter);
     }
 
     iter = argMap.find("r6addr");
     if (iter != argMap.end()) {
         QCC_LogError(ER_BUS_BAD_TRANSPORT_ARGS,
-                     ("TCPTransport::NormalizeListenSpec(): The mechanism implied by \"r6addr\" is not supported."));
+                     ("WFDTransport::NormalizeListenSpec(): The mechanism implied by \"r6addr\" is not supported."));
         argMap.erase(iter);
     }
 
     iter = argMap.find("r6port");
     if (iter != argMap.end()) {
         QCC_LogError(ER_BUS_BAD_TRANSPORT_ARGS,
-                     ("TCPTransport::NormalizeListenSpec(): The mechanism implied by \"r6port\" is not supported."));
+                     ("WFDTransport::NormalizeListenSpec(): The mechanism implied by \"r6port\" is not supported."));
         argMap.erase(iter);
     }
 
     iter = argMap.find("u6addr");
     if (iter != argMap.end()) {
         QCC_LogError(ER_BUS_BAD_TRANSPORT_ARGS,
-                     ("TCPTransport::NormalizeListenSpec(): The mechanism implied by \"u6addr\" is not supported."));
+                     ("WFDTransport::NormalizeListenSpec(): The mechanism implied by \"u6addr\" is not supported."));
         argMap.erase(iter);
     }
 
     iter = argMap.find("u6port");
     if (iter != argMap.end()) {
         QCC_LogError(ER_BUS_BAD_TRANSPORT_ARGS,
-                     ("TCPTransport::NormalizeListenSpec(): The mechanism implied by \"u6port\" is not supported."));
+                     ("WFDTransport::NormalizeListenSpec(): The mechanism implied by \"u6port\" is not supported."));
         argMap.erase(iter);
     }
 
@@ -2374,8 +2642,8 @@ QStatus TCPTransport::NormalizeListenSpec(const char* inSpec, qcc::String& outSp
     outSpec = GetTransportName() + qcc::String(":");
 
     /*
-     * The TCP transport must absolutely support the IPv4 "reliable" mechanism
-     * (TCP).  We therefore must provide an r4addr either from explicit keys or
+     * The WFD transport must absolutely support the IPv4 "reliable" mechanism
+     * (WFD).  We therefore must provide an r4addr either from explicit keys or
      * generated from the defaults.
      */
     iter = argMap.find("r4addr");
@@ -2393,7 +2661,7 @@ QStatus TCPTransport::NormalizeListenSpec(const char* inSpec, qcc::String& outSp
              */
             if (!addr.IsIPv4()) {
                 QCC_LogError(ER_BUS_BAD_TRANSPORT_ARGS,
-                             ("TCPTransport::NormalizeListenSpec(): The r4addr \"%s\" is not a legal IPv4 address.",
+                             ("WFDTransport::NormalizeListenSpec(): The r4addr \"%s\" is not a legal IPv4 address.",
                               iter->second.c_str()));
                 return ER_BUS_BAD_TRANSPORT_ARGS;
             }
@@ -2401,7 +2669,7 @@ QStatus TCPTransport::NormalizeListenSpec(const char* inSpec, qcc::String& outSp
             outSpec.append("r4addr=" + addr.ToString());
         } else {
             QCC_LogError(ER_BUS_BAD_TRANSPORT_ARGS,
-                         ("TCPTransport::NormalizeListenSpec(): The r4addr \"%s\" is not a legal IPv4 address.",
+                         ("WFDTransport::NormalizeListenSpec(): The r4addr \"%s\" is not a legal IPv4 address.",
                           iter->second.c_str()));
             return ER_BUS_BAD_TRANSPORT_ARGS;
         }
@@ -2416,8 +2684,8 @@ QStatus TCPTransport::NormalizeListenSpec(const char* inSpec, qcc::String& outSp
     }
 
     /*
-     * The TCP transport must absolutely support the IPv4 "reliable" mechanism
-     * (TCP).  We therefore must provide an r4port either from explicit keys or
+     * The WFD transport must absolutely support the IPv4 "reliable" mechanism
+     * (WFD).  We therefore must provide an r4port either from explicit keys or
      * generated from the defaults.
      */
     iter = argMap.find("r4port");
@@ -2433,7 +2701,7 @@ QStatus TCPTransport::NormalizeListenSpec(const char* inSpec, qcc::String& outSp
             outSpec.append(",r4port=" + iter->second);
         } else {
             QCC_LogError(ER_BUS_BAD_TRANSPORT_ARGS,
-                         ("TCPTransport::NormalizeListenSpec(): The key \"r4port\" has a bad value \"%s\".", iter->second.c_str()));
+                         ("WFDTransport::NormalizeListenSpec(): The key \"r4port\" has a bad value \"%s\".", iter->second.c_str()));
             return ER_BUS_BAD_TRANSPORT_ARGS;
         }
     } else {
@@ -2449,11 +2717,45 @@ QStatus TCPTransport::NormalizeListenSpec(const char* inSpec, qcc::String& outSp
     return ER_OK;
 }
 
-QStatus TCPTransport::NormalizeTransportSpec(const char* inSpec, qcc::String& outSpec, map<qcc::String, qcc::String>& argMap) const
+QStatus WFDTransport::NormalizeTransportSpec(const char* inSpec, qcc::String& outSpec, map<qcc::String, qcc::String>& argMap) const
 {
-    QCC_DbgPrintf(("TCPTransport::NormalizeTransportSpec"));
+    QCC_DbgPrintf(("WFDTransport::NormalizeTransportSpec"));
 
     QStatus status;
+
+    /*
+     * We don't make any calls that require us to be in any particular state
+     * with respect to threading so we don't bother to call IsRunning() here.
+     *
+     * Take the string in inSpec, which must start with "wfd:" and parse it,
+     * looking for comma-separated "key=value" pairs and initialize the
+     * argMap with those pairs.
+     */
+    QCC_DbgPrintf(("WFDTransport::NormalizeTransportSpec(): ParseArguments()"));
+    status = ParseArguments(GetTransportName(), inSpec, argMap);
+    if (status != ER_OK) {
+        return status;
+    }
+
+    map<qcc::String, qcc::String>::iterator iter;
+
+    /*
+     * The big special case here is if there is a guid present in the spec.  If
+     * there is, then this is a spec corresponding to a Wi-Fi Direct pre-
+     * association discovery event.  Since this is pre-association, there cannot
+     * be an IP address, and therefore addr, port and family would be
+     * meaningless even if they were there.  In this case, normalizing a spec
+     * with a guid in it means ignoring anything else that might be there.
+     */
+    iter = argMap.find("guid");
+    if (iter != argMap.end()) {
+        QCC_DbgPrintf(("WFDTransport::NormalizeTransportSpec(): Found guid"));
+        qcc::String guidString = iter->second;
+        argMap.clear();
+        argMap["guid"] = guidString;
+        outSpec = "wfd:guid=" + guidString;
+        return ER_OK;
+    }
 
     /*
      * Aside from the presence of the guid, the only fundamental difference
@@ -2478,16 +2780,735 @@ QStatus TCPTransport::NormalizeTransportSpec(const char* inSpec, qcc::String& ou
     assert(i != argMap.end());
     if ((i->second == ADDR4_DEFAULT)) {
         QCC_LogError(ER_BUS_BAD_TRANSPORT_ARGS,
-                     ("TCPTransport::NormalizeTransportSpec(): The r4addr may not be the default address."));
+                     ("WFDTransport::NormalizeTransportSpec(): The r4addr may not be the default address."));
         return ER_BUS_BAD_TRANSPORT_ARGS;
     }
 
     return ER_OK;
 }
 
-QStatus TCPTransport::Connect(const char* connectSpec, const SessionOpts& opts, BusEndpoint** newep)
+/*
+ * Given a GUID string, determine which device corresponds to the daemon that
+ * GUID and ask the Wi-Fi P2P helper to form a connection with that device.
+ * Then, block until we receive an indication (positive or negative) back
+ * from the request has some resolution.
+ */
+QStatus WFDTransport::CreateTemporaryNetwork(const qcc::String& guid, qcc::String& interface)
 {
-    QCC_DbgHLPrintf(("TCPTransport::Connect(): %s", connectSpec));
+    QCC_DbgHLPrintf(("WFDTransport::CreateTemporaryNetwork(\"%s\")", guid.c_str()));
+
+    /*
+     * Look up the device on which the provided GUID resides.  This information
+     * came in with the FoundAdvertisedName signal, which was directed back to
+     * applications, which in turn did a JoinSession which drove the Connect
+     * which led us here.
+     */
+    qcc::String device;
+    QCC_DbgPrintf(("WFDTransport::CreateTemporaryNetwork(): Looking for device matching GUID %s", guid.c_str()));
+
+    m_deviceListLock.Lock(MUTEX_CONTEXT);
+    for (DeviceList::iterator i = m_deviceList.begin(); i != m_deviceList.end(); ++i) {
+        if (i->first == guid) {
+            device = i->second;
+            QCC_DbgPrintf(("WFDTransport::CreateTemporaryNetwork(): Device %s matches GUID %s", device.c_str(), guid.c_str()));
+            break;
+        }
+    }
+    m_deviceListLock.Unlock(MUTEX_CONTEXT);
+
+    /*
+     * Once we have the device we want to connect to, we ask the Wi-Fi P2P
+     * helper to join the P2P group owned by the device we found.  In order
+     * to make Wi-Fi P2P work remotely reasonably, the device that advertises
+     * a service must act as the group owner (GO) and the device which uses
+     * the service must act as a station (STA) node.
+     */
+    if (!device.empty()) {
+
+        QCC_DbgPrintf(("WFDTransport::CreatetTemporaryNetwork(): Establishing link to device %s", device.c_str()));
+
+        /*
+         * Since we are going to be interacting with a separate thread to get
+         * responses to our requests, we need to make sure we have our
+         * information available so that second thread can find it.  We need to
+         * get this done BEFORE we can allow a callback that may happen
+         * immediately.  So, we take the lock that is shared with the callback
+         * before making the EstablishLink call.  This means that, if the
+         * callback happens immediately, it will block.  We need to fill out the
+         * data structure that the callback will use, and when we get this
+         * finished put it on the list that the callback will examine.  We then
+         * release the lock, allowing the response callback to access the
+         * structure and do its job.
+         */
+        QCC_DbgPrintf(("WFDTransport::CreateTemporaryNetwork(): Block callbacks"));
+        m_deviceRequestListLock.Lock(MUTEX_CONTEXT);
+
+        m_establishLinkEvent.ResetEvent();
+        m_establishLinkResult = false;
+
+        QCC_DbgPrintf(("WFDTransport::CreateTemporaryNetwork(): EstablishLink()"));
+        QStatus status = m_p2pHelperInterface->EstablishLinkAsync(device.c_str(), P2PHelperInterface::DEVICE_MUST_BE_STA);
+        if (status == ER_OK) {
+            /*
+             * Only wait for a rational amount of time for this RPC to complete.
+             * Getting the handle back for the link should be a farily quick
+             * operation, so we'll pick the generic five second timeout out of
+             * the air.  The really time consuming part comes later when the
+             * link is actually tried to be brought up.  The result of that
+             * operation (until either OnLinkEstablished or OnLinkError happens)
+             * can be very time consuming.  We're just getting a handle here.
+             */
+            uint32_t msWaited = 0;
+
+            for (;;) {
+                QCC_DbgPrintf(("WFDTransport::CreateTemporaryNetwork(): Gag, polling m_establishLinkResult"));
+                if (m_establishLinkResult) {
+                    break;
+                }
+
+                if (msWaited > 5000) {
+                    status = ER_TIMEOUT;
+                    break;
+                }
+
+                qcc::Sleep(100);
+                msWaited += 100;
+            }
+        } else {
+            QCC_LogError(status, ("WFDTransport::CreateTemporaryNetwork(): EstablishLinkAsync for STA fails"));
+            m_deviceRequestListLock.Unlock(MUTEX_CONTEXT);
+            return status;
+        }
+
+        /*
+         * Since we can't be both GO and STA, m_goHandle is now actually the STA
+         * handle.  Note that this is a handle and does not mean that a link has
+         * come up.  We still need to wait for the OnLinkEstablished or
+         * OnLinkError signals to come in and tell us what actually happened.
+         *
+         * XXX FIXME STA GO stuff is confusing.  Dangerous.
+         */
+        int32_t handle = m_goHandle;
+
+        /*
+         * We have a handle for the link we want to establish, but we don't have
+         * a result for the actual link establishment operation.  We need to
+         * identify ourselves as a thread waiting for a result for a particular
+         * link establishment request.  The request is identified by the handle,
+         * we just got and we are going to want to wait on an event; so we wrap
+         * those two things up in an object and stash it on a list available to
+         * the callback that will happen when the request is acted upon.
+         */
+        qcc::Event deviceEvent;
+
+        P2pDeviceRequest deviceRequest(handle, &deviceEvent);
+        m_deviceRequestList.push_back(deviceRequest);
+
+        /*
+         * We've created and pushed the object that will allow a response from
+         * the EstablishLink to be matched with our thread.  Now, we can release
+         * the response list lock so the response can be handled as described
+         * above.  This will let the response handler run unmolested.
+         */
+        QCC_DbgPrintf(("WFDTransport::CreateTemporaryNetwork(): Allow callbacks"));
+        m_deviceRequestListLock.Unlock(MUTEX_CONTEXT);
+
+        /*
+         * We need to wait a rational amount of time for the link establishment
+         * request to be acted upon.  Unfortunately, a rational amount of time
+         * is pretty unreasonable.  We need to wait for the GO negotiation to
+         * complete, and we may need to wait until a human being on the other
+         * side gets around to accepting a connection request popup on the
+         * remote device.  We pull two minutes out of the air as a rational
+         * amount of time to wait.
+         */
+        Timespec tTimeout = 120000;
+        Timespec tStart;
+        GetTimeNow(&tStart);
+
+        /*
+         * A one second repeating timer.
+         */
+        qcc::Event timerEvent(1000, 1000);
+
+        /*
+         * We need to wait on both the timer event and the device event.
+         *
+         * XXX FIXME Don't poll every second, it's silly.
+         */
+        for (;;) {
+            vector<qcc::Event*> checkEvents, signaledEvents;
+            checkEvents.push_back(&deviceEvent);
+            checkEvents.push_back(&timerEvent);
+
+            QCC_DbgPrintf(("WFDTransport::CreateTemporaryNetwork(): Wait for something to happen"));
+            QStatus status = qcc::Event::Wait(checkEvents, signaledEvents);
+            if (status != ER_OK && status != ER_TIMEOUT) {
+                break;
+            }
+
+            /*
+             * We are only concerned with two possible events here.  Normally,
+             * we'll either see the timer firing or a response notification. In
+             * astoundingly rare cases, both events can be set at the same time.
+             */
+            bool timer = false;
+            bool response = false;
+            for (vector<qcc::Event*>::iterator i = signaledEvents.begin(); i != signaledEvents.end(); ++i) {
+                if (*i == &deviceEvent) {
+                    QCC_DbgPrintf(("WFDTransport::CreateTemporaryNetwork(): Device Event happened"));
+                    response = true;
+                } else if (*i == &timerEvent) {
+                    QCC_DbgPrintf(("WFDTransport::CreateTemporaryNetwork(): Timer Event happened"));
+                    timer = true;
+                }
+            }
+
+            /*
+             * If the timer popped, check for a timeout.  These are two
+             * different things since the timer pops every second and the
+             * timeout is some larger number of seconds.  The backwards logic is
+             * because the Timespec class doesn't define the needed operator and
+             * I'm too lazy to go write it.
+             */
+            bool timeout = false;
+            if (timer) {
+                Timespec tNow;
+                GetTimeNow(&tNow);
+
+                if (tStart + tTimeout < tNow) {
+                    QCC_DbgPrintf(("WFDTransport::CreateTemporaryNetwork(): Timeout happened"));
+                    timeout = true;
+                }
+            }
+
+            /*
+             * We need to run through the list of requests in the case of a
+             * timeout to find the object to remove (we are timing out the
+             * request after all).  We also need to run through the list in the
+             * case of a response in order to find the response code and then to
+             * remove the request object since we are done.
+             */
+            if (timeout || response) {
+                QCC_DbgPrintf(("WFDTransport::CreateTemporaryNetwork(): Timeout or response"));
+                m_deviceRequestListLock.Lock(MUTEX_CONTEXT);
+
+                /*
+                 * The eventual result of the EstablishLink() operation.
+                 */
+                int establishResult = -1;
+
+                for (P2pDeviceRequestList::iterator i = m_deviceRequestList.begin(); i != m_deviceRequestList.end(); ++i) {
+
+                    /*
+                     * The response is keyed to the handle we got when we
+                     * started this process by calling EstablishLink.
+                     */
+                    if (i->GetHandle() == handle) {
+                        if (response) {
+                            establishResult = i->GetResult();
+                            QCC_DbgPrintf(("WFDTransport::CreateTemporaryNetwork(): Got result %d", establishResult));
+
+                            /*
+                             * We will need the network interface name when we
+                             * try to turn on the multicast name service to
+                             * discover the IP address and port of the remote
+                             * daemon.
+                             */
+                            if (establishResult == P2PHelperInterface::P2P_OK) {
+                                QCC_DbgPrintf(("WFDTransport::CreateTemporaryNetwork(): GetInterfaceNameFromHandleAsync()"));
+                                m_getInterfaceNameFromHandleEvent.ResetEvent();
+                                m_getInterfaceNameFromHandleResult = false;
+                                status = m_p2pHelperInterface->GetInterfaceNameFromHandleAsync(handle);
+                                if (status == ER_OK) {
+                                    /*
+                                     * Only wait for a rational amount of time
+                                     * for this RPC to complete.  If the system
+                                     * is working, this should happen very
+                                     * quickly, so we'll pick the generic five
+                                     * second timeout out of the air.
+                                     */
+                                    uint32_t msWaited = 0;
+
+                                    for (;;) {
+                                        QCC_DbgPrintf(("WFDTransport::CreateTemporaryNetwork(): "
+                                                       "Waiting on m_getInterfacenameFromHandleResult"));
+
+                                        if (m_getInterfaceNameFromHandleResult) {
+                                            break;
+                                        }
+
+                                        if (msWaited > 5000) {
+                                            status = ER_TIMEOUT;
+                                            break;
+                                        }
+
+                                        qcc::Sleep(100);
+                                        msWaited += 100;
+                                    }
+                                } else {
+                                    QCC_LogError(status,
+                                                 ("WFDTransport::EnableAdvertisementInstance(): EstablishLink for GO fails"));
+                                }
+
+                                if (status == ER_OK) {
+                                    interface = m_foundInterface;
+                                } else {
+                                    interface = m_foundInterface;
+                                }
+                            }
+                        }
+
+                        QCC_DbgPrintf(("WFDTransport::CreateTemporaryNetwork(): Erasing entry"));
+                        m_deviceRequestList.erase(i);
+                        break;
+                    }
+                }
+
+                m_deviceRequestListLock.Unlock(MUTEX_CONTEXT);
+
+                /*
+                 * We are now done with our request.  We have either had a
+                 * response in which case response is true and establishResult
+                 * holds the result of the EstablishLink call, or we had a
+                 * timeout in which timeout is true.  In either of these cases
+                 * we have already cleaned up after ourseves and can return.
+                 * Note that a response trumps a timeout.  If neither of these
+                 * cases happened, we need to loop back and wait again.
+                 */
+                if (response) {
+                    QCC_DbgPrintf(("WFDTransport::CreateTemporaryNetwork(): Exiting on response"));
+                    if (establishResult < 0) {
+                        QCC_LogError(status, ("WFDTransport::CreateTemporaryNetwork(): Error connecting to \"%s\"", device.c_str()));
+                        return ER_FAIL;
+                    } else {
+                        return ER_OK;
+                    }
+                }
+
+                if (timeout) {
+                    QCC_LogError(status, ("WFDTransport::CreateTemporaryNetwork(): Timeout connecting to \"%s\"", device.c_str()));
+                    return ER_TIMEOUT;
+                }
+            }
+        }
+    }
+
+    assert(false && "WFDTransport::CreateTemporaryNetwork(): Cannot happen");
+    return ER_FAIL;
+}
+
+/*
+ * This is the local side of the callback corresponding to a successful
+ * completion of the EstablishLink call in CreateTemporaryNetwork() above.
+ *
+ * OnLinkEstablished is just an OnLinkError with an error code indicating
+ * success.
+ */
+void WFDTransport::OnLinkEstablished(int handle)
+{
+    QCC_DbgHLPrintf(("WFDTransport::OnLinkEstablished(%d)", handle));
+    OnLinkError(handle, P2PHelperInterface::P2P_OK);
+}
+
+/*
+ * This is the local side of the callback corresponding to a completion of the
+ * EstablishLink call in CreateTemporaryNetwork() above.
+ *
+ * The basic flow is that CreateTemporaryNetwork() will create an event for us
+ * to bug and will save it in an object and stick it on a list of such objects.
+ * Thes objects are keyed by the handle returned by EstablishLink.  Our job is
+ * to look up the object by handle, save an error code and bug the event to wake
+ * up the thread that blocked in CreateTemporaryNetwork waiting for us.
+ *
+ * If we can't find a thread waiting on an operation for this handle, there's
+ * not much that can be done.
+ */
+void WFDTransport::OnLinkError(int handle, int error)
+{
+    QCC_DbgHLPrintf(("WFDTransport::OnLinkError(%d, %d)", handle, error));
+
+    m_deviceRequestListLock.Lock(MUTEX_CONTEXT);
+
+    for (P2pDeviceRequestList::iterator i = m_deviceRequestList.begin(); i != m_deviceRequestList.end(); ++i) {
+        if (i->GetHandle() == handle) {
+            QCC_DbgPrintf(("WFDTransport::OnLInkError(): Found handle %d", handle));
+            i->SetResult(error);
+            i->SetEvent();
+            break;
+        }
+    }
+
+    m_deviceRequestListLock.Unlock(MUTEX_CONTEXT);
+}
+
+/*
+ * This is the local side of the callback corresponding to a completion of the
+ * EstablishLink call in CreateTemporaryNetwork() above.
+ *
+ * This callback indicates that the handle represents either a GO being created
+ * during the advertise process, or a STA being created during the connect
+ * process.  Since the cases are mutually exclusive we just let m_goHandle be
+ * the one handle.  This is somewhat confusing and needs changing.
+ *
+ * The basic flow for both processes is that the advertise or the connect will
+ * create an event for us to bug when the reply to its asynchronous call
+ * completes.  Our job is to save the result of the operation (the handle) and
+ * bug the event to wake up the thread that blocked in the advertise or connect.
+ */
+void WFDTransport::HandleEstablishLinkReply(int handle)
+{
+    QCC_DbgHLPrintf(("WFDTransport::HandleEstablishLinkReply(%d)", handle));
+    m_goHandle = handle;
+    m_establishLinkEvent.SetEvent();
+    m_establishLinkResult = true;
+}
+
+/*
+ * This is the local side of the callback corresponding to a completion of the
+ * EstablishLink call in CreateTemporaryNetwork() above.
+ *
+ * The basic flow is that CreateTemporaryNetwork() will create an event for us
+ * to bug when the reply to its asyncrhonous call completes.  Our job is to save
+ * the result of the operation (the handle) and bug the event to wake up the
+ * thread that blocked in CreateTemporaryNetwork waiting for us.
+ */
+void WFDTransport::HandleGetInterfaceNameFromHandleReply(qcc::String interface)
+{
+    QCC_DbgHLPrintf(("WFDTransport::HandleGetInterfaceNameFromHandleReply(\"%s\")", interface.c_str()));
+    m_foundInterface = interface;
+    m_getInterfaceNameFromHandleEvent.SetEvent();
+    m_getInterfaceNameFromHandleResult = true;
+}
+
+/*
+ * This is where the Wi-Fi P2P network meets the rest of the system.  This
+ * process started with a FoundAdvertisedName relating to a Wi-Fi P2P pre
+ * association service discovery event coming in from the Android Java framework
+ * (via the P2P helper service).  This FoundAdvertisedName was sent up to any
+ * AllJoyn applications that might have been looking for it, and the application
+ * must've responded with a JoinSession.  This was converted into a Connect call
+ * to this transport.  Connect noticed that it was being asked to connect to a
+ * device which was discovered using Wi-Fi P2P and it called
+ * CreateTemporaryNetwork to get the connection to the device GO formed.
+ * Connect is now ready to do the actual WFD connection, but it has absolutely
+ * no idea what IP address and port to connect to.  It is our job here to find
+ * that information and create a connect spec (see NormalizeTransportSpec) with
+ * that information.
+ *
+ * To find this information, we need to get the multicast name service to
+ * discover the IP address and port associated with the GUID, which is the GUID
+ * of the daemon we will need to connect to.
+ *
+ * The name service has a thread that is watching for interfaces to go down and
+ * come up, but this runs periodically and so this delay might take up to
+ * fifteen seconds to run.  The remote daemon is going to be sending name
+ * service keep-alives every 40 seconds.  It could take upwards of a minute to
+ * get this process complete, and if the name service is not configured to look
+ * at Wi-Fi P2P interfaces, it could never complete.
+ *
+ * What we need to do is to ask the name service explicitly to open the
+ * interface that was created in CreateTemporaryNetwork, and cause a WHO-HAS
+ * message to be sent out that interface looking for our target daemon.
+ *
+ * Once we have sent the WHO-HAS probe, we need to wait until an IS-AT response
+ * has been received and sent from the name service up through its callback to
+ * this transport.
+ */
+QStatus WFDTransport::CreateConnectSpec(const qcc::String& interface, const qcc::String& guid, qcc::String& connectSpec)
+{
+    QCC_DbgPrintf(("WFDTransport::CreateConnectSpec(\"%s\", \"%s\", ...)", interface.c_str(), guid.c_str()));
+
+    assert(IpNameService::Instance().Started() && "WFDTransport::CreateConnectSpec(): IpNameService not started");
+
+    /*
+     * Open the interface in the name service to enable it to transmit and receive
+     * name service messages on the new Wi-Fi P2P group.
+     */
+    QCC_DbgPrintf(("WFDTransport::CreateConnectSpec(): OpenInterface()"));
+    QStatus status = IpNameService::Instance().OpenInterface(TRANSPORT_WFD, interface);
+    if (status != ER_OK) {
+        QCC_LogError(status, ("WFDTransport::CreateConnectSpec(): Cannot open interface \"%s\"", interface.c_str()));
+        return status;
+    }
+
+    /*
+     * We are going to depend on the multicast name service callbacks
+     * to tell us when the remote daemon address and port is discovered.
+     * This info is going to come in on another thread.
+     *
+     * Since we are going to be interacting with a separate thread to get
+     * responses to our requests, we need to make sure we have our information
+     * available so that second thread can find it.  We need to get this done
+     * BEFORE we can allow a callback that may happen immediately or we may miss
+     * it.  This can result in a 40 second delay.  So, we take lock that is
+     * shared with the callback before making the Locate call.  This does mean
+     * that, if the callback happens immediately, it will block the name
+     * service.  We need to fill out the data structure that the callback will
+     * use, put it on the list that the callback will examine.  We then release
+     * the lock, allowing the response callback to access the structure and do
+     * its job.  We need to do this all without delay.
+     */
+    QCC_DbgPrintf(("WFDTransport::CreatetConnectSpec(): Block callbacks"));
+    m_addressRequestListLock.Lock(MUTEX_CONTEXT);
+
+    /*
+     * We need to identify ourselves as a thread waiting for a result for a
+     * particular name service result.  The result is identified by the GUID of
+     * the remote daemon, and we are going to eventually be waiting on an event.
+     * We wrap those two things up in an object and stash it on a list available
+     * to the callback that will happen when a name service callback is fired.
+     */
+    qcc::Event addressEvent;
+
+    P2pAddressRequest addressRequest(guid, &addressEvent);
+    m_addressRequestList.push_back(addressRequest);
+
+    /*
+     * Ask all of the daemons to respond with their GUIDs, IP addresses and ports.
+     */
+    QCC_DbgPrintf(("WFDTransport::CreateConnectSpec(): Locate(*)"));
+    status = IpNameService::Instance().FindAdvertisedName(TRANSPORT_WFD, "*");
+    if (status != ER_OK) {
+        QCC_LogError(status, ("WFDTransport::CreateConnectSpec(): Cannot open locate service \"*\""));
+        return status;
+    }
+
+    /*
+     * We've created and pushed the object that will allow a callback from the
+     * name service to be matched with our thread.  Now, we can make the name
+     * service request and release the response list lock so the response can be
+     * handled as described above.  This will let the response handler run
+     * unmolested.
+     */
+    QCC_DbgPrintf(("WFDTransport::CreateConnectSpec(): Allow callbacks"));
+    m_addressRequestListLock.Unlock(MUTEX_CONTEXT);
+
+    /*
+     * We'll wait as long as 15 seconds for a response (the group to be
+     * created).  This is because the Locate call to the name service will be
+     * retried three times, every five seconds by default.  The next opportunity
+     * to receive a name service response may be 40 seconds after that, which is
+     * getting pretty far out there.
+     */
+    Timespec tTimeout = 15000;
+    Timespec tStart;
+    GetTimeNow(&tStart);
+
+    /*
+     * A one second repeating timer.
+     */
+    qcc::Event timerEvent(1000, 1000);
+
+    /*
+     * We need to wait on both the timer event and the device event.
+     *
+     * XXX FIXME Don't poll, it's silly.
+     */
+    for (;;) {
+        vector<qcc::Event*> checkEvents, signaledEvents;
+        checkEvents.push_back(&addressEvent);
+        checkEvents.push_back(&timerEvent);
+
+        QCC_DbgPrintf(("WFDTransport::CreatetConnectSpec(): Wait for something to happen"));
+        QStatus status = qcc::Event::Wait(checkEvents, signaledEvents);
+        if (status != ER_OK && status != ER_TIMEOUT) {
+            break;
+        }
+
+        /*
+         * We are only concerned with two possible events here.  Normally,
+         * we'll either see the timer firing or a response notification. In
+         * astoundingly rare cases, both events can be set at the same time.
+         */
+        bool timer = false;
+        bool response = false;
+        for (vector<qcc::Event*>::iterator i = signaledEvents.begin(); i != signaledEvents.end(); ++i) {
+            if (*i == &addressEvent) {
+                QCC_DbgPrintf(("WFDTransport::CreateConnectSpec(): Address Event happened"));
+                response = true;
+            } else if (*i == &timerEvent) {
+                QCC_DbgPrintf(("WFDTransport::CreateConnectSpec(): Timer Event happened"));
+                timer = true;
+            }
+        }
+
+        /*
+         * If the timer popped, check for a timeout.  These are two different
+         * things since the timer pops every second and the timeout is some
+         * larger number of seconds.  The backwards logic is because the
+         * Timespec class doesn't define the needed operator and I'm too lazy to
+         * go write it.
+         */
+        bool timeout = false;
+        if (timer) {
+            Timespec tNow;
+            GetTimeNow(&tNow);
+
+            if (tStart + tTimeout < tNow) {
+                QCC_DbgPrintf(("WFDTransport::CreateConnectSpec(): Timeout happened"));
+                timeout = true;
+            }
+        }
+
+        /*
+         * We need to run through the list of requests in the case of a timeout
+         * to find the object to remove (we are timing out the request after
+         * all).  We also need to run through the list in the case of a response
+         * to find the address and port and then to remove the request object.
+         */
+        if (timeout || response) {
+            QCC_DbgPrintf(("WFDTransport::CreateConnectSpec(): Timeout or response"));
+            m_addressRequestListLock.Lock(MUTEX_CONTEXT);
+
+            /*
+             * These two little puppies are what all of this trouble is about.
+             */
+            qcc::String address;
+            qcc::String port;
+
+            for (P2pAddressRequestList::iterator i = m_addressRequestList.begin(); i != m_addressRequestList.end(); ++i) {
+
+                /*
+                 * The response is keyed to the guid of the remote daemon.
+                 */
+                if (i->GetGuid() == guid) {
+                    if (response) {
+                        address = i->GetAddress();
+                        port = i->GetPort();
+                        QCC_DbgPrintf(("WFDTransport::CreatetConnectSpec(): Found %s:%s", address.c_str(), port.c_str()));
+                    }
+                    QCC_DbgPrintf(("WFDTransport::CreateConnectSpec(): Erasing entry"));
+                    m_addressRequestList.erase(i);
+                    break;
+                }
+            }
+
+            m_addressRequestListLock.Unlock(MUTEX_CONTEXT);
+
+            /*
+             * We are now done with our request.  We have either had a response
+             * in which case response is true and address and port hold the
+             * information we're after, or we had a timeout in which timeout is
+             * true.  In either of these cases we have already cleaned up after
+             * ourseves and can return.  Note that a response trumps a timeout.
+             * If neither of these cases happened, we need to loop back and wait
+             * again.
+             */
+            if (response) {
+                QCC_DbgPrintf(("WFDTransport::CreatetConnectSpec(): Exiting on response"));
+
+                /*
+                 * We now need to create a normalized transport spec out of the
+                 * address and port we found.  The input spec is just going to
+                 * be "wfd:addr=<address>,port=<port> and we let the normalize
+                 * function make it prettier.  What we're interested in is the
+                 * output of this function, which is the connect spec we're
+                 * after.
+                 */
+                qcc::String spec, normSpec;
+                spec = "wfd:addr=" + address + ",port=" + port;
+                map<qcc::String, qcc::String> argMap;
+                status = NormalizeTransportSpec(spec.c_str(), normSpec, argMap);
+                if (ER_OK != status) {
+                    QCC_LogError(status, ("WFDTransport::CreateConnectSpec(): Invalid connect spec \"%s\"", spec.c_str()));
+                    return status;
+                }
+
+                connectSpec = normSpec;
+                return ER_OK;
+            }
+
+            if (timeout) {
+                QCC_LogError(status, ("WFDTransport::CreateConnectSpec(): Timeout looking for \"%s\"", guid.c_str()));
+                return ER_TIMEOUT;
+            }
+        }
+    }
+
+    assert(false && "WFDTransport::CreateConnectSpec(): Cannot happen");
+    return ER_FAIL;
+}
+
+/*
+ * This is the callback corresponding to a location of a remote daemon
+ * identified by its GUID.  The provided busAddr contains the IP address and
+ * port on which the daemon is listening, and thus provides enough information
+ * to put together a connect spec for reaching that daemon.  There may be a
+ * CreateConnectSpec call blocked waiting for this address and port to appear.
+ *
+ * The basic flow is that CreateConnectSpec() will create an event for us to bug
+ * and will save it in an object and stick it on a list of such objects.  These
+ * objects are keyed by the guid of the remote daemon.  Our job is to look up
+ * the object by guid, save the found address and port and bug the event to wake
+ * up the thread that blocked in CreateConnectSpec waiting for us to wake it.
+ */
+void WFDTransport::OnFound(const qcc::String& busAddr, const qcc::String& guid)
+{
+    QCC_DbgHLPrintf(("WFDTransport::OnFound(\"%s\", \"%s\")", busAddr.c_str(), guid.c_str()));
+
+    m_addressRequestListLock.Lock(MUTEX_CONTEXT);
+
+    for (P2pAddressRequestList::iterator i = m_addressRequestList.begin(); i != m_addressRequestList.end(); ++i) {
+        if (i->GetGuid() == guid) {
+            QCC_DbgPrintf(("WFDTransport::OnFound(): Found guid \"%s\"", guid.c_str()));
+
+            /*
+             * Instead of fighting with the name servcie callback, we just use
+             * what it gives us, even though it means a little redundancy.
+             */
+            qcc::String a("r4addr=");
+            qcc::String p(",r4port=");
+
+            /*
+             * Find the index of the busAddr string where the string "r4addr=" starts.
+             */
+            size_t j = busAddr.find(a);
+            if (j == String::npos) {
+                continue;
+            }
+
+            /*
+             * Point the index to the point where the actual address starts.
+             */
+            j += a.size();
+
+            /*
+             * Find the index of the busAddr string where the string "r4port=" starts.
+             */
+            size_t k = busAddr.find(p);
+            if (k == String::npos) {
+                continue;
+            }
+
+            /*
+             * The address we're interested in is between the end of "r4addr=" and
+             * the start of "r4port="
+             */
+            i->SetAddress(busAddr.substr(j, k - j));
+
+            /*
+             * The port we're interested in is between the end of "r4port=" and
+             * the end of the string (we known this because we looked at how it
+             * is made).
+             */
+            i->SetPort(busAddr.substr(k + p.size(), busAddr.size()));
+
+            /*
+             * Set the wake event to wake up a thread blocked in
+             * CreateConnectSpec waiting for this information.
+             */
+            i->SetEvent();
+            break;
+        }
+    }
+
+    m_addressRequestListLock.Unlock(MUTEX_CONTEXT);
+}
+
+QStatus WFDTransport::Connect(const char* connectSpec, const SessionOpts& opts, BusEndpoint** newep)
+{
+    QCC_DbgHLPrintf(("WFDTransport::Connect(): %s", connectSpec));
 
     QStatus status;
     bool isConnected = false;
@@ -2506,7 +3527,7 @@ QStatus TCPTransport::Connect(const char* connectSpec, const SessionOpts& opts, 
      * our Stop() method.
      */
     if (IsRunning() == false || m_stopping == true) {
-        QCC_LogError(ER_BUS_TRANSPORT_NOT_STARTED, ("TCPTransport::Connect(): Not running or stopping; exiting"));
+        QCC_LogError(ER_BUS_TRANSPORT_NOT_STARTED, ("WFDTransport::Connect(): Not running or stopping; exiting"));
         return ER_BUS_TRANSPORT_NOT_STARTED;
     }
 
@@ -2517,7 +3538,7 @@ QStatus TCPTransport::Connect(const char* connectSpec, const SessionOpts& opts, 
      * deleted after it is joined, we must have a started name service or someone
      * isn't playing by the rules; so an assert is appropriate here.
      */
-    assert(IpNameService::Instance().Started() && "TCPTransport::Connect(): IpNameService not started");
+    assert(IpNameService::Instance().Started() && "WFDTransport::Connect(): IpNameService not started");
 
     /*
      * Parse and normalize the connectArgs.  When connecting to the outside
@@ -2528,8 +3549,66 @@ QStatus TCPTransport::Connect(const char* connectSpec, const SessionOpts& opts, 
     map<qcc::String, qcc::String> argMap;
     status = NormalizeTransportSpec(connectSpec, normSpec, argMap);
     if (ER_OK != status) {
-        QCC_LogError(status, ("TCPTransport::Connect(): Invalid TCP connect spec \"%s\"", connectSpec));
+        QCC_LogError(status, ("WFDTransport::Connect(): Invalid WFD connect spec \"%s\"", connectSpec));
         return status;
+    }
+
+    qcc::String interface;
+    bool wasP2P = false;
+
+    /*
+     * If we find a GUID in the argument map, it means a pre-association service
+     * discovery event drove this connect.  There may or may not be an
+     * associated physical network, no IP address, port, etc., so we probably
+     * have a lot of work to do before we can attempt any kind of connection.
+     * Since there is no addressing information, we need to conjure it up before
+     * proceeding.
+     */
+    map<qcc::String, qcc::String>::iterator iter = argMap.find("guid");
+    if (iter != argMap.end()) {
+        QCC_DbgPrintf(("WFDTransport::Connect(): CreateTemporaryNetwork()"));
+        wasP2P = true;
+
+        /*
+         * The first thing to do is to make sure the temporary network (AKA Wi-Fi
+         * P2P Group) is created and ready to go.  It may or may not be there,
+         * but we create it if we need it.
+         */
+        status = CreateTemporaryNetwork(iter->second, interface);
+        if (status != ER_OK) {
+            QCC_LogError(status, ("WFDTransport::Connect(): Could not create temporary network to \"%s\"", normSpec.c_str()));
+            return status;
+        }
+
+        /*
+         * We have a temporary network, but we have no idea what the IP address
+         * and port of the remote endpoint is.  We have to discover that
+         * information and then come up with a new connect spec that reflects
+         * this new info.  We need to wait until we find an IP address and port
+         * that corresponds to the daemon represented by the GUID.
+         */
+        qcc::String newSpec;
+        QCC_DbgPrintf(("WFDTransport::Connect(): CreateConnectSpec()"));
+        status = CreateConnectSpec(interface, iter->second, newSpec);
+        if (status != ER_OK) {
+            QCC_LogError(status, ("WFDTransport::Connect(): Could not get connection info for \"%s\"", normSpec.c_str()));
+            return status;
+        }
+
+        /*
+         * If we have rewritten the connect spec for the connection, we need to
+         * reflect this in the normSpec and argMap that were originally derived
+         * from the connectSpec passed in.
+         */
+        argMap.clear();
+        normSpec.clear();
+
+        QCC_DbgPrintf(("WFDTransport::Connect(): NormalizeTransportSpec()"));
+        status = NormalizeTransportSpec(newSpec.c_str(), normSpec, argMap);
+        if (ER_OK != status) {
+            QCC_LogError(status, ("WFDTransport::Connect(): Invalid derived WFD connect spec \"%s\"", newSpec.c_str()));
+            return status;
+        }
     }
 
     /*
@@ -2542,7 +3621,7 @@ QStatus TCPTransport::Connect(const char* connectSpec, const SessionOpts& opts, 
 
     /*
      * The semantics of the Connect method tell us that we want to connect to a
-     * remote daemon.  TCP will happily allow us to connect to ourselves, but
+     * remote daemon.  WFD will happily allow us to connect to ourselves, but
      * this is not always possible in the various transports AllJoyn may use.
      * To avoid unnecessary differences, we do not allow a requested connection
      * to "ourself" to succeed.
@@ -2578,7 +3657,7 @@ QStatus TCPTransport::Connect(const char* connectSpec, const SessionOpts& opts, 
     map<qcc::String, qcc::String> normArgMap;
     status = NormalizeListenSpec(anyspec, normAnySpec, normArgMap);
     if (ER_OK != status) {
-        QCC_LogError(status, ("TCPTransport::Connect(): Invalid INADDR_ANY connect spec"));
+        QCC_LogError(status, ("WFDTransport::Connect(): Invalid INADDR_ANY connect spec"));
         return status;
     }
 
@@ -2586,11 +3665,11 @@ QStatus TCPTransport::Connect(const char* connectSpec, const SessionOpts& opts, 
      * Look to see if we are already listening on the provided connectSpec
      * either explicitly or via the INADDR_ANY address.
      */
-    QCC_DbgHLPrintf(("TCPTransport::Connect(): Checking for connection to self"));
+    QCC_DbgHLPrintf(("WFDTransport::Connect(): Checking for connection to self"));
     m_listenFdsLock.Lock(MUTEX_CONTEXT);
     bool anyEncountered = false;
     for (list<pair<qcc::String, SocketFd> >::iterator i = m_listenFds.begin(); i != m_listenFds.end(); ++i) {
-        QCC_DbgHLPrintf(("TCPTransport::Connect(): Checking listenSpec %s", i->first.c_str()));
+        QCC_DbgHLPrintf(("WFDTransport::Connect(): Checking listenSpec %s", i->first.c_str()));
 
         /*
          * If the provided connectSpec is already explicitly listened to, it is
@@ -2598,7 +3677,7 @@ QStatus TCPTransport::Connect(const char* connectSpec, const SessionOpts& opts, 
          */
         if (i->first == normSpec) {
             m_listenFdsLock.Unlock(MUTEX_CONTEXT);
-            QCC_DbgHLPrintf(("TCPTransport::Connect(): Explicit connection to self"));
+            QCC_DbgHLPrintf(("WFDTransport::Connect(): Explicit connection to self"));
             return ER_BUS_ALREADY_LISTENING;
         }
 
@@ -2608,7 +3687,7 @@ QStatus TCPTransport::Connect(const char* connectSpec, const SessionOpts& opts, 
          * or not.  Set a flag to remind us.
          */
         if (i->first == normAnySpec) {
-            QCC_DbgHLPrintf(("TCPTransport::Connect(): Possible implicit connection to self detected"));
+            QCC_DbgHLPrintf(("WFDTransport::Connect(): Possible implicit connection to self detected"));
             anyEncountered = true;
         }
     }
@@ -2620,7 +3699,7 @@ QStatus TCPTransport::Connect(const char* connectSpec, const SessionOpts& opts, 
      * addr.
      */
     if (anyEncountered) {
-        QCC_DbgHLPrintf(("TCPTransport::Connect(): Checking for implicit connection to self"));
+        QCC_DbgHLPrintf(("WFDTransport::Connect(): Checking for implicit connection to self"));
         std::vector<qcc::IfConfigEntry> entries;
         QStatus status = qcc::IfConfig(entries);
 
@@ -2641,12 +3720,12 @@ QStatus TCPTransport::Connect(const char* connectSpec, const SessionOpts& opts, 
              * is a hit.
              */
             for (uint32_t i = 0; i < entries.size(); ++i) {
-                QCC_DbgHLPrintf(("TCPTransport::Connect(): Checking interface %s", entries[i].m_name.c_str()));
+                QCC_DbgHLPrintf(("WFDTransport::Connect(): Checking interface %s", entries[i].m_name.c_str()));
                 if (entries[i].m_flags & qcc::IfConfigEntry::UP) {
-                    QCC_DbgHLPrintf(("TCPTransport::Connect(): Interface UP with addresss %s", entries[i].m_addr.c_str()));
+                    QCC_DbgHLPrintf(("WFDTransport::Connect(): Interface UP with addresss %s", entries[i].m_addr.c_str()));
                     IPAddress foundAddr(entries[i].m_addr);
                     if (foundAddr == ipAddr) {
-                        QCC_DbgHLPrintf(("TCPTransport::Connect(): Attempted connection to self; exiting"));
+                        QCC_DbgHLPrintf(("WFDTransport::Connect(): Attempted connection to self; exiting"));
                         return ER_BUS_ALREADY_LISTENING;
                     }
                 }
@@ -2656,7 +3735,7 @@ QStatus TCPTransport::Connect(const char* connectSpec, const SessionOpts& opts, 
 
     /*
      * This is a new not previously satisfied connection request, so attempt
-     * to connect to the remote TCP address and port specified in the connectSpec.
+     * to connect to the remote WFD address and port specified in the connectSpec.
      */
     SocketFd sockFd = -1;
     status = Socket(QCC_AF_INET, QCC_SOCK_STREAM, sockFd);
@@ -2667,13 +3746,13 @@ QStatus TCPTransport::Connect(const char* connectSpec, const SessionOpts& opts, 
 
     if (status == ER_OK) {
         /*
-         * We got a socket, now tell TCP to connect to the remote address and
+         * We got a socket, now tell WFD to connect to the remote address and
          * port.
          */
         status = qcc::Connect(sockFd, ipAddr, port);
         if (status == ER_OK) {
             /*
-             * We now have a TCP connection established, but DBus (the wire
+             * We now have a WFD connection established, but DBus (the wire
              * protocol which we are using) requires that every connection,
              * irrespective of transport, start with a single zero byte.  This
              * is so that the Unix-domain socket transport used by DBus can pass
@@ -2684,24 +3763,24 @@ QStatus TCPTransport::Connect(const char* connectSpec, const SessionOpts& opts, 
 
             status = Send(sockFd, &nul, 1, sent);
             if (status != ER_OK) {
-                QCC_LogError(status, ("TCPTransport::Connect(): Failed to send initial NUL byte"));
+                QCC_LogError(status, ("WFDTransport::Connect(): Failed to send initial NUL byte"));
             }
             isConnected = true;
         } else {
-            QCC_LogError(status, ("TCPTransport::Connect(): Failed"));
+            QCC_LogError(status, ("WFDTransport::Connect(): Failed"));
         }
     } else {
-        QCC_LogError(status, ("TCPTransport::Connect(): qcc::Socket() failed"));
+        QCC_LogError(status, ("WFDTransport::Connect(): qcc::Socket() failed"));
     }
 
-    TCPEndpoint* conn = NULL;
+    WFDEndpoint* conn = NULL;
     if (status == ER_OK) {
         /*
          * The underlying transport mechanism is started, but we need to create
-         * a TCPEndpoint object that will orchestrate the movement of data
+         * a WFDEndpoint object that will orchestrate the movement of data
          * across the transport.
          */
-        conn = new TCPEndpoint(this, m_bus, false, normSpec, sockFd, ipAddr, port);
+        conn = new WFDEndpoint(this, m_bus, false, normSpec, sockFd, ipAddr, port);
 
         /*
          * On the active side of a connection, we don't need an authentication
@@ -2728,7 +3807,7 @@ QStatus TCPTransport::Connect(const char* connectSpec, const SessionOpts& opts, 
          * they are stopped.  The general endpoint management uses these
          * mechanisms.  However, we are about to get into a state where we are
          * off trying to start an endpoint, but we are using another thread
-         * which has called into TCPTransport::Connect().  We are about to do
+         * which has called into WFDTransport::Connect().  We are about to do
          * blocking I/O in the authentication establishment dance, but we can't
          * just kill off this thread since it isn't ours for the whacking.  If
          * the transport is stopped, we do however need a way to stop an
@@ -2773,7 +3852,7 @@ QStatus TCPTransport::Connect(const char* connectSpec, const SessionOpts& opts, 
             m_endpointList.insert(conn);
             m_endpointListLock.Unlock(MUTEX_CONTEXT);
         } else {
-            QCC_LogError(status, ("TCPTransport::Connect(): Starting the TCPEndpoint failed"));
+            QCC_LogError(status, ("WFDTransport::Connect(): Starting the WFDEndpoint failed"));
 
             /*
              * Although the destructor of a remote endpoint includes a Stop and Join
@@ -2786,15 +3865,15 @@ QStatus TCPTransport::Connect(const char* connectSpec, const SessionOpts& opts, 
         /*
          * In any case, we are done with blocking I/O on the current thread, so
          * we need to remove its pointer from the list we kept around to break it
-         * out of blocking I/O.  If we were successful, the TCPEndpoint was passed
+         * out of blocking I/O.  If we were successful, the WFDEndpoint was passed
          * to the m_endpointList, where the main server accept loop will deal with
          * it using its RX and TX thread-based mechanisms.  If we were unsuccessful
-         * the TCPEndpoint was destroyed and we will return an error below after
+         * the WFDEndpoint was destroyed and we will return an error below after
          * cleaning up the underlying socket.
          */
         m_endpointListLock.Lock(MUTEX_CONTEXT);
         set<Thread*>::iterator i = find(m_activeEndpointsThreadList.begin(), m_activeEndpointsThreadList.end(), thread);
-        assert(i != m_activeEndpointsThreadList.end() && "TCPTransport::Connect(): Thread* not on m_activeEndpointsThreadList");
+        assert(i != m_activeEndpointsThreadList.end() && "WFDTransport::Connect(): Thread* not on m_activeEndpointsThreadList");
         m_activeEndpointsThreadList.erase(i);
         m_endpointListLock.Unlock(MUTEX_CONTEXT);
     }
@@ -2816,9 +3895,24 @@ QStatus TCPTransport::Connect(const char* connectSpec, const SessionOpts& opts, 
         if (newep) {
             *newep = NULL;
         }
+
+        /*
+         * XXX FIXME Very confusing to see GO handle in connect.
+         */
+        QCC_DbgPrintf(("WFDTransport::Connect(): ReleaseLinkAsync()"));
+        status = m_p2pHelperInterface->ReleaseLinkAsync(m_goHandle);
+        if (status != ER_OK) {
+            QCC_LogError(status, ("WFDTransport::Connect(): ReleaseLink fails"));
+        }
+
     } else {
+        if (wasP2P) {
+            QCC_DbgPrintf(("WFDTransport::Connect(): RememberP2PConnection()"));
+            RememberP2PConnection(conn, m_goHandle, interface);
+        }
+
         if (newep) {
-            assert(conn && "TCPTransport::Connect(): If the conn is up, the conn pointer should be non-NULL");
+            assert(conn && "WFDTransport::Connect(): If the conn is up, the conn pointer should be non-NULL");
             *newep = conn;
         }
     }
@@ -2826,9 +3920,9 @@ QStatus TCPTransport::Connect(const char* connectSpec, const SessionOpts& opts, 
     return status;
 }
 
-QStatus TCPTransport::Disconnect(const char* connectSpec)
+QStatus WFDTransport::Disconnect(const char* connectSpec)
 {
-    QCC_DbgHLPrintf(("TCPTransport::Disconnect(): %s", connectSpec));
+    QCC_DbgHLPrintf(("WFDTransport::Disconnect(): %s", connectSpec));
 
     /*
      * We only want to allow this call to proceed if we have a running server
@@ -2845,7 +3939,7 @@ QStatus TCPTransport::Disconnect(const char* connectSpec)
      * our Stop() method.
      */
     if (IsRunning() == false || m_stopping == true) {
-        QCC_LogError(ER_BUS_TRANSPORT_NOT_STARTED, ("TCPTransport::Disconnect(): Not running or stopping; exiting"));
+        QCC_LogError(ER_BUS_TRANSPORT_NOT_STARTED, ("WFDTransport::Disconnect(): Not running or stopping; exiting"));
         return ER_BUS_TRANSPORT_NOT_STARTED;
     }
 
@@ -2856,7 +3950,7 @@ QStatus TCPTransport::Disconnect(const char* connectSpec)
      * stopped after it is stopped, we must have a started name service or
      * someone isn't playing by the rules; so an assert is appropriate here.
      */
-    assert(IpNameService::Instance().Started() && "TCPTransport::Disconnect(): IpNameService not started");
+    assert(IpNameService::Instance().Started() && "WFDTransport::Disconnect(): IpNameService not started");
 
     /*
      * Higher level code tells us which connection is refers to by giving us the
@@ -2867,7 +3961,7 @@ QStatus TCPTransport::Disconnect(const char* connectSpec)
     map<qcc::String, qcc::String> argMap;
     QStatus status = NormalizeTransportSpec(connectSpec, normSpec, argMap);
     if (ER_OK != status) {
-        QCC_LogError(status, ("TCPTransport::Disconnect(): Invalid TCP connect spec \"%s\"", connectSpec));
+        QCC_LogError(status, ("WFDTransport::Disconnect(): Invalid WFD connect spec \"%s\"", connectSpec));
         return status;
     }
 
@@ -2876,7 +3970,7 @@ QStatus TCPTransport::Disconnect(const char* connectSpec)
 
     /*
      * Stop the remote endpoint.  Be careful here since calling Stop() on the
-     * TCPEndpoint is going to cause the transmit and receive threads of the
+     * WFDEndpoint is going to cause the transmit and receive threads of the
      * underlying RemoteEndpoint to exit, which will cause our EndpointExit()
      * to be called, which will walk the list of endpoints and delete the one
      * we are stopping.  Once we poke ep->Stop(), the pointer to ep must be
@@ -2884,11 +3978,33 @@ QStatus TCPTransport::Disconnect(const char* connectSpec)
      */
     status = ER_BUS_BAD_TRANSPORT_ARGS;
     m_endpointListLock.Lock(MUTEX_CONTEXT);
-    for (set<TCPEndpoint*>::iterator i = m_endpointList.begin(); i != m_endpointList.end(); ++i) {
+    for (set<WFDEndpoint*>::iterator i = m_endpointList.begin(); i != m_endpointList.end(); ++i) {
         if ((*i)->GetPort() == port && (*i)->GetIPAddress() == ipAddr) {
-            TCPEndpoint* ep = *i;
+            WFDEndpoint* ep = *i;
             ep->SetSuddenDisconnect(false);
             m_endpointListLock.Unlock(MUTEX_CONTEXT);
+
+            QCC_DbgPrintf(("WFDTransport::Disconnect(): GetP2pInfoForEndpoint()"));
+            P2PConnectionInfo* info = GetP2PInfoForEndpoint(ep);
+            assert(info && "WFDTransport::Disconnect(): Can't find info for supposedly alive P2P connection");
+
+            QCC_DbgPrintf(("WFDTransport::Disconnect(): ReleaseLinkAsync()"));
+            QStatus status = m_p2pHelperInterface->ReleaseLinkAsync(info->GetHandle());
+            if (status != ER_OK) {
+                QCC_LogError(status, ("WFDTransport::Disconnect(): Cannot ReleaseLinkAsync"));
+            }
+
+            /*
+             * Hideous, horrifying use of GO handle name even in STA.
+             */
+            m_goHandle = -1;
+
+            qcc::String interface = info->GetInterface();
+            QCC_DbgPrintf(("WFDTransport::Disconnect(): CloseInterface()"));
+            status = IpNameService::Instance().CloseInterface(TRANSPORT_WFD, interface);
+            if (status != ER_OK) {
+                QCC_LogError(status, ("WFDTransport::Disconnect(): Cannot close interface \"%s\"", interface.c_str()));
+            }
 
             return ep->Stop();
         }
@@ -2897,9 +4013,9 @@ QStatus TCPTransport::Disconnect(const char* connectSpec)
     return status;
 }
 
-QStatus TCPTransport::StartListen(const char* listenSpec)
+QStatus WFDTransport::StartListen(const char* listenSpec)
 {
-    QCC_DbgPrintf(("TCPTransport::StartListen()"));
+    QCC_DbgPrintf(("WFDTransport::StartListen()"));
 
     /*
      * We only want to allow this call to proceed if we have a running server
@@ -2915,7 +4031,7 @@ QStatus TCPTransport::StartListen(const char* listenSpec)
      * our Stop() method.
      */
     if (IsRunning() == false || m_stopping == true) {
-        QCC_LogError(ER_BUS_TRANSPORT_NOT_STARTED, ("TCPTransport::StartListen(): Not running or stopping; exiting"));
+        QCC_LogError(ER_BUS_TRANSPORT_NOT_STARTED, ("WFDTransport::StartListen(): Not running or stopping; exiting"));
         return ER_BUS_TRANSPORT_NOT_STARTED;
     }
 
@@ -2928,11 +4044,11 @@ QStatus TCPTransport::StartListen(const char* listenSpec)
     map<qcc::String, qcc::String> argMap;
     QStatus status = NormalizeListenSpec(listenSpec, normSpec, argMap);
     if (status != ER_OK) {
-        QCC_LogError(status, ("TCPTransport::StartListen(): Invalid TCP listen spec \"%s\"", listenSpec));
+        QCC_LogError(status, ("WFDTransport::StartListen(): Invalid WFD listen spec \"%s\"", listenSpec));
         return status;
     }
 
-    QCC_DbgPrintf(("TCPTransport::StartListen(): r4addr = \"%s\", r4port = \"%s\"",
+    QCC_DbgPrintf(("WFDTransport::StartListen(): r4addr = \"%s\", r4port = \"%s\"",
                    argMap["r4addr"].c_str(), argMap["r4port"].c_str()));
 
     /*
@@ -2945,13 +4061,13 @@ QStatus TCPTransport::StartListen(const char* listenSpec)
     IPAddress ipAddress;
     status = ipAddress.SetAddress(argMap["r4addr"].c_str());
     if (status != ER_OK) {
-        QCC_LogError(status, ("TCPTransport::StartListen(): Unable to SetAddress(\"%s\")", argMap["r4addr"].c_str()));
+        QCC_LogError(status, ("WFDTransport::StartListen(): Unable to SetAddress(\"%s\")", argMap["r4addr"].c_str()));
         return status;
     }
 
     if (ipAddress.IsIPv6()) {
         status = ER_INVALID_ADDRESS;
-        QCC_LogError(status, ("TCPTransport::StartListen(): IPv6 address (\"%s\") in \"r4addr\" not allowed", argMap["r4addr"].c_str()));
+        QCC_LogError(status, ("WFDTransport::StartListen(): IPv6 address (\"%s\") in \"r4addr\" not allowed", argMap["r4addr"].c_str()));
         return status;
     }
 
@@ -2987,9 +4103,9 @@ QStatus TCPTransport::StartListen(const char* listenSpec)
     return ER_OK;
 }
 
-void TCPTransport::QueueStartListen(qcc::String& normSpec)
+void WFDTransport::QueueStartListen(qcc::String& normSpec)
 {
-    QCC_DbgPrintf(("TCPTransport::QueueStartListen()"));
+    QCC_DbgPrintf(("WFDTransport::QueueStartListen()"));
 
     /*
      * In order to start a listen, we send the server accept thread a message
@@ -3011,16 +4127,16 @@ void TCPTransport::QueueStartListen(qcc::String& normSpec)
     Alert();
 }
 
-void TCPTransport::DoStartListen(qcc::String& normSpec)
+void WFDTransport::DoStartListen(qcc::String& normSpec)
 {
-    QCC_DbgPrintf(("TCPTransport::DoStartListen()"));
+    QCC_DbgPrintf(("WFDTransport::DoStartListen()"));
 
     /*
      * Since the name service is created before the server accept thread is spun
      * up, and stopped when it is stopped, we must have a started name service or
      * someone isn't playing by the rules; so an assert is appropriate here.
      */
-    assert(IpNameService::Instance().Started() && "TCPTransport::DoStartListen(): IpNameService not started");
+    assert(IpNameService::Instance().Started() && "WFDTransport::DoStartListen(): IpNameService not started");
 
     /*
      * Parse the normalized listen spec.  The easiest way to do this is to
@@ -3031,9 +4147,9 @@ void TCPTransport::DoStartListen(qcc::String& normSpec)
     qcc::String spec;
     map<qcc::String, qcc::String> argMap;
     QStatus status = NormalizeListenSpec(normSpec.c_str(), spec, argMap);
-    assert(status == ER_OK && "TCPTransport::DoStartListen(): Invalid TCP listen spec");
+    assert(status == ER_OK && "WFDTransport::DoStartListen(): Invalid WFD listen spec");
 
-    QCC_DbgPrintf(("TCPTransport::DoStartListen(): r4addr = \"%s\", r4port = \"%s\"",
+    QCC_DbgPrintf(("WFDTransport::DoStartListen(): r4addr = \"%s\", r4port = \"%s\"",
                    argMap["r4addr"].c_str(), argMap["r4port"].c_str()));
 
     m_listenFdsLock.Lock(MUTEX_CONTEXT);
@@ -3091,24 +4207,24 @@ void TCPTransport::DoStartListen(qcc::String& normSpec)
          */
         IPAddress currentAddress;
         if (currentAddress.SetAddress(currentInterface, false) == ER_OK) {
-            status = IpNameService::Instance().OpenInterface(TRANSPORT_TCP, currentAddress);
+            status = IpNameService::Instance().OpenInterface(TRANSPORT_WFD, currentAddress);
         } else {
-            status = IpNameService::Instance().OpenInterface(TRANSPORT_TCP, currentInterface);
+            status = IpNameService::Instance().OpenInterface(TRANSPORT_WFD, currentInterface);
         }
         if (status != ER_OK) {
-            QCC_LogError(status, ("TCPTransport::DoStartListen(): OpenInterface() failed for %s", currentInterface.c_str()));
+            QCC_LogError(status, ("WFDTransport::DoStartListen(): OpenInterface() failed for %s", currentInterface.c_str()));
         }
     }
     /*
      * We have the name service work out of the way, so we can now create the
-     * TCP listener sockets and set SO_REUSEADDR/SO_REUSEPORT so we don't have
+     * WFD listener sockets and set SO_REUSEADDR/SO_REUSEPORT so we don't have
      * to wait for four minutes to relaunch the daemon if it crashes.
      */
     SocketFd listenFd = -1;
     status = Socket(QCC_AF_INET, QCC_SOCK_STREAM, listenFd);
     if (status != ER_OK) {
         m_listenFdsLock.Unlock(MUTEX_CONTEXT);
-        QCC_LogError(status, ("TCPTransport::DoStartListen(): Socket() failed"));
+        QCC_LogError(status, ("WFDTransport::DoStartListen(): Socket() failed"));
         return;
     }
     /*
@@ -3118,7 +4234,7 @@ void TCPTransport::DoStartListen(qcc::String& normSpec)
     status = qcc::SetReuseAddress(listenFd, true);
     if (status != ER_OK && status != ER_NOT_IMPLEMENTED) {
         m_listenFdsLock.Unlock(MUTEX_CONTEXT);
-        QCC_LogError(status, ("TCPTransport::DoStartListen(): SetReuseAddress() failed"));
+        QCC_LogError(status, ("WFDTransport::DoStartListen(): SetReuseAddress() failed"));
         qcc::Close(listenFd);
         return;
     }
@@ -3128,7 +4244,7 @@ void TCPTransport::DoStartListen(qcc::String& normSpec)
     status = qcc::SetBlocking(listenFd, false);
     if (status != ER_OK) {
         m_listenFdsLock.Unlock(MUTEX_CONTEXT);
-        QCC_LogError(status, ("TCPTransport::DoStartListen(): SetBlocking() failed"));
+        QCC_LogError(status, ("WFDTransport::DoStartListen(): SetBlocking() failed"));
         qcc::Close(listenFd);
         return;
     }
@@ -3157,17 +4273,17 @@ void TCPTransport::DoStartListen(qcc::String& normSpec)
          */
         if (ephemeralPort) {
             qcc::GetLocalAddress(listenFd, listenAddr, listenPort);
-            normSpec = "tcp:addr=" + argMap["r4addr"] + "," ",r4port=" + U32ToString(listenPort);
+            normSpec = "wfd:addr=" + argMap["r4addr"] + "," ",r4port=" + U32ToString(listenPort);
         }
         status = qcc::Listen(listenFd, MAX_LISTEN_CONNECTIONS);
         if (status == ER_OK) {
-            QCC_DbgPrintf(("TCPTransport::DoStartListen(): Listening on %s/%d", argMap["r4addr"].c_str(), listenPort));
+            QCC_DbgPrintf(("WFDTransport::DoStartListen(): Listening on %s/%d", argMap["r4addr"].c_str(), listenPort));
             m_listenFds.push_back(pair<qcc::String, SocketFd>(normSpec, listenFd));
         } else {
-            QCC_LogError(status, ("TCPTransport::DoStartListen(): Listen failed"));
+            QCC_LogError(status, ("WFDTransport::DoStartListen(): Listen failed"));
         }
     } else {
-        QCC_LogError(status, ("TCPTransport::DoStartListen(): Failed to bind to %s/%d", listenAddr.ToString().c_str(), listenPort));
+        QCC_LogError(status, ("WFDTransport::DoStartListen(): Failed to bind to %s/%d", listenAddr.ToString().c_str(), listenPort));
     }
 
     /*
@@ -3175,17 +4291,17 @@ void TCPTransport::DoStartListen(qcc::String& normSpec)
      * that a so-called transport is going to be doing the advertising.  An IP
      * transport, by definition, has a reliable data transmission capability and
      * an unreliable data transmission capability.  In the IP world, reliable
-     * data is sent using TCP and unreliable data is sent using UDP (the Packet
+     * data is sent using WFD and unreliable data is sent using UDP (the Packet
      * Engine in the AllJoyn world).  Also, IP implies either IPv4 or IPv6
      * addressing.
      *
-     * In the TCPTransport, we only support reliable data transfer over IPv4
+     * In the WFDTransport, we only support reliable data transfer over IPv4
      * addresses, so we leave all of the other possibilities turned off (provide
      * a zero port).  Remember the port we enabled so we can re-enable the name
      * service if listeners come and go.
      */
     m_listenPort = listenPort;
-    IpNameService::Instance().Enable(TRANSPORT_TCP, listenPort, 0, 0, 0);
+    IpNameService::Instance().Enable(TRANSPORT_WFD, listenPort, 0, 0, 0);
     m_listenFdsLock.Unlock(MUTEX_CONTEXT);
 
     /*
@@ -3197,9 +4313,9 @@ void TCPTransport::DoStartListen(qcc::String& normSpec)
     }
 }
 
-QStatus TCPTransport::StopListen(const char* listenSpec)
+QStatus WFDTransport::StopListen(const char* listenSpec)
 {
-    QCC_DbgPrintf(("TCPTransport::StopListen()"));
+    QCC_DbgPrintf(("WFDTransport::StopListen()"));
 
     /*
      * We only want to allow this call to proceed if we have a running server
@@ -3215,7 +4331,7 @@ QStatus TCPTransport::StopListen(const char* listenSpec)
      * our Stop() method.
      */
     if (IsRunning() == false || m_stopping == true) {
-        QCC_LogError(ER_BUS_TRANSPORT_NOT_STARTED, ("TCPTransport::StopListen(): Not running or stopping; exiting"));
+        QCC_LogError(ER_BUS_TRANSPORT_NOT_STARTED, ("WFDTransport::StopListen(): Not running or stopping; exiting"));
         return ER_BUS_TRANSPORT_NOT_STARTED;
     }
 
@@ -3228,7 +4344,7 @@ QStatus TCPTransport::StopListen(const char* listenSpec)
     map<qcc::String, qcc::String> argMap;
     QStatus status = NormalizeListenSpec(listenSpec, normSpec, argMap);
     if (status != ER_OK) {
-        QCC_LogError(status, ("TCPTransport::StopListen(): Invalid TCP listen spec \"%s\"", listenSpec));
+        QCC_LogError(status, ("WFDTransport::StopListen(): Invalid WFD listen spec \"%s\"", listenSpec));
         return status;
     }
 
@@ -3266,9 +4382,9 @@ QStatus TCPTransport::StopListen(const char* listenSpec)
     return ER_OK;
 }
 
-void TCPTransport::QueueStopListen(qcc::String& normSpec)
+void WFDTransport::QueueStopListen(qcc::String& normSpec)
 {
-    QCC_DbgPrintf(("TCPTransport::QueueStopListen()"));
+    QCC_DbgPrintf(("WFDTransport::QueueStopListen()"));
 
     /*
      * In order to stop a listen, we send the server accept thread a message
@@ -3290,16 +4406,16 @@ void TCPTransport::QueueStopListen(qcc::String& normSpec)
     Alert();
 }
 
-void TCPTransport::DoStopListen(qcc::String& normSpec)
+void WFDTransport::DoStopListen(qcc::String& normSpec)
 {
-    QCC_DbgPrintf(("TCPTransport::DoStopListen()"));
+    QCC_DbgPrintf(("WFDTransport::DoStopListen()"));
 
     /*
      * Since the name service is started before the server accept thread is spun
      * up, and stopped after it is stopped, we must have a started name service or
      * someone isn't playing by the rules; so an assert is appropriate here.
      */
-    assert(IpNameService::Instance().Started() && "TCPTransport::DoStopListen(): IpNameService not started");
+    assert(IpNameService::Instance().Started() && "WFDTransport::DoStopListen(): IpNameService not started");
 
     /*
      * Find the (single) listen spec and remove it from the list of active FDs
@@ -3331,22 +4447,22 @@ void TCPTransport::DoStopListen(qcc::String& normSpec)
     }
 }
 
-bool TCPTransport::NewDiscoveryOp(DiscoveryOp op, qcc::String namePrefix, bool& isFirst)
+bool WFDTransport::NewDiscoveryOp(DiscoveryOp op, qcc::String namePrefix, bool& isFirst)
 {
-    QCC_DbgPrintf(("TCPTransport::NewDiscoveryOp()"));
+    QCC_DbgPrintf(("WFDTransport::NewDiscoveryOp()"));
 
     bool first = false;
 
     if (op == ENABLE_DISCOVERY) {
-        QCC_DbgPrintf(("TCPTransport::NewDiscoveryOp(): Registering discovery of namePrefix \"%s\"", namePrefix.c_str()));
+        QCC_DbgPrintf(("WFDTransport::NewDiscoveryOp(): Registering discovery of namePrefix \"%s\"", namePrefix.c_str()));
         first = m_advertising.empty();
         m_discovering.push_back(namePrefix);
     } else {
         list<qcc::String>::iterator i = find(m_discovering.begin(), m_discovering.end(), namePrefix);
         if (i == m_discovering.end()) {
-            QCC_DbgPrintf(("TCPTransport::NewDiscoveryOp(): Cancel of non-existent namePrefix \"%s\"", namePrefix.c_str()));
+            QCC_DbgPrintf(("WFDTransport::NewDiscoveryOp(): Cancel of non-existent namePrefix \"%s\"", namePrefix.c_str()));
         } else {
-            QCC_DbgPrintf(("TCPTransport::NewDiscoveryOp(): Unregistering discovery of namePrefix \"%s\"", namePrefix.c_str()));
+            QCC_DbgPrintf(("WFDTransport::NewDiscoveryOp(): Unregistering discovery of namePrefix \"%s\"", namePrefix.c_str()));
             m_discovering.erase(i);
         }
     }
@@ -3355,22 +4471,22 @@ bool TCPTransport::NewDiscoveryOp(DiscoveryOp op, qcc::String namePrefix, bool& 
     return m_discovering.empty();
 }
 
-bool TCPTransport::NewAdvertiseOp(AdvertiseOp op, qcc::String name, bool& isFirst)
+bool WFDTransport::NewAdvertiseOp(AdvertiseOp op, qcc::String name, bool& isFirst)
 {
-    QCC_DbgPrintf(("TCPTransport::NewAdvertiseOp()"));
+    QCC_DbgPrintf(("WFDTransport::NewAdvertiseOp()"));
 
     bool first = false;
 
     if (op == ENABLE_ADVERTISEMENT) {
-        QCC_DbgPrintf(("TCPTransport::NewAdvertiseOp(): Registering advertisement of namePrefix \"%s\"", name.c_str()));
+        QCC_DbgPrintf(("WFDTransport::NewAdvertiseOp(): Registering advertisement of namePrefix \"%s\"", name.c_str()));
         first = m_advertising.empty();
         m_advertising.push_back(name);
     } else {
         list<qcc::String>::iterator i = find(m_advertising.begin(), m_advertising.end(), name);
         if (i == m_advertising.end()) {
-            QCC_DbgPrintf(("TCPTransport::NewAdvertiseOp(): Cancel of non-existent name \"%s\"", name.c_str()));
+            QCC_DbgPrintf(("WFDTransport::NewAdvertiseOp(): Cancel of non-existent name \"%s\"", name.c_str()));
         } else {
-            QCC_DbgPrintf(("TCPTransport::NewAdvertiseOp(): Unregistering advertisement of namePrefix \"%s\"", name.c_str()));
+            QCC_DbgPrintf(("WFDTransport::NewAdvertiseOp(): Unregistering advertisement of namePrefix \"%s\"", name.c_str()));
             m_advertising.erase(i);
         }
     }
@@ -3379,20 +4495,20 @@ bool TCPTransport::NewAdvertiseOp(AdvertiseOp op, qcc::String name, bool& isFirs
     return m_advertising.empty();
 }
 
-bool TCPTransport::NewListenOp(ListenOp op, qcc::String normSpec)
+bool WFDTransport::NewListenOp(ListenOp op, qcc::String normSpec)
 {
-    QCC_DbgPrintf(("TCPTransport::NewListenOp()"));
+    QCC_DbgPrintf(("WFDTransport::NewListenOp()"));
 
     if (op == START_LISTEN) {
-        QCC_DbgPrintf(("TCPTransport::NewListenOp(): Registering listen of normSpec \"%s\"", normSpec.c_str()));
+        QCC_DbgPrintf(("WFDTransport::NewListenOp(): Registering listen of normSpec \"%s\"", normSpec.c_str()));
         m_listening.push_back(normSpec);
 
     } else {
         list<qcc::String>::iterator i = find(m_listening.begin(), m_listening.end(), normSpec);
         if (i == m_listening.end()) {
-            QCC_DbgPrintf(("TCPTransport::NewAdvertiseOp(): StopListen of non-existent spec \"%s\"", normSpec.c_str()));
+            QCC_DbgPrintf(("WFDTransport::NewAdvertiseOp(): StopListen of non-existent spec \"%s\"", normSpec.c_str()));
         } else {
-            QCC_DbgPrintf(("TCPTransport::NewAdvertiseOp(): StopListen of normSpec \"%s\"", normSpec.c_str()));
+            QCC_DbgPrintf(("WFDTransport::NewAdvertiseOp(): StopListen of normSpec \"%s\"", normSpec.c_str()));
             m_listening.erase(i);
         }
     }
@@ -3400,9 +4516,9 @@ bool TCPTransport::NewListenOp(ListenOp op, qcc::String normSpec)
     return m_listening.empty();
 }
 
-void TCPTransport::EnableDiscovery(const char* namePrefix)
+void WFDTransport::EnableDiscovery(const char* namePrefix)
 {
-    QCC_DbgPrintf(("TCPTransport::EnableDiscovery()"));
+    QCC_DbgPrintf(("WFDTransport::EnableDiscovery()"));
 
     /*
      * We only want to allow this call to proceed if we have a running server
@@ -3418,16 +4534,16 @@ void TCPTransport::EnableDiscovery(const char* namePrefix)
      * our Stop() method.
      */
     if (IsRunning() == false || m_stopping == true) {
-        QCC_LogError(ER_BUS_TRANSPORT_NOT_STARTED, ("TCPTransport::EnableDiscovery(): Not running or stopping; exiting"));
+        QCC_LogError(ER_BUS_TRANSPORT_NOT_STARTED, ("WFDTransport::EnableDiscovery(): Not running or stopping; exiting"));
         return;
     }
 
     QueueEnableDiscovery(namePrefix);
 }
 
-void TCPTransport::QueueEnableDiscovery(const char* namePrefix)
+void WFDTransport::QueueEnableDiscovery(const char* namePrefix)
 {
-    QCC_DbgPrintf(("TCPTransport::QueueEnableDiscovery()"));
+    QCC_DbgPrintf(("WFDTransport::QueueEnableDiscovery()"));
 
     ListenRequest listenRequest;
     listenRequest.m_requestOp = ENABLE_DISCOVERY_INSTANCE;
@@ -3444,9 +4560,9 @@ void TCPTransport::QueueEnableDiscovery(const char* namePrefix)
     Alert();
 }
 
-void TCPTransport::DisableDiscovery(const char* namePrefix)
+void WFDTransport::DisableDiscovery(const char* namePrefix)
 {
-    QCC_DbgPrintf(("TCPTransport::DisableDiscovery()"));
+    QCC_DbgPrintf(("WFDTransport::DisableDiscovery()"));
 
     /*
      * We only want to allow this call to proceed if we have a running server
@@ -3462,16 +4578,16 @@ void TCPTransport::DisableDiscovery(const char* namePrefix)
      * our Stop() method.
      */
     if (IsRunning() == false || m_stopping == true) {
-        QCC_LogError(ER_BUS_TRANSPORT_NOT_STARTED, ("TCPTransport::DisbleDiscovery(): Not running or stopping; exiting"));
+        QCC_LogError(ER_BUS_TRANSPORT_NOT_STARTED, ("WFDTransport::DisbleDiscovery(): Not running or stopping; exiting"));
         return;
     }
 
     QueueDisableDiscovery(namePrefix);
 }
 
-void TCPTransport::QueueDisableDiscovery(const char* namePrefix)
+void WFDTransport::QueueDisableDiscovery(const char* namePrefix)
 {
-    QCC_DbgPrintf(("TCPTransport::QueueDisableDiscovery()"));
+    QCC_DbgPrintf(("WFDTransport::QueueDisableDiscovery()"));
 
     ListenRequest listenRequest;
     listenRequest.m_requestOp = DISABLE_DISCOVERY_INSTANCE;
@@ -3488,9 +4604,9 @@ void TCPTransport::QueueDisableDiscovery(const char* namePrefix)
     Alert();
 }
 
-QStatus TCPTransport::EnableAdvertisement(const qcc::String& advertiseName)
+QStatus WFDTransport::EnableAdvertisement(const qcc::String& advertiseName)
 {
-    QCC_DbgPrintf(("TCPTransport::EnableAdvertisement()"));
+    QCC_DbgPrintf(("WFDTransport::EnableAdvertisement()"));
 
     /*
      * We only want to allow this call to proceed if we have a running server
@@ -3506,7 +4622,7 @@ QStatus TCPTransport::EnableAdvertisement(const qcc::String& advertiseName)
      * our Stop() method.
      */
     if (IsRunning() == false || m_stopping == true) {
-        QCC_LogError(ER_BUS_TRANSPORT_NOT_STARTED, ("TCPTransport::EnableAdvertisement(): Not running or stopping; exiting"));
+        QCC_LogError(ER_BUS_TRANSPORT_NOT_STARTED, ("WFDTransport::EnableAdvertisement(): Not running or stopping; exiting"));
         return ER_BUS_TRANSPORT_NOT_STARTED;
     }
 
@@ -3514,9 +4630,9 @@ QStatus TCPTransport::EnableAdvertisement(const qcc::String& advertiseName)
     return ER_OK;
 }
 
-void TCPTransport::QueueEnableAdvertisement(const qcc::String& advertiseName)
+void WFDTransport::QueueEnableAdvertisement(const qcc::String& advertiseName)
 {
-    QCC_DbgPrintf(("TCPTransport::QueueEnableAdvertisement()"));
+    QCC_DbgPrintf(("WFDTransport::QueueEnableAdvertisement()"));
 
     ListenRequest listenRequest;
     listenRequest.m_requestOp = ENABLE_ADVERTISEMENT_INSTANCE;
@@ -3533,9 +4649,9 @@ void TCPTransport::QueueEnableAdvertisement(const qcc::String& advertiseName)
     Alert();
 }
 
-void TCPTransport::DisableAdvertisement(const qcc::String& advertiseName, bool nameListEmpty)
+void WFDTransport::DisableAdvertisement(const qcc::String& advertiseName, bool nameListEmpty)
 {
-    QCC_DbgPrintf(("TCPTransport::DisableAdvertisement()"));
+    QCC_DbgPrintf(("WFDTransport::DisableAdvertisement()"));
 
     /*
      * We only want to allow this call to proceed if we have a running server
@@ -3551,16 +4667,16 @@ void TCPTransport::DisableAdvertisement(const qcc::String& advertiseName, bool n
      * our Stop() method.
      */
     if (IsRunning() == false || m_stopping == true) {
-        QCC_LogError(ER_BUS_TRANSPORT_NOT_STARTED, ("TCPTransport::DisableAdvertisement(): Not running or stopping; exiting"));
+        QCC_LogError(ER_BUS_TRANSPORT_NOT_STARTED, ("WFDTransport::DisableAdvertisement(): Not running or stopping; exiting"));
         return;
     }
 
     QueueDisableAdvertisement(advertiseName);
 }
 
-void TCPTransport::QueueDisableAdvertisement(const qcc::String& advertiseName)
+void WFDTransport::QueueDisableAdvertisement(const qcc::String& advertiseName)
 {
-    QCC_DbgPrintf(("TCPTransport::QueueDisableAdvertisement()"));
+    QCC_DbgPrintf(("WFDTransport::QueueDisableAdvertisement()"));
 
     ListenRequest listenRequest;
     listenRequest.m_requestOp = DISABLE_ADVERTISEMENT_INSTANCE;
@@ -3577,10 +4693,128 @@ void TCPTransport::QueueDisableAdvertisement(const qcc::String& advertiseName)
     Alert();
 }
 
-void TCPTransport::FoundCallback::Found(const qcc::String& busAddr, const qcc::String& guid,
+/*
+ * This is the destination of the found name callback for the Wi-Fi P2P helper.
+ * If we have successfully enabled pre-association service discovery and done
+ * a FindAdvertisedName there, as soon as the system finds a matching service
+ * it will call us back here.
+ *
+ * The main difference between a normal multicast name service callback and a
+ * Wi-Fi P2P callback is that in the P2P case, there is no wireless connection
+ * and therefore no IP address or port to connect to.  Instead of using the IP
+ * address and port to key to the desired service, we use the GUID of the daemon
+ * that hosts that service.
+ *
+ * This means that we need to change the definition of a bus address to admit
+ * the possibility that there is no IP address or port.  In the "normal" case
+ * a bus address will look like, "r4addr=192.168.1.100,port=9955" but in the P2P
+ * case, a bus address will look like, "guid=167a3d1d18c9404a846a0110e287d751"
+ * This bus address fill filter up through the AllJoyn system into any client
+ * app searching for the name and if it decides to join a corresponding session
+ * will filter back down here and reappear as the connect spec in a call to
+ * WFDTransport::Connect().
+ *
+ * In order to do the actual connect, we need to keep a mapping from the GUID
+ * which AllJoyn will use to the device which is meaningful to the P2P code.
+ * We keep these mappings in the p2pDeviceList.
+ */
+void WFDTransport::OnFoundAdvertisedName(const char* name, const char* namePrefix, const char* guid, const char* device)
+{
+    QCC_DbgPrintf(("WFDTransport::OnFoundAdvertisedName(\"%s\", \"%s\", \"%s\", \"%s\")", name, namePrefix, guid, device));
+
+    /*
+     * If there is no listener, there is nobody to listen to our ravings so it
+     * wouild be pointless do do anything.  This is really an error somewhere
+     * else, but we'll just accept it instead of asserting here.
+     */
+    if (m_listener) {
+        qcc::String foundName(name);
+        qcc::String foundGuid(guid);
+        qcc::String foundDevice(device);
+        qcc::String busAddr = "wfd:guid=" + foundGuid;
+
+        /*
+         * Save the mapping between the guid and the device.  Since it is
+         * possible to have more than one daemon running on a P2P device, and
+         * more than one P2P device associated with a single daemon, we just
+         * keep a list of these mappings.
+         */
+        m_deviceListLock.Lock(MUTEX_CONTEXT);
+        m_deviceList.push_back(std::pair<qcc::String, qcc::String>(guid, device));
+        m_deviceListLock.Unlock(MUTEX_CONTEXT);
+
+        /*
+         * The transport list listeners expect to get a vector of names, so
+         * we need to make a temporary one before we call back.
+         */
+        std::vector<qcc::String> nameList;
+        nameList.push_back(foundName);
+
+        /*
+         * This is the call to tell the AllJoyn world that we've found something
+         * possibly interesting.  We report back that the transport will be a
+         * wireless LAN even though the connection is not made yet -- it will
+         * be.  the value 255 means that the advertisement never expires.  It
+         * will remain until we are explicity told it has gone away by the P2P
+         * framework.
+         */
+        m_listener->FoundNames(busAddr, foundGuid, TRANSPORT_WLAN, &nameList, 255);
+    }
+}
+
+/*
+ * This is the destination of the lost name callback for the Wi-Fi P2P helper.
+ * The difference between found and lost to the AllJoyn world above is only the
+ * value of the timer we give it.  So we have to translate this callback into a
+ * FoundNames with the provided timer value set to zero, which indicates a lost
+ * name.
+ */
+void WFDTransport::OnLostAdvertisedName(const char* name, const char* namePrefix, const char* guid, const char* device)
+{
+    QCC_DbgPrintf(("WFDTransport::OnLostAdvertisedName(\"%s\", \"%s\", \"%s\", \"%s\")", name, namePrefix, guid, device));
+    /*
+     * If there is no listener, there is nobody to listen to our ravings so it
+     * wouild be pointless do do anything.  This is really an error somewhere
+     * else, but we'll just accept it instead of asserting here.
+     */
+    if (m_listener) {
+        qcc::String foundName(name);
+        qcc::String foundGuid(guid);
+        qcc::String foundDevice(device);
+        qcc::String busAddr = "guid=" + foundGuid;
+
+        /*
+         * Remove a mapping between the guid and the device.
+         */
+        m_deviceListLock.Lock(MUTEX_CONTEXT);
+        for (DeviceList::iterator i = m_deviceList.begin(); i != m_deviceList.end(); ++i) {
+            if (i->first == guid && i->second == device) {
+                m_deviceList.erase(i);
+                break;
+            }
+        }
+        m_deviceListLock.Unlock(MUTEX_CONTEXT);
+
+        /*
+         * The transport list listeners expect to get a vector of names, so
+         * we need to make a temporary one before we call back.
+         */
+        std::vector<qcc::String> nameList;
+        nameList.push_back(foundName);
+
+        /*
+         * This is the call to tell the AllJoyn world that we've lost something
+         * that was previously interesting.  The value 0 means that any prior
+         * advertisement of this name and guid is no longer valid.
+         */
+        m_listener->FoundNames(busAddr, foundGuid, TRANSPORT_WLAN, &nameList, 0);
+    }
+}
+
+void WFDTransport::FoundCallback::Found(const qcc::String& busAddr, const qcc::String& guid,
                                         std::vector<qcc::String>& nameList, uint8_t timer)
 {
-    QCC_DbgPrintf(("TCPTransport::FoundCallback::Found(): busAddr = \"%s\"", busAddr.c_str()));
+    QCC_DbgPrintf(("WFDTransport::FoundCallback::Found(): busAddr = \"%s\"", busAddr.c_str()));
 
     /*
      * Whenever the name service receives a message indicating that a bus-name
@@ -3613,7 +4847,7 @@ void TCPTransport::FoundCallback::Found(const qcc::String& busAddr, const qcc::S
      */
     size_t i = busAddr.find(r4addr);
     if (i == String::npos) {
-        QCC_DbgPrintf(("TCPTransport::FoundCallback::Found(): No r4addr in busaddr."));
+        QCC_DbgPrintf(("WFDTransport::FoundCallback::Found(): No r4addr in busaddr."));
         return;
     }
     i += r4addr.size();
@@ -3624,13 +4858,13 @@ void TCPTransport::FoundCallback::Found(const qcc::String& busAddr, const qcc::S
      */
     size_t j = busAddr.find(comma, i);
     if (j == String::npos) {
-        QCC_DbgPrintf(("TCPTransport::FoundCallback::Found(): No comma after r4addr in busaddr."));
+        QCC_DbgPrintf(("WFDTransport::FoundCallback::Found(): No comma after r4addr in busaddr."));
         return;
     }
 
     size_t k = busAddr.find(r4port);
     if (k == String::npos) {
-        QCC_DbgPrintf(("TCPTransport::FoundCallback::Found(): No r4port in busaddr."));
+        QCC_DbgPrintf(("WFDTransport::FoundCallback::Found(): No r4port in busaddr."));
         return;
     }
     k += r4port.size();
@@ -3656,16 +4890,25 @@ void TCPTransport::FoundCallback::Found(const qcc::String& busAddr, const qcc::S
      * So construct a new bus address with only the reliable IPv4 part pulled
      * out.
      */
-    qcc::String newBusAddr = String("tcp:") + r4addr + busAddr.substr(i, j - i) + "," + r4port + busAddr.substr(k, l - k);
+    qcc::String newBusAddr = String("wfd:") + r4addr + busAddr.substr(i, j - i) + "," + r4port + busAddr.substr(k, l - k);
 
-    QCC_DbgPrintf(("TCPTransport::FoundCallback::Found(): newBusAddr = \"%s\".", newBusAddr.c_str()));
+    QCC_DbgPrintf(("WFDTransport::FoundCallback::Found(): newBusAddr = \"%s\".", newBusAddr.c_str()));
+
+    /*
+     * Let the Wi-Fi P2P code know that we've found an address and port
+     * corresponding to some GUID.
+     */
+    if (m_transport) {
+        QCC_DbgPrintf(("WFDTransport::FoundCallback::Found(): OnFound() %s", newBusAddr.c_str()));
+        m_transport->OnFound(newBusAddr, guid);
+    }
 
     /*
      * Let AllJoyn know that we've found a service(s).
      */
     if (m_listener) {
-        QCC_DbgPrintf(("TCPTransport::FoundCallback::Found(): FoundNames(): %s", newBusAddr.c_str()));
-        m_listener->FoundNames(newBusAddr, guid, TRANSPORT_TCP, &nameList, timer);
+        QCC_DbgPrintf(("WFDTransport::FoundCallback::Found(): FoundNames(): %s", newBusAddr.c_str()));
+        m_listener->FoundNames(newBusAddr, guid, TRANSPORT_WFD, &nameList, timer);
     }
 }
 
