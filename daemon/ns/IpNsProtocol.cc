@@ -135,7 +135,6 @@ qcc::String IsAt::GetGuid(void) const
 
 void IsAt::SetPort(uint16_t port)
 {
-    assert(port);
     m_port = port;
 }
 

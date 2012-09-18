@@ -56,7 +56,7 @@ using namespace ajn;
 static const char bundledConfig[] =
     "<busconfig>"
     "  <type>alljoyn_bundled</type>"
-    "  <listen>tcp:addr=0.0.0.0,port=0,family=ipv4</listen>"
+    "  <listen>tcp:r4addr=0.0.0.0,r4port=0</listen>"
     "  <limit name=\"auth_timeout\">5000</limit>"
     "  <limit name=\"max_incomplete_connections_tcp\">4</limit>"
     "  <limit name=\"max_completed_connections_tcp\">16</limit>"

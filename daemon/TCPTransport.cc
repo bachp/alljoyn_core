@@ -105,6 +105,59 @@
  * call to Join() returns, there may be threads of execution wandering anywhere
  * in the DaemonTcpTransport and in any callback registered by the caller.
  *
+ * The high-level process for how an advertisement translates into a transport
+ * Connect() is a bit opaque, so we paint a high-level picture here.
+ *
+ * First, a service (that will be handling RPC calls and emitting signals)
+ * acquires a name on the bus, binds a session and calls AdvertiseName.  This
+ * filters down (possibly through language bindings) to the AllJoyn object, into
+ * the transports on the transport list (the TCP transport is one of those) and
+ * eventually to the IpNameService::AdvertiseName() method we call since we are
+ * an IP-based transport.  The IP name service will multicast the advertisements
+ * to other daemons listening on our device's connected networks.
+ *
+ * A client that is interested in using the service calls the discovery
+ * method FindAdvertisedName.  This filters down (possibly through
+ * language bindings) to the AllJoyn object, into the transports on the
+ * transport list (us) and we eventually call IpNameService::FindAdvertisedName()
+ * since we are an IP-based transport.  The IP name service multicasts the
+ * discovery message to other daemons listening on our networks.
+ *
+ * The daemon remembers which clients have expressed interest in which services,
+ * and expects name services to call back with the bus addresses of daemons they
+ * find which have the associated services.  In version zero of the protocol,
+ * the only endpoint type supported was a TCP endpoint.  In the case of version
+ * one, we have four, so we now see "different" bus addresses coming from the
+ * name service and "different" connect specs coming from AllJoyn proper.
+ *
+ * When a new advertisement is received (because we called our listener's
+ * Found() method here, the bus address is "hidden" from interested clients and
+ * replaced with a more generic TransportMask bit (for us it will be
+ * TRANSPORT_TCP).  The client either responds by ignoring the advertisement,
+ * waits to accumulate more answers or joins a session to the implied
+ * daemon/service.  A reference to a SessionOpts object is provided as a
+ * parameter to a JoinSession call if the client wants to connect.  This
+ * SessionOpts reference is passed down into the transport (selected by the
+ * TransportMask) into the Connect() method which is used to establish the
+ * connection.
+ *
+ * The four different connection mechanisms can be viewed as a matrix;
+ *
+ *                                                      IPv4               IPv6
+ *                                                 ---------------    ---------------
+ *     TRAFFIC MESSAGES | TRAFFIC_RAW_RELIABLE  |   Reliable IPv4      Reliable IPv6
+ *     TRAFFIC_RAW_UNRELIABLE                   |  Unreliable IPv4    Unreliable IPv6
+ *
+ * The bits in the provided SessionOpts select the row, but the column is left
+ * free (unspecified).  This means that it is up to the transport to figure out
+ * which one to use.  Clearly, if only one of the two address flavors is
+ * possible (known from examining the returned bus address which is called a
+ * connect spec in the Connect() method) the transport should choose that one.
+ * If both IPv4 or IPv6 are available, it is up to the transport (again, us) to
+ * choose the "best" method since we don't bother clients with that level of
+ * detail.  We (TCP) generally choose IPv6 when given the choice since DHCP on
+ * IPv4 is sometimes problematic in some networks.
+ *
  * Internals
  * =========
  *
@@ -259,8 +312,8 @@
  * connections to another daemon.  This case is simpler than the accept case
  * since it is expected that a socket connect can block, so it is possible to do
  * authentication in the context of the thread calling Connect().  Connect() is
- * provided a so-called "connect spec" which provides an IP address ("addr=xxxx"),
- * port ("port=yyyy") and address family ("family=zzzz") in a String.
+ * provided a so-called "connect spec" which provides an IP address ("r4addr=xxxx"),
+ * port ("r4port=yyyy") in a String.
  *
  * A check is always made to catch an attempt for the daemon to connect to
  * itself which is a system-defined error (it causes the daemon grief, so we
@@ -1201,11 +1254,12 @@ QStatus TCPTransport::GetListenAddresses(const SessionOpts& opts, std::vector<qc
                         /*
                          * Now put this information together into a bus address
                          * that the rest of the AllJoyn world can understand.
-                         * (Note: only IPv4 addresses are supported at this time.)
+                         * (Note: only IPv4 "reliable" addresses are supported
+                         * at this time.)
                          */
                         if (!entries[i].m_addr.empty() && (entries[i].m_family == QCC_AF_INET)) {
-                            qcc::String busAddr = "tcp:addr=" + entries[i].m_addr + ","
-                                                  "port=" + U32ToString(reliableIpv4Port) + ","
+                            qcc::String busAddr = "tcp:r4addr=" + entries[i].m_addr + ","
+                                                  "r4port=" + U32ToString(reliableIpv4Port) + ","
                                                   "family=ipv4";
                             busAddrs.push_back(busAddr);
                         }
@@ -2339,7 +2393,7 @@ void TCPTransport::EnableDiscoveryInstance(ListenRequest& listenRequest)
      * of the provided string (which we call the namePrefix) before sending it
      * to the name service which forwards the request out over the net.
      */
-    String starred = listenRequest.m_requestParam;
+    qcc::String starred = listenRequest.m_requestParam;
     starred.append('*');
 
     QStatus status = IpNameService::Instance().FindAdvertisedName(TRANSPORT_TCP, starred);
@@ -2402,7 +2456,7 @@ void TCPTransport::DisableDiscoveryInstance(ListenRequest& listenRequest)
 
 #if defined(QCC_OS_ANDROID) && P2P_HELPER
 
-    String starred = listenRequest.m_requestParam;
+    qcc::String starred = listenRequest.m_requestParam;
     starred.append('*');
 
     /*
@@ -2482,11 +2536,24 @@ void TCPTransport::DisableDiscoveryInstance(ListenRequest& listenRequest)
  * come up in the future.
  */
 static const char* ADDR4_DEFAULT = "0.0.0.0";
+
+#if 0
+/*
+ * The TCP transport does not support IPv6 at this time
+ */
 static const char* ADDR6_DEFAULT = "0::0";
+#endif
 
 /*
  * The default port for use in listen specs.  This port is used by the TCP
- * listener to listen for incoming connection requests.
+ * listener to listen for incoming connection requests.  This is the default
+ * port for a "reliable" IPv4 listener since being able to deal with IPv4
+ * connection requests is required as part of the definition of the TCP
+ * transport.
+ *
+ * All other mechanisms (unreliable IPv4, reliable IPv6, unreliable IPv6)
+ * rely on the presence of an u4port, r6port, and u6port respectively to
+ * enable those mechanisms if possible.
  */
 static const uint16_t PORT_DEFAULT = 9955;
 
@@ -2501,8 +2568,20 @@ QStatus TCPTransport::NormalizeListenSpec(const char* inSpec, qcc::String& outSp
      * Take the string in inSpec, which must start with "tcp:" and parse it,
      * looking for comma-separated "key=value" pairs and initialize the
      * argMap with those pairs.
+     *
+     * There are lots of legal possibilities for an IP-based transport, but
+     * all we are going to recognize is the "reliable IPv4 mechanism" and
+     * so we will summarily pitch everything else.
+     *
+     * We expect to end up with a normalized outSpec that looks something
+     * like:
+     *
+     *     "tcp:r4addr=0.0.0.0,r4port=9955"
+     *
+     * That's all.  Everything else, family, port, addr, u4addr, etc.,
+     * is summarily pitched.
      */
-    QStatus status = ParseArguments("tcp", inSpec, argMap);
+    QStatus status = ParseArguments(GetTransportName(), inSpec, argMap);
     if (status != ER_OK) {
         return status;
     }
@@ -2510,62 +2589,158 @@ QStatus TCPTransport::NormalizeListenSpec(const char* inSpec, qcc::String& outSp
     map<qcc::String, qcc::String>::iterator iter;
 
     /*
-     * If the family was specified we will check that address matches otherwise
-     * we will figure out the family from the address format.
+     * The family, addr and port keys are deprecated since a transport can now
+     * support both IPv4 and IPv6 connections.  Log errors, but just ignore the
+     * deprecated keys.
      */
     iter = argMap.find("family");
     if (iter != argMap.end()) {
-        family = iter->second;
+        QCC_LogError(ER_BUS_BAD_TRANSPORT_ARGS,
+                     ("TCPTransport::NormalizeListenSpec(): The key \"family\" is deprecated and ignored."));
+        argMap.erase(iter);
     }
 
     iter = argMap.find("addr");
-    if (iter == argMap.end()) {
-        if (family.empty()) {
-            family = "ipv4";
-        }
-        qcc::String addrString = (family == "ipv6") ? ADDR6_DEFAULT : ADDR4_DEFAULT;
-        argMap["addr"] = addrString;
-        outSpec = "tcp:addr=" + addrString;
-    } else {
+    if (iter != argMap.end()) {
+        QCC_LogError(ER_BUS_BAD_TRANSPORT_ARGS,
+                     ("TCPTransport::NormalizeListenSpec(): The key \"addr\" is deprecated and ignored."));
+        argMap.erase(iter);
+    }
+
+    iter = argMap.find("port");
+    if (iter != argMap.end()) {
+        QCC_LogError(ER_BUS_BAD_TRANSPORT_ARGS,
+                     ("TCPTransport::NormalizeListenSpec(): The key \"port\" is deprecated and ignored."));
+        argMap.erase(iter);
+    }
+
+    /*
+     * Transports, by definition, may support reliable Ipv4, unreliable IPv4,
+     * reliable IPv6 and unreliable IPv6 mechanisms to move bits.  In this
+     * incarnation, the TCP transport will only support reliable IPv4; so we
+     * log errors and ignore any requests for other mechanisms.
+     */
+    iter = argMap.find("u4addr");
+    if (iter != argMap.end()) {
+        QCC_LogError(ER_BUS_BAD_TRANSPORT_ARGS,
+                     ("TCPTransport::NormalizeListenSpec(): The mechanism implied by \"u4addr\" is not supported."));
+        argMap.erase(iter);
+    }
+
+    iter = argMap.find("u4port");
+    if (iter != argMap.end()) {
+        QCC_LogError(ER_BUS_BAD_TRANSPORT_ARGS,
+                     ("TCPTransport::NormalizeListenSpec(): The mechanism implied by \"u4port\" is not supported."));
+        argMap.erase(iter);
+    }
+
+    iter = argMap.find("r6addr");
+    if (iter != argMap.end()) {
+        QCC_LogError(ER_BUS_BAD_TRANSPORT_ARGS,
+                     ("TCPTransport::NormalizeListenSpec(): The mechanism implied by \"r6addr\" is not supported."));
+        argMap.erase(iter);
+    }
+
+    iter = argMap.find("r6port");
+    if (iter != argMap.end()) {
+        QCC_LogError(ER_BUS_BAD_TRANSPORT_ARGS,
+                     ("TCPTransport::NormalizeListenSpec(): The mechanism implied by \"r6port\" is not supported."));
+        argMap.erase(iter);
+    }
+
+    iter = argMap.find("u6addr");
+    if (iter != argMap.end()) {
+        QCC_LogError(ER_BUS_BAD_TRANSPORT_ARGS,
+                     ("TCPTransport::NormalizeListenSpec(): The mechanism implied by \"u6addr\" is not supported."));
+        argMap.erase(iter);
+    }
+
+    iter = argMap.find("u6port");
+    if (iter != argMap.end()) {
+        QCC_LogError(ER_BUS_BAD_TRANSPORT_ARGS,
+                     ("TCPTransport::NormalizeListenSpec(): The mechanism implied by \"u6port\" is not supported."));
+        argMap.erase(iter);
+    }
+
+    /*
+     * Now, begin normalizing what we want to see in a listen spec.
+     *
+     * All listen specs must start with the name of the transport followed by
+     * a colon.
+     */
+    outSpec = GetTransportName() + qcc::String(":");
+
+    /*
+     * The TCP transport must absolutely support the IPv4 "reliable" mechanism
+     * (TCP).  We therefore must provide an r4addr either from explicit keys or
+     * generated from the defaults.
+     */
+    iter = argMap.find("r4addr");
+    if (iter != argMap.end()) {
         /*
-         * We have a value associated with the "addr" key.  Run it through
-         * a conversion function to make sure it's a valid value.
+         * We have a value associated with the "r4addr" key.  Run it through a
+         * conversion function to make sure it's a valid value and to get into
+         * in a standard representation.
          */
         IPAddress addr;
         status = addr.SetAddress(iter->second, false);
         if (status == ER_OK) {
-            if (family.empty()) {
-                family = addr.IsIPv6() ? "ipv6" : "ipv4";
-            } else if (addr.IsIPv6() != (family == "ipv6")) {
+            /*
+             * The r4addr had better be an IPv4 address, otherwise we bail.
+             */
+            if (!addr.IsIPv4()) {
+                QCC_LogError(ER_BUS_BAD_TRANSPORT_ARGS,
+                             ("TCPTransport::NormalizeListenSpec(): The r4addr \"%s\" is not a legal IPv4 address.",
+                              iter->second.c_str()));
                 return ER_BUS_BAD_TRANSPORT_ARGS;
             }
-            // Normalize address representation
             iter->second = addr.ToString();
-            outSpec = "tcp:addr=" + iter->second;
+            outSpec.append("r4addr=" + addr.ToString());
         } else {
+            QCC_LogError(ER_BUS_BAD_TRANSPORT_ARGS,
+                         ("TCPTransport::NormalizeListenSpec(): The r4addr \"%s\" is not a legal IPv4 address.",
+                          iter->second.c_str()));
             return ER_BUS_BAD_TRANSPORT_ARGS;
         }
-    }
-    argMap["family"] = family;
-    outSpec += ",family=" + family;
-
-    iter = argMap.find("port");
-    if (iter == argMap.end()) {
-        qcc::String portString = U32ToString(PORT_DEFAULT);
-        argMap["port"] = portString;
-        outSpec += ",port=" + portString;
     } else {
         /*
-         * We have a value associated with the "port" key.  Run it through
-         * a conversion function to make sure it's a valid value.
+         * We have no value associated with an "r4addr" key.  Use the default
+         * IPv4 listen address for the outspec and create a new key for the
+         * map.
+         */
+        outSpec.append("r4addr=" + qcc::String(ADDR4_DEFAULT));
+        argMap["r4addr"] = ADDR4_DEFAULT;
+    }
+
+    /*
+     * The TCP transport must absolutely support the IPv4 "reliable" mechanism
+     * (TCP).  We therefore must provide an r4port either from explicit keys or
+     * generated from the defaults.
+     */
+    iter = argMap.find("r4port");
+    if (iter != argMap.end()) {
+        /*
+         * We have a value associated with the "r4port" key.  Run it through a
+         * conversion function to make sure it's a valid value.  We put it into
+         * a 32 bit int to make sure it will actually fit into a 16-bit port
+         * number.
          */
         uint32_t port = StringToU32(iter->second);
         if (port <= 0xffff) {
-            iter->second = U32ToString(port);
-            outSpec += ",port=" + iter->second;
+            outSpec.append(",r4port=" + iter->second);
         } else {
+            QCC_LogError(ER_BUS_BAD_TRANSPORT_ARGS,
+                         ("TCPTransport::NormalizeListenSpec(): The key \"r4port\" has a bad value \"%s\".", iter->second.c_str()));
             return ER_BUS_BAD_TRANSPORT_ARGS;
         }
+    } else {
+        /*
+         * We have no value associated with an "r4port" key.  Use the default
+         * IPv4 listen port for the outspec and create a new key for the map.
+         */
+        qcc::String portString = U32ToString(PORT_DEFAULT);
+        outSpec += ",r4port=" + portString;
+        argMap["r4port"] = portString;
     }
 
     return ER_OK;
@@ -2574,6 +2749,7 @@ QStatus TCPTransport::NormalizeListenSpec(const char* inSpec, qcc::String& outSp
 QStatus TCPTransport::NormalizeTransportSpec(const char* inSpec, qcc::String& outSpec, map<qcc::String, qcc::String>& argMap) const
 {
     QCC_DbgPrintf(("TCPTransport::NormalizeTransportSpec"));
+
     QStatus status;
 
 #if defined(QCC_OS_ANDROID) && P2P_HELPER
@@ -2586,7 +2762,7 @@ QStatus TCPTransport::NormalizeTransportSpec(const char* inSpec, qcc::String& ou
      * argMap with those pairs.
      */
     QCC_DbgPrintf(("TCPTransport::NormalizeTransportSpec(): ParseArguments()"));
-    status = ParseArguments("tcp", inSpec, argMap);
+    status = ParseArguments(GetTransportName(), inSpec, argMap);
     if (status != ER_OK) {
         return status;
     }
@@ -2632,9 +2808,11 @@ QStatus TCPTransport::NormalizeTransportSpec(const char* inSpec, qcc::String& ou
      * requires the presence of a non-default IP address.  So we just check for
      * the default addresses and fail if we find one.
      */
-    map<qcc::String, qcc::String>::iterator i = argMap.find("addr");
+    map<qcc::String, qcc::String>::iterator i = argMap.find("r4addr");
     assert(i != argMap.end());
-    if ((i->second == ADDR4_DEFAULT) || (i->second == ADDR6_DEFAULT)) {
+    if ((i->second == ADDR4_DEFAULT)) {
+        QCC_LogError(ER_BUS_BAD_TRANSPORT_ARGS,
+                     ("TCPTransport::NormalizeTransportSpec(): The r4addr may not be the default address."));
         return ER_BUS_BAD_TRANSPORT_ARGS;
     }
 
@@ -3313,11 +3491,11 @@ void TCPTransport::OnFound(const qcc::String& busAddr, const qcc::String& guid)
              * Instead of fighting with the name servcie callback, we just use
              * what it gives us, even though it means a little redundancy.
              */
-            String a("addr=");
-            String p(",port=");
+            qcc::String a("r4addr=");
+            qcc::String p(",r4port=");
 
             /*
-             * Find the index of the busAddr string where the string "addr=" starts.
+             * Find the index of the busAddr string where the string "r4addr=" starts.
              */
             size_t j = busAddr.find(a);
             if (j == String::npos) {
@@ -3330,7 +3508,7 @@ void TCPTransport::OnFound(const qcc::String& busAddr, const qcc::String& guid)
             j += a.size();
 
             /*
-             * Find the index of the busAddr string where the string "port=" starts.
+             * Find the index of the busAddr string where the string "r4port=" starts.
              */
             size_t k = busAddr.find(p);
             if (k == String::npos) {
@@ -3338,13 +3516,13 @@ void TCPTransport::OnFound(const qcc::String& busAddr, const qcc::String& guid)
             }
 
             /*
-             * The address we're interested in is between the end of "addr=" and
-             * the start of "port="
+             * The address we're interested in is between the end of "r4addr=" and
+             * the start of "r4port="
              */
             i->SetAddress(busAddr.substr(j, k - j));
 
             /*
-             * The address we're interested in is between the end of "port=" and
+             * The port we're interested in is between the end of "r4port=" and
              * the end of the string (we known this because we looked at how it
              * is made).
              */
@@ -3417,7 +3595,7 @@ QStatus TCPTransport::Connect(const char* connectSpec, const SessionOpts& opts, 
     bool wasP2P = false;
 
     /*
-     * If we find a guid in the argument map, it means a pre-association service
+     * If we find a GUID in the argument map, it means a pre-association service
      * discovery event drove this connect.  There may or may not be an
      * associated physical network, no IP address, port, etc., so we probably
      * have a lot of work to do before we can attempt any kind of connection.
@@ -3478,9 +3656,8 @@ QStatus TCPTransport::Connect(const char* connectSpec, const SessionOpts& opts, 
      * and an underlying network (even if it is Wi-Fi P2P) is assumed to be
      * up and functioning.
      */
-    IPAddress ipAddr(argMap.find("addr")->second);
-    uint16_t port = StringToU32(argMap["port"]);
-    qcc::AddressFamily family = argMap["family"] == "ipv6" ?  QCC_AF_INET6 : QCC_AF_INET;
+    IPAddress ipAddr(argMap.find("r4addr")->second);
+    uint16_t port = StringToU32(argMap["r4port"]);
 
     /*
      * The semantics of the Connect method tell us that we want to connect to a
@@ -3508,17 +3685,13 @@ QStatus TCPTransport::Connect(const char* connectSpec, const SessionOpts& opts, 
      * that happens to be up or that may come up in the future.  This is the
      * default listen address and is the most common case.  If this option has
      * been used, we expect to find a listener with a normalized adresss that
-     * looks like "addr=0.0.0.0,port=y".  If we detect this kind of connectSpec
+     * looks like "r4addr=0.0.0.0,port=y".  If we detect this kind of connectSpec
      * we have to look at the currently up interfaces and see if any of them
      * match the address provided in the connectSpec.  If so, we are attempting
      * to connect to ourself and we must fail that request.
      */
-    char anyspec[40];
-    if (family == QCC_AF_INET) {
-        snprintf(anyspec, sizeof(anyspec), "tcp:addr=0.0.0.0,port=%u,family=ipv4", port);
-    } else {
-        snprintf(anyspec, sizeof(anyspec), "tcp:addr=0::0,port=%u,family=ipv6", port);
-    }
+    char anyspec[64];
+    snprintf(anyspec, sizeof(anyspec), "%s:r4addr=0.0.0.0,r4port=%u", GetTransportName(), port);
 
     qcc::String normAnySpec;
     map<qcc::String, qcc::String> normArgMap;
@@ -3605,7 +3778,7 @@ QStatus TCPTransport::Connect(const char* connectSpec, const SessionOpts& opts, 
      * to connect to the remote TCP address and port specified in the connectSpec.
      */
     SocketFd sockFd = -1;
-    status = Socket(family, QCC_SOCK_STREAM, sockFd);
+    status = Socket(QCC_AF_INET, QCC_SOCK_STREAM, sockFd);
     if (status == ER_OK) {
         /* Turn off Nagle */
         status = SetNagle(sockFd, false);
@@ -3841,8 +4014,8 @@ QStatus TCPTransport::Disconnect(const char* connectSpec)
         return status;
     }
 
-    IPAddress ipAddr(argMap.find("addr")->second); // Guaranteed to be there.
-    uint16_t port = StringToU32(argMap["port"]);   // Guaranteed to be there.
+    IPAddress ipAddr(argMap.find("r4addr")->second); // Guaranteed to be there.
+    uint16_t port = StringToU32(argMap["r4port"]);   // Guaranteed to be there.
 
     /*
      * Stop the remote endpoint.  Be careful here since calling Stop() on the
@@ -3928,8 +4101,8 @@ QStatus TCPTransport::StartListen(const char* listenSpec)
         return status;
     }
 
-    QCC_DbgPrintf(("TCPTransport::StartListen(): addr = \"%s\", port = \"%s\", family=\"%s\"",
-                   argMap["addr"].c_str(), argMap["port"].c_str(), argMap["family"].c_str()));
+    QCC_DbgPrintf(("TCPTransport::StartListen(): r4addr = \"%s\", r4port = \"%s\"",
+                   argMap["r4addr"].c_str(), argMap["r4port"].c_str()));
 
     /*
      * The daemon code is in a state where it lags in functionality a bit with
@@ -3939,15 +4112,15 @@ QStatus TCPTransport::StartListen(const char* listenSpec)
      * request to listen on an IPv6 address.
      */
     IPAddress ipAddress;
-    status = ipAddress.SetAddress(argMap["addr"].c_str());
+    status = ipAddress.SetAddress(argMap["r4addr"].c_str());
     if (status != ER_OK) {
-        QCC_LogError(status, ("TCPTransport::StartListen(): Unable to SetAddress(\"%s\")", argMap["addr"].c_str()));
+        QCC_LogError(status, ("TCPTransport::StartListen(): Unable to SetAddress(\"%s\")", argMap["r4addr"].c_str()));
         return status;
     }
 
     if (ipAddress.IsIPv6()) {
         status = ER_INVALID_ADDRESS;
-        QCC_LogError(status, ("TCPTransport::StartListen(): IPv6 addresses (\"%s\") not allowed", argMap["addr"].c_str()));
+        QCC_LogError(status, ("TCPTransport::StartListen(): IPv6 address (\"%s\") in \"r4addr\" not allowed", argMap["r4addr"].c_str()));
         return status;
     }
 
@@ -4029,17 +4202,16 @@ void TCPTransport::DoStartListen(qcc::String& normSpec)
     QStatus status = NormalizeListenSpec(normSpec.c_str(), spec, argMap);
     assert(status == ER_OK && "TCPTransport::DoStartListen(): Invalid TCP listen spec");
 
-    QCC_DbgPrintf(("TCPTransport::DoStartListen(): addr = \"%s\", port = \"%s\", family=\"%s\"",
-                   argMap["addr"].c_str(), argMap["port"].c_str(), argMap["family"].c_str()));
+    QCC_DbgPrintf(("TCPTransport::DoStartListen(): r4addr = \"%s\", r4port = \"%s\"",
+                   argMap["r4addr"].c_str(), argMap["r4port"].c_str()));
 
     m_listenFdsLock.Lock(MUTEX_CONTEXT);
 
     /*
      * Figure out what local address and port the listener should use.
      */
-    IPAddress listenAddr(argMap["addr"]);
-    uint16_t listenPort = StringToU32(argMap["port"]);
-    qcc::AddressFamily family = argMap["family"] == "ipv6" ?  QCC_AF_INET6 : QCC_AF_INET;
+    IPAddress listenAddr(argMap["r4addr"]);
+    uint16_t listenPort = StringToU32(argMap["r4port"]);
     bool ephemeralPort = (listenPort == 0);
 
     /*
@@ -4102,7 +4274,7 @@ void TCPTransport::DoStartListen(qcc::String& normSpec)
      * to wait for four minutes to relaunch the daemon if it crashes.
      */
     SocketFd listenFd = -1;
-    status = Socket(family, QCC_SOCK_STREAM, listenFd);
+    status = Socket(QCC_AF_INET, QCC_SOCK_STREAM, listenFd);
     if (status != ER_OK) {
         m_listenFdsLock.Unlock(MUTEX_CONTEXT);
         QCC_LogError(status, ("TCPTransport::DoStartListen(): Socket() failed"));
@@ -4154,11 +4326,11 @@ void TCPTransport::DoStartListen(qcc::String& normSpec)
          */
         if (ephemeralPort) {
             qcc::GetLocalAddress(listenFd, listenAddr, listenPort);
-            normSpec = "tcp:addr=" + argMap["addr"] + "," + argMap["family"] + ",port=" + U32ToString(listenPort);
+            normSpec = "tcp:addr=" + argMap["r4addr"] + "," ",r4port=" + U32ToString(listenPort);
         }
         status = qcc::Listen(listenFd, MAX_LISTEN_CONNECTIONS);
         if (status == ER_OK) {
-            QCC_DbgPrintf(("TCPTransport::DoStartListen(): Listening on %s/%d", argMap["addr"].c_str(), listenPort));
+            QCC_DbgPrintf(("TCPTransport::DoStartListen(): Listening on %s/%d", argMap["r4addr"].c_str(), listenPort));
             m_listenFds.push_back(pair<qcc::String, SocketFd>(normSpec, listenFd));
         } else {
             QCC_LogError(status, ("TCPTransport::DoStartListen(): Listen failed"));
@@ -4590,7 +4762,7 @@ void TCPTransport::QueueDisableAdvertisement(const qcc::String& advertiseName)
  *
  * This means that we need to change the definition of a bus address to admit
  * the possibility that there is no IP address or port.  In the "normal" case
- * a bus address will look like, "addr=192.168.1.100,port=9955" but in the P2P
+ * a bus address will look like, "r4addr=192.168.1.100,port=9955" but in the P2P
  * case, a bus address will look like, "guid=167a3d1d18c9404a846a0110e287d751"
  * This bus address fill filter up through the AllJoyn system into any client
  * app searching for the name and if it decides to join a corresponding session
@@ -4611,10 +4783,10 @@ void TCPTransport::OnFoundAdvertisedName(const char* name, const char* namePrefi
      * else, but we'll just accept it instead of asserting here.
      */
     if (m_listener) {
-        String foundName(name);
-        String foundGuid(guid);
-        String foundDevice(device);
-        String busAddr = "tcp:guid=" + foundGuid;
+        qcc::String foundName(name);
+        qcc::String foundGuid(guid);
+        qcc::String foundDevice(device);
+        qcc::String busAddr = "tcp:guid=" + foundGuid;
 
         /*
          * Save the mapping between the guid and the device.  Since it is
@@ -4661,10 +4833,10 @@ void TCPTransport::OnLostAdvertisedName(const char* name, const char* namePrefix
      * else, but we'll just accept it instead of asserting here.
      */
     if (m_listener) {
-        String foundName(name);
-        String foundGuid(guid);
-        String foundDevice(device);
-        String busAddr = "guid=" + foundGuid;
+        qcc::String foundName(name);
+        qcc::String foundGuid(guid);
+        qcc::String foundDevice(device);
+        qcc::String busAddr = "guid=" + foundGuid;
 
         /*
          * Remove a mapping between the guid and the device.
@@ -4699,7 +4871,7 @@ void TCPTransport::OnLostAdvertisedName(const char* name, const char* namePrefix
 void TCPTransport::FoundCallback::Found(const qcc::String& busAddr, const qcc::String& guid,
                                         std::vector<qcc::String>& nameList, uint8_t timer)
 {
-    QCC_DbgPrintf(("TCPTransport::FoundCallback::Found()"));
+    QCC_DbgPrintf(("TCPTransport::FoundCallback::Found(): busAddr = \"%s\"", busAddr.c_str()));
 
     /*
      * Whenever the name service receives a message indicating that a bus-name
@@ -4715,36 +4887,69 @@ void TCPTransport::FoundCallback::Found(const qcc::String& busAddr, const qcc::S
      * The name service does not have a cache and therefore cannot time out
      * entries, but also delegates that task to the daemon.  It is expected that
      * remote daemons will send keepalive messages that the local daemon will
-     * recieve, also via this callback.
+     * recieve, also via this callback.  Since we are just a go-between, we
+     * pretty much just pass what we find on back to the daemon, modulo some
+     * filtering to avoid situations we don't yet support:
      *
-     * XXX Currently this transport has no clue how to handle an advertised
-     * IPv6 address so we filter them out.  We should support IPv6.
+     * 1. Currently this transport has no clue how to handle anything but
+     *    reliable IPv4 endpoints (r4addr, r4port), so we filter everything else
+     *    out (by removing the unsupported endpoints from the bus address)
      */
-    String a("addr=");
-    String p(",port=");
+    qcc::String r4addr("r4addr=");
+    qcc::String r4port("r4port=");
+    qcc::String comma(",");
 
-    size_t i = busAddr.find(a);
+    /*
+     * Find where the r4addr name starts.
+     */
+    size_t i = busAddr.find(r4addr);
     if (i == String::npos) {
+        QCC_DbgPrintf(("TCPTransport::FoundCallback::Found(): No r4addr in busaddr."));
         return;
     }
-    i += a.size();
+    i += r4addr.size();
 
-    size_t j = busAddr.find(p);
+    /*
+     * We assume that the address is always followed by the port so there must
+     * be a comma following the address.
+     */
+    size_t j = busAddr.find(comma, i);
     if (j == String::npos) {
+        QCC_DbgPrintf(("TCPTransport::FoundCallback::Found(): No comma after r4addr in busaddr."));
         return;
     }
 
-    String s = busAddr.substr(i, j - i);
-
-    IPAddress addr;
-    QStatus status = addr.SetAddress(s);
-    if (status != ER_OK) {
+    size_t k = busAddr.find(r4port);
+    if (k == String::npos) {
+        QCC_DbgPrintf(("TCPTransport::FoundCallback::Found(): No r4port in busaddr."));
         return;
     }
+    k += r4port.size();
 
-    if (addr.IsIPv4() != true) {
-        return;
+    size_t l = busAddr.find(comma, k);
+    if (l == String::npos) {
+        l = busAddr.size();
     }
+
+    /*
+     * We have the following situation now.  Either:
+     *
+     *     "r4addr=192.168.1.1,r4port=9955,u4addr=192.168.1.1,u4port=9955"
+     *             ^          ^       ^   ^
+     *             i          j       k   l = 30
+     *
+     * or
+     *
+     *     "r4addr=192.168.1.1,r4port=9955"
+     *             ^          ^       ^   ^
+     *             i          j       k   l = 30
+     *
+     * So construct a new bus address with only the reliable IPv4 part pulled
+     * out.
+     */
+    qcc::String newBusAddr = String("tcp:") + r4addr + busAddr.substr(i, j - i) + "," + r4port + busAddr.substr(k, l - k);
+
+    QCC_DbgPrintf(("TCPTransport::FoundCallback::Found(): newBusAddr = \"%s\".", newBusAddr.c_str()));
 
 #if defined(QCC_OS_ANDROID) && P2P_HELPER
 
@@ -4753,15 +4958,18 @@ void TCPTransport::FoundCallback::Found(const qcc::String& busAddr, const qcc::S
      * corresponding to some GUID.
      */
     if (m_transport) {
-        QCC_DbgPrintf(("TCPTransport::FoundCallback::Found(): OnFound()"));
-        m_transport->OnFound(busAddr, guid);
+        QCC_DbgPrintf(("TCPTransport::FoundCallback::Found(): OnFound() %s", newBusAddr.c_str()));
+        m_transport->OnFound(newBusAddr, guid);
     }
 
 #endif // defined(QCC_OS_ANDROID) && P2P_HELPER
 
+    /*
+     * Let AllJoyn know that we've found a service(s).
+     */
     if (m_listener) {
-        QCC_DbgPrintf(("TCPTransport::FoundCallback::Found(): FoundNames()"));
-        m_listener->FoundNames(busAddr, guid, TRANSPORT_WLAN, &nameList, timer);
+        QCC_DbgPrintf(("TCPTransport::FoundCallback::Found(): FoundNames(): %s", newBusAddr.c_str()));
+        m_listener->FoundNames(newBusAddr, guid, TRANSPORT_TCP, &nameList, timer);
     }
 }
 

@@ -73,7 +73,7 @@ using namespace std;
 static const char defaultConfig[] =
     "<busconfig>"
     "  <type>alljoyn</type>"
-    "  <listen>tcp:addr=0.0.0.0,port=9956,family=ipv4</listen>"
+    "  <listen>tcp:r4addr=0.0.0.0,r4port=9956</listen>"
     "  <listen>localhost:port=9955</listen>"
     "  <listen>localhost:port=9956</listen>"
     "  <listen>bluetooth:</listen>"

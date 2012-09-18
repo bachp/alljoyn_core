@@ -368,7 +368,7 @@ int main(int argc, char** argv)
     if (longnames) {
         for (uint32_t i = 0; i < g_numberLongnames; ++i) {
             char const* wkn = g_longnames[i];
-            status = ns.Advertise(wkn);
+            status = ns.AdvertiseName(TRANSPORT_TCP, wkn);
             printf("Advertised %s\n", wkn);
         }
     }
@@ -390,7 +390,7 @@ int main(int argc, char** argv)
             uint32_t nameIndex = rand() % g_numberNames;
             char const* wkn = g_names[nameIndex];
 
-            status = ns.Advertise(wkn);
+            status = ns.AdvertiseName(TRANSPORT_TCP, wkn);
             printf("Advertised %s\n", wkn);
             if (status != ER_OK) {
                 QCC_LogError(status, ("Advertise failed"));
@@ -400,7 +400,7 @@ int main(int argc, char** argv)
             nameIndex = rand() % g_numberNames;
             wkn = g_names[nameIndex];
 
-            status = ns.Cancel(wkn);
+            status = ns.CancelAdvertiseName(TRANSPORT_TCP, wkn);
             printf("Cancelled %s\n", wkn);
             if (status != ER_OK) {
                 QCC_LogError(status, ("Cancel failed"));

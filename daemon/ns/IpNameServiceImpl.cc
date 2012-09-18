@@ -275,20 +275,13 @@ namespace ajn {
 //     </ip_name_service>
 //   </busconfig>
 //
-
 //
 // The value of the interfaces property used to configure the name service
 // to run discovery over all interfaces in the system.
 //
 const char* IpNameServiceImpl::INTERFACES_WILDCARD = "*";
 
-//
-// This is just a random IPv4 multicast group chosen out of the defined site
-// administered block of addresses.  This was a temporary choice while an IANA
-// reservation was in process, and remains for backward compatibility.
-//
-const char* IpNameServiceImpl::IPV4_MULTICAST_GROUP = "239.255.37.41";
-
+#if 0
 //
 // This is the IANA assigned IPv4 multicast group for AllJoyn.  This is
 // a Local Network Control Block address.
@@ -296,6 +289,7 @@ const char* IpNameServiceImpl::IPV4_MULTICAST_GROUP = "239.255.37.41";
 // See www.iana.org/assignments/multicast-addresses
 //
 const char* IpNameServiceImpl::IPV4_ALLJOYN_MULTICAST_GROUP = "224.0.0.113";
+#endif
 
 //
 // This is the IANA assigned UDP port for the AllJoyn Name Service.  See
@@ -303,17 +297,6 @@ const char* IpNameServiceImpl::IPV4_ALLJOYN_MULTICAST_GROUP = "224.0.0.113";
 //
 const uint16_t IpNameServiceImpl::MULTICAST_PORT = 9956;
 const uint16_t IpNameServiceImpl::BROADCAST_PORT = IpNameServiceImpl::MULTICAST_PORT;
-
-//
-// This is an IPv6 version of the temporary IPv4 multicast address described
-// above.  IPv6 multicast groups are composed of a prefix containing 0xff and
-// then flags (4 bits) followed by the IPv6 Scope (4 bits) and finally the IPv4
-// group, as in "ff03::239.255.37.41".  The Scope corresponding to the IPv4
-// Local Scope group is defined to be "3" by RFC 2365.  Unfortunately, the
-// qcc::IPAddress code can't deal with "ff03::239.255.37.41" so we have to
-// translate it.
-//
-const char* IpNameServiceImpl::IPV6_MULTICAST_GROUP = "ff03::efff:2529";
 
 //
 // This is the IANA assigned IPv6 multicast group for AllJoyn.  The assigned
@@ -430,7 +413,9 @@ bool IpNameServiceImplWildcardMatch(qcc::String str, qcc::String pat)
 
 IpNameServiceImpl::IpNameServiceImpl()
     : Thread("IpNameServiceImpl"), m_state(IMPL_SHUTDOWN), m_terminal(false),
-    m_callback(0), m_port(0), m_timer(0), m_tDuration(DEFAULT_DURATION),
+    m_callback(0), m_port(0),
+    m_reliableIPv4Port(0), m_unreliableIPv4Port(0), m_reliableIPv6Port(0), m_unreliableIPv6Port(0),
+    m_timer(0), m_tDuration(DEFAULT_DURATION),
     m_tRetransmit(RETRANSMIT_TIME), m_tQuestion(QUESTION_TIME),
     m_modulus(QUESTION_MODULUS), m_retries(NUMBER_RETRIES),
     m_loopback(false), m_enableIPv4(false), m_enableIPv6(false),
@@ -741,9 +726,11 @@ void IpNameServiceImpl::ClearLiveInterfaces(void)
         //
         if (m_liveInterfaces[i].m_flags & qcc::IfConfigEntry::MULTICAST) {
             if (m_liveInterfaces[i].m_address.IsIPv4()) {
-                qcc::LeaveMulticastGroup(m_liveInterfaces[i].m_sockFd, qcc::QCC_AF_INET, IPV4_MULTICAST_GROUP, m_liveInterfaces[i].m_interfaceName);
+#if 0
+                qcc::LeaveMulticastGroup(m_liveInterfaces[i].m_sockFd, qcc::QCC_AF_INET, IPV4_ALLJOYN_MULTICAST_GROUP, m_liveInterfaces[i].m_interfaceName);
+#endif
             } else if (m_liveInterfaces[i].m_address.IsIPv6()) {
-                qcc::LeaveMulticastGroup(m_liveInterfaces[i].m_sockFd, qcc::QCC_AF_INET6, IPV6_MULTICAST_GROUP, m_liveInterfaces[i].m_interfaceName);
+                qcc::LeaveMulticastGroup(m_liveInterfaces[i].m_sockFd, qcc::QCC_AF_INET6, IPV6_ALLJOYN_MULTICAST_GROUP, m_liveInterfaces[i].m_interfaceName);
             }
         }
 
@@ -1079,13 +1066,11 @@ void IpNameServiceImpl::LazyUpdateInterfaces(void)
             // Android build -- i.e., we have to do it anyway.
             //
             if (entries[i].m_family == qcc::QCC_AF_INET) {
-                QStatus status1 = qcc::JoinMulticastGroup(sockFd, qcc::QCC_AF_INET, IPV4_MULTICAST_GROUP, entries[i].m_name);
-                QStatus status2 = qcc::JoinMulticastGroup(sockFd, qcc::QCC_AF_INET, IPV4_ALLJOYN_MULTICAST_GROUP, entries[i].m_name);
-                status = status1 != ER_OK ? status1 : status2;
+#if 0
+                status = qcc::JoinMulticastGroup(sockFd, qcc::QCC_AF_INET, IPV4_ALLJOYN_MULTICAST_GROUP, entries[i].m_name);
+#endif
             } else if (entries[i].m_family == qcc::QCC_AF_INET6) {
-                QStatus status1 = qcc::JoinMulticastGroup(sockFd, qcc::QCC_AF_INET6, IPV6_MULTICAST_GROUP, entries[i].m_name);
-                QStatus status2 = qcc::JoinMulticastGroup(sockFd, qcc::QCC_AF_INET6, IPV6_ALLJOYN_MULTICAST_GROUP, entries[i].m_name);
-                status = status1 != ER_OK ? status1 : status2;
+                status = qcc::JoinMulticastGroup(sockFd, qcc::QCC_AF_INET6, IPV6_ALLJOYN_MULTICAST_GROUP, entries[i].m_name);
             }
             if (status != ER_OK) {
                 QCC_LogError(status, ("IpNameServiceImpl::LazyUpdateInterfaces(): unable to join multicast group"));
@@ -1115,9 +1100,23 @@ QStatus IpNameServiceImpl::Enable(TransportMask transportMask,
                                   uint16_t reliableIPv4Port, uint16_t reliableIPv6Port,
                                   uint16_t unreliableIPv4Port, uint16_t unreliableIPv6Port)
 {
-    m_port = reliableIPv4Port;
+    //
+    // Version zero of the name service uses a single port, m_port, that
+    // corresponds directly to the reliable IPv4 port of version one.  Version
+    // one admits the possibility of four ports.
+    //
+    // XXX These must be set on a per-transport basis.
+    //
+    m_port = m_reliableIPv4Port = reliableIPv4Port;
+    m_unreliableIPv4Port = unreliableIPv4Port;
+    m_reliableIPv6Port = reliableIPv6Port;
+    m_unreliableIPv6Port = reliableIPv6Port;
 
-    if (reliableIPv4Port) {
+    //
+    // XXX This doesn't make sense now.  doDisable and doEnable are global across
+    // all transports, not for each transport.
+    //
+    if (m_reliableIPv4Port || m_unreliableIPv4Port || m_reliableIPv6Port || m_unreliableIPv6Port) {
         //
         // If a previous disable request has not yet been serviced, remove the
         // request. Only the latest request must be serviced and that is this
@@ -1158,31 +1157,72 @@ QStatus IpNameServiceImpl::Locate(const qcc::String& wkn, LocatePolicy policy)
     QCC_DbgHLPrintf(("IpNameServiceImpl::Locate(): %s with policy %d", wkn.c_str(), policy));
 
     //
-    // Send a request to the network over our multicast channel,
-    // asking for anyone who supports the specified well-known name.
+    // Send a request to the network over our multicast channel, asking for
+    // anyone who supports the specified well-known name.
     //
-    WhoHas whoHas;
-    whoHas.SetTcpFlag(true);
-    whoHas.SetIPv4Flag(true);
-    whoHas.AddName(wkn);
+    // We are now at version one of the protocol.  There is no significant
+    // difference between version zero and version one messages, but down-version
+    // (version zero) clients don't know that, so they will ignore version one
+    // messages.  This means that if we want to have clients running older daemons
+    // be able to hear our discovery requests, we need to send both flavors of
+    // message.  Since the version is located in the message header, this means
+    // two messages.
+    //
+    // Do it once for version zero.
+    //
+    {
+        WhoHas whoHas;
+        whoHas.SetVersion(0);
+        whoHas.SetTcpFlag(true);
+        whoHas.SetIPv4Flag(true);
+        whoHas.AddName(wkn);
 
-    Header header;
-    header.SetVersion(0);
-    header.SetTimer(m_tDuration);
-    header.AddQuestion(whoHas);
+        Header header;
+        header.SetVersion(0);
+        header.SetTimer(m_tDuration);
+        header.AddQuestion(whoHas);
+
+        //
+        // We may want to retransmit this request a few times depending on our
+        // retry policy, so add it to the list of messages to retry.
+        //
+        m_mutex.Lock();
+        m_retry.push_back(header);
+        m_mutex.Unlock();
+
+        //
+        // Queue this message for transmission out on the various live interfaces.
+        //
+        QueueProtocolMessage(header);
+    }
 
     //
-    // Add this message to the list of outsdanding messages.  We may want
-    // to retransmit this request a few times.
+    // Do it again for version one.
     //
-    m_mutex.Lock();
-    m_retry.push_back(header);
-    m_mutex.Unlock();
+    {
+        WhoHas whoHas;
+        whoHas.SetVersion(1);
+        whoHas.AddName(wkn);
 
-    //
-    // Queue this message for transmission out on the various live interfaces.
-    //
-    QueueProtocolMessage(header);
+        Header header;
+        header.SetVersion(1);
+        header.SetTimer(m_tDuration);
+        header.AddQuestion(whoHas);
+
+        //
+        // We may want to retransmit this request a few times depending on our
+        // retry policy, so add it to the list of messages to retry.
+        //
+        m_mutex.Lock();
+        m_retry.push_back(header);
+        m_mutex.Unlock();
+
+        //
+        // Queue this message for transmission out on the various live interfaces.
+        //
+        QueueProtocolMessage(header);
+    }
+
     return ER_OK;
 }
 
@@ -1211,31 +1251,22 @@ void IpNameServiceImpl::SetCallback(Callback<void, const qcc::String&, const qcc
     m_callback = cb;
 }
 
-QStatus IpNameServiceImpl::Advertise(const qcc::String& wkn)
+QStatus IpNameServiceImpl::AdvertiseName(TransportMask transportMask, const qcc::String& wkn)
 {
-    QCC_DbgHLPrintf(("IpNameServiceImpl::Advertise(): %s", wkn.c_str()));
+    QCC_DbgHLPrintf(("IpNameServiceImpl::AdvertiseName(): %s", wkn.c_str()));
 
     vector<qcc::String> wknVector;
     wknVector.push_back(wkn);
 
-    return Advertise(wknVector);
+    return AdvertiseName(transportMask, wknVector);
 }
 
-QStatus IpNameServiceImpl::Advertise(vector<qcc::String>& wkn)
+QStatus IpNameServiceImpl::AdvertiseName(TransportMask transportMask, vector<qcc::String>& wkn)
 {
-    QCC_DbgHLPrintf(("IpNameServiceImpl::Advertise()"));
+    QCC_DbgHLPrintf(("IpNameServiceImpl::AdvertiseName()"));
 
     if (m_state != IMPL_RUNNING) {
-        QCC_DbgPrintf(("IpNameServiceImpl::Advertise(): Not IMPL_RUNNING"));
-        return ER_FAIL;
-    }
-
-    //
-    // We have our ways of figuring out what the IPv4 and IPv6 addresses should
-    // be if they are not set, but we absolutely need a port.
-    //
-    if (m_port == 0) {
-        QCC_DbgPrintf(("IpNameServiceImpl::Advertise(): Port not set"));
+        QCC_DbgPrintf(("IpNameServiceImpl::AdvertiseName(): Not IMPL_RUNNING"));
         return ER_FAIL;
     }
 
@@ -1259,7 +1290,7 @@ QStatus IpNameServiceImpl::Advertise(vector<qcc::String>& wkn)
             //
             // Nothing has changed, so don't bother.
             //
-            QCC_DbgPrintf(("IpNameServiceImpl::Advertise(): Duplicate advertisement"));
+            QCC_DbgPrintf(("IpNameServiceImpl::AdvertiseName(): Duplicate advertisement"));
             m_mutex.Unlock();
             return ER_OK;
         }
@@ -1284,106 +1315,197 @@ QStatus IpNameServiceImpl::Advertise(vector<qcc::String>& wkn)
     m_mutex.Unlock();
 
     //
-    // The underlying protocol is capable of identifying both TCP and UDP
-    // services.  Right now, the only possibility is TCP, so this is not
-    // exposed to the user unneccesarily.
+    // We are now at version one of the protocol.  There is a significant
+    // difference between version zero and version one messages, so down-version
+    // (version zero) clients will not know what to do with version one
+    // messages.  This means that if we want to have clients running older
+    // daemons be able to hear our advertisements, we need to send both flavors
+    // of message.  Since the version is located in the message header, this
+    // means two messages.
     //
-    IsAt isAt;
-    isAt.SetTcpFlag(true);
-    isAt.SetUdpFlag(false);
+    // Do it once for version zero.
+    //
+    {
+        //
+        // The underlying protocol is capable of identifying both TCP and UDP
+        // services.  Right now, the only possibility is TCP, so this is not
+        // exposed to the user unneccesarily.
+        //
+        IsAt isAt;
+        isAt.SetVersion(0);
+        isAt.SetTcpFlag(true);
+        isAt.SetUdpFlag(false);
 
-    //
-    // Always send the provided daemon GUID out with the reponse.
-    //
-    isAt.SetGuid(m_guid);
+        //
+        // Always send the provided daemon GUID out with the reponse.
+        //
+        isAt.SetGuid(m_guid);
 
-    //
-    // Send a protocol message describing the entire list of names we have
-    // for the provided protocol.
-    //
-    isAt.SetCompleteFlag(true);
+        //
+        // Send a protocol message describing the entire list of names we have
+        // for the provided protocol.
+        //
+        isAt.SetCompleteFlag(true);
 
-    //
-    // Set the port here.  When the message goes out a selected interface, the
-    // protocol handler will write out the addresses according to its rules.
-    //
-    isAt.SetPort(m_port);
+        //
+        // Set the port here.  When the message goes out a selected interface, the
+        // protocol handler will write out the addresses according to its rules.
+        //
+        isAt.SetPort(m_port);
 
-    //
-    // Add the provided names to the is-at message that will be sent out on the
-    // network.
-    //
-    for (uint32_t i = 0; i < wkn.size(); ++i) {
-        isAt.AddName(wkn[i]);
+        //
+        // Add the provided names to the is-at message that will be sent out on the
+        // network.
+        //
+        for (uint32_t i = 0; i < wkn.size(); ++i) {
+            isAt.AddName(wkn[i]);
+        }
+
+        //
+        // The header ties the whole protocol message together.  By setting the
+        // timer, we are asking for everyone who hears the message to remember
+        // the advertisements for that number of seconds.
+        //
+        Header header;
+        header.SetVersion(0);
+        header.SetTimer(m_tDuration);
+        header.AddAnswer(isAt);
+
+        //
+        // We don't want allow the caller to advertise an unlimited number of names
+        // and consume all available network resources.  We expect Advertise() to
+        // typically be called once per advertised name, but since we allow a vector
+        // of names we need to limit that size somehow.  The easy way is to assume
+        // that all of the names are the maximum size and just limit based on the
+        // maximum NS packet size and the maximum name size of 256 bytes.  This,
+        // however, leaves just five names which seems too restrictive.  So, we do
+        // it the more time-consuming way and put together the message and then see
+        // if it's "too big."
+        //
+        // This isn't terribly elegant, but we don't know the IP address(es) over
+        // which the message will be sent.  These are added in the loop that
+        // actually does the packet sends, with the interface addresses dynamically
+        // added onto the message.  We have no clue here if an IPv4 or IPv6 or both
+        // flavors of address will exist on a given interface, nor how many
+        // interfaces there are.  All we can do here is to assume the worst case for
+        // the size (both exist) and add the 20 bytes (four for IPv4, sixteen for
+        // IPv6) that the addresses may consume in the final packet.
+        //
+        if (header.GetSerializedSize() + 20 <= NS_MESSAGE_MAX) {
+            //
+            // Queue this message for transmission out on the various live interfaces.
+            //
+            QueueProtocolMessage(header);
+        } else {
+            QCC_LogError(ER_PACKET_TOO_LARGE, ("IpNameServiceImpl::Advertise(): Resulting NS message too large"));
+            return ER_PACKET_TOO_LARGE;
+        }
     }
 
     //
-    // The header ties the whole protocol message together.  By setting the
-    // timer, we are asking for everyone who hears the message to remember
-    // the advertisements for that number of seconds.
+    // Do it once for version one.
     //
-    Header header;
-    header.SetVersion(0);
-    header.SetTimer(m_tDuration);
-    header.AddAnswer(isAt);
+    {
+        IsAt isAt;
+        isAt.SetVersion(1);
+        isAt.SetTransportMask(transportMask);
 
-    //
-    // We don't want allow the caller to advertise an unlimited number of names
-    // and consume all available network resources.  We expect Advertise() to
-    // typically be called once per advertised name, but since we allow a vector
-    // of names we need to limit that size somehow.  The easy way is to assume
-    // that all of the names are the maximum size and just limit based on the
-    // maximum NS packet size and the maximum name size of 256 bytes.  This,
-    // however, leaves just five names which seems too restrictive.  So, we do
-    // it the more time-consuming way and put together the message and then see
-    // if it's "too big."
-    //
-    // This isn't terribly elegant, but we don't know the IP address(es) over
-    // which the message will be sent.  These are added in the loop that
-    // actually does the packet sends, with the interface addresses dynamically
-    // added onto the message.  We have no clue here if an IPv4 or IPv6 or both
-    // flavors of address will exist on a given interface, nor how many
-    // interfaces there are.  All we can do here is to assume the worst case for
-    // the size (both exist) and add the 20 bytes (four for IPv4, sixteen for
-    // IPv6) that the addresses may consume in the final packet.
-    //
-    if (header.GetSerializedSize() + 20 <= NS_MESSAGE_MAX) {
         //
-        // Queue this message for transmission out on the various live interfaces.
+        // Version one allows us to provide four possible endpoints.
+        // XXX FIXME These should be stored per-transport mask (16 possible).
         //
-        QueueProtocolMessage(header);
-        return ER_OK;
-    } else {
-        QCC_LogError(ER_PACKET_TOO_LARGE, ("IpNameServiceImpl::Advertise(): Resulting NS message too large"));
-        return ER_PACKET_TOO_LARGE;
+        if (m_reliableIPv4Port) {
+            isAt.SetReliableIPv4(m_reliableIPv4Address, m_reliableIPv4Port);
+        }
+        if (m_unreliableIPv4Port) {
+            isAt.SetUnreliableIPv4(m_unreliableIPv4Address, m_unreliableIPv4Port);
+        }
+        if (m_reliableIPv6Port) {
+            isAt.SetReliableIPv6(m_reliableIPv6Address, m_reliableIPv6Port);
+        }
+        if (m_unreliableIPv6Port) {
+            isAt.SetUnreliableIPv6(m_unreliableIPv6Address, m_unreliableIPv6Port);
+        }
+
+        //
+        // Always send the provided daemon GUID out with the reponse.
+        //
+        isAt.SetGuid(m_guid);
+
+        //
+        // Send a protocol message describing the entire list of names we have
+        // for the provided protocol.
+        //
+        isAt.SetCompleteFlag(true);
+
+        //
+        // Add the provided names to the is-at message that will be sent out on the
+        // network.
+        //
+        for (uint32_t i = 0; i < wkn.size(); ++i) {
+            isAt.AddName(wkn[i]);
+        }
+
+        //
+        // The header ties the whole protocol message together.  By setting the
+        // timer, we are asking for everyone who hears the message to remember
+        // the advertisements for that number of seconds.
+        //
+        Header header;
+        header.SetVersion(1);
+        header.SetTimer(m_tDuration);
+        header.AddAnswer(isAt);
+
+        //
+        // We don't want allow the caller to advertise an unlimited number of names
+        // and consume all available network resources.  We expect Advertise() to
+        // typically be called once per advertised name, but since we allow a vector
+        // of names we need to limit that size somehow.  The easy way is to assume
+        // that all of the names are the maximum size and just limit based on the
+        // maximum NS packet size and the maximum name size of 256 bytes.  This,
+        // however, leaves just five names which seems too restrictive.  So, we do
+        // it the more time-consuming way and put together the message and then see
+        // if it's "too big."
+        //
+        // This isn't terribly elegant, but we don't know the IP address(es) over
+        // which the message will be sent.  These are added in the loop that
+        // actually does the packet sends, with the interface addresses dynamically
+        // added onto the message.  We have no clue here if an IPv4 or IPv6 or both
+        // flavors of address will exist on a given interface, nor how many
+        // interfaces there are.  All we can do here is to assume the worst case for
+        // the size (both exist) and add the 20 bytes (four for IPv4, sixteen for
+        // IPv6) that the addresses may consume in the final packet.
+        //
+        if (header.GetSerializedSize() + 20 <= NS_MESSAGE_MAX) {
+            //
+            // Queue this message for transmission out on the various live interfaces.
+            //
+            QueueProtocolMessage(header);
+        } else {
+            QCC_LogError(ER_PACKET_TOO_LARGE, ("IpNameServiceImpl::AdvertiseName(): Resulting NS message too large"));
+            return ER_PACKET_TOO_LARGE;
+        }
     }
+
+    return ER_OK;
 }
 
-QStatus IpNameServiceImpl::Cancel(const qcc::String& wkn)
+QStatus IpNameServiceImpl::CancelAdvertiseName(TransportMask transportMask, const qcc::String& wkn)
 {
-    QCC_DbgPrintf(("IpNameServiceImpl::Cancel(): %s", wkn.c_str()));
+    QCC_DbgPrintf(("IpNameServiceImpl::CancelAdvertiseName(): %s", wkn.c_str()));
 
     vector<qcc::String> wknVector;
     wknVector.push_back(wkn);
 
-    return Cancel(wknVector);
+    return CancelAdvertiseName(transportMask, wknVector);
 }
 
-QStatus IpNameServiceImpl::Cancel(vector<qcc::String>& wkn)
+QStatus IpNameServiceImpl::CancelAdvertiseName(TransportMask transportMask, vector<qcc::String>& wkn)
 {
-    QCC_DbgPrintf(("IpNameServiceImpl::Cancel()"));
+    QCC_DbgPrintf(("IpNameServiceImpl::CancelAdvertiseName()"));
 
     if (m_state != IMPL_RUNNING) {
-        QCC_DbgPrintf(("IpNameServiceImpl::Advertise(): Not IMPL_RUNNING"));
-        return ER_FAIL;
-    }
-
-    //
-    // We have our ways of figuring out what the IPv4 and IPv6 addresses should
-    // be if they are not set, but we absolutely need a port.
-    //
-    if (m_port == 0) {
-        QCC_DbgPrintf(("IpNameServiceImpl::Advertise(): Port not set"));
+        QCC_DbgPrintf(("IpNameServiceImpl::CancelAdvertiseName(): Not IMPL_RUNNING"));
         return ER_FAIL;
     }
 
@@ -1426,61 +1548,146 @@ QStatus IpNameServiceImpl::Cancel(vector<qcc::String>& wkn)
     }
 
     //
-    // Send a protocol answer message describing the list of names we have just
-    // been asked to withdraw.
+    // We are now at version one of the protocol.  There is a significant
+    // difference between version zero and version one messages, so down-version
+    // (version zero) clients will not know what to do with versino one
+    // messages.  This means that if we want to have clients running older
+    // daemons be able to hear our advertisements, we need to send both flavors
+    // of message.  Since the version is located in the message header, this
+    // means two messages.
     //
-    // This code assumes that the daemon talks over TCP.  True for now.
+    // Do it once for version zero.
     //
-    IsAt isAt;
-    isAt.SetTcpFlag(true);
-    isAt.SetUdpFlag(false);
+    {
+        //
+        // Send a protocol answer message describing the list of names we have just
+        // been asked to withdraw.
+        //
+        // This code assumes that the daemon talks over TCP.  True for now.
+        //
+        IsAt isAt;
+        isAt.SetVersion(0);
+        isAt.SetTcpFlag(true);
+        isAt.SetUdpFlag(false);
 
-    //
-    // Always send the provided daemon GUID out with the reponse.
-    //
-    isAt.SetGuid(m_guid);
+        //
+        // Always send the provided daemon GUID out with the reponse.
+        //
+        isAt.SetGuid(m_guid);
 
-    //
-    // Set the port here.  When the message goes out a selected interface, the
-    // protocol handler will write out the addresses according to its rules.
-    //
-    isAt.SetPort(m_port);
+        //
+        // Set the port here.  When the message goes out a selected interface, the
+        // protocol handler will write out the addresses according to its rules.
+        //
+        isAt.SetPort(m_port);
 
-    //
-    // Copy the names we are withdrawing the advertisement for into the
-    // protocol message object.
-    //
-    for (uint32_t i = 0; i < wkn.size(); ++i) {
-        isAt.AddName(wkn[i]);
+        //
+        // Copy the names we are withdrawing the advertisement for into the
+        // protocol message object.
+        //
+        for (uint32_t i = 0; i < wkn.size(); ++i) {
+            isAt.AddName(wkn[i]);
+        }
+
+        //
+        // When withdrawing advertisements, a complete flag means that we are
+        // withdrawing all of the advertisements.  If the complete flag is
+        // not set, we have some advertisements remaining.
+        //
+        if (m_advertised.size() == 0) {
+            isAt.SetCompleteFlag(true);
+        }
+
+        //
+        // The header ties the whole protocol message together.  We're at version
+        // zero of the protocol.
+        //
+        Header header;
+        header.SetVersion(0);
+
+        //
+        // We want to signal that everyone can forget about these names
+        // so we set the timer value to 0.
+        //
+        header.SetTimer(0);
+        header.AddAnswer(isAt);
+
+        //
+        // Queue this message for transmission out on the various live interfaces.
+        //
+        QueueProtocolMessage(header);
     }
 
     //
-    // When withdrawing advertisements, a complete flag means that we are
-    // withdrawing all of the advertisements.  If the complete flag is
-    // not set, we have some advertisements remaining.
+    // Do it once for version one.
     //
-    if (m_advertised.size() == 0) {
-        isAt.SetCompleteFlag(true);
+    {
+        //
+        // Send a protocol answer message describing the list of names we have just
+        // been asked to withdraw.
+        //
+        IsAt isAt;
+        isAt.SetVersion(1);
+
+        //
+        // Version one allows us to provide four possible endpoints.
+        // XXX FIXME These should be stored per-transport mask (16 possible).
+        //
+        if (m_reliableIPv4Port) {
+            isAt.SetReliableIPv4(m_reliableIPv4Address, m_reliableIPv4Port);
+        }
+        if (m_unreliableIPv4Port) {
+            isAt.SetUnreliableIPv4(m_unreliableIPv4Address, m_unreliableIPv4Port);
+        }
+        if (m_reliableIPv6Port) {
+            isAt.SetReliableIPv6(m_reliableIPv6Address, m_reliableIPv6Port);
+        }
+        if (m_unreliableIPv6Port) {
+            isAt.SetUnreliableIPv6(m_unreliableIPv6Address, m_unreliableIPv6Port);
+        }
+
+        //
+        // Always send the provided daemon GUID out with the reponse.
+        //
+        isAt.SetGuid(m_guid);
+
+        //
+        // Copy the names we are withdrawing the advertisement for into the
+        // protocol message object.
+        //
+        for (uint32_t i = 0; i < wkn.size(); ++i) {
+            isAt.AddName(wkn[i]);
+        }
+
+        //
+        // When withdrawing advertisements, a complete flag means that we are
+        // withdrawing all of the advertisements.  If the complete flag is
+        // not set, we have some advertisements remaining.
+        //
+        if (m_advertised.size() == 0) {
+            isAt.SetCompleteFlag(true);
+        }
+
+        //
+        // The header ties the whole protocol message together.  We're at version
+        // one of the protocol.
+        //
+        Header header;
+        header.SetVersion(1);
+
+        //
+        // We want to signal that everyone can forget about these names
+        // so we set the timer value to 0.
+        //
+        header.SetTimer(0);
+        header.AddAnswer(isAt);
+
+        //
+        // Queue this message for transmission out on the various live interfaces.
+        //
+        QueueProtocolMessage(header);
     }
 
-    //
-    // The header ties the whole protocol message together.  We're at version
-    // zero of the protocol.
-    //
-    Header header;
-    header.SetVersion(0);
-
-    //
-    // We want to signal that everyone can forget about these names
-    // so we set the timer value to 0.
-    //
-    header.SetTimer(0);
-    header.AddAnswer(isAt);
-
-    //
-    // Queue this message for transmission out on the various live interfaces.
-    //
-    QueueProtocolMessage(header);
     return ER_OK;
 }
 
@@ -1631,27 +1838,10 @@ void IpNameServiceImpl::SendProtocolMessage(
 
     //
     // Now it's time to send the packets.  Packets is plural since we will try
-    // to get our name service information across to peers in as many ways as
-    // is reasonably possible since it turns out that discovery is a weak link
-    // in the system.  This means we will try broadcast, and IPv4 and IPv6
-    // multicast whenever possible.
-    //
-    // We also have a legacy situation to deal with.  We started out using
-    // arbitrary multicast groups allocated out of the site-administered block
-    // before we registered with IANA.  We need to send out on those groups
-    // to make sure that old daemons hear us too.  This means that we are
-    // going to try to send as many as five packets for each advertisement:
-    //
-    //     broadcast:MULTICAST_PORT is to the subnet directed broadcast address
-    //     IPV4_MULTICAST_GROUP:MULTICAST_PORT is to the old IPv4 multicast address
-    //     IPV6_MULTICAST_GROUP:MULTICAST_PORT is to the old IPv6 multicaast address
-    //     IPV4_ALLJOYN_MULTICAST_GROUP:MULTICAST_PORT is to the IANA IPv4 multicast address
-    //     IPV6_ALLJOYN_MULTICAST_GROUP:MULTICAST_PORT is to the old IPv6 multicast address
-    //
-    // It may be the case that we eventually reduce this to subnet directed
-    // broadcast and IPv6 multicast since IPv4 broadcast and IPv4 multicast may
-    // simply be redundant in most cases (it is conceivable for APs to block
-    // broadcast but not multicast to allow multicast streaming, for example).
+    // to get our name service information across to peers in as many ways as is
+    // reasonably possible since it turns out that discovery is a weak link in
+    // the system.  This means we will try broadcast and IPv6 multicast whenever
+    // possible.
     //
     size_t sent;
     if (sockFdIsIPv4) {
@@ -1660,6 +1850,7 @@ void IpNameServiceImpl::SendProtocolMessage(
         // the packet out on our IPv4 multicast groups (IANA registered and
         // legacy).
         //
+#if 0
         if (flags & qcc::IfConfigEntry::MULTICAST) {
             QCC_DbgPrintf(("IpNameServiceImpl::SendProtocolMessage():  Sending to IPv4 Local Network Control Block multicast group"));
             qcc::IPAddress ipv4LocalMulticast(IPV4_ALLJOYN_MULTICAST_GROUP);
@@ -1667,14 +1858,8 @@ void IpNameServiceImpl::SendProtocolMessage(
             if (status != ER_OK) {
                 QCC_LogError(ER_FAIL, ("IpNameServiceImpl::SendProtocolMessage():  Error sending to IPv4 Local Network Control Block multicast group"));
             }
-
-            QCC_DbgPrintf(("IpNameServiceImpl::SendProtocolMessage():  Sending to IPv4 site-administered multicast group"));
-            qcc::IPAddress ipv4SiteMulticast(IPV4_MULTICAST_GROUP);
-            status = qcc::SendTo(sockFd, ipv4SiteMulticast, MULTICAST_PORT, buffer, size, sent);
-            if (status != ER_OK) {
-                QCC_LogError(ER_FAIL, ("IpNameServiceImpl::SendProtocolMessage():  Error sending to IPv4 site-administered multicast group"));
-            }
         }
+#endif
 
         //
         // If the interface is broadcast-capable, We want to send out a subnet
@@ -1730,16 +1915,9 @@ void IpNameServiceImpl::SendProtocolMessage(
         }
     } else {
         if (flags & qcc::IfConfigEntry::MULTICAST) {
-            QCC_DbgPrintf(("IpNameServiceImpl::SendProtocolMessage():  Sending to IPv6 IPv4-mapped site-administered multicast group"));
-            qcc::IPAddress ipv6(IPV6_MULTICAST_GROUP);
-            QStatus status = qcc::SendTo(sockFd, ipv6, MULTICAST_PORT, buffer, size, sent);
-            if (status != ER_OK) {
-                QCC_LogError(ER_FAIL, ("IpNameServiceImpl::SendProtocolMessage():  Error sending to IPv6 IPv4-mapped site-administered multicast group "));
-            }
-
             QCC_DbgPrintf(("IpNameServiceImpl::SendProtocolMessage():  Sending to IPv6 Link-Local Scope multicast group"));
             qcc::IPAddress ipv6AllJoyn(IPV6_ALLJOYN_MULTICAST_GROUP);
-            status = qcc::SendTo(sockFd, ipv6AllJoyn, MULTICAST_PORT, buffer, size, sent);
+            QStatus status = qcc::SendTo(sockFd, ipv6AllJoyn, MULTICAST_PORT, buffer, size, sent);
             if (status != ER_OK) {
                 QCC_LogError(ER_FAIL, ("IpNameServiceImpl::SendProtocolMessage():  Error sending to IPv6 Link-Local Scope multicast group "));
             }
@@ -1747,6 +1925,199 @@ void IpNameServiceImpl::SendProtocolMessage(
     }
 
     delete [] buffer;
+}
+
+void IpNameServiceImpl::SendOutboundMessages(void)
+{
+    //
+    // We know what interfaces can be currently used to send messages
+    // over, so now send any messages we have queued for transmission.
+    //
+    while (m_outbound.size() && (m_state == IMPL_RUNNING || m_terminal)) {
+
+        QCC_DbgPrintf(("IpNameServiceImpl::SendOutboundMessages(): m_outbound.size() == %d.", m_outbound.size()));
+
+        //
+        // Pull a message off of the outbound queue.  What we get is a
+        // header object that will tie together a number of "question"
+        // (who-has) objects and a number of "answer" (is-at) objects.
+        //
+        Header header = m_outbound.front();
+
+        //
+        // When higher level code queues up messages, it doesn't know to what
+        // interfaces and therefore over what source IP addresses it will be
+        // using.  We expect the transport listeners to be listening to the
+        // appropriate INADDR_ANY address, and relying on us to get the IP
+        // addressing information of the various networks we are talking to
+        // correct.  What this means is that we are going to rewrite any IP
+        // addresses into is-at messages on the fly as we prepare to send them
+        // out our sundry interfaces.  who-has messages don't include any
+        // source addresses, so we leave them as-is.
+        //
+        // As of version one of the name service protocol, we only use IPv6
+        // to communicate since it has proved to be by far the most reliable
+        // way to get multicasts out over as many kinds of APs as possible.
+        //
+        // Since we only send IPv6 mulitcasts, and IP-based transports can
+        // implement four basic mechanisms for moving bits (reliable IPv4,
+        // unreliable IPv4, reliable IPv6 and unreliable IPv4) we need to
+        // communicate addresses in the contents of the name service packets and
+        // can not rely on packet source addresses at all.
+        //
+        // So, we walk the list of live interfaces looking for those with IPv6
+        // addresses, rewrite the messages as required and send them out.
+        //
+        QCC_DbgPrintf(("IpNameServiceImpl::SendOutboundMessages(): Walk interfaces"));
+        for (uint32_t i = 0; (m_state == IMPL_RUNNING || m_terminal) && (i < m_liveInterfaces.size()); ++i) {
+            QCC_DbgPrintf(("IpNameServiceImpl::SendOutboundMessages(): Checking out live interface %d.", i));
+
+            //
+            // Don't send anything out over interfaces with IPv4 addresses.  No
+            // IPv4 multicast and no IPv4 broadcast.  We just use IPv6
+            // multicast.
+            //
+            if (m_liveInterfaces[i].m_address.IsIPv4()) {
+                continue;
+            }
+
+            //
+            // Don't bother if the socket FD isn't initialized, since we
+            // wouldn't be able to send anything anyway.
+            //
+            if (m_liveInterfaces[i].m_sockFd != -1) {
+
+                QCC_DbgPrintf(("IpNameServiceImpl::SendOutboundMessages(): Interface %d. is live and IPv6", i));
+
+                qcc::IPAddress ipv6Address = m_liveInterfaces[i].m_address;
+                uint32_t interfaceAddressPrefixLen = m_liveInterfaces[i].m_prefixlen;
+                uint32_t flags = m_liveInterfaces[i].m_flags;
+
+                //
+                // Even though we don't multicast over the IPv4 address, we need to
+                // figure out what the IPv4 address of the interface is in case the
+                // transport is listening on IPv4.
+                //
+                bool haveIPv4Address = false;
+                qcc::IPAddress ipv4Address;
+                for (uint32_t j = 0; j < m_liveInterfaces.size(); ++j) {
+                    if (m_liveInterfaces[i].m_sockFd == -1 ||
+                        m_liveInterfaces[j].m_interfaceName != m_liveInterfaces[i].m_interfaceName) {
+                        continue;
+                    }
+                    if (m_liveInterfaces[j].m_address.IsIPv4()) {
+                        QCC_DbgPrintf(("IpNameServiceImpl::SendOutboundMessages(): Interface %d. has IPv4 counterpart %d.", i, j));
+                        haveIPv4Address = true;
+                        ipv4Address = m_liveInterfaces[j].m_address;
+                        break;
+                    }
+                }
+
+                //
+                // At this point, we are ready to multicast out an interface
+                // over IPv6 and if there is a corresponding IPv4 interface (has
+                // the same name) we know that address as well.
+                //
+                // So, we have to walk the list of answer messages and rewrite
+                // the provided addresses.
+                //
+                for (uint8_t j = 0; j < header.GetNumberAnswers(); ++j) {
+                    QCC_DbgPrintf(("IpNameServiceImpl::SendOutboundMessages(): Rewrite answer %d.", j));
+
+                    IsAt* isAt;
+                    header.GetAnswer(j, &isAt);
+
+                    //
+                    // Exactly what we need to set depends on the version of the
+                    // message.  First, check for version zero in the header and
+                    // if we have one of those, do the version-zero specific
+                    // changes.
+                    //
+                    if (header.GetVersion() == 0) {
+                        QCC_DbgPrintf(("IpNameServiceImpl::SendOutboundMessages(): Answer %d. gets version zero", j));
+
+                        //
+                        // We're modifying the answsers in-place so clear any
+                        // state we might have added on the last iteration.
+                        //
+                        isAt->SetVersion(0);
+                        isAt->SetTcpFlag(true);
+                        isAt->SetUdpFlag(false);
+                        isAt->ClearIPv4();
+                        isAt->ClearIPv6();
+
+                        //
+                        // For version zero, the name service was an integral
+                        // part of the TCP transport.  Because of this, we
+                        // know implicitly that the only kind of address
+                        // supported is the reliable IPv4 address.  This means
+                        // we just need to set the IPv4 address of the packet
+                        // and we're done.
+                        //
+                        if (haveIPv4Address) {
+                            isAt->SetIPv4(ipv4Address.ToString());
+                        }
+                    }
+
+                    //
+                    // Check for version one in the header and if we have one of
+                    // those, do the version-zero specific changes.
+                    //
+                    if (header.GetVersion() == 1) {
+                        QCC_DbgPrintf(("IpNameServiceImpl::SendOutboundMessages(): Answer %d. gets version one", j));
+
+                        //
+                        // We're modifying the answsers in-place so clear any
+                        // state we might have added on the last iteration.
+                        //
+                        isAt->SetVersion(1);
+
+                        //
+                        // XXX This is bogus.
+                        // How do we really keep track of this?
+                        //
+                        isAt->SetTransportMask(TRANSPORT_TCP);
+                        isAt->ClearReliableIPv4();
+                        isAt->ClearUnreliableIPv4();
+                        isAt->ClearReliableIPv6();
+                        isAt->ClearUnreliableIPv6();
+
+                        //
+                        // Now we can write the various addresses into the
+                        // packet if they are called for.
+                        //
+                        if (haveIPv4Address && m_reliableIPv4Port) {
+                            isAt->SetReliableIPv4(ipv4Address.ToString(), m_reliableIPv4Port);
+                        }
+                        if (haveIPv4Address && m_unreliableIPv4Port) {
+                            isAt->SetUnreliableIPv4(ipv4Address.ToString(), m_unreliableIPv4Port);
+                        }
+                        if (m_reliableIPv6Port) {
+                            isAt->SetReliableIPv6(ipv6Address.ToString(), m_reliableIPv6Port);
+                        }
+                        if (m_unreliableIPv6Port) {
+                            isAt->SetUnreliableIPv6(ipv6Address.ToString(), m_unreliableIPv6Port);
+                        }
+                    }
+                }
+
+                //
+                // At this point, we have ignored the questions (who-has) on the
+                // header since they stay the same, and we have rewritten the
+                // answers (is-at) on the header according to the version.  Now
+                // we can the modified message on out the current interface.
+                //
+                QCC_DbgPrintf(("IpNameServiceImpl::SendOutboundMessages(): SendProtocolMessageg()"));
+                SendProtocolMessage(m_liveInterfaces[i].m_sockFd, ipv6Address, interfaceAddressPrefixLen, flags, false, header);
+            }
+        }
+
+        //
+        // The current message has been sent to all of the live interfaces, so
+        // we can discard it and loop back for another.
+        //
+        m_outbound.pop_front();
+    }
 }
 
 void* IpNameServiceImpl::Run(void* arg)
@@ -1790,8 +2161,6 @@ void* IpNameServiceImpl::Run(void* arg)
     GetTimeNow(&tLastLazyUpdate);
 
     while (m_state == IMPL_RUNNING || m_terminal) {
-        QCC_DbgPrintf(("IpNameServiceImpl::Run(): m_state == %d., m_terminal == %d.", m_state, m_terminal));
-
         //
         // If we are shutting down, we need to make sure that we send out the
         // terminal is-at messages that correspond to a CancelAdvertiseName for
@@ -1802,7 +2171,6 @@ void* IpNameServiceImpl::Run(void* arg)
         // we can exit.  So if we find m_terminal true and m_outbound.empty()
         // true, we break out of the loop and exit.
         //
-        QCC_DbgPrintf(("IpNameServiceImpl::Run(): Check for terminal send completion"));
         if (m_terminal && m_outbound.empty()) {
             QCC_DbgPrintf(("IpNameServiceImpl::Run(): m_terminal && m_outbound.empty() -> m_terminal = false"));
             m_terminal = false;
@@ -1810,7 +2178,6 @@ void* IpNameServiceImpl::Run(void* arg)
         }
 
         GetTimeNow(&tNow);
-        QCC_DbgPrintf(("IpNameServiceImpl::Run(): Taking mutex"));
         m_mutex.Lock();
 
         //
@@ -1820,13 +2187,11 @@ void* IpNameServiceImpl::Run(void* arg)
         // about turning things off before we've sent out all possibly queued
         // packets.
         //
-        QCC_DbgPrintf(("IpNameServiceImpl::Run(): Check for enable transition"));
         if (m_doEnable) {
             m_enabled = true;
             m_doEnable = false;
         }
 
-        QCC_DbgPrintf(("IpNameServiceImpl::Run(): Check for disable transition"));
         if (m_doDisable && m_outbound.empty()) {
             QCC_DbgPrintf(("IpNameServiceImpl::Run(): m_doDisable && m_outbound.empty() -> m_enabled = false"));
             m_enabled = false;
@@ -1869,7 +2234,6 @@ void* IpNameServiceImpl::Run(void* arg)
         //     3) If LAZY_UPDATE_MAX_INTERVAL has elapsed since the last lazy
         //        update, we need to update.
         //
-        QCC_DbgPrintf(("IpNameServiceImpl::Run(): Check for lazy update requirement"));
         if (m_forceLazyUpdate ||
             (m_outbound.size() && tLastLazyUpdate + qcc::Timespec(LAZY_UPDATE_MIN_INTERVAL * MS_PER_SEC) < tNow) ||
             (tLastLazyUpdate + qcc::Timespec(LAZY_UPDATE_MAX_INTERVAL * MS_PER_SEC) < tNow)) {
@@ -1880,127 +2244,7 @@ void* IpNameServiceImpl::Run(void* arg)
             m_forceLazyUpdate = false;
         }
 
-        //
-        // We know what interfaces can be currently used to send messages
-        // over, so now send any messages we have queued for transmission.
-        //
-        QCC_DbgPrintf(("IpNameServiceImpl::Run(): Check for outbound messsages and send"));
-        while (m_outbound.size() && (m_state == IMPL_RUNNING || m_terminal)) {
-
-            QCC_DbgPrintf(("IpNameServiceImpl::Run(): m_outbound.size() == %d.", m_outbound.size()));
-
-            //
-            // The header contains a number of "questions" and "answers".
-            // We just pass on questions (who-has messages) as-is.  If these
-            // are answers (is-at messages) we need to worry about getting
-            // the address information right.
-            //
-            // The rules are simple:
-            //
-            // In the most usual case, we have both IPv4 and IPV6 running.
-            // When we send an IPv4 mulitcast, we communicate the IPv4 address
-            // of the underlying interface through the IP address of the sent
-            // packet.  If there is also an IPv6 address assigned to the sending
-            // interface, we want to send that to the remote side as well.  We
-            // do that by providing the IPv6 address in the message.  Similarly,
-            // when we send an IPv6 multicast, we put a possible IPv4 address in
-            // the message.
-            //
-            // If the user provides an IPv4 or IPv6 address in the SetEndpoints
-            // call, we need to add those to the outgoing messages.  These will
-            // be picked up on the other side and passed up to the discovering
-            // daemon.  This trumps what was previously done by the first rule.
-            //
-            // N.B. We are getting a copy of the message here, so we can munge
-            // the contents to our heart's delight.
-            //
-            Header header = m_outbound.front();
-
-            //
-            // Walk the list of live interfaces and send the protocol message
-            // out each one.
-            //
-            QCC_DbgPrintf(("IpNameServiceImpl::Run(): Walk interfaces"));
-            for (uint32_t i = 0; (m_state == IMPL_RUNNING || m_terminal) && (i < m_liveInterfaces.size()); ++i) {
-                QCC_DbgPrintf(("IpNameServiceImpl::Run(): sending to live interface %d.", i));
-
-                qcc::SocketFd sockFd = m_liveInterfaces[i].m_sockFd;
-                qcc::IPAddress interfaceAddress = m_liveInterfaces[i].m_address;
-                uint32_t interfaceAddressPrefixLen = m_liveInterfaces[i].m_prefixlen;
-
-                if (sockFd != -1) {
-                    bool isIPv4 = m_liveInterfaces[i].m_address.IsIPv4();
-                    bool isIPv6 = !isIPv4;
-                    uint32_t flags = m_liveInterfaces[i].m_flags;
-
-                    //
-                    // See if there is an alternate address for this interface.
-                    // If the interface is IPv4, the alternate would be IPv6
-                    // and vice-versa..
-                    //
-                    bool haveAlternate = false;
-                    qcc::IPAddress altAddress;
-                    for (uint32_t j = 0; j < m_liveInterfaces.size(); ++j) {
-                        if (m_liveInterfaces[i].m_sockFd == -1 ||
-                            m_liveInterfaces[j].m_interfaceName != m_liveInterfaces[i].m_interfaceName) {
-                            continue;
-                        }
-                        if ((isIPv4 && m_liveInterfaces[j].m_address.IsIPv6()) ||
-                            (isIPv6 && m_liveInterfaces[j].m_address.IsIPv4())) {
-                            haveAlternate = true;
-                            altAddress = m_liveInterfaces[j].m_address.ToString();
-                        }
-                    }
-
-                    //
-                    // Walk the list of answer messages and rewrite the provided
-                    // addresses.
-                    //
-                    for (uint8_t j = 0; j < header.GetNumberAnswers(); ++j) {
-                        IsAt* isAt;
-                        header.GetAnswer(j, &isAt);
-
-                        //
-                        // We're modifying the answsers in-place so clear any
-                        // addresses we might have added on the last iteration.
-                        //
-                        isAt->ClearIPv4();
-                        isAt->ClearIPv6();
-
-                        //
-                        // Add the appropriate alternate address if there, or
-                        // trump with user provided addresses.
-                        //
-                        if (haveAlternate) {
-                            if (isIPv4) {
-                                isAt->SetIPv6(altAddress.ToString());
-                            } else {
-                                isAt->SetIPv4(altAddress.ToString());
-                            }
-                        }
-
-                        if (m_ipv4address.size()) {
-                            isAt->SetIPv4(m_ipv4address);
-                        }
-
-                        if (m_ipv6address.size()) {
-                            isAt->SetIPv6(m_ipv6address);
-                        }
-                    }
-
-                    //
-                    // Send the possibly modified message out the current
-                    // interface.
-                    //
-                    SendProtocolMessage(sockFd, interfaceAddress, interfaceAddressPrefixLen, flags, isIPv4, header);
-                }
-            }
-            //
-            // The current message has been sent to all of the live interfaces,
-            // so we can discard it.
-            //
-            m_outbound.pop_front();
-        }
+        SendOutboundMessages();
 
         //
         // We've emptied the outbound messages, so we're done if we are shutting
@@ -2013,7 +2257,6 @@ void* IpNameServiceImpl::Run(void* arg)
         // just loop back to the start (where we exit the Run() loop in one
         // convenient place).
         //
-        QCC_DbgPrintf(("IpNameServiceImpl::Run(): Check for stopping"));
         if (IsStopping()) {
             QCC_DbgPrintf(("IpNameServiceImpl::Run(): Stopping.  ClearLiveInterfaces() and break"));
             QCC_DbgPrintf(("IpNameServiceImpl::Run(): Giving mutex"));
@@ -2028,7 +2271,6 @@ void* IpNameServiceImpl::Run(void* arg)
         // to signal us when an outging message is queued or a forced wakeup for
         // a lazy update is done.
         //
-        QCC_DbgPrintf(("IpNameServiceImpl::Run(): Build event list"));
         vector<qcc::Event*> checkEvents, signaledEvents;
         checkEvents.push_back(&stopEvent);
         checkEvents.push_back(&timerEvent);
@@ -2050,14 +2292,12 @@ void* IpNameServiceImpl::Run(void* arg)
         // we definitely need to release other (user) threads that might
         // be waiting to talk to us.
         //
-        QCC_DbgPrintf(("IpNameServiceImpl::Run(): Giving mutex"));
         m_mutex.Unlock();
 
         //
         // Wait for something to happen.  if we get an error, there's not
         // much we can do about it but bail.
         //
-        QCC_DbgPrintf(("IpNameServiceImpl::Run(): Wait for events"));
         QStatus status = qcc::Event::Wait(checkEvents, signaledEvents);
         if (status != ER_OK && status != ER_TIMEOUT) {
             QCC_LogError(status, ("IpNameServiceImpl::Run(): Event::Wait(): Failed"));
@@ -2067,7 +2307,6 @@ void* IpNameServiceImpl::Run(void* arg)
         //
         // Loop over the events for which we expect something has happened
         //
-        QCC_DbgPrintf(("IpNameServiceImpl::Run(): Handle events"));
         for (vector<qcc::Event*>::iterator i = signaledEvents.begin(); i != signaledEvents.end(); ++i) {
             if (*i == &stopEvent) {
                 QCC_DbgPrintf(("IpNameServiceImpl::Run(): Stop event fired"));
@@ -2225,16 +2464,6 @@ void IpNameServiceImpl::Retransmit(bool exiting)
     QCC_DbgPrintf(("IpNameServiceImpl::Retransmit()"));
 
     //
-    // We need a valid port before we send something out to the local subnet.
-    // Note that this is the daemon contact port, not the name service port
-    // to which we send advertisements.
-    //
-    if (m_port == 0) {
-        QCC_DbgPrintf(("IpNameServiceImpl::Retransmit(): Port not set"));
-        return;
-    }
-
-    //
     // There are at least two threads wandering through the advertised list.
     // We are running short on toes, so don't shoot any more off by not being
     // thread-unaware.
@@ -2243,118 +2472,267 @@ void IpNameServiceImpl::Retransmit(bool exiting)
     m_mutex.Lock();
 
     //
-    // Keep track of how many messages we actually send in order to get all of
-    // the advertisements out.
+    // We are now at version one of the protocol.  There is a significant
+    // difference between version zero and version one messages, so down-version
+    // (version zero) clients will not know what to do with versino one
+    // messages.  This means that if we want to have clients running older
+    // daemons be able to hear our advertisements, we need to send both flavors
+    // of message.  Since the version is located in the message header, this
+    // means two messages.
     //
-    uint32_t nSent = 0;
-
+    // Do it once for version zero.
     //
-    // The header will tie the whole protocol message together.  By setting the
-    // timer, we are asking for everyone who hears the message to remember the
-    // advertisements for that number of seconds.  If we are exiting, then we
-    // set the timer to zero, which means that the name is no longer valid.
-    //
-    Header header;
-    header.SetVersion(0);
-    header.SetTimer(exiting ? 0 : m_tDuration);
-
-    //
-    // The underlying protocol is capable of identifying both TCP and UDP
-    // services.  Right now, the only possibility is TCP.
-    //
-    IsAt isAt;
-    isAt.SetCompleteFlag(false);
-    isAt.SetTcpFlag(true);
-    isAt.SetUdpFlag(false);
-    isAt.SetGuid(m_guid);
-    isAt.SetPort(m_port);
-
-    QCC_DbgPrintf(("IpNameServiceImpl::Retransmit(): Loop through advertised names"));
-
-    //
-    // Loop through the list of names we are advertising, constructing as many
-    // protocol messages as it takes to get our list of advertisements out.
-    //
-    // Note that the number of packets that can go out in any given amount of
-    // time is effectively throttled in SendProtocolMessage() by a random delay.
-    // A user can consume all available resources here by flooding us with
-    // advertisements but she will only be shooting herself in the foot.
-    //
-    for (list<qcc::String>::iterator i = m_advertised.begin(); i != m_advertised.end(); ++i) {
-        QCC_DbgPrintf(("IpNameServiceImpl::Retransmit(): Accumulating \"%s\"", (*i).c_str()));
+    {
+        //
+        // Keep track of how many messages we actually send in order to get all of
+        // the advertisements out.
+        //
+        uint32_t nSent = 0;
 
         //
-        // It is possible that we have accumulated more advertisements than will
-        // fit in a UDP IpNameServiceImpl packet.  A name service is-at message is going
-        // to consist of a header and its answer section, which is made from an
-        // IsAt object.  We first ask both of these objects to return their size
-        // so we know how much space is committed already.  Note that we ask the
-        // header for its max possible size since the header may be modified to
-        // add actual IPv4 and IPv6 addresses when it is sent.
+        // The header will tie the whole protocol message together.  By setting the
+        // timer, we are asking for everyone who hears the message to remember the
+        // advertisements for that number of seconds.  If we are exiting, then we
+        // set the timer to zero, which means that the name is no longer valid.
         //
-        size_t currentSize = header.GetSerializedSize() + isAt.GetSerializedSize();
+        Header header;
+        header.SetVersion(0);
+        header.SetTimer(exiting ? 0 : m_tDuration);
 
         //
-        // This isn't terribly elegant, but we don't know the IP address(es)
-        // over which the message will be sent.  These are added in the loop
-        // that actually does the packet sends, with the interface addresses
-        // dynamically added onto the message.  We have no clue here if an IPv4
-        // or IPv6 or both flavors of address will exist on a given interface,
-        // nor how many interfaces there are.  All we can do here is to assume
-        // the worst case for the size (both exist) and add the 20 bytes (four
-        // for IPv4, sixteen for IPv6) that the addresses may consume in the
-        // final packet.
+        // The underlying protocol is capable of identifying both TCP and UDP
+        // services.  Right now, the only possibility is TCP.
         //
-        currentSize += 20;
+        IsAt isAt;
+        isAt.SetCompleteFlag(false);
+        isAt.SetTcpFlag(true);
+        isAt.SetUdpFlag(false);
+        isAt.SetGuid(m_guid);
+        isAt.SetPort(m_port);
+
+        QCC_DbgPrintf(("IpNameServiceImpl::Retransmit(): Loop through advertised names"));
 
         //
-        // We cheat a little in order to avoid a string copy and use our
-        // knowledge that names are stored as a byte count followed by the
-        // string bytes.  If the current name won't fit into the currently
-        // assembled message, we need to flush the current message and start
-        // again.
+        // Loop through the list of names we are advertising, constructing as many
+        // protocol messages as it takes to get our list of advertisements out.
         //
-        if (currentSize + 1 + (*i).size() > NS_MESSAGE_MAX) {
-            QCC_DbgPrintf(("IpNameServiceImpl::Retransmit(): Message is full"));
-            //
-            // The current message cannot hold another name.  We need to send it
-            // out before continuing.
-            //
-            QCC_DbgPrintf(("IpNameServiceImpl::Retransmit(): Sending partial list"));
-            header.AddAnswer(isAt);
-            QueueProtocolMessage(header);
-            ++nSent;
+        // Note that the number of packets that can go out in any given amount of
+        // time is effectively throttled in SendProtocolMessage() by a random delay.
+        // A user can consume all available resources here by flooding us with
+        // advertisements but she will only be shooting herself in the foot.
+        //
+        for (list<qcc::String>::iterator i = m_advertised.begin(); i != m_advertised.end(); ++i) {
+            QCC_DbgPrintf(("IpNameServiceImpl::Retransmit(): Accumulating \"%s\"", (*i).c_str()));
 
             //
-            // The full message is now on the way out.  Now, we remove all of
-            // the entries in the IsAt object, reset the header, which clears
-            // out the existing is-at, and start accumulating new names again.
+            // It is possible that we have accumulated more advertisements than will
+            // fit in a UDP IpNameServiceImpl packet.  A name service is-at message is going
+            // to consist of a header and its answer section, which is made from an
+            // IsAt object.  We first ask both of these objects to return their size
+            // so we know how much space is committed already.  Note that we ask the
+            // header for its max possible size since the header may be modified to
+            // add actual IPv4 and IPv6 addresses when it is sent.
             //
-            QCC_DbgPrintf(("IpNameServiceImpl::Retransmit(): Resetting current list"));
-            header.Reset();
-            isAt.Reset();
-            isAt.AddName(*i);
-        } else {
-            QCC_DbgPrintf(("IpNameServiceImpl::Retransmit(): Message has room.  Adding \"%s\"", (*i).c_str()));
-            isAt.AddName(*i);
+            size_t currentSize = header.GetSerializedSize() + isAt.GetSerializedSize();
+
+            //
+            // This isn't terribly elegant, but we don't know the IP address(es)
+            // over which the message will be sent.  These are added in the loop
+            // that actually does the packet sends, with the interface addresses
+            // dynamically added onto the message.  We have no clue here if an IPv4
+            // or IPv6 or both flavors of address will exist on a given interface,
+            // nor how many interfaces there are.  All we can do here is to assume
+            // the worst case for the size (both exist) and add the 20 bytes (four
+            // for IPv4, sixteen for IPv6) that the addresses may consume in the
+            // final packet.
+            //
+            currentSize += 20;
+
+            //
+            // We cheat a little in order to avoid a string copy and use our
+            // knowledge that names are stored as a byte count followed by the
+            // string bytes.  If the current name won't fit into the currently
+            // assembled message, we need to flush the current message and start
+            // again.
+            //
+            if (currentSize + 1 + (*i).size() > NS_MESSAGE_MAX) {
+                QCC_DbgPrintf(("IpNameServiceImpl::Retransmit(): Message is full"));
+                //
+                // The current message cannot hold another name.  We need to send it
+                // out before continuing.
+                //
+                QCC_DbgPrintf(("IpNameServiceImpl::Retransmit(): Sending partial list"));
+                header.AddAnswer(isAt);
+                QueueProtocolMessage(header);
+                ++nSent;
+
+                //
+                // The full message is now on the way out.  Now, we remove all of
+                // the entries in the IsAt object, reset the header, which clears
+                // out the existing is-at, and start accumulating new names again.
+                //
+                QCC_DbgPrintf(("IpNameServiceImpl::Retransmit(): Resetting current list"));
+                header.Reset();
+                isAt.Reset();
+                isAt.AddName(*i);
+            } else {
+                QCC_DbgPrintf(("IpNameServiceImpl::Retransmit(): Message has room.  Adding \"%s\"", (*i).c_str()));
+                isAt.AddName(*i);
+            }
         }
+
+        //
+        // We most likely have a partially full message waiting to go out.  If we
+        // haven't sent a message, then the one message holds all of the names that
+        // are being advertised.  In this case, we set the complete flag to indicate
+        // that this packet describes the full extent of advertised well known
+        // names.
+        //
+        if (nSent == 0) {
+            QCC_DbgPrintf(("IpNameServiceImpl::Retransmit(): Single complete message "));
+            isAt.SetCompleteFlag(true);
+        }
+
+        QCC_DbgPrintf(("IpNameServiceImpl::Retransmit(): Sending final message "));
+        header.AddAnswer(isAt);
+        QueueProtocolMessage(header);
     }
 
     //
-    // We most likely have a partially full message waiting to go out.  If we
-    // haven't sent a message, then the one message holds all of the names that
-    // are being advertised.  In this case, we set the complete flag to indicate
-    // that this packet describes the full extent of advertised well known
-    // names.
+    // Do it once for version one.
     //
-    if (nSent == 0) {
-        QCC_DbgPrintf(("IpNameServiceImpl::Retransmit(): Single complete message "));
-        isAt.SetCompleteFlag(true);
+    {
+        //
+        // Keep track of how many messages we actually send in order to get all of
+        // the advertisements out.
+        //
+        uint32_t nSent = 0;
+
+        //
+        // The header will tie the whole protocol message together.  By setting the
+        // timer, we are asking for everyone who hears the message to remember the
+        // advertisements for that number of seconds.  If we are exiting, then we
+        // set the timer to zero, which means that the name is no longer valid.
+        //
+        Header header;
+        header.SetVersion(1);
+        header.SetTimer(exiting ? 0 : m_tDuration);
+
+        //
+        // The underlying protocol is capable of identifying both TCP and UDP
+        // services.  Right now, the only possibility is TCP.
+        //
+        IsAt isAt;
+        isAt.SetVersion(1);
+        isAt.SetCompleteFlag(false);
+
+        //
+        // Version one allows us to provide four possible endpoints.
+        // XXX FIXME These should be stored per-transport mask (16 possible).
+        //
+        if (m_reliableIPv4Port) {
+            isAt.SetReliableIPv4(m_reliableIPv4Address, m_reliableIPv4Port);
+        }
+        if (m_unreliableIPv4Port) {
+            isAt.SetUnreliableIPv4(m_unreliableIPv4Address, m_unreliableIPv4Port);
+        }
+        if (m_reliableIPv6Port) {
+            isAt.SetReliableIPv6(m_reliableIPv6Address, m_reliableIPv6Port);
+        }
+        if (m_unreliableIPv6Port) {
+            isAt.SetUnreliableIPv6(m_unreliableIPv6Address, m_unreliableIPv6Port);
+        }
+
+        isAt.SetGuid(m_guid);
+
+        QCC_DbgPrintf(("IpNameServiceImpl::Retransmit(): Loop through advertised names"));
+
+        //
+        // Loop through the list of names we are advertising, constructing as many
+        // protocol messages as it takes to get our list of advertisements out.
+        //
+        // Note that the number of packets that can go out in any given amount of
+        // time is effectively throttled in SendProtocolMessage() by a random delay.
+        // A user can consume all available resources here by flooding us with
+        // advertisements but she will only be shooting herself in the foot.
+        //
+        for (list<qcc::String>::iterator i = m_advertised.begin(); i != m_advertised.end(); ++i) {
+            QCC_DbgPrintf(("IpNameServiceImpl::Retransmit(): Accumulating \"%s\"", (*i).c_str()));
+
+            //
+            // It is possible that we have accumulated more advertisements than will
+            // fit in a UDP IpNameServiceImpl packet.  A name service is-at message is going
+            // to consist of a header and its answer section, which is made from an
+            // IsAt object.  We first ask both of these objects to return their size
+            // so we know how much space is committed already.  Note that we ask the
+            // header for its max possible size since the header may be modified to
+            // add actual IPv4 and IPv6 addresses when it is sent.
+            //
+            size_t currentSize = header.GetSerializedSize() + isAt.GetSerializedSize();
+
+            //
+            // This isn't terribly elegant, but we don't know the IP address(es)
+            // over which the message will be sent.  These are added in the loop
+            // that actually does the packet sends, with the interface addresses
+            // dynamically added onto the message.  We have no clue here if an IPv4
+            // or IPv6 or both flavors of address will exist on a given interface,
+            // nor how many interfaces there are.  All we can do here is to assume
+            // the worst case for the size (both exist) and add the 20 bytes (four
+            // for IPv4, sixteen for IPv6) that the addresses may consume in the
+            // final packet.
+            //
+            currentSize += 20;
+
+            //
+            // We cheat a little in order to avoid a string copy and use our
+            // knowledge that names are stored as a byte count followed by the
+            // string bytes.  If the current name won't fit into the currently
+            // assembled message, we need to flush the current message and start
+            // again.
+            //
+            if (currentSize + 1 + (*i).size() > NS_MESSAGE_MAX) {
+                QCC_DbgPrintf(("IpNameServiceImpl::Retransmit(): Message is full"));
+                //
+                // The current message cannot hold another name.  We need to send it
+                // out before continuing.
+                //
+                QCC_DbgPrintf(("IpNameServiceImpl::Retransmit(): Sending partial list"));
+                header.AddAnswer(isAt);
+                QueueProtocolMessage(header);
+                ++nSent;
+
+                //
+                // The full message is now on the way out.  Now, we remove all of
+                // the entries in the IsAt object, reset the header, which clears
+                // out the existing is-at, and start accumulating new names again.
+                //
+                QCC_DbgPrintf(("IpNameServiceImpl::Retransmit(): Resetting current list"));
+                header.Reset();
+                isAt.Reset();
+                isAt.AddName(*i);
+            } else {
+                QCC_DbgPrintf(("IpNameServiceImpl::Retransmit(): Message has room.  Adding \"%s\"", (*i).c_str()));
+                isAt.AddName(*i);
+            }
+        }
+
+        //
+        // We most likely have a partially full message waiting to go out.  If we
+        // haven't sent a message, then the one message holds all of the names that
+        // are being advertised.  In this case, we set the complete flag to indicate
+        // that this packet describes the full extent of advertised well known
+        // names.
+        //
+        if (nSent == 0) {
+            QCC_DbgPrintf(("IpNameServiceImpl::Retransmit(): Single complete message "));
+            isAt.SetCompleteFlag(true);
+        }
+
+        QCC_DbgPrintf(("IpNameServiceImpl::Retransmit(): Sending final message "));
+        header.AddAnswer(isAt);
+        QueueProtocolMessage(header);
     }
 
-    QCC_DbgPrintf(("IpNameServiceImpl::Retransmit(): Sending final message "));
-    header.AddAnswer(isAt);
-    QueueProtocolMessage(header);
     QCC_DbgPrintf(("IpNameServiceImpl::Retransmit(): Giving lock"));
     m_mutex.Unlock();
 }
@@ -2465,7 +2843,6 @@ void IpNameServiceImpl::HandleProtocolAnswer(IsAt isAt, uint32_t timer, qcc::IPA
     // If there are no callbacks we can't tell the user anything about what is
     // going on the net, so it's pointless to go any further.
     //
-
     if (m_callback == 0) {
         QCC_DbgHLPrintf(("IpNameServiceImpl::HandleProtocolAnswer(): No callback, so nothing to do"));
         return;
@@ -2488,83 +2865,205 @@ void IpNameServiceImpl::HandleProtocolAnswer(IsAt isAt, uint32_t timer, qcc::IPA
     QCC_DbgHLPrintf(("IpNameServiceImpl::HandleProtocolAnswer(): Got GUID %s", guid.c_str()));
 
     //
-    // We always get an address since we got the message over a call to
-    // recvfrom().  This will either be an IPv4 or an IPv6 address.  We can
-    // also get an IPv4 and/or an IPv6 address in the answer message itself.
-    // We have from one to three addresses of different flavors that we need
-    // to communicate back to the daemon.  It is convenient for the daemon
-    // to get these addresses in the form of a "listen-spec".  These look like,
-    // "tcp:addr=x, port=y".  The daemon is going to keep track of unique
-    // combinations of these and must be able to handle multiple identical
-    // reports since we will be getting keepalives.  What we need to do then
-    // is to send a callback with a listen-spec for every address we find.
-    // If we get all three addresses, we'll do three callbacks with different
-    // listen-specs.
+    // How we infer addresses is different between version zero of the protocol
+    // and version one.  In version zero, if there are no IP addresses present
+    // in the received message, we take the IP address found in the received
+    // packet.  This allowed us to optimize out the address in some cases.  We
+    // do not do this in version one messages.  The advertised addresses must
+    // always be present in the message.
     //
-    qcc::String recvfromAddress, ipv4address, ipv6address;
+    if (isAt.GetVersion() == 0) {
+        //
+        // We always get an address from the system since we got the message
+        // over a call to recvfrom().  This will either be an IPv4 or an IPv6
+        // address in the case of legacy daemons or only from IPv6 in new
+        // daemons.  We can also get an IPv4 or an IPv6 address in the protocol.
+        // So we have from one to three addresses of possibly different flavors
+        // that we need to communicate back to the daemon.  We have to be very
+        // careful to play by the old rules when appropriate to make sure we
+        // have backward compatibility.
+        //
+        // Note that there is no such thing as a TCP transport that is capable
+        // of listening on an IPv6 address, so we filter those out here.
+        //
+        // It is convenient for the daemon to get these addresses in the form of
+        // a "listen-spec".  This is a string starting with the transport name,
+        // followed by private (to the transport) name=value pairs.  In version
+        // zero of the protocol, there was only one possible transport that used
+        // the IP name service, and that was the TCP transport.  We used to be
+        // integrated into the TCP transport, so, for us here and now these
+        // listen specs look like, "tcp:r4addr=x,r4port=y".  The daemon is going
+        // to keep track of unique instances of these and must be able to handle
+        // multiple identical reports since we will be getting keepalives.  What
+        // we need to do then is to send a callback with a listen-spec for every
+        // address we find.  If we get all three addresses, we'll do three
+        // callbacks with different listen-specs.  This completely changes in
+        // version one, BTW.
+        //
+        qcc::String recvfromAddress, ipv4address, ipv6address;
 
-    recvfromAddress = address.ToString();
-    QCC_DbgHLPrintf(("IpNameServiceImpl::HandleProtocolAnswer(): Got IP %s from protocol", recvfromAddress.c_str()));
+        recvfromAddress = address.ToString();
+        QCC_DbgHLPrintf(("IpNameServiceImpl::HandleProtocolAnswer(): Got IP %s from recvfrom", recvfromAddress.c_str()));
 
-    if (isAt.GetIPv4Flag()) {
-        ipv4address = isAt.GetIPv4();
-        QCC_DbgHLPrintf(("IpNameServiceImpl::HandleProtocolAnswer(): Got IPv4 %s from message", ipv4address.c_str()));
-    }
-
-    if (isAt.GetIPv6Flag()) {
-        ipv6address = isAt.GetIPv6();
-        QCC_DbgHLPrintf(("IpNameServiceImpl::HandleProtocolAnswer(): Got IPv6 %s from message", ipv6address.c_str()));
-    }
-
-    uint16_t port = isAt.GetPort();
-    QCC_DbgHLPrintf(("IpNameServiceImpl::HandleProtocolAnswer(): Got port %d from message", port));
-
-    //
-    // The longest bus address we can generate is going to be the larger
-    // of an IPv4 or IPv6 address:
-    //
-    // "tcp:addr=255.255.255.255,port=65535"
-    // "tcp:addr=ffff:ffff:ffff:ffff:ffff:ffff:ffff:ffff,port=65535"
-    //
-    // or 60 characters long including the trailing '\0'
-    //
-    char addrbuf[60];
-
-    //
-    // Call back with the address we got via recvfrom unless it is overridden by the address in the
-    // message. An ipv4 address in the message overrides an ipv4 recvfrom address, an ipv6 address in
-    // the message overrides an ipv6 recvfrom address.
-    //
-    if ((address.IsIPv4() && !ipv4address.size()) || (address.IsIPv6() && !ipv6address.size())) {
-        snprintf(addrbuf, sizeof(addrbuf), "tcp:addr=%s,port=%d", recvfromAddress.c_str(), port);
-        QCC_DbgHLPrintf(("IpNameServiceImpl::HandleProtocolAnswer(): Calling back with %s", addrbuf));
-        qcc::String busAddress(addrbuf);
-
-        if (m_callback) {
-            (*m_callback)(busAddress, guid, wkn, timer);
+        if (isAt.GetIPv4Flag()) {
+            ipv4address = isAt.GetIPv4();
+            QCC_DbgHLPrintf(("IpNameServiceImpl::HandleProtocolAnswer(): Got IPv4 %s from message", ipv4address.c_str()));
         }
-    }
 
-    //
-    // If we received an IPv4 address in the message, call back with that one.
-    //
-    if (ipv4address.size()) {
-        snprintf(addrbuf, sizeof(addrbuf), "tcp:addr=%s,port=%d", ipv4address.c_str(), port);
-        QCC_DbgHLPrintf(("IpNameServiceImpl::HandleProtocolAnswer(): Calling back with %s", addrbuf));
-        qcc::String busAddress(addrbuf);
-
-        if (m_callback) {
-            (*m_callback)(busAddress, guid, wkn, timer);
+        if (isAt.GetIPv6Flag()) {
+            ipv6address = isAt.GetIPv6();
+            QCC_DbgHLPrintf(("IpNameServiceImpl::HandleProtocolAnswer(): Got IPv6 %s from message", ipv6address.c_str()));
         }
-    }
 
-    //
-    // If we received an IPv6 address in the message, call back with that one.
-    //
-    if (ipv6address.size()) {
-        snprintf(addrbuf, sizeof(addrbuf), "tcp:addr=%s,port=%d", ipv6address.c_str(), port);
-        QCC_DbgHLPrintf(("IpNameServiceImpl::HandleProtocolAnswer(): Calling back with %s", addrbuf));
+        uint16_t port = isAt.GetPort();
+        QCC_DbgHLPrintf(("IpNameServiceImpl::HandleProtocolAnswer(): Got port %d from message", port));
+
+        //
+        //
+        // Since version zero had no transport mask, the only transport that can
+        // provide a version zero message is tcp.  So, the longest bus address
+        // we can generate is going to be the larger of an IPv4 or IPv6 address:
+        //
+        // "addr=255.255.255.255,port=65535"
+        // "addr=ffff:ffff:ffff:ffff:ffff:ffff:ffff:ffff,port=65535"
+        //
+        // or 56 characters long including the trailing '\0'
+        //
+        char addrbuf[56];
+
+        //
+        // Call back with the address we got via recvfrom unless it is
+        // overridden by the address in the message. An ipv4 address in the
+        // message overrides an ipv4 recvfrom address, an ipv6 address in the
+        // message overrides an ipv6 recvfrom address.
+        //
+        // Note that we no longer prepend the transport name ("tcp:") since we
+        // got broken out of the TCP transport.  We expect the transport to do
+        // that now.
+        //
+        if ((address.IsIPv4() && !ipv4address.size())) {
+            snprintf(addrbuf, sizeof(addrbuf), "r4addr=%s,r4port=%d", recvfromAddress.c_str(), port);
+            QCC_DbgHLPrintf(("IpNameServiceImpl::HandleProtocolAnswer(): Calling back with %s", addrbuf));
+            qcc::String busAddress(addrbuf);
+
+            if (m_callback) {
+                (*m_callback)(busAddress, guid, wkn, timer);
+            }
+        }
+
+        //
+        // If we received an IPv4 address in the message, call back with that
+        // one.
+        //
+        if (ipv4address.size()) {
+            snprintf(addrbuf, sizeof(addrbuf), "r4addr=%s,r4port=%d", ipv4address.c_str(), port);
+            QCC_DbgHLPrintf(("IpNameServiceImpl::HandleProtocolAnswer(): Calling back with %s", addrbuf));
+            qcc::String busAddress(addrbuf);
+
+            if (m_callback) {
+                (*m_callback)(busAddress, guid, wkn, timer);
+            }
+        }
+
+        //
+        // If we received an IPv6 address in the message, call back with that
+        // one.
+        //
+        if (ipv6address.size()) {
+            snprintf(addrbuf, sizeof(addrbuf), "r6addr=%s,r6port=%d", ipv6address.c_str(), port);
+            QCC_DbgHLPrintf(("IpNameServiceImpl::HandleProtocolAnswer(): Calling back with %s", addrbuf));
+            qcc::String busAddress(addrbuf);
+
+            if (m_callback) {
+                (*m_callback)(busAddress, guid, wkn, timer);
+            }
+        }
+    } else if (isAt.GetVersion() == 1) {
+        //
+        // In the version one protocol, the maximum size static buffer for the
+        // longest bus address we can generate corresponds to two fully occupied
+        // IPv4 addresses and two fully occupied IPV6 addresses.  So, we figure
+        // that we need 2 X 35 == 70 bytes for the IPv4 endpoint information,
+        // 2 X 59 == 118 bytes for the IPv6 endpoint information and three extra
+        // commas:
+        //
+        //     " r4addr=192.168.100.101,r4port=65535,"
+        //     "u4ddr=192.168.100.101,u4port=65535,"
+        //     "r6addr=ffff:ffff:ffff:ffff:ffff:ffff:ffff:ffff,r6port=65535,"
+        //     "u6addr=ffff:ffff:ffff:ffff:ffff:ffff:ffff:ffff,u6port=65535"
+        //
+        // Adding a byte for the trailing '\0' we come up with 192 bytes of bus
+        // address. C++ purists will object to using the C stdio routines but
+        // they are simpler and faster since there are no memory allocations or
+        // reallocations.
+        //
+        // Note that we do not prepend the bus address with the transport name,
+        // i.e. "tcp:" since we assume that the transport knows its own name.
+        //
+        char addrbuf[192];
+        addrbuf[0] = '\0';
+
+        char addr4buf[36];
+        char addr6buf[60];
+
+        bool needComma = false;
+
+        if (isAt.GetReliableIPv4Flag()) {
+            snprintf(addrbuf, sizeof(addrbuf), "r4addr=%s,r4port=%d",
+                     isAt.GetReliableIPv4Address().c_str(), isAt.GetReliableIPv4Port());
+
+            needComma = true;
+        }
+
+        if (isAt.GetUnreliableIPv4Flag()) {
+            snprintf(addr4buf, sizeof(addr4buf), ",u4addr=%s,u4port=%d",
+                     isAt.GetUnreliableIPv4Address().c_str(), isAt.GetUnreliableIPv4Port());
+            //
+            // Okay, we carefully calculated all of our buffer sizes so we can
+            // never blow the buffer.  Why are we using strncat?  Because
+            // Klocwork will complain if we don't.
+            //
+            if (needComma) {
+                strncat(addrbuf, &addr4buf[0], sizeof(addr4buf));
+            } else {
+                strncat(addrbuf, &addr4buf[1], sizeof(addr4buf));
+            }
+
+            needComma = true;
+        }
+
+        if (isAt.GetReliableIPv6Flag()) {
+            snprintf(addr6buf, sizeof(addr6buf), ",r6addr=%s,r6port=%d",
+                     isAt.GetReliableIPv6Address().c_str(), isAt.GetReliableIPv6Port());
+            if (needComma) {
+                strncat(addrbuf, &addr6buf[0], sizeof(addr6buf));
+            } else {
+                strncat(addrbuf, &addr6buf[1], sizeof(addr6buf));
+            }
+
+            needComma = true;
+        }
+
+        if (isAt.GetUnreliableIPv6Flag()) {
+            snprintf(addr6buf, sizeof(addr6buf), ",u6addr=%s,u6port=%d",
+                     isAt.GetUnreliableIPv6Address().c_str(), isAt.GetUnreliableIPv6Port());
+            if (needComma) {
+                strncat(addrbuf, &addr6buf[0], sizeof(addr6buf));
+            } else {
+                strncat(addrbuf, &addr6buf[1], sizeof(addr6buf));
+            }
+
+            needComma = true;
+        }
+
+        //
+        // In version one of the protocol, we always call back with the
+        // addresses we find in the message.  We don't bother with the address
+        // we got in recvfrom.
+        //
         qcc::String busAddress(addrbuf);
+
+        QCC_DbgHLPrintf(("IpNameServiceImpl::HandleProtocolAnswer(): Calling back with %s", busAddress.c_str()));
 
         if (m_callback) {
             (*m_callback)(busAddress, guid, wkn, timer);
@@ -2593,9 +3092,9 @@ void IpNameServiceImpl::HandleProtocolMessage(uint8_t const* buffer, uint32_t nb
     }
 
     //
-    // We only understand version zero packets for now.
+    // We only understand version zero and one messages.
     //
-    if (header.GetVersion() != 0) {
+    if (header.GetVersion() != 0 && header.GetVersion() != 1) {
         QCC_DbgPrintf(("IpNameServiceImpl::HandleProtocolMessage(): Unknown version: Error"));
         return;
     }
@@ -2618,6 +3117,12 @@ void IpNameServiceImpl::HandleProtocolMessage(uint8_t const* buffer, uint32_t nb
     //
     for (uint8_t i = 0; i < header.GetNumberAnswers(); ++i) {
         IsAt isAt = header.GetAnswer(i);
+
+        //
+        // The version isn't actually carried in the is-at message, we have to
+        // set it from the header version before passing it off.
+        //
+        isAt.SetVersion(header.GetVersion());
         if (m_loopback || (isAt.GetGuid() != m_guid)) {
             HandleProtocolAnswer(isAt, header.GetTimer(), address);
         }

@@ -388,7 +388,7 @@ class IpNameServiceImpl : public qcc::Thread {
      * example, the tcp transport currently only supports reliable IPv4
      * connections, and so the call for this transport might be:
      *
-     *     SetEndpointsForTransport(TRANSPORT_WLAN, 9955, 0, 0, 0);
+     *     Enable(TRANSPORT_TCP, 9955, 0, 0, 0);
      *
      * The Android Compatibility Test Suite demands that an Android phone may
      * not hold an open socket in the quiescent state.  Since we provide a
@@ -595,7 +595,7 @@ class IpNameServiceImpl : public qcc::Thread {
      *
      * @return Status of the operation.  Returns ER_OK on success.
      */
-    QStatus Advertise(/* TransportMask transportMask, */ const qcc::String& wkn);
+    QStatus AdvertiseName(TransportMask transportMask, const qcc::String& wkn);
 
     /**
      * @brief Cancel an AllJoyn daemon service advertisement.
@@ -607,7 +607,7 @@ class IpNameServiceImpl : public qcc::Thread {
      *
      * @return Status of the operation.  Returns ER_OK on success.
      */
-    QStatus Cancel(const qcc::String& wkn);
+    QStatus CancelAdvertiseName(TransportMask transportMask, const qcc::String& wkn);
 
     /**
      * @internal
@@ -630,7 +630,7 @@ class IpNameServiceImpl : public qcc::Thread {
      *
      * @return Status of the operation.  Returns ER_OK on success.
      */
-    QStatus Advertise(/* TransportMask transportMask, */ std::vector<qcc::String>& wkn);
+    QStatus AdvertiseName(TransportMask transportMask, std::vector<qcc::String>& wkn);
 
     /**
      * @brief Cancel an AllJoyn daemon service advertisement.
@@ -644,7 +644,7 @@ class IpNameServiceImpl : public qcc::Thread {
      *
      * @return Status of the operation.  Returns ER_OK on success.
      */
-    QStatus Cancel(/* TransportMask transportMask, */ std::vector<qcc::String>& wkn);
+    QStatus CancelAdvertiseName(TransportMask transportMask, std::vector<qcc::String>& wkn);
 
     /**
      * @brief Returns a count of the number of names currently being advertised
@@ -780,6 +780,11 @@ class IpNameServiceImpl : public qcc::Thread {
     qcc::Mutex m_mutex;
 
     /**
+     * Send outbound name service messages out the current live interfaces.
+     */
+    void SendOutboundMessages(void);
+
+    /**
      * Main thread entry point.
      *
      * @param arg  Unused thread entry arg.
@@ -849,7 +854,6 @@ class IpNameServiceImpl : public qcc::Thread {
      * @internal
      * @brief The IPv6 address of the daemon assoicated with this instance of the
      * name service (the daemon's IPv6 address).
-
      */
     qcc::String m_ipv6address;
 
@@ -859,6 +863,66 @@ class IpNameServiceImpl : public qcc::Thread {
      * (the daemon port).
      */
     uint16_t m_port;
+
+    /**
+     * @internal
+     * @brief The IPv4 address of the transport on this daemon that is listening for
+     * reliable (TCP) inbound connections.  Not defined if the corresponding port is
+     * zero.
+     */
+    qcc::String m_reliableIPv4Address;
+
+    /**
+     * @internal
+     * @brief The port on this daemon that is listening for reliable (TCP)
+     * inbound connections over IPv4.
+     */
+    uint16_t m_reliableIPv4Port;
+
+    /**
+     * @internal
+     * @brief The IPv4 address of the transport on this daemon that is listening for
+     * unreliable (UDP) inbound connections.  Not defined if the corresponding port is
+     * zero.
+     */
+    qcc::String m_unreliableIPv4Address;
+
+    /**
+     * @internal
+     * @brief The port on this daemon that is listening for unreliable (UDP)
+     * inbound connections over IPv4.
+     */
+    uint16_t m_unreliableIPv4Port;
+
+    /**
+     * @internal
+     * @brief The IPv6 address of the transport on this daemon that is listening for
+     * reliable (TCP) inbound connections.  Not defined if the corresponding port is
+     * zero.
+     */
+    qcc::String m_reliableIPv6Address;
+
+    /**
+     * @internal
+     * @brief The port on this daemon that is listening for reliable (TCP)
+     * inbound connections over IPv6.
+     */
+    uint16_t m_reliableIPv6Port;
+
+    /**
+     * @internal
+     * @brief The IPv6 address of the transport on this daemon that is listening for
+     * unreliable (UDP) inbound connections.  Not defined if the corresponding port is
+     * zero.
+     */
+    qcc::String m_unreliableIPv6Address;
+
+    /**
+     * @internal
+     * @brief The port on this daemon that is listening for unreliable (UDP)
+     * inbound connections over IPv6.
+     */
+    uint16_t m_unreliableIPv6Port;
 
     /**
      * @internal

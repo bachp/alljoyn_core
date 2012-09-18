@@ -421,7 +421,7 @@ int main(int argc, char** argv)
     Environ* env = Environ::GetAppEnviron();
 
 #ifdef QCC_OS_GROUP_WINDOWS
-    serverArgs = env->Find("BUS_SERVER_ADDRESSES", "localhost:port=9956;tcp:addr=0.0.0.0,port=9955,family=ipv4;bluetooth:");
+    serverArgs = env->Find("BUS_SERVER_ADDRESSES", "localhost:port=9956;tcp:r4addr=0.0.0.0,r4port=9955;bluetooth:");
 #else
 
 #if defined(DAEMON_LIB)
@@ -433,12 +433,12 @@ int main(int argc, char** argv)
      * to be relaxed to 666 to make this work for everyday apps.  We also let
      * the tcp listen spec default to listening and multicasting on all
      * adapters. */
-    serverArgs = env->Find("BUS_SERVER_ADDRESSES", "unix:abstract=alljoyn;tcp:family=ipv4");
+    serverArgs = env->Find("BUS_SERVER_ADDRESSES", "unix:abstract=alljoyn;tcp:");
 #else
     if (noBT) {
-        serverArgs = env->Find("BUS_SERVER_ADDRESSES", "unix:abstract=alljoyn;tcp:addr=0.0.0.0,port=9955,family=ipv4");
+        serverArgs = env->Find("BUS_SERVER_ADDRESSES", "unix:abstract=alljoyn;tcp:r4addr=0.0.0.0,r4port=9955");
     } else {
-        serverArgs = env->Find("BUS_SERVER_ADDRESSES", "unix:abstract=alljoyn;tcp:addr=0.0.0.0,port=9955,family=ipv4;bluetooth:");
+        serverArgs = env->Find("BUS_SERVER_ADDRESSES", "unix:abstract=alljoyn;tcp:r4addr=0.0.0.0,r4port=9955;bluetooth:");
     }
 
 #endif /* DAEMON_LIB */

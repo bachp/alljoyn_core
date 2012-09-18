@@ -436,7 +436,7 @@ QStatus IpNameService::AdvertiseName(TransportMask transportMask, const qcc::Str
     }
 
     ASSERT_STATE("AdvertiseName");
-    return m_pimpl->Advertise(/* transportMask, */ wkn);
+    return m_pimpl->AdvertiseName(transportMask, wkn);
 }
 
 QStatus IpNameService::CancelAdvertiseName(TransportMask transportMask, const qcc::String& wkn)
@@ -453,7 +453,7 @@ QStatus IpNameService::CancelAdvertiseName(TransportMask transportMask, const qc
     }
 
     ASSERT_STATE("CancelAdvertiseName");
-    return m_pimpl->Cancel(/* transportMask, */ wkn);
+    return m_pimpl->CancelAdvertiseName(transportMask, wkn);
 }
 
 } // namespace ajn

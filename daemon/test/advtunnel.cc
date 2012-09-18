@@ -312,18 +312,14 @@ QStatus AdvTunnel::RelayAdv()
         }
         nsRelay[guid] = ns;
         /*
-         * Parse out address and set it on the name service
+         * Parse out the port of the reliable TCP transport mechanism and set it
+         * on the name service
          */
         std::map<qcc::String, qcc::String> argMap;
         QStatus status = Transport::ParseArguments("tcp", busAddr.c_str(), argMap);
         if (status == ER_OK) {
-            qcc::IPAddress addr(argMap["addr"]);
-            uint16_t port = static_cast<uint16_t>(qcc::StringToU32(argMap["port"]));
-            if (addr.IsIPv4()) {
-                status = ns->Enable(TRANSPORT_TCP, (uint16_t)port, 0, 0, 0);
-            } else {
-                status = ns->Enable(TRANSPORT_TCP, 0, (uint16_t)port, 0, 0);
-            }
+            uint16_t port = static_cast<uint16_t>(qcc::StringToU32(argMap["r4port"]));
+            status = ns->Enable(TRANSPORT_TCP, (uint16_t)port, 0, 0, 0);
             if (status == ER_OK) {
                 ns->OpenInterface("*");
             }
@@ -332,12 +328,12 @@ QStatus AdvTunnel::RelayAdv()
         ns = nsRelay[guid];
     }
     if (timer) {
-        status = ns->Advertise(nameList);
+        status = ns->AdvertiseName(TRANSPORT_TCP, nameList);
         if (status != ER_OK) {
             QCC_LogError(status, ("Failed to advertise relayed names"));
         }
     } else {
-        status = ns->Cancel(nameList);
+        status = ns->CancelAdvertiseName(TRANSPORT_TCP, nameList);
         if (status != ER_OK) {
             QCC_LogError(status, ("Failed to cancel relayed names"));
         }

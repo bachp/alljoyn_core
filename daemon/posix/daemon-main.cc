@@ -105,7 +105,7 @@ static const char
     "  <listen>unix:abstract=alljoyn</listen>"
     "  <listen>launchd:env=DBUS_LAUNCHD_SESSION_BUS_SOCKET</listen>"
     "  <listen>bluetooth:</listen>"
-    "  <listen>tcp:addr=0.0.0.0,port=9955,family=ipv4</listen>"
+    "  <listen>tcp:r4addr=0.0.0.0,r4port=9955</listen>"
     "  <listen>ice:</listen>"
     "  <limit name=\"auth_timeout\">5000</limit>"
     "  <limit name=\"max_incomplete_connections_tcp\">16</limit>"
