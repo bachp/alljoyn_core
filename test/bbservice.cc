@@ -348,14 +348,22 @@ class LocalTestObject : public BusObject {
             delayedResponses.insert(pair<uint64_t, DelayedResponseInfo*>(future.GetAbsoluteMillis(), respInfo));
             delayedResponseLock.Unlock(MUTEX_CONTEXT);
 
+            delayedResponseThreadLock.Lock(MUTEX_CONTEXT);
             if (!thread) {
                 thread = new DelayedResponse(lto);
                 thread->Start(NULL, thread);
             }
+            delayedResponseThreadLock.Unlock(MUTEX_CONTEXT);
 
         }
 
-        void ThreadExit(Thread* thread) { this->thread = NULL; delete thread; }
+        void ThreadExit(Thread* thread)
+        {
+            delayedResponseThreadLock.Lock(MUTEX_CONTEXT);
+            this->thread = NULL;
+            delete thread;
+            delayedResponseThreadLock.Unlock(MUTEX_CONTEXT);
+        }
 
       protected:
         ThreadReturn STDCALL Run(void* arg)
@@ -414,6 +422,7 @@ class LocalTestObject : public BusObject {
         static DelayedResponse* thread;
         static multimap<uint64_t, DelayedResponseInfo*> delayedResponses;
         static Mutex delayedResponseLock;
+        static Mutex delayedResponseThreadLock;
     };
 
 
@@ -647,6 +656,7 @@ class LocalTestObject : public BusObject {
 LocalTestObject::DelayedResponse* LocalTestObject::DelayedResponse::thread = NULL;
 multimap<uint64_t, LocalTestObject::DelayedResponse::DelayedResponseInfo*> LocalTestObject::DelayedResponse::delayedResponses;
 Mutex LocalTestObject::DelayedResponse::delayedResponseLock;
+Mutex LocalTestObject::DelayedResponse::delayedResponseThreadLock;
 
 
 
