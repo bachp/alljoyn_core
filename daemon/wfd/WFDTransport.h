@@ -473,8 +473,8 @@ class WFDTransport : public Transport, public RemoteEndpoint::EndpointListener, 
         FoundCallback(WFDTransport* transport, TransportListener*& listener) : m_transport(transport), m_listener(listener) { }
         void Found(const qcc::String& busAddr, const qcc::String& guid, std::vector<qcc::String>& nameList, uint8_t timer);
       private:
-        WFDTransport * m_transport;
-        TransportListener * &m_listener;
+        WFDTransport* m_transport;
+        TransportListener*& m_listener;
     };
 
     FoundCallback m_foundCallback;  /**< Called by IpNameService when new busses are discovered */

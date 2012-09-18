@@ -768,9 +768,9 @@ void* WFDEndpoint::AuthThread::Run(void* arg)
 
 WFDTransport::WFDTransport(BusAttachment& bus)
     : Thread("WFDTransport"), m_bus(bus), m_stopping(false), m_listener(0),
-      m_foundCallback(this, m_listener),
-      m_isAdvertising(false), m_isDiscovering(false), m_isListening(false), m_isNsEnabled(false), m_listenPort(0),
-      m_p2pHelperInterface(0), m_myP2pHelperListener(0), m_goHandle(-1)
+    m_foundCallback(this, m_listener),
+    m_isAdvertising(false), m_isDiscovering(false), m_isListening(false), m_isNsEnabled(false), m_listenPort(0),
+    m_p2pHelperInterface(0), m_myP2pHelperListener(0), m_goHandle(-1)
 {
     QCC_DbgTrace(("WFDTransport::WFDTransport()"));
     /*
