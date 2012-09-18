@@ -43,8 +43,6 @@ public class P2pReceiver extends BroadcastReceiver {
     public void onReceive(Context context, Intent intent) {
         String action = intent.getAction();
 
-        Log.d(P2pManager.TAG, "onReceive(): " + action);
-
         if (manager == null) {
             Log.d(P2pManager.TAG, "onReceive(): manager is NULL");
             return;
@@ -57,18 +55,19 @@ public class P2pReceiver extends BroadcastReceiver {
 
         if (WifiP2pManager.WIFI_P2P_STATE_CHANGED_ACTION.equals(action)) {
             int state = intent.getIntExtra(WifiP2pManager.EXTRA_WIFI_STATE, -1);
-            Log.d(P2pManager.TAG, "P2P state changed - " + state);
+            Log.d(P2pManager.TAG, "P2P State Changed - " + state);
             p2pManager.setEnabled(state == WifiP2pManager.WIFI_P2P_STATE_ENABLED);
         } else if (WifiP2pManager.WIFI_P2P_CONNECTION_CHANGED_ACTION.equals(action)) {
-            Log.d(P2pManager.TAG, "P2P connection changed");
+            Log.d(P2pManager.TAG, "P2P Connection Changed");
             p2pManager.onConnectionInfoAvailable((WifiP2pInfo) intent.getParcelableExtra(WifiP2pManager.EXTRA_WIFI_P2P_INFO));
         } else if (WifiP2pManager.WIFI_P2P_THIS_DEVICE_CHANGED_ACTION.equals(action)) {
-            Log.d(P2pManager.TAG, "This device has changed");
+            Log.d(P2pManager.TAG, "P2P This Device Changed");
             p2pManager.setDevice((WifiP2pDevice) intent.getParcelableExtra(WifiP2pManager.EXTRA_WIFI_P2P_DEVICE));
         } else if (WifiP2pManager.WIFI_P2P_DISCOVERY_CHANGED_ACTION.equals(action)) {
-            Log.d(P2pManager.TAG, "P2P discovery changed");
+            Log.d(P2pManager.TAG, "P2P Discovery Changed");
             p2pManager.discoveryChanged(intent.getIntExtra(WifiP2pManager.EXTRA_DISCOVERY_STATE, -1));
         } else if (WifiP2pManager.WIFI_P2P_PEERS_CHANGED_ACTION.equals(action)) {
+            Log.d(P2pManager.TAG, "P2P Peers Changed");
             manager.requestPeers(channel, (PeerListListener) p2pManager);
         }
     }

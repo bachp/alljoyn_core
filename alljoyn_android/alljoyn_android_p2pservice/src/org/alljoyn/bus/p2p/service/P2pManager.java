@@ -45,16 +45,32 @@ import android.util.Log;
 import android.os.Handler;
 
 enum PeerState {
-    DISCONNECTED,
-    INITIATED,
-    CONNECTING,
-    CONNECTED,
-    DISCONNECTING
+    DISCONNECTED("DISCONNECTED"),
+    INITIATED("INITIATED"),
+    CONNECTING("CONNECTING"),
+    CONNECTED("CONNECTED"),
+    DISCONNECTING("DISCONNECTING");
+    private String name;
+    private PeerState(String name) {
+        this.name = name;
+    }
+    @Override
+    public String toString() {
+        return this.name;
+    }
 }
 
 enum FindState {
-    IDLE,
-    DISCOVERING
+    IDLE("IDLE"),
+    DISCOVERING("DISCOVERING");
+    private String name;
+    private FindState(String name) {
+        this.name = name;
+    }
+    @Override
+    public String toString() {
+        return this.name;
+    }
 }
 
 public class P2pManager implements ConnectionInfoListener, DnsSdServiceResponseListener, DnsSdTxtRecordListener, PeerListListener {
@@ -248,7 +264,7 @@ public class P2pManager implements ConnectionInfoListener, DnsSdServiceResponseL
 
         mHandler.removeCallbacks(mRequestConnectionInfo);
 
-        Log.d(TAG, "Peer state: " + peerState);
+        Log.d(TAG, "peerState: " + peerState);
 
         switch (peerState) {
         case INITIATED:
@@ -361,7 +377,7 @@ public class P2pManager implements ConnectionInfoListener, DnsSdServiceResponseL
         Log.d(TAG, "onDnsSdServiceAvailable(): " + instanceName + ", " + registrationType);
 
         // There must be an pending service discovery request.
-        // If the lrequest ist is empty , the logic is broken somewhere.
+        // If the request list is empty, the logic is broken somewhere.
         if (mRequestedNames.isEmpty()) {
             Log.d(TAG, "Ignore found remote service, since there are no pending service requests");
             return;
@@ -534,9 +550,9 @@ public class P2pManager implements ConnectionInfoListener, DnsSdServiceResponseL
             mRequestedNames.add(namePrefix);
         }
 
-        // Find all AllJoyn services first.
-        // If we are in discovery mode, then we are already finding all AllJoyn services.
-        // Do not create a new request, just keep it on a serviceRequestList.
+        // Find all AllJoyn services first.  If we are already in discovery mode, then
+        // we are already finding all AllJoyn services.
+        // Do not create a new request, just keep it on RequestedNames.
         if (mFindState == FindState.DISCOVERING)
             return OK;
 
@@ -595,7 +611,7 @@ public class P2pManager implements ConnectionInfoListener, DnsSdServiceResponseL
                 continue;
 
             WifiP2pDnsSdServiceRequest serviceRequest = WifiP2pDnsSdServiceRequest.newInstance(name, "_alljoyn._tcp");
-            Log.d(TAG, "Remove service name request for" + name);
+            Log.d(TAG, "removeServiceRequest: " + name);
             manager.removeServiceRequest(channel, serviceRequest,
                                          new WifiP2pManager.ActionListener()
                                          {
@@ -628,7 +644,12 @@ public class P2pManager implements ConnectionInfoListener, DnsSdServiceResponseL
     }
 
     public void discoveryChanged(int state) {
-        Log.d(TAG, "discoveryChanged: " + state);
+        if (state == WifiP2pManager.WIFI_P2P_DISCOVERY_STARTED) {
+            Log.d(TAG, "discoveryChanged: STARTED");
+        }
+        else {
+            Log.d(TAG, "discoveryChanged: STOPPED");
+        }
 
         // TODO: Any reason to restart discovery here?
         //doDiscoverServices(true);
@@ -680,7 +701,7 @@ public class P2pManager implements ConnectionInfoListener, DnsSdServiceResponseL
                                     }
 
                                     public void onFailure(int reasonCode) {
-                                        Log.d(TAG, "AdvertiseName ( " + name + " ) fail. Reason : " + reasonCode);
+                                        Log.d(TAG, "AdvertiseName ( " + name + " ) failed: " + reasonCode);
                                         if (!mAdvertisedNames.isEmpty())
                                             mAdvertisedNames.remove(name);
                                     }
@@ -725,7 +746,7 @@ public class P2pManager implements ConnectionInfoListener, DnsSdServiceResponseL
                                     }
 
                                     public void onFailure(int reasonCode) {
-                                        Log.d(TAG, "removeLocalService (timer 0) failed: " + reasonCode);
+                                        Log.d(TAG, "addLocalService (timer 0) failed: " + reasonCode);
                                     }
                                 });
 
@@ -843,16 +864,15 @@ public class P2pManager implements ConnectionInfoListener, DnsSdServiceResponseL
                         new ActionListener()
                         {
                             public void onSuccess() {
-                                Log.d(TAG, "Connect initiated");
+                                Log.d(TAG, "connect initiated");
                                 if (peerState == PeerState.INITIATED) {
                                     setPeerState(PeerState.CONNECTING);
                                 }
-                                Log.d(TAG, "Post delayed connection info request");
                                 mHandler.postDelayed(mRequestConnectionInfo, connectionTimeout);
                             }
 
                             public void onFailure(int reasonCode) {
-                                Log.d(TAG, "Connect failed. Reason : " + reasonCode);
+                                Log.d(TAG, "connect failed: " + reasonCode);
                                 int handle = getHandle(peerConfig.deviceAddress);
                                 setPeerState(PeerState.DISCONNECTED);
                                 peerConfig = null;
@@ -879,7 +899,7 @@ public class P2pManager implements ConnectionInfoListener, DnsSdServiceResponseL
         Log.d(TAG, "releaseLink()");
 
         if (!isEnabled) {
-            Log.d(TAG, "establishLink(): P2P is OFF");
+            Log.d(TAG, "releaseLink(): P2P is OFF");
             return ERROR;
         }
 
@@ -891,13 +911,13 @@ public class P2pManager implements ConnectionInfoListener, DnsSdServiceResponseL
                                   new ActionListener()
                                   {
                                       public void onSuccess() {
-                                          Log.d(TAG, "Canceling connect");
+                                          Log.d(TAG, "cancelConnect initiated");
                                           setPeerState(PeerState.DISCONNECTED);
                                           peerConfig = null;
                                       }
 
                                       public void onFailure(int reasonCode) {
-                                          Log.d(TAG, "Remove failed. Reason : " + reasonCode);
+                                          Log.d(TAG, "cancelConnect failed: " + reasonCode);
 
                                           /* Most likely failure is if the connection completed already,
                                            * but in that case onConnectionInfoAvailable would have called
@@ -918,11 +938,11 @@ public class P2pManager implements ConnectionInfoListener, DnsSdServiceResponseL
                                 new ActionListener()
                                 {
                                     public void onSuccess() {
-                                        Log.d(TAG, "Remove initiated");
+                                        Log.d(TAG, "removeGroup initiated");
                                     }
 
                                     public void onFailure(int reasonCode) {
-                                        Log.d(TAG, "Remove failed. Reason : " + reasonCode);
+                                        Log.d(TAG, "removeGroup failed: " + reasonCode);
                                         int handle = 0;
                                         if (peerConfig != null) {
                                             handle = getHandle(peerConfig.deviceAddress);
