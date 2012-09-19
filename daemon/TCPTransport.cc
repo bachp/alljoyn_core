@@ -2281,8 +2281,22 @@ QStatus TCPTransport::NormalizeListenSpec(const char* inSpec, qcc::String& outSp
      *
      *     "tcp:r4addr=0.0.0.0,r4port=9955"
      *
-     * That's all.  Everything else, family, port, addr, u4addr, etc.,
-     * is summarily pitched.
+     * That's all.  We still allow "addr=0.0.0.0,port=9955,family=ipv4" but
+     * since the only thing that was ever allowed was really reliable IPv4, we
+     * treat addr as synonomous with r4addr, port as synonomous with r4port and
+     * ignore family.  The old stuff is normalized to the above.
+     *
+     * In the future we may want to revisit this and use position/order of keys
+     * to imply more information.  For example:
+     *
+     *     "tcp:addr=0.0.0.0,port=9955,family=ipv4,reliable=true,
+     *          addr=0.0.0.0,port=9956,family=ipv4,reliable=false;"
+     *
+     * might translate into:
+     *
+     *     "tcp:r4addr=0.0.0.0,r4port=9955,u4addr=0.0.0.0,u4port=9956;"
+     *
+     * Note the new significance of position.
      */
     QStatus status = ParseArguments(GetTransportName(), inSpec, argMap);
     if (status != ER_OK) {
@@ -2292,28 +2306,10 @@ QStatus TCPTransport::NormalizeListenSpec(const char* inSpec, qcc::String& outSp
     map<qcc::String, qcc::String>::iterator iter;
 
     /*
-     * The family, addr and port keys are deprecated since a transport can now
-     * support both IPv4 and IPv6 connections.  Log errors, but just ignore the
-     * deprecated keys.
+     * We just ignore the family since ipv4 was the only possibld working choice.
      */
     iter = argMap.find("family");
     if (iter != argMap.end()) {
-        QCC_LogError(ER_BUS_BAD_TRANSPORT_ARGS,
-                     ("TCPTransport::NormalizeListenSpec(): The key \"family\" is deprecated and ignored."));
-        argMap.erase(iter);
-    }
-
-    iter = argMap.find("addr");
-    if (iter != argMap.end()) {
-        QCC_LogError(ER_BUS_BAD_TRANSPORT_ARGS,
-                     ("TCPTransport::NormalizeListenSpec(): The key \"addr\" is deprecated and ignored."));
-        argMap.erase(iter);
-    }
-
-    iter = argMap.find("port");
-    if (iter != argMap.end()) {
-        QCC_LogError(ER_BUS_BAD_TRANSPORT_ARGS,
-                     ("TCPTransport::NormalizeListenSpec(): The key \"port\" is deprecated and ignored."));
         argMap.erase(iter);
     }
 
@@ -2379,6 +2375,24 @@ QStatus TCPTransport::NormalizeListenSpec(const char* inSpec, qcc::String& outSp
      * generated from the defaults.
      */
     iter = argMap.find("r4addr");
+    if (iter == argMap.end()) {
+        /*
+         * We have no value associated with an "r4addr" key.  Do we have an
+         * "addr" which would be synonymous?  If so, save it as an r4addr,
+         * erase it and point back to the new r4addr.
+         */
+        iter = argMap.find("addr");
+        if (iter != argMap.end()) {
+            argMap["r4addr"] = iter->second;
+            argMap.erase(iter);
+        }
+
+        iter = argMap.find("r4addr");
+    }
+
+    /*
+     * Now, deal with the r4addr, possibly replaced by addr.
+     */
     if (iter != argMap.end()) {
         /*
          * We have a value associated with the "r4addr" key.  Run it through a
@@ -2421,6 +2435,24 @@ QStatus TCPTransport::NormalizeListenSpec(const char* inSpec, qcc::String& outSp
      * generated from the defaults.
      */
     iter = argMap.find("r4port");
+    if (iter == argMap.end()) {
+        /*
+         * We have no value associated with an "r4port" key.  Do we have a
+         * "port" which would be synonymous?  If so, save it as an r4port,
+         * erase it and point back to the new r4port.
+         */
+        iter = argMap.find("port");
+        if (iter != argMap.end()) {
+            argMap["r4port"] = iter->second;
+            argMap.erase(iter);
+        }
+
+        iter = argMap.find("r4port");
+    }
+
+    /*
+     * Now, deal with the r4port, possibly replaced by port.
+     */
     if (iter != argMap.end()) {
         /*
          * We have a value associated with the "r4port" key.  Run it through a
