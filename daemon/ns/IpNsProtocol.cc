@@ -887,11 +887,15 @@ size_t IsAt::Deserialize(uint8_t const* buffer, uint32_t bufsize)
         QCC_DbgPrintf(("IsAt::Deserialize(): Count %d", numberNames));
         size += 1;
 
+        m_transportMask = (static_cast<uint16_t>(buffer[2]) << 8) | (static_cast<uint16_t>(buffer[3]) & 0xff);
+        QCC_DbgPrintf(("IsAt::Serialize(): TransportMask 0x%x", m_transportMask));
+        size += 2;
+
         //
         // From this point on, things are not at fixed addresses
         //
-        p = &buffer[2];
-        bufsize -= 2;
+        p = &buffer[4];
+        bufsize -= 4;
 
         //
         // If the R4 bit is set, we need to read off an IPv4 address and port;
@@ -1387,7 +1391,7 @@ size_t Header::GetSerializedSize(void) const
 
 size_t Header::Serialize(uint8_t* buffer) const
 {
-    QCC_DbgPrintf(("Header::Serialize(): to buffer 0x%x", buffer));
+    QCC_DbgPrintf(("Header::Serialize(): to buffer 0x%x, len=%lu", buffer, GetSerializedSize()));
     //
     // We keep track of the size so testers can check coherence between
     // GetSerializedSize() and Serialize() and Deserialize().
@@ -1488,6 +1492,7 @@ size_t Header::Deserialize(uint8_t const* buffer, uint32_t bufsize)
     uint8_t aCount = buffer[2];
     size += 1;
 
+    printf("version = %u, qCount = %u, aCount = %u\n", m_version, qCount, aCount);
     //
     // The fourth octet is the timer for the answers.
     //
@@ -1507,6 +1512,7 @@ size_t Header::Deserialize(uint8_t const* buffer, uint32_t bufsize)
     for (uint8_t i = 0; i < qCount; ++i) {
         QCC_DbgPrintf(("Header::Deserialize(): WhoHas::Deserialize() question %d", i));
         WhoHas whoHas;
+        whoHas.SetVersion(m_version);
 
         //
         // Tell the question to read itself out.  If there's not enough buffer
@@ -1530,6 +1536,7 @@ size_t Header::Deserialize(uint8_t const* buffer, uint32_t bufsize)
     for (uint8_t i = 0; i < aCount; ++i) {
         QCC_DbgPrintf(("Header::Deserialize(): IsAt::Deserialize() answer %d", i));
         IsAt isAt;
+        isAt.SetVersion(m_version);
 
         //
         // Tell the answer to read itself out.  If there's not enough buffer
