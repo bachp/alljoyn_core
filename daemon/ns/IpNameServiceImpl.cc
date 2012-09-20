@@ -1144,9 +1144,9 @@ QStatus IpNameServiceImpl::Enabled(TransportMask transportMask,
                                    uint16_t& reliableIPv4Port, uint16_t& reliableIPv6Port,
                                    uint16_t& unreliableIPv4Port, uint16_t& unreliableIPv6Port)
 {
-    reliableIPv4Port = m_port;
+    reliableIPv4Port = m_reliableIPv4Port;
     reliableIPv6Port = 0;
-    unreliableIPv4Port = 0;
+    unreliableIPv4Port = m_unreliableIPv4Port;
     unreliableIPv4Port = 0;
 
     return ER_OK;
@@ -2929,7 +2929,7 @@ void IpNameServiceImpl::HandleProtocolAnswer(IsAt isAt, uint32_t timer, qcc::IPA
         //
         // or 56 characters long including the trailing '\0'
         //
-        char addrbuf[56];
+        char addrbuf[64];
 
         //
         // Call back with the address we got via recvfrom unless it is
@@ -3117,7 +3117,6 @@ void IpNameServiceImpl::HandleProtocolMessage(uint8_t const* buffer, uint32_t nb
     //
     for (uint8_t i = 0; i < header.GetNumberAnswers(); ++i) {
         IsAt isAt = header.GetAnswer(i);
-
         //
         // The version isn't actually carried in the is-at message, we have to
         // set it from the header version before passing it off.
