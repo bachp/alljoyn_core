@@ -157,6 +157,10 @@ static QStatus ParseAttribute(const StunMessage& msg,
         attr = new StunAttributeUseCandidate();
         break;
 
+    case STUN_ATTR_ICE_CHECK_FLAG:
+        attr = new StunAttributeIceCheckFlag();
+        break;
+
     case STUN_ATTR_ICE_CONTROLLED:
         attr = new StunAttributeIceControlled();
         break;
