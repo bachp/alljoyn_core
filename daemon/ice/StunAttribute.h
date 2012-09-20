@@ -51,5 +51,6 @@
 #include <StunAttributeAllocatedXorServerReflexiveAddress.h>
 #include <StunAttributeXorPeerAddress.h>
 #include <StunAttributeXorRelayedAddress.h>
+#include <StunAttributeIceCheckFlag.h>
 
 #endif
