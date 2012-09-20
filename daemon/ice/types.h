@@ -68,8 +68,9 @@ enum StunAttrType {
     STUN_ATTR_DONT_FRAGMENT =       0x001A,  ///< Tells the TURN server to not fragment the data.
     STUN_ATTR_RESERVATION_TOKEN =   0x0022,  ///< Token referencing allocated resources on the TURN server.
 
-    STUN_ATTR_ALLOCATED_XOR_SERVER_REFLEXIVE_ADDRESS = 0x002B ///< Token specifying the allocated Server Reflexive candidate. This value is
-                                                              ///  used as a look-up key by the Server for operations over symmetric NATs.
+    STUN_ATTR_ALLOCATED_XOR_SERVER_REFLEXIVE_ADDRESS = 0x002B, ///< Token specifying the allocated Server Reflexive candidate. This value is
+                                                               ///  used as a look-up key by the Server for operations over symmetric NATs.
+    STUN_ATTR_ICE_CHECK_FLAG = 0x002C        ///< Send Indication with this attribute contains an ICE check message in the Data Attribute.
 };
 
 
