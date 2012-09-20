@@ -47,7 +47,8 @@ class ICEPacketStream : public PacketStream {
     static const uint32_t STUN_OVERHEAD = StunMessage::HEADER_SIZE + StunAttributeXorPeerAddress::ATTR_SIZE_WITH_HEADER +
                                           StunAttribute::ATTR_HEADER_SIZE + StunAttributeMessageIntegrity::ATTR_SIZE_WITH_HEADER +
                                           StunAttributeFingerprint::ATTR_SIZE_WITH_HEADER + TURN_ACCT_TOKEN_MAX_SIZE +
-                                          TURN_ACCT_TOKEN_ATTRIBUTE_HEADER_SIZE;
+                                          TURN_ACCT_TOKEN_ATTRIBUTE_HEADER_SIZE +
+                                          StunAttributeAllocatedXorServerReflexiveAddress::ATTR_SIZE_WITH_HEADER;
 
     /** Constructor */
     ICEPacketStream();
