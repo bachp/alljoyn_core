@@ -1,4 +1,4 @@
-AllJoyn Version 2.6.0 Release Notes
+AllJoyn Version 3.0.0 Release Notes
 -----------------------------------
 
 Platform Support
@@ -10,50 +10,30 @@ Platform Support
 5) Android Jelly Bean 4.1 (ARM7)
 6) Windows XP (32 bit x86)
 7) Windows 7 (32 and 64 bit x86)
+#) #### FIXME #### Windows 8 ... list of flavors (CPU and OS)
+#) #### FIXME #### iOS 6 ... OS/X 10.7 ...
 
 
 Features added in this release
 ------------------------------
 
-* Re-designed bundled daemon for improved stability and performance.
-
-* Added Unity (http://unity3d.com/) language binding for Android.
-
-* Added support for JavaScript on Linux (Chrome only at this time).
+#### FIXME #### Support for iOS, OS/X, and Windows 8.
 
 
 Issues Addressed in this Release
 --------------------------------
 
-ALLJOYN-1154: The number of names that can be advertised from a
-single AllJoyn daemon instance over TCP is no longer limited to
-1400 bytes.
-
-ALLJOYN-1217: Improved stability when using AllJoyn with four
-devices over Bluetooth.
-
-ALLJOYN-1228: Improved discovery time when using ICE / Rendezvous
-with proximity scanning service.
-
-ALLJOYN-1297: Application now receives LostAdvertisedName if WiFi is
-disabled after receiving FoundAdvertisedName.
-
-ALLJOYN-1324: ICE proximity service is now functional with the AllJoyn
-pre-installed daemon.
-
-ALLJOYN-1331: Windows 7 heap is no longer corrupted when BusAttachment is
-deleted.
+#### FIXME #### ICE stuff ...
 
 
 Known issues and limitations with this release
 ----------------------------------------------
-
-ALLJOYN-1229:  Session handling at the edge of an unreliable connected
+#### FIXME #### ALLJOYN-1229:  Session handling at the edge of an unreliable connected
 network may result in unexpected behavior.
 
-ALLJOYN-1311:  NPAPI plugin not functional on Android.
+#### FIXME #### ALLJOYN-1311:  NPAPI plugin not functional on Android.
 
-ALLJOYN-various:  AllJoyn may become unstable if an application rapidly
+#### FIXME #### ALLJOYN-various:  AllJoyn may become unstable if an application rapidly
 creates and destroys a large number of bus objects and bus attachments.
 
 
@@ -90,11 +70,15 @@ new BusAttachment.EnableConcurrentCallbacks() API.
 
 Change history
 --------------
+2.6.0 - Re-designed bundled daemon.
+
 2.5.1 - Bug fixes.
 
 2.5.0 - Support for ICE transport.  Support for Concurrent Methods/Signals.
         Added new API BusAttachment.SetLinkTimeoutAsync. Added GoogleTest
         Suite for AllJoyn core.
+
+2.3.6 - AllJoyn Extension for Unity.
 
 2.3.5 - Bug fixes.
 
