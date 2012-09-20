@@ -551,8 +551,8 @@ public class P2pManager implements ConnectionInfoListener, DnsSdServiceResponseL
 
                                       public void onFailure(int reasonCode) {
                                           Log.d(TAG, "addServiceRequest (find all AJN) failed: " + reasonCode);
-                                          synchronized (mServiceRequestList) {
-                                              mServiceRequestList.remove(namePrefix);
+                                          synchronized (mRequestedNames) {
+                                              mRequestedNames.remove(namePrefix);
                                           }
                                       }
                                   });
