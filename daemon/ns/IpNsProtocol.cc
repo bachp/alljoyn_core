@@ -1391,7 +1391,7 @@ size_t Header::GetSerializedSize(void) const
 
 size_t Header::Serialize(uint8_t* buffer) const
 {
-    QCC_DbgPrintf(("Header::Serialize(): to buffer 0x%x, len=%lu", buffer, GetSerializedSize()));
+    QCC_DbgPrintf(("Header::Serialize(): to buffer 0x%x", buffer));
     //
     // We keep track of the size so testers can check coherence between
     // GetSerializedSize() and Serialize() and Deserialize().
