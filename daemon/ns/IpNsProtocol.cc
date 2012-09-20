@@ -1492,7 +1492,6 @@ size_t Header::Deserialize(uint8_t const* buffer, uint32_t bufsize)
     uint8_t aCount = buffer[2];
     size += 1;
 
-    printf("version = %u, qCount = %u, aCount = %u\n", m_version, qCount, aCount);
     //
     // The fourth octet is the timer for the answers.
     //
