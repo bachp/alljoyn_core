@@ -56,9 +56,9 @@ ref class ProximityNameService sealed {
     friend class ProximityTransport;
     static const uint32_t MAX_PROXIMITY_ALT_ID_SIZE = 127;   /**< The Alt ID for AllJoyn. Two devices have the same Alt ID will rendezvous. The length limit is 127 unicode charaters */
     static const uint32_t MAX_DISPLAYNAME_SIZE = 49;         /**< The maximum number of unicode charaters that DisplayName property of PeerFinder allows */
-    static const uint32_t MAX_CONNECT_RETRY = 3;             /**< The number of retry when connecting to a peer */
     static const uint32_t TRANSMIT_INTERVAL = 16 * 1000;     /**< The default interval of transmitting well-known name advertisement */
     static const uint32_t DEFAULT_DURATION = (20);           /**< The default lifetime of a found well-known name */
+    static const uint32_t DEFAULT_PREASSOCIATION_TTL = 254;      /**< The default ttl used for the well-known names found during service pre-association */
 
     enum ProximState {
         PROXIM_DISCONNECTED,                                 /**< Not connected to a peer */
@@ -69,18 +69,23 @@ ref class ProximityNameService sealed {
     };
 
     struct CurrentP2PConnection {
-        ProximState state;
-        qcc::String localIp;
-        qcc::String remoteIp;
-        uint16_t localPort;
-        uint16_t remotePort;
-        qcc::String peerGuid;
+        ProximState state;                                      /**< The current state if a P2P connection exists */
+        qcc::String localIp;                                    /**< The local IPv6 address assigned when a P2P connection is created */
+        qcc::String remoteIp;                                   /**< The remote peer's IPv6 address assigned when a P2P connection is created  */
+        uint16_t localPort;                                     /**< The local port(service name) assigned when a P2P connection is created */
+        uint16_t remotePort;                                    /**< The remote port(service name) assigned when a P2P connection is created */
+        qcc::String peerGuid;                                   /**< The GUID (short version, 8 byte) of the remote peer if a P2P connection exists */
         Windows::Networking::Sockets::StreamSocket ^ socket;
         Windows::Storage::Streams::DataReader ^ dataReader;     /**< The data reader associated with the current proximity stream socket connection */
         Windows::Storage::Streams::DataWriter ^ dataWriter;     /**< The data writer associated with the current proximity stream socket connection */
-        bool socketClosed;
+        bool socketClosed;                                      /**< Indicate whether the StreamSocket corresponds to the current P2P connection is closed */
     };
 
+    /**
+     * @internal
+     * @brief Constructor.
+     * @param guid The daemon bus's 128-bit GUID string
+     */
     ProximityNameService(const qcc::String & guid);
     ~ProximityNameService();
     QStatus EstasblishProximityConnection(qcc::String guidStr);
@@ -129,9 +134,9 @@ ref class ProximityNameService sealed {
     /**
      * Reset the current proximity connection
      */
-    void Reset();
+    void ResetConnection();
     /**
-     * Reset the current proximity connection and re-browse proximity peers
+     * Reset the current proximity connection and start PeerFinder
      */
     void RestartPeerFinder();
     /**
@@ -147,8 +152,17 @@ ref class ProximityNameService sealed {
     void SetEndpoints(const qcc::String& ipv6address, const uint16_t port);
     bool IsConnected() { return m_currentP2PLink.state == PROXIM_CONNECTED; }
     ProximState GetCurrentState() { return m_currentP2PLink.state; }
+
+    /**
+     * Register to receive notification when the proximity connection is broken
+     */
     void RegisterProximityListener(ProximityListener* listener);
+
+    /**
+     * Stop receiving notification when the proximity connection is broken
+     */
     void UnRegisterProximityListener(ProximityListener* listener);
+
     /**
      * Notify the proximity listeners when the proximity connection is broken
      */
@@ -193,9 +207,9 @@ ref class ProximityNameService sealed {
     bool m_peerFinderStarted;                                     /**< Whether PeerFinder::Start() is called */
     qcc::String m_namePrefix;                                     /**< The name prefix the daemon tried to discover */
     std::set<qcc::String> m_advertised;                           /**< The well-known names the daemon advertised */
-    qcc::String m_sguid;                                          /**< The daemon GUID short string */
+    qcc::String m_sguid;                                          /**< The daemon GUID short string, 8-byte */
 
-    std::map<qcc::String, Windows::Networking::Proximity::PeerInformation ^> m_peersMap;     /**< Mapping guid to peerInformation */
+    std::map<qcc::String, Windows::Networking::Proximity::PeerInformation ^> m_peersMap;     /**< Mapping guid to PeerInformation, used for establishing P2P connection to a remote peer*/
     bool m_doDiscovery;                                           /**< Whether PeerFinder should browse peers to discover well-known name */
     qcc::Mutex m_mutex;
     uint16_t m_port;                                              /**< The port associated with the name service */

@@ -61,10 +61,11 @@ ProximityNameService::ProximityNameService(const qcc::String& guid) :
     m_currentP2PLink.remoteIp = qcc::String::Empty;
     m_currentP2PLink.localPort = 0;
     m_currentP2PLink.remotePort = 0;
+    m_currentP2PLink.peerGuid = qcc::String::Empty;
     m_currentP2PLink.socket = nullptr;
     m_currentP2PLink.dataReader = nullptr;
     m_currentP2PLink.dataWriter = nullptr;
-    m_currentP2PLink.socketClosed = false;
+    m_currentP2PLink.socketClosed = true;
     GUID128 id(guid);
     m_sguid = id.ToShortString();
 }
@@ -72,7 +73,7 @@ ProximityNameService::ProximityNameService(const qcc::String& guid) :
 ProximityNameService::~ProximityNameService()
 {
     QCC_DbgPrintf(("ProximityNameService::~ProximityNameService()"));
-    Reset();
+    ResetConnection();
     if (m_timer != nullptr) {
         m_timer->Cancel();
         delete m_timer;
@@ -103,7 +104,6 @@ bool ProximityNameService::ShouldDoDiscovery()
 void ProximityNameService::Start()
 {
     QCC_DbgPrintf(("ProximityNameService::Start()"));
-    Reset();
     Windows::Foundation::EventRegistrationToken m_token = PeerFinder::ConnectionRequested += ref new TypedEventHandler<Platform::Object ^, Windows::Networking::Proximity::ConnectionRequestedEventArgs ^>(this, \
                                                                                                                                                                                                            &ProximityNameService::ConnectionRequestedEventHandler, CallbackContext::Same);
 }
@@ -114,8 +114,7 @@ void ProximityNameService::Stop()
     if (m_tcpConnCount > 0) {
         NotifyDisconnected();
     }
-    Reset();
-    m_currentP2PLink.state = PROXIM_DISCONNECTED;
+    ResetConnection();
 
     PeerFinder::ConnectionRequested -= m_token;
 }
@@ -124,6 +123,7 @@ void ProximityNameService::ConnectionRequestedEventHandler(Platform::Object ^ se
 {
     QCC_DbgPrintf(("ProximityNameService::ConnectionRequestedEventHandler() m_currentP2PLink.state(%d)", m_currentP2PLink.state));
     if (m_currentP2PLink.state == PROXIM_CONNECTING) {
+        QCC_LogError(ER_OS_ERROR, ("Receive connection request while in PROXIM_CONNECTING state"));
         return;
     }
     auto requestingPeer = TriggeredConnectionStateChangedEventArgs->PeerInformation;
@@ -261,10 +261,11 @@ void ProximityNameService::DisableAdvertisement(vector<qcc::String>& wkns)
 void ProximityNameService::EnableDiscovery(const qcc::String& namePrefix)
 {
     QCC_DbgPrintf(("ProximityNameService::EnableDiscovery (%s)", namePrefix.c_str()));
+    assert(namePrefix.size() > 0);
     m_mutex.Lock(MUTEX_CONTEXT);
     try {
         if (IsBrowseConnectSupported()) {
-            // Only one name prefix is allowed
+            // Only one name prefix per app is allowed
             if (m_namePrefix != qcc::String::Empty) {
                 QCC_LogError(ER_FAIL, ("ProximityNameService::EnableDiscovery() Only one name prefix is allowed"));
                 m_mutex.Lock(MUTEX_CONTEXT);
@@ -384,13 +385,13 @@ void ProximityNameService::BrowsePeers()
                                           if (nameList.size() > 0) {
                                               qcc::String busAddress = "proximity:guid=";
                                               busAddress += guidStr;
-                                              (*m_callback)(busAddress, guidStr, nameList, 254);
+                                              (*m_callback)(busAddress, guidStr, nameList, DEFAULT_PREASSOCIATION_TTL);
                                               m_peersMap[guidStr] = peerInfoList->GetAt(i);
                                               foundValidPeer = true;
                                           }
                                       }
 
-                                      // stop browse peers
+                                      // stop browsing peers
                                       if (foundValidPeer) {
                                           return;
                                       }
@@ -402,7 +403,7 @@ void ProximityNameService::BrowsePeers()
                               }
 
                               if (m_doDiscovery && ((m_currentP2PLink.state == PROXIM_DISCONNECTED) || (m_currentP2PLink.state == PROXIM_BROWSING))) {
-                                  qcc::Sleep(512 + qcc::Rand16() % 1024);
+                                  qcc::Sleep(1024 + qcc::Rand32() % 1024);
                                   BrowsePeers();
                               }
                           });
@@ -411,6 +412,14 @@ void ProximityNameService::BrowsePeers()
 QStatus ProximityNameService::EstasblishProximityConnection(qcc::String guidStr)
 {
     QStatus status = ER_OK;
+    // If there is already a P2P connection established
+    if (m_currentP2PLink.state == PROXIM_CONNECTED) {
+        if (guidStr.compare(m_currentP2PLink.peerGuid) != 0) {
+            status = ER_OS_ERROR;
+            QCC_LogError(ER_OS_ERROR, ("Trying to establish P2P connection to peer (%s) while already connected to peer(%s)", m_currentP2PLink.peerGuid.c_str(), guidStr.c_str()));
+        }
+        return status;
+    }
     std::map<qcc::String, PeerInformation ^>::iterator it = m_peersMap.find(guidStr);
     if (it != m_peersMap.end()) {
         PeerInformation ^ peerInfo = it->second;
@@ -430,11 +439,7 @@ QStatus ProximityNameService::EstasblishProximityConnection(qcc::String guidStr)
             QCC_LogError(status, ("ProximityNameService::Connect Error (%s)", err.c_str()));
         }
 
-        if (status != ER_OK) {
-            m_currentP2PLink.state = PROXIM_DISCONNECTED;
-            QCC_LogError(ER_OS_ERROR, ("Connect to Peer fail DisplayName(%s)", PlatformToMultibyteString(peerInfo->DisplayName).c_str()));
-            // TODO, How to clean up?
-        } else {
+        if (status == ER_OK) {
             qcc::String rAddrStr = PlatformToMultibyteString(m_currentP2PLink.socket->Information->RemoteAddress->CanonicalName);
             size_t pos = rAddrStr.find_first_of('%');
             if (qcc::String::npos != pos) {
@@ -464,12 +469,12 @@ QStatus ProximityNameService::EstasblishProximityConnection(qcc::String guidStr)
 
 void ProximityNameService::RestartPeerFinder()
 {
-    Reset();
+    ResetConnection();
     PeerFinder::Start();
     m_peerFinderStarted = true;
 }
 
-void ProximityNameService::Reset()
+void ProximityNameService::ResetConnection()
 {
     QCC_DbgPrintf(("ProximityNameService::Reset()"));
     if (m_peerFinderStarted) {
@@ -483,8 +488,15 @@ void ProximityNameService::Reset()
             m_currentP2PLink.dataReader = nullptr;
             delete m_currentP2PLink.dataWriter;
             m_currentP2PLink.dataWriter = nullptr;
+            m_currentP2PLink.state = PROXIM_DISCONNECTED;
+            m_currentP2PLink.localIp = qcc::String::Empty;
+            m_currentP2PLink.remoteIp = qcc::String::Empty;
+            m_currentP2PLink.localPort = 0;
+            m_currentP2PLink.remotePort = 0;
+            m_currentP2PLink.peerGuid = qcc::String::Empty;
         }
     }
+    m_peersMap.clear();
 }
 
 Platform::String ^ ProximityNameService::EncodeWknAdvertisement()
@@ -584,9 +596,7 @@ void ProximityNameService::SocketError(qcc::String& errMsg)
 
     if (!m_currentP2PLink.socketClosed) {
         m_currentP2PLink.socketClosed = true;
-        delete m_currentP2PLink.socket;
-        m_currentP2PLink.socket = nullptr;
-        m_currentP2PLink.state = PROXIM_DISCONNECTED;
+        RestartPeerFinder();
         // start-over again
         if (m_doDiscovery) {
             BrowsePeers();
@@ -624,6 +634,10 @@ int32_t ProximityNameService::IncreaseOverlayTCPConnection()
 int32_t ProximityNameService::DecreaseOverlayTCPConnection() {
     --m_tcpConnCount;
     QCC_DbgPrintf(("ProximityNameService::DecreaseOverlayTCPConnection(%d)", m_tcpConnCount));
+    if (m_tcpConnCount) {
+        // tear down the connection
+        ResetConnection();
+    }
     return m_tcpConnCount;
 }
 
