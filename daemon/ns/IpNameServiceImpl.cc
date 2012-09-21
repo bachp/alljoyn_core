@@ -281,7 +281,7 @@ namespace ajn {
 //
 const char* IpNameServiceImpl::INTERFACES_WILDCARD = "*";
 
-#if 0
+#if 1
 //
 // This is the IANA assigned IPv4 multicast group for AllJoyn.  This is
 // a Local Network Control Block address.
@@ -726,7 +726,7 @@ void IpNameServiceImpl::ClearLiveInterfaces(void)
         //
         if (m_liveInterfaces[i].m_flags & qcc::IfConfigEntry::MULTICAST) {
             if (m_liveInterfaces[i].m_address.IsIPv4()) {
-#if 0
+#if 1
                 qcc::LeaveMulticastGroup(m_liveInterfaces[i].m_sockFd, qcc::QCC_AF_INET, IPV4_ALLJOYN_MULTICAST_GROUP, m_liveInterfaces[i].m_interfaceName);
 #endif
             } else if (m_liveInterfaces[i].m_address.IsIPv6()) {
@@ -1066,7 +1066,7 @@ void IpNameServiceImpl::LazyUpdateInterfaces(void)
             // Android build -- i.e., we have to do it anyway.
             //
             if (entries[i].m_family == qcc::QCC_AF_INET) {
-#if 0
+#if 1
                 status = qcc::JoinMulticastGroup(sockFd, qcc::QCC_AF_INET, IPV4_ALLJOYN_MULTICAST_GROUP, entries[i].m_name);
 #endif
             } else if (entries[i].m_family == qcc::QCC_AF_INET6) {
@@ -1850,7 +1850,7 @@ void IpNameServiceImpl::SendProtocolMessage(
         // the packet out on our IPv4 multicast groups (IANA registered and
         // legacy).
         //
-#if 0
+#if 1
         if (flags & qcc::IfConfigEntry::MULTICAST) {
             QCC_DbgPrintf(("IpNameServiceImpl::SendProtocolMessage():  Sending to IPv4 Local Network Control Block multicast group"));
             qcc::IPAddress ipv4LocalMulticast(IPV4_ALLJOYN_MULTICAST_GROUP);
@@ -1955,31 +1955,19 @@ void IpNameServiceImpl::SendOutboundMessages(void)
         // out our sundry interfaces.  who-has messages don't include any
         // source addresses, so we leave them as-is.
         //
-        // As of version one of the name service protocol, we only use IPv6
-        // to communicate since it has proved to be by far the most reliable
-        // way to get multicasts out over as many kinds of APs as possible.
+        // IP-based transports can implement four basic mechanisms for moving
+        // bits (reliable IPv4, unreliable IPv4, reliable IPv6 and unreliable
+        // IPv4), so we need to communicate addresses in the contents of the
+        // name service packets and can not rely on packet source addresses at
+        // all.
         //
-        // Since we only send IPv6 mulitcasts, and IP-based transports can
-        // implement four basic mechanisms for moving bits (reliable IPv4,
-        // unreliable IPv4, reliable IPv6 and unreliable IPv4) we need to
-        // communicate addresses in the contents of the name service packets and
-        // can not rely on packet source addresses at all.
-        //
-        // So, we walk the list of live interfaces looking for those with IPv6
-        // addresses, rewrite the messages as required and send them out.
+        // So, we walk the list of live interfaces looking for those with IPv4
+        // or IPv6 addresses, rewrite the messages as required for those
+        // interfaces and send them out.
         //
         QCC_DbgPrintf(("IpNameServiceImpl::SendOutboundMessages(): Walk interfaces"));
         for (uint32_t i = 0; (m_state == IMPL_RUNNING || m_terminal) && (i < m_liveInterfaces.size()); ++i) {
             QCC_DbgPrintf(("IpNameServiceImpl::SendOutboundMessages(): Checking out live interface %d.", i));
-
-            //
-            // Don't send anything out over interfaces with IPv4 addresses.  No
-            // IPv4 multicast and no IPv4 broadcast.  We just use IPv6
-            // multicast.
-            //
-            if (m_liveInterfaces[i].m_address.IsIPv4()) {
-                continue;
-            }
 
             //
             // Don't bother if the socket FD isn't initialized, since we
@@ -1989,37 +1977,53 @@ void IpNameServiceImpl::SendOutboundMessages(void)
 
                 QCC_DbgPrintf(("IpNameServiceImpl::SendOutboundMessages(): Interface %d. is live and IPv6", i));
 
-                qcc::IPAddress ipv6Address = m_liveInterfaces[i].m_address;
                 uint32_t interfaceAddressPrefixLen = m_liveInterfaces[i].m_prefixlen;
                 uint32_t flags = m_liveInterfaces[i].m_flags;
 
-                //
-                // Even though we don't multicast over the IPv4 address, we need to
-                // figure out what the IPv4 address of the interface is in case the
-                // transport is listening on IPv4.
-                //
-                bool haveIPv4Address = false;
                 qcc::IPAddress ipv4Address;
+                bool haveIPv4Address = m_liveInterfaces[i].m_address.IsIPv4();
+                if (haveIPv4Address) {
+                    ipv4Address = m_liveInterfaces[i].m_address;
+                }
+                bool interfaceIsIPv4 = haveIPv4Address;
+
+                qcc::IPAddress ipv6Address;
+                bool haveIPv6Address = m_liveInterfaces[i].m_address.IsIPv6();
+                if (haveIPv6Address) {
+                    ipv6Address = m_liveInterfaces[i].m_address;
+                }
+
+                //
+                // In order to get all of the information we need, if the
+                // current address is IPv4, we need to scan for an IPv6 address.
+                // If the current address is IPv6, we need to scan for an IPv4
+                // address.
+                //
                 for (uint32_t j = 0; j < m_liveInterfaces.size(); ++j) {
                     if (m_liveInterfaces[i].m_sockFd == -1 ||
                         m_liveInterfaces[j].m_interfaceName != m_liveInterfaces[i].m_interfaceName) {
                         continue;
                     }
-                    if (m_liveInterfaces[j].m_address.IsIPv4()) {
+                    if (haveIPv4Address == false && m_liveInterfaces[j].m_address.IsIPv4()) {
                         QCC_DbgPrintf(("IpNameServiceImpl::SendOutboundMessages(): Interface %d. has IPv4 counterpart %d.", i, j));
                         haveIPv4Address = true;
                         ipv4Address = m_liveInterfaces[j].m_address;
                         break;
                     }
+
+                    if (haveIPv6Address == false && m_liveInterfaces[j].m_address.IsIPv6()) {
+                        QCC_DbgPrintf(("IpNameServiceImpl::SendOutboundMessages(): Interface %d. has IPv6 counterpart %d.", i, j));
+                        haveIPv6Address = true;
+                        ipv6Address = m_liveInterfaces[j].m_address;
+                        break;
+                    }
                 }
 
                 //
-                // At this point, we are ready to multicast out an interface
-                // over IPv6 and if there is a corresponding IPv4 interface (has
-                // the same name) we know that address as well.
-                //
-                // So, we have to walk the list of answer messages and rewrite
-                // the provided addresses.
+                // At this point, we are ready to multicast out an interface and
+                // we know our IPv4 and IPv6 addresses if they exist.  Now, we
+                // have to walk the list of answer messages and rewrite the
+                // provided addresses.
                 //
                 for (uint8_t j = 0; j < header.GetNumberAnswers(); ++j) {
                     QCC_DbgPrintf(("IpNameServiceImpl::SendOutboundMessages(): Rewrite answer %d.", j));
@@ -2108,7 +2112,8 @@ void IpNameServiceImpl::SendOutboundMessages(void)
                 // we can the modified message on out the current interface.
                 //
                 QCC_DbgPrintf(("IpNameServiceImpl::SendOutboundMessages(): SendProtocolMessageg()"));
-                SendProtocolMessage(m_liveInterfaces[i].m_sockFd, ipv6Address, interfaceAddressPrefixLen, flags, false, header);
+                SendProtocolMessage(m_liveInterfaces[i].m_sockFd, ipv6Address, interfaceAddressPrefixLen, flags,
+                                    interfaceIsIPv4, header);
             }
         }
 
