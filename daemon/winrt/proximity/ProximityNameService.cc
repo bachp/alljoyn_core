@@ -31,6 +31,8 @@
 #include "ppltasks.h"
 
 #define QCC_MODULE "PROXIMITY_NAME_SERVICE"
+#define ENCODE_SHORT_GUID 1
+#define EMPTY_DISPLAY_NAME " "
 
 using namespace std;
 using namespace qcc;
@@ -45,29 +47,25 @@ using namespace Windows::System::Threading;
 
 namespace ajn {
 
-Platform::String ^ ProximityNameService::PROXIMITY_ALT_ID_ALLJOYN = L"alljoyn";
-
 ProximityNameService::ProximityNameService(const qcc::String& guid) :
-    m_requestingPeer(nullptr),
-    m_socket(nullptr),
-    m_dataReader(nullptr),
-    m_dataWriter(nullptr),
     m_timer(nullptr),
-    m_triggeredConnectSupported(false),
-    m_browseConnectSupported(false),
     m_peerFinderStarted(false),
-    m_locateStarted(false),
     m_doDiscovery(false),
-    m_socketClosed(false),
-    m_connectRetries(0),
-    m_currentState(PROXIM_DISCONNECTED),
     m_port(0),
     m_tDuration(DEFAULT_DURATION),
-    m_listenAddr(qcc::String::Empty),
+    m_namePrefix(qcc::String::Empty),
     m_tcpConnCount(0)
 {
+    m_currentP2PLink.state = PROXIM_DISCONNECTED;
+    m_currentP2PLink.localIp = qcc::String::Empty;
+    m_currentP2PLink.remoteIp = qcc::String::Empty;
+    m_currentP2PLink.localPort = 0;
+    m_currentP2PLink.remotePort = 0;
+    m_currentP2PLink.socket = nullptr;
+    m_currentP2PLink.dataReader = nullptr;
+    m_currentP2PLink.dataWriter = nullptr;
+    m_currentP2PLink.socketClosed = false;
     GUID128 id(guid);
-    m_guid = id.ToString();
     m_sguid = id.ToShortString();
 }
 
@@ -77,6 +75,7 @@ ProximityNameService::~ProximityNameService()
     Reset();
     if (m_timer != nullptr) {
         m_timer->Cancel();
+        delete m_timer;
         m_timer = nullptr;
     }
 }
@@ -91,28 +90,13 @@ void ProximityNameService::SetCallback(Callback<void, const qcc::String&, const 
 
 bool ProximityNameService::ShouldDoDiscovery()
 {
-    if (m_namePrefixs.size() == 0) {
+    if (m_namePrefix == qcc::String::Empty) {
         return false;
     }
-    if (m_namePrefixs.size() > 0 && m_advertised.size() == 0) {
+    if (m_namePrefix.size() > 0 && m_advertised.size() == 0) {
         return true;
     }
-    std::set<qcc::String>::iterator pIt =  m_namePrefixs.begin();
-    for (; pIt != m_namePrefixs.end(); pIt++) {
-        bool bMatched = false;
-        std::set<qcc::String>::iterator mIt =  m_advertised.begin();
-        for (; mIt != m_advertised.end(); mIt++) {
-            if (mIt->size() < pIt->size()) {
-                continue;
-            }
-            if (mIt->compare(0, pIt->size(), *pIt) == 0) {
-                bMatched = true;
-            }
-        }
-        if (!bMatched) {
-            return true;
-        }
-    }
+
     return false;
 }
 
@@ -131,44 +115,43 @@ void ProximityNameService::Stop()
         NotifyDisconnected();
     }
     Reset();
-    m_currentState = PROXIM_DISCONNECTED;
+    m_currentP2PLink.state = PROXIM_DISCONNECTED;
 
     PeerFinder::ConnectionRequested -= m_token;
 }
 
 void ProximityNameService::ConnectionRequestedEventHandler(Platform::Object ^ sender, ConnectionRequestedEventArgs ^ TriggeredConnectionStateChangedEventArgs)
 {
-    QCC_DbgPrintf(("ProximityNameService::ConnectionRequestedEventHandler() m_currentState(%d)", m_currentState));
-    if (m_currentState == PROXIM_CONNECTING) {
+    QCC_DbgPrintf(("ProximityNameService::ConnectionRequestedEventHandler() m_currentP2PLink.state(%d)", m_currentP2PLink.state));
+    if (m_currentP2PLink.state == PROXIM_CONNECTING) {
         return;
     }
-    m_requestingPeer = TriggeredConnectionStateChangedEventArgs->PeerInformation;
-    auto op = PeerFinder::ConnectAsync(m_requestingPeer);
+    auto requestingPeer = TriggeredConnectionStateChangedEventArgs->PeerInformation;
+    auto op = PeerFinder::ConnectAsync(requestingPeer);
 
     Concurrency::task<StreamSocket ^> connectTask(op);
     connectTask.then([this](Concurrency::task<StreamSocket ^> resultTask) {
-                         QStatus status = ER_OK;
                          try {
-                             m_socket = resultTask.get();
-                             m_socketClosed = false;
-                             m_currentState = PROXIM_CONNECTED;
-                             m_dataReader = ref new DataReader(m_socket->InputStream);
-                             m_dataWriter = ref new DataWriter(m_socket->OutputStream);
+                             m_currentP2PLink.socket = resultTask.get();
+                             m_currentP2PLink.socketClosed = false;
+                             m_currentP2PLink.state = PROXIM_CONNECTED;
+                             m_currentP2PLink.dataReader = ref new DataReader(m_currentP2PLink.socket->InputStream);
+                             m_currentP2PLink.dataWriter = ref new DataWriter(m_currentP2PLink.socket->OutputStream);
                              StartReader();
-                             qcc::String addrStr = PlatformToMultibyteString(m_socket->Information->LocalAddress->CanonicalName);
-                             size_t pos = addrStr.find_first_of('%');
+                             qcc::String loAddrStr = PlatformToMultibyteString(m_currentP2PLink.socket->Information->LocalAddress->CanonicalName);
+                             size_t pos = loAddrStr.find_first_of('%');
                              if (qcc::String::npos != pos) {
-                                 addrStr = addrStr.substr(0, pos);
+                                 loAddrStr = loAddrStr.substr(0, pos);
                              }
-                             m_listenAddr = addrStr;
+                             m_currentP2PLink.localIp = loAddrStr;
+
                              TransmitMyWKNs();
                              StartMaintainanceTimer();
                          } catch (Exception ^ e) {
-                             status = ER_FAIL;
-                             Restart();
-                             m_currentState = PROXIM_DISCONNECTED;
+                             RestartPeerFinder();
+                             m_currentP2PLink.state = PROXIM_DISCONNECTED;
                              qcc::String err = PlatformToMultibyteString(e->Message);
-                             QCC_LogError(status, ("ConnectionRequestedEventHandler ConnectAsync() Error (%s)", err.c_str()));
+                             QCC_LogError(ER_OS_ERROR, ("ConnectionRequestedEventHandler ConnectAsync() Error (%s)", err.c_str()));
                          }
                      });
 }
@@ -191,11 +174,26 @@ void ProximityNameService::EnableAdvertisement(const qcc::String& name)
     m_mutex.Lock(MUTEX_CONTEXT);
     try {
         if (IsBrowseConnectSupported()) {
-            if (!PeerFinder::AlternateIdentities->HasKey(L"Browse")) {
-                PeerFinder::AlternateIdentities->Insert(L"Browse", PROXIMITY_ALT_ID_ALLJOYN);
+            if (m_namePrefix == qcc::String::Empty) {
+                size_t pos = name.find_last_of('.');
+                if (pos != qcc::String::npos) {
+                    m_namePrefix = name.substr(0, pos);
+                    QCC_DbgPrintf(("Get name prefix (%s) from well-known name (%s)", m_namePrefix.c_str(), name.c_str()));
+                    assert(m_namePrefix.size() <= MAX_PROXIMITY_ALT_ID_SIZE);
+                    if (!PeerFinder::AlternateIdentities->HasKey(L"Browse")) {
+                        PeerFinder::AlternateIdentities->Insert(L"Browse", MultibyteToPlatformString(m_namePrefix.c_str()));
+                        QCC_DbgPrintf(("Set Alt Id (%s)", m_namePrefix.c_str()));
+                    }
+                }
+            } else {
+                if (m_namePrefix.size() >= name.size() ||
+                    name.compare(0, m_namePrefix.size(), m_namePrefix) != 0) {
+                    QCC_LogError(ER_BUS_BAD_BUS_NAME, ("ProximityNameService::EnableAdvertisement() well-known name(%s) does not match the prefix(%s)", name.c_str(), m_namePrefix.c_str()));
+                    m_mutex.Unlock(MUTEX_CONTEXT);
+                    return;
+                }
             }
-
-            m_advertised.insert(name);
+            m_advertised.insert(name.substr(m_namePrefix.size() + 1));
             m_doDiscovery = ShouldDoDiscovery();
 
             if (IsConnected()) {
@@ -244,7 +242,7 @@ void ProximityNameService::DisableAdvertisement(vector<qcc::String>& wkns)
                 return;
             }
             if (m_advertised.size() == 0) {
-                updatedName = L"NA";
+                updatedName = EMPTY_DISPLAY_NAME;
             } else {
                 updatedName = EncodeWknAdvertisement();
             }
@@ -266,38 +264,34 @@ void ProximityNameService::EnableDiscovery(const qcc::String& namePrefix)
     m_mutex.Lock(MUTEX_CONTEXT);
     try {
         if (IsBrowseConnectSupported()) {
+            // Only one name prefix is allowed
+            if (m_namePrefix != qcc::String::Empty) {
+                QCC_LogError(ER_FAIL, ("ProximityNameService::EnableDiscovery() Only one name prefix is allowed"));
+                m_mutex.Lock(MUTEX_CONTEXT);
+                return;
+            }
             qcc::String actualPrefix;
             if (namePrefix[namePrefix.size() - 1] == '*') {
-                m_namePrefixs.insert(namePrefix.substr(0, namePrefix.size() - 1));
+                m_namePrefix = namePrefix.substr(0, namePrefix.size() - 1);
             } else {
-                m_namePrefixs.insert(namePrefix);
+                m_namePrefix = namePrefix;
+            }
+
+            assert(m_namePrefix.size() <= MAX_PROXIMITY_ALT_ID_SIZE);
+            if (!PeerFinder::AlternateIdentities->HasKey(L"Browse")) {
+                PeerFinder::AlternateIdentities->Insert(L"Browse", MultibyteToPlatformString(m_namePrefix.c_str()));
+                QCC_DbgPrintf(("Set Alt Id (%s)", m_namePrefix.c_str()));
             }
 
             m_doDiscovery = ShouldDoDiscovery();
 
-            if (IsConnected()) {
-                QCC_DbgPrintf(("EnableDiscovery() already connected, Locate() Immidiately"));
-                Locate(namePrefix);
-                m_mutex.Unlock(MUTEX_CONTEXT);
-                return;
-            }
-
-            if (m_locateStarted) {
-                m_mutex.Unlock(MUTEX_CONTEXT);
-                return;
-            } else {
-                m_locateStarted = true;
-            }
-
-            if (!PeerFinder::AlternateIdentities->HasKey(L"Browse")) {
-                PeerFinder::AlternateIdentities->Insert(L"Browse", PROXIMITY_ALT_ID_ALLJOYN);
-            }
             if (!m_peerFinderStarted) {
-                PeerFinder::DisplayName = L"NA";
+                PeerFinder::DisplayName = EMPTY_DISPLAY_NAME;
                 Windows::Networking::Proximity::PeerFinder::Start();
                 m_peerFinderStarted = true;
             }
-            if (m_doDiscovery && m_currentState == PROXIM_DISCONNECTED) {
+
+            if (m_doDiscovery && m_currentP2PLink.state == PROXIM_DISCONNECTED) {
                 BrowsePeers();
             }
         }
@@ -311,8 +305,15 @@ void ProximityNameService::DisableDiscovery(const qcc::String& namePrefix)
 {
     QCC_DbgPrintf(("ProximityNameService::DisableDiscovery (%s)", namePrefix.c_str()));
     m_mutex.Lock(MUTEX_CONTEXT);
-    m_namePrefixs.erase(namePrefix);
-    m_doDiscovery = ShouldDoDiscovery();
+    if (namePrefix.compare(m_namePrefix) == 0) {
+        if (PeerFinder::AlternateIdentities->HasKey(L"Browse")) {
+            PeerFinder::AlternateIdentities->Remove(L"Browse");
+        }
+        m_namePrefix = qcc::String::Empty;
+        m_doDiscovery = ShouldDoDiscovery();
+    } else {
+        QCC_DbgPrintf(("ProximityNameService::DisableDiscovery() namePrefix(%s) does not match m_namePrefix(%s)", namePrefix.c_str(), m_namePrefix.c_str()));
+    }
     m_mutex.Unlock(MUTEX_CONTEXT);
 }
 
@@ -320,148 +321,148 @@ void ProximityNameService::BrowsePeers()
 {
     QCC_DbgPrintf(("ProximityNameService::BrowsePeers()"));
     if (!IsBrowseConnectSupported()) {
-        m_currentState = PROXIM_DISCONNECTED;
+        m_currentP2PLink.state = PROXIM_DISCONNECTED;
         return;
     }
-    m_currentState = PROXIM_BROWSING;
+    if (!m_doDiscovery) {
+        return;
+    }
+    m_currentP2PLink.state = PROXIM_BROWSING;
     auto op = PeerFinder::FindAllPeersAsync();
     Concurrency::task<IVectorView<PeerInformation ^>^> findAllPeersTask(op);
 
     findAllPeersTask.then([this](Concurrency::task<IVectorView<PeerInformation ^>^> resultTask)
                           {
                               try{
-                                  m_peerInformationList = resultTask.get();
-                                  bool foundDesiredPeer = false;
-                                  QCC_DbgPrintf(("m_peerInformationList size (%d)", m_peerInformationList->Size));
-                                  if (m_peerInformationList->Size > 0) {
+                                  auto peerInfoList = resultTask.get();
+                                  bool foundValidPeer = false;
+                                  QCC_DbgPrintf(("peerInfoList size (%d)", peerInfoList->Size));
+                                  if (peerInfoList->Size > 0) {
                                       unsigned int i = 0;
-                                      for (; i < m_peerInformationList->Size; i++) {
-                                          Platform::String ^ platStr = m_peerInformationList->GetAt(i)->DisplayName;
+                                      for (; i < peerInfoList->Size; i++) {
+                                          Platform::String ^ platStr = peerInfoList->GetAt(i)->DisplayName;
                                           qcc::String mbStr = PlatformToMultibyteString(platStr);
                                           QCC_DbgPrintf(("Peer (%d) DisplayName = (%s)", i, mbStr.c_str()));
                                           size_t startPos = 0;
-                                          if (mbStr.compare("NA") == 0) {
+                                          if (mbStr.compare(EMPTY_DISPLAY_NAME) == 0) {
                                               continue;
                                           }
 
-                                          size_t pos = mbStr.find_first_of(';');
+                                          size_t pos = mbStr.find_first_of('|');
                                           if (pos == qcc::String::npos) {
-                                              QCC_LogError(ER_OS_ERROR, ("; is expected in (%s)", mbStr.c_str()));
+                                              QCC_LogError(ER_OS_ERROR, ("separator '|' is expected in (%s)", mbStr.c_str()));
                                               continue;
                                           }
-#ifdef ENCODE_SHORT_GUID
+
                                           QCC_DbgPrintf(("Parse short GUID string"));
-                                          // short version, 48-bit (8 bytes)
+                                          // short version, 8 bytes
                                           assert(pos == GUID128::SHORT_SIZE);
                                           qcc::String guidStr = mbStr.substr(0, GUID128::SHORT_SIZE);
-                                          pos += GUID128::SHORT_SIZE;
-                                          startPos = ++pos;
-                                          pos = mbStr.find_first_of(';', startPos);
-                                          if (pos == qcc::String::npos) {
-                                              continue;
-                                          }
-
-#endif
-                                          // decode the count of well-known names
-                                          qcc::String countStr = mbStr.substr(startPos, (pos - startPos));
-                                          size_t count = atoi(countStr.c_str());
-                                          QCC_DbgPrintf(("The peer has (%d) well-known names", count));
 
                                           std::vector<qcc::String> nameList;
                                           while (true) {
                                               startPos = ++pos;
-                                              pos = mbStr.find_first_of(';', startPos);
+                                              pos = mbStr.find_first_of('|', startPos);
                                               if (pos != qcc::String::npos) {
-                                                  qcc::String wkn = mbStr.substr(startPos, (pos - startPos));
+                                                  qcc::String wkn = m_namePrefix;
+                                                  wkn += '.';
+                                                  wkn += mbStr.substr(startPos, (pos - startPos));
                                                   nameList.push_back(wkn);
-                                                  count--;
-                                                  if (MatchNamePrefix(wkn)) {
-                                                      foundDesiredPeer = true;
-                                                      break;
-                                                  }
                                               } else {
+                                                  // the last one
+                                                  if (startPos < mbStr.size()) {
+                                                      qcc::String wkn = m_namePrefix;
+                                                      wkn += '.';
+                                                      wkn += mbStr.substr(startPos);
+                                                      QCC_DbgPrintf(("name=(%s)", wkn.c_str()));
+                                                      nameList.push_back(wkn);
+                                                  }
                                                   break;
                                               }
                                           }
 
-                                          if (foundDesiredPeer) {
-                                              break;
+                                          if (nameList.size() > 0) {
+                                              qcc::String busAddress = "proximity:guid=";
+                                              busAddress += guidStr;
+                                              (*m_callback)(busAddress, guidStr, nameList, 254);
+                                              m_peersMap[guidStr] = peerInfoList->GetAt(i);
+                                              foundValidPeer = true;
                                           }
                                       }
 
-                                      PeerInformation ^ peerInfo = nullptr;
-                                      if (foundDesiredPeer) {
-                                          peerInfo = m_peerInformationList->GetAt(i);
-                                          QCC_DbgPrintf(("Connecting to Peer (%d) foundDesiredPeer(%d)", i, foundDesiredPeer));
-
-
-                                          for (m_connectRetries = 0; m_connectRetries < MAX_CONNECT_RETRY; m_connectRetries++) {
-                                              if (Connect(peerInfo) == ER_OK) {
-                                                  // if connected successfully, then stop browsing peers
-                                                  return;
-                                              }
-                                          }
-                                          // There must be something wrong happens, then restart and continue browse peers.
-                                          QCC_LogError(ER_OS_ERROR, ("Connect to Peer fail DisplayName(%s)", PlatformToMultibyteString(peerInfo->DisplayName).c_str()));
-                                          Restart();
-                                          m_currentState = PROXIM_DISCONNECTED;
+                                      // stop browse peers
+                                      if (foundValidPeer) {
+                                          return;
                                       }
                                   }
                               } catch (Exception ^ e) {
-                                  Restart();
+                                  RestartPeerFinder();
                                   qcc::String err = PlatformToMultibyteString(e->Message);
-                                  QCC_LogError(ER_OS_ERROR, ("Exception (%s) occurred while finding peer", err.c_str()));
+                                  QCC_LogError(ER_OS_ERROR, ("Exception (%s) occurred while finding peers", err.c_str()));
                               }
 
-                              if (m_doDiscovery && ((m_currentState == PROXIM_DISCONNECTED) || (m_currentState == PROXIM_BROWSING))) {
-                                  qcc::Sleep(100 + qcc::Rand16() % 512);
+                              if (m_doDiscovery && ((m_currentP2PLink.state == PROXIM_DISCONNECTED) || (m_currentP2PLink.state == PROXIM_BROWSING))) {
+                                  qcc::Sleep(512 + qcc::Rand16() % 1024);
                                   BrowsePeers();
                               }
                           });
 }
 
-QStatus ProximityNameService::Connect(PeerInformation ^ peerInfo)
+QStatus ProximityNameService::EstasblishProximityConnection(qcc::String guidStr)
 {
-    QCC_DbgPrintf(("ProximityNameService::Connect()"));
     QStatus status = ER_OK;
-    if (peerInfo == nullptr) {
-        status = ER_FAIL;
-        QCC_LogError(status, ("PeerInformation is nullptr"));
-        return status;
-    }
-    m_currentState = PROXIM_CONNECTING;
-    try {
-        auto op = PeerFinder::ConnectAsync(peerInfo);
-        Concurrency::task<StreamSocket ^> connectTask(op);
-        connectTask.wait();
-        m_socket = connectTask.get();
-    } catch (Exception ^ e) {
-        status = ER_FAIL;
-        Restart();
-        qcc::String err = PlatformToMultibyteString(e->Message);
-        QCC_LogError(status, ("ProximityNameService::Connect Error (%s)", err.c_str()));
-        return status;
-    }
-    if (status == ER_OK) {
-        m_socketClosed = false;
-        m_currentState = PROXIM_CONNECTED;
-        m_dataReader = ref new DataReader(m_socket->InputStream);
-        m_dataWriter = ref new DataWriter(m_socket->OutputStream);
-        StartReader();
-        qcc::String addrStr = PlatformToMultibyteString(m_socket->Information->LocalAddress->CanonicalName);
-        size_t pos = addrStr.find_first_of('%');
-        if (qcc::String::npos != pos) {
-            addrStr = addrStr.substr(0, pos);
+    std::map<qcc::String, PeerInformation ^>::iterator it = m_peersMap.find(guidStr);
+    if (it != m_peersMap.end()) {
+        PeerInformation ^ peerInfo = it->second;
+        assert(peerInfo != nullptr);
+        QCC_DbgPrintf(("Connecting to Peer ... "));
+
+        m_currentP2PLink.state = PROXIM_CONNECTING;
+        try {
+            auto op = PeerFinder::ConnectAsync(peerInfo);
+            Concurrency::task<StreamSocket ^> connectTask(op);
+            m_currentP2PLink.socket = connectTask.get();
+            m_currentP2PLink.peerGuid = guidStr;
+        } catch (Exception ^ e) {
+            status = ER_PROXIMITY_CONNECTION_ESTABLISH_FAIL;
+            RestartPeerFinder();
+            qcc::String err = PlatformToMultibyteString(e->Message);
+            QCC_LogError(status, ("ProximityNameService::Connect Error (%s)", err.c_str()));
         }
-        m_listenAddr = addrStr;
-        TransmitMyWKNs();
-        StartMaintainanceTimer();
+
+        if (status != ER_OK) {
+            m_currentP2PLink.state = PROXIM_DISCONNECTED;
+            QCC_LogError(ER_OS_ERROR, ("Connect to Peer fail DisplayName(%s)", PlatformToMultibyteString(peerInfo->DisplayName).c_str()));
+            // TODO, How to clean up?
+        } else {
+            qcc::String rAddrStr = PlatformToMultibyteString(m_currentP2PLink.socket->Information->RemoteAddress->CanonicalName);
+            size_t pos = rAddrStr.find_first_of('%');
+            if (qcc::String::npos != pos) {
+                rAddrStr = rAddrStr.substr(0, pos);
+            }
+            m_currentP2PLink.remoteIp = rAddrStr;
+            qcc::String loAddrStr = PlatformToMultibyteString(m_currentP2PLink.socket->Information->LocalAddress->CanonicalName);
+            pos = loAddrStr.find_first_of('%');
+            if (qcc::String::npos != pos) {
+                loAddrStr = loAddrStr.substr(0, pos);
+            }
+            m_currentP2PLink.localIp = rAddrStr;
+            m_currentP2PLink.state = PROXIM_CONNECTED;
+            m_currentP2PLink.socketClosed = false;
+            m_currentP2PLink.dataReader = ref new DataReader(m_currentP2PLink.socket->InputStream);
+            m_currentP2PLink.dataWriter = ref new DataWriter(m_currentP2PLink.socket->OutputStream);
+            StartReader();
+            TransmitMyWKNs();
+            StartMaintainanceTimer();
+        }
+    } else {
+        status = ER_PROXIMITY_NO_PEERS_FOUND;
     }
 
     return status;
 }
 
-void ProximityNameService::Restart()
+void ProximityNameService::RestartPeerFinder()
 {
     Reset();
     PeerFinder::Start();
@@ -474,13 +475,14 @@ void ProximityNameService::Reset()
     if (m_peerFinderStarted) {
         PeerFinder::Stop();
         m_peerFinderStarted = false;
-        if (m_socket != nullptr) {
-            m_socketClosed = true;
-            delete m_socket;
-            m_socket = nullptr;
-            m_dataReader = nullptr;
-            m_dataWriter = nullptr;
-            m_listenAddr = qcc::String::Empty;
+        if (m_currentP2PLink.socket != nullptr) {
+            m_currentP2PLink.socketClosed = true;
+            delete m_currentP2PLink.socket;
+            m_currentP2PLink.socket = nullptr;
+            delete m_currentP2PLink.dataReader;
+            m_currentP2PLink.dataReader = nullptr;
+            delete m_currentP2PLink.dataWriter;
+            m_currentP2PLink.dataWriter = nullptr;
         }
     }
 }
@@ -488,23 +490,15 @@ void ProximityNameService::Reset()
 Platform::String ^ ProximityNameService::EncodeWknAdvertisement()
 {
     qcc::String encodedStr;
-#ifdef ENCODE_SHORT_GUID
-    QCC_DbgPrintf(("Encode short GUID string"));
+    QCC_DbgPrintf(("ProximityNameService::EncodeWknAdvertisement() guid(%s) name size(%d)", m_sguid.c_str(), m_advertised.size()));
     encodedStr.append(m_sguid);
-    encodedStr.append(";");
-#endif
-    // encode the number of local well-known names
-    uint8_t nWkns = m_advertised.size();
-    char buf[12];
-    snprintf(buf, 12, "%d;", nWkns);
-    encodedStr.append(buf);
-
-    assert(encodedStr.size() <= MAX_DISPLAYNAME_SIZE);
+    assert((encodedStr.size() + 1) <= MAX_DISPLAYNAME_SIZE);
+    assert(m_advertised.size() > 0);
     std::set<qcc::String>::iterator it = m_advertised.begin();
-    while (it != m_advertised.end()) {
-        if ((encodedStr.size() + it->size() + 1) <= MAX_DISPLAYNAME_SIZE) {
+    while (encodedStr.size() < MAX_DISPLAYNAME_SIZE && it != m_advertised.end()) {
+        encodedStr.append("|");
+        if ((encodedStr.size() + it->size()) <= MAX_DISPLAYNAME_SIZE) {
             encodedStr.append(*it);
-            encodedStr.append(";");
             it++;
         } else {
             break;
@@ -512,19 +506,6 @@ Platform::String ^ ProximityNameService::EncodeWknAdvertisement()
     }
     Platform::String ^ platformStr = MultibyteToPlatformString(encodedStr.c_str());
     return platformStr;
-}
-
-bool ProximityNameService::MatchNamePrefix(qcc::String wkn)
-{
-    bool result = false;
-    std::set<qcc::String>::iterator it = m_namePrefixs.begin();
-    for (; it != m_namePrefixs.end(); it++) {
-        if (wkn.compare(0, it->size(), *it) == 0) {
-            result = true;
-            break;
-        }
-    }
-    return result;
 }
 
 void ProximityNameService::StartMaintainanceTimer()
@@ -546,21 +527,21 @@ void ProximityNameService::TimerCallback(Windows::System::Threading::ThreadPoolT
 void ProximityNameService::StartReader()
 {
     QCC_DbgPrintf(("ProximityNameService::StartReader()"));
-    Concurrency::task<unsigned int> loadTask(m_dataReader->LoadAsync(sizeof(unsigned int)));
+    Concurrency::task<unsigned int> loadTask(m_currentP2PLink.dataReader->LoadAsync(sizeof(unsigned int)));
     loadTask.then([this](Concurrency::task<unsigned int> stringBytesTask)
                   {
                       try{
                           unsigned int bytesRead = stringBytesTask.get();
                           if (bytesRead > 0) {
-                              unsigned int nbytes = (unsigned int)m_dataReader->ReadUInt32();
-                              Concurrency::task<unsigned int> loadStringTask(m_dataReader->LoadAsync(nbytes));
+                              unsigned int nbytes = (unsigned int)m_currentP2PLink.dataReader->ReadUInt32();
+                              Concurrency::task<unsigned int> loadStringTask(m_currentP2PLink.dataReader->LoadAsync(nbytes));
                               loadStringTask.then([this, nbytes](Concurrency::task<unsigned int> resultTask) {
                                                       try{
                                                           unsigned int bytesRead = resultTask.get();
                                                           if (bytesRead > 0) {
                                                               Platform::Array<unsigned char> ^ buffer = ref new Platform::Array<unsigned char>(nbytes);
-                                                              m_dataReader->ReadBytes(buffer);
-                                                              qcc::String addrStr = PlatformToMultibyteString(m_socket->Information->RemoteAddress->CanonicalName);
+                                                              m_currentP2PLink.dataReader->ReadBytes(buffer);
+                                                              qcc::String addrStr = PlatformToMultibyteString(m_currentP2PLink.socket->Information->RemoteAddress->CanonicalName);
                                                               size_t pos = addrStr.find_first_of('%');
                                                               if (qcc::String::npos != pos) {
                                                                   addrStr = addrStr.substr(0, pos);
@@ -573,7 +554,7 @@ void ProximityNameService::StartReader()
                                                               SocketError(err);
                                                           }
                                                       }catch (Exception ^ e) {
-                                                          if (!m_socketClosed) {
+                                                          if (!m_currentP2PLink.socketClosed) {
                                                               qcc::String err = "Failed to read from socket: ";
                                                               err += PlatformToMultibyteString(e->Message).c_str();
                                                               SocketError(err);
@@ -585,7 +566,7 @@ void ProximityNameService::StartReader()
                               SocketError(err);
                           }
                       }catch (Exception ^ e) {
-                          if (!m_socketClosed) {
+                          if (!m_currentP2PLink.socketClosed) {
                               qcc::String err = "Failed to read from socket: ";
                               err += PlatformToMultibyteString(e->Message).c_str();
                               SocketError(err);
@@ -601,27 +582,24 @@ void ProximityNameService::SocketError(qcc::String& errMsg)
         NotifyDisconnected();
     }
 
-    if (!m_socketClosed) {
-        m_socketClosed = true;
-        delete m_socket;
-        m_socket = nullptr;
-        m_listenAddr = qcc::String::Empty;
-        m_currentState = PROXIM_DISCONNECTED;
+    if (!m_currentP2PLink.socketClosed) {
+        m_currentP2PLink.socketClosed = true;
+        delete m_currentP2PLink.socket;
+        m_currentP2PLink.socket = nullptr;
+        m_currentP2PLink.state = PROXIM_DISCONNECTED;
         // start-over again
         if (m_doDiscovery) {
             BrowsePeers();
         }
     }
-
-    // TODO Should re-browser peers for connection?
 }
 
 QStatus ProximityNameService::GetEndpoints(qcc::String& ipv6address, uint16_t& port)
 {
     QCC_DbgPrintf(("ProximityNameService::GetEndpoints()"));
     QStatus status = ER_OK;
-    if (!m_listenAddr.empty()) {
-        ipv6address = m_listenAddr;
+    if (!m_currentP2PLink.localIp.empty()) {
+        ipv6address = m_currentP2PLink.localIp;
         port = m_port;
     } else {
         status = ER_FAIL;
@@ -670,6 +648,21 @@ void ProximityNameService::NotifyDisconnected()
     }
 }
 
+bool ProximityNameService::GetPeerConnectSpec(const qcc::String guid, qcc::String& connectSpec)
+{
+    assert(m_currentP2PLink.peerGuid == guid);
+    if (m_currentP2PLink.state == PROXIM_CONNECTED) {
+        char addrbuf[70];
+        snprintf(addrbuf, sizeof(addrbuf), "proximity:addr=%s,port=%d", m_currentP2PLink.remoteIp.c_str(), m_port);
+        connectSpec = addrbuf;
+        return true;
+    } else {
+        QCC_LogError(ER_OS_ERROR, ("No valid P2P link available"));
+    }
+
+    return false;
+}
+
 extern bool IpNameServiceImplWildcardMatch(qcc::String str, qcc::String pat);
 
 void ProximityNameService::Locate(const qcc::String& namePrefix)
@@ -697,8 +690,8 @@ void ProximityNameService::Locate(const qcc::String& namePrefix)
 
 void ProximityNameService::TransmitMyWKNs(void)
 {
-    QCC_DbgPrintf(("ProximityNameService::TransmitMyWKNs() m_currentState(%d)", m_currentState));
-    if (m_currentState != PROXIM_CONNECTED) {
+    QCC_DbgPrintf(("ProximityNameService::TransmitMyWKNs() m_currentP2PLink.state(%d)", m_currentP2PLink.state));
+    if (m_currentP2PLink.state != PROXIM_CONNECTED) {
         return;
     }
     //
@@ -729,7 +722,7 @@ void ProximityNameService::TransmitMyWKNs(void)
     //
     // Always send the provided daemon GUID out with the reponse.
     //
-    isAt.SetGuid(m_guid);
+    isAt.SetGuid(m_sguid);
 
     //
     // Send a protocol message describing the entire (complete) list of names
@@ -766,15 +759,15 @@ void ProximityNameService::TransmitMyWKNs(void)
 void ProximityNameService::SendProtocolMessage(Header& header)
 {
     QCC_DbgPrintf(("ProximityNameService::SendProtocolMessage()"));
-    if (!m_socketClosed && m_socket != nullptr && m_dataWriter != nullptr) {
+    if (!m_currentP2PLink.socketClosed && m_currentP2PLink.socket != nullptr && m_currentP2PLink.dataWriter != nullptr) {
         size_t size = header.GetSerializedSize();
         uint8_t* buffer = new uint8_t[size];
         header.Serialize(buffer);
         Platform::Array<unsigned char>^ byteArry = ref new Platform::Array<unsigned char>(buffer, size);
-        m_dataWriter->WriteUInt32(size);
-        m_dataWriter->WriteBytes(byteArry);
+        m_currentP2PLink.dataWriter->WriteUInt32(size);
+        m_currentP2PLink.dataWriter->WriteBytes(byteArry);
 
-        concurrency::task<unsigned int> storeTask(m_dataWriter->StoreAsync());
+        concurrency::task<unsigned int> storeTask(m_currentP2PLink.dataWriter->StoreAsync());
         storeTask.then([this](concurrency::task<unsigned int> resultTask)
                        {
                            try {
@@ -790,7 +783,7 @@ void ProximityNameService::SendProtocolMessage(Header& header)
                            }
                        });
     } else {
-        QCC_DbgPrintf(("ProximityNameService::SendProtocolMessage m_socketClosed(%d) m_socket(%p) m_dataWriter(%p)", m_socketClosed, m_socket, m_dataWriter));
+        QCC_DbgPrintf(("ProximityNameService::SendProtocolMessage m_currentP2PLink.socketClosed(%d) m_currentP2PLink.socket(%p) m_currentP2PLink.dataWriter(%p)", m_currentP2PLink.socketClosed, m_currentP2PLink.socket, m_currentP2PLink.dataWriter));
     }
 }
 

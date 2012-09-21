@@ -47,6 +47,10 @@
 #include "DaemonICETransport.h"
 #endif
 
+#if defined(QCC_OS_WINRT)
+#include "ProximityTransport.h"
+#endif
+
 #define QCC_MODULE "ALLJOYN_DAEMON"
 
 using namespace qcc;
@@ -78,6 +82,9 @@ static const char bundledConfig[] =
     "    <property protocol=\"HTTPS\"/>"
     "    <property enable_ipv6=\"false\"/>"
     "  </ice_discovery_manager>"
+#endif
+#if defined(QCC_OS_WINRT)
+    "  <listen>proximity:addr=0::0,port=0,family=ipv6</listen>"
 #endif
     "</busconfig>";
 
@@ -269,6 +276,9 @@ QStatus BundledDaemon::Start(NullTransport* nullTransport)
             Add(new TransportFactory<TCPTransport>(TCPTransport::TransportName, false));
 #if defined(QCC_OS_ANDROID) || defined(QCC_OS_LINUX) || defined(QCC_OS_DARWIN) || defined(QCC_OS_WINRT)
             Add(new TransportFactory<DaemonICETransport>(DaemonICETransport::TransportName, false));
+#endif
+#if defined(QCC_OS_WINRT)
+            Add(new TransportFactory<ProximityTransport>(ProximityTransport::TransportName, false));
 #endif
             transportsInitialized = true;
         }

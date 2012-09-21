@@ -1804,9 +1804,9 @@ QStatus ProximityTransport::NormalizeTransportSpec(const char* inSpec, qcc::Stri
     return ER_OK;
 }
 
-QStatus ProximityTransport::Connect(const char* connectSpec, const SessionOpts& opts, BusEndpoint** newep)
+QStatus ProximityTransport::Connect(const char* connSpec, const SessionOpts& opts, BusEndpoint** newep)
 {
-    QCC_DbgHLPrintf(("ProximityTransport::Connect(): %s", connectSpec));
+    QCC_DbgHLPrintf(("ProximityTransport::Connect(): %s", connSpec));
 
     QStatus status;
     bool isConnected = false;
@@ -1836,16 +1836,30 @@ QStatus ProximityTransport::Connect(const char* connectSpec, const SessionOpts& 
      * deleted after it is joined, we must have a valid name service or someone
      * isn't playing by the rules; so an assert is appropriate here.
      */
+    qcc::String connectSpec = connSpec;
     assert(m_pns != nullptr);
+    map<qcc::String, qcc::String> argMap;
+    ParseArguments("proximity", connSpec, argMap);
+    if (argMap.find("guid") != argMap.end()) {
+        status = m_pns->EstasblishProximityConnection(argMap["guid"]);
+        if (status == ER_OK) {
+            if (!m_pns->GetPeerConnectSpec(argMap["guid"], connectSpec)) {
+                status = ER_OS_ERROR;
+            }
+        }
+    }
+    if (status != ER_OK) {
+        return status;
+    }
 
+    argMap.clear();
     /*
      * Parse and normalize the connectArgs.  When connecting to the outside
      * world, there are no reasonable defaults and so the addr and port keys
      * MUST be present.
      */
     qcc::String normSpec;
-    map<qcc::String, qcc::String> argMap;
-    status = NormalizeTransportSpec(connectSpec, normSpec, argMap);
+    status = NormalizeTransportSpec(connectSpec.c_str(), normSpec, argMap);
     if (ER_OK != status) {
         QCC_LogError(status, ("ProximityTransport::Connect(): Invalid proximity connect spec \"%s\"", connectSpec));
         return status;
@@ -2821,27 +2835,6 @@ void ProximityTransport::FoundCallback::Found(const qcc::String& busAddr, const 
      * XXX Currently this transport has no clue how to handle an advertised
      * IPv6 address so we filter them out.  We should support IPv6.
      */
-    String a("addr=");
-    String p(",port=");
-
-    size_t i = busAddr.find(a);
-    if (i == String::npos) {
-        return;
-    }
-    i += a.size();
-
-    size_t j = busAddr.find(p);
-    if (j == String::npos) {
-        return;
-    }
-
-    String s = busAddr.substr(i, j - i);
-
-    IPAddress addr;
-    QStatus status = addr.SetAddress(s);
-    if (status != ER_OK) {
-        return;
-    }
 
     if (m_listener) {
         m_listener->FoundNames(busAddr, guid, TRANSPORT_PROXIMITY, &nameList, timer);
