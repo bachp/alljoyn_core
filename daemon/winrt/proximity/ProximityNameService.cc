@@ -54,7 +54,7 @@ ProximityNameService::ProximityNameService(const qcc::String& guid) :
     m_port(0),
     m_tDuration(DEFAULT_DURATION),
     m_namePrefix(qcc::String::Empty),
-    m_tcpConnCount(0)
+    m_connRefCount(0)
 {
     m_currentP2PLink.state = PROXIM_DISCONNECTED;
     m_currentP2PLink.localIp = qcc::String::Empty;
@@ -111,11 +111,9 @@ void ProximityNameService::Start()
 void ProximityNameService::Stop()
 {
     QCC_DbgPrintf(("ProximityNameService::Stop()"));
-    if (m_tcpConnCount > 0) {
-        NotifyDisconnected();
-    }
     ResetConnection();
-
+    NotifyDisconnected();
+    m_connRefCount = 0;
     PeerFinder::ConnectionRequested -= m_token;
 }
 
@@ -590,9 +588,8 @@ void ProximityNameService::StartReader()
 void ProximityNameService::SocketError(qcc::String& errMsg)
 {
     QCC_LogError(ER_FAIL, ("ProximityNameService::SocketError (%s)", errMsg.c_str()));
-    if (m_tcpConnCount > 0) {
-        NotifyDisconnected();
-    }
+    NotifyDisconnected();
+    m_connRefCount = 0;
 
     if (!m_currentP2PLink.socketClosed) {
         m_currentP2PLink.socketClosed = true;
@@ -626,19 +623,18 @@ void ProximityNameService::SetEndpoints(const qcc::String& ipv6address, const ui
 
 int32_t ProximityNameService::IncreaseOverlayTCPConnection()
 {
-    ++m_tcpConnCount;
-    QCC_DbgPrintf(("ProximityNameService::IncreaseOverlayTCPConnection(%d)", m_tcpConnCount));
-    return m_tcpConnCount;
+    IncrementAndFetch(&m_connRefCount);
+    QCC_DbgPrintf(("ProximityNameService::IncreaseOverlayTCPConnection(%d)", m_connRefCount));
+    return m_connRefCount;
 }
 
 int32_t ProximityNameService::DecreaseOverlayTCPConnection() {
-    --m_tcpConnCount;
-    QCC_DbgPrintf(("ProximityNameService::DecreaseOverlayTCPConnection(%d)", m_tcpConnCount));
-    if (m_tcpConnCount) {
-        // tear down the connection
+    QCC_DbgPrintf(("ProximityNameService::DecreaseOverlayTCPConnection(%d)", m_connRefCount));
+    if (DecrementAndFetch(&m_connRefCount) == 0) {
+        // tear down the P2P connection
         ResetConnection();
     }
-    return m_tcpConnCount;
+    return m_connRefCount;
 }
 
 void ProximityNameService::RegisterProximityListener(ProximityListener* listener)

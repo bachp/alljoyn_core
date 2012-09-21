@@ -214,7 +214,7 @@ ref class ProximityNameService sealed {
     qcc::Mutex m_mutex;
     uint16_t m_port;                                              /**< The port associated with the name service */
     uint32_t m_tDuration;                                         /**< The lifetime of a found advertised well-known nmae */
-    int32_t m_tcpConnCount;                                       /**< Number of overlay TCP connections that depend on current proximity connection */
+    volatile mutable int32_t m_connRefCount;                      /**< Number of overlay TCP connections that depend on current proximity connection */
     std::list<ProximityListener*> m_listeners;                    /**< List of ProximityListeners */
     CurrentP2PConnection m_currentP2PLink;
 };

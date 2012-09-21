@@ -549,7 +549,7 @@ QStatus ProximityTransport::Start()
     m_pns = ref new ProximityNameService(guidStr);
     assert(m_pns != nullptr);
     m_pns->Start();
-
+    m_pns->RegisterProximityListener(this);
     m_stopping = false;
 
     /*
@@ -639,6 +639,7 @@ QStatus ProximityTransport::Stop(void)
      */
     if (m_pns != nullptr) {
         m_pns->Stop();
+        m_pns->UnRegisterProximityListener(this);
     }
 
     return ER_OK;
