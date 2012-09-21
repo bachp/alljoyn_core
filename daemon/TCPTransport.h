@@ -624,7 +624,9 @@ class TCPTransport : public Transport, public RemoteEndpoint::EndpointListener, 
     bool m_isListening;
     bool m_isNsEnabled;
 
-    uint16_t m_listenPort;  /**< If m_isListening, is the port on which we are listening */
+    uint16_t m_listenPort;     /**< If m_isListening, is the port on which we are listening */
+
+    int32_t m_nsReleaseCount; /**< the number of times we have released the name service singleton */
 };
 
 } // namespace ajn

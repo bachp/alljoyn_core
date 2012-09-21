@@ -769,7 +769,8 @@ void* TCPEndpoint::AuthThread::Run(void* arg)
 TCPTransport::TCPTransport(BusAttachment& bus)
     : Thread("TCPTransport"), m_bus(bus), m_stopping(false), m_listener(0),
     m_foundCallback(m_listener),
-    m_isAdvertising(false), m_isDiscovering(false), m_isListening(false), m_isNsEnabled(false), m_listenPort(0)
+    m_isAdvertising(false), m_isDiscovering(false), m_isListening(false), m_isNsEnabled(false),
+    m_listenPort(0), m_nsReleaseCount(0)
 {
     QCC_DbgTrace(("TCPTransport::TCPTransport()"));
     /*
@@ -885,7 +886,14 @@ QStatus TCPTransport::Start()
      * name service for our advertisement and discovery work.  When we acquire
      * the name service, we are basically bumping a reference count and starting
      * it if required.
+     *
+     * Start() will legally be called exactly once, but Stop() and Join() may be called
+     * multiple times.  Since we are essentially reference counting the name service
+     * singleton, we can only call Release() on it once.  So we have a release count
+     * variable that allows us to only release the singleton on the first transport
+     * Join()
      */
+    m_nsReleaseCount = 0;
     IpNameService::Instance().Acquire(guidStr);
 
     /*
@@ -991,8 +999,14 @@ QStatus TCPTransport::Join(void)
      * and it may shut down if we were the last transport.  This release can
      * be thought of as a reference counted Stop()/Join() so it is appropriate
      * to make it here since we are expecting the possibility of blocking.
+     *
+     * Since it is reference counted, we can't just call it willy-nilly.  We
+     * have to be careful since our Join() can be called multiple times.
      */
-    IpNameService::Instance().Release();
+    int count = qcc::IncrementAndFetch(&m_nsReleaseCount);
+    if (count == 1) {
+        IpNameService::Instance().Release();
+    }
 
     /*
      * A required call to Stop() that needs to happen before this Join will ask
@@ -3189,7 +3203,7 @@ void TCPTransport::DoStartListen(qcc::String& normSpec)
          */
         if (ephemeralPort) {
             qcc::GetLocalAddress(listenFd, listenAddr, listenPort);
-            normSpec = "tcp:addr=" + argMap["r4addr"] + "," ",r4port=" + U32ToString(listenPort);
+            normSpec = "tcp:r4addr=" + argMap["r4addr"] + ",r4port=" + U32ToString(listenPort);
         }
         status = qcc::Listen(listenFd, MAX_LISTEN_CONNECTIONS);
         if (status == ER_OK) {
