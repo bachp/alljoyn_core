@@ -487,9 +487,13 @@ IpNameServiceImpl::~IpNameServiceImpl()
     }
 
     //
-    // We may have some open sockets.
+    // We may have some open sockets.  Windows boxes may have Winsock shut down
+    // by the time we get to this destructor so we are out of luck trying to
+    // make the necessary calls.
     //
+#if !defined(QCC_OS_GROUP_WINDOWS)
     ClearLiveInterfaces();
+#endif
 
     //
     // We can just blow away the requested interfaces without a care.
