@@ -313,7 +313,7 @@ QStatus LocalEndpoint::PeerInterface(Message& message)
 }
 
 LocalEndpoint::Dispatcher::Dispatcher(LocalEndpoint* endpoint) :
-    Timer("lepDisp", true, 4, true),
+    Timer("lepDisp", true, 4, true, 10),
     AlarmListener(),
     endpoint(endpoint)
 {
