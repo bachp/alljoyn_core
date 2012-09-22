@@ -245,6 +245,8 @@ QStatus RemoteEndpoint::Join(void)
         }
     }
 
+    started = false;
+
     return ER_OK;
 }
 
