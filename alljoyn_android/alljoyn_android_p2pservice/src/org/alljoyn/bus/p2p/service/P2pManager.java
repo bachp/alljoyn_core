@@ -84,6 +84,7 @@ public class P2pManager implements ConnectionInfoListener, DnsSdServiceResponseL
 
     private ArrayList <String> mServiceRequestList;
     private ArrayList <String> mRequestedNames;
+    private ArrayList <String> mAdvertisedNames;
 
     private class FoundServiceInfo {
         public String name;
@@ -125,10 +126,8 @@ public class P2pManager implements ConnectionInfoListener, DnsSdServiceResponseL
 
         mServiceRequestList = new ArrayList<String>();
         mRequestedNames = new ArrayList<String>();
+        mAdvertisedNames = new ArrayList<String>();
         mDeviceServices = new HashMap<String, ArrayList<FoundServiceInfo> >();
-
-        // Can only connect while discovering peers or services
-        //manager.discoverPeers(channel, null);
 
         //Object groupApprover = DialogListenerProxy.newDialogListener(manager, channel);
         //DialogListenerProxy.setDialogListener(manager, channel, groupApprover);
@@ -137,14 +136,15 @@ public class P2pManager implements ConnectionInfoListener, DnsSdServiceResponseL
 
         mPeriodicPeerFind = new Runnable() {
             public void run() {
-                if (!isEnabled || manager == null || channel == null /* || (mFindState == FindState.IDLE && not discovering)*/) {
+                if (!isEnabled || manager == null || channel == null) {
                     return;
                 }
 
                 manager.discoverPeers(channel, null);
 
-                Log.d(TAG, "Keep P2P find alive");
-                mHandler.postDelayed(mPeriodicPeerFind, periodicInterval);
+                // Repost every 2 minutes
+                // (corresponds to hardcoded peer discovery timeout in frameworks)
+                mHandler.postDelayed(mPeriodicPeerFind, 120000);
             }
         };
 
@@ -190,6 +190,7 @@ public class P2pManager implements ConnectionInfoListener, DnsSdServiceResponseL
     public void shutdown() {
         mHandler.removeCallbacks(mPeriodicDiscovery);
         mHandler.removeCallbacks(mRequestConnectionInfo);
+        mHandler.removeCallbacks(mPeriodicPeerFind);
         if (receiver != null) {
             context.unregisterReceiver(receiver);
         }
@@ -371,7 +372,7 @@ public class P2pManager implements ConnectionInfoListener, DnsSdServiceResponseL
         for (int i = 0; i < mRequestedNames.size(); i++) {
             String prefix = mRequestedNames.get(i);
             Log.d(TAG, "Outstanding request for " + prefix);
-            if (instanceName.startsWith(prefix)) {
+            if (instanceName.startsWith(prefix) || prefix.equals("*")) {
                 Log.d(TAG, "Matches");
 
                 //Check if request for service info already exists
@@ -617,14 +618,9 @@ public class P2pManager implements ConnectionInfoListener, DnsSdServiceResponseL
         // If no pending "Find Advertised Name" requests, cleanup and stop discovery.
         if (mRequestedNames.isEmpty()) {
             Log.d(TAG, "Clear all service requests");
-            //TODO We probably don't want to clear ALL requests.
-            // Investigate whether this clears the requests from oother entities.
-            // Maybe just clear the one for "_alljoyn._tcp" type of services (this is also questionable).
             mServiceRequestList.clear();
             manager.clearServiceRequests(channel, null);
             doDiscoverServices(false);
-            //TODO We might not want to stop peer discovery in case we are advertising services.
-            manager.stopPeerDiscovery(channel, null);
             mFindState = FindState.IDLE;
         }
 
@@ -666,11 +662,13 @@ public class P2pManager implements ConnectionInfoListener, DnsSdServiceResponseL
         txt.put("GUID", guid);
         txt.put("TIMER", Integer.toString(timer));
 
-        //TODO Need to implement arg cjeck for size. Deep in the bowels of JNI code is a hidden limitation:
+        //TODO Need to implement arg check for size. Deep in the bowels of JNI code is a hidden limitation:
         // command buffer size cannot exceed 256. Buffer includes string version of WPA supplicant command
         // plus actual payload...
 
         WifiP2pDnsSdServiceInfo serviceInfo = WifiP2pDnsSdServiceInfo.newInstance(name, "_alljoyn._tcp", txt);
+
+        mAdvertisedNames.add(name);
 
         manager.addLocalService(channel, serviceInfo,
                                 new ActionListener() {
@@ -683,6 +681,8 @@ public class P2pManager implements ConnectionInfoListener, DnsSdServiceResponseL
 
                                     public void onFailure(int reasonCode) {
                                         Log.d(TAG, "AdvertiseName ( " + name + " ) fail. Reason : " + reasonCode);
+                                        if (!mAdvertisedNames.isEmpty())
+                                            mAdvertisedNames.remove(name);
                                     }
                                 });
 
@@ -729,6 +729,9 @@ public class P2pManager implements ConnectionInfoListener, DnsSdServiceResponseL
                                     }
                                 });
 
+        if (!mAdvertisedNames.isEmpty())
+            mAdvertisedNames.remove(name);
+
         Runnable removeService = new Runnable() {
             public void run() {
                 if (!isEnabled || manager == null || channel == null /* || (mFindState == FindState.IDLE && not advertising)*/) {
@@ -747,13 +750,8 @@ public class P2pManager implements ConnectionInfoListener, DnsSdServiceResponseL
                                                }
                                            });
 
-                //TODO add housekeeping for advertised names.
-                // Stop peer discovery if we are not advertising or looking for remote services.
-                //Check that we are not in service discovery mode (as  a client)
-                if (mFindState != FindState.DISCOVERING) {
-                    Log.d(TAG, "Cancel peerdiscovery");
+                if (mAdvertisedNames.isEmpty())
                     doFindPeers(false);
-                }
             }
         };
         mHandler.postDelayed(removeService, MAX_ADVERTISE_TIMEOUT);
