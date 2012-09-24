@@ -12,6 +12,8 @@ build
 *.aps
 *.user
 *.winmd
+*.mdf
+*.ldf
 bin
 obj
 gen
