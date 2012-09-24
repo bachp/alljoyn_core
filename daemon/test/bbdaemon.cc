@@ -37,7 +37,9 @@
 #include <Status.h>
 
 #include "TCPTransport.h"
+#if 0
 #include "wfd/WFDTransport.h"
+#endif
 #include "DaemonTransport.h"
 
 #if defined(QCC_OS_DARWIN)
@@ -456,7 +458,7 @@ int main(int argc, char** argv)
     TransportFactoryContainer cntr;
     cntr.Add(new TransportFactory<DaemonTransport>(DaemonTransport::TransportName, true));
     cntr.Add(new TransportFactory<TCPTransport>(TCPTransport::TransportName, false));
-#if defined(QCC_OS_ANDROID)
+#if 0 && defined(QCC_OS_ANDROID)
     cntr.Add(new TransportFactory<WFDTransport>(WFDTransport::TransportName, false));
 #endif
 
