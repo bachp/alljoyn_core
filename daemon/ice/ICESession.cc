@@ -1022,8 +1022,20 @@ QStatus ICESession::GatherHostCandidates(bool enableIpv6)
     if (addHostCandidates) {
         // add candidates per network interface list
         AdapterUtil::const_iterator networkInterfaceIter;
-        AdapterUtil::GetAdapterUtil()->ForceUpdate();
-        AdapterUtil::GetAdapterUtil()->GetLock();
+
+        status = AdapterUtil::GetAdapterUtil()->ForceUpdate();
+
+        if (status != ER_OK) {
+            QCC_LogError(status, ("%s: AdapterUtil::GetAdapterUtil()->ForceUpdate() failed", __FUNCTION__));
+            return status;
+        }
+
+        status = AdapterUtil::GetAdapterUtil()->GetLock();
+
+        if (status != ER_OK) {
+            QCC_LogError(status, ("%s: AdapterUtil::GetAdapterUtil()->GetLock() failed", __FUNCTION__));
+            return status;
+        }
 
         for (networkInterfaceIter = AdapterUtil::GetAdapterUtil()->Begin(); networkInterfaceIter != AdapterUtil::GetAdapterUtil()->End(); ++networkInterfaceIter) {
             QCC_DbgPrintf(("network adapter = %s networkInterfaceIter->addr.IsIPv6() = %d", networkInterfaceIter->addr.ToString().c_str(), networkInterfaceIter->addr.IsIPv6()));
