@@ -37,6 +37,7 @@
 #include <Status.h>
 
 #include "TCPTransport.h"
+#include "wfd/WFDTransport.h"
 #include "DaemonTransport.h"
 
 #if defined(QCC_OS_DARWIN)
@@ -421,7 +422,7 @@ int main(int argc, char** argv)
     Environ* env = Environ::GetAppEnviron();
 
 #ifdef QCC_OS_GROUP_WINDOWS
-    serverArgs = env->Find("BUS_SERVER_ADDRESSES", "localhost:port=9956;tcp:r4addr=0.0.0.0,r4port=9955;bluetooth:");
+    serverArgs = env->Find("BUS_SERVER_ADDRESSES", "localhost:port=9956;tcp:addr=0.0.0.0,port=9955;bluetooth:");
 #else
 
 #if defined(DAEMON_LIB)
@@ -436,9 +437,9 @@ int main(int argc, char** argv)
     serverArgs = env->Find("BUS_SERVER_ADDRESSES", "unix:abstract=alljoyn;tcp:");
 #else
     if (noBT) {
-        serverArgs = env->Find("BUS_SERVER_ADDRESSES", "unix:abstract=alljoyn;tcp:r4addr=0.0.0.0,r4port=9955");
+        serverArgs = env->Find("BUS_SERVER_ADDRESSES", "unix:abstract=alljoyn;tcp:addr=0.0.0.0,port=9955");
     } else {
-        serverArgs = env->Find("BUS_SERVER_ADDRESSES", "unix:abstract=alljoyn;tcp:r4addr=0.0.0.0,r4port=9955;bluetooth:");
+        serverArgs = env->Find("BUS_SERVER_ADDRESSES", "unix:abstract=alljoyn;tcp:addr=0.0.0.0,port=9955;bluetooth:");
     }
 
 #endif /* DAEMON_LIB */
@@ -455,6 +456,9 @@ int main(int argc, char** argv)
     TransportFactoryContainer cntr;
     cntr.Add(new TransportFactory<DaemonTransport>(DaemonTransport::TransportName, true));
     cntr.Add(new TransportFactory<TCPTransport>(TCPTransport::TransportName, false));
+#if defined(QCC_OS_ANDROID)
+    cntr.Add(new TransportFactory<WFDTransport>(WFDTransport::TransportName, false));
+#endif
 
 #if !defined(QCC_OS_DARWIN)
 #if !defined(QCC_OS_GROUP_WINDOWS)
