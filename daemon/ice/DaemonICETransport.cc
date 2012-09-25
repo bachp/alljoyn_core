@@ -1269,6 +1269,13 @@ ThreadReturn STDCALL DaemonICETransport::AllocateICESessionThread::Run(void* arg
                                                     /* Stop the STUN RxThread and claim its file descriptor as our own */
                                                     stunActivityPtr->stun->ReleaseFD();
 
+                                                    /* Deallocate the iceSession. This must be done BEFORE the packetEngine starts using stun's fd */
+                                                    if (iceSession) {
+                                                        transportObj->m_iceManager.DeallocateSession(iceSession);
+                                                        iceSession = NULL;
+                                                    }
+                                                    (transportObj->m_dm)->RemoveSessionDetailFromMap(false, std::pair<String, DiscoveryManager::SessionEntry>(clientGUID, entry));
+
                                                     /* Make the packetEngine listen on icePktStream */
                                                     if (status == ER_OK) {
                                                         status = transportObj->m_packetEngine.AddPacketStream(*pktStream, *transportObj);
@@ -1342,8 +1349,8 @@ ThreadReturn STDCALL DaemonICETransport::AllocateICESessionThread::Run(void* arg
     if (iceSession) {
         transportObj->m_iceManager.DeallocateSession(iceSession);
         iceSession = NULL;
-        (transportObj->m_dm)->RemoveSessionDetailFromMap(false, std::pair<String, DiscoveryManager::SessionEntry>(clientGUID, entry));
     }
+    (transportObj->m_dm)->RemoveSessionDetailFromMap(false, std::pair<String, DiscoveryManager::SessionEntry>(clientGUID, entry));
 
     return 0;
 }
@@ -1894,8 +1901,10 @@ QStatus DaemonICETransport::Connect(const char* connectSpec, const SessionOpts& 
                                                     stun->ReleaseFD();
 
                                                     /* Deallocate the iceSession. This must be done BEFORE the packetEngine starts using stun's fd */
-                                                    m_iceManager.DeallocateSession(iceSession);
-                                                    iceSession = NULL;
+                                                    if (iceSession) {
+                                                        m_iceManager.DeallocateSession(iceSession);
+                                                        iceSession = NULL;
+                                                    }
                                                     m_dm->RemoveSessionDetailFromMap(true, std::pair<String, DiscoveryManager::SessionEntry>(argMap["guid"], entry));
 
                                                     /* Make the packetEngine listen on icePktStream */
@@ -2044,8 +2053,8 @@ QStatus DaemonICETransport::Connect(const char* connectSpec, const SessionOpts& 
     if (iceSession) {
         m_iceManager.DeallocateSession(iceSession);
         iceSession = NULL;
-        m_dm->RemoveSessionDetailFromMap(true, std::pair<String, DiscoveryManager::SessionEntry>(argMap["guid"], entry));
     }
+    m_dm->RemoveSessionDetailFromMap(true, std::pair<String, DiscoveryManager::SessionEntry>(argMap["guid"], entry));
 
 exit:
     /* Set caller's ep ref */
