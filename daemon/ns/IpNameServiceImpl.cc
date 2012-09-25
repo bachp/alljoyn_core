@@ -1338,7 +1338,18 @@ QStatus IpNameServiceImpl::AdvertiseName(TransportMask transportMask, vector<qcc
         IsAt isAt;
         isAt.SetVersion(0);
         isAt.SetTcpFlag(true);
-        isAt.SetUdpFlag(false);
+
+        //
+        // This is a bit tricky.  The UDP flag is completely ignored by version
+        // zero daemons running the TCP transport.  We set this bit to let a
+        // version one transort know that there will be another version one
+        // name service packet following that may provide information about
+        // UDP (PacketEngine) listeners.  So this isn't so much an indication
+        // that there is a version zero listener, but that there may be a
+        // version one listener and the receiver should wait for that next
+        // packet to arrive.
+        //
+        isAt.SetUdpFlag(true);
 
         //
         // Always send the provided daemon GUID out with the reponse.
@@ -1572,7 +1583,18 @@ QStatus IpNameServiceImpl::CancelAdvertiseName(TransportMask transportMask, vect
         IsAt isAt;
         isAt.SetVersion(0);
         isAt.SetTcpFlag(true);
-        isAt.SetUdpFlag(false);
+
+        //
+        // This is a bit tricky.  The UDP flag is completely ignored by version
+        // zero daemons running the TCP transport.  We set this bit to let a
+        // version one transort know that there will be another version one
+        // name service packet following that may provide information about
+        // UDP (PacketEngine) listeners.  So this isn't so much an indication
+        // that there is a version zero listener, but that there may be a
+        // version one listener and the receiver should wait for that next
+        // packet to arrive.
+        //
+        isAt.SetUdpFlag(true);
 
         //
         // Always send the provided daemon GUID out with the reponse.
@@ -2050,7 +2072,7 @@ void IpNameServiceImpl::SendOutboundMessages(void)
                         //
                         isAt->SetVersion(0);
                         isAt->SetTcpFlag(true);
-                        isAt->SetUdpFlag(false);
+                        isAt->SetUdpFlag(true);
                         isAt->ClearIPv4();
                         isAt->ClearIPv6();
 
@@ -2510,12 +2532,13 @@ void IpNameServiceImpl::Retransmit(bool exiting)
 
         //
         // The underlying protocol is capable of identifying both TCP and UDP
-        // services.  Right now, the only possibility is TCP.
+        // services.  Right now, the only possibility is TCP.  See the comment in
+        // AdvertiseName for why we set the UDP flag.
         //
         IsAt isAt;
         isAt.SetCompleteFlag(false);
         isAt.SetTcpFlag(true);
-        isAt.SetUdpFlag(false);
+        isAt.SetUdpFlag(true);
         isAt.SetGuid(m_guid);
         isAt.SetPort(m_port);
 
@@ -2853,14 +2876,26 @@ void IpNameServiceImpl::HandleProtocolAnswer(IsAt isAt, uint32_t timer, qcc::IPA
     // going on the net, so it's pointless to go any further.
     //
     if (m_callback == 0) {
-        QCC_DbgHLPrintf(("IpNameServiceImpl::HandleProtocolAnswer(): No callback, so nothing to do"));
+        QCC_DbgPrintf(("IpNameServiceImpl::HandleProtocolAnswer(): No callback, so nothing to do"));
+        return;
+    }
+
+    //
+    // For version zero messages from version one transports, we need to
+    // disregard the name service messages sent out in compatibility mode
+    // (version zero messages).  A version one name service indicates that it
+    // will be following up with a version one packet by setting the unused UDP
+    // flag in the version zero packet.  We drop such messages here.
+    //
+    if (isAt.GetVersion() == 0 && isAt.GetUdpFlag()) {
+        QCC_DbgPrintf(("IpNameServiceImpl::HandleProtocolAnswer(): Ignoring version zero message from version one peer"));
         return;
     }
 
     vector<qcc::String> wkn;
 
     for (uint8_t i = 0; i < isAt.GetNumberNames(); ++i) {
-        QCC_DbgHLPrintf(("IpNameServiceImpl::HandleProtocolAnswer(): Got well-known name %s", isAt.GetName(i).c_str()));
+        QCC_DbgPrintf(("IpNameServiceImpl::HandleProtocolAnswer(): Got well-known name %s", isAt.GetName(i).c_str()));
         wkn.push_back(isAt.GetName(i));
     }
 
@@ -2871,7 +2906,7 @@ void IpNameServiceImpl::HandleProtocolAnswer(IsAt isAt, uint32_t timer, qcc::IPA
     sort(wkn.begin(), wkn.end());
 
     qcc::String guid = isAt.GetGuid();
-    QCC_DbgHLPrintf(("IpNameServiceImpl::HandleProtocolAnswer(): Got GUID %s", guid.c_str()));
+    QCC_DbgPrintf(("IpNameServiceImpl::HandleProtocolAnswer(): Got GUID %s", guid.c_str()));
 
     //
     // How we infer addresses is different between version zero of the protocol
@@ -2912,20 +2947,20 @@ void IpNameServiceImpl::HandleProtocolAnswer(IsAt isAt, uint32_t timer, qcc::IPA
         qcc::String recvfromAddress, ipv4address, ipv6address;
 
         recvfromAddress = address.ToString();
-        QCC_DbgHLPrintf(("IpNameServiceImpl::HandleProtocolAnswer(): Got IP %s from recvfrom", recvfromAddress.c_str()));
+        QCC_DbgPrintf(("IpNameServiceImpl::HandleProtocolAnswer(): Got IP %s from recvfrom", recvfromAddress.c_str()));
 
         if (isAt.GetIPv4Flag()) {
             ipv4address = isAt.GetIPv4();
-            QCC_DbgHLPrintf(("IpNameServiceImpl::HandleProtocolAnswer(): Got IPv4 %s from message", ipv4address.c_str()));
+            QCC_DbgPrintf(("IpNameServiceImpl::HandleProtocolAnswer(): Got IPv4 %s from message", ipv4address.c_str()));
         }
 
         if (isAt.GetIPv6Flag()) {
             ipv6address = isAt.GetIPv6();
-            QCC_DbgHLPrintf(("IpNameServiceImpl::HandleProtocolAnswer(): Got IPv6 %s from message", ipv6address.c_str()));
+            QCC_DbgPrintf(("IpNameServiceImpl::HandleProtocolAnswer(): Got IPv6 %s from message", ipv6address.c_str()));
         }
 
         uint16_t port = isAt.GetPort();
-        QCC_DbgHLPrintf(("IpNameServiceImpl::HandleProtocolAnswer(): Got port %d from message", port));
+        QCC_DbgPrintf(("IpNameServiceImpl::HandleProtocolAnswer(): Got port %d from message", port));
 
         //
         //
@@ -2952,7 +2987,7 @@ void IpNameServiceImpl::HandleProtocolAnswer(IsAt isAt, uint32_t timer, qcc::IPA
         //
         if ((address.IsIPv4() && !ipv4address.size())) {
             snprintf(addrbuf, sizeof(addrbuf), "r4addr=%s,r4port=%d", recvfromAddress.c_str(), port);
-            QCC_DbgHLPrintf(("IpNameServiceImpl::HandleProtocolAnswer(): Calling back with %s", addrbuf));
+            QCC_DbgPrintf(("IpNameServiceImpl::HandleProtocolAnswer(): Calling back with %s", addrbuf));
             qcc::String busAddress(addrbuf);
 
             if (m_callback) {
@@ -2966,7 +3001,7 @@ void IpNameServiceImpl::HandleProtocolAnswer(IsAt isAt, uint32_t timer, qcc::IPA
         //
         if (ipv4address.size()) {
             snprintf(addrbuf, sizeof(addrbuf), "r4addr=%s,r4port=%d", ipv4address.c_str(), port);
-            QCC_DbgHLPrintf(("IpNameServiceImpl::HandleProtocolAnswer(): Calling back with %s", addrbuf));
+            QCC_DbgPrintf(("IpNameServiceImpl::HandleProtocolAnswer(): Calling back with %s", addrbuf));
             qcc::String busAddress(addrbuf);
 
             if (m_callback) {
