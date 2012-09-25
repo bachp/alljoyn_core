@@ -91,13 +91,15 @@ QStatus ICEManager::DeallocateSession(ICESession*& session)
 
     assert(session != NULL);
 
-    // remove from list
-    lock.Lock();                // Synch with another thread potentially calling destructor.
-                                // Not likely because this is a singleton, but...
-    sessions.remove(session);
-    lock.Unlock();
+    if(session != NULL) {
+        // remove from list
+        lock.Lock();                // Synch with another thread potentially calling destructor.
+                                    // Not likely because this is a singleton, but...
+        sessions.remove(session);
+        lock.Unlock();
 
-    delete session;
+        delete session;
+    }
 
     return status;
 }
