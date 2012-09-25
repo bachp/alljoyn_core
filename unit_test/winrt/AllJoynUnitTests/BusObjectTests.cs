@@ -423,7 +423,7 @@ namespace AllJoynUnitTests
             client.FindAdvertisedName("org.alljoyn.signaltesting");
             foundSignalObjectName.WaitOne();
 
-            Task<JoinSessionResult> joinTask = client.JoinSessionAsync("org.alljoyn.signaltesting", 33, new SessionListener(client),
+            Task<JoinSessionResult> joinTask = client.JoinSessionAsync("org.alljoyn.signaltesting", 89, new SessionListener(client),
                 new SessionOpts(TrafficType.TRAFFIC_MESSAGES, false, ProximityType.PROXIMITY_ANY, TransportMaskType.TRANSPORT_ANY), new SessionOpts[1], null).AsTask<JoinSessionResult>();
             joinTask.Wait();
             Assert.IsTrue(QStatus.ER_OK == joinTask.Result.Status);
