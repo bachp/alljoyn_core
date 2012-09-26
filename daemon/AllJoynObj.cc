@@ -851,7 +851,17 @@ ThreadReturn STDCALL AllJoynObj::JoinSessionThread::RunJoin()
                  */
                 SessionMapEntry* smEntry = ajObj.SessionMapFind(sender, id);
                 if (smEntry) {
+                    /* IncrementRefs and Release locks before shutting down endpoint and reacquire after.
+                     * This is to avoid any deadlock that might take place if
+                     * the endpoint tries to call PushMessage before joining itself
+                     */
+                    b2bEp->IncrementPushCount();
+                    ajObj.ReleaseLocks();
                     status = ajObj.ShutdownEndpoint(*b2bEp, smEntry->fd);
+                    b2bEp->DecrementPushCount();
+                    ajObj.AcquireLocks();
+                    b2bEp = static_cast<RemoteEndpoint*>(ajObj.router.FindEndpoint(b2bEpName));
+
                     if (status != ER_OK) {
                         QCC_LogError(status, ("Failed to shutdown remote endpoint for raw usage"));
                         replyCode = ALLJOYN_JOINSESSION_REPLY_FAILED;
