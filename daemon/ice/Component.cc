@@ -99,19 +99,17 @@ void Component::AddToStunActivityList(StunActivity* stunActivity)
 }
 
 
-QStatus Component::CreateHostCandidate(qcc::SocketType socketType, const qcc::IPAddress& addr, uint16_t port)
+QStatus Component::CreateHostCandidate(qcc::SocketType socketType, const qcc::IPAddress& addr, uint16_t port, size_t mtu)
 {
     QStatus status = ER_OK;
-    QCC_DbgTrace(("Component::CreateHostCandidate(socketType = %d, &addr = %s, port = %d)", socketType, addr.ToString().c_str(), port));
+    QCC_DbgTrace(("Component::CreateHostCandidate(socketType = %d, &addr = %s, port = %d, mtu = %d)", socketType, addr.ToString().c_str(), port, mtu));
 
     this->socketType = socketType;
 
-#ifndef USE_SPECIFIED_PORTS_FOR_HOST_CANDIDATES
-    // override specified port and request OS to assign an ephemeral port for us
     port = 0;
-#endif
+
     Stun* stun = NULL;
-    status = AddStun(addr, port, stun);
+    status = AddStun(addr, port, stun, mtu);
 
     if (ER_OK == status) {
         qcc::IPEndpoint host;
@@ -143,13 +141,13 @@ void Component::AssignDefaultCandidate(const ICECandidate& candidate)
 }
 
 
-QStatus Component::AddStun(const qcc::IPAddress& address, uint16_t& port, Stun*& stun)
+QStatus Component::AddStun(const qcc::IPAddress& address, uint16_t& port, Stun*& stun, size_t mtu)
 {
     QStatus status = ER_OK;
 
     QCC_DbgTrace(("Component::AddStun(&address = %s, &port = %d, *&stun = <>)", address.ToString().c_str(), port));
 
-    stun = new Stun(socketType, this, STUNInfo, hmacKey, hmacKeyLen);
+    stun = new Stun(socketType, this, STUNInfo, hmacKey, hmacKeyLen, mtu);
 
     status = stun->OpenSocket(af);
     if (ER_OK == status) {

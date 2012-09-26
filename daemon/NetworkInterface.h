@@ -33,6 +33,7 @@
 
 #include <qcc/String.h>
 #include <qcc/IfConfig.h>
+#include <qcc/IPAddress.h>
 
 #include "Status.h"
 
@@ -100,6 +101,18 @@ class NetworkInterface {
      * @brief Function used to find if any live network interfaces are available
      */
     bool IsAnyNetworkInterfaceUp(void);
+
+    /**
+     * @internal
+     * @brief Function used to find if the device is multi-homed
+     */
+    bool IsMultiHomed(void);
+
+    /**
+     * @internal
+     * @brief Function used to find if interface with the IPAddress addr is a VPN interface
+     */
+    bool IsVPN(IPAddress addr);
 };
 
 } // namespace ajn

@@ -100,7 +100,11 @@ QStatus RendezvousServerConnection::Connect(uint8_t interfaceFlags, ConnectionFl
     }
 
     /* Update the interfaces */
-    networkInterface->UpdateNetworkInterfaces();
+    status = networkInterface->UpdateNetworkInterfaces();
+    if (status != ER_OK) {
+        QCC_LogError(status, ("%s: networkInterface->UpdateNetworkInterfaces() failed", __FUNCTION__));
+        return status;
+    }
 
     /* Ensure that live interfaces are available before proceeding further */
     if (!networkInterface->IsAnyNetworkInterfaceUp()) {

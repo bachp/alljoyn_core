@@ -99,6 +99,11 @@ QStatus NetworkInterface::UpdateNetworkInterfaces(void)
     std::vector<qcc::IfConfigEntry> entries;
     QStatus status = qcc::IfConfig(entries);
 
+    if (status != ER_OK) {
+        QCC_LogError(status, ("%s: IfConfig failed", __FUNCTION__));
+        return status;
+    }
+
     /* Filter out the unwanted entries and populate valid entries into liveInterfaces */
     for (std::vector<IfConfigEntry>::const_iterator j = entries.begin(); j != entries.end(); ++j) {
 
@@ -125,6 +130,37 @@ bool NetworkInterface::IsAnyNetworkInterfaceUp(void)
     }
 
     return true;
+}
+
+bool NetworkInterface::IsMultiHomed(void)
+{
+    /* Go through the liveInterfaces list and if we see multiple interfaces with different names
+     * in the list, we are multi-homed */
+    if (liveInterfaces.size() == 1) {
+        return false;
+    } else {
+        vector<qcc::IfConfigEntry>::iterator iter;
+        qcc::IfConfigEntry* prev = NULL;
+
+        for (iter = liveInterfaces.begin(); iter != liveInterfaces.end(); ++iter) {
+            if (prev == NULL) {
+                *prev = *iter;
+                continue;
+            }
+            if (prev->m_name != iter->m_name) {
+                return true;
+            } else {
+                *prev = *iter;
+            }
+        }
+    }
+    return false;
+}
+
+bool NetworkInterface::IsVPN(IPAddress addr)
+{
+    /* We dont have support to figure out if an interface is a VPN interface. */
+    return false;
 }
 
 } // namespace ajn
