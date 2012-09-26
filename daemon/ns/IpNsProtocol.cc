@@ -1152,7 +1152,7 @@ size_t WhoHas::Serialize(uint8_t* buffer) const
     // We don't care about the peer name service protocol version which is
     // meta-data about the other side and is in the most significant nibble.
     //
-    if (m_version & 0xf == 0) {
+    if ((m_version & 0xf) == 0) {
         if (m_flagT) {
             QCC_DbgPrintf(("WhoHas::Serialize(): T flag"));
             typeAndFlags |= 0x8;
