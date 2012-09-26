@@ -53,6 +53,8 @@ bool IsWhiteSpace(char c)
     return false;
 }
 
+// convert string passed to DaemonMain into argc, argv that can be passed to the
+// LoadDaemon function to start the daemon.
 DAEMONLIBRARY_API void DaemonMain(wchar_t* cmd)
 {
     if (!cmd || !*cmd || wcslen(cmd) >= 2000) {         // make sure it fits
@@ -68,9 +70,16 @@ DAEMONLIBRARY_API void DaemonMain(wchar_t* cmd)
     int i = 0;   // count the arguments
     char workingBuffer[MAX_PATH];     // on the stack
     int cnt = (int)strlen(cmdLine);
-    while (cnt > 0) {
+    // parse the first 20 arguments
+    while (cnt > 0 && i < 20) {
         char* dest = workingBuffer;
         while (*src && !IsWhiteSpace(*src)) {
+            // The largest any single argument can be is MAX_PATH characters any
+            // thing larger is an error.
+            if (dest - workingBuffer == MAX_PATH) {
+                printf("Bad command string\n");
+                return;
+            }
             *dest++ = *src++;
             cnt--;
         }
@@ -86,6 +95,12 @@ DAEMONLIBRARY_API void DaemonMain(wchar_t* cmd)
     }
     if (!i) {
         printf("Empty command string\n");
+        return;
+    }
+
+    // the code can only parse 20 arguments and arguments were left unparsed.
+    if (cnt > 0 && i == 20) {
+        printf("Too many command arguments\n");
         return;
     }
     // now create argc and argv

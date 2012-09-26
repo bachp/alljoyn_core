@@ -481,25 +481,6 @@ class Stun {
 
     static ThreadReturn STDCALL RxThread(void*arg);
 
-
-    /**
-     * Received framed data from a TCP stream.  This can be either a STUN
-     * message or Application data.  'frameBuf' is allocated with the 'new'
-     * operator and the caller is expected to use 'delete[]' to release the
-     * memory but only if rxLeftoverBuf does not point to the same memory
-     * address as frameBuf.
-     *
-     * @param frameBuf      OUT: Pointer where the frame (including the
-     *                           prepended frame length) will be stored.
-     * @param frameBufSize  OUT: Number of octets allocated for frameBuf.
-     * @param frameLen      OUT: Number of octets in the frame (does not count
-     *                           the octets containing the frame length).
-     *
-     * @return  Indication of success or failure.
-     */
-    QStatus RecvFramedBuffer(uint8_t*& frameBuf, size_t& frameBufSize, size_t& frameLen);
-
-
     /**
      * Process leftover framed STUN message (direct TCP connection only).
      *
