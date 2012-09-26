@@ -30,11 +30,12 @@ public class StartServiceReceiver extends BroadcastReceiver {
     }
 
     @Override
-    public void onReceive(Context c, Intent intent) {
+    public void onReceive(Context context, Intent intent) {
 
-        Intent serviceIntent = new Intent();
-        serviceIntent.setAction("org.alljoyn.bus.p2p.service.helper");
-        c.startService(serviceIntent);
-
+        if (intent.getAction().equals(Intent.ACTION_BOOT_COMPLETED)) {
+            Intent serviceIntent = new Intent();
+            serviceIntent.setAction("org.alljoyn.bus.p2p.service.helper");
+            context.startService(serviceIntent);
+        }
     }
 }
