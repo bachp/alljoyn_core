@@ -1475,8 +1475,15 @@ size_t Header::Deserialize(uint8_t const* buffer, uint32_t bufsize)
     size_t size = 0;
 
     //
-    // The first octet is version
+    // The first octet is version.  If we get a bogus version, there's not much
+    // more we can do.  If we propagate a bogus version on down into any who-has
+    // or is-at sections, they will assert since passing down a bad version is
+    // a programming error here.
     //
+    if (buffer[0] != 0) {
+        QCC_DbgPrintf(("Header::Deserialize(): Unrecognized version %d", buffer[0]));
+        return 0;
+    }
     m_version = buffer[0];
     size += 1;
 
