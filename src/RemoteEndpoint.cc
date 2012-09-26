@@ -229,8 +229,8 @@ QStatus RemoteEndpoint::PauseAfterRxReply()
 
 QStatus RemoteEndpoint::Join(void)
 {
-    /* Note that we wait for any threads running in PushMessage to exit in the RemoteEndpoint 
-     * destructor 
+    /* Note that we wait for any threads running in PushMessage to exit in the RemoteEndpoint
+     * destructor
      */
 
     /*
