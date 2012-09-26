@@ -43,43 +43,53 @@ QStatus WindowsBTStream::PushBytes(const void* buf, size_t numBytes, size_t& num
         USER_KERNEL_MESSAGE* messageIn;
         const size_t totalBytes = sizeof(*messageIn) + numBytes - 1;
 
-        messageIn = (USER_KERNEL_MESSAGE*)malloc(totalBytes);
-
-        if (!messageIn) {
-            returnValue = ER_OUT_OF_MEMORY;
+        /*
+         * Prevent possible buffer overflow error. If numBytes + sizeof(*messageIn)
+         * is larger than max value held by size_t then insufficient memory will
+         * be allocated to hold the bytesOfData in the USER_KERNEL_MESSAGE.
+         * This is an arithmetic overflow error. A unlikely error but still possible.
+         */
+        if (totalBytes <= numBytes - 1) {
+            returnValue = ER_PACKET_TOO_LARGE;
         } else {
-            USER_KERNEL_MESSAGE messageOut;
-            size_t bytesReturned = 0;
+            messageIn = (USER_KERNEL_MESSAGE*)malloc(totalBytes);
 
-            messageIn->version = DRIVER_VERSION;
-            messageIn->is64Bit = IS_64BIT;
-
-            messageIn->commandStatus.command = USRKRNCMD_WRITE;
-            messageIn->messageData.write.channelHandle = channelHandle;
-            messageIn->messageData.write.bytesOfData = numBytes;
-
-            memcpy_s(&messageIn->messageData.write.data[0], numBytes, buf, numBytes);
-
-            bool result = btAccessor->DeviceIo(messageIn, totalBytes, &messageOut,
-                                               sizeof(messageOut), &bytesReturned);
-            free(messageIn);
-
-            if (result) {
-                returnValue = messageOut.commandStatus.status;
-
-                if (ER_OK != returnValue) {
-                    QCC_DbgPrintf(("PushBytes() USRKRNCMD_WRITE returned: QStatus = %s, NTSTATUS = 0x%08X",
-                                   QCC_StatusText(returnValue),
-                                   messageOut.messageData.write.ntStatus));
-                }
+            if (!messageIn) {
+                returnValue = ER_OUT_OF_MEMORY;
             } else {
-                QCC_LogError(returnValue,
-                             ("PushBytes() was unable to contact the kernel! Error = 0x%08X",
-                              ::GetLastError()));
-                btAccessor->DebugDumpKernelState();
+                USER_KERNEL_MESSAGE messageOut;
+                size_t bytesReturned = 0;
 
-                if (bytesReturned != sizeof(messageOut)) {
-                    returnValue = ER_OS_ERROR;
+                messageIn->version = DRIVER_VERSION;
+                messageIn->is64Bit = IS_64BIT;
+
+                messageIn->commandStatus.command = USRKRNCMD_WRITE;
+                messageIn->messageData.write.channelHandle = channelHandle;
+                messageIn->messageData.write.bytesOfData = numBytes;
+
+                memcpy_s(&messageIn->messageData.write.data[0], numBytes, buf, numBytes);
+
+                bool result = btAccessor->DeviceIo(messageIn, totalBytes, &messageOut,
+                                                   sizeof(messageOut), &bytesReturned);
+                free(messageIn);
+
+                if (result) {
+                    returnValue = messageOut.commandStatus.status;
+
+                    if (ER_OK != returnValue) {
+                        QCC_DbgPrintf(("PushBytes() USRKRNCMD_WRITE returned: QStatus = %s, NTSTATUS = 0x%08X",
+                                       QCC_StatusText(returnValue),
+                                       messageOut.messageData.write.ntStatus));
+                    }
+                } else {
+                    QCC_LogError(returnValue,
+                                 ("PushBytes() was unable to contact the kernel! Error = 0x%08X",
+                                  ::GetLastError()));
+                    btAccessor->DebugDumpKernelState();
+
+                    if (bytesReturned != sizeof(messageOut)) {
+                        returnValue = ER_OS_ERROR;
+                    }
                 }
             }
         }
