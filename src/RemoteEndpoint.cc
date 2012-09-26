@@ -93,6 +93,11 @@ RemoteEndpoint::~RemoteEndpoint()
 
     /* Wait for thread to shutdown */
     Join();
+
+    /*
+     * Wait for any threads running in PushMessage to exit
+     */
+    WaitForZeroPushCount();
 }
 
 QStatus RemoteEndpoint::SetLinkTimeout(uint32_t idleTimeout, uint32_t probeTimeout, uint32_t maxIdleProbes)
@@ -224,10 +229,10 @@ QStatus RemoteEndpoint::PauseAfterRxReply()
 
 QStatus RemoteEndpoint::Join(void)
 {
-    /*
-     * Wait for any threads running in PushMessage to exit
+    /* Note that we wait for any threads running in PushMessage to exit in the RemoteEndpoint 
+     * destructor 
      */
-    WaitForZeroPushCount();
+
     /*
      * Note that we don't join txThread and rxThread, rather we let the thread destructors handle
      * this when the RemoteEndpoint destructor is called. The reason for this is tied up in the
