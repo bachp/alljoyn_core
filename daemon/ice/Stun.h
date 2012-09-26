@@ -75,6 +75,7 @@ class Stun {
          STUNServerInfo stunInfo,
          const uint8_t* key,
          size_t keyLen,
+         size_t mtu,
          bool autoFraming = true
          );
 
@@ -459,11 +460,6 @@ class Stun {
 
 
     STUNServerInfo STUNInfo;
-
-    /**
-     * Sets the maximal MTU for the interface corresponding to the ipAddress.
-     */
-    void SetMaxMTU(IPAddress ipAddress);
 
     /**
      * Internal constructor used when accepting a connection.

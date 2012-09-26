@@ -65,9 +65,10 @@ QStatus ICEManager::AllocateSession(bool addHostCandidates,
 {
     QStatus status = ER_OK;
 
-    session = new ICESession(addHostCandidates, addRelayedCandidates, listener, stunInfo, onDemandAddress, persistentAddress);
+    session = new ICESession(addHostCandidates, addRelayedCandidates, listener,
+                             stunInfo, onDemandAddress, persistentAddress, enableIpv6);
 
-    status = session->Init(enableIpv6);
+    status = session->Init();
 
     if (ER_OK == status) {
         lock.Lock();                // Synch with another thread potentially calling destructor.

@@ -24,11 +24,11 @@
 #include <errno.h>
 #include <assert.h>
 
-#include <qcc/AdapterUtil.h>
 #include <qcc/Event.h>
 #include <qcc/Debug.h>
 #include <qcc/StringUtil.h>
 #include "UDPPacketStream.h"
+#include "NetworkInterface.h"
 
 #define QCC_MODULE "PACKET"
 
@@ -46,19 +46,18 @@ UDPPacketStream::UDPPacketStream(const char* ifaceName, uint16_t port) :
     sinkEvent(&Event::alwaysSet)
 {
     QCC_DbgPrintf(("UDPPacketStream::UDPPacketStream(ifaceName='ifaceName', port=%u)", ifaceName, port));
-    AdapterUtil* adaptors = AdapterUtil::GetAdapterUtil();
-    adaptors->GetLock();
-    AdapterUtil::const_iterator it = adaptors->Begin();
-    for (; it != adaptors->End(); ++it) {
-        const NetInfo& netinfo = *it;
 
-        if (netinfo.name == ifaceName) {
-            mtu = netinfo.mtu;
-            ipAddr = netinfo.addr;
+    NetworkInterface nwInterfaces(true);
+    QStatus status = nwInterfaces.UpdateNetworkInterfaces();
+    if (status == ER_OK) {
+        std::vector<qcc::IfConfigEntry>::iterator it = nwInterfaces.liveInterfaces.begin();
+        for (; it != nwInterfaces.liveInterfaces.end(); ++it) {
+            if (it->m_name == ifaceName) {
+                mtu = it->m_mtu;
+                ipAddr = qcc::IPAddress(it->m_addr);
+            }
         }
     }
-
-    adaptors->ReleaseLock();
 }
 
 UDPPacketStream::UDPPacketStream(const qcc::IPAddress& addr, uint16_t port) :
@@ -71,18 +70,16 @@ UDPPacketStream::UDPPacketStream(const qcc::IPAddress& addr, uint16_t port) :
 {
     QCC_DbgPrintf(("UDPPacketStream::UDPPacketStream(addr='%s', port=%u)", ipAddr.ToString().c_str(), port));
 
-    AdapterUtil* adaptors = AdapterUtil::GetAdapterUtil();
-    adaptors->GetLock();
-    AdapterUtil::const_iterator it = adaptors->Begin();
-    for (; it != adaptors->End(); ++it) {
-        const NetInfo& netinfo = *it;
-
-        if (netinfo.addr == addr) {
-            mtu = netinfo.mtu;
+    NetworkInterface nwInterfaces(true);
+    QStatus status = nwInterfaces.UpdateNetworkInterfaces();
+    if (status == ER_OK) {
+        std::vector<qcc::IfConfigEntry>::iterator it = nwInterfaces.liveInterfaces.begin();
+        for (; it != nwInterfaces.liveInterfaces.end(); ++it) {
+            if (qcc::IPAddress(it->m_addr) == addr) {
+                mtu = it->m_mtu;
+            }
         }
     }
-
-    adaptors->ReleaseLock();
 }
 
 UDPPacketStream::UDPPacketStream(const qcc::IPAddress& addr, uint16_t port, size_t mtu) :

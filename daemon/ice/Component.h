@@ -77,11 +77,11 @@ class Component {
 
     ~Component(void);
 
-    QStatus AddStun(const qcc::IPAddress& address, uint16_t& port, Stun*& stun);
+    QStatus AddStun(const qcc::IPAddress& address, uint16_t& port, Stun*& stun, size_t mtu);
 
     QStatus AddCandidate(const ICECandidate& candidate);
 
-    QStatus CreateHostCandidate(qcc::SocketType socketType, const qcc::IPAddress& addr, uint16_t port);
+    QStatus CreateHostCandidate(qcc::SocketType socketType, const qcc::IPAddress& addr, uint16_t port, size_t mtu);
 
     QStatus RemoveCandidate(ICECandidate& candidate);
 

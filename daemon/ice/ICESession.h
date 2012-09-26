@@ -44,6 +44,7 @@
 #include "ICEManager.h"
 #include "RendezvousServerInterface.h"
 #include "StunCredential.h"
+#include "NetworkInterface.h"
 
 using namespace qcc;
 
@@ -306,13 +307,18 @@ class ICESession {
 
     IPAddress PersistentAddress;
 
+    bool EnableIPv6;
+
+    NetworkInterface networkInterface;
+
     // Private ctor, used only by friend ICEManager
     ICESession(bool addHostCandidates,
                bool addRelayedCandidates,
                ICESessionListener* listener,
                STUNServerInfo stunInfo,
                IPAddress onDemandAddress,
-               IPAddress persistentAddress) :
+               IPAddress persistentAddress,
+               bool enableIPv6) :
         hmacKeyLen(0),
         TurnServerAvailable(false),
         terminating(false),
@@ -333,7 +339,9 @@ class ICESession {
         listenerNotifiedOnSuccessOrFailure(false),
         STUNInfo(stunInfo),
         OnDemandAddress(onDemandAddress),
-        PersistentAddress(persistentAddress) {
+        PersistentAddress(persistentAddress),
+        EnableIPv6(enableIPv6),
+        networkInterface(enableIPv6) {
 
         usernameForShortTermCredential = STUNInfo.acct;
 
@@ -362,7 +370,7 @@ class ICESession {
     }
 
     // Private, used only by friend ICEManager
-    QStatus Init(bool enableIpv6);
+    QStatus Init(void);
 
     void SetState(ICESessionState state);
 

@@ -24,9 +24,7 @@
 #include <assert.h>
 #include <algorithm>
 #include <map>
-#include <qcc/AdapterUtil.h>
 #include <qcc/Crypto.h>
-#include <qcc/NetInfo.h>
 #include <qcc/Socket.h>
 #include "ScatterGatherList.h"
 #include <Stun.h>
@@ -67,6 +65,7 @@ Stun::Stun(SocketType type,
            STUNServerInfo stunInfo,
            const uint8_t* key,
            size_t keyLen,
+           size_t mtu,
            bool autoFraming) :
     rxThread(NULL),
     turnAddr(), turnPort(),
@@ -74,13 +73,13 @@ Stun::Stun(SocketType type,
     autoFraming(autoFraming),
     rxFrameRemain(0), txFrameRemain(0),
     rxLeftoverBuf(NULL), rxLeftoverLen(0),
-    maxMTU(0),
+    maxMTU(mtu),
     component(component),
     STUNInfo(stunInfo),
     hmacKey(key),
     hmacKeyLen(keyLen)
 {
-    QCC_DbgTrace(("Stun::Stun(%p)", this));
+    QCC_DbgTrace(("Stun::Stun(%p) maxMTU(%d)", this, maxMTU));
 
     if (stunInfo.relayInfoPresent) {
         turnAddr = stunInfo.relay.address;
@@ -93,25 +92,6 @@ Stun::~Stun(void)
     QCC_DbgTrace(("Stun::~Stun(%p)", this));
     ReleaseFD(true);
 }
-
-
-void Stun::SetMaxMTU(IPAddress ipAddress)
-{
-    AdapterUtil* au = AdapterUtil::GetAdapterUtil();
-    AdapterUtil::const_iterator iter;
-
-    au->GetLock();
-    for (iter = au->Begin(); iter != au->End(); ++iter) {
-        if (iter->addr == ipAddress) {
-            maxMTU = iter->mtu;
-            break;
-        }
-    }
-    au->ReleaseLock();
-
-    QCC_DbgPrintf(("Max MTU = %u", maxMTU));
-}
-
 
 QStatus Stun::OpenSocket(AddressFamily af)
 {
@@ -169,9 +149,6 @@ QStatus Stun::Bind(const IPAddress& localAddr, uint16_t localPort)
 
     if (opened) {
         status = qcc::Bind(sockfd, localAddr, localPort);
-
-        /* Set the MTU as per the interface type corresponding to the localAddr */
-        SetMaxMTU(localAddr);
 
         /* Ensure that the MTU is set appropriately */
         if (maxMTU == 0) {
