@@ -1493,8 +1493,24 @@ size_t Header::Deserialize(uint8_t const* buffer, uint32_t bufsize)
     size_t size = 0;
 
     //
-    // The first octet is version
+    // The first octet is version.  We need to filter out bogus versions here
+    // since we are going to promptly set this version in the included who-has
+    // and is-at messages and they will assert that the versions we set actually
+    // make sense.
     //
+    uint8_t nsVersion, msgVersion;
+    nsVersion = buffer[0] >> 4;
+    msgVersion = buffer[0] & 0xf;
+    if (nsVersion != 0 && nsVersion != 1) {
+        QCC_DbgPrintf(("Header::Deserialize(): Bad remote name service version %d", nsVersion));
+        return 0;
+    }
+
+    if (msgVersion != 0 && msgVersion != 1) {
+        QCC_DbgPrintf(("Header::Deserialize(): Bad message version %d", msgVersion));
+        return 0;
+    }
+
     m_version = buffer[0];
     size += 1;
 
