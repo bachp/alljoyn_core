@@ -53,8 +53,9 @@ ICEPacketStream::ICEPacketStream(ICESession& iceSession, Stun& stun, const ICECa
     sock(stun.GetSocketFD()),
     sourceEvent(&Event::neverSet),
     sinkEvent(&Event::alwaysSet),
-    mtuWithStunOverhead(stun.GetMtu()),
     interfaceMtu(stun.GetMtu()),
+    maxPacketStreamMtu(::min(ajn::MAX_ICE_INTERFACE_MTU, interfaceMtu)),
+    mtuWithStunOverhead(maxPacketStreamMtu - ajn::STUN_OVERHEAD_SIZE),
     usingTurn((selectedPair.local->GetType() == _ICECandidate::Relayed_Candidate) || (selectedPair.remote->GetType() == _ICECandidate::Relayed_Candidate)),
     localTurn((selectedPair.local->GetType() == _ICECandidate::Relayed_Candidate)),
     localHost((selectedPair.local->GetType() == _ICECandidate::Host_Candidate)),
@@ -64,14 +65,10 @@ ICEPacketStream::ICEPacketStream(ICESession& iceSession, Stun& stun, const ICECa
     turnRefreshPeriod((selectedPair.local->GetAllocationLifetimeSeconds() - ajn::TURN_REFRESH_WARNING_PERIOD_SECS) * 1000),
     turnRefreshTimestamp(0),
     stunKeepAlivePeriod(iceSession.GetSTUNKeepAlivePeriod()),
-    rxRenderBuf(new uint8_t[interfaceMtu]),
-    txRenderBuf(new uint8_t[interfaceMtu])
+    rxRenderBuf(new uint8_t[maxPacketStreamMtu]),
+    txRenderBuf(new uint8_t[maxPacketStreamMtu])
 {
     QCC_DbgTrace(("ICEPacketStream::ICEPacketStream(sock=%d)", sock));
-
-    /* Adjust the mtuWithStunOverhead size to account for the STUN header which would be added in case of communication
-     * through the relay server */
-    mtuWithStunOverhead = interfaceMtu - STUN_OVERHEAD;
 
     /* Retrieve the local server reflexive candidate */
     stun.GetLocalSrflxCandidate(localSrflxAddress, localSrflxPort);
@@ -108,8 +105,9 @@ ICEPacketStream::ICEPacketStream() :
     sock(SOCKET_ERROR),
     sourceEvent(&Event::neverSet),
     sinkEvent(&Event::alwaysSet),
-    mtuWithStunOverhead(0),
     interfaceMtu(0),
+    maxPacketStreamMtu(0),
+    mtuWithStunOverhead(0),
     usingTurn(false),
     localTurn(false),
     localHost(false),
@@ -137,8 +135,9 @@ ICEPacketStream::ICEPacketStream(const ICEPacketStream& other) :
     relayServerPort(other.relayServerPort),
     localSrflxAddress(other.localSrflxAddress),
     localSrflxPort(other.localSrflxPort),
-    mtuWithStunOverhead(other.mtuWithStunOverhead),
     interfaceMtu(other.interfaceMtu),
+    maxPacketStreamMtu(other.maxPacketStreamMtu),
+    mtuWithStunOverhead(other.mtuWithStunOverhead),
     usingTurn(other.usingTurn),
     localTurn(other.localTurn),
     localHost(other.localHost),
@@ -160,8 +159,8 @@ ICEPacketStream::ICEPacketStream(const ICEPacketStream& other) :
         if (status == ER_OK) {
             sourceEvent = new Event(sock, Event::IO_READ, false);
             sinkEvent = new Event(sock, Event::IO_WRITE, false);
-            rxRenderBuf = new uint8_t[interfaceMtu];
-            txRenderBuf = new uint8_t[interfaceMtu];
+            rxRenderBuf = new uint8_t[maxPacketStreamMtu];
+            txRenderBuf = new uint8_t[maxPacketStreamMtu];
         } else {
             QCC_LogError(status, ("SocketDup failed"));
             sock = SOCKET_ERROR;
@@ -187,8 +186,9 @@ ICEPacketStream& ICEPacketStream::operator=(const ICEPacketStream& other)
         relayServerPort = other.relayServerPort;
         localSrflxAddress = other.localSrflxAddress;
         localSrflxPort = other.localSrflxPort;
-        mtuWithStunOverhead = other.mtuWithStunOverhead;
         interfaceMtu = other.interfaceMtu;
+        maxPacketStreamMtu = other.maxPacketStreamMtu;
+        mtuWithStunOverhead = other.mtuWithStunOverhead;
         usingTurn = other.usingTurn;
         localTurn = other.localTurn;
         localHost = other.localHost;
@@ -218,8 +218,8 @@ ICEPacketStream& ICEPacketStream::operator=(const ICEPacketStream& other)
             if (status == ER_OK) {
                 sourceEvent = new Event(sock, Event::IO_READ, false);
                 sinkEvent = new Event(sock, Event::IO_WRITE, false);
-                rxRenderBuf = new uint8_t[interfaceMtu];
-                txRenderBuf = new uint8_t[interfaceMtu];
+                rxRenderBuf = new uint8_t[maxPacketStreamMtu];
+                txRenderBuf = new uint8_t[maxPacketStreamMtu];
             } else {
                 QCC_LogError(status, ("SocketDup failed"));
                 sock = SOCKET_ERROR;
@@ -279,31 +279,16 @@ QStatus ICEPacketStream::PushPacketBytes(const void* buf, size_t numBytes, Packe
 {
     QCC_DbgTrace(("ICEPacketStream::PushPacketBytes numBytes =%d", numBytes));
 
-#ifndef NDEBUG
-    size_t messageMtu = usingTurn ? mtuWithStunOverhead : interfaceMtu;
+    size_t messageMtu = usingTurn ? mtuWithStunOverhead : maxPacketStreamMtu;
     assert(numBytes <= messageMtu);
-#endif
 
     QStatus status = ER_OK;
-
-    const void* sendBuf = buf;
     size_t sendBytes = numBytes;
+    size_t sent = 0;
 
-    sendLock.Lock();
-    size_t sent;
-
-    if (usingTurn) {
-        ScatterGatherList sgList;
-        status = ComposeStunMessage(buf, numBytes, sgList);
-        if (status == ER_OK) {
-            status = SendToSG(sock, turnAddress, turnPort, sgList, sent);
-        } else {
-            QCC_LogError(status, ("ComposeStunMessage failed"));
-        }
-    } else {
-
+    if (localHost && remoteHost) {
         IPAddress ipAddr(dest.ip, dest.addrSize);
-        status = qcc::SendTo(sock, ipAddr, dest.port, sendBuf, sendBytes, sent);
+        status = qcc::SendTo(sock, ipAddr, dest.port, buf, sendBytes, sent);
 
         status = (sent == sendBytes) ? ER_OK : ER_OS_ERROR;
         if (status != ER_OK) {
@@ -313,6 +298,30 @@ QStatus ICEPacketStream::PushPacketBytes(const void* buf, size_t numBytes, Packe
                 QCC_LogError(status, ("Short udp send: exp=%d, act=%d", numBytes, sent));
             }
         }
+    } else {
+        sendLock.Lock();
+        if (usingTurn) {
+            ScatterGatherList sgList;
+            status = ComposeStunMessage(buf, numBytes, sgList);
+            if (status == ER_OK) {
+                status = SendToSG(sock, turnAddress, turnPort, sgList, sent);
+            } else {
+                QCC_LogError(status, ("ComposeStunMessage failed"));
+            }
+        } else {
+            IPAddress ipAddr(dest.ip, dest.addrSize);
+            status = qcc::SendTo(sock, ipAddr, dest.port, buf, sendBytes, sent);
+
+            status = (sent == sendBytes) ? ER_OK : ER_OS_ERROR;
+            if (status != ER_OK) {
+                if (sent == (size_t) -1) {
+                    QCC_LogError(status, ("sendto failed: %s (%d)", ::strerror(errno), errno));
+                } else {
+                    QCC_LogError(status, ("Short udp send: exp=%d, act=%d", numBytes, sent));
+                }
+            }
+        }
+        sendLock.Unlock();
     }
 
 #if 0
@@ -327,7 +336,6 @@ QStatus ICEPacketStream::PushPacketBytes(const void* buf, size_t numBytes, Packe
     }
     printf("\n");
 #endif
-    sendLock.Unlock();
     return status;
 }
 
@@ -343,25 +351,25 @@ QStatus ICEPacketStream::PullPacketBytes(void* buf, size_t reqBytes, size_t& act
 
     if (usingTurn) {
         recvBuf = (void*)rxRenderBuf;
-        recvBytes = interfaceMtu;
+        recvBytes = maxPacketStreamMtu;
     }
-
 
     IPAddress tmpIpAddr;
     uint16_t tmpPort = 0;
     status =  qcc::RecvFrom(sock, tmpIpAddr, tmpPort, recvBuf, recvBytes, actualBytes);
 
-    if (ER_OK != status) {
-        QCC_LogError(status, ("recvfrom failed: %s", ::strerror(errno)));
-    } else {
+    if (status == ER_OK) {
         tmpIpAddr.RenderIPBinary(sender.ip, IPAddress::IPv6_SIZE);
         sender.addrSize = tmpIpAddr.Size();
         sender.port = tmpPort;
+
+        if (usingTurn) {
+            status = StripStunOverhead(actualBytes, buf, reqBytes, actualBytes);
+        }
+    } else {
+        QCC_LogError(status, ("recvfrom failed: %s", ::strerror(errno)));
     }
 
-    if (usingTurn) {
-        status = StripStunOverhead(actualBytes, buf, reqBytes, actualBytes);
-    }
 #if 0
     printf("$$$$$$$$$$$ PullBytes(len=%d, buf=%p)\n", (int) actualBytes, buf);
     for (size_t i = 0; i < actualBytes; ++i) {
@@ -423,7 +431,7 @@ QStatus ICEPacketStream::ComposeStunMessage(const void* buf,
     }
     if (status == ER_OK) {
         size_t renderSize = msg.RenderSize();
-        assert(renderSize <= interfaceMtu);
+        assert(renderSize <= maxPacketStreamMtu);
         uint8_t* _txRenderBuf = txRenderBuf;
         status = msg.RenderBinary(_txRenderBuf, renderSize, msgSG);
     }
@@ -440,7 +448,7 @@ QStatus ICEPacketStream::SendNATKeepAlive(void)
     StunMessage msg(STUN_MSG_INDICATION_CLASS, STUN_MSG_BINDING_METHOD, reinterpret_cast<const uint8_t*>(hmacKey.c_str()), hmacKey.size());
 
     size_t renderSize = msg.RenderSize();
-    assert(renderSize <= interfaceMtu);
+    assert(renderSize <= maxPacketStreamMtu);
     ScatterGatherList msgSG;
     size_t sent;
 
@@ -497,7 +505,7 @@ QStatus ICEPacketStream::SendTURNRefresh(uint64_t time)
     }
     if (status == ER_OK) {
         size_t renderSize = msg.RenderSize();
-        assert(renderSize <= interfaceMtu);
+        assert(renderSize <= maxPacketStreamMtu);
         ScatterGatherList msgSG;
         size_t sent;
 
