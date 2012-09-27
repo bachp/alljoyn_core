@@ -35,20 +35,21 @@
 
 namespace ajn {
 
+/*
+ * Max MTU size of the interface
+ */
+static const uint32_t MAX_ICE_INTERFACE_MTU = 1472;
+
+/*
+ * Size of the STUN header
+ */
+static const uint32_t STUN_OVERHEAD_SIZE = 200;
+
 /**
  * ICEPacketStream is a UDP based implementation of the PacketStream interface.
  */
 class ICEPacketStream : public PacketStream {
   public:
-
-    /* The value of TURN_ACCT_TOKEN_MAX_SIZE + TURN_ACCT_TOKEN_ATTRIBUTE_HEADER_SIZE accounts for the max size of the
-     * TURN username attribute. As this is something that is sent by the server during run time, there is no way
-     * for us to know that statically during initialization. */
-    static const uint32_t STUN_OVERHEAD = StunMessage::HEADER_SIZE + StunAttributeXorPeerAddress::ATTR_SIZE_WITH_HEADER +
-                                          StunAttribute::ATTR_HEADER_SIZE + StunAttributeMessageIntegrity::ATTR_SIZE_WITH_HEADER +
-                                          StunAttributeFingerprint::ATTR_SIZE_WITH_HEADER + TURN_ACCT_TOKEN_MAX_SIZE +
-                                          TURN_ACCT_TOKEN_ATTRIBUTE_HEADER_SIZE +
-                                          StunAttributeAllocatedXorServerReflexiveAddress::ATTR_SIZE_WITH_HEADER;
 
     /** Constructor */
     ICEPacketStream();
@@ -130,7 +131,7 @@ class ICEPacketStream : public PacketStream {
      *
      * @return MTU of PacketSource
      */
-    size_t GetSourceMTU() { return usingTurn ? mtuWithStunOverhead : interfaceMtu; }
+    size_t GetSourceMTU() { return usingTurn ? mtuWithStunOverhead : maxPacketStreamMtu; }
 
     /**
      * Push zero or more bytes into the sink.
@@ -154,7 +155,7 @@ class ICEPacketStream : public PacketStream {
      *
      * @return MTU of PacketSink
      */
-    size_t GetSinkMTU() { return usingTurn ? mtuWithStunOverhead : interfaceMtu; }
+    size_t GetSinkMTU() { return usingTurn ? mtuWithStunOverhead : maxPacketStreamMtu; }
 
     /**
      * Human readable form of UDPPacketDest.
@@ -264,8 +265,9 @@ class ICEPacketStream : public PacketStream {
     qcc::SocketFd sock;
     qcc::Event* sourceEvent;
     qcc::Event* sinkEvent;
-    size_t mtuWithStunOverhead;
     size_t interfaceMtu;
+    size_t maxPacketStreamMtu;
+    size_t mtuWithStunOverhead;
     bool usingTurn;
     bool localTurn;
     bool localHost;

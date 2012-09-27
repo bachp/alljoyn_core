@@ -65,13 +65,6 @@ const uint32_t ICE_ALLOCATE_SESSION_WAIT_TIMEOUT = 15000;
 // PPN - Need to review this time
 const uint32_t ICE_REFRESH_TOKENS_WAIT_TIMEOUT = 15000;
 
-/* Assuming that the MTU size of the interface is 1500 bytes, the total STUN overhead when sending
- * data through the relay is 172 bytes/packet. Hence the max MTU for data would be 1328 bytes.
- * This needs to be hard-coded here because PacketEngine does not allow us to set the MTU per
- * packet stream instead it needs to know the max value when it is started so that it may allocate
- * packet pools appropriately.*/
-const uint32_t MAX_ICE_MTU = 1328;
-
 namespace ajn {
 
 class DaemonICEEndpoint;

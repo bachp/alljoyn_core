@@ -677,7 +677,7 @@ QStatus DaemonICETransport::Start()
     }
 
     /* Start the PacketEngine */
-    status = m_packetEngine.Start(MAX_ICE_MTU);
+    status = m_packetEngine.Start(ajn::MAX_ICE_INTERFACE_MTU);
     if (status != ER_OK) {
         QCC_LogError(status, ("DaemonICETransport::Start(): PacketEngine::Start failed"));
         return status;
