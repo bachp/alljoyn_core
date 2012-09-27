@@ -239,28 +239,40 @@ namespace AllJoynUnitTests
             Assert.AreEqual(s2, (string)dictArg18.Key);
             Assert.AreEqual(d2, (double)dictArg18.Value);
 
-            // Exception is being thrown which says :
-            // System.Exception: A concurrent or interleaved operation changed the state of the object, invalidating this operation.
-            // This gets thrown when wrapping struct in MsgArg below
             TestStruct ts = new TestStruct();
-            ts.i = 1;
-            ts.s = "string";
-            MsgArg sArg = new MsgArg("(is)", new object[] { ts });
-            Assert.AreEqual(ts.i, ((TestStruct)sArg.Value).i);
-            Assert.AreEqual(ts.s, ((TestStruct)sArg.Value).s);
-            Assert.AreEqual(ts, (TestStruct)sArg.Value);
+            ts.i = i1;
+            ts.s = s1;
+            MsgArg sArg = new MsgArg("(is)", new object[] { ts.i, ts.s });
+            object[] ar = (object[]) sArg.Value;
+            Assert.AreEqual(ts.i, ar[0]);
+            Assert.AreEqual(ts.s, ar[1]);
+            TestStruct ts2 = new TestStruct() { i = (int)ar[0], s = (string)ar[1] };
+            Assert.AreEqual(ts, ts2);
+
 
             SimpleStruct1 struct1 = new SimpleStruct1(6566566, "simplestruct", true, 167);
-            MsgArg structArg1 = new MsgArg("(isby)", new object[] { struct1 });
-            Assert.AreEqual(struct1, (SimpleStruct1)structArg1.Value);
+            MsgArg structArg1 = new MsgArg("(isby)", new object[] { struct1.i, struct1.s, struct1.b, struct1.y });
+            object[] ar1 = (object[])structArg1.Value;
+            Assert.AreEqual(struct1.i, ar1[0]);
+            Assert.AreEqual(struct1.s, ar1[1]);
+            Assert.AreEqual(struct1.b, ar1[2]);
+            Assert.AreEqual(struct1.y, ar1[3]);
 
             SimpleStruct2 struct2 = new SimpleStruct2(2345.3344, -789342, 7832487934, 134);
-            MsgArg structArg2 = new MsgArg("(dxtn)", new object[] { struct2 });
-            Assert.AreEqual(struct2, (SimpleStruct2)structArg2.Value);
+            MsgArg structArg2 = new MsgArg("(dxtn)", new object[] { struct2.d, struct2.x, struct2.t, struct2.n });
+            object[] ar2 = (object[])structArg2.Value;
+            Assert.AreEqual(struct2.d, ar2[0]);
+            Assert.AreEqual(struct2.x, ar2[1]);
+            Assert.AreEqual(struct2.t, ar2[2]);
+            Assert.AreEqual(struct2.n, ar2[3]);
 
             SimpleStruct3 struct3 = new SimpleStruct3(255, false, 838954, 66.36566);
-            MsgArg structArg3 = new MsgArg("(qbud)", new object[] { struct3 });
-            Assert.AreEqual(struct3, (SimpleStruct3)structArg3.Value);
+            MsgArg structArg3 = new MsgArg("(qbud)", new object[] { struct3.q, struct3.b, struct3.u, struct3.d });
+            object[] ar3 = (object[])structArg3.Value;
+            Assert.AreEqual(struct3.q, ar3[0]);
+            Assert.AreEqual(struct3.b, ar3[1]);
+            Assert.AreEqual(struct3.u, ar3[2]);
+            Assert.AreEqual(struct3.d, ar3[3]);
         }
 
         public void CompareArrays<T>(T[] a1, T[] a2)
@@ -307,41 +319,90 @@ namespace AllJoynUnitTests
         public void PackAndUnpackingComplexMsgArgs()
         {
             //////////////////////////////////////////////////////////////////////////
-            Int32[,] aai = new Int32[5, 10];
+            Int32[][] aai = new Int32[5][];
             lock (aai)
             {
                 for (int i = 0; i < 5; i++)
                 {
+                    aai[i] = new Int32[10];
                     for (int j = 0; j < 10; j++)
                     {
-                        aai[i, j] = rand.Next(Int32.MinValue, Int32.MaxValue);
+                        aai[i][j] = rand.Next(Int32.MinValue, Int32.MaxValue);
                     }
                 }
             }
+            MsgArg[] ma = new MsgArg[5];
             lock (aai)
             {
-                // Exception is being thrown which says :
-                // System.Exception: A concurrent or interleaved operation changed the state of the object, invalidating this operation.
-                // This gets thrown when wrapping multidimensional array in MsgArg below
-                MsgArg aaiArg = new MsgArg("aai", new object[] { aai });
-                Int32[,] aaiUnpacked = (Int32[,])aaiArg.Value;
-                Compare2DimArrays<Int32>(aai, aaiUnpacked);
+                //populate the row objects from aai.
+                for (int i = 0; i < 5; i++)
+                {
+                    ma[i] = new MsgArg("ai", new object[] { aai[i] });
+                }
+                // populate the MsgArg from the array of MsgArg, ma.
+                MsgArg aaiArg = new MsgArg("aai", new object[] { ma });
+
+                // now retrieve the values and compare them with the original array.
+                object[] aaiOut = (object[])aaiArg.Value;
+                Assert.AreEqual(aaiOut.Length, aai.Length);
+                for (int i = 0; i < aaiOut.Length; i++)
+                {
+                    MsgArg a = (MsgArg)aaiOut[i];
+                    Int32[] iArr = (Int32[])a.Value;
+                    Assert.AreEqual(iArr.Length, aai[i].Length);
+                    for (int j = 0; j < iArr.Length; j++)
+                    {
+                        Assert.AreEqual(iArr[j], aai[i][j]);
+                    }
+                }
             }
             //////////////////////////////////////////////////////////////////////////
 
             string sig1 = "(u(yxd)sd(yxd)iq(yxd)b)";
-            Struct2 s1 = new Struct2(212, 35683450634546, 39.435723);
-            Struct2 s2 = new Struct2(111, -2346656767823, -34.83457);
-            Struct2 s3 = new Struct2(7, 3245445, 732.234);
-            Struct1 s4 = new Struct1(8743, s1, "testingthestructs", 2456.666, s2, -36566, 34, s3, false);
-            MsgArg sig1Arg = new MsgArg(sig1, new object[] { s4 });
-            Assert.AreEqual(s4, (Struct1)sig1Arg.Value);
+            MsgArg s1 = new MsgArg("(yxd)", new object[] { (byte)212, 35683450634546, 39.435723 });
+            MsgArg s2 = new MsgArg("(yxd)", new object[] { (byte)111, -2346656767823, -34.83457 });
+            MsgArg s3 = new MsgArg("(yxd)", new object[] { (byte)7, (Int64)3245445, 732.234 });
+            MsgArg s4 = new MsgArg("(u(yxd)sd(yxd)iq(yxd)b)", new object[] { (UInt32)8743,
+                (byte)212, 35683450634546, 39.435723,
+                "testingthestructs",
+                2456.666,
+                (byte)111, -2346656767823, -34.83457,
+                -36566,
+                (UInt16)34,
+                (byte)7, (Int64)3245445, 732.234,
+                false });
 
+            object[] s4Out = (object[])s4.Value;
+            {
+                UInt32 ui1 = (UInt32)s4Out[0];
+                MsgArg m2 = new MsgArg("(yxd)", (object[])s4Out[1]);
+                String st3 = (string)s4Out[2];
+                double  d3 = (double)s4Out[3];
+                MsgArg m4 = new MsgArg("(yxd)", (object[])s4Out[4]);
+                Int32 i4 = (Int32)s4Out[5];
+                UInt16 ui5 = (UInt16)s4Out[6];
+                MsgArg m6 = new MsgArg("(yxd)", (object[])s4Out[7]);
+                bool b7 = (bool)s4Out[8];
 
-            string sig2 = "{aai(yxd)}";
-            MsgArg dictArg = new MsgArg(sig2, new object[] { aai, s1 });
-            Compare2DimArrays<Int32>(aai, (Int32[,])dictArg.Key);
-            Assert.AreEqual(s1, (Struct2)dictArg.Value);
+                for (int i = 0; i < ((object[])m2.Value).Length; i++)
+                {
+                    Assert.AreEqual(((object[])m2.Value)[i], ((object[])s1.Value)[i]);
+                }
+                for (int i = 0; i < ((object[])m4.Value).Length; i++)
+                {
+                    Assert.AreEqual(((object[])m4.Value)[i], ((object[])s2.Value)[i]);
+                }
+                for (int i = 0; i < ((object[])m6.Value).Length; i++)
+                {
+                    Assert.AreEqual(((object[])m6.Value)[i], ((object[])s3.Value)[i]);
+                }
+            }
+
+            // this is not a valid dictionary arrangement, so don't run this.
+            // string sig2 = "{aai(yxd)}";
+            // MsgArg dictArg = new MsgArg(sig2, new object[] { ma, (byte)212, 35683450634546, 39.435723 });
+            // Compare2DimArrays<Int32>(aai, (Int32[,])dictArg.Key);
+            // Assert.AreEqual(s1, (Struct2)dictArg.Value);
 
 
 
