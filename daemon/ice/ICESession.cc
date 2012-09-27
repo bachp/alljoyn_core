@@ -1037,7 +1037,7 @@ QStatus ICESession::GatherHostCandidates(bool enableIpv6)
 
         for (networkInterfaceIter = networkInterface.liveInterfaces.begin(); networkInterfaceIter != networkInterface.liveInterfaces.end(); ++networkInterfaceIter) {
             // Ignore IPv6 interfaces if IPv6 support is disabled
-            if ((!enableIpv6) && (networkInterfaceIter->m_family == AF_INET6)) {
+            if ((!enableIpv6) && (networkInterfaceIter->m_family == QCC_AF_INET6)) {
                 continue;
             }
 
