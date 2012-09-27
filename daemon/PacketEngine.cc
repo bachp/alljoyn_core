@@ -1428,7 +1428,9 @@ void PacketEngine::RxPacketThread::HandleXOn(Packet* controlPacket)
         /* Update txDrain */
         ci->txLock.Lock();
         uint16_t cnt = 0;
-        AdvanceTxDrain(*ci, remRxAck, cnt);
+        if (IN_WINDOW(uint16_t, ci->txDrain, numeric_limits<uint16_t>::max() >> 1, remRxAck)) {
+            AdvanceTxDrain(*ci, remRxAck, cnt);
+        }
 
         /* Update remoteRxDrain */
         bool sendXonAck = false;
