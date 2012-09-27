@@ -231,7 +231,6 @@ typedef struct {
  */
 class MsgArg {
     friend class _Message;
-    friend class MsgArgC;
     friend class MsgArgUtils;
 
   public:
