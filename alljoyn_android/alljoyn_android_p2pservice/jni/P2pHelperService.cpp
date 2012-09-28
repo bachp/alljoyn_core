@@ -115,7 +115,7 @@ class P2pService : public BusObject {
         JNIEnv* env = attachEnv(&jret);
 
         //
-        // Create a reference to the provided P2pHelperAndroidService Java object that remains
+        // Create a reference to the provided P2pHelperService Java object that remains
         // meaningful in other calls into our various functions.  We create a weak
         // reference so that we don't interfere with garbage collection.  Note well
         // that you can't use weak references directly, you must always create a
@@ -320,7 +320,7 @@ class P2pService : public BusObject {
     }
 
     //
-    // Call Java P2PHelperAndroidService.advertiseName
+    // Call Java P2PHelperService.advertiseName
     //
     int AdvertiseName(const char* name, const char* guid)
     {
@@ -745,7 +745,7 @@ extern "C" {
  * Method:    jniInit
  * Signature: (Ljava/lang/String;)I
  */
-JNIEXPORT jboolean JNICALL Java_org_alljoyn_bus_p2p_service_P2pHelperAndroidService_00024P2pHelperService_jniOnCreate(JNIEnv*env, jobject jobj) {
+JNIEXPORT jboolean JNICALL Java_org_alljoyn_bus_p2p_service_P2pHelperService_jniOnCreate(JNIEnv*env, jobject jobj) {
 
     QStatus status = ER_OK;
     InterfaceDescription* p2pIntf = NULL;
@@ -768,6 +768,9 @@ JNIEXPORT jboolean JNICALL Java_org_alljoyn_bus_p2p_service_P2pHelperAndroidServ
         status = s_bus->CreateInterface(P2P_SERVICE_INTERFACE_NAME, p2pIntf);
         if (ER_OK != status) {
             LOGE("Failed to create interface \"%s\" (%s)", P2P_SERVICE_INTERFACE_NAME, QCC_StatusText(status));
+            delete s_bus;
+            s_bus = NULL;
+            return false;
         } else {
 
             p2pIntf->AddMethod("FindAdvertisedName",         "s",  "i",  "namePrefix,result");
@@ -843,7 +846,7 @@ JNIEXPORT jboolean JNICALL Java_org_alljoyn_bus_p2p_service_P2pHelperAndroidServ
  * Method:    jniOnDestroy
  * Signature: ()V
  */
-JNIEXPORT void JNICALL Java_org_alljoyn_bus_p2p_service_P2pHelperAndroidService_00024P2pHelperService_jniOnDestroy(JNIEnv* env, jobject jobj) {
+JNIEXPORT void JNICALL Java_org_alljoyn_bus_p2p_service_P2pHelperService_jniOnDestroy(JNIEnv* env, jobject jobj) {
     LOGI("jniOnDestroy");
 
     if (s_bus) {
@@ -861,7 +864,7 @@ JNIEXPORT void JNICALL Java_org_alljoyn_bus_p2p_service_P2pHelperAndroidService_
     s_bus = NULL;
 }
 
-JNIEXPORT void JNICALL Java_org_alljoyn_bus_p2p_service_P2pHelperAndroidService_00024P2pHelperService_jniOnFoundAdvertisedName(JNIEnv* env, jobject jobj, jstring name, jstring namePrefix, jstring guid, jstring device) {
+JNIEXPORT void JNICALL Java_org_alljoyn_bus_p2p_service_P2pHelperService_jniOnFoundAdvertisedName(JNIEnv* env, jobject jobj, jstring name, jstring namePrefix, jstring guid, jstring device) {
 
     if (s_obj) {
         const char* cName = env->GetStringUTFChars(name, NULL);
@@ -881,7 +884,7 @@ JNIEXPORT void JNICALL Java_org_alljoyn_bus_p2p_service_P2pHelperAndroidService_
 
 }
 
-JNIEXPORT void JNICALL Java_org_alljoyn_bus_p2p_service_P2pHelperAndroidService_00024P2pHelperService_jniOnLostAdvertisedName(JNIEnv* env, jobject jobj, jstring name, jstring namePrefix, jstring guid, jstring device) {
+JNIEXPORT void JNICALL Java_org_alljoyn_bus_p2p_service_P2pHelperService_jniOnLostAdvertisedName(JNIEnv* env, jobject jobj, jstring name, jstring namePrefix, jstring guid, jstring device) {
 
     if (s_obj) {
         const char* cName = env->GetStringUTFChars(name, NULL);
@@ -900,7 +903,7 @@ JNIEXPORT void JNICALL Java_org_alljoyn_bus_p2p_service_P2pHelperAndroidService_
     }
 }
 
-JNIEXPORT void JNICALL Java_org_alljoyn_bus_p2p_service_P2pHelperAndroidService_00024P2pHelperService_jniOnLinkEstablished(JNIEnv* env, jobject jobj, jint handle) {
+JNIEXPORT void JNICALL Java_org_alljoyn_bus_p2p_service_P2pHelperService_jniOnLinkEstablished(JNIEnv* env, jobject jobj, jint handle) {
 
     if (s_obj) {
         s_obj->sendOnLinkEstablished(handle);
@@ -909,7 +912,7 @@ JNIEXPORT void JNICALL Java_org_alljoyn_bus_p2p_service_P2pHelperAndroidService_
     }
 }
 
-JNIEXPORT void JNICALL Java_org_alljoyn_bus_p2p_service_P2pHelperAndroidService_00024P2pHelperService_jniOnLinkError(JNIEnv* env, jobject jobj, jint handle, jint error) {
+JNIEXPORT void JNICALL Java_org_alljoyn_bus_p2p_service_P2pHelperService_jniOnLinkError(JNIEnv* env, jobject jobj, jint handle, jint error) {
 
     if (s_obj) {
         s_obj->sendOnLinkError(handle, error);
@@ -918,7 +921,7 @@ JNIEXPORT void JNICALL Java_org_alljoyn_bus_p2p_service_P2pHelperAndroidService_
     }
 }
 
-JNIEXPORT void JNICALL Java_org_alljoyn_bus_p2p_service_P2pHelperAndroidService_00024P2pHelperService_jniOnLinkLost(JNIEnv* env, jobject jobj, jint handle) {
+JNIEXPORT void JNICALL Java_org_alljoyn_bus_p2p_service_P2pHelperService_jniOnLinkLost(JNIEnv* env, jobject jobj, jint handle) {
 
     if (s_obj) {
         s_obj->sendOnLinkLost(handle);
@@ -948,7 +951,7 @@ JNIEXPORT jint JNICALL JNI_OnLoad(JavaVM* vm,
     LOGD("After getting environment\n");
 
     jclass clazz;
-    clazz = env->FindClass("org/alljoyn/bus/p2p/service/P2pHelperAndroidService$P2pHelperService");
+    clazz = env->FindClass("org/alljoyn/bus/p2p/service/P2pHelperService");
     if (!clazz) {
         LOGE("***** Unable to FindClass P2pHelperService **********");
         env->ExceptionDescribe();
