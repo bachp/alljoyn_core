@@ -37,10 +37,11 @@
 #include <Status.h>
 
 #include "TCPTransport.h"
-#if 0
-#include "wfd/WFDTransport.h"
-#endif
 #include "DaemonTransport.h"
+
+#if defined(QCC_OS_ANDROID)
+#include "android/WFDTransport.h"
+#endif
 
 #if defined(QCC_OS_DARWIN)
 #warning "Bluetooth transport not implemented on Darwin"
@@ -423,30 +424,87 @@ int main(int argc, char** argv)
     /* Get env vars */
     Environ* env = Environ::GetAppEnviron();
 
-#ifdef QCC_OS_GROUP_WINDOWS
-    serverArgs = env->Find("BUS_SERVER_ADDRESSES", "localhost:port=9956;tcp:addr=0.0.0.0,port=9955;bluetooth:");
-#else
+    /*
+     * The transport support matrix is getting a bit too complicated to interleave
+     * all of the CPP macros, so we just break them out explicitly.
+     */
+#if defined(QCC_OS_GROUP_WINDOWS)
 
+    /*
+     * Windows uses the localhost transport as the local transport, uses the TCP
+     * transport with defaults, does not support the WFD transport and supports
+     * bluetooth.
+     */
+    serverArgs = env->Find("BUS_SERVER_ADDRESSES", "localhost:port=9956;tcp:;bluetooth:");
+
+#endif
+
+#if defined(QCC_OS_ANDROID)
 #if defined(DAEMON_LIB)
-    /* Android Applications don't have enough privilege to start a bluetooth
-     * transport.  This is because the daemon needs to access /dev/socket/dbus
-     * to do so.  The socket is owned by (user, group) bluetooth:bluetooth
-     * but privilege BLUETOOTH or BLUETOOTH_ADMIN don't help since the socket
-     * is apparently considered part of DBus.  Permissions on the dbus need
-     * to be relaxed to 666 to make this work for everyday apps.  We also let
-     * the tcp listen spec default to listening and multicasting on all
-     * adapters. */
-    serverArgs = env->Find("BUS_SERVER_ADDRESSES", "unix:abstract=alljoyn;tcp:");
-#else
+
+    /*
+     * If the daemon is being built as a daemon library, it implies that the
+     * library is going to be used by an Android APK that is responsible for
+     * implementing a daemon.  It turns out that Android Applications don't have
+     * enough privilege to start a bluetooth transport.  This is because the
+     * daemon needs to access /dev/socket/dbus to do so.  The socket is owned by
+     * (user, group) bluetooth:bluetooth but privilege BLUETOOTH or
+     * BLUETOOTH_ADMIN don't help since the socket is apparently considered part
+     * of DBus.  Permissions on the dbus need to be relaxed to 666 to make this
+     * work for everyday apps.  So if we are building for DAEMON_LIB we cannot
+     * add bluetooth: to the transports list.
+     *
+     * The daemon lib version of the Android-based daemon supports the unix
+     * transport as the local transport, uses the TCP transport with defaults as
+     * the remote transport, and since it is on Android, supports the WFD
+     * transport (which is an alternate remote transport).
+     */
+    serverArgs = env->Find("BUS_SERVER_ADDRESSES", "unix:abstract=alljoyn;tcp:;wfd:");
+
+#else /* !defined(DAEMON_LIB) */
+
+    /*
+     * The native or bundled version of the Android-based daemon supports the
+     * unix transport as the local transport, uses the TCP transport with
+     * defaults as the remote transport, and since it is on Android, supports
+     * the WFD transport and may support the bluetooth transport if desired.
+     */
     if (noBT) {
-        serverArgs = env->Find("BUS_SERVER_ADDRESSES", "unix:abstract=alljoyn;tcp:addr=0.0.0.0,port=9955");
+        serverArgs = env->Find("BUS_SERVER_ADDRESSES", "unix:abstract=alljoyn;tcp:;wfd:");
     } else {
-        serverArgs = env->Find("BUS_SERVER_ADDRESSES", "unix:abstract=alljoyn;tcp:addr=0.0.0.0,port=9955;bluetooth:");
+        serverArgs = env->Find("BUS_SERVER_ADDRESSES", "unix:abstract=alljoyn;tcp:;wfd:;bluetooth:");
     }
 
-#endif /* DAEMON_LIB */
+#endif /* !defined(DAEMON_LIB) */
+#endif /* defined(QCC_OS_ANDROID) */
 
-#endif /* !QCC_OS_GROUP_WINDOWS */
+#if defined(QCC_OS_DARWIN)
+
+    /*
+     * Darwin uses the unix transport as the local transport, uses the TCP
+     * transport for the remote transport and does not supports neither
+     * bluetooth nor WFD.
+     */
+    serverArgs = env->Find("BUS_SERVER_ADDRESSES", "unix:abstract=alljoyn;tcp:");
+
+#endif /* defined(QCC_OS_DARWIN) */
+
+#if !defined(QCC_OS_GROUP_WINDOWS) && !defined(QCC_OS_ANDROID) && !defined(QCC_OS_DARWIN)
+
+    /*
+     * Assume that any other platform uses the unix transport as the local
+     * transport, uses the TCP transport for the remote transport and may or may
+     * not support bluetooth if desired.
+     */
+    if (noBT) {
+        serverArgs = env->Find("BUS_SERVER_ADDRESSES", "unix:abstract=alljoyn;tcp:");
+    } else {
+        serverArgs = env->Find("BUS_SERVER_ADDRESSES", "unix:abstract=alljoyn;tcp:;bluetooth:");
+    }
+
+#endif /* !defined(QCC_OS_GROUP_WINDOWS) && !defined(QCC_OS_ANDROID) && !defined(QCC_OS_DARWIN) */
+
+    printf("serverArgs: %s\n", serverArgs.c_str());
 
     /*
      * Teach the transport list how to make transports it may see referred to in
@@ -458,16 +516,15 @@ int main(int argc, char** argv)
     TransportFactoryContainer cntr;
     cntr.Add(new TransportFactory<DaemonTransport>(DaemonTransport::TransportName, true));
     cntr.Add(new TransportFactory<TCPTransport>(TCPTransport::TransportName, false));
-#if 0 && defined(QCC_OS_ANDROID)
+
+#if defined(QCC_OS_ANDROID)
     cntr.Add(new TransportFactory<WFDTransport>(WFDTransport::TransportName, false));
 #endif
 
-#if !defined(QCC_OS_DARWIN)
-#if !defined(QCC_OS_GROUP_WINDOWS)
+#if !defined(QCC_OS_DARWIN) && !defined(QCC_OS_GROUP_WINDOWS)
     if (!noBT) {
         cntr.Add(new TransportFactory<BTTransport>(BTTransport::TransportName, false));
     }
-#endif
 #endif
 
     /* Create message bus with support for alternate transports */

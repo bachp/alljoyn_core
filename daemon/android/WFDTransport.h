@@ -1,11 +1,11 @@
 /**
  * @file
- * WFDTransport is a specialization of class Transport for daemons using Wi-Fi
- * direct to establishy temporary networks and then talking over TCP.
+ * WFDTransport is a specialization of class Transport for daemons talking over
+ * Wi-Fi Direct links and doing Wi_Fi Direct pre-association service discovery.
  */
 
 /******************************************************************************
- * Copyright 2009-2012, Qualcomm Innovation Center, Inc.
+ * Copyright 2012, Qualcomm Innovation Center, Inc.
  *
  *    Licensed under the Apache License, Version 2.0 (the "License");
  *    you may not use this file except in compliance with the License.
@@ -44,25 +44,22 @@
 #include "Transport.h"
 #include "RemoteEndpoint.h"
 
-#include "ns/IpNameService.h"
-
-#include "android/P2PHelperInterface.h"
+#include "P2PNameService.h"
+#include "P2PConMan.h"
 
 namespace ajn {
 
 class WFDEndpoint;
 
-#define QCC_MODULE "WFD"
-
 /**
- * @brief A class for WFD Transports used in daemons.
+ * @brief A class for WFD Transports used in daemons running on Android
  */
 class WFDTransport : public Transport, public RemoteEndpoint::EndpointListener, public qcc::Thread {
     friend class WFDEndpoint;
 
   public:
     /**
-     * Create a WFD based transport for use by daemons.
+     * Create a WFD based transport for use by daemons running on Android.
      *
      * @param bus The BusAttachment associated with this endpoint
      */
@@ -152,8 +149,8 @@ class WFDTransport : public Transport, public RemoteEndpoint::EndpointListener, 
      * @param listenSpec  Transport specific key/value arguments that specify the physical interface to listen on.
      *                    - Valid transport is @c "wfd". All others ignored.
      *                    - Valid keys are:
-     *                        - @c r4addr = IP address of server to connect to.
-     *                        - @c r4port = Port number of server to connect to.
+     *                        - @c addr = IP address to listen for inbound connections on.
+     *                        - @c port = Port number to listen for inbound connections on.
      *
      * @return
      *      - ER_OK if successful.
@@ -170,8 +167,8 @@ class WFDTransport : public Transport, public RemoteEndpoint::EndpointListener, 
      * @param listenSpec  Transport specific key/value arguments that specify the physical interface to listen on.
      *                    - Valid transport is @c "wfd". All others ignored.
      *                    - Valid keys are:
-     *                        - @c r4addr = IP address of server to connect to.
-     *                        - @c r4port = Port number of server to connect to.
+     *                        - @c addr = IP address to stop listening for inbound connections on.
+     *                        - @c port = Port number to stop listening for inbound connections on.
      *
      * @return
      *      - ER_OK if successful.
@@ -263,7 +260,7 @@ class WFDTransport : public Transport, public RemoteEndpoint::EndpointListener, 
     /**
      * Indicates whether this transport is used for client-to-bus or bus-to-bus connections.
      *
-     * @return  Always returns true, WFD is a bus-to-bus transport.
+     * @return  Always returns true, WFD implies a bus-to-bus transport.
      */
     bool IsBusToBus() const { return true; }
 
@@ -278,15 +275,6 @@ class WFDTransport : public Transport, public RemoteEndpoint::EndpointListener, 
      * Name of transport used in transport specs.
      */
     static const char* TransportName;
-
-    void OnFoundAdvertisedName(const char* name, const char* namePrefix, const char*  guid, const char* device);
-    void OnLostAdvertisedName(const char* name, const char* namePrefix, const char*  guid, const char* device);
-    void OnLinkEstablished(int handle);
-    void OnLinkError(int thandle, int error);
-    void OnLinkLost(int handle) { /* TODO This needs to drive a CloseInterface on the name service */ }
-
-    void HandleEstablishLinkReply(int32_t handle);
-    void HandleGetInterfaceNameFromHandleReply(qcc::String interface);
 
   private:
     WFDTransport(const WFDTransport& other);
@@ -468,17 +456,6 @@ class WFDTransport : public Transport, public RemoteEndpoint::EndpointListener, 
      */
     QStatus NormalizeListenSpec(const char* inSpec, qcc::String& outSpec, std::map<qcc::String, qcc::String>& argMap) const;
 
-    class FoundCallback {
-      public:
-        FoundCallback(WFDTransport* transport, TransportListener*& listener) : m_transport(transport), m_listener(listener) { }
-        void Found(const qcc::String& busAddr, const qcc::String& guid, std::vector<qcc::String>& nameList, uint8_t timer);
-      private:
-        WFDTransport* m_transport;
-        TransportListener*& m_listener;
-    };
-
-    FoundCallback m_foundCallback;  /**< Called by IpNameService when new busses are discovered */
-
     /**
      * @brief The default timeout for in-process authentications.
      *
@@ -525,7 +502,7 @@ class WFDTransport : public Transport, public RemoteEndpoint::EndpointListener, 
      */
     static const uint32_t ALLJOYN_MAX_COMPLETED_CONNECTIONS_WFD_DEFAULT = 50;
 
-    /**
+    /*
      * The Android Compatibility Test Suite (CTS) is used by Google to enforce a
      * common idea of what it means to be Android.  One of their tests is to
      * make sure there are no TCP or UDP listeners in running processes when the
@@ -533,17 +510,20 @@ class WFDTransport : public Transport, public RemoteEndpoint::EndpointListener, 
      * and manufacturers want their Android phones to pass the CTS, we have got
      * to be able to shut off our listeners unless they are actually required.
      *
-     * To do this, we need to keep track of whether or not the daemon is
+     * To do this, we need to keep track of whether or not the transport is
      * actively advertising or discovering.  To this end, we keep track of the
      * advertise and discover calls, and if there are any outstanding (not
-     * canceled) we enable the Name Service to talk to the outside world.  If
-     * there are no outstanding operations, we tell the Name Service to shut up.
+     * canceled) we enable the IP and P2P name services to talk to the outside
+     * world.  If there are no outstanding operations, we tell the name services
+     * to shut up.  It may be the case that another transport has active
+     * advertise or discover operations, in which case the name services may
+     * continue doing their thing.
      *
      * There is nothing preventing us from receiving multiple identical
      * discovery and advertisement requests, so we allow multiple instances of
      * an identical name on the list.  We could reference count the entries, but
      * this seems like a relatively rare condition, so we take the
-     * straightforward approach.
+     * straightforward approach and just (over)write many, delete once.
      */
     enum DiscoveryOp {
         ENABLE_DISCOVERY,  /**< A request to start a discovery has been received */
@@ -605,8 +585,9 @@ class WFDTransport : public Transport, public RemoteEndpoint::EndpointListener, 
      * on.  This lest is kept so we can tear down the listeners if there are no
      * advertisements and recreate it if an advertisement is started.
      *
-     * This is keep WFD from having a listener so that the Android Compatibility
-     * test suite can pass with when the daemon is in the quiescent state.
+     * This is keep TCP from having a listener running so that the Android
+     * Compatibility test suite can pass with when the daemon is in the
+     * quiescent state.
      *
      * @return true if the list of listeners is empty as a result of the
      *              operation.
@@ -632,233 +613,12 @@ class WFDTransport : public Transport, public RemoteEndpoint::EndpointListener, 
     bool m_isListening;
     bool m_isNsEnabled;
 
-    uint16_t m_listenPort;  /**< If m_isListening, is the port on which we are listening */
+    uint16_t m_listenPort;     /**< If m_isListening, is the port on which we are listening */
 
-    class P2PConnectionInfo {
-      public:
-        P2PConnectionInfo(WFDEndpoint* endpoint, int32_t handle, qcc::String& interface)
-            : m_wfdEndpoint(endpoint), m_handle(handle), m_interface(interface) { }
+    void P2PNameServiceCallback(const qcc::String& guid, qcc::String& name, uint8_t timer);
 
-        virtual ~P2PConnectionInfo()
-        { m_wfdEndpoint = 0; m_handle = -1; m_interface = ""; }
-
-        WFDEndpoint* GetEndpoint() { return m_wfdEndpoint; }
-        int32_t GetHandle() { return m_handle; }
-        qcc::String GetInterface() { return m_interface; }
-
-      private:
-        WFDEndpoint* m_wfdEndpoint;
-        int32_t m_handle;
-        qcc::String m_interface;
-    };
-
-    P2PConnectionInfo* GetP2PInfoForEndpoint(WFDEndpoint* wfdEndpoint)
-    {
-        QCC_DbgPrintf(("P2PConnectionInfo::GetP2PInfoForEndpoint(%p)\n", wfdEndpoint));
-        for (std::list<P2PConnectionInfo*>::iterator i = m_p2pConnectionInfo.begin(); i != m_p2pConnectionInfo.end(); ++i) {
-            QCC_DbgPrintf(("P2PConnectionInfo::GetP2PInfoForEndpoint(): check out %p\n", *i));
-            if ((*i)->GetEndpoint() == wfdEndpoint) {
-                return *i;
-            }
-        }
-
-        return NULL;
-    }
-
-    void RememberP2PConnection(WFDEndpoint* endpoint, int32_t handle, qcc::String& interface)
-    {
-        assert(m_p2pConnectionInfo.empty() && "P2PConnectionInfo::RememberP2PConnection(): Multiple P2P Connections!?");
-        P2PConnectionInfo* info = new P2PConnectionInfo(endpoint, handle, interface);
-        m_p2pConnectionInfo.push_back(info);
-    }
-
-    void ForgetP2PConnection(WFDEndpoint* wfdEndpoint)
-    {
-        for (std::list<P2PConnectionInfo*>::iterator i = m_p2pConnectionInfo.begin(); i != m_p2pConnectionInfo.end(); ++i) {
-            QCC_DbgPrintf(("P2PConnectionInfo::forgetP2PConnection(): check out %p\n", *i));
-            if ((*i)->GetEndpoint() == wfdEndpoint) {
-                QCC_DbgPrintf(("P2PConnectionInfo::ForgetP2PConnection(): delete %p\n", *i));
-                delete *i;
-                m_p2pConnectionInfo.erase(i);
-                return;
-            }
-        }
-    }
-
-    std::list<P2PConnectionInfo*> m_p2pConnectionInfo;
-
-    P2PHelperInterface* m_p2pHelperInterface;
-
-    class MyP2PHelperListener : public P2PHelperListener {
-      public:
-        MyP2PHelperListener(WFDTransport* transport) : m_transport(transport) { }
-        ~MyP2PHelperListener() { }
-
-        virtual void OnFoundAdvertisedName(qcc::String& name, qcc::String& namePrefix, qcc::String& guid, qcc::String& device)
-        {
-            QCC_DbgPrintf(("MyP2PHelperListener::OnFoundAdvertisedname(\"%s\", \"%s\", \"%s\", \"%s\")\n",
-                           name.c_str(), namePrefix.c_str(), guid.c_str(), device.c_str()));
-
-            assert(m_transport);
-            m_transport->OnFoundAdvertisedName(name.c_str(), namePrefix.c_str(), guid.c_str(), device.c_str());
-        }
-
-        virtual void OnLostAdvertisedName(qcc::String& name, qcc::String& namePrefix, qcc::String& guid, qcc::String& device)
-        {
-            QCC_DbgPrintf(("MyP2PHelperListener::OnLostAdvertisedname(\"%s\", \"%s\", \"%s\", \"%s\")\n",
-                           name.c_str(), namePrefix.c_str(), guid.c_str(), device.c_str()));
-
-            assert(m_transport);
-            m_transport->OnLostAdvertisedName(name.c_str(), namePrefix.c_str(), guid.c_str(), device.c_str());
-        }
-
-        virtual void OnLinkEstablished(int32_t handle)
-        {
-            QCC_DbgPrintf(("MyP2PHelperListener::OnLinkEstablished(%d)\n", handle));
-
-            assert(m_transport);
-            m_transport->OnLinkEstablished(handle);
-        }
-
-        virtual void OnLinkError(int32_t handle, int32_t error)
-        {
-            QCC_DbgPrintf(("MyP2PHelperListener::OnLinkError(%d, %d)\n", handle, error));
-
-            assert(m_transport);
-            m_transport->OnLinkError(handle, error);
-        }
-
-        virtual void OnLinkLost(int32_t handle)
-        {
-            QCC_DbgPrintf(("MyP2PHelperListener::OnLinkLost(%d)\n", handle));
-
-            assert(m_transport);
-            m_transport->OnLinkLost(handle);
-        }
-
-        virtual void HandleFindAdvertisedNameReply(int32_t result)
-        {
-            QCC_DbgPrintf(("MyP2PHelperListener::HandleFindAdvertisedNameReply(%d)\n", result));
-            if (result != P2PHelperInterface::P2P_OK) {
-                QCC_LogError(ER_FAIL, ("MyP2PHelperListener::HandleFindAdvertisedNameReply(%d)\n", result));
-            }
-        }
-
-        virtual void HandleCancelFindAdvertisedNameReply(int32_t result)
-        {
-            QCC_DbgPrintf(("MyP2PHelperListener::HandleCancelFindAdvertisedNameReply(%d)\n", result));
-            if (result != P2PHelperInterface::P2P_OK) {
-                QCC_LogError(ER_FAIL, ("MyP2PHelperListener::HandleCancelFindAdvertisedNameReply(%d)\n", result));
-            }
-        }
-
-        virtual void HandleAdvertiseNameReply(int32_t result)
-        {
-            QCC_DbgPrintf(("MyP2PHelperListener::HandleAdvertiseNameReply(%d)\n", result));
-            if (result != P2PHelperInterface::P2P_OK) {
-                QCC_LogError(ER_FAIL, ("MyP2PHelperListener::HandleAdvertiseNameReply(%d)\n", result));
-            }
-        }
-
-        virtual void HandleCancelAdvertiseNameReply(int32_t result)
-        {
-            QCC_DbgPrintf(("MyP2PHelperListener::HandleCancelAdvertiseNameReply(%d)\n", result));
-            if (result != P2PHelperInterface::P2P_OK) {
-                QCC_LogError(ER_FAIL, ("MyP2PHelperListener::HandleCancelAdvertiseNameReply(%d)\n", result));
-            }
-        }
-
-        virtual void HandleEstablishLinkReply(int32_t handle)
-        {
-            QCC_DbgPrintf(("MyP2PHelperListener::HandleEstablishLinkReply(%d)\n", handle));
-            assert(m_transport);
-            m_transport->HandleEstablishLinkReply(handle);
-        }
-
-        virtual void HandleReleaseLinkReply(int32_t result)
-        {
-            QCC_DbgPrintf(("MyP2PHelperListener::HandleReleaseLinkReply(%d)\n", result));
-        }
-
-        virtual void HandleGetInterfaceNameFromHandleReply(qcc::String& interface)
-        {
-            QCC_DbgPrintf(("MyP2PHelperListener::HandleGetInterfaceNameFromHandleReply(\"%s\")\n", interface.c_str()));
-            assert(m_transport);
-            m_transport->HandleGetInterfaceNameFromHandleReply(interface);
-        }
-
-      private:
-        WFDTransport* m_transport;
-    };
-
-    MyP2PHelperListener* m_myP2pHelperListener;
-
-    qcc::Event m_establishLinkEvent;
-    bool m_establishLinkResult;
-
-    qcc::Event m_getInterfaceNameFromHandleEvent;
-    bool m_getInterfaceNameFromHandleResult;
-    qcc::String m_foundInterface;
-
-    int m_goHandle;
-
-    qcc::Mutex m_deviceListLock;
-    typedef std::list<std::pair<qcc::String, qcc::String> > DeviceList;
-    DeviceList m_deviceList;
-
-    class P2pDeviceRequest {
-      public:
-        P2pDeviceRequest(int handle, qcc::Event* event) : m_handle(handle), m_event(event), m_result(-1) { }
-
-        int GetHandle(void) { return m_handle; }
-
-        void SetEvent(void) { m_event->SetEvent(); }
-
-        void SetResult(int result) { m_result = result; }
-        int GetResult(void) { return m_result; }
-
-      private:
-        int m_handle;
-        qcc::Event* m_event;
-        int m_result;
-    };
-
-    qcc::Mutex m_deviceRequestListLock;
-    typedef std::list<P2pDeviceRequest> P2pDeviceRequestList;
-    P2pDeviceRequestList m_deviceRequestList;
-
-    class P2pAddressRequest {
-      public:
-        P2pAddressRequest(qcc::String guid, qcc::Event* event) : m_guid(guid), m_event(event) { }
-        qcc::String GetGuid(void) { return m_guid; }
-
-        void SetEvent(void) { m_event->SetEvent(); }
-
-        void SetAddress(qcc::String address) { m_address = address; }
-        qcc::String GetAddress(void) { return m_address; }
-
-        void SetPort(qcc::String port) { m_port = port; }
-        qcc::String GetPort(void) { return m_port; }
-
-      private:
-        qcc::String m_guid;
-        qcc::Event* m_event;
-        qcc::String m_address;
-        qcc::String m_port;
-    };
-
-    qcc::Mutex m_addressRequestListLock;
-    typedef std::list<P2pAddressRequest> P2pAddressRequestList;
-    P2pAddressRequestList m_addressRequestList;
-
-    QStatus CreateTemporaryNetwork(const qcc::String& guid, qcc::String& interface);
-    QStatus CreateConnectSpec(const qcc::String& interface, const qcc::String& guid, qcc::String& connectSpec);
-
-  public:
-    void OnFound(const qcc::String& busAddr, const qcc::String& guid);
+    int32_t m_nsReleaseCount; /**< the number of times we have released the name service singleton */
 };
-
-#undef QCC_MODULE
 
 } // namespace ajn
 

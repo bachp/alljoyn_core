@@ -1,10 +1,11 @@
 /**
  * @file
- * WFDTransport is an implementation of WFDTransportBase for daemons.
+ * WFDTransport is a specialization of class Transport for daemons talking over
+ * Wi-Fi Direct links and doing Wi_Fi Direct pre-association service discovery.
  */
 
 /******************************************************************************
- * Copyright 2009-2012, Qualcomm Innovation Center, Inc.
+ * Copyright 2012, Qualcomm Innovation Center, Inc.
  *
  *    Licensed under the Apache License, Version 2.0 (the "License");
  *    you may not use this file except in compliance with the License.
@@ -37,346 +38,6 @@
 #include "DaemonConfig.h"
 #include "ns/IpNameService.h"
 #include "WFDTransport.h"
-
-/*
- * How the transport fits into the system
- * ======================================
- *
- * AllJoyn provides the concept of a Transport which provides a relatively
- * abstract way for the daemon to use different network mechanisms for getting
- * Messages from place to another.  Conceptually, think of, for example, a Unix
- * transport that moves bits using unix domain sockets, a Bluetooth transport
- * that moves bits over a Bluetooth link and a WFD transport that moves Messages
- * over a WFD connection.
- *
- * In networking 101, one discovers that BSD sockets is oriented toward clients
- * and servers.  There are different sockets calls required for a program
- * implementing a server-side part and a client side part.  The server-side
- * listens for incoming connection requests and the client-side initiates the
- * requests.  AllJoyn clients are bus attachments that our Applications may use
- * and these can only initiate connection requests to AllJoyn daemons.  Although
- * dameons may at first blush appear as the service side of a typical BSD
- * sockets client-server pair, it turns out that while daemons obviously must
- * listen for incoming connections, they also must be able to initiate
- * connection requests to other daemons.  It turns out that there is very little
- * in the way of common code when comparing the client version of a WFD
- * transport and a daemon version.  Therefore you will find a WFDTransport
- * class in here the dameon directory and a client version, called simply
- * WFDTransport, in the src directory.
- *
- * This file is the WFDTransport.  It needs to act as both a client and a
- * server explains the presence of both connect-like methods and listen-like
- * methods here.
- *
- * A fundamental idiom in the AllJoyn system is that of a thread.  Active
- * objects in the system that have threads wandering through them will implement
- * Start(), Stop() and Join() methods.  These methods work together to manage
- * the autonomous activities that can happen in a WFDTransport.  These
- * activities are carried out by so-called hardware threads.  POSIX defines
- * functions used to control hardware threads, which it calls pthreads.  Many
- * threading packages use similar constructs.
- *
- * In a threading package, a start method asks the underlying system to arrange
- * for the start of thread execution.  Threads are not necessarily running when
- * the start method returns, but they are being *started*.  Some time later, a
- * thread of execution appears in a thread run function, at which point the
- * thread is considered *running*.  In the case of the WFDTransport, the Start() method
- * spins up a thread to run the BSD sockets' server accept loop.  This
- * also means that as soon as Start() is executed, a thread may be using underlying
- * socket file descriptors and one must be very careful about convincing the
- * accept loop thread to exit before deleting the resources.
- *
- * In generic threads packages, executing a stop method asks the underlying
- * system to arrange for a thread to end its execution.  The system typically
- * sends a message to the thread to ask it to stop doing what it is doing.  The
- * thread is running until it responds to the stop message, at which time the
- * run method exits and the thread is considered *stopping*.  The
- * WFDTransport provides a Stop() method to do exactly that.
- *
- * Note that neither of Start() nor Stop() are synchronous in the sense that one
- * has actually accomplished the desired effect upon the return from a call.  Of
- * particular interest is the fact that after a call to Stop(), threads will
- * still be *running* for some non-deterministic time.
- *
- * In order to wait until all of the threads have actually stopped, a blocking
- * call is required.  In threading packages this is typically called join, and
- * our corresponding method is called Join().  A user of the DaemonWfdTransport
- * must assume that immediately after a call to Start() is begun, and until a
- * call to Join() returns, there may be threads of execution wandering anywhere
- * in the DaemonWfdTransport and in any callback registered by the caller.
- *
- * The high-level process for how an advertisement translates into a transport
- * Connect() is a bit opaque, so we paint a high-level picture here.
- *
- * First, a service (that will be handling RPC calls and emitting signals)
- * acquires a name on the bus, binds a session and calls AdvertiseName.  This
- * filters down (possibly through language bindings) to the AllJoyn object, into
- * the transports on the transport list (the WFD transport is one of those) and
- * eventually to the IpNameService::AdvertiseName() method we call since we are
- * an IP-based transport.  The IP name service will multicast the advertisements
- * to other daemons listening on our device's connected networks.
- *
- * A client that is interested in using the service calls the discovery
- * method FindAdvertisedName.  This filters down (possibly through
- * language bindings) to the AllJoyn object, into the transports on the
- * transport list (us) and we eventually call IpNameService::FindAdvertisedName()
- * since we are an IP-based transport.  The IP name service multicasts the
- * discovery message to other daemons listening on our networks.
- *
- * The daemon remembers which clients have expressed interest in which services,
- * and expects name services to call back with the bus addresses of daemons they
- * find which have the associated services.  In version zero of the protocol,
- * the only endpoint type supported was a WFD endpoint.  In the case of version
- * one, we have four, so we now see "different" bus addresses coming from the
- * name service and "different" connect specs coming from AllJoyn proper.
- *
- * When a new advertisement is received (because we called our listener's
- * Found() method here, the bus address is "hidden" from interested clients and
- * replaced with a more generic TransportMask bit (for us it will be
- * TRANSPORT_WFD).  The client either responds by ignoring the advertisement,
- * waits to accumulate more answers or joins a session to the implied
- * daemon/service.  A reference to a SessionOpts object is provided as a
- * parameter to a JoinSession call if the client wants to connect.  This
- * SessionOpts reference is passed down into the transport (selected by the
- * TransportMask) into the Connect() method which is used to establish the
- * connection.
- *
- * The four different connection mechanisms can be viewed as a matrix;
- *
- *                                                      IPv4               IPv6
- *                                                 ---------------    ---------------
- *     TRAFFIC MESSAGES | TRAFFIC_RAW_RELIABLE  |   Reliable IPv4      Reliable IPv6
- *     TRAFFIC_RAW_UNRELIABLE                   |  Unreliable IPv4    Unreliable IPv6
- *
- * The bits in the provided SessionOpts select the row, but the column is left
- * free (unspecified).  This means that it is up to the transport to figure out
- * which one to use.  Clearly, if only one of the two address flavors is
- * possible (known from examining the returned bus address which is called a
- * connect spec in the Connect() method) the transport should choose that one.
- * If both IPv4 or IPv6 are available, it is up to the transport (again, us) to
- * choose the "best" method since we don't bother clients with that level of
- * detail.  We (WFD) generally choose IPv6 when given the choice since DHCP on
- * IPv4 is sometimes problematic in some networks.
- *
- * Internals
- * =========
- *
- * We spend a lot of time on the threading aspects of the transport since they
- * are often the hardest part to get right and are complicated.  This is where
- * the bugs live.
- *
- * As mentioned above, the AllJoyn system uses the concept of a Transport.  You
- * are looking at the WFDTransport.  Each transport also has the concept
- * of an Endpoint.  The most important function fo an endpoint is to provide
- * non-blocking semantics to higher level code.  This is provided by a transmit
- * thread on the write side which can block without blocking the higher level
- * code, and a receive thread which can similarly block waiting for data without
- * blocking the higher level code.
- *
- * Endpoints are specialized into the LocalEndpoint and the RemoteEndpoint
- * classes.  LocalEndpoint represents a connection from a router to the local
- * bus attachment or daemon (within the "current" process).  A RemoteEndpoint
- * represents a connection from a router to a remote attachment or daemon.  By
- * definition, the WFDTransport provides RemoteEndpoint functionality.
- *
- * RemoteEndpoints are further specialized according to the flavor of the
- * corresponding transport, and so you will see a WFDEndpoint class
- * defined below which provides functionality to send messages from the local
- * router to a destination off of the local process using a WFD transport
- * mechanism.
- *
- * RemoteEndpoints use AllJoyn stream objects to actually move bits.  This
- * is a thin layer on top of a Socket (which is another thin layer on top of
- * a BSD socket) that provides PushBytes() adn PullBytes() methods.  Remote
- * endpoints also provide the transmit thread and receive threads mentioned
- * above.
- *
- * The job of the receive thread is to loop waiting for bytes to appear on the
- * input side of the stream and to unmarshal them into AllJoyn Messages.  Once
- * an endpoint has a message, it calls into the Message router (PushMessage) to
- * arrange for delivery.  The job of the transmit thread is to loop waiting for
- * Messages to appear on its transmit queue.  When a Message is put on the queue
- * by a Message router, the transmit thread will pull it off and marshal it,
- * then it will write the bytes to the transport mechanism.
- *
- * The WFDEndpoint inherits the infrastructure requred to do most of its
- * work from the more generic RemoteEndpoint class.  It needs to do specific
- * WFD-related work and also provide for authenticating the endpoint before it
- * is allowed to start pumping messages.  Authentication means running some
- * mysterious (to us) process that may involve some unknown number of challenge
- * and response messsages being exchanged between the client and server side of
- * the connection.  Since we cannot block a caller waiting for authentication,
- * this must done on another thread; and this must be done before the
- * RemoteEndpoint is Start()ed -- before its transmit and receive threads are
- * started, lest they start pumping messages and interfering with the
- * authentication process.
- *
- * Authentication can, of course, succeed or fail based on timely interaction
- * between the two sides, but it can also be abused in a denial of service
- * attack.  If a client simply starts the process but never responds, it could
- * tie up a daemon's resources, and coordinated action could bring down a
- * daemon.  Because of this, we need to provide a way to reach in and abort
- * authentications that are "taking too long."
- *
- * As described above, a daemon can listen for inbound connections and it can
- * initiate connections to remote daemons.  Authentication must happen in both
- * cases.
- *
- * If you consider all that is happening, we are talking about a complicated
- * system of many threads that are appearing and disappearing in the system at
- * unpredictable times.  These threads have dependencies in the resources
- * associated with them (sockets and events in particular).  These resources may
- * have further dependencies that must be respected.  For example, Events may
- * have references to Sockets.  The Sockets must not be released before the
- * Events are released, because the events would be left with stale handles.  An
- * even scarier case is if an underlying Socket FD is reused at just the wrong
- * time, it would be possible to switch a Socket FD from one connection to
- * another out from under an Event without its knowledge.
- *
- * To summarize, consider the following "big picture' view of the transport.  A
- * single WFDTransport is constructed if the daemon TransportList
- * indicates that WFD support is required.  The high-level daemon code (see
- * bbdaemon.cc for example) builds a TransportFactoryContainer that is
- * initialized with a factory that knows how to make WFDTransport objects
- * if they are needed, and associates the factory with the string "wfd".  The
- * daemon also constructs "server args" which may contain the string "wfd" or
- * "bluetooth" or "unix".  If the factory container provides a "wfd" factory and
- * the server args specify a "wfd" transport is needed then a WFDTransport
- * object is instantiated and entered into the daemon's internal transport list
- * (list of available transports).  Also provided for each transport is an abstract
- * address to listen for incoming connection requests on.
- *
- * When the daemon is brought up, its TransportList is Start()ed.  The transport
- * specs string (e.g., "unix:abstract=alljoyn;wfd:;bluetooth:") is provided to
- * TransportList::Start() as a parameter.  The transport specs string is parsed
- * and in the example above, results in "unix" transports, "wfd" transports and
- * "bluetooth" transports being instantiated and started.  As mentioned
- * previously "wfd" in the daemon translates into WFDTransport.  Once the
- * desired transports are instantiated, each is Start()ed in turn.  In the case
- * of the WFDTransport, this will start the server accept loop.  Initially
- * there are no sockets to listen on.
- *
- * The daemon then needs to start listening on some inbound addresses and ports.
- * This is done by the StartListen() command which you can find in bbdaemon, for
- * example.  This alwo takes the same king of server args string shown above but
- * this time the address and port information are used.  For example, one might
- * use the string "wfd:addr=0.0.0.0,port=9955;" to specify which address and
- * port to listen to.  This Bus::StartListen() call is translated into a
- * WFDTransport::StartListen() call which is provided with the string
- * which we call a "listen spec".  Our StartListen() will create a Socket, bind
- * the socket to the address and port provided and save the new socket on a list
- * of "listenFds." It will then Alert() the already running server accept loop
- * thread -- see WFDTransport::Run().  Each time through the server accept
- * loop, Run() will examine the list of listenFds and will associate an Event
- * with the corresponding socketFd and wait for connection requests.
- *
- * There is a complementary call to stop listening on addresses.  Since the
- * server accept loop is depending on the associated sockets, StopListen must
- * not close those Sockets, it must ask the server accept loop to do so in a
- * coordinated way.
- *
- * When an inbound connection request is received, the accept loop will wake up
- * and create a WFDEndpoint for the *proposed* new connection.  Recall
- * that an endpoint is not brought up immediately, but an authentication step
- * must be performed.  The server accept loop starts this process by placing the
- * new WFDEndpoint on an authList, or list of authenticating endpoints.
- * It then calls the endpoint Authenticate() method which spins up an
- * authentication thread and returns immediately.  This process transfers the
- * responsibility for the connection and its resources to the authentication
- * thread.  Authentication can succeed, fail, or take to long and be aborted.
- *
- * If authentication succeeds, the authentication thread calls back into the
- * WFDTransport's Authenticated() method.  Along with indicating that
- * authentication has completed successfully, this transfers ownership of the
- * WFDEndpoint back to the WFDTransport from the authentication
- * thread.  At this time, the WFDEndpoint is Start()ed which spins up
- * the transmit and receive threads and enables Message routing across the
- * transport.
- *
- * If the authentication fails, the authentication thread simply sets a the
- * WFDEndpoint state to FAILED and exits.  The server accept loop looks at
- * authenticating endpoints (those on the authList)each time through its loop.
- * If an endpoint has failed authentication, and its thread has actually gone
- * away (or more precisely is at least going away in such a way that it will
- * never touch the endpoint data structure again).  This means that the endpoint
- * can be deleted.
- *
- * If the authentication takes "too long" we assume that a denial of service
- * attack in in progress.  We call AuthStop() on such an endpoint which will most
- * likely induce a failure (unless we happen to call abort just as the endpoint
- * actually finishes the authentication which is highly unlikely but okay).
- * This AuthStop() will cause the endpoint to be scavenged using the above mechanism
- * the next time through the accept loop.
- *
- * A daemon transport can accept incoming connections, and it can make outgoing
- * connections to another daemon.  This case is simpler than the accept case
- * since it is expected that a socket connect can block, so it is possible to do
- * authentication in the context of the thread calling Connect().  Connect() is
- * provided a so-called "connect spec" which provides an IP address ("r4addr=xxxx"),
- * port ("r4port=yyyy") in a String.
- *
- * A check is always made to catch an attempt for the daemon to connect to
- * itself which is a system-defined error (it causes the daemon grief, so we
- * avoid it here by looking to see if one of the listenFds is listening on an
- * interface that corresponds to the address in the connect spec).
- *
- * If the connect is allowed, we do the usual BSD sockets thing where we create
- * a socket and connect to the specified remote address.  The DBus spec says that
- * all connections must begin with one uninterpreted byte so we send that.  This
- * byte is only meaningful in Unix domain sockets transports, but we must send it
- * anyway.
- *
- * The next step is to create a WFDEndpoint and to put it on the endpointList.
- * Note that the endpoint doesn't go on the authList as in the server case, it
- * goes on the list of active endpoints.  This is because a failure to authenticate
- * on the client side results in a call to EndpointExit which is the same code path as
- * a failure when the endpoint is up.  The failing endpoint must be on the endpoint
- * list in order to allow authentication errors to be propagated back to higher-level
- * code in a meaningful context.  Once the endpoint is stored on the list, Connect()
- * starts client-side Authentication with the remote (server) side.  If Authentication
- * succeeds, the endpoint is Start()ed which will spin up the rx and tx threads that
- * start Message routing across the link.  The endpoint is left on the endpoint list
- * in this case.  If authentication fails, the endpoint is removed from the active
- * list.  This is thread-safe since there is no authentication thread running because
- * the authentication was done in the context of the thread calling Connect() which
- * is the one deleting the endpoint; and no rx or tx thread is spun up if the
- * authentication fails.
- *
- * Shutting the WFDTransport down involves orchestrating the orderly termination
- * of:
- *
- *   1) Threads that may be running in the server accept loop with associated Events
- *      and their dependent socketFds stored in the listenFds list.
- *   2) Threads that may be running authentication with associated endpoint objects,
- *      streams and SocketFds.  These threads are accessible through endpoint objects
- *      stored on the authList.
- *   3) Threads that may be running the rx and tx loops in endpoints which are up and
- *      running, transporting routable Messages through the system.
- *
- * Note that we also have to understand and deal with the fact that threads
- * running in state (2) above, will exit and depend on the server accept loop to
- * scavenge the associated objects off of the authList and delete them.  This
- * means that the server accept loop cannot be Stop()ped until the authList is
- * empty.  We further have to understand that threads running in state (3) above
- * will depend on the hooked EndpointExit function to dispose of associated
- * resources.  This will happen in the context of either the transmit or receive
- * thread (the last to go).  We can't delete the transport until all of its
- * associated endpoint threads are Join()ed.  Also, since the server accept loop
- * is looking at the list of listenFDs, we must be careful about deleting those
- * sockets out from under the server thread.  The system should call
- * StopListen() on all of the listen specs it called StartListen() on; but we
- * need to be prepared to clean up any "unstopped" listen specs in a coordinated
- * way.  This, in turn, means that the server accept loop cannot be Stop()ped
- * until all of the listenFds are cleaned up.
- *
- * There are a lot of dependencies here, so be careful when making changes to
- * the thread and resource management here.  It's quite easy to shoot yourself
- * in multiple feet you never knew you had if you make an unwise modification,
- * and sometimes the results are tiny little time-bombs set to go off in
- * completely unrelated code (if, for example, a socket is deleted and reused
- * by another piece of code while the transport still has an event referencing
- * the socket now used by the other module).
- */
 
 #define QCC_MODULE "WFD"
 
@@ -457,7 +118,8 @@ class WFDEndpoint : public RemoteEndpoint {
                 const qcc::String connectSpec,
                 qcc::SocketFd sock,
                 const qcc::IPAddress& ipAddr,
-                uint16_t port)
+                uint16_t port,
+                qcc::String guid)
         : RemoteEndpoint(bus, incoming, connectSpec, &m_stream, "wfd"),
         m_transport(transport),
         m_sideState(SIDE_INITIALIZED),
@@ -468,6 +130,7 @@ class WFDEndpoint : public RemoteEndpoint {
         m_stream(sock),
         m_ipAddr(ipAddr),
         m_port(port),
+        m_guid(guid),
         m_wasSuddenDisconnect(!incoming) { }
 
     virtual ~WFDEndpoint() { }
@@ -479,6 +142,7 @@ class WFDEndpoint : public RemoteEndpoint {
     void AuthJoin(void);
     const qcc::IPAddress& GetIPAddress() { return m_ipAddr; }
     uint16_t GetPort() { return m_port; }
+    qcc::String GetGuid() { return m_guid; }
 
     SideState GetSideState(void) { return m_sideState; }
 
@@ -580,6 +244,7 @@ class WFDEndpoint : public RemoteEndpoint {
     qcc::SocketStream m_stream;       /**< Stream used by authentication code */
     qcc::IPAddress m_ipAddr;          /**< Remote IP address. */
     uint16_t m_port;                  /**< Remote port. */
+    qcc::String m_guid;               /**< The GUID of the remote daemon corresponding to this endpoint */
     bool m_wasSuddenDisconnect;       /**< If true, assumption is that any disconnect is unexpected due to lower level error */
 };
 
@@ -768,9 +433,8 @@ void* WFDEndpoint::AuthThread::Run(void* arg)
 
 WFDTransport::WFDTransport(BusAttachment& bus)
     : Thread("WFDTransport"), m_bus(bus), m_stopping(false), m_listener(0),
-    m_foundCallback(this, m_listener),
-    m_isAdvertising(false), m_isDiscovering(false), m_isListening(false), m_isNsEnabled(false), m_listenPort(0),
-    m_p2pHelperInterface(0), m_myP2pHelperListener(0), m_goHandle(-1)
+    m_isAdvertising(false), m_isDiscovering(false), m_isListening(false), m_isNsEnabled(false),
+    m_listenPort(0), m_nsReleaseCount(0)
 {
     QCC_DbgTrace(("WFDTransport::WFDTransport()"));
     /*
@@ -785,16 +449,6 @@ WFDTransport::~WFDTransport()
     QCC_DbgTrace(("WFDTransport::~WFDTransport()"));
     Stop();
     Join();
-
-    QCC_DbgTrace(("WFDTransport::~WFDTransport(): deleting m_p2pHelperInterface"));
-
-    delete m_p2pHelperInterface;
-    m_p2pHelperInterface = NULL;
-
-    QCC_DbgTrace(("WFDTransport::~WFDTransport(): deleting m_p2pHelperListener"));
-
-    delete m_myP2pHelperListener;
-    m_myP2pHelperListener = NULL;
 }
 
 void WFDTransport::Authenticated(WFDEndpoint* conn)
@@ -892,20 +546,36 @@ QStatus WFDTransport::Start()
     qcc::String guidStr = m_bus.GetInternal().GetGlobalGUID().ToString();
 
     /*
-     * We're a WFD transport, and WFD is an IP protocol, so we want to use the IP
-     * name service for our advertisement and discovery work.  When we acquire
-     * the name service, we are basically bumping a reference count and starting
-     * it if required.
+     * We're a WFD transport in the AllJoyn sense, but we use TCP as the
+     * transport mechanism in the network layering sense.  Since TCP is an IP
+     * protocol, we are going to have to have to use the IP name service to find
+     * the IP (layer three) addresses and ports of the daemons we connect to.
+     * When we acquire the name service, we are basically bumping a reference
+     * count and starting it if required.
+     *
+     * Start() will legally be called exactly once, but Stop() and Join() may be
+     * called multiple times.  Since we are essentially reference counting the
+     * name service singleton, we can only call Release() on it once.  So we
+     * have a release count variable that allows us to only release the
+     * singleton on the first transport Join()
      */
-    IpNameService::Instance().Acquire(guidStr);
+    m_nsReleaseCount = 0;
 
     /*
-     * Tell the name service to call us back on our FoundCallback method when
-     * we hear about a new well-known bus name.
+     * We're a WFD transport in the AllJoyn sense, so we also have to use Wi-Fi
+     * pre-association service discovery.  This means we are going to have to
+     * use the P2P (layer two) name service.
      */
-    IpNameService::Instance().SetCallback(TRANSPORT_WFD,
-                                          new CallbackImpl<FoundCallback, void, const qcc::String&, const qcc::String&, std::vector<qcc::String>&, uint8_t>
-                                              (&m_foundCallback, &FoundCallback::Found));
+    P2PNameService::Instance().Acquire(&m_bus, guidStr);
+
+    /*
+     * Tell the P2P (layer two) name service to call us back on our dedicated
+     * callback method when we hear about a new well-known bus name.
+     * Tell the P2P name service to call us back on our dedicated layer three
+     * callback method when we hear about a new well-known bus name.
+     */
+    P2PNameService::Instance().SetCallback(TRANSPORT_WFD,
+                                           new CallbackImpl<WFDTransport, void, const qcc::String&, qcc::String&, uint8_t> (this, &WFDTransport::P2PNameServiceCallback));
 
     /*
      * Start the server accept loop through the thread base class.  This will
@@ -926,11 +596,18 @@ QStatus WFDTransport::Stop(void)
     m_stopping = true;
 
     /*
-     * Tell the name service to stop calling us back if it's there (we may get
-     * called more than once in the chain of destruction) so the pointer is not
-     * required to be non-NULL.
+     * Tell the IP name service to stop calling us back if it's there (we may
+     * get called more than once in the chain of destruction) so the pointer is
+     * not required to be non-NULL.
      */
     IpNameService::Instance().SetCallback(TRANSPORT_WFD, NULL);
+
+    /*
+     * Tell the P2P name service to stop calling us back if it's there (we may
+     * get called more than once in the chain of destruction) so the pointer is
+     * not required to be non-NULL.
+     */
+    P2PNameService::Instance().SetCallback(TRANSPORT_WFD, NULL);
 
     /*
      * Tell the server accept loop thread to shut down through the thead
@@ -998,12 +675,20 @@ QStatus WFDTransport::Join(void)
     }
 
     /*
-     * Tell the IP name service instance that we will no longer be making calls
-     * and it may shut down if we were the last transport.  This release can
-     * be thought of as a reference counted Stop()/Join() so it is appropriate
-     * to make it here since we are expecting the possibility of blocking.
+     * Tell the IP and P2P name service instances that we will no longer be
+     * making calls and it may shut down if we were the last transport.  This
+     * release can be thought of as a reference counted Stop()/Join() so it is
+     * appropriate to make it here since we are expecting the possibility of
+     * blocking.
+     *
+     * Since it is reference counted, we can't just call it willy-nilly.  We
+     * have to be careful since our Join() can be called multiple times.
      */
-    IpNameService::Instance().Release();
+    int count = qcc::IncrementAndFetch(&m_nsReleaseCount);
+    if (count == 1) {
+        IpNameService::Instance().Release();
+        P2PNameService::Instance().Release();
+    }
 
     /*
      * A required call to Stop() that needs to happen before this Join will ask
@@ -1062,14 +747,6 @@ QStatus WFDTransport::Join(void)
     return ER_OK;
 }
 
-/*
- * The default interface for the name service to use.  The wildcard character
- * means to listen and transmit over all interfaces that are up and multicast
- * capable, with any IP address they happen to have.  This default also applies
- * to the search for listen address interfaces.
- */
-static const char* INTERFACES_DEFAULT = "*";
-
 QStatus WFDTransport::GetListenAddresses(const SessionOpts& opts, std::vector<qcc::String>& busAddrs) const
 {
     QCC_DbgTrace(("WFDTransport::GetListenAddresses()"));
@@ -1088,183 +765,25 @@ QStatus WFDTransport::GetListenAddresses(const SessionOpts& opts, std::vector<qc
 
     /*
      * The other session option that we need to filter on is the transport
-     * bitfield.  We have no easy way of figuring out if we are a wireless
-     * local-area, wireless wide-area, wired local-area or local transport,
-     * but we do exist, so we respond if the caller is asking for any of
-     * those: cogito ergo some.
+     * bitfield.  There is a single bit in a TransportMask that corresponds
+     * to a transport in the AllJoyn sense.  We are TRANSPORT_WFD.
      */
-    if (!(opts.transports & (TRANSPORT_WLAN | TRANSPORT_WWAN | TRANSPORT_LAN))) {
+    if (!(opts.transports & TRANSPORT_WFD)) {
         QCC_DbgPrintf(("WFDTransport::GetListenAddresses(): transport mismatch"));
         return ER_OK;
     }
 
     /*
-     * The name service is initialized by the call to Init() in our Start()
-     * method and then started there.  It is Stop()ped in our Stop() method and
-     * joined in our Join().  In the case of a call here, the transport will
-     * probably be started, and we will probably find the name service started,
-     * but there is no requirement to ensure this.  If m_ns is NULL, we need to
-     * complain so the user learns to Start() the transport before calling
-     * IfConfig.  A call to IsRunning() here is superfluous since we really
-     * don't care about anything but the name service in this method.
+     * The abstract goal of a GetListenAddresses() call is to generate a list of
+     * interfaces that could possibly be used by a remote daemon to connect to
+     * this instance of our WFD transport.  The interfaces are returned in the
+     * form of bus addresses and are shipped back to the remote side to be used
+     * in a WFDTransport::Connect() there.  Since a connect spec for a WFD
+     * transport is just a guid=xxx, the only meaningful thing we could possibly
+     * return is our daemon's guid.
      */
-    if (IpNameService::Instance().Started() == false) {
-        QCC_LogError(ER_BUS_TRANSPORT_NOT_STARTED, ("WFDTransport::GetListenAddresses(): NameService not started"));
-        return ER_BUS_TRANSPORT_NOT_STARTED;
-    }
-
-    /*
-     * Our goal is here is to match a list of interfaces provided in the
-     * configuration database (or a wildcard) to a list of interfaces that are
-     * IFF_UP in the system.  The first order of business is to get the list of
-     * interfaces in the system.  We do that using a convenient OS-inependent
-     * call into the name service.
-     *
-     * We can't cache this list since it may change as the phone wanders in
-     * and out of range of this and that and the underlying IP addresses change
-     * as DHCP doles out whatever it feels like at any moment.
-     */
-    QCC_DbgPrintf(("WFDTransport::GetListenAddresses(): IfConfig()"));
-
-    std::vector<qcc::IfConfigEntry> entries;
-    QStatus status = qcc::IfConfig(entries);
-    if (status != ER_OK) {
-        QCC_LogError(status, ("WFDTransport::GetListenAddresses(): ns.IfConfig() failed"));
-        return status;
-    }
-
-    /*
-     * The next thing to do is to get the list of interfaces from the config
-     * file.  These are required to be formatted in a comma separated list,
-     * with '*' being a wildcard indicating that we want to match any interface.
-     * If there is no configuration item, we default to something rational.
-     */
-    QCC_DbgPrintf(("WFDTransport::GetListenAddresses(): GetProperty()"));
-    qcc::String interfaces = DaemonConfig::Access()->Get("ip_name_service/property@interfaces");
-    if (interfaces.size() == 0) {
-        interfaces = INTERFACES_DEFAULT;
-    }
-
-    /*
-     * Check for wildcard anywhere in the configuration string.  This trumps
-     * anything else that may be there and ensures we get only one copy of
-     * the addresses if someone tries to trick us with "*,*".
-     */
-    bool haveWildcard = false;
-    const char*wildcard = "*";
-    size_t i = interfaces.find(wildcard);
-    if (i != qcc::String::npos) {
-        QCC_DbgPrintf(("WFDTransport::GetListenAddresses(): wildcard search"));
-        haveWildcard = true;
-        interfaces = wildcard;
-    }
-
-    /*
-     * Walk the comma separated list from the configuration file and and try
-     * to mach it up with interfaces actually found in the system.
-     */
-    while (interfaces.size()) {
-        /*
-         * We got a comma-separated list, so we need to work our way through
-         * the list.  Each entry in the list  may be  an interface name, or a
-         * wildcard.
-         */
-        qcc::String currentInterface;
-        size_t i = interfaces.find(",");
-        if (i != qcc::String::npos) {
-            currentInterface = interfaces.substr(0, i);
-            interfaces = interfaces.substr(i + 1, interfaces.size() - i - 1);
-        } else {
-            currentInterface = interfaces;
-            interfaces.clear();
-        }
-
-        QCC_DbgPrintf(("WFDTransport::GetListenAddresses(): looking for interface %s", currentInterface.c_str()));
-
-        /*
-         * Walk the list of interfaces that we got from the system and see if
-         * we find a match.
-         */
-        for (uint32_t i = 0; i < entries.size(); ++i) {
-            QCC_DbgPrintf(("WFDTransport::GetListenAddresses(): matching %s", entries[i].m_name.c_str()));
-            /*
-             * To match a configuration entry, the name of the interface must:
-             *
-             *   - match the name in the currentInterface (or be wildcarded);
-             *   - be UP which means it has an IP address assigned;
-             *   - not be the LOOPBACK device and therefore be remotely available.
-             */
-            uint32_t mask = qcc::IfConfigEntry::UP | qcc::IfConfigEntry::LOOPBACK;
-
-            uint32_t state = qcc::IfConfigEntry::UP;
-
-            if ((entries[i].m_flags & mask) == state) {
-                QCC_DbgPrintf(("WFDTransport::GetListenAddresses(): %s has correct state", entries[i].m_name.c_str()));
-                if (haveWildcard || entries[i].m_name == currentInterface) {
-                    QCC_DbgPrintf(("WFDTransport::GetListenAddresses(): %s has correct name", entries[i].m_name.c_str()));
-                    /*
-                     * This entry matches our search criteria, so we need to
-                     * turn the IP address that we found into a busAddr.  We
-                     * must be a WFD transport, and we have an IP address
-                     * already in a string, so we can easily put together the
-                     * desired busAddr.
-                     */
-                    QCC_DbgTrace(("WFDTransport::GetListenAddresses(): %s match found", entries[i].m_name.c_str()));
-                    /*
-                     * We know we have an interface that speaks IP and
-                     * which has an IP address we can pass back. We know
-                     * it is capable of receiving incoming connections, but
-                     * the $64,000 questions are, does it have a listener
-                     * and what port is that listener listening on.
-                     *
-                     * There is one name service associated with the daemon
-                     * WFD transport, and it is advertising at most one port.
-                     * It may be advertising that port over multiple
-                     * interfaces, but there is currently just one port being
-                     * advertised.  If multiple listeners are created, the
-                     * name service only advertises the lastly set port.  In
-                     * the future we may need to add the ability to advertise
-                     * different ports on different interfaces, but the answer
-                     * is simple now.  Ask the name service for the one port
-                     * it is advertising and that must be the answer.
-                     */
-                    qcc::String ipv4address;
-                    qcc::String ipv6address;
-                    uint16_t reliableIpv4Port, reliableIpv6Port, unreliableIpv4Port, unreliableIpv6port;
-                    IpNameService::Instance().Enabled(TRANSPORT_WFD,
-                                                      reliableIpv4Port, reliableIpv6Port,
-                                                      unreliableIpv4Port, unreliableIpv6port);
-                    /*
-                     * If the port is zero, then it hasn't been set and this
-                     * implies that WFDTransport::StartListen hasn't
-                     * been called and there is no listener for this transport.
-                     * We should only return an address if we have a listener.
-                     */
-                    if (reliableIpv4Port) {
-                        /*
-                         * Now put this information together into a bus address
-                         * that the rest of the AllJoyn world can understand.
-                         * (Note: only IPv4 "reliable" addresses are supported
-                         * at this time.)
-                         */
-                        if (!entries[i].m_addr.empty() && (entries[i].m_family == QCC_AF_INET)) {
-                            qcc::String busAddr = "wfd:r4addr=" + entries[i].m_addr + ","
-                                                  "r4port=" + U32ToString(reliableIpv4Port) + ","
-                                                  "family=ipv4";
-                            busAddrs.push_back(busAddr);
-                        }
-                    }
-                }
-            }
-        }
-    }
-
-    /*
-     * If we can get the list and walk it, we have succeeded.  It is not an
-     * error to have no available interfaces.  In fact, it is quite expected
-     * in a phone if it is not associated with an access point over wi-fi.
-     */
-    QCC_DbgPrintf(("WFDTransport::GetListenAddresses(): done"));
+    qcc::String busAddr = qcc::String(GetTransportName()) + qcc::String(":guid=") + m_bus.GetInternal().GetGlobalGUID().ToString();
+    busAddrs.push_back(busAddr);
     return ER_OK;
 }
 
@@ -1313,37 +832,6 @@ void WFDTransport::EndpointExit(RemoteEndpoint* ep)
      * the RX and TX threads and we can Join them in a timely manner.
      */
     tep->SetEpStopping();
-
-    /*
-     * If this endpoint was running over a Wi-Fi P2P interface, we have to
-     * tear that link down "manually."
-     */
-    QCC_DbgPrintf(("WFDTransport::EndpointExit(): Check for P2P endpoint exiting"));
-    P2PConnectionInfo* info = GetP2PInfoForEndpoint(tep);
-    if (info) {
-        QCC_DbgPrintf(("WFDTransport::EndpointExit(): P2P endpoint is exiting"));
-        /*
-         * This is ugly, but since there can be only one P2P link, we are just
-         * using the m_goHandle variable.
-         */
-        QCC_DbgPrintf(("WFDTransport::EndpointExit(): ReleaseLinkAsync()"));
-        m_p2pHelperInterface->ReleaseLinkAsync(m_goHandle);
-        m_goHandle = -1;
-
-#if 0
-        /*
-         * We don't currently have any way to know if this was a GO or STA or
-         * what kind of advertisements or discovery operations are happening
-         * but the least we can turn off the interface.
-         */
-        qcc::String interface = info->GetInterface();
-        QCC_DbgPrintf(("WFDTransport::EndpointExit(): CloseInterface()"));
-        QStatus status = IpNameService::Instance().CloseInterface(TRANSPORT_WFD, interface);
-        if (status != ER_OK) {
-            QCC_LogError(status, ("WFDTransport::Disconnect(): Cannot close interface \"%s\"", interface.c_str()));
-        }
-#endif
-    }
 
     /*
      * Wake up the server accept loop so that it deals with our passing immediately.
@@ -1629,7 +1117,8 @@ void* WFDTransport::Run(void* arg)
                  */
                 m_endpointListLock.Lock(MUTEX_CONTEXT);
                 if ((m_authList.size() < maxAuth) && (m_authList.size() + m_endpointList.size() < maxConn)) {
-                    WFDEndpoint* conn = new WFDEndpoint(this, m_bus, true, "", newSock, remoteAddr, remotePort);
+                    WFDEndpoint* conn = new WFDEndpoint(this, m_bus, true, "", newSock, remoteAddr, remotePort,
+                                                        m_bus.GetInternal().GetGlobalGUID().ToString());
                     conn->SetPassive();
                     Timespec tNow;
                     GetTimeNow(&tNow);
@@ -2060,7 +1549,7 @@ void WFDTransport::EnableAdvertisementInstance(ListenRequest& listenRequest)
          */
         if (m_isListening) {
             if (!m_isNsEnabled) {
-                IpNameService::Instance().Enable(TRANSPORT_WFD, m_listenPort, 0, 0, 0);
+                P2PNameService::Instance().Enable(TRANSPORT_WFD);
                 m_isNsEnabled = true;
             }
         } else {
@@ -2075,122 +1564,11 @@ void WFDTransport::EnableAdvertisementInstance(ListenRequest& listenRequest)
     assert(m_isListening);
     assert(m_listenPort);
     assert(m_isNsEnabled);
-    assert(IpNameService::Instance().Started() && "WFDTransport::EnableAdvertisementInstance(): IpNameService not started");
+    assert(P2PNameService::Instance().Started() && "WFDTransport::EnableAdvertisementInstance(): P2PNameService not started");
 
-    QStatus status = IpNameService::Instance().AdvertiseName(TRANSPORT_WFD, listenRequest.m_requestParam);
+    QStatus status = P2PNameService::Instance().AdvertiseName(TRANSPORT_WFD, listenRequest.m_requestParam);
     if (status != ER_OK) {
         QCC_LogError(status, ("WFDTransport::EnableAdvertisementInstance(): Failed to advertise \"%s\"", listenRequest.m_requestParam.c_str()));
-    }
-
-    /*
-     * We've advertised the name with the multicast name service so now we need
-     * to deal with the possibility that we are on a system which supports Wi-Fi
-     * P2P.  In this case, the supported system is Android and the only way to
-     * talk to P2P is via the Android Application Framework.  This means we need
-     * to call out to a service that is implemented in a process which has the
-     * framework present.  We use a helper to make life easier for us.
-     *
-     * We lazily create the helper since there's no easy way for us to know when
-     * the initialization sequence has completed enough for us to find the DBus
-     * interface.  If some service is advertising, though, we must be
-     * initialized since a service fhas connected to the daemon and is doing an
-     * advertise name.
-     */
-    if (m_p2pHelperInterface == NULL) {
-        QCC_DbgPrintf(("WFDTransport::EnableAdvertisementInstance(): new P2PHelperInterface"));
-        m_p2pHelperInterface = new P2PHelperInterface();
-        m_p2pHelperInterface->Init(&m_bus);
-
-        QCC_DbgPrintf(("WFDTransport::EnableAdvertisementInstance(): new P2PHelperListener"));
-        m_myP2pHelperListener = new MyP2PHelperListener(this);
-        m_p2pHelperInterface->SetListener(m_myP2pHelperListener);
-    }
-
-    /*
-     * If we are on an Android system, we need to call back into the helper
-     * service to make this happen.
-     *
-     * First, if we are going to advertise a name, it means we are a service.
-     * In this case, we need to act as the group owner (GO) of a P2P group which
-     * AllJoyn clients will join as STA nodes when they discover the name over
-     * Wi-Fi P2P.  We want to instantiate a group (act as a GO) whenever we start
-     * advertising and keep the group up and running until we get a cancel
-     * advertise name.
-     *
-     * We need to create the GO irrespective of whether or not a concurrent
-     * infrastructure mode interface is up or not.  This is so we can connect via
-     * Wi-Fi P2P if the corresponding AP is blocking communication between STAs
-     * for example.
-     *
-     * The call to EstablishLink returns a handle for the group, so we have to
-     * wait for the response.  There is a lot of action happening in the main
-     * thread of the WFD transport so the thread is constantly in the Alerted
-     * state, so we use an asynchrounous method call.  Note that we are blocking
-     * the the WFDTransport main thread here, so inbound connections will be
-     * delayed for the time it takes to get the response.  The response comes
-     * back in MyP2PHelperListener::HandleEstablishLinkReply() found in
-     * WFDTransport.h, BTW.
-     */
-    if (!m_isAdvertising) {
-        m_establishLinkEvent.ResetEvent();
-        m_establishLinkResult = false;
-        qcc::String localDevice("");
-        QCC_DbgPrintf(("WFDTransport::EnableAdvertisementInstance(): EstablishLink()"));
-        status = m_p2pHelperInterface->EstablishLinkAsync(localDevice, P2PHelperInterface::DEVICE_MUST_BE_GO);
-        if (status == ER_OK) {
-            /*
-             * Only wait for a rational amount of time for this RPC to complete.
-             * If the system is working, this should happen very quickly, so
-             * we'll pick the generic five second timeout out of the air.
-             */
-            uint32_t msWaited = 0;
-
-            for (;;) {
-                QCC_DbgPrintf(("WFDTransport::EnableAdvertisementInstance(): Gag, polling m_establishLinkResult"));
-                if (m_establishLinkResult) {
-                    break;
-                }
-
-                if (msWaited > 5000) {
-                    status = ER_TIMEOUT;
-                    break;
-                }
-
-                qcc::Sleep(100);
-                msWaited += 100;
-            }
-        } else {
-            QCC_LogError(status, ("WFDTransport::EnableAdvertisementInstance(): EstablishLink for GO fails"));
-        }
-
-        if (status != ER_OK || m_goHandle < P2PHelperInterface::P2P_OK) {
-            /*
-             * We were unable to start a P2P Group, but this doesn't mean that
-             * the entire advertisement process has not been successful.  It is
-             * possible that there are existing groups (P2P, legacy, soft AP,
-             * ethernet, etc.) that are working just fine, so we do not error
-             * out if we can't create the group -- we just report the error and
-             * don't try to pre-association advertise the corresponding service.
-             * We will have advertised over the multicast name service at this
-             * point.
-             */
-            QCC_LogError(status, ("WFDTransport::EnableAdvertisementInstance(): Could not start P2P group"));
-        } else {
-            /*
-             * The P2P group has come up, or the service assures us that it will
-             * during a group owner negotiaion, so we can confidently advertise
-             * the corresponding service over pre-association service discovery.
-             * There's not much we can do if the Android Application Framework
-             * balks, so we just throw the RPC over the fence and hope it sticks.
-             */
-            QCC_DbgPrintf(("WFDTransport::EnableAdvertisementInstance(): AdvertiseNameAsync()"));
-            status = m_p2pHelperInterface->AdvertiseNameAsync(listenRequest.m_requestParam,
-                                                              m_bus.GetInternal().GetGlobalGUID().ToString());
-            if (status != ER_OK) {
-                QCC_LogError(status, ("WFDTransport::EnableAdvertisementInstance(): Failed to advertise \"%s\" to P2P",
-                                      listenRequest.m_requestParam.c_str()));
-            }
-        }
     }
 
     QCC_DbgPrintf(("WFDTransport::EnableAdvertisementInstance(): Done"));
@@ -2212,52 +1590,9 @@ void WFDTransport::DisableAdvertisementInstance(ListenRequest& listenRequest)
      * We always cancel any advertisement to allow the name service to
      * send out its lost advertisement message.
      */
-    QStatus status = IpNameService::Instance().CancelAdvertiseName(TRANSPORT_WFD, listenRequest.m_requestParam);
+    QStatus status = P2PNameService::Instance().CancelAdvertiseName(TRANSPORT_WFD, listenRequest.m_requestParam);
     if (status != ER_OK) {
         QCC_LogError(status, ("WFDTransport::DisableAdvertisementInstance(): Failed to Cancel \"%s\"", listenRequest.m_requestParam.c_str()));
-    }
-
-    /*
-     * We've advertised the name with the multicast name service so now we need
-     * to deal with the possibility that we are on a system which supports Wi-Fi
-     * P2P.  In this case, the supported system is Android and the only way to
-     * talk to P2P is via the Android Application Framework.  This means we need
-     * to call out to a service that is implemented in a process which has the
-     * framework present.  We use a helper to make life easier for us.
-     *
-     * We lazily create the helper since there's no easy way for us to know when
-     * the initialization sequence has completed enough for us to find the DBus
-     * interface.  If some service is advertising, though, we must be
-     * initialized since a service fhas connected to the daemon and is doing an
-     * advertise name.
-     */
-    if (m_p2pHelperInterface == NULL) {
-        QCC_DbgPrintf(("WFDTransport::DisableAdvertisementInstance(): new P2PHelperInterface"));
-        m_p2pHelperInterface = new P2PHelperInterface();
-        m_p2pHelperInterface->Init(&m_bus);
-
-        QCC_DbgPrintf(("WFDTransport::DisableAdvertisementInstance(): new P2PHelperListener"));
-        m_myP2pHelperListener = new MyP2PHelperListener(this);
-        m_p2pHelperInterface->SetListener(m_myP2pHelperListener);
-    }
-
-    /*
-     * If we are on an Android system, we need to call back into the helper
-     * service to make this happen.  If the framework balks at the request to
-     * release the link, there's not much we can do about it.
-     */
-    if (isEmpty && m_isAdvertising) {
-        QCC_DbgPrintf(("WFDTransport::DisableAdvertisementInstance(): ReleaseLinkAsync()"));
-        m_p2pHelperInterface->ReleaseLinkAsync(m_goHandle);
-        m_goHandle = -1;
-    }
-
-    QCC_DbgPrintf(("WFDTransport::DisableAdvertisementInstance(): CancelAdvertiseNameAsync()"));
-    status = m_p2pHelperInterface->CancelAdvertiseNameAsync(listenRequest.m_requestParam.c_str(),
-                                                            m_bus.GetInternal().GetGlobalGUID().ToString().c_str());
-    if (status != ER_OK) {
-        QCC_LogError(status, ("WFDTransport::DisableAdvertisementInstance(): Failed to cancel advertise \"%s\" to P2P",
-                              listenRequest.m_requestParam.c_str()));
     }
 
     /*
@@ -2269,18 +1604,15 @@ void WFDTransport::DisableAdvertisementInstance(ListenRequest& listenRequest)
 
         /*
          * Since the cancel advertised name has been sent, we can disable the
-         * name service.  We do this by telling it we don't want it to be
-         * enabled on any of the possible ports.
+         * name service.
          */
-        IpNameService::Instance().Enable(TRANSPORT_WFD, 0, 0, 0, 0);
+        P2PNameService::Instance().Disable(TRANSPORT_WFD);
         m_isNsEnabled = false;
 
         /*
          * If we had the name service running, we must have had listeners
          * waiting for connections due to the name service.  We need to stop
-         * them all now, but only if we are not running on a Windows box.
-         * Windows needs the listeners running at all times since it uses
-         * WFD for the client to daemon connections.
+         * them all now.
          */
         for (list<qcc::String>::iterator i = m_listening.begin(); i != m_listening.end(); ++i) {
             DoStopListen(*i);
@@ -2334,7 +1666,7 @@ void WFDTransport::EnableDiscoveryInstance(ListenRequest& listenRequest)
          */
         if (m_isListening) {
             if (!m_isNsEnabled) {
-                IpNameService::Instance().Enable(TRANSPORT_WFD, m_listenPort, 0, 0, 0);
+                P2PNameService::Instance().Enable(TRANSPORT_WFD);
                 m_isNsEnabled = true;
             }
         } else {
@@ -2349,70 +1681,14 @@ void WFDTransport::EnableDiscoveryInstance(ListenRequest& listenRequest)
     assert(m_isListening);
     assert(m_listenPort);
     assert(m_isNsEnabled);
-    assert(IpNameService::Instance().Started() && "WFDTransport::EnableDiscoveryInstance(): IpNameService not started");
+    assert(P2PNameService::Instance().Started() && "WFDTransport::EnableDiscoveryInstance(): P2PNameService not started");
 
-    /*
-     * When a bus name is advertised, the source may append a string that
-     * identifies a specific instance of advertised name.  For example, one
-     * might advertise something like
-     *
-     *   com.mycompany.myproduct.0123456789ABCDEF
-     *
-     * as a specific instance of the bus name,
-     *
-     *   com.mycompany.myproduct
-     *
-     * Clients of the system will want to be able to discover all specific
-     * instances, so they need to do a wildcard search for bus name strings
-     * that match the non-specific name, for example,
-     *
-     *   com.mycompany.myproduct*
-     *
-     * We automatically append the name service wildcard character to the end
-     * of the provided string (which we call the namePrefix) before sending it
-     * to the name service which forwards the request out over the net.
-     */
     qcc::String starred = listenRequest.m_requestParam;
-    starred.append('*');
+//  starred.append('*');
 
-    QStatus status = IpNameService::Instance().FindAdvertisedName(TRANSPORT_WFD, starred);
+    QStatus status = P2PNameService::Instance().FindAdvertisedName(TRANSPORT_WFD, starred);
     if (status != ER_OK) {
-        QCC_LogError(status, ("WFDTransport::EnableDiscoveryInstance(): Failed to begin discovery with multicast NS \"%s\"", starred.c_str()));
-    }
-
-    /*
-     * We've tried to find the name with the multicast name service so now we
-     * need to deal with the possibility that we are on a system which supports
-     * Wi-Fi P2P.  In this case, the supported system is Android and the only
-     * way to talk to P2P is via the Android Application Framework.  This means
-     * we need to call out to a service that is implemented in a process which
-     * has the framework present.  We use a helper to make life easier for us.
-     *
-     * We lazily create the helper since there's no easy way for us to know when
-     * the initialization sequence has completed enough for us to find the DBus
-     * interface.  If some service is doing discovery, though, we must be
-     * initialized since a service fhas connected to the daemon and is doing an
-     * advertise name.
-     */
-    if (m_p2pHelperInterface == NULL) {
-        QCC_DbgPrintf(("WFDTransport::EnableDiscoveryInstance(): new P2PHelperInterface"));
-        m_p2pHelperInterface = new P2PHelperInterface();
-        m_p2pHelperInterface->Init(&m_bus);
-
-        QCC_DbgPrintf(("WFDTransport::EnableDiscoveryInstance(): new P2PHelperListener"));
-        m_myP2pHelperListener = new MyP2PHelperListener(this);
-        m_p2pHelperInterface->SetListener(m_myP2pHelperListener);
-    }
-
-    /*
-     * If we are on an Android system, we need to call back into the helper
-     * service to make this happen.  We don't hang around waiting or a response
-     * since there's not much we can do if it fails.
-     */
-    QCC_DbgPrintf(("WFDTransport::EnableDiscoveryInstance(): FindAdvertisedNameAsync()"));
-    status = m_p2pHelperInterface->FindAdvertisedNameAsync(starred);
-    if (status != ER_OK) {
-        QCC_LogError(status, ("WFDTransport::EnableDiscoveryInstance(): Failed to begin discovery with P2P \"%s\"", starred.c_str()));
+        QCC_LogError(status, ("WFDTransport::EnableDiscoveryInstance(): Failed to begin discovery on \"%s\"", starred.c_str()));
     }
 
     m_isDiscovering = true;
@@ -2430,63 +1706,27 @@ void WFDTransport::DisableDiscoveryInstance(ListenRequest& listenRequest)
     bool isEmpty = NewDiscoveryOp(DISABLE_DISCOVERY, listenRequest.m_requestParam, isFirst);
 
     qcc::String starred = listenRequest.m_requestParam;
-    starred.append('*');
+//  starred.append('*');
 
-    /*
-     * We've tried to find the name with the multicast name service so now we
-     * need to deal with the possibility that we are on a system which supports
-     * Wi-Fi P2P.  In this case, the supported system is Android and the only
-     * way to talk to P2P is via the Android Application Framework.  This means
-     * we need to call out to a service that is implemented in a process which
-     * has the framework present.  We use a helper to make life easier for us.
-     *
-     * We lazily create the helper since there's no easy way for us to know when
-     * the initialization sequence has completed enough for us to find the DBus
-     * interface.  If some service is doing discovery, though, we must be
-     * initialized since a service fhas connected to the daemon and is doing an
-     * advertise name.
-     */
-    if (m_p2pHelperInterface == NULL) {
-        QCC_DbgPrintf(("WFDTransport::DisableDiscoveryInstance(): new P2PHelperInterface"));
-        m_p2pHelperInterface = new P2PHelperInterface();
-        m_p2pHelperInterface->Init(&m_bus);
-
-        QCC_DbgPrintf(("WFDTransport::DisableDiscoveryInstance(): new P2PHelperListener"));
-        m_myP2pHelperListener = new MyP2PHelperListener(this);
-        m_p2pHelperInterface->SetListener(m_myP2pHelperListener);
-    }
-
-    /*
-     * If we are on an Android system, we need to call back into the helper
-     * service to make this happen.
-     */
-    QCC_DbgPrintf(("WFDTransport::DisableDiscoveryInstance(): CancelFindAdvertisedNameAsync()"));
-    QStatus status = m_p2pHelperInterface->CancelFindAdvertisedNameAsync(starred);
+    QStatus status = P2PNameService::Instance().CancelFindAdvertisedName(TRANSPORT_WFD, starred);
     if (status != ER_OK) {
-        QCC_LogError(status, ("WFDTransport::DisableDiscoveryInstance(): Failed to cancel discovery with P2P \"%s\"", starred.c_str()));
+        QCC_LogError(status, ("WFDTransport::DisableDiscoveryInstance(): Failed to end discovery on \"%s\"", starred.c_str()));
     }
 
     /*
-     * There is no state in the name service with respect to ongoing discovery.
-     * A discovery request just causes it to send a WHO-HAS message, so thre
-     * is nothing to cancel down there.
-     *
-     * However, if it turns out that this was the last discovery operation on
-     * our list, we need to think about disabling our listeners and turning off
-     * the name service.  We only to this if there are no advertisements in
-     * progress.
+     * If it turns out that this was the last discovery operation on our list,
+     * we need to think about disabling our listeners and turning off the name
+     * service.  We only to this if there are no advertisements in progress.
      */
     if (isEmpty && !m_isAdvertising) {
 
-        IpNameService::Instance().Enable(TRANSPORT_WFD, 0, 0, 0, 0);
+        P2PNameService::Instance().Disable(TRANSPORT_WFD);
         m_isNsEnabled = false;
 
         /*
          * If we had the name service running, we must have had listeners
          * waiting for connections due to the name service.  We need to stop
-         * them all now, but only if we are not running on a Windows box.
-         * Windows needs the listeners running at all times since it uses
-         * WFD for the client to daemon connections.
+         * them all now.
          */
         for (list<qcc::String>::iterator i = m_listening.begin(); i != m_listening.end(); ++i) {
             DoStopListen(*i);
@@ -2526,7 +1766,7 @@ static const char* ADDR6_DEFAULT = "0::0";
  * rely on the presence of an u4port, r6port, and u6port respectively to
  * enable those mechanisms if possible.
  */
-static const uint16_t PORT_DEFAULT = 9955;
+static const uint16_t PORT_DEFAULT = 9956;
 
 QStatus WFDTransport::NormalizeListenSpec(const char* inSpec, qcc::String& outSpec, map<qcc::String, qcc::String>& argMap) const
 {
@@ -2549,8 +1789,22 @@ QStatus WFDTransport::NormalizeListenSpec(const char* inSpec, qcc::String& outSp
      *
      *     "wfd:r4addr=0.0.0.0,r4port=9955"
      *
-     * That's all.  Everything else, family, port, addr, u4addr, etc.,
-     * is summarily pitched.
+     * That's all.  We still allow "addr=0.0.0.0,port=9955,family=ipv4" but
+     * since the only thing that was ever allowed was really reliable IPv4, we
+     * treat addr as synonomous with r4addr, port as synonomous with r4port and
+     * ignore family.  The old stuff is normalized to the above.
+     *
+     * In the future we may want to revisit this and use position/order of keys
+     * to imply more information.  For example:
+     *
+     *     "wfd:addr=0.0.0.0,port=9955,family=ipv4,reliable=true,
+     *          addr=0.0.0.0,port=9956,family=ipv4,reliable=false;"
+     *
+     * might translate into:
+     *
+     *     "wfd:r4addr=0.0.0.0,r4port=9955,u4addr=0.0.0.0,u4port=9956;"
+     *
+     * Note the new significance of position.
      */
     QStatus status = ParseArguments(GetTransportName(), inSpec, argMap);
     if (status != ER_OK) {
@@ -2560,28 +1814,10 @@ QStatus WFDTransport::NormalizeListenSpec(const char* inSpec, qcc::String& outSp
     map<qcc::String, qcc::String>::iterator iter;
 
     /*
-     * The family, addr and port keys are deprecated since a transport can now
-     * support both IPv4 and IPv6 connections.  Log errors, but just ignore the
-     * deprecated keys.
+     * We just ignore the family since ipv4 was the only possibld working choice.
      */
     iter = argMap.find("family");
     if (iter != argMap.end()) {
-        QCC_LogError(ER_BUS_BAD_TRANSPORT_ARGS,
-                     ("WFDTransport::NormalizeListenSpec(): The key \"family\" is deprecated and ignored."));
-        argMap.erase(iter);
-    }
-
-    iter = argMap.find("addr");
-    if (iter != argMap.end()) {
-        QCC_LogError(ER_BUS_BAD_TRANSPORT_ARGS,
-                     ("WFDTransport::NormalizeListenSpec(): The key \"addr\" is deprecated and ignored."));
-        argMap.erase(iter);
-    }
-
-    iter = argMap.find("port");
-    if (iter != argMap.end()) {
-        QCC_LogError(ER_BUS_BAD_TRANSPORT_ARGS,
-                     ("WFDTransport::NormalizeListenSpec(): The key \"port\" is deprecated and ignored."));
         argMap.erase(iter);
     }
 
@@ -2647,6 +1883,24 @@ QStatus WFDTransport::NormalizeListenSpec(const char* inSpec, qcc::String& outSp
      * generated from the defaults.
      */
     iter = argMap.find("r4addr");
+    if (iter == argMap.end()) {
+        /*
+         * We have no value associated with an "r4addr" key.  Do we have an
+         * "addr" which would be synonymous?  If so, save it as an r4addr,
+         * erase it and point back to the new r4addr.
+         */
+        iter = argMap.find("addr");
+        if (iter != argMap.end()) {
+            argMap["r4addr"] = iter->second;
+            argMap.erase(iter);
+        }
+
+        iter = argMap.find("r4addr");
+    }
+
+    /*
+     * Now, deal with the r4addr, possibly replaced by addr.
+     */
     if (iter != argMap.end()) {
         /*
          * We have a value associated with the "r4addr" key.  Run it through a
@@ -2689,6 +1943,24 @@ QStatus WFDTransport::NormalizeListenSpec(const char* inSpec, qcc::String& outSp
      * generated from the defaults.
      */
     iter = argMap.find("r4port");
+    if (iter == argMap.end()) {
+        /*
+         * We have no value associated with an "r4port" key.  Do we have a
+         * "port" which would be synonymous?  If so, save it as an r4port,
+         * erase it and point back to the new r4port.
+         */
+        iter = argMap.find("port");
+        if (iter != argMap.end()) {
+            argMap["r4port"] = iter->second;
+            argMap.erase(iter);
+        }
+
+        iter = argMap.find("r4port");
+    }
+
+    /*
+     * Now, deal with the r4port, possibly replaced by port.
+     */
     if (iter != argMap.end()) {
         /*
          * We have a value associated with the "r4port" key.  Run it through a
@@ -2719,791 +1991,32 @@ QStatus WFDTransport::NormalizeListenSpec(const char* inSpec, qcc::String& outSp
 
 QStatus WFDTransport::NormalizeTransportSpec(const char* inSpec, qcc::String& outSpec, map<qcc::String, qcc::String>& argMap) const
 {
-    QCC_DbgPrintf(("WFDTransport::NormalizeTransportSpec"));
-
-    QStatus status;
+    QCC_DbgPrintf(("WFDTransport::NormalizeTransportSpec()"));
 
     /*
-     * We don't make any calls that require us to be in any particular state
-     * with respect to threading so we don't bother to call IsRunning() here.
+     * Wi-Fi Direct pre-association service discovery events are fundamentally
+     * layer two events that happen before networks are formed.  Since there
+     * is no network, there is no DHCP or DHCP equivalent, so there cannot
+     * be an IP address passed in as part of a connect/transport spec.  In
+     * order to identify a remote daemon to connect to, we use the daemon's
+     * GUID.  If we find anything else, we have run across a "spec" that
+     * is not resulting from a Wi-Fi Direct service discovery event.  We
+     * reject anything but one of ours.
      *
-     * Take the string in inSpec, which must start with "wfd:" and parse it,
-     * looking for comma-separated "key=value" pairs and initialize the
-     * argMap with those pairs.
+     * It might not look like we're doing much, but we are ensuring a consistent
+     * internal format WRT white space, etc.
      */
-    QCC_DbgPrintf(("WFDTransport::NormalizeTransportSpec(): ParseArguments()"));
-    status = ParseArguments(GetTransportName(), inSpec, argMap);
-    if (status != ER_OK) {
-        return status;
-    }
-
-    map<qcc::String, qcc::String>::iterator iter;
-
-    /*
-     * The big special case here is if there is a guid present in the spec.  If
-     * there is, then this is a spec corresponding to a Wi-Fi Direct pre-
-     * association discovery event.  Since this is pre-association, there cannot
-     * be an IP address, and therefore addr, port and family would be
-     * meaningless even if they were there.  In this case, normalizing a spec
-     * with a guid in it means ignoring anything else that might be there.
-     */
-    iter = argMap.find("guid");
+    map<qcc::String, qcc::String>::iterator iter = argMap.find("guid");
     if (iter != argMap.end()) {
         QCC_DbgPrintf(("WFDTransport::NormalizeTransportSpec(): Found guid"));
         qcc::String guidString = iter->second;
         argMap.clear();
         argMap["guid"] = guidString;
-        outSpec = "wfd:guid=" + guidString;
+        outSpec = qcc::String(GetTransportName()) + qcc::String(":guid=") + guidString;
         return ER_OK;
     }
 
-    /*
-     * Aside from the presence of the guid, the only fundamental difference
-     * between a listenSpec and a transportSpec (actually a connectSpec) is that
-     * a connectSpec must have a valid and specific address IP address to
-     * connect to (i.e., INADDR_ANY isn't a valid IP address to connect to).
-     * This means that we can just call NormalizeListenSpec to get everything
-     * into standard form.
-     */
-    status = NormalizeListenSpec(inSpec, outSpec, argMap);
-    if (status != ER_OK) {
-        return status;
-    }
-
-    /*
-     * Since there is no guid present if we've fallen through to here, the only
-     * difference between a connectSpec and a listenSpec is that a connectSpec
-     * requires the presence of a non-default IP address.  So we just check for
-     * the default addresses and fail if we find one.
-     */
-    map<qcc::String, qcc::String>::iterator i = argMap.find("r4addr");
-    assert(i != argMap.end());
-    if ((i->second == ADDR4_DEFAULT)) {
-        QCC_LogError(ER_BUS_BAD_TRANSPORT_ARGS,
-                     ("WFDTransport::NormalizeTransportSpec(): The r4addr may not be the default address."));
-        return ER_BUS_BAD_TRANSPORT_ARGS;
-    }
-
-    return ER_OK;
-}
-
-/*
- * Given a GUID string, determine which device corresponds to the daemon that
- * GUID and ask the Wi-Fi P2P helper to form a connection with that device.
- * Then, block until we receive an indication (positive or negative) back
- * from the request has some resolution.
- */
-QStatus WFDTransport::CreateTemporaryNetwork(const qcc::String& guid, qcc::String& interface)
-{
-    QCC_DbgHLPrintf(("WFDTransport::CreateTemporaryNetwork(\"%s\")", guid.c_str()));
-
-    /*
-     * Look up the device on which the provided GUID resides.  This information
-     * came in with the FoundAdvertisedName signal, which was directed back to
-     * applications, which in turn did a JoinSession which drove the Connect
-     * which led us here.
-     */
-    qcc::String device;
-    QCC_DbgPrintf(("WFDTransport::CreateTemporaryNetwork(): Looking for device matching GUID %s", guid.c_str()));
-
-    m_deviceListLock.Lock(MUTEX_CONTEXT);
-    for (DeviceList::iterator i = m_deviceList.begin(); i != m_deviceList.end(); ++i) {
-        if (i->first == guid) {
-            device = i->second;
-            QCC_DbgPrintf(("WFDTransport::CreateTemporaryNetwork(): Device %s matches GUID %s", device.c_str(), guid.c_str()));
-            break;
-        }
-    }
-    m_deviceListLock.Unlock(MUTEX_CONTEXT);
-
-    /*
-     * Once we have the device we want to connect to, we ask the Wi-Fi P2P
-     * helper to join the P2P group owned by the device we found.  In order
-     * to make Wi-Fi P2P work remotely reasonably, the device that advertises
-     * a service must act as the group owner (GO) and the device which uses
-     * the service must act as a station (STA) node.
-     */
-    if (!device.empty()) {
-
-        QCC_DbgPrintf(("WFDTransport::CreatetTemporaryNetwork(): Establishing link to device %s", device.c_str()));
-
-        /*
-         * Since we are going to be interacting with a separate thread to get
-         * responses to our requests, we need to make sure we have our
-         * information available so that second thread can find it.  We need to
-         * get this done BEFORE we can allow a callback that may happen
-         * immediately.  So, we take the lock that is shared with the callback
-         * before making the EstablishLink call.  This means that, if the
-         * callback happens immediately, it will block.  We need to fill out the
-         * data structure that the callback will use, and when we get this
-         * finished put it on the list that the callback will examine.  We then
-         * release the lock, allowing the response callback to access the
-         * structure and do its job.
-         */
-        QCC_DbgPrintf(("WFDTransport::CreateTemporaryNetwork(): Block callbacks"));
-        m_deviceRequestListLock.Lock(MUTEX_CONTEXT);
-
-        m_establishLinkEvent.ResetEvent();
-        m_establishLinkResult = false;
-
-        QCC_DbgPrintf(("WFDTransport::CreateTemporaryNetwork(): EstablishLink()"));
-        QStatus status = m_p2pHelperInterface->EstablishLinkAsync(device.c_str(), P2PHelperInterface::DEVICE_MUST_BE_STA);
-        if (status == ER_OK) {
-            /*
-             * Only wait for a rational amount of time for this RPC to complete.
-             * Getting the handle back for the link should be a farily quick
-             * operation, so we'll pick the generic five second timeout out of
-             * the air.  The really time consuming part comes later when the
-             * link is actually tried to be brought up.  The result of that
-             * operation (until either OnLinkEstablished or OnLinkError happens)
-             * can be very time consuming.  We're just getting a handle here.
-             */
-            uint32_t msWaited = 0;
-
-            for (;;) {
-                QCC_DbgPrintf(("WFDTransport::CreateTemporaryNetwork(): Gag, polling m_establishLinkResult"));
-                if (m_establishLinkResult) {
-                    break;
-                }
-
-                if (msWaited > 5000) {
-                    status = ER_TIMEOUT;
-                    break;
-                }
-
-                qcc::Sleep(100);
-                msWaited += 100;
-            }
-        } else {
-            QCC_LogError(status, ("WFDTransport::CreateTemporaryNetwork(): EstablishLinkAsync for STA fails"));
-            m_deviceRequestListLock.Unlock(MUTEX_CONTEXT);
-            return status;
-        }
-
-        /*
-         * Since we can't be both GO and STA, m_goHandle is now actually the STA
-         * handle.  Note that this is a handle and does not mean that a link has
-         * come up.  We still need to wait for the OnLinkEstablished or
-         * OnLinkError signals to come in and tell us what actually happened.
-         *
-         * XXX FIXME STA GO stuff is confusing.  Dangerous.
-         */
-        int32_t handle = m_goHandle;
-
-        /*
-         * We have a handle for the link we want to establish, but we don't have
-         * a result for the actual link establishment operation.  We need to
-         * identify ourselves as a thread waiting for a result for a particular
-         * link establishment request.  The request is identified by the handle,
-         * we just got and we are going to want to wait on an event; so we wrap
-         * those two things up in an object and stash it on a list available to
-         * the callback that will happen when the request is acted upon.
-         */
-        qcc::Event deviceEvent;
-
-        P2pDeviceRequest deviceRequest(handle, &deviceEvent);
-        m_deviceRequestList.push_back(deviceRequest);
-
-        /*
-         * We've created and pushed the object that will allow a response from
-         * the EstablishLink to be matched with our thread.  Now, we can release
-         * the response list lock so the response can be handled as described
-         * above.  This will let the response handler run unmolested.
-         */
-        QCC_DbgPrintf(("WFDTransport::CreateTemporaryNetwork(): Allow callbacks"));
-        m_deviceRequestListLock.Unlock(MUTEX_CONTEXT);
-
-        /*
-         * We need to wait a rational amount of time for the link establishment
-         * request to be acted upon.  Unfortunately, a rational amount of time
-         * is pretty unreasonable.  We need to wait for the GO negotiation to
-         * complete, and we may need to wait until a human being on the other
-         * side gets around to accepting a connection request popup on the
-         * remote device.  We pull two minutes out of the air as a rational
-         * amount of time to wait.
-         */
-        Timespec tTimeout = 120000;
-        Timespec tStart;
-        GetTimeNow(&tStart);
-
-        /*
-         * A one second repeating timer.
-         */
-        qcc::Event timerEvent(1000, 1000);
-
-        /*
-         * We need to wait on both the timer event and the device event.
-         *
-         * XXX FIXME Don't poll every second, it's silly.
-         */
-        for (;;) {
-            vector<qcc::Event*> checkEvents, signaledEvents;
-            checkEvents.push_back(&deviceEvent);
-            checkEvents.push_back(&timerEvent);
-
-            QCC_DbgPrintf(("WFDTransport::CreateTemporaryNetwork(): Wait for something to happen"));
-            QStatus status = qcc::Event::Wait(checkEvents, signaledEvents);
-            if (status != ER_OK && status != ER_TIMEOUT) {
-                break;
-            }
-
-            /*
-             * We are only concerned with two possible events here.  Normally,
-             * we'll either see the timer firing or a response notification. In
-             * astoundingly rare cases, both events can be set at the same time.
-             */
-            bool timer = false;
-            bool response = false;
-            for (vector<qcc::Event*>::iterator i = signaledEvents.begin(); i != signaledEvents.end(); ++i) {
-                if (*i == &deviceEvent) {
-                    QCC_DbgPrintf(("WFDTransport::CreateTemporaryNetwork(): Device Event happened"));
-                    response = true;
-                } else if (*i == &timerEvent) {
-                    QCC_DbgPrintf(("WFDTransport::CreateTemporaryNetwork(): Timer Event happened"));
-                    timer = true;
-                }
-            }
-
-            /*
-             * If the timer popped, check for a timeout.  These are two
-             * different things since the timer pops every second and the
-             * timeout is some larger number of seconds.  The backwards logic is
-             * because the Timespec class doesn't define the needed operator and
-             * I'm too lazy to go write it.
-             */
-            bool timeout = false;
-            if (timer) {
-                Timespec tNow;
-                GetTimeNow(&tNow);
-
-                if (tStart + tTimeout < tNow) {
-                    QCC_DbgPrintf(("WFDTransport::CreateTemporaryNetwork(): Timeout happened"));
-                    timeout = true;
-                }
-            }
-
-            /*
-             * We need to run through the list of requests in the case of a
-             * timeout to find the object to remove (we are timing out the
-             * request after all).  We also need to run through the list in the
-             * case of a response in order to find the response code and then to
-             * remove the request object since we are done.
-             */
-            if (timeout || response) {
-                QCC_DbgPrintf(("WFDTransport::CreateTemporaryNetwork(): Timeout or response"));
-                m_deviceRequestListLock.Lock(MUTEX_CONTEXT);
-
-                /*
-                 * The eventual result of the EstablishLink() operation.
-                 */
-                int establishResult = -1;
-
-                for (P2pDeviceRequestList::iterator i = m_deviceRequestList.begin(); i != m_deviceRequestList.end(); ++i) {
-
-                    /*
-                     * The response is keyed to the handle we got when we
-                     * started this process by calling EstablishLink.
-                     */
-                    if (i->GetHandle() == handle) {
-                        if (response) {
-                            establishResult = i->GetResult();
-                            QCC_DbgPrintf(("WFDTransport::CreateTemporaryNetwork(): Got result %d", establishResult));
-
-                            /*
-                             * We will need the network interface name when we
-                             * try to turn on the multicast name service to
-                             * discover the IP address and port of the remote
-                             * daemon.
-                             */
-                            if (establishResult == P2PHelperInterface::P2P_OK) {
-                                QCC_DbgPrintf(("WFDTransport::CreateTemporaryNetwork(): GetInterfaceNameFromHandleAsync()"));
-                                m_getInterfaceNameFromHandleEvent.ResetEvent();
-                                m_getInterfaceNameFromHandleResult = false;
-                                status = m_p2pHelperInterface->GetInterfaceNameFromHandleAsync(handle);
-                                if (status == ER_OK) {
-                                    /*
-                                     * Only wait for a rational amount of time
-                                     * for this RPC to complete.  If the system
-                                     * is working, this should happen very
-                                     * quickly, so we'll pick the generic five
-                                     * second timeout out of the air.
-                                     */
-                                    uint32_t msWaited = 0;
-
-                                    for (;;) {
-                                        QCC_DbgPrintf(("WFDTransport::CreateTemporaryNetwork(): "
-                                                       "Waiting on m_getInterfacenameFromHandleResult"));
-
-                                        if (m_getInterfaceNameFromHandleResult) {
-                                            break;
-                                        }
-
-                                        if (msWaited > 5000) {
-                                            status = ER_TIMEOUT;
-                                            break;
-                                        }
-
-                                        qcc::Sleep(100);
-                                        msWaited += 100;
-                                    }
-                                } else {
-                                    QCC_LogError(status,
-                                                 ("WFDTransport::EnableAdvertisementInstance(): EstablishLink for GO fails"));
-                                }
-
-                                if (status == ER_OK) {
-                                    interface = m_foundInterface;
-                                } else {
-                                    interface = m_foundInterface;
-                                }
-                            }
-                        }
-
-                        QCC_DbgPrintf(("WFDTransport::CreateTemporaryNetwork(): Erasing entry"));
-                        m_deviceRequestList.erase(i);
-                        break;
-                    }
-                }
-
-                m_deviceRequestListLock.Unlock(MUTEX_CONTEXT);
-
-                /*
-                 * We are now done with our request.  We have either had a
-                 * response in which case response is true and establishResult
-                 * holds the result of the EstablishLink call, or we had a
-                 * timeout in which timeout is true.  In either of these cases
-                 * we have already cleaned up after ourseves and can return.
-                 * Note that a response trumps a timeout.  If neither of these
-                 * cases happened, we need to loop back and wait again.
-                 */
-                if (response) {
-                    QCC_DbgPrintf(("WFDTransport::CreateTemporaryNetwork(): Exiting on response"));
-                    if (establishResult < 0) {
-                        QCC_LogError(status, ("WFDTransport::CreateTemporaryNetwork(): Error connecting to \"%s\"", device.c_str()));
-                        return ER_FAIL;
-                    } else {
-                        return ER_OK;
-                    }
-                }
-
-                if (timeout) {
-                    QCC_LogError(status, ("WFDTransport::CreateTemporaryNetwork(): Timeout connecting to \"%s\"", device.c_str()));
-                    return ER_TIMEOUT;
-                }
-            }
-        }
-    }
-
-    assert(false && "WFDTransport::CreateTemporaryNetwork(): Cannot happen");
-    return ER_FAIL;
-}
-
-/*
- * This is the local side of the callback corresponding to a successful
- * completion of the EstablishLink call in CreateTemporaryNetwork() above.
- *
- * OnLinkEstablished is just an OnLinkError with an error code indicating
- * success.
- */
-void WFDTransport::OnLinkEstablished(int handle)
-{
-    QCC_DbgHLPrintf(("WFDTransport::OnLinkEstablished(%d)", handle));
-    OnLinkError(handle, P2PHelperInterface::P2P_OK);
-}
-
-/*
- * This is the local side of the callback corresponding to a completion of the
- * EstablishLink call in CreateTemporaryNetwork() above.
- *
- * The basic flow is that CreateTemporaryNetwork() will create an event for us
- * to bug and will save it in an object and stick it on a list of such objects.
- * Thes objects are keyed by the handle returned by EstablishLink.  Our job is
- * to look up the object by handle, save an error code and bug the event to wake
- * up the thread that blocked in CreateTemporaryNetwork waiting for us.
- *
- * If we can't find a thread waiting on an operation for this handle, there's
- * not much that can be done.
- */
-void WFDTransport::OnLinkError(int handle, int error)
-{
-    QCC_DbgHLPrintf(("WFDTransport::OnLinkError(%d, %d)", handle, error));
-
-    m_deviceRequestListLock.Lock(MUTEX_CONTEXT);
-
-    for (P2pDeviceRequestList::iterator i = m_deviceRequestList.begin(); i != m_deviceRequestList.end(); ++i) {
-        if (i->GetHandle() == handle) {
-            QCC_DbgPrintf(("WFDTransport::OnLInkError(): Found handle %d", handle));
-            i->SetResult(error);
-            i->SetEvent();
-            break;
-        }
-    }
-
-    m_deviceRequestListLock.Unlock(MUTEX_CONTEXT);
-}
-
-/*
- * This is the local side of the callback corresponding to a completion of the
- * EstablishLink call in CreateTemporaryNetwork() above.
- *
- * This callback indicates that the handle represents either a GO being created
- * during the advertise process, or a STA being created during the connect
- * process.  Since the cases are mutually exclusive we just let m_goHandle be
- * the one handle.  This is somewhat confusing and needs changing.
- *
- * The basic flow for both processes is that the advertise or the connect will
- * create an event for us to bug when the reply to its asynchronous call
- * completes.  Our job is to save the result of the operation (the handle) and
- * bug the event to wake up the thread that blocked in the advertise or connect.
- */
-void WFDTransport::HandleEstablishLinkReply(int handle)
-{
-    QCC_DbgHLPrintf(("WFDTransport::HandleEstablishLinkReply(%d)", handle));
-    m_goHandle = handle;
-    m_establishLinkEvent.SetEvent();
-    m_establishLinkResult = true;
-}
-
-/*
- * This is the local side of the callback corresponding to a completion of the
- * EstablishLink call in CreateTemporaryNetwork() above.
- *
- * The basic flow is that CreateTemporaryNetwork() will create an event for us
- * to bug when the reply to its asyncrhonous call completes.  Our job is to save
- * the result of the operation (the handle) and bug the event to wake up the
- * thread that blocked in CreateTemporaryNetwork waiting for us.
- */
-void WFDTransport::HandleGetInterfaceNameFromHandleReply(qcc::String interface)
-{
-    QCC_DbgHLPrintf(("WFDTransport::HandleGetInterfaceNameFromHandleReply(\"%s\")", interface.c_str()));
-    m_foundInterface = interface;
-    m_getInterfaceNameFromHandleEvent.SetEvent();
-    m_getInterfaceNameFromHandleResult = true;
-}
-
-/*
- * This is where the Wi-Fi P2P network meets the rest of the system.  This
- * process started with a FoundAdvertisedName relating to a Wi-Fi P2P pre
- * association service discovery event coming in from the Android Java framework
- * (via the P2P helper service).  This FoundAdvertisedName was sent up to any
- * AllJoyn applications that might have been looking for it, and the application
- * must've responded with a JoinSession.  This was converted into a Connect call
- * to this transport.  Connect noticed that it was being asked to connect to a
- * device which was discovered using Wi-Fi P2P and it called
- * CreateTemporaryNetwork to get the connection to the device GO formed.
- * Connect is now ready to do the actual WFD connection, but it has absolutely
- * no idea what IP address and port to connect to.  It is our job here to find
- * that information and create a connect spec (see NormalizeTransportSpec) with
- * that information.
- *
- * To find this information, we need to get the multicast name service to
- * discover the IP address and port associated with the GUID, which is the GUID
- * of the daemon we will need to connect to.
- *
- * The name service has a thread that is watching for interfaces to go down and
- * come up, but this runs periodically and so this delay might take up to
- * fifteen seconds to run.  The remote daemon is going to be sending name
- * service keep-alives every 40 seconds.  It could take upwards of a minute to
- * get this process complete, and if the name service is not configured to look
- * at Wi-Fi P2P interfaces, it could never complete.
- *
- * What we need to do is to ask the name service explicitly to open the
- * interface that was created in CreateTemporaryNetwork, and cause a WHO-HAS
- * message to be sent out that interface looking for our target daemon.
- *
- * Once we have sent the WHO-HAS probe, we need to wait until an IS-AT response
- * has been received and sent from the name service up through its callback to
- * this transport.
- */
-QStatus WFDTransport::CreateConnectSpec(const qcc::String& interface, const qcc::String& guid, qcc::String& connectSpec)
-{
-    QCC_DbgPrintf(("WFDTransport::CreateConnectSpec(\"%s\", \"%s\", ...)", interface.c_str(), guid.c_str()));
-
-    assert(IpNameService::Instance().Started() && "WFDTransport::CreateConnectSpec(): IpNameService not started");
-
-    /*
-     * Open the interface in the name service to enable it to transmit and receive
-     * name service messages on the new Wi-Fi P2P group.
-     */
-    QCC_DbgPrintf(("WFDTransport::CreateConnectSpec(): OpenInterface()"));
-    QStatus status = IpNameService::Instance().OpenInterface(TRANSPORT_WFD, interface);
-    if (status != ER_OK) {
-        QCC_LogError(status, ("WFDTransport::CreateConnectSpec(): Cannot open interface \"%s\"", interface.c_str()));
-        return status;
-    }
-
-    /*
-     * We are going to depend on the multicast name service callbacks
-     * to tell us when the remote daemon address and port is discovered.
-     * This info is going to come in on another thread.
-     *
-     * Since we are going to be interacting with a separate thread to get
-     * responses to our requests, we need to make sure we have our information
-     * available so that second thread can find it.  We need to get this done
-     * BEFORE we can allow a callback that may happen immediately or we may miss
-     * it.  This can result in a 40 second delay.  So, we take lock that is
-     * shared with the callback before making the Locate call.  This does mean
-     * that, if the callback happens immediately, it will block the name
-     * service.  We need to fill out the data structure that the callback will
-     * use, put it on the list that the callback will examine.  We then release
-     * the lock, allowing the response callback to access the structure and do
-     * its job.  We need to do this all without delay.
-     */
-    QCC_DbgPrintf(("WFDTransport::CreatetConnectSpec(): Block callbacks"));
-    m_addressRequestListLock.Lock(MUTEX_CONTEXT);
-
-    /*
-     * We need to identify ourselves as a thread waiting for a result for a
-     * particular name service result.  The result is identified by the GUID of
-     * the remote daemon, and we are going to eventually be waiting on an event.
-     * We wrap those two things up in an object and stash it on a list available
-     * to the callback that will happen when a name service callback is fired.
-     */
-    qcc::Event addressEvent;
-
-    P2pAddressRequest addressRequest(guid, &addressEvent);
-    m_addressRequestList.push_back(addressRequest);
-
-    /*
-     * Ask all of the daemons to respond with their GUIDs, IP addresses and ports.
-     */
-    QCC_DbgPrintf(("WFDTransport::CreateConnectSpec(): Locate(*)"));
-    status = IpNameService::Instance().FindAdvertisedName(TRANSPORT_WFD, "*");
-    if (status != ER_OK) {
-        QCC_LogError(status, ("WFDTransport::CreateConnectSpec(): Cannot open locate service \"*\""));
-        return status;
-    }
-
-    /*
-     * We've created and pushed the object that will allow a callback from the
-     * name service to be matched with our thread.  Now, we can make the name
-     * service request and release the response list lock so the response can be
-     * handled as described above.  This will let the response handler run
-     * unmolested.
-     */
-    QCC_DbgPrintf(("WFDTransport::CreateConnectSpec(): Allow callbacks"));
-    m_addressRequestListLock.Unlock(MUTEX_CONTEXT);
-
-    /*
-     * We'll wait as long as 15 seconds for a response (the group to be
-     * created).  This is because the Locate call to the name service will be
-     * retried three times, every five seconds by default.  The next opportunity
-     * to receive a name service response may be 40 seconds after that, which is
-     * getting pretty far out there.
-     */
-    Timespec tTimeout = 15000;
-    Timespec tStart;
-    GetTimeNow(&tStart);
-
-    /*
-     * A one second repeating timer.
-     */
-    qcc::Event timerEvent(1000, 1000);
-
-    /*
-     * We need to wait on both the timer event and the device event.
-     *
-     * XXX FIXME Don't poll, it's silly.
-     */
-    for (;;) {
-        vector<qcc::Event*> checkEvents, signaledEvents;
-        checkEvents.push_back(&addressEvent);
-        checkEvents.push_back(&timerEvent);
-
-        QCC_DbgPrintf(("WFDTransport::CreatetConnectSpec(): Wait for something to happen"));
-        QStatus status = qcc::Event::Wait(checkEvents, signaledEvents);
-        if (status != ER_OK && status != ER_TIMEOUT) {
-            break;
-        }
-
-        /*
-         * We are only concerned with two possible events here.  Normally,
-         * we'll either see the timer firing or a response notification. In
-         * astoundingly rare cases, both events can be set at the same time.
-         */
-        bool timer = false;
-        bool response = false;
-        for (vector<qcc::Event*>::iterator i = signaledEvents.begin(); i != signaledEvents.end(); ++i) {
-            if (*i == &addressEvent) {
-                QCC_DbgPrintf(("WFDTransport::CreateConnectSpec(): Address Event happened"));
-                response = true;
-            } else if (*i == &timerEvent) {
-                QCC_DbgPrintf(("WFDTransport::CreateConnectSpec(): Timer Event happened"));
-                timer = true;
-            }
-        }
-
-        /*
-         * If the timer popped, check for a timeout.  These are two different
-         * things since the timer pops every second and the timeout is some
-         * larger number of seconds.  The backwards logic is because the
-         * Timespec class doesn't define the needed operator and I'm too lazy to
-         * go write it.
-         */
-        bool timeout = false;
-        if (timer) {
-            Timespec tNow;
-            GetTimeNow(&tNow);
-
-            if (tStart + tTimeout < tNow) {
-                QCC_DbgPrintf(("WFDTransport::CreateConnectSpec(): Timeout happened"));
-                timeout = true;
-            }
-        }
-
-        /*
-         * We need to run through the list of requests in the case of a timeout
-         * to find the object to remove (we are timing out the request after
-         * all).  We also need to run through the list in the case of a response
-         * to find the address and port and then to remove the request object.
-         */
-        if (timeout || response) {
-            QCC_DbgPrintf(("WFDTransport::CreateConnectSpec(): Timeout or response"));
-            m_addressRequestListLock.Lock(MUTEX_CONTEXT);
-
-            /*
-             * These two little puppies are what all of this trouble is about.
-             */
-            qcc::String address;
-            qcc::String port;
-
-            for (P2pAddressRequestList::iterator i = m_addressRequestList.begin(); i != m_addressRequestList.end(); ++i) {
-
-                /*
-                 * The response is keyed to the guid of the remote daemon.
-                 */
-                if (i->GetGuid() == guid) {
-                    if (response) {
-                        address = i->GetAddress();
-                        port = i->GetPort();
-                        QCC_DbgPrintf(("WFDTransport::CreatetConnectSpec(): Found %s:%s", address.c_str(), port.c_str()));
-                    }
-                    QCC_DbgPrintf(("WFDTransport::CreateConnectSpec(): Erasing entry"));
-                    m_addressRequestList.erase(i);
-                    break;
-                }
-            }
-
-            m_addressRequestListLock.Unlock(MUTEX_CONTEXT);
-
-            /*
-             * We are now done with our request.  We have either had a response
-             * in which case response is true and address and port hold the
-             * information we're after, or we had a timeout in which timeout is
-             * true.  In either of these cases we have already cleaned up after
-             * ourseves and can return.  Note that a response trumps a timeout.
-             * If neither of these cases happened, we need to loop back and wait
-             * again.
-             */
-            if (response) {
-                QCC_DbgPrintf(("WFDTransport::CreatetConnectSpec(): Exiting on response"));
-
-                /*
-                 * We now need to create a normalized transport spec out of the
-                 * address and port we found.  The input spec is just going to
-                 * be "wfd:addr=<address>,port=<port> and we let the normalize
-                 * function make it prettier.  What we're interested in is the
-                 * output of this function, which is the connect spec we're
-                 * after.
-                 */
-                qcc::String spec, normSpec;
-                spec = "wfd:addr=" + address + ",port=" + port;
-                map<qcc::String, qcc::String> argMap;
-                status = NormalizeTransportSpec(spec.c_str(), normSpec, argMap);
-                if (ER_OK != status) {
-                    QCC_LogError(status, ("WFDTransport::CreateConnectSpec(): Invalid connect spec \"%s\"", spec.c_str()));
-                    return status;
-                }
-
-                connectSpec = normSpec;
-                return ER_OK;
-            }
-
-            if (timeout) {
-                QCC_LogError(status, ("WFDTransport::CreateConnectSpec(): Timeout looking for \"%s\"", guid.c_str()));
-                return ER_TIMEOUT;
-            }
-        }
-    }
-
-    assert(false && "WFDTransport::CreateConnectSpec(): Cannot happen");
-    return ER_FAIL;
-}
-
-/*
- * This is the callback corresponding to a location of a remote daemon
- * identified by its GUID.  The provided busAddr contains the IP address and
- * port on which the daemon is listening, and thus provides enough information
- * to put together a connect spec for reaching that daemon.  There may be a
- * CreateConnectSpec call blocked waiting for this address and port to appear.
- *
- * The basic flow is that CreateConnectSpec() will create an event for us to bug
- * and will save it in an object and stick it on a list of such objects.  These
- * objects are keyed by the guid of the remote daemon.  Our job is to look up
- * the object by guid, save the found address and port and bug the event to wake
- * up the thread that blocked in CreateConnectSpec waiting for us to wake it.
- */
-void WFDTransport::OnFound(const qcc::String& busAddr, const qcc::String& guid)
-{
-    QCC_DbgHLPrintf(("WFDTransport::OnFound(\"%s\", \"%s\")", busAddr.c_str(), guid.c_str()));
-
-    m_addressRequestListLock.Lock(MUTEX_CONTEXT);
-
-    for (P2pAddressRequestList::iterator i = m_addressRequestList.begin(); i != m_addressRequestList.end(); ++i) {
-        if (i->GetGuid() == guid) {
-            QCC_DbgPrintf(("WFDTransport::OnFound(): Found guid \"%s\"", guid.c_str()));
-
-            /*
-             * Instead of fighting with the name servcie callback, we just use
-             * what it gives us, even though it means a little redundancy.
-             */
-            qcc::String a("r4addr=");
-            qcc::String p(",r4port=");
-
-            /*
-             * Find the index of the busAddr string where the string "r4addr=" starts.
-             */
-            size_t j = busAddr.find(a);
-            if (j == String::npos) {
-                continue;
-            }
-
-            /*
-             * Point the index to the point where the actual address starts.
-             */
-            j += a.size();
-
-            /*
-             * Find the index of the busAddr string where the string "r4port=" starts.
-             */
-            size_t k = busAddr.find(p);
-            if (k == String::npos) {
-                continue;
-            }
-
-            /*
-             * The address we're interested in is between the end of "r4addr=" and
-             * the start of "r4port="
-             */
-            i->SetAddress(busAddr.substr(j, k - j));
-
-            /*
-             * The port we're interested in is between the end of "r4port=" and
-             * the end of the string (we known this because we looked at how it
-             * is made).
-             */
-            i->SetPort(busAddr.substr(k + p.size(), busAddr.size()));
-
-            /*
-             * Set the wake event to wake up a thread blocked in
-             * CreateConnectSpec waiting for this information.
-             */
-            i->SetEvent();
-            break;
-        }
-    }
-
-    m_addressRequestListLock.Unlock(MUTEX_CONTEXT);
+    return ER_BUS_BAD_TRANSPORT_ARGS;
 }
 
 QStatus WFDTransport::Connect(const char* connectSpec, const SessionOpts& opts, BusEndpoint** newep)
@@ -3538,12 +2051,17 @@ QStatus WFDTransport::Connect(const char* connectSpec, const SessionOpts& opts, 
      * deleted after it is joined, we must have a started name service or someone
      * isn't playing by the rules; so an assert is appropriate here.
      */
-    assert(IpNameService::Instance().Started() && "WFDTransport::Connect(): IpNameService not started");
+    assert(P2PNameService::Instance().Started() && "WFDTransport::Connect(): P2PNameService not started");
 
     /*
      * Parse and normalize the connectArgs.  When connecting to the outside
-     * world, there are no reasonable defaults and so the addr and port keys
-     * MUST be present.
+     * world in the WFD transport, there are no reasonable defaults and so the
+     * guid key MUST be present in the connect spec.  This GUID was provided
+     * from a P2P name service found callback and sent all the way up to an
+     * AllJoyn application, which responded with a JoinSession request.  The
+     * session implied a connect spec that included the GUID and so it has found
+     * its way back down here.  This guid MUST be present in the connect spec or
+     * something has gone badly wrong.
      */
     qcc::String normSpec;
     map<qcc::String, qcc::String> argMap;
@@ -3553,75 +2071,127 @@ QStatus WFDTransport::Connect(const char* connectSpec, const SessionOpts& opts, 
         return status;
     }
 
-    qcc::String interface;
-    bool wasP2P = false;
+    map<qcc::String, qcc::String>::iterator iter = argMap.find("guid");
+    assert(iter != argMap.end() && "WFDTransport::Connect(): Transport spec must provide \"guid\"");
+    qcc::String guid = iter->second;
 
     /*
-     * If we find a GUID in the argument map, it means a pre-association service
-     * discovery event drove this connect.  There may or may not be an
-     * associated physical network, no IP address, port, etc., so we probably
-     * have a lot of work to do before we can attempt any kind of connection.
-     * Since there is no addressing information, we need to conjure it up before
-     * proceeding.
+     * Since we are going to use TCP as the actual transport mechanism (in the
+     * network stack sense) we are going to need an actual IP endpoint to connect
+     * to and an actual physical network to move the bits over.  Neither of these
+     * things may exist yet.
+     *
+     * We first need to check to see if a network is formed.  There is nothing
+     * inherently synchronous about the sequence of calls that follows.  There
+     * is no guarantee that the underlying network will remain in a consistent
+     * state while we work, so we have to admit the possibility of things going
+     * completely wrong at any point and the connect may fail, taking quite a
+     * long time to ultimately time out if a failure happens at precisely the
+     * wrong time.  For example, if we successfully get to the point where we
+     * try a TCP connect, it may take on the order of a minute for such a call
+     * to eventually fail.  This is okay, though, exactly the same thing would
+     * happen in the TCP transport.
+     *
+     * The first thing to do is to figure out which device (remote MAC address)
+     * corresponds to the daemon GUID we have.  If we've gotten to this point we
+     * assume that the P2P name service has received a pre-association
+     * advertisement that provided the mapping between the device MAC address
+     * and the GUID of the daemon doing the advertisement.  We ask the name
+     * service for what amounts to the MAC address of the remote daemon.
      */
-    map<qcc::String, qcc::String>::iterator iter = argMap.find("guid");
-    if (iter != argMap.end()) {
-        QCC_DbgPrintf(("WFDTransport::Connect(): CreateTemporaryNetwork()"));
-        wasP2P = true;
+    qcc::String device;
+    status = P2PNameService::Instance().GetDeviceForGuid(guid, device);
+    if (status != ER_OK) {
+        QCC_LogError(status, ("WFDTransport::Connect(): Device corresponding to GUID \"%s\" is gone", guid.c_str()));
+        return status;
+    }
+
+    /*
+     * Now that we know the device address, we can check to see if we have a
+     * physical network connection to the remote device.  Since we are doing a
+     * Connect() to a remote daemon, we can infer that we must be a STA on the
+     * network and the daemon doing the advertising will be the GO.
+     */
+    bool connected = P2PConMan::Instance().IsConnected(device);
+    if (connected == false) {
 
         /*
-         * The first thing to do is to make sure the temporary network (AKA Wi-Fi
-         * P2P Group) is created and ready to go.  It may or may not be there,
-         * but we create it if we need it.
+         * If we are not connected onto a common physical network with the
+         * device the first order of business is to make that happen.  Creating
+         * a temporary network means bringing up the entire infrastructure of
+         * the network, so this may also be a very time-consuming call during
+         * which time we will block.  Since human intervention may actually be
+         * required on the remote side for Wi-Fi authentication, we may be
+         * talking on the order of a couple of minutes here if things happen in
+         * the worst case.
          */
-        status = CreateTemporaryNetwork(iter->second, interface);
+        status = P2PConMan::Instance().CreateTemporaryNetwork(device, P2PConMan::DEVICE_MUST_BE_STA);
         if (status != ER_OK) {
-            QCC_LogError(status, ("WFDTransport::Connect(): Could not create temporary network to \"%s\"", normSpec.c_str()));
-            return status;
-        }
-
-        /*
-         * We have a temporary network, but we have no idea what the IP address
-         * and port of the remote endpoint is.  We have to discover that
-         * information and then come up with a new connect spec that reflects
-         * this new info.  We need to wait until we find an IP address and port
-         * that corresponds to the daemon represented by the GUID.
-         */
-        qcc::String newSpec;
-        QCC_DbgPrintf(("WFDTransport::Connect(): CreateConnectSpec()"));
-        status = CreateConnectSpec(interface, iter->second, newSpec);
-        if (status != ER_OK) {
-            QCC_LogError(status, ("WFDTransport::Connect(): Could not get connection info for \"%s\"", normSpec.c_str()));
-            return status;
-        }
-
-        /*
-         * If we have rewritten the connect spec for the connection, we need to
-         * reflect this in the normSpec and argMap that were originally derived
-         * from the connectSpec passed in.
-         */
-        argMap.clear();
-        normSpec.clear();
-
-        QCC_DbgPrintf(("WFDTransport::Connect(): NormalizeTransportSpec()"));
-        status = NormalizeTransportSpec(newSpec.c_str(), normSpec, argMap);
-        if (ER_OK != status) {
-            QCC_LogError(status, ("WFDTransport::Connect(): Invalid derived WFD connect spec \"%s\"", newSpec.c_str()));
+            QCC_LogError(status, ("WFDTransport::Connect(): Unable to create a temporary network with device \"%s\" is gone", device.c_str()));
             return status;
         }
     }
 
     /*
-     * These fields (addr, port, family) are all guaranteed to be present now
-     * and an underlying network (even if it is Wi-Fi P2P) is assumed to be
-     * up and functioning.
+     * At this point we are fairly certain that we have a physical network to
+     * use to talk to the remote daemon (remember it may go away at any time).
+     * what we don't have is an IP address and port to use in the TCP connect
+     * request.  Since the P2P name service is a layer two name service that is
+     * clueless about IP addresses, we need to rely on the layer three name
+     * service to get that information.  The GUID we got is permanent and
+     * globally unique for the lifetime of the daemon in question, but an IP
+     * address may change over time, so we can't cache it.  It may be unikely,
+     * but it is possible.  So we ultimately need to ask the IP name service for
+     * the IP address of the daemon having the GUID we were provided and block
+     * until we have it.
+     *
+     * The ultimate goal of this work is to essentially create the same
+     * connect spec that would have been passed to a TCPTransport::Connect() if
+     * the network formation had just happened magically.  We are essentially
+     * translating a spec like "wfd:guid=2b1188267ee74bc9a910b69435779523" into
+     * a spec that would look like "wfd:r4addr=192.168.1.100,r4port=9955".
+     *
+     * This call is going to result in IP name service exchanges and may also
+     * therefore take a long time to complete.  If the other side misses the
+     * original who-has requests, it could take some multiple of 40 seconds
+     * for the IP addresses to be found.
+     */
+    qcc::String newSpec;
+    status = P2PConMan::Instance().CreateConnectSpec(device, guid, newSpec);
+    if (status != ER_OK) {
+        QCC_LogError(status, ("WFDTransport::Connect(): Unable to create a temporary network with device \"%s\" is gone", device.c_str()));
+        return status;
+    }
+
+    /*
+     * Just like any other spec, we need to make sure it is normalized.  We
+     * hope that the connection manager gets it right, but we don't tempt
+     * fate.  Since the spec will include an address and port, and our
+     * transport spec can only include a GUID, we run the normalization
+     * process through as if it were a listen spec, which does include
+     * address and port information.  We're done with the GUID, so we
+     * just reuse the normSpec and argMap from above.
+     */
+    status = NormalizeListenSpec(newSpec.c_str(), normSpec, argMap);
+    if (ER_OK != status) {
+        QCC_LogError(status, ("WFDTransport::Connect(): Invalid connect spec \"%s\" from connection manager", newSpec.c_str()));
+        return status;
+    }
+
+    /*
+     * From this point on, the Wi-Fi Direct transport connect looks just like
+     * the TCP transport connect.
+     *
+     * The fields r4addr and r4port are guaranteed to be present now and an
+     * underlying physical network is assumed to be up and functioning.  Of
+     * course, this might not be true, but have to make that assumption.
      */
     IPAddress ipAddr(argMap.find("r4addr")->second);
     uint16_t port = StringToU32(argMap["r4port"]);
 
     /*
      * The semantics of the Connect method tell us that we want to connect to a
-     * remote daemon.  WFD will happily allow us to connect to ourselves, but
+     * remote daemon.  TCP will happily allow us to connect to ourselves, but
      * this is not always possible in the various transports AllJoyn may use.
      * To avoid unnecessary differences, we do not allow a requested connection
      * to "ourself" to succeed.
@@ -3780,7 +2350,7 @@ QStatus WFDTransport::Connect(const char* connectSpec, const SessionOpts& opts, 
          * a WFDEndpoint object that will orchestrate the movement of data
          * across the transport.
          */
-        conn = new WFDEndpoint(this, m_bus, false, normSpec, sockFd, ipAddr, port);
+        conn = new WFDEndpoint(this, m_bus, false, normSpec, sockFd, ipAddr, port, guid);
 
         /*
          * On the active side of a connection, we don't need an authentication
@@ -3895,22 +2465,7 @@ QStatus WFDTransport::Connect(const char* connectSpec, const SessionOpts& opts, 
         if (newep) {
             *newep = NULL;
         }
-
-        /*
-         * XXX FIXME Very confusing to see GO handle in connect.
-         */
-        QCC_DbgPrintf(("WFDTransport::Connect(): ReleaseLinkAsync()"));
-        status = m_p2pHelperInterface->ReleaseLinkAsync(m_goHandle);
-        if (status != ER_OK) {
-            QCC_LogError(status, ("WFDTransport::Connect(): ReleaseLink fails"));
-        }
-
     } else {
-        if (wasP2P) {
-            QCC_DbgPrintf(("WFDTransport::Connect(): RememberP2PConnection()"));
-            RememberP2PConnection(conn, m_goHandle, interface);
-        }
-
         if (newep) {
             assert(conn && "WFDTransport::Connect(): If the conn is up, the conn pointer should be non-NULL");
             *newep = conn;
@@ -3950,12 +2505,13 @@ QStatus WFDTransport::Disconnect(const char* connectSpec)
      * stopped after it is stopped, we must have a started name service or
      * someone isn't playing by the rules; so an assert is appropriate here.
      */
-    assert(IpNameService::Instance().Started() && "WFDTransport::Disconnect(): IpNameService not started");
+    assert(P2PNameService::Instance().Started() && "WFDTransport::Disconnect(): P2PNameService not started");
 
     /*
      * Higher level code tells us which connection is refers to by giving us the
-     * same connect spec it used in the Connect() call.  We have to determine the
-     * address and port in exactly the same way
+     * same connect spec it used in the Connect() call.  For the Wi-Fi Direct
+     * transport, this is going to be the GUID found in the original service
+     * discovery event.
      */
     qcc::String normSpec;
     map<qcc::String, qcc::String> argMap;
@@ -3965,51 +2521,52 @@ QStatus WFDTransport::Disconnect(const char* connectSpec)
         return status;
     }
 
-    IPAddress ipAddr(argMap.find("r4addr")->second); // Guaranteed to be there.
-    uint16_t port = StringToU32(argMap["r4port"]);   // Guaranteed to be there.
+    map<qcc::String, qcc::String>::iterator iter = argMap.find("guid");
+    assert(iter != argMap.end() && "WFDTransport::Connect(): Transport spec must provide \"guid\"");
+    qcc::String guid = iter->second;
 
     /*
-     * Stop the remote endpoint.  Be careful here since calling Stop() on the
-     * WFDEndpoint is going to cause the transmit and receive threads of the
-     * underlying RemoteEndpoint to exit, which will cause our EndpointExit()
-     * to be called, which will walk the list of endpoints and delete the one
-     * we are stopping.  Once we poke ep->Stop(), the pointer to ep must be
-     * considered dead.
+     * Now we must stop the remote endpoint(s) associated with the GUID.  Be
+     * careful here since calling Stop() on the WFDEndpoint is going to cause
+     * the transmit and receive threads of the underlying RemoteEndpoint to
+     * exit, which will cause our EndpointExit() to be called, which will walk
+     * the list of endpoints and delete the one we are stopping.  Once we poke
+     * ep->Stop(), the pointer to ep must be considered dead.
      */
     status = ER_BUS_BAD_TRANSPORT_ARGS;
     m_endpointListLock.Lock(MUTEX_CONTEXT);
     for (set<WFDEndpoint*>::iterator i = m_endpointList.begin(); i != m_endpointList.end(); ++i) {
-        if ((*i)->GetPort() == port && (*i)->GetIPAddress() == ipAddr) {
+        if ((*i)->GetGuid() == guid) {
             WFDEndpoint* ep = *i;
             ep->SetSuddenDisconnect(false);
-            m_endpointListLock.Unlock(MUTEX_CONTEXT);
-
-            QCC_DbgPrintf(("WFDTransport::Disconnect(): GetP2pInfoForEndpoint()"));
-            P2PConnectionInfo* info = GetP2PInfoForEndpoint(ep);
-            assert(info && "WFDTransport::Disconnect(): Can't find info for supposedly alive P2P connection");
-
-            QCC_DbgPrintf(("WFDTransport::Disconnect(): ReleaseLinkAsync()"));
-            QStatus status = m_p2pHelperInterface->ReleaseLinkAsync(info->GetHandle());
-            if (status != ER_OK) {
-                QCC_LogError(status, ("WFDTransport::Disconnect(): Cannot ReleaseLinkAsync"));
-            }
-
-            /*
-             * Hideous, horrifying use of GO handle name even in STA.
-             */
-            m_goHandle = -1;
-
-            qcc::String interface = info->GetInterface();
-            QCC_DbgPrintf(("WFDTransport::Disconnect(): CloseInterface()"));
-            status = IpNameService::Instance().CloseInterface(TRANSPORT_WFD, interface);
-            if (status != ER_OK) {
-                QCC_LogError(status, ("WFDTransport::Disconnect(): Cannot close interface \"%s\"", interface.c_str()));
-            }
-
-            return ep->Stop();
+            ep->Stop();
+            i = m_endpointList.begin();
         }
     }
     m_endpointListLock.Unlock(MUTEX_CONTEXT);
+
+    /*
+     * We've started the process of getting rid of any endpoints we may have created.
+     * Now we have to actually get rid of the temporary network itself.  Since the
+     * network is related to the device, not the GUID, we have to get the device
+     * (MAC address) first.
+     */
+    qcc::String device;
+    status = P2PNameService::Instance().GetDeviceForGuid(guid, device);
+    if (status != ER_OK) {
+        QCC_LogError(status, ("WFDTransport::Disconnect(): Device corresponding to GUID \"%s\" is gone", guid.c_str()));
+        return status;
+    }
+
+    /*
+     * Now, leave the P2P Group that our device is participating in.
+     */
+    status = P2PConMan::Instance().DestroyTemporaryNetwork(device, P2PConMan::DEVICE_MUST_BE_STA);
+    if (status != ER_OK) {
+        QCC_LogError(status, ("WFDTransport::Disconnect(): Unable to destroy temporary network with device \"%s\"", device.c_str()));
+        return status;
+    }
+
     return status;
 }
 
@@ -4132,13 +2689,6 @@ void WFDTransport::DoStartListen(qcc::String& normSpec)
     QCC_DbgPrintf(("WFDTransport::DoStartListen()"));
 
     /*
-     * Since the name service is created before the server accept thread is spun
-     * up, and stopped when it is stopped, we must have a started name service or
-     * someone isn't playing by the rules; so an assert is appropriate here.
-     */
-    assert(IpNameService::Instance().Started() && "WFDTransport::DoStartListen(): IpNameService not started");
-
-    /*
      * Parse the normalized listen spec.  The easiest way to do this is to
      * re-normalize it.  If there's an error at this point, we have done
      * something wrong since the listen spec was presumably successfully
@@ -4162,63 +2712,9 @@ void WFDTransport::DoStartListen(qcc::String& normSpec)
     bool ephemeralPort = (listenPort == 0);
 
     /*
-     * If we're going to listen on an address, we are going to listen on a
-     * corresponding network interface.  We need to convince the name service to
-     * send advertisements out over that interface, or nobody will know to
-     * connect to the listening daemon.  The expected use case is that the
-     * daemon does exactly one StartListen() which listens to INADDR_ANY
-     * (listens for inbound connections over any interface) and the name service
-     * is controlled by a separate configuration item that selects which
-     * interfaces are used in discovery.  Since IP addresses in a mobile
-     * environment are dynamic, listening on the ANY address is the only option
-     * that really makes sense, and this is the only case in which the current
-     * implementation will really work.
-     *
-     * So, we need to get the configuration item telling us which network
-     * interfaces we should run the name service over.  The item can specify an
-     * IP address, in which case the name service waits until that particular
-     * address comes up and then uses the corresponding net device if it is
-     * multicast-capable.  The item can also specify an interface name.  In this
-     * case the name service waits until it finds the interface IFF_UP and
-     * multicast capable with an assigned IP address and then starts using the
-     * interface.  If the configuration item contains "*" (the wildcard) it is
-     * interpreted as meaning all multicast-capable interfaces.  If the
-     * configuration item is empty (not assigned in the configuration database)
-     * it defaults to "*".
-     */
-    qcc::String interfaces = DaemonConfig::Access()->Get("ip_name_service/property@interfaces", INTERFACES_DEFAULT);
-
-    while (interfaces.size()) {
-        qcc::String currentInterface;
-        size_t i = interfaces.find(",");
-        if (i != qcc::String::npos) {
-            currentInterface = interfaces.substr(0, i);
-            interfaces = interfaces.substr(i + 1, interfaces.size() - i - 1);
-        } else {
-            currentInterface = interfaces;
-            interfaces.clear();
-        }
-
-        /*
-         * If we were given an IP address, use it to find the interface names
-         * otherwise use the interface name that was specified. Note we need
-         * to disallow hostnames otherwise SetAddress will attempt to treat
-         * the interface name as a host name and start doing DNS lookups.
-         */
-        IPAddress currentAddress;
-        if (currentAddress.SetAddress(currentInterface, false) == ER_OK) {
-            status = IpNameService::Instance().OpenInterface(TRANSPORT_WFD, currentAddress);
-        } else {
-            status = IpNameService::Instance().OpenInterface(TRANSPORT_WFD, currentInterface);
-        }
-        if (status != ER_OK) {
-            QCC_LogError(status, ("WFDTransport::DoStartListen(): OpenInterface() failed for %s", currentInterface.c_str()));
-        }
-    }
-    /*
-     * We have the name service work out of the way, so we can now create the
-     * WFD listener sockets and set SO_REUSEADDR/SO_REUSEPORT so we don't have
-     * to wait for four minutes to relaunch the daemon if it crashes.
+     * Create the actual TCP listener sockets and set SO_REUSEADDR/SO_REUSEPORT
+     * so we don't have to wait for four minutes to relaunch the daemon if it
+     * crashes.
      */
     SocketFd listenFd = -1;
     status = Socket(QCC_AF_INET, QCC_SOCK_STREAM, listenFd);
@@ -4227,6 +2723,7 @@ void WFDTransport::DoStartListen(qcc::String& normSpec)
         QCC_LogError(status, ("WFDTransport::DoStartListen(): Socket() failed"));
         return;
     }
+
     /*
      * Set the SO_REUSEADDR socket option so we don't have to wait for four
      * minutes while the endpoint is in TIME_WAIT if we crash (or control-C).
@@ -4238,6 +2735,7 @@ void WFDTransport::DoStartListen(qcc::String& normSpec)
         qcc::Close(listenFd);
         return;
     }
+
     /*
      * We call accept in a loop so we need the listenFd to non-blocking
      */
@@ -4248,6 +2746,7 @@ void WFDTransport::DoStartListen(qcc::String& normSpec)
         qcc::Close(listenFd);
         return;
     }
+
     /*
      * Bind the socket to the listen address and start listening for incoming
      * connections on it.
@@ -4273,7 +2772,8 @@ void WFDTransport::DoStartListen(qcc::String& normSpec)
          */
         if (ephemeralPort) {
             qcc::GetLocalAddress(listenFd, listenAddr, listenPort);
-            normSpec = "wfd:addr=" + argMap["r4addr"] + "," ",r4port=" + U32ToString(listenPort);
+            normSpec = qcc::String(GetTransportName()) + qcc::String(":r4addr=") + argMap["r4addr"] +
+                       qcc::String(",r4port=") + U32ToString(listenPort);
         }
         status = qcc::Listen(listenFd, MAX_LISTEN_CONNECTIONS);
         if (status == ER_OK) {
@@ -4287,21 +2787,14 @@ void WFDTransport::DoStartListen(qcc::String& normSpec)
     }
 
     /*
-     * The IP name service is very flexible about what to advertise.  It assumes
-     * that a so-called transport is going to be doing the advertising.  An IP
-     * transport, by definition, has a reliable data transmission capability and
-     * an unreliable data transmission capability.  In the IP world, reliable
-     * data is sent using WFD and unreliable data is sent using UDP (the Packet
-     * Engine in the AllJoyn world).  Also, IP implies either IPv4 or IPv6
-     * addressing.
-     *
-     * In the WFDTransport, we only support reliable data transfer over IPv4
-     * addresses, so we leave all of the other possibilities turned off (provide
-     * a zero port).  Remember the port we enabled so we can re-enable the name
-     * service if listeners come and go.
+     * In the WFDTransport, we only support discovery of services that are
+     * advertised over Wi-Fi Direct pre-association service discovery.  We
+     * explicitly don't allow the IP name service to insinuate itself onto
+     * Wi-Fi Direct established links and begin advertising willy-nilly.
+     * we only enable the IP name service for the specific use case of
+     * discovering IP address and port from daemon GUID.
      */
     m_listenPort = listenPort;
-    IpNameService::Instance().Enable(TRANSPORT_WFD, listenPort, 0, 0, 0);
     m_listenFdsLock.Unlock(MUTEX_CONTEXT);
 
     /*
@@ -4415,7 +2908,7 @@ void WFDTransport::DoStopListen(qcc::String& normSpec)
      * up, and stopped after it is stopped, we must have a started name service or
      * someone isn't playing by the rules; so an assert is appropriate here.
      */
-    assert(IpNameService::Instance().Started() && "WFDTransport::DoStopListen(): IpNameService not started");
+    assert(P2PNameService::Instance().Started() && "WFDTransport::DoStopListen(): P2PNameService not started");
 
     /*
      * Find the (single) listen spec and remove it from the list of active FDs
@@ -4693,222 +3186,29 @@ void WFDTransport::QueueDisableAdvertisement(const qcc::String& advertiseName)
     Alert();
 }
 
-/*
- * This is the destination of the found name callback for the Wi-Fi P2P helper.
- * If we have successfully enabled pre-association service discovery and done
- * a FindAdvertisedName there, as soon as the system finds a matching service
- * it will call us back here.
- *
- * The main difference between a normal multicast name service callback and a
- * Wi-Fi P2P callback is that in the P2P case, there is no wireless connection
- * and therefore no IP address or port to connect to.  Instead of using the IP
- * address and port to key to the desired service, we use the GUID of the daemon
- * that hosts that service.
- *
- * This means that we need to change the definition of a bus address to admit
- * the possibility that there is no IP address or port.  In the "normal" case
- * a bus address will look like, "r4addr=192.168.1.100,port=9955" but in the P2P
- * case, a bus address will look like, "guid=167a3d1d18c9404a846a0110e287d751"
- * This bus address fill filter up through the AllJoyn system into any client
- * app searching for the name and if it decides to join a corresponding session
- * will filter back down here and reappear as the connect spec in a call to
- * WFDTransport::Connect().
- *
- * In order to do the actual connect, we need to keep a mapping from the GUID
- * which AllJoyn will use to the device which is meaningful to the P2P code.
- * We keep these mappings in the p2pDeviceList.
- */
-void WFDTransport::OnFoundAdvertisedName(const char* name, const char* namePrefix, const char* guid, const char* device)
+void WFDTransport::P2PNameServiceCallback(const qcc::String& guid, qcc::String& name, uint8_t timer)
 {
-    QCC_DbgPrintf(("WFDTransport::OnFoundAdvertisedName(\"%s\", \"%s\", \"%s\", \"%s\")", name, namePrefix, guid, device));
+    QCC_DbgPrintf(("WFDTransport::P2PNameServiceCallback(): guid = \"%s\"", guid.c_str()));
 
     /*
-     * If there is no listener, there is nobody to listen to our ravings so it
-     * wouild be pointless do do anything.  This is really an error somewhere
-     * else, but we'll just accept it instead of asserting here.
+     * Whenever the P2P name service receives a message indicating that a
+     * bus-name is out on the network via pre-association service discovery, it
+     * sends a message back to us via this callback that will conatin the GUID
+     * of the remote daemon thad did the advertisement, the list of well-known
+     * names being advertised and a validation timer.
+     */
+    qcc::String connectSpec = qcc::String(GetTransportName()) + qcc::String(":guid=") + guid;
+
+    /*
+     * Let AllJoyn know that we've found a service.
      */
     if (m_listener) {
-        qcc::String foundName(name);
-        qcc::String foundGuid(guid);
-        qcc::String foundDevice(device);
-        qcc::String busAddr = "wfd:guid=" + foundGuid;
+        QCC_DbgPrintf(("WFDTransport::P2PNameServiceCallback(): Call listener with busAddr %s", connectSpec.c_str()));
 
-        /*
-         * Save the mapping between the guid and the device.  Since it is
-         * possible to have more than one daemon running on a P2P device, and
-         * more than one P2P device associated with a single daemon, we just
-         * keep a list of these mappings.
-         */
-        m_deviceListLock.Lock(MUTEX_CONTEXT);
-        m_deviceList.push_back(std::pair<qcc::String, qcc::String>(guid, device));
-        m_deviceListLock.Unlock(MUTEX_CONTEXT);
+        std::vector<qcc::String> wkns;
+        wkns.push_back(name);
 
-        /*
-         * The transport list listeners expect to get a vector of names, so
-         * we need to make a temporary one before we call back.
-         */
-        std::vector<qcc::String> nameList;
-        nameList.push_back(foundName);
-
-        /*
-         * This is the call to tell the AllJoyn world that we've found something
-         * possibly interesting.  We report back that the transport will be a
-         * wireless LAN even though the connection is not made yet -- it will
-         * be.  the value 255 means that the advertisement never expires.  It
-         * will remain until we are explicity told it has gone away by the P2P
-         * framework.
-         */
-        m_listener->FoundNames(busAddr, foundGuid, TRANSPORT_WLAN, &nameList, 255);
-    }
-}
-
-/*
- * This is the destination of the lost name callback for the Wi-Fi P2P helper.
- * The difference between found and lost to the AllJoyn world above is only the
- * value of the timer we give it.  So we have to translate this callback into a
- * FoundNames with the provided timer value set to zero, which indicates a lost
- * name.
- */
-void WFDTransport::OnLostAdvertisedName(const char* name, const char* namePrefix, const char* guid, const char* device)
-{
-    QCC_DbgPrintf(("WFDTransport::OnLostAdvertisedName(\"%s\", \"%s\", \"%s\", \"%s\")", name, namePrefix, guid, device));
-    /*
-     * If there is no listener, there is nobody to listen to our ravings so it
-     * wouild be pointless do do anything.  This is really an error somewhere
-     * else, but we'll just accept it instead of asserting here.
-     */
-    if (m_listener) {
-        qcc::String foundName(name);
-        qcc::String foundGuid(guid);
-        qcc::String foundDevice(device);
-        qcc::String busAddr = "guid=" + foundGuid;
-
-        /*
-         * Remove a mapping between the guid and the device.
-         */
-        m_deviceListLock.Lock(MUTEX_CONTEXT);
-        for (DeviceList::iterator i = m_deviceList.begin(); i != m_deviceList.end(); ++i) {
-            if (i->first == guid && i->second == device) {
-                m_deviceList.erase(i);
-                break;
-            }
-        }
-        m_deviceListLock.Unlock(MUTEX_CONTEXT);
-
-        /*
-         * The transport list listeners expect to get a vector of names, so
-         * we need to make a temporary one before we call back.
-         */
-        std::vector<qcc::String> nameList;
-        nameList.push_back(foundName);
-
-        /*
-         * This is the call to tell the AllJoyn world that we've lost something
-         * that was previously interesting.  The value 0 means that any prior
-         * advertisement of this name and guid is no longer valid.
-         */
-        m_listener->FoundNames(busAddr, foundGuid, TRANSPORT_WLAN, &nameList, 0);
-    }
-}
-
-void WFDTransport::FoundCallback::Found(const qcc::String& busAddr, const qcc::String& guid,
-                                        std::vector<qcc::String>& nameList, uint8_t timer)
-{
-    QCC_DbgPrintf(("WFDTransport::FoundCallback::Found(): busAddr = \"%s\"", busAddr.c_str()));
-
-    /*
-     * Whenever the name service receives a message indicating that a bus-name
-     * is out on the network somewhere, it sends a message back to us via this
-     * callback.  In order to avoid duplication of effort, the name service does
-     * not manage a cache of names, but delegates that to the daemon having this
-     * transport.  If the timer parameter is non-zero, it indicates that the
-     * nameList (actually a vector of bus-name Strings) can be expected to be
-     * valid for the value of timer in seconds.  If timer is zero, it means that
-     * the bus names in the nameList are no longer available and should be
-     * flushed out of the daemon name cache.
-     *
-     * The name service does not have a cache and therefore cannot time out
-     * entries, but also delegates that task to the daemon.  It is expected that
-     * remote daemons will send keepalive messages that the local daemon will
-     * recieve, also via this callback.  Since we are just a go-between, we
-     * pretty much just pass what we find on back to the daemon, modulo some
-     * filtering to avoid situations we don't yet support:
-     *
-     * 1. Currently this transport has no clue how to handle anything but
-     *    reliable IPv4 endpoints (r4addr, r4port), so we filter everything else
-     *    out (by removing the unsupported endpoints from the bus address)
-     */
-    qcc::String r4addr("r4addr=");
-    qcc::String r4port("r4port=");
-    qcc::String comma(",");
-
-    /*
-     * Find where the r4addr name starts.
-     */
-    size_t i = busAddr.find(r4addr);
-    if (i == String::npos) {
-        QCC_DbgPrintf(("WFDTransport::FoundCallback::Found(): No r4addr in busaddr."));
-        return;
-    }
-    i += r4addr.size();
-
-    /*
-     * We assume that the address is always followed by the port so there must
-     * be a comma following the address.
-     */
-    size_t j = busAddr.find(comma, i);
-    if (j == String::npos) {
-        QCC_DbgPrintf(("WFDTransport::FoundCallback::Found(): No comma after r4addr in busaddr."));
-        return;
-    }
-
-    size_t k = busAddr.find(r4port);
-    if (k == String::npos) {
-        QCC_DbgPrintf(("WFDTransport::FoundCallback::Found(): No r4port in busaddr."));
-        return;
-    }
-    k += r4port.size();
-
-    size_t l = busAddr.find(comma, k);
-    if (l == String::npos) {
-        l = busAddr.size();
-    }
-
-    /*
-     * We have the following situation now.  Either:
-     *
-     *     "r4addr=192.168.1.1,r4port=9955,u4addr=192.168.1.1,u4port=9955"
-     *             ^          ^       ^   ^
-     *             i          j       k   l = 30
-     *
-     * or
-     *
-     *     "r4addr=192.168.1.1,r4port=9955"
-     *             ^          ^       ^   ^
-     *             i          j       k   l = 30
-     *
-     * So construct a new bus address with only the reliable IPv4 part pulled
-     * out.
-     */
-    qcc::String newBusAddr = String("wfd:") + r4addr + busAddr.substr(i, j - i) + "," + r4port + busAddr.substr(k, l - k);
-
-    QCC_DbgPrintf(("WFDTransport::FoundCallback::Found(): newBusAddr = \"%s\".", newBusAddr.c_str()));
-
-    /*
-     * Let the Wi-Fi P2P code know that we've found an address and port
-     * corresponding to some GUID.
-     */
-    if (m_transport) {
-        QCC_DbgPrintf(("WFDTransport::FoundCallback::Found(): OnFound() %s", newBusAddr.c_str()));
-        m_transport->OnFound(newBusAddr, guid);
-    }
-
-    /*
-     * Let AllJoyn know that we've found a service(s).
-     */
-    if (m_listener) {
-        QCC_DbgPrintf(("WFDTransport::FoundCallback::Found(): FoundNames(): %s", newBusAddr.c_str()));
-        m_listener->FoundNames(newBusAddr, guid, TRANSPORT_WFD, &nameList, timer);
+        m_listener->FoundNames(connectSpec, guid, TRANSPORT_WFD, &wkns, timer);
     }
 }
 
