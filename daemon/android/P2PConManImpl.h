@@ -27,8 +27,14 @@
 #endif
 
 #include <vector>
+
 #include <qcc/String.h>
+#include <qcc/Mutex.h>
+#include <qcc/Thread.h>
+#include <qcc/time.h>
+
 #include <Status.h>
+
 #include "P2PHelperInterface.h"
 
 namespace ajn {
@@ -138,6 +144,8 @@ class P2PConManImpl {
     QStatus CreateConnectSpec(const qcc::String& device, const qcc::String& guid, qcc::String& spec);
 
   private:
+    static const uint32_t TEMPORARY_NETWORK_ESTABLISH_TIMEOUT = 12000;  /**< The timeout for temporary network creation */
+
     /**
      * @brief Copying an IpConManImpl object is forbidden.
      */
@@ -161,6 +169,17 @@ class P2PConManImpl {
     };
 
     /**
+     * @brief
+     * Private notion of what state an underlying Wi-Fi Direct connection is in.
+     */
+    enum ConnState {
+        CONN_INVALID,           /**< Should never be seen on a constructed object */
+        CONN_IDLE,              /**< No connection and no connection in progress */
+        CONN_CONNECTING,        /**< A connection attempt is in progress */
+        CONN_CONNECTED,         /**< We think we have a temporary network up and running */
+    };
+
+    /**
      * @brief State variable to indicate what the implementation is doing or is
      * capable of doing.
      */
@@ -174,16 +193,16 @@ class P2PConManImpl {
 
     void OnFoundAdvertisedName(qcc::String& name, qcc::String& namePrefix, qcc::String& guid, qcc::String& device) { }
     void OnLostAdvertisedName(qcc::String& name, qcc::String& namePrefix, qcc::String& guid, qcc::String& device) { }
-    void OnLinkEstablished(int32_t handle) { }
-    void OnLinkError(int32_t handle, int32_t error) { }
-    void OnLinkLost(int32_t handle) { }
+    void OnLinkEstablished(int32_t handle);
+    void OnLinkError(int32_t handle, int32_t error);
+    void OnLinkLost(int32_t handle);
     void HandleFindAdvertisedNameReply(int32_t result) { }
     void HandleCancelFindAdvertisedNameReply(int32_t result) { }
     void HandleAdvertiseNameReply(int32_t result) { }
     void HandleCancelAdvertiseNameReply(int32_t result) { }
-    void HandleEstablishLinkReply(int32_t handle) { }
-    void HandleReleaseLinkReply(int32_t result) { }
-    void HandleGetInterfaceNameFromHandleReply(qcc::String& interface) { }
+    void HandleEstablishLinkReply(int32_t handle);
+    void HandleReleaseLinkReply(int32_t result);
+    void HandleGetInterfaceNameFromHandleReply(qcc::String& interface);
 
     /**
      * A listener class to receive events from an underlying Wi-Fi Direct
@@ -278,6 +297,21 @@ class P2PConManImpl {
     P2PHelperInterface* m_p2pHelperInterface;   /**< The AllJoyn interface used to talk to the P2P Helper Service */
 
     BusAttachment* m_bus;                       /**< The AllJoyn bus attachment that we use to talk to the P2P Helper Service */
+
+    qcc::Mutex m_establishLock;                 /**< Mutex that limits one link establishment at a time */
+
+    int32_t m_establishLinkResult;  /**< The result from an EstablishLinkAsync call done during network connection */
+    int32_t m_linkError;            /**< The error reported from an OnLinkError callback done during network connection */
+
+    int32_t m_handle;       /**< The handle returned by the P2P Helper Service that identifies the network connection */
+    qcc::String m_device;   /**< The device (which is really the remote MAC address) to which we are connected */
+    ConnState m_connState;  /**< The state of the one and only suported temporary network connection */
+    qcc::Thread* m_thread;  /**< A single thread that is blocked waiting for a temporary network to form */
+
+
+    bool m_handleEstablishLinkReplyFired;  /**< Indicates that a HandleEstablishLinkReply() callback happened */
+    bool m_onLinkErrorFired;               /**< Indicates that an OnLinkError() callback happened */
+    bool m_onLinkEstablishedFired;         /**< Indicates that an OnLinkEstablished() callback happened */
 };
 
 } // namespace ajn
