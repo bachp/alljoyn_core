@@ -30,7 +30,7 @@
 #include <qcc/Event.h>
 #include <qcc/time.h>
 
-#include <DaemonConfig.h>
+#include <ns/IpNameService.h>
 
 #include "P2PConManImpl.h"
 
@@ -339,8 +339,143 @@ QStatus P2PConManImpl::CreateConnectSpec(const qcc::String& device, const qcc::S
         return ER_FAIL;
     }
 
-    assert(false && "P2PConManImpl::CreateConnectSpec(): Implement me");
-    return ER_OK;
+    //
+    // If we're going to use a network to run the IP name service over, we'd
+    // better have one, at least to start.  Of course, this connection may
+    // actually drop at any time, but we demand one at the outset.
+    //
+    if (m_connState != CONN_CONNECTED) {
+        QCC_DbgPrintf(("P2PConManImpl::CreateConnectSpec(): Not CONN_CONNECTED"));
+        return ER_P2P_NOT_CONNECTED;
+    }
+
+    //
+    // We only allow one thread at a time to be in here trying to figure out a
+    // connect spec.  This whole process is like the layer three image of the
+    // layer two CreateTemporaryNetwork process; and so the code is similar.
+    //
+    m_discoverLock.Lock(MUTEX_CONTEXT);
+
+    m_thread = qcc::Thread::GetThread();
+    m_foundAdvertisedNameFired = false;
+    m_busAddress = "";
+    m_searchedGuid = guid;
+
+    //
+    // Tell the IP name service to call us back on our FoundAdvertisedName method when
+    // it hears a response.
+    //
+    IpNameService::Instance().SetCallback(TRANSPORT_WFD,
+                                          new CallbackImpl<P2PConManImpl, void, const qcc::String&, const qcc::String&, std::vector<qcc::String>&, uint8_t>
+                                              (this, &P2PConManImpl::FoundAdvertisedName));
+
+    //
+    // Eventually, we are going to have to deal with the possibility of multiple
+    // interfaces, but we know now that only one interface is possible and it is
+    // going to be called "p2p0" on Android systems.  We also know that we are
+    // doing this work on behalf of the Wi-Fi Direct transport.  Rather than
+    // implement some more generic code now, we are going to make those
+    // assumptions.
+    //
+    // In order to convince the IP name service to send packets out a P2P
+    // interface, we must explicitly open that interface.
+    //
+    qcc::String interface("p2p0");
+    QStatus status = IpNameService::Instance().OpenInterface(TRANSPORT_WFD, interface);
+
+    //
+    // We know there is a daemon out there that has advertised a service our
+    // client found interesting.  The client decided to do a JoinSession to that
+    // service which is what got us here.  We don't know the name of that
+    // service, so we ask all of the daemons on the network if they have any
+    // services.  All daemons (there will actually only be one) will respond
+    // with all of their (its) services, which is what it would normally do,
+    // so this request isn't actually unusual.
+    //
+    // What this does is to convince the remote daemon to give up its GUID and
+    // all of the methods we can use to connect to it (IPv4 and IPv6 addresses,
+    // reliable ports and unreliable ports).  We can then match the GUID in the
+    // response to the GUID passed in as a parameter.  The device is there in
+    // case of the possibility of multiple network connections, which is
+    // currently unsupported.  We only support one network, so the device is
+    // redundant and not currently used.
+    //
+    qcc::String star("*");
+    QCC_DbgPrintf(("P2PConManImpl::CreateConnectSpec(): FindAdvertisedName()"));
+    status = IpNameService::Instance().FindAdvertisedName(TRANSPORT_WFD, star);
+    if (status != ER_OK) {
+        m_discoverLock.Unlock(MUTEX_CONTEXT);
+        QCC_LogError(status, ("P2PConManImpl::CreateConnectSpec(): FindAdvertisedName(): Failure"));
+        return status;
+    }
+
+    qcc::Timespec tTimeout = CREATE_CONNECT_SPEC_TIMEOUT;
+    qcc::Timespec tStart;
+    qcc::GetTimeNow(&tStart);
+
+    for (;;) {
+
+        //
+        // If the FoundAdvertisedName() callback fires and its handler determines
+        // that the provided infomation matches our searchedGuid, then we have succeeded in
+        // collecting enough information to construct our connect spec.
+        //
+        if (m_foundAdvertisedNameFired) {
+            status = ER_OK;
+            break;
+        }
+
+        //
+        // Wait for something interesting to happen, but not too long.  Only
+        // wait until a cummulative time from the starting time before declaring
+        // a timeout.
+        //
+        qcc::Timespec tNow;
+        qcc::GetTimeNow(&tNow);
+
+        if (tStart + tTimeout < tNow) {
+            qcc::Timespec tWait = tStart + tTimeout - tNow;
+            qcc::Event evt(tWait.GetAbsoluteMillis(), 0);
+            QCC_DbgPrintf(("P2PConManImpl::CreateConnectSpec(): Wait for something to happen"));
+            qcc::Event::Wait(evt);
+        } else {
+            status = ER_P2P_TIMEOUT;
+            QCC_LogError(status, ("P2PConManImpl::CreateConnectSpec(): Timeout"));
+            break;
+        }
+    }
+
+    //
+    // If we succeeded, the IP name service has done our work for us and
+    // provided us with a bus address that has all of the connect information
+    // in it.
+    //
+    if (status == ER_OK) {
+        spec = m_busAddress;
+    } else {
+        spec = "";
+    }
+
+    //
+    // Not strictly required, but tell the IP name service that it can
+    // forget about the name in question.
+    //
+    IpNameService::Instance().CancelFindAdvertisedName(TRANSPORT_WFD, star);
+
+    //
+    // Don't leave the IP name service trying to transmit and receive over the
+    // P2P interface.  It's wasted energy now.  Since we are relying on Wi-Fi
+    // Direct, for our advertisements, we rely on it completely.
+    //
+    IpNameService::Instance().CloseInterface(TRANSPORT_WFD, interface);
+
+    //
+    // Tell the IP name service to forget about calling us back.
+    //
+    IpNameService::Instance().SetCallback(TRANSPORT_WFD, NULL);
+
+    m_discoverLock.Unlock(MUTEX_CONTEXT);
+    return status;
 }
 
 void P2PConManImpl::OnLinkEstablished(int32_t handle)
@@ -454,5 +589,21 @@ void P2PConManImpl::HandleGetInterfaceNameFromHandleReply(qcc::String& interface
 {
     QCC_DbgHLPrintf(("P2PConManImpl::HandleGetInterfacenameFromHandleReply(): interface = \"%d\"", interface.c_str()));
 }
+
+void P2PConManImpl::FoundAdvertisedName(const qcc::String& busAddr, const qcc::String& guid,
+                                        std::vector<qcc::String>& nameList, uint8_t timer)
+{
+    QCC_DbgPrintf(("P2PConManImpl::FoundAdvertisedName(): busAddr = \"%s\", guid = \"%s\"", busAddr.c_str(), guid.c_str()));
+
+    //
+    // If the guid of the remote daemon matches the guid that we are searching for,
+    // we have our addressing information.  It is in the provided busAddr.
+    //
+    if (m_searchedGuid == guid) {
+        m_busAddress = busAddr;
+        m_foundAdvertisedNameFired = true;
+    }
+}
+
 
 } // namespace ajn

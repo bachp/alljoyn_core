@@ -144,7 +144,8 @@ class P2PConManImpl {
     QStatus CreateConnectSpec(const qcc::String& device, const qcc::String& guid, qcc::String& spec);
 
   private:
-    static const uint32_t TEMPORARY_NETWORK_ESTABLISH_TIMEOUT = 12000;  /**< The timeout for temporary network creation */
+    static const uint32_t TEMPORARY_NETWORK_ESTABLISH_TIMEOUT = 120000;  /**< The timeout for temporary network creation */
+    static const uint32_t CREATE_CONNECT_SPEC_TIMEOUT = 15000;           /**< The timeout for IP address discovery */
 
     /**
      * @brief Copying an IpConManImpl object is forbidden.
@@ -312,6 +313,16 @@ class P2PConManImpl {
     bool m_handleEstablishLinkReplyFired;  /**< Indicates that a HandleEstablishLinkReply() callback happened */
     bool m_onLinkErrorFired;               /**< Indicates that an OnLinkError() callback happened */
     bool m_onLinkEstablishedFired;         /**< Indicates that an OnLinkEstablished() callback happened */
+
+    qcc::Mutex m_discoverLock;             /**< Mutex that limits one link connect spec creation at a time */
+
+    qcc::String m_searchedGuid;            /*<< The GUID that we are searching for IP address and port info about */
+    qcc::String m_busAddress;              /*<< The IP name service returned this bus address to match our searchedGuid */
+    bool m_foundAdvertisedNameFired;       /**< Indicates that we found IP addressing information corresponding to searchedGuid */
+
+    void FoundAdvertisedName(const qcc::String& busAddr, const qcc::String& guid,
+                             std::vector<qcc::String>& nameList, uint8_t timer);
+
 };
 
 } // namespace ajn
