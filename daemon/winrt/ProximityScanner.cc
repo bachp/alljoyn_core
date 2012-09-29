@@ -61,24 +61,24 @@ void ProximityScanner::Scan(bool request_scan) {
     scanResults.clear();
     ConnectionProfile ^ internetConnectionProfile = NetworkInformation::GetInternetConnectionProfile();
     if (internetConnectionProfile == nullptr) {
-        QCC_DbgPrintf(("This device is not connected to the network."));
+        QCC_DbgPrintf(("This device is not connected to Internet."));
         return;
     }
-    Platform::String ^ internetProfileName = internetConnectionProfile->ProfileName;
-    std::map<Platform::String ^, Platform::String ^> profileNames;
-    auto connectionProfiles = NetworkInformation::GetConnectionProfiles();
-    std::for_each(begin(connectionProfiles), end(connectionProfiles), [this, &profileNames](ConnectionProfile ^ profile) {
-                      WCHAR networkAdapterId[MAX_GUID_STRING_SIZE];
-                      if (StringFromGUID2(profile->NetworkAdapter->NetworkAdapterId, networkAdapterId, ARRAYSIZE(networkAdapterId))) {
-                          Platform::String ^ strAdaptertId = ref new Platform::String(networkAdapterId);
-                          profileNames[strAdaptertId] = profile->ProfileName;
-                      }
-                  });
 
-    if (profileNames.size() == 0) {
-        QCC_DbgPrintf(("No Network Connection Profiles Found."));
+    Platform::String ^ internetProfileName = internetConnectionProfile->ProfileName;
+    WCHAR internetNetworkAdapterId[MAX_GUID_STRING_SIZE];
+    Platform::String ^ internetNetworkAdapterIdStr = nullptr;
+    if (StringFromGUID2(internetConnectionProfile->NetworkAdapter->NetworkAdapterId, internetNetworkAdapterId, ARRAYSIZE(internetNetworkAdapterId))) {
+        internetNetworkAdapterIdStr = ref new Platform::String(internetNetworkAdapterId);
+    } else {
+        QCC_LogError(ER_FAIL, ("Fail to convert GUID to String"));
         return;
     }
+
+    QCC_DbgPrintf(("The currently connected network = %s, NetworkAdapterId =%s", PlatformToMultibyteString(internetProfileName).c_str(), \
+                   PlatformToMultibyteString(internetNetworkAdapterIdStr).c_str()));
+
+
     IVectorView<LanIdentifier ^> ^ lanIdentifiers = nullptr;
     try {
         lanIdentifiers = NetworkInformation::GetLanIdentifiers();
@@ -88,12 +88,14 @@ void ProximityScanner::Scan(bool request_scan) {
         return;
     }
 
-    std::for_each(begin(lanIdentifiers), end(lanIdentifiers), [this, &profileNames, internetProfileName](LanIdentifier ^ lanIdentifier) {
+    QCC_DbgPrintf(("The number of found LanIdentifiers = %d", lanIdentifiers->Size));
+    std::for_each(begin(lanIdentifiers), end(lanIdentifiers), [this, internetProfileName, internetNetworkAdapterIdStr](LanIdentifier ^ lanIdentifier) {
                       WCHAR networkAdapterId[MAX_GUID_STRING_SIZE];
                       if (StringFromGUID2(lanIdentifier->NetworkAdapterId, networkAdapterId, ARRAYSIZE(networkAdapterId))) {
                           Platform::String ^ networkAdapterIdStr = ref new Platform::String(networkAdapterId);
-                          std::map<Platform::String ^, Platform::String ^>::iterator it = profileNames.find(networkAdapterIdStr);
-                          if (it != profileNames.end()) {
+                          QCC_DbgPrintf(("LandIdentifier's NetworkAdapterId = %s", PlatformToMultibyteString(networkAdapterIdStr).c_str()));
+                          if (networkAdapterIdStr->Equals(internetNetworkAdapterIdStr)) {
+                              QCC_DbgPrintf(("Find matched NetworkAdapterId = %s", PlatformToMultibyteString(networkAdapterIdStr).c_str()));
                               qcc::String bssid;
                               auto lanIdVals = lanIdentifier->InfrastructureId->Value;
                               if (lanIdVals->Size != 0) {
@@ -111,14 +113,15 @@ void ProximityScanner::Scan(bool request_scan) {
                                                                       bssid.append(tolower(c));
                                                                   });
                                                 });
-                                  qcc::String ssid = PlatformToMultibyteString(it->second);
-                                  bool attached = (internetProfileName == it->second) ? true : false;
-                                  // only return the WIFI AP currently connected to.
-                                  if (attached) {
-                                      scanResults.insert(std::map<std::pair<qcc::String, qcc::String>, bool>::value_type(std::make_pair(bssid, ssid), attached));
-                                      return;
-                                  }
+                                  qcc::String ssid = PlatformToMultibyteString(internetProfileName);
+                                  scanResults.insert(std::map<std::pair<qcc::String, qcc::String>, bool>::value_type(std::make_pair(bssid, ssid), true));
+                                  QCC_DbgPrintf(("Report scan result attached = %d ssid = %s bssid = %s", bssid.c_str(), ssid.c_str()));
+                                  return;
+                              } else {
+                                  QCC_DbgPrintf(("LanIdentifier's size = %d is too small", lanIdVals->Size));
                               }
+                          } else {
+                              QCC_DbgPrintf(("The NetworkAdapterId (%s) does not match the current Internect connection", PlatformToMultibyteString(networkAdapterIdStr).c_str()));
                           }
                       }
                   });
