@@ -180,8 +180,9 @@ public class P2pManager implements ConnectionInfoListener, DnsSdServiceResponseL
 
                                              public void onFailure(int reasonCode) {
                                                  Log.d(TAG, "Service discovery failed: " + reasonCode);
+                                                 if (reasonCode == WifiP2pManager.NO_SERVICE_REQUESTS)
+                                                     restartServiceSearch();
                                                  mFindState = FindState.IDLE;
-                                                 // TODO: Any other error handling?
                                              }
                                          });
                 mHandler.postDelayed(mPeriodicDiscovery, periodicInterval);
@@ -202,6 +203,62 @@ public class P2pManager implements ConnectionInfoListener, DnsSdServiceResponseL
 
         context.registerReceiver(receiver, intentFilter); // TODO: When to unregister?
     };
+
+    private void addServiceRequest(final String name) {
+
+        Log.d(TAG, "Adding ServiceRequest for " + name);
+        WifiP2pDnsSdServiceRequest serviceRequest = WifiP2pDnsSdServiceRequest.newInstance(name, "_alljoyn._tcp");
+        mServiceRequestList.add(name);
+
+        manager.addServiceRequest(channel, serviceRequest,
+                                  new WifiP2pManager.ActionListener()
+                                  {
+                                      public void onSuccess() {
+                                          Log.d(TAG, "addServiceRequest( " + name +  " ) success");
+                                      }
+
+                                      public void onFailure(int reasonCode) {
+                                          Log.d(TAG, "addServiceRequest (" + name + ") failed: " + reasonCode);
+                                          synchronized (mServiceRequestList) {
+                                              mServiceRequestList.remove(name);
+                                          }
+                                      }
+                                  });
+    }
+
+    private void restartServiceSearch() {
+
+        synchronized (mServiceRequestList) {
+            mServiceRequestList.clear();
+        }
+
+        synchronized (mRequestedNames) {
+            if (mRequestedNames.isEmpty())
+                return;
+        }
+
+        manager.clearServiceRequests(channel, null);
+
+       WifiP2pDnsSdServiceRequest serviceRequest = WifiP2pDnsSdServiceRequest.newInstance("_alljoyn._tcp");
+
+        manager.addServiceRequest(channel, serviceRequest,
+                                  new WifiP2pManager.ActionListener()
+                                  {
+                                      public void onSuccess() {
+                                          Log.d(TAG, "addServiceRequest (find all AJN) success");
+                                      }
+
+                                      public void onFailure(int reasonCode) {
+                                          Log.d(TAG, "addServiceRequest (find all AJN) failed: " + reasonCode);
+                                      }
+                                  });
+
+        synchronized (mRequestedNames) {
+            for (int i = 0; i <  mRequestedNames.size(); i++)
+                addServiceRequest(mRequestedNames.get(i));
+        }
+
+    }
 
     public void shutdown() {
         mHandler.removeCallbacks(mPeriodicDiscovery);
@@ -238,7 +295,7 @@ public class P2pManager implements ConnectionInfoListener, DnsSdServiceResponseL
         peerState = newState;
     }
 
-    public void setEnabled(boolean enabled) {
+    /*package*/ void setEnabled(boolean enabled) {
         // TODO: Cancel advertisements or automatically re-register them?
         isEnabled = enabled;
 
@@ -395,23 +452,7 @@ public class P2pManager implements ConnectionInfoListener, DnsSdServiceResponseL
                 if (!mServiceRequestList.isEmpty() && mServiceRequestList.contains(instanceName))
                     continue;
 
-                Log.d(TAG, "Adding ServiceRequest for " + instanceName);
-                WifiP2pDnsSdServiceRequest serviceRequest = WifiP2pDnsSdServiceRequest.newInstance(instanceName, "_alljoyn._tcp");
-                mServiceRequestList.add(instanceName);
-
-                manager.addServiceRequest(channel, serviceRequest,
-                                          new WifiP2pManager.ActionListener()
-                                          {
-                                              public void onSuccess() {
-                                                  Log.d(TAG, "addServiceRequest( " + instanceName +  " ) success");
-                                              }
-
-                                              public void onFailure(int reasonCode) {
-                                                  Log.d(TAG, "addServiceRequest (" + instanceName + ") failed: " + reasonCode);
-                                                  mServiceRequestList.remove(instanceName);
-                                              }
-                                          });
-
+                addServiceRequest(instanceName);
             }
             continue;
         }
@@ -470,7 +511,6 @@ public class P2pManager implements ConnectionInfoListener, DnsSdServiceResponseL
         //Strip off the service type (suffix) to get the service name.
         int index = name.lastIndexOf(ServiceSuffix);
 
-        //TODO What do we do in the unlikely event of not finding the postfix?
         if (index > 0)
             name = fullDomainName.substring(0, index);
 
@@ -535,9 +575,6 @@ public class P2pManager implements ConnectionInfoListener, DnsSdServiceResponseL
         else
             namePrefix = name;
 
-        //TODO Need to implement arg check for size. Deep in the bowels of JNI code is a hidden limitation:
-        // command buffer size cannot exceed 256. Buffer includes string version of WPA supplicant command
-        // plus actual payload...
         synchronized (mRequestedNames) {
             if (!mRequestedNames.isEmpty() && mRequestedNames.contains(namePrefix)) {
                 Log.d(TAG, "Request for " + namePrefix + " already added");
@@ -611,7 +648,7 @@ public class P2pManager implements ConnectionInfoListener, DnsSdServiceResponseL
                 continue;
 
             WifiP2pDnsSdServiceRequest serviceRequest = WifiP2pDnsSdServiceRequest.newInstance(name, "_alljoyn._tcp");
-            Log.d(TAG, "removeServiceRequest: " + name);
+            Log.d(TAG, "Remove service name request for" + name);
             manager.removeServiceRequest(channel, serviceRequest,
                                          new WifiP2pManager.ActionListener()
                                          {
@@ -643,7 +680,7 @@ public class P2pManager implements ConnectionInfoListener, DnsSdServiceResponseL
         return OK;
     }
 
-    public void discoveryChanged(int state) {
+    /*package*/ void discoveryChanged(int state) {
         if (state == WifiP2pManager.WIFI_P2P_DISCOVERY_STARTED) {
             Log.d(TAG, "discoveryChanged: STARTED");
         }
@@ -733,6 +770,11 @@ public class P2pManager implements ConnectionInfoListener, DnsSdServiceResponseL
             return ERROR;
         }
 
+        synchronized (mAdvertisedNames) {
+            if (!mAdvertisedNames.isEmpty() && !mAdvertisedNames.contains(name))
+                return OK;
+        }
+
         Map<String, String> txt = new HashMap<String, String>();
         txt.put("GUID", guid);
         txt.put("TIMER", Integer.toString(0));
@@ -750,8 +792,10 @@ public class P2pManager implements ConnectionInfoListener, DnsSdServiceResponseL
                                     }
                                 });
 
-        if (!mAdvertisedNames.isEmpty())
+
+        synchronized (mAdvertisedNames) {
             mAdvertisedNames.remove(name);
+        }
 
         Runnable removeService = new Runnable() {
             public void run() {
@@ -1010,7 +1054,7 @@ public class P2pManager implements ConnectionInfoListener, DnsSdServiceResponseL
         return null;
     }
 
-    public void setDevice(WifiP2pDevice device) {
+    /*package*/ void setDevice(WifiP2pDevice device) {
         this.device = device;
     }
 
