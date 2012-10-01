@@ -139,88 +139,87 @@ class ScanService : public BusObject {
             MsgArg reply("a(ssb)", 0, args);
             QStatus status = MethodReply(msg, &reply, 1);
             if (ER_OK != status) {
-            	LOGE("Ping: Error sending reply (%s)", QCC_StatusText(status));
+                LOGE("Ping: Error sending reply (%s)", QCC_StatusText(status));
             }
-        }
-        else{
-				jsize scanresultsize = env->GetArrayLength(scanresults);
+        } else   {
+            jsize scanresultsize = env->GetArrayLength(scanresults);
 
 
-				LOGE("Length of scan results : %d", scanresultsize);
+            LOGE("Length of scan results : %d", scanresultsize);
 
-				LOGD(" *****************************Printing the scan results***************************** ");
+            LOGD(" *****************************Printing the scan results***************************** ");
 
-				//MsgArg*args = NULL;
-				// Check of the scan results
-				if (scanresultsize  > 0) {
-					args = new MsgArg[scanresultsize];
-				}
+            //MsgArg*args = NULL;
+            // Check of the scan results
+            if (scanresultsize  > 0) {
+                args = new MsgArg[scanresultsize];
+            }
 
-				// Create the array to be returned with the size = scanresultsize
-
-
-				jfieldID bssidFID = env->GetFieldID(CLS_ScanResultMessage, "bssid", "Ljava/lang/String;");
-				if (bssidFID == NULL) {
-					LOGD("Error while getting the field id bssid");
-				}
-				jfieldID ssidFID = env->GetFieldID(CLS_ScanResultMessage, "ssid", "Ljava/lang/String;");
-				if (ssidFID == NULL) {
-					LOGD("Error while getting the field id ssid");
-				}
-
-				jfieldID attachedFID = env->GetFieldID(CLS_ScanResultMessage, "attached", "Z");
-				if (attachedFID == NULL) {
-					LOGD("Error while getting the field id attached");
-				}
-
-				for (int i = 0; i < scanresultsize; i++) {
-
-					jobject scanresult = env->GetObjectArrayElement(scanresults, i);
-					if (scanresult == NULL) {
-						LOGD("Error while getting the scan result object from the array");
-					}
-
-					jstring jbssid = (jstring)env->GetObjectField(scanresult, bssidFID);
-					if (jbssid == NULL) {
-						LOGE("Could not retrieve bssid from the scan results object");
-					}
-
-					jstring jssid = (jstring)env->GetObjectField(scanresult, ssidFID);
-					if (jssid == NULL) {
-						LOGE("Could not retrieve ssid from the scan results object");
-					}
-
-					jboolean jattached = env->GetBooleanField(scanresult, attachedFID);
-
-					const char*bssid = env->GetStringUTFChars(jbssid, NULL);
-					const char*ssid = env->GetStringUTFChars(jssid, NULL);
-					bool attached = (bool)jattached;
-					if (bssid != NULL) {
-
-						args[i].Set("(ssb)", bssid, ssid, attached);
-					}
-
-					if (bssid != NULL) {
-						//LOGD("BSSID = %s    SSID = %s    attached = %s",bssid,ssid,(attached) ? "true" : "false");
-					}
+            // Create the array to be returned with the size = scanresultsize
 
 
-					// Populate the array to be returned
+            jfieldID bssidFID = env->GetFieldID(CLS_ScanResultMessage, "bssid", "Ljava/lang/String;");
+            if (bssidFID == NULL) {
+                LOGD("Error while getting the field id bssid");
+            }
+            jfieldID ssidFID = env->GetFieldID(CLS_ScanResultMessage, "ssid", "Ljava/lang/String;");
+            if (ssidFID == NULL) {
+                LOGD("Error while getting the field id ssid");
+            }
+
+            jfieldID attachedFID = env->GetFieldID(CLS_ScanResultMessage, "attached", "Z");
+            if (attachedFID == NULL) {
+                LOGD("Error while getting the field id attached");
+            }
+
+            for (int i = 0; i < scanresultsize; i++) {
+
+                jobject scanresult = env->GetObjectArrayElement(scanresults, i);
+                if (scanresult == NULL) {
+                    LOGD("Error while getting the scan result object from the array");
+                }
+
+                jstring jbssid = (jstring)env->GetObjectField(scanresult, bssidFID);
+                if (jbssid == NULL) {
+                    LOGE("Could not retrieve bssid from the scan results object");
+                }
+
+                jstring jssid = (jstring)env->GetObjectField(scanresult, ssidFID);
+                if (jssid == NULL) {
+                    LOGE("Could not retrieve ssid from the scan results object");
+                }
+
+                jboolean jattached = env->GetBooleanField(scanresult, attachedFID);
+
+                const char*bssid = env->GetStringUTFChars(jbssid, NULL);
+                const char*ssid = env->GetStringUTFChars(jssid, NULL);
+                bool attached = (bool)jattached;
+                if (bssid != NULL) {
+
+                    args[i].Set("(ssb)", bssid, ssid, attached);
+                }
+
+                if (bssid != NULL) {
+                    //LOGD("BSSID = %s    SSID = %s    attached = %s",bssid,ssid,(attached) ? "true" : "false");
+                }
 
 
-					LOGD("BSSID = %s    SSID = %s    attached = %s", bssid, ssid, (attached) ? "true" : "false");
-
-				}
+                // Populate the array to be returned
 
 
-				LOGD(" *********************************************************************************** ");
+                LOGD("BSSID = %s    SSID = %s    attached = %s", bssid, ssid, (attached) ? "true" : "false");
 
-			    /* Reply with same string that was sent to us */
-				MsgArg reply("a(ssb)", scanresultsize, args);
-				QStatus status = MethodReply(msg, &reply, 1);
-				if (ER_OK != status) {
-					LOGE("Ping: Error sending reply (%s)", QCC_StatusText(status));
-				}
+            }
+
+
+            LOGD(" *********************************************************************************** ");
+
+            /* Reply with same string that was sent to us */
+            MsgArg reply("a(ssb)", scanresultsize, args);
+            QStatus status = MethodReply(msg, &reply, 1);
+            if (ER_OK != status) {
+                LOGE("Ping: Error sending reply (%s)", QCC_StatusText(status));
+            }
         }
 
 
