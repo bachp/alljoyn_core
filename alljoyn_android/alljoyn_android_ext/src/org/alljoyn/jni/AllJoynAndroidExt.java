@@ -91,6 +91,7 @@ public class AllJoynAndroidExt extends Service {
 	boolean scanResultsObtained;
 	boolean scanRequested = false;
 	boolean stopScanRequested = false;
+	boolean isFirstScan=true;
 
 	// This needs to be accessible by the function which periodically populates results in the map
 	boolean getScanResultsCallCompleted = false;
@@ -200,7 +201,7 @@ public class AllJoynAndroidExt extends Service {
 		
 	}
 		
-	void PrepareScanResults(){
+	synchronized void PrepareScanResults(){
 			
 		if(scanResultMessage == null || (scanResultMessage.length == 0)){
 			scanResultMessageToBeSent = new ScanResultMessage[0];
@@ -216,15 +217,16 @@ public class AllJoynAndroidExt extends Service {
 			scanResultMessageToBeSent[currentBSSIDIndex].ssid = scanResultMessage[currentBSSIDIndex].ssid;
 			scanResultMessageToBeSent[currentBSSIDIndex].attached = scanResultMessage[currentBSSIDIndex].attached;
 		}
+		scanResultMessage = null;
 			
 			
 	}
 		
 	// GetScanResults
-	public ScanResultMessage[] Scan(boolean request_scan){
+	public synchronized ScanResultMessage[] Scan(boolean request_scan){
 			
 			scanRequested = request_scan;
-			
+			boolean isConnected = false; 
 			
 			// Remove -- for test ony ... always on scan
 			//request_scan = true;
@@ -246,8 +248,11 @@ public class AllJoynAndroidExt extends Service {
 					
 					if(!wifiEnabled){
 						// return empty map since wifi is not enabled
-						scanResultMessage = new ScanResultMessage[0];
-						return scanResultMessage; 
+//						scanResultMessage = new ScanResultMessage[0];
+//						PrepareScanResults();
+//						return scanResultMessageToBeSent;
+						scanResultMessage = null;
+						return scanResultMessage;
 					}
 					
 					scanResultsObtained = false;
@@ -259,6 +264,31 @@ public class AllJoynAndroidExt extends Service {
 								WifiManager.SCAN_RESULTS_AVAILABLE_ACTION));
 					}
 					
+					//
+					// If this is the first scan than instead of initiating the whole scan we just send the network we are connected to 
+					// This speeds up the discovery time for the case where we are connected to the same network
+					// This is a change that the server team had requested so that the matching in field test cases is faster 
+					// 
+//					if(isFirstScan){
+//						if(wifiEnabled && wifiMgr.getConnectionInfo().getBSSID() != null){
+//							isConnected = true;
+//						}
+//						if(scanResultMessage == null && isConnected){
+//							scanResultMessage = new ScanResultMessage[1];
+//							scanResultMessage[0] = new ScanResultMessage();
+//							
+//							String currentBSSID = wifiMgr.getConnectionInfo().getBSSID();
+//							String currentSSID = wifiMgr.getConnectionInfo().getSSID();
+//							
+//							scanResultMessage[0].bssid = currentBSSID;
+//							scanResultMessage[0].ssid = currentSSID;
+//							scanResultMessage[0].attached = true;
+//						}
+//						PrepareScanResults();
+//						isFirstScan = false;
+//						return scanResultMessageToBeSent; 
+//					}
+				
 					if(!wifiMgr.startScan()){
 						Log.v(TAG,"startScan() returned error");
 					}
@@ -292,12 +322,11 @@ public class AllJoynAndroidExt extends Service {
 				// There is a corner case here where you are not connected to any network and Scan() function is called when 
 				// it is ok to have scanResultMessage = null so we check if we are connected to any network first
 				
-				boolean isConnected = false; 
+				
 				boolean wifiEnabled = wifiMgr.isWifiEnabled(); 
 				if(wifiEnabled && wifiMgr.getConnectionInfo().getBSSID() != null){
 					isConnected = true;
 				}
-						
 				if(scanResultMessage == null && isConnected){
 					scanResultMessage = new ScanResultMessage[1];
 					scanResultMessage[0] = new ScanResultMessage();
@@ -309,11 +338,13 @@ public class AllJoynAndroidExt extends Service {
 					scanResultMessage[0].ssid = currentSSID;
 					scanResultMessage[0].attached = true;
 				}
-				Log.v(TAG,"*************************** NOT REQUESTED Scan Results**************************************");
 				PrepareScanResults();
+
+				Log.v(TAG,"*************************** NOT REQUESTED Scan Results**************************************");
+
 			}
-		
-			scanResultMessage = null;
+			
+			//scanResultMessage = null;
 			
 			
 			Log.v(TAG,"************************FINAL SCAN RESULTS ****************************************");
