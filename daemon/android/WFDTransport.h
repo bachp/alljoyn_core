@@ -617,7 +617,8 @@ class WFDTransport : public Transport, public RemoteEndpoint::EndpointListener, 
 
     void P2PNameServiceCallback(const qcc::String& guid, qcc::String& name, uint8_t timer);
 
-    int32_t m_nsReleaseCount; /**< the number of times we have released the name service singleton */
+    bool m_p2pNsAcquired;  /**< True if we've done an Acquire() on the P2P name service singleton */
+    bool m_p2pCmAcquired;  /**< True if we've done an Acquire() on the P2P connection manager singleton */
 };
 
 } // namespace ajn

@@ -114,28 +114,45 @@ QStatus P2PHelperInterface::Init(BusAttachment* bus)
 
     QCC_DbgPrintf(("P2PHelperInterface::Init(): CreateInterface()"));
     assert(m_interface == NULL && "P2PHelperInterface::Init(): m_interface not NULL");
-    QStatus status = m_bus->CreateInterface(INTERFACE_NAME, m_interface);
-    if (status != ER_OK) {
-        QCC_LogError(status, ("P2PHelperInterface::Init(): Error creating interface"));
-        return status;
+
+    //
+    // See if one of our counterparts has already created the interface used to
+    // talk to the P2P helper service.  If it is there, use it; otherwise we
+    // need to make it for ourselves.  The rule is that once an interface is
+    // created, you cannot change it, so GetInterface() returns a pointer to a
+    // const InterfaceDescription.  But we need to be able to create the
+    // interface if it is not there, which means changing the interface
+    // description, which means it can't be const.  We cast away the constness
+    // when we look for the interface description, but play by the rules and
+    // never change it later
+    //
+    m_interface = const_cast<InterfaceDescription*>(m_bus->GetInterface(INTERFACE_NAME));
+    if (m_interface == NULL) {
+        QStatus status = m_bus->CreateInterface(INTERFACE_NAME, m_interface);
+        if (status == ER_OK) {
+            m_interface->AddMethod("FindAdvertisedName",         "s",  "i",  "namePrefix,result");
+            m_interface->AddMethod("CancelFindAdvertisedName",   "s",  "i",  "namePrefix,result");
+            m_interface->AddMethod("AdvertiseName",              "ss", "i",  "name,guid,result");
+            m_interface->AddMethod("CancelAdvertiseName",        "ss", "i",  "name,guid,result");
+            m_interface->AddMethod("EstablishLink",              "si", "i",  "device,intent,result");
+            m_interface->AddMethod("ReleaseLink",                "i",  "i",  "handle,result");
+            m_interface->AddMethod("GetInterfaceNameFromHandle", "i",  "s",  "handle,interface");
+
+            m_interface->AddSignal("OnFoundAdvertisedName",      "ssss", "name,namePrefix,guid,device");
+            m_interface->AddSignal("OnLostAdvertisedName",       "ssss", "name,namePrefix,guid,device");
+            m_interface->AddSignal("OnLinkEstablished",          "i",    "handle");
+            m_interface->AddSignal("OnLinkError",                "ii",   "handle,error");
+            m_interface->AddSignal("OnLinkLost",                 "i",    "handle");
+
+            QCC_DbgPrintf(("P2PHelperInterface::Init(): Activate()"));
+            m_interface->Activate();
+        } else {
+            QCC_LogError(status, ("P2PHelperInterface::Init(): Error creating interface"));
+            return status;
+        }
     }
 
-    m_interface->AddMethod("FindAdvertisedName",         "s",  "i",  "namePrefix,result");
-    m_interface->AddMethod("CancelFindAdvertisedName",   "s",  "i",  "namePrefix,result");
-    m_interface->AddMethod("AdvertiseName",              "ss", "i",  "name,guid,result");
-    m_interface->AddMethod("CancelAdvertiseName",        "ss", "i",  "name,guid,result");
-    m_interface->AddMethod("EstablishLink",              "si", "i",  "device,intent,result");
-    m_interface->AddMethod("ReleaseLink",                "i",  "i",  "handle,result");
-    m_interface->AddMethod("GetInterfaceNameFromHandle", "i",  "s",  "handle,interface");
-
-    m_interface->AddSignal("OnFoundAdvertisedName",      "ssss", "name,namePrefix,guid,device");
-    m_interface->AddSignal("OnLostAdvertisedName",       "ssss", "name,namePrefix,guid,device");
-    m_interface->AddSignal("OnLinkEstablished",          "i",    "handle");
-    m_interface->AddSignal("OnLinkError",                "ii",   "handle,error");
-    m_interface->AddSignal("OnLinkLost",                 "i",    "handle");
-
-    QCC_DbgPrintf(("P2PHelperInterface::Init(): Activate()"));
-    m_interface->Activate();
+    assert(m_interface && "P2PHelperInterface::Init(): Required m_interface unexpectedly NULL");
 
     QCC_DbgPrintf(("P2PHelperInterface::Init(): new ProxyBusObject()"));
     m_proxyBusObject = new ProxyBusObject(*bus, WELL_KNOWN_NAME, OBJECT_PATH, 0);
@@ -155,9 +172,7 @@ QStatus P2PHelperInterface::Init(BusAttachment* bus)
     const InterfaceDescription* dbusInterface(m_bus->GetInterface(ajn::org::freedesktop::DBus::InterfaceName));
     const InterfaceDescription::Member* addMatch = dbusInterface->GetMember("AddMatch");
 
-    status = m_dbusProxyBusObject->MethodCallAsync(*addMatch, this,
-                                                   static_cast<MessageReceiver::ReplyHandler>(&P2PHelperInterface::HandleAddMatchReply),
-                                                   &arg, 1, NULL);
+    QStatus status = m_dbusProxyBusObject->MethodCallAsync(*addMatch, this, static_cast<MessageReceiver::ReplyHandler>(&P2PHelperInterface::HandleAddMatchReply), &arg, 1, NULL);
     if (status != ER_OK) {
         QCC_LogError(status, ("P2PHelperInterface::Init(): Error calling MethodCallAsync()"));
         return status;

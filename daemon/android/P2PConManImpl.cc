@@ -246,8 +246,13 @@ QStatus P2PConManImpl::CreateTemporaryNetwork(const qcc::String& device, uint32_
         qcc::Timespec tNow;
         qcc::GetTimeNow(&tNow);
 
-        if (tStart + tTimeout < tNow) {
+        QCC_DbgPrintf(("P2PConManImpl::CreateTemporaryNetwork(): tStart == %d", tStart.GetAbsoluteMillis()));
+        QCC_DbgPrintf(("P2PConManImpl::CreateTemporaryNetwork(): tTimeout == %d", tTimeout.GetAbsoluteMillis()));
+        QCC_DbgPrintf(("P2PConManImpl::CreateTemporaryNetwork(): tNow == %d", tNow.GetAbsoluteMillis()));
+
+        if (tNow < tStart + tTimeout) {
             qcc::Timespec tWait = tStart + tTimeout - tNow;
+            QCC_DbgPrintf(("P2PConManImpl::CreateTemporaryNetwork(): tWait == %d", tWait.GetAbsoluteMillis()));
             qcc::Event evt(tWait.GetAbsoluteMillis(), 0);
             QCC_DbgPrintf(("P2PConManImpl::CreateTemporaryNetwork(): Wait for something to happen"));
             qcc::Event::Wait(evt);
@@ -318,16 +323,16 @@ bool P2PConManImpl::IsConnected(const qcc::String& device)
 {
     QCC_DbgHLPrintf(("P2PConManImpl::IsConnected(): \"%s\"", device.c_str()));
 
+    //
+    // We're actually being asked if we are connected to the given device, so
+    // consider the device MAC address in the result.
+    //
     if (m_state != IMPL_RUNNING) {
         QCC_DbgPrintf(("P2PConManImpl::IsConnected(): Not IMPL_RUNNING"));
         return ER_FAIL;
     }
 
-    //
-    // We're actually being asked if we are connected to the given device, so
-    // consider the device MAC address in the result.
-    //
-    return m_connState == CONN_CONNECTED && m_device == device;
+    return m_state == IMPL_RUNNING && m_connState == CONN_CONNECTED && m_device == device;
 }
 
 QStatus P2PConManImpl::CreateConnectSpec(const qcc::String& device, const qcc::String& guid, qcc::String& spec)
@@ -433,8 +438,13 @@ QStatus P2PConManImpl::CreateConnectSpec(const qcc::String& device, const qcc::S
         qcc::Timespec tNow;
         qcc::GetTimeNow(&tNow);
 
-        if (tStart + tTimeout < tNow) {
+        QCC_DbgPrintf(("P2PConManImpl::CreateConnectSpec(): tStart == %d", tStart.GetAbsoluteMillis()));
+        QCC_DbgPrintf(("P2PConManImpl::CreateConnectSpec(): tTimeout == %d", tTimeout.GetAbsoluteMillis()));
+        QCC_DbgPrintf(("P2PConManImpl::CreateConnectSpec(): tNow == %d", tNow.GetAbsoluteMillis()));
+
+        if (tNow < tStart + tTimeout) {
             qcc::Timespec tWait = tStart + tTimeout - tNow;
+            QCC_DbgPrintf(("P2PConManImpl::CreateTemporaryNetwork(): tWait == %d", tWait.GetAbsoluteMillis()));
             qcc::Event evt(tWait.GetAbsoluteMillis(), 0);
             QCC_DbgPrintf(("P2PConManImpl::CreateConnectSpec(): Wait for something to happen"));
             qcc::Event::Wait(evt);

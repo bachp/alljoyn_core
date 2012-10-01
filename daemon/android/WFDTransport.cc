@@ -434,7 +434,7 @@ void* WFDEndpoint::AuthThread::Run(void* arg)
 WFDTransport::WFDTransport(BusAttachment& bus)
     : Thread("WFDTransport"), m_bus(bus), m_stopping(false), m_listener(0),
     m_isAdvertising(false), m_isDiscovering(false), m_isListening(false), m_isNsEnabled(false),
-    m_listenPort(0), m_nsReleaseCount(0)
+      m_listenPort(0), m_p2pNsAcquired(false), m_p2pCmAcquired(false)
 {
     QCC_DbgTrace(("WFDTransport::WFDTransport()"));
     /*
@@ -546,36 +546,20 @@ QStatus WFDTransport::Start()
     qcc::String guidStr = m_bus.GetInternal().GetGlobalGUID().ToString();
 
     /*
-     * We're a WFD transport in the AllJoyn sense, but we use TCP as the
-     * transport mechanism in the network layering sense.  Since TCP is an IP
-     * protocol, we are going to have to have to use the IP name service to find
-     * the IP (layer three) addresses and ports of the daemons we connect to.
-     * When we acquire the name service, we are basically bumping a reference
-     * count and starting it if required.
+     * We're a WFD transport in the AllJoyn sense, so we are going to have to
+     * use the P2P name service and P2P connection manager to get our Wi-Fi
+     * requests done for us.  This means we are going to have to Acquire() and
+     * Release() the corresponding singletons.
      *
      * Start() will legally be called exactly once, but Stop() and Join() may be
      * called multiple times.  Since we are essentially reference counting the
-     * name service singleton, we can only call Release() on it once.  So we
-     * have a release count variable that allows us to only release the
-     * singleton on the first transport Join()
+     * name service and connection manager singletons with calls to Acquire and
+     * Release, we need to make sure that we Release exactly as many times as we
+     * Acquire.  We just use a flag to mark whether or not we have done each
+     * operation exactly one time.
      */
-    m_nsReleaseCount = 0;
-
-    /*
-     * We're a WFD transport in the AllJoyn sense, so we also have to use Wi-Fi
-     * pre-association service discovery.  This means we are going to have to
-     * use the P2P (layer two) name service.
-     */
-    P2PNameService::Instance().Acquire(&m_bus, guidStr);
-
-    /*
-     * Tell the P2P (layer two) name service to call us back on our dedicated
-     * callback method when we hear about a new well-known bus name.
-     * Tell the P2P name service to call us back on our dedicated layer three
-     * callback method when we hear about a new well-known bus name.
-     */
-    P2PNameService::Instance().SetCallback(TRANSPORT_WFD,
-                                           new CallbackImpl<WFDTransport, void, const qcc::String&, qcc::String&, uint8_t> (this, &WFDTransport::P2PNameServiceCallback));
+    m_p2pNsAcquired = false;
+    m_p2pCmAcquired = false;
 
     /*
      * Start the server accept loop through the thread base class.  This will
@@ -596,18 +580,13 @@ QStatus WFDTransport::Stop(void)
     m_stopping = true;
 
     /*
-     * Tell the IP name service to stop calling us back if it's there (we may
-     * get called more than once in the chain of destruction) so the pointer is
-     * not required to be non-NULL.
-     */
-    IpNameService::Instance().SetCallback(TRANSPORT_WFD, NULL);
-
-    /*
      * Tell the P2P name service to stop calling us back if it's there (we may
      * get called more than once in the chain of destruction) so the pointer is
      * not required to be non-NULL.
      */
-    P2PNameService::Instance().SetCallback(TRANSPORT_WFD, NULL);
+    if (m_p2pNsAcquired) {
+        P2PNameService::Instance().SetCallback(TRANSPORT_WFD, NULL);
+    }
 
     /*
      * Tell the server accept loop thread to shut down through the thead
@@ -675,19 +654,21 @@ QStatus WFDTransport::Join(void)
     }
 
     /*
-     * Tell the IP and P2P name service instances that we will no longer be
-     * making calls and it may shut down if we were the last transport.  This
-     * release can be thought of as a reference counted Stop()/Join() so it is
-     * appropriate to make it here since we are expecting the possibility of
-     * blocking.
-     *
-     * Since it is reference counted, we can't just call it willy-nilly.  We
-     * have to be careful since our Join() can be called multiple times.
+     * We expect that all of our calls to Start(), Stop() and Join() are
+     * orchestrated through the transport list and will ultimately come from
+     * only one thread.  The place that we are setting these flags is in the
+     * main accept loop thread, but we just joined that thread immediately
+     * above, so it cannot be running now.  So we're not concerned about
+     * multithreading and we just look at our acquired flags and set them
+     * without "protection."
      */
-    int count = qcc::IncrementAndFetch(&m_nsReleaseCount);
-    if (count == 1) {
-        IpNameService::Instance().Release();
+    if (m_p2pNsAcquired) {
         P2PNameService::Instance().Release();
+        m_p2pNsAcquired = false;
+    }
+    if (m_p2pCmAcquired) {
+        P2PConMan::Instance().Release();
+        m_p2pCmAcquired = false;
     }
 
     /*
@@ -1011,24 +992,6 @@ void* WFDTransport::Run(void* arg)
     QStatus status = ER_OK;
 
     while (!IsStopping()) {
-
-        /*
-         * We did an Acquire on the name service in our Start() method which
-         * ultimately caused this thread to run.  If we were the first transport
-         * to Acquire() the name service, it will have done a Start() to crank
-         * up its own run thread.  Just because we did that Start() before we
-         * did our Start(), it does not necessarily mean that thread will come
-         * up and run before us.  If we happen to come up before our name service
-         * we'll hang around until it starts to run.  After all, nobody is going
-         * to attempt to connect until we advertise something, and we need the
-         * name service to advertise.
-         */
-        if (IpNameService::Instance().Started() == false) {
-            QCC_DbgTrace(("WFDTransport::Run(): Wait for IP name service"));
-            qcc::Sleep(1);
-            continue;
-        }
-
         /*
          * Each time through the loop we create a set of events to wait on.
          * We need to wait on the stop event and all of the SocketFds of the
@@ -1418,6 +1381,37 @@ void WFDTransport::RunListenMachine(void)
         }
 
         /*
+         * We're a WFD transport in the AllJoyn sense, so we also have to use
+         * Wi-Fi pre-association service discovery.  This means we are going to
+         * have to use the P2P (layer two) name service, and if we find a
+         * service, we are going to have to use the P2P connection manager.
+         * Since we have an advertisement/discovery call that drove us here we
+         * know that the DBus interface they require must be ready.  This is a
+         * convenient time to Acquire those singletons, since they must just
+         * be ready before either a discovery or advertisement operation is
+         * actually attempted.  Since we drive that process from immediately
+         * below, we're good.
+         */
+        switch (listenRequest.m_requestOp) {
+        case ENABLE_ADVERTISEMENT_INSTANCE:
+        case DISABLE_ADVERTISEMENT_INSTANCE:
+        case ENABLE_DISCOVERY_INSTANCE:
+        case DISABLE_DISCOVERY_INSTANCE:
+            if (m_p2pNsAcquired == false) {
+                P2PNameService::Instance().Acquire(&m_bus, m_bus.GetInternal().GetGlobalGUID().ToString());
+                P2PNameService::Instance().SetCallback(TRANSPORT_WFD, new CallbackImpl<WFDTransport, void, const qcc::String&, qcc::String&, uint8_t> (this, &WFDTransport::P2PNameServiceCallback));
+                m_p2pNsAcquired = true;
+            }
+            if (m_p2pCmAcquired == false) {
+                P2PConMan::Instance().Acquire(&m_bus, m_bus.GetInternal().GetGlobalGUID().ToString());
+                m_p2pCmAcquired = true;
+            }
+            break;
+        default:
+            break;
+        }
+
+        /*
          * Now that are sure we have a consistent view of the world, let's do
          * what needs to be done.
          */
@@ -1497,7 +1491,9 @@ void WFDTransport::StopListenInstance(ListenRequest& listenRequest)
     if (empty && m_isAdvertising) {
         QCC_LogError(ER_FAIL, ("WFDTransport::StopListenInstance(): No listeners with outstanding advertisements."));
         for (list<qcc::String>::iterator i = m_advertising.begin(); i != m_advertising.end(); ++i) {
-            IpNameService::Instance().CancelAdvertiseName(TRANSPORT_WFD, *i);
+            if (m_p2pNsAcquired) {
+                IpNameService::Instance().CancelAdvertiseName(TRANSPORT_WFD, *i);
+            }
         }
     }
 
@@ -2006,6 +2002,11 @@ QStatus WFDTransport::NormalizeTransportSpec(const char* inSpec, qcc::String& ou
      * It might not look like we're doing much, but we are ensuring a consistent
      * internal format WRT white space, etc.
      */
+    QStatus status = ParseArguments(GetTransportName(), inSpec, argMap);
+    if (status != ER_OK) {
+        return status;
+    }
+
     map<qcc::String, qcc::String>::iterator iter = argMap.find("guid");
     if (iter != argMap.end()) {
         QCC_DbgPrintf(("WFDTransport::NormalizeTransportSpec(): Found guid"));
@@ -2112,9 +2113,7 @@ QStatus WFDTransport::Connect(const char* connectSpec, const SessionOpts& opts, 
      * Connect() to a remote daemon, we can infer that we must be a STA on the
      * network and the daemon doing the advertising will be the GO.
      */
-    bool connected = P2PConMan::Instance().IsConnected(device);
-    if (connected == false) {
-
+    if (P2PConMan::Instance().IsConnected(device) == false) {
         /*
          * If we are not connected onto a common physical network with the
          * device the first order of business is to make that happen.  Creating

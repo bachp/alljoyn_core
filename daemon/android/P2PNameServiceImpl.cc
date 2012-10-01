@@ -239,7 +239,7 @@ void P2PNameServiceImpl::SetCallback(TransportMask transportMask,
 
 QStatus P2PNameServiceImpl::GetDeviceForGuid(const qcc::String& guid, qcc::String& device)
 {
-    QCC_DbgPrintf(("P2PNameServiceImpl::GetDevcieForGuid()"));
+    QCC_DbgPrintf(("P2PNameServiceImpl::GetDeviceForGuid()"));
     std::map<qcc::StringMapKey, qcc::String>::iterator i = m_devices.find(guid);
     if (i != m_devices.end()) {
         device = i->second;
@@ -253,15 +253,14 @@ QStatus P2PNameServiceImpl::GetDeviceForGuid(const qcc::String& guid, qcc::Strin
 void P2PNameServiceImpl::OnFoundAdvertisedName(qcc::String& name, qcc::String& namePrefix, qcc::String& guid, qcc::String& device)
 {
     QCC_DbgPrintf(("P2PNameServiceImpl::OnFoundAdvertisedName()"));
+
     m_devices[guid] = device;
 
     if (m_callback == 0) {
         QCC_DbgPrintf(("P2PNameServiceImpl::OnFoundAdvertisedName(): No callback"));
-        return;
     } else {
         const int8_t TIMER_FOREVER = 255;
-        qcc::String busAddress = qcc::String("guid=") + guid;
-        (*m_callback)(busAddress, name, TIMER_FOREVER);
+        (*m_callback)(guid, name, TIMER_FOREVER);
     }
 }
 
