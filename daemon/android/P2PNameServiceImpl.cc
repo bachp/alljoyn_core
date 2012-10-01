@@ -210,7 +210,7 @@ QStatus P2PNameServiceImpl::AdvertiseName(TransportMask transportMask, const qcc
     }
 
     assert(m_p2pHelperInterface && "P2PNameServiceImpl::AdvertiseName(): No m_p2pHelperInterface");
-    return m_p2pHelperInterface->AdvertiseNameAsync(m_guid, wkn);
+    return m_p2pHelperInterface->AdvertiseNameAsync(wkn, m_guid);
 }
 
 QStatus P2PNameServiceImpl::CancelAdvertiseName(TransportMask transportMask, const qcc::String& wkn)
@@ -223,7 +223,7 @@ QStatus P2PNameServiceImpl::CancelAdvertiseName(TransportMask transportMask, con
     }
 
     assert(m_p2pHelperInterface && "P2PNameServiceImpl::CancelAdvertiseName(): No m_p2pHelperInterface");
-    return m_p2pHelperInterface->CancelAdvertiseNameAsync(m_guid, wkn);
+    return m_p2pHelperInterface->CancelAdvertiseNameAsync(wkn, m_guid);
 }
 
 void P2PNameServiceImpl::SetCallback(TransportMask transportMask,
