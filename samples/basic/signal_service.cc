@@ -47,24 +47,21 @@ using namespace std;
 using namespace qcc;
 using namespace ajn;
 
-class MyBusListener;
-
 /** Static top level message bus object */
-static BusAttachment* g_msgBus = NULL;
+static BusAttachment* s_msgBus = NULL;
 
 static SessionId s_sessionId = 0;
-static MyBusListener* s_busListener = NULL;
 
 static const char* INTERFACE_NAME = "org.alljoyn.Bus.signal_sample";
 static const char* SERVICE_NAME = "org.alljoyn.Bus.signal_sample";
 static const char* SERVICE_PATH = "/";
 static const SessionPort SERVICE_PORT = 25;
 
-static volatile sig_atomic_t g_interrupt = false;
+static volatile sig_atomic_t s_interrupt = false;
 
 static void SigIntHandler(int sig)
 {
-    g_interrupt = true;
+    s_interrupt = true;
 }
 
 class BasicSampleObject : public BusObject {
@@ -164,19 +161,30 @@ class MyBusListener : public BusListener, public SessionPortListener {
     }
 };
 
-/** Main entry point */
-int main(int argc, char** argv, char** envArg) {
-    QStatus status = ER_OK;
+static MyBusListener s_busListener;
 
-    printf("AllJoyn Library version: %s\n", ajn::GetVersion());
+/** Start the message bus, report the result to stdout, and return the status code. */
+QStatus StartMessageBus(void)
+{
+    QStatus status = s_msgBus->Start();
 
-    /* Install SIGINT handler */
-    signal(SIGINT, SigIntHandler);
+    if (ER_OK == status) {
+        printf("BusAttachment started.\n");
+    } else {
+        printf("Start of BusAttachment failed (%s).\n", QCC_StatusText(status));
+    }
 
-    /* Create message bus */
-    g_msgBus = new BusAttachment("myApp", true);
+    return status;
+}
+
+/** Register the bus object and connect, report the result to stdout, and return the status code. */
+QStatus RegisterBusObjectAndConnect(BasicSampleObject* obj)
+{
+    printf("Registering the bus object.\n");
+    s_msgBus->RegisterBusObject(*obj);
 
     const char* connectArgs = getenv("BUS_ADDRESS");
+
     if (connectArgs == NULL) {
 #ifdef _WIN32
         connectArgs = "tcp:addr=127.0.0.1,port=9956";
@@ -185,82 +193,142 @@ int main(int argc, char** argv, char** envArg) {
 #endif
     }
 
-    /* Register a bus listener */
+    QStatus status = s_msgBus->Connect(connectArgs);
+
     if (ER_OK == status) {
-        s_busListener = new MyBusListener();
-        g_msgBus->RegisterBusListener(*s_busListener);
+        printf("Connected to '%s'.\n", connectArgs);
+    } else {
+        printf("Failed to connect to '%s'.\n", connectArgs);
     }
 
-    BasicSampleObject testObj(*g_msgBus, SERVICE_PATH);
+    return status;
+}
 
-    /* Start the msg bus */
-    status = g_msgBus->Start();
+/** Request the service name, report the result to stdout, and return the status code. */
+QStatus RequestName(void)
+{
+    const uint32_t flags = DBUS_NAME_FLAG_REPLACE_EXISTING | DBUS_NAME_FLAG_DO_NOT_QUEUE;
+    QStatus status = s_msgBus->RequestName(SERVICE_NAME, flags);
+
     if (ER_OK == status) {
-
-        /* Register objects */
-
-        g_msgBus->RegisterBusObject(testObj);
-        /* Create the client-side endpoint */
-        status = g_msgBus->Connect(connectArgs);
-        if (ER_OK != status) {
-            printf("Failed to connect to \"%s\"\n", connectArgs);
-            exit(1);
-        } else {
-            printf("Connected to '%s'\n", connectArgs);
-        }
+        printf("RequestName('%s') succeeded.\n", SERVICE_NAME);
     } else {
-        printf("BusAttachment::Start failed\n");
+        printf("RequestName('%s') failed (status=%s).\n", SERVICE_NAME, QCC_StatusText(status));
+    }
+
+    return status;
+}
+
+/** Create the session, report the result to stdout, and return the status code. */
+QStatus CreateSession(TransportMask mask)
+{
+    SessionOpts opts(SessionOpts::TRAFFIC_MESSAGES, false, SessionOpts::PROXIMITY_ANY, mask);
+    SessionPort sp = SERVICE_PORT;
+    QStatus status = s_msgBus->BindSessionPort(sp, opts, s_busListener);
+
+    if (ER_OK == status) {
+        printf("BindSessionPort succeeded.\n");
+    } else {
+        printf("BindSessionPort failed (%s).\n", QCC_StatusText(status));
+    }
+
+    return status;
+}
+
+/** Advertise the service name, report the result to stdout, and return the status code. */
+QStatus AdvertiseName(TransportMask mask)
+{
+    QStatus status = s_msgBus->AdvertiseName(SERVICE_NAME, mask);
+
+    if (ER_OK == status) {
+        printf("Advertisement of the service name '%s' succeeded.\n", SERVICE_NAME);
+    } else {
+        printf("Failed to advertise name '%s' (%s).\n", SERVICE_NAME, QCC_StatusText(status));
+    }
+
+    return status;
+}
+
+/** Wait for SIGINT before continuing. */
+void WaitForSigInt(void)
+{
+    while (s_interrupt == false) {
+#ifdef _WIN32
+        Sleep(100);
+#else
+        usleep(100 * 1000);
+#endif
+    }
+}
+
+/** Main entry point */
+int main(int argc, char** argv, char** envArg)
+{
+    printf("AllJoyn Library version: %s.\n", ajn::GetVersion());
+    printf("AllJoyn Library build info: %s.\n", ajn::GetBuildInfo());
+
+    /* Install SIGINT handler */
+    signal(SIGINT, SigIntHandler);
+
+    QStatus status = ER_OK;
+
+    /* Create message bus */
+    s_msgBus = new BusAttachment("myApp", true);
+
+    /* This test for NULL is only required if new() behavior is to return NULL
+     * instead of throwing an exception upon an out of memory failure.
+     */
+    if (!s_msgBus) {
+        status = ER_OUT_OF_MEMORY;
+    }
+
+    /* Register a bus listener */
+    if (ER_OK == status) {
+        s_msgBus->RegisterBusListener(s_busListener);
+    }
+
+    if (ER_OK == status) {
+        status = StartMessageBus();
+    }
+
+    BasicSampleObject testObj(*s_msgBus, SERVICE_PATH);
+
+    if (ER_OK == status) {
+        status = RegisterBusObjectAndConnect(&testObj);
     }
 
     /*
-     * Advertise this service on the bus
-     * There are three steps to advertising this service on the bus
+     * Advertise this service on the bus.
+     * There are three steps to advertising this service on the bus.
      * 1) Request a well-known name that will be used by the client to discover
-     *    this service
-     * 2) Create a session
-     * 3) Advertise the well-known name
+     *    this service.
+     * 2) Create a session.
+     * 3) Advertise the well-known name.
      */
-    /* Request name */
     if (ER_OK == status) {
-        uint32_t flags = DBUS_NAME_FLAG_REPLACE_EXISTING | DBUS_NAME_FLAG_DO_NOT_QUEUE;
-        QStatus status = g_msgBus->RequestName(SERVICE_NAME, flags);
-        if (ER_OK != status) {
-            printf("RequestName(%s) failed (status=%s)\n", SERVICE_NAME, QCC_StatusText(status));
-        }
+        status = RequestName();
     }
 
-    /* Create session */
-    SessionOpts opts(SessionOpts::TRAFFIC_MESSAGES, false, SessionOpts::PROXIMITY_ANY, TRANSPORT_ANY);
-    if (ER_OK == status) {
-        SessionPort sp = SERVICE_PORT;
-        status = g_msgBus->BindSessionPort(sp, opts, *s_busListener);
-        if (ER_OK != status) {
-            printf("BindSessionPort failed (%s)\n", QCC_StatusText(status));
-        }
-    }
+    const TransportMask SERVICE_TRANSPORT_TYPE = TRANSPORT_ANY;
 
-    /* Advertise name */
     if (ER_OK == status) {
-        status = g_msgBus->AdvertiseName(SERVICE_NAME, opts.transports);
-        if (status != ER_OK) {
-            printf("Failed to advertise name %s (%s)\n", SERVICE_NAME, QCC_StatusText(status));
-        }
+        status = CreateSession(SERVICE_TRANSPORT_TYPE);
     }
 
     if (ER_OK == status) {
-        while (g_interrupt == false) {
-#ifdef _WIN32
-            Sleep(100);
-#else
-            sleep(100 * 1000);
-#endif
-        }
+        status = AdvertiseName(SERVICE_TRANSPORT_TYPE);
+    }
+
+    /* Perform the service asynchronously until the user signals for an exit. */
+    if (ER_OK == status) {
+        WaitForSigInt();
     }
 
     /* Clean up msg bus */
-    BusAttachment* deleteMe = g_msgBus;
-    g_msgBus = NULL;
-    delete deleteMe;
+    delete s_msgBus;
+    s_msgBus = NULL;
+
+    printf("Signal service exiting with status 0x%04x (%s).\n", status, QCC_StatusText(status));
 
     return (int) status;
 }
