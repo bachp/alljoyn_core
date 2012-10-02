@@ -93,12 +93,17 @@ Change history
 
 2.6.0 - Support for "bundled daemon" wherein an application developer can
         include all necessary AllJoyn components directly into their app.
+        Added AllJoyn Extension for Unity.
 
 2.5.1 - Bug fixes.
 
 2.5.0 - Support for ICE transport.  Support for Concurrent Methods/Signals.
         Added new API BusAttachment.SetLinkTimeoutAsync. Added GoogleTest
-        Suite for AllJoyn core. (
+        Suite for AllJoyn core.
+
+2.3.6 - Added AllJoyn Extension for Unity (AllJoyn 2.3.6 only).
+        Note: AllJoyn Extension for Unity was NOT included in AllJoyn 2.5.x,
+        but was back again in AllJoyn 2.6.0 and later releases.
 
 2.3.5 - Bug fixes.
 
