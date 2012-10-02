@@ -7,34 +7,54 @@ Platform Support
 2) Android Froyo 2.2 (ARM7)
 3) Android Gingerbread 2.3.4 (ARM7)
 4) Android Ice Cream Sandwich 4.0 (ARM7)
-5) Android Jelly Bean 4.1 (ARM7)
+5) Android JellyBean 4.1 (ARM7)
 6) Windows XP (32 bit x86)
 7) Windows 7 (32 and 64 bit x86)
-#) #### FIXME #### Windows 8 ... list of flavors (CPU and OS)
-#) #### FIXME #### iOS 6 ... OS/X 10.7 ...
+8) Windows 8 (32 and 64 bit x86)
+9) Windows RT (ARM)
+10) iOS 6
+11) OSX 10.7 Lion
 
 
 Features added in this release
 ------------------------------
 
-#### FIXME #### Support for iOS, OS/X, and Windows 8.
+* Added support for iOS and OSX.
+* Added support for Windows 8 and Windows RT.
 
 
 Issues Addressed in this Release
 --------------------------------
 
-#### FIXME #### ICE stuff ...
+ALLJOYN-(various): Stability issues related to bundled daemon usage
+
+ALLJOYN-(various): Stability issues related to ICE transport
+
+ALLJOYN-1154: The number of names that can be advertised from a single AllJoyn
+daemon instance (either bundled or unbundled) over TCP is limited to about 1400
+bytes.
+
+ALLJOYN-1350: Signals are not guaranteed to be received in the order sent
+
+ALLJOYN-1358: Occasional join session failures when using raw sessions
+
+ALLJOYN-1369: ICE transport does not operate over a symmetric NAT
+
+ALLJOYN-1373: Memory leak in ICE transport
 
 
 Known issues and limitations with this release
 ----------------------------------------------
-#### FIXME #### ALLJOYN-1229:  Session handling at the edge of an unreliable connected
-network may result in unexpected behavior.
 
-#### FIXME #### ALLJOYN-1311:  NPAPI plugin not functional on Android.
+ALLJOYN-1217: AllJoyn operation over Bluetooth is stable with up to 3
+devices. Some instabilites are seen with 4 or more devices.
 
-#### FIXME #### ALLJOYN-various:  AllJoyn may become unstable if an application rapidly
-creates and destroys a large number of bus objects and bus attachments.
+ALLJOYN-1333: Bus teardown can produce crashes on Windows 8/RT when
+using the ICE transport.
+
+ALLJOYN-1395: Windows 8 samples are delivered with 64-bit build files
+only. Users must modify the samples' project files, etc. in order to build
+for 32-bit systems.
 
 
 Compatibility
@@ -70,7 +90,10 @@ new BusAttachment.EnableConcurrentCallbacks() API.
 
 Change history
 --------------
-2.6.0 - Re-designed bundled daemon.
+
+2.6.0 - Support for "bundled daemon" wherein an application developer can
+        include all necessary AllJoyn components directly into their app.
+        Added AllJoyn Extension for Unity.
 
 2.5.1 - Bug fixes.
 
@@ -78,7 +101,9 @@ Change history
         Added new API BusAttachment.SetLinkTimeoutAsync. Added GoogleTest
         Suite for AllJoyn core.
 
-2.3.6 - AllJoyn Extension for Unity.
+2.3.6 - Added AllJoyn Extension for Unity (AllJoyn 2.3.6 only).
+        Note: AllJoyn Extension for Unity was NOT included in AllJoyn 2.5.x,
+        but was back again in AllJoyn 2.6.0 and later releases.
 
 2.3.5 - Bug fixes.
 
