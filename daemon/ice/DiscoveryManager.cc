@@ -2096,19 +2096,17 @@ QStatus DiscoveryManager::HandlePersistentMessageResponse(Json::Value payload)
         //
         // Iterate through the responses
         //
-        list<Response>::iterator resp_it;
+        while (!response.msgs.empty()) {
 
-        for (resp_it = response.msgs.begin(); resp_it != response.msgs.end(); resp_it++) {
+            if (response.msgs.front().type != INVALID_RESPONSE) {
 
-            if (resp_it->type != INVALID_RESPONSE) {
-
-                QCC_DbgPrintf(("DiscoveryManager::HandlePersistentMessageResponse(): type = %s\n", PrintResponseType(resp_it->type).c_str()));
+                QCC_DbgPrintf(("DiscoveryManager::HandlePersistentMessageResponse(): type = %s\n", PrintResponseType(response.msgs.front().type).c_str()));
                 //
                 // Requested service(s) has been found. Handle it
                 // by invoking the Found callback
                 //
-                if (resp_it->type == SEARCH_MATCH_RESPONSE) {
-                    SearchMatchResponse* SearchMatch = static_cast<SearchMatchResponse*>(resp_it->response);
+                if (response.msgs.front().type == SEARCH_MATCH_RESPONSE) {
+                    SearchMatchResponse* SearchMatch = static_cast<SearchMatchResponse*>(response.msgs.front().response);
 
                     if (ER_OK != HandleSearchMatchResponse(*SearchMatch)) {
                         status = ER_INVALID_PERSISTENT_CONNECTION_MESSAGE_RESPONSE;
@@ -2120,8 +2118,8 @@ QStatus DiscoveryManager::HandlePersistentMessageResponse(Json::Value payload)
                 // by invoking the Found callback and setting ttl=0 so that the
                 // entry is removed from the nameMap
                 //
-                else if (resp_it->type == MATCH_REVOKED_RESPONSE) {
-                    MatchRevokedResponse* MatchRevoked = static_cast<MatchRevokedResponse*>(resp_it->response);
+                else if (response.msgs.front().type == MATCH_REVOKED_RESPONSE) {
+                    MatchRevokedResponse* MatchRevoked = static_cast<MatchRevokedResponse*>(response.msgs.front().response);
 
                     if (ER_OK != HandleMatchRevokedResponse(*MatchRevoked)) {
                         status = ER_INVALID_PERSISTENT_CONNECTION_MESSAGE_RESPONSE;
@@ -2133,8 +2131,8 @@ QStatus DiscoveryManager::HandlePersistentMessageResponse(Json::Value payload)
                 // Handle it by invoking the AllocateICESession or StartICEChecks
                 // callback accordingly.
                 //
-                else if (resp_it->type == ADDRESS_CANDIDATES_RESPONSE) {
-                    AddressCandidatesResponse* AddressCandidates = static_cast<AddressCandidatesResponse*>(resp_it->response);
+                else if (response.msgs.front().type == ADDRESS_CANDIDATES_RESPONSE) {
+                    AddressCandidatesResponse* AddressCandidates = static_cast<AddressCandidatesResponse*>(response.msgs.front().response);
 
                     if (ER_OK != HandleAddressCandidatesResponse(*AddressCandidates)) {
                         status = ER_INVALID_PERSISTENT_CONNECTION_MESSAGE_RESPONSE;
@@ -2145,8 +2143,8 @@ QStatus DiscoveryManager::HandlePersistentMessageResponse(Json::Value payload)
                 // Start ICE checks response has been received.
                 // Handle it accordingly.
                 //
-                else if (resp_it->type ==  START_ICE_CHECKS_RESPONSE) {
-                    StartICEChecksResponse* StartICEChecks = static_cast<StartICEChecksResponse*>(resp_it->response);
+                else if (response.msgs.front().type ==  START_ICE_CHECKS_RESPONSE) {
+                    StartICEChecksResponse* StartICEChecks = static_cast<StartICEChecksResponse*>(response.msgs.front().response);
 
                     if (ER_OK != HandleStartICEChecksResponse(*StartICEChecks)) {
                         status = ER_INVALID_PERSISTENT_CONNECTION_MESSAGE_RESPONSE;
@@ -2160,6 +2158,9 @@ QStatus DiscoveryManager::HandlePersistentMessageResponse(Json::Value payload)
                 status = ER_INVALID_PERSISTENT_CONNECTION_MESSAGE_RESPONSE;
                 QCC_LogError(status, ("DiscoveryManager::HandlePersistentMessageResponse(): %s", QCC_StatusText(status)));
             }
+
+            response.msgs.front().Clear();
+            response.msgs.pop_front();
         }
     }
 

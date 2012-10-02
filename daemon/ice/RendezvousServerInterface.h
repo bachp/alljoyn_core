@@ -113,18 +113,31 @@ const uint32_t TURN_TOKEN_EXPIRY_TIME_BUFFER_IN_SECONDS = 60;
 /* Acceptable max size of the TURN token in bytes */
 const uint32_t TURN_ACCT_TOKEN_MAX_SIZE = 90;
 
-/* Attribute size of the TURN account token */
-const uint32_t TURN_ACCT_TOKEN_ATTRIBUTE_HEADER_SIZE = 10;
+/**
+ * Base InterfaceMessage class
+ */
+class InterfaceMessage {
+
+  public:
+
+    InterfaceMessage() { }
+
+    virtual ~InterfaceMessage() { }
+
+};
 
 /**
  * Base InterfaceMessage class
  */
-class InterfaceMessage { };
+class InterfaceResponse {
 
-/**
- * Base InterfaceMessage class
- */
-class InterfaceResponse { };
+  public:
+
+    InterfaceResponse() { }
+
+    virtual ~InterfaceResponse() { }
+
+};
 
 /**
  * The structure defining the attributes associated with an
@@ -132,9 +145,15 @@ class InterfaceResponse { };
  * interface document and is just a place holder.
  */
 typedef struct _AdvertisementAttributes {
+
+  public:
+
     uint32_t undefined;
 
     _AdvertisementAttributes() : undefined(0xffffffff) { }
+
+    ~_AdvertisementAttributes() { }
+
 } AdvertisementAttributes;
 
 /**
@@ -143,9 +162,15 @@ typedef struct _AdvertisementAttributes {
  * and is just a place holder.
  */
 typedef struct _PeerInfo {
+
+  public:
+
     uint32_t undefined;
 
     _PeerInfo() : undefined(0xffffffff) { }
+
+    ~_PeerInfo() { }
+
 } PeerInfo;
 
 /**
@@ -153,6 +178,9 @@ typedef struct _PeerInfo {
  * Advertisement.
  */
 typedef struct _Advertisement {
+
+  public:
+
     /**
      * The service name to be advertised
      */
@@ -163,6 +191,8 @@ typedef struct _Advertisement {
      */
     AdvertisementAttributes attribs;
 
+    ~_Advertisement() { }
+
 } Advertisement;
 
 /**
@@ -170,7 +200,9 @@ typedef struct _Advertisement {
  * services to the Rendezvous Server.
  */
 class AdvertiseMessage : public InterfaceMessage {
+
   public:
+
     /**
      * The application meta data for the peer
      */
@@ -181,6 +213,10 @@ class AdvertiseMessage : public InterfaceMessage {
      */
     list<Advertisement> ads;
 
+    ~AdvertiseMessage() {
+        ads.clear();
+    }
+
 };
 
 
@@ -188,19 +224,26 @@ class AdvertiseMessage : public InterfaceMessage {
  * The generic response structure received from the Rendezvous Server.
  */
 class GenericResponse : public InterfaceResponse {
+
   public:
+
     /**
      * The peerID of the Daemon that sent the request as a response
      * for which the response was received.
      */
     String peerID;
+
+    ~GenericResponse() { }
+
 };
 
 /**
  * The refresh token response received from the Rendezvous Server.
  */
 class TokenRefreshResponse : public InterfaceResponse {
+
   public:
+
     /**
      * The Relay account name.
      */
@@ -220,6 +263,9 @@ class TokenRefreshResponse : public InterfaceResponse {
      * It represents the time-stamp when the response is received.
      */
     uint32_t recvTime;
+
+    ~TokenRefreshResponse() { };
+
 };
 
 /**
@@ -228,9 +274,15 @@ class TokenRefreshResponse : public InterfaceResponse {
  * interface document and is just a place holder.
  */
 typedef struct _SearchFilter {
+
+  public:
+
     uint32_t undefined;
 
     _SearchFilter() : undefined(0xffffffff) { }
+
+    ~_SearchFilter() { };
+
 } SearchFilter;
 
 /**
@@ -247,6 +299,9 @@ typedef enum _SearchMatchType {
  * The structure defining the format of a search.
  */
 typedef struct _Search {
+
+  public:
+
     /**
      * The service name to search
      */
@@ -270,6 +325,8 @@ typedef struct _Search {
 
     _Search() : matchType(PROXIMITY_BASED), timeExpiry(0) { }
 
+    ~_Search() { }
+
 } Search;
 
 /**
@@ -277,7 +334,9 @@ typedef struct _Search {
  * services from the Rendezvous Server.
  */
 class SearchMessage  : public InterfaceMessage {
+
   public:
+
     /**
      * The application meta data for the peer
      */
@@ -288,12 +347,18 @@ class SearchMessage  : public InterfaceMessage {
      */
     list<Search> search;
 
+    ~SearchMessage() {
+        search.clear();
+    }
+
 };
 
 /**
  * The structure defining the Wi-Fi related proximity info.
  */
 typedef struct _WiFiProximity {
+
+  public:
 
     /**
      * If set to true, the peer is currently attached to the access point
@@ -312,12 +377,17 @@ typedef struct _WiFiProximity {
     String SSID;
 
     _WiFiProximity() : attached(false) { }
+
+    ~_WiFiProximity() { }
+
 } WiFiProximity;
 
 /**
  * The structure defining the Bluetooth related proximity info.
  */
 typedef struct _BTProximity {
+
+  public:
 
     /**
      * If set to true, the MAC address is that of the BT device of self.
@@ -330,13 +400,18 @@ typedef struct _BTProximity {
     String MAC;
 
     _BTProximity() : self(false) { }
+
+    ~_BTProximity() { }
+
 } BTProximity;
 
 /**
  * The structure defining the Bluetooth related proximity info.
  */
 class ProximityMessage : public InterfaceMessage {
+
   public:
+
     /**
      * The list of Wi-Fi access points that device is seeing.
      */
@@ -346,6 +421,11 @@ class ProximityMessage : public InterfaceMessage {
      * The list of Bluetooth devices that device is seeing.
      */
     list<BTProximity> BTs;
+
+    ~ProximityMessage() {
+        wifiaps.clear();
+        BTs.clear();
+    }
 
 };
 
@@ -398,6 +478,8 @@ typedef enum _ICETransportType {
  */
 typedef struct _ICECandidates {
 
+  public:
+
     /**
      * The candidate type.
      */
@@ -445,6 +527,8 @@ typedef struct _ICECandidates {
 
     _ICECandidates() : type(INVALID_CANDIDATE), transport(UDP_TRANSPORT), priority(0), port(0), rport(0) { }
 
+    ~_ICECandidates() { }
+
 } ICECandidates;
 
 /**
@@ -452,6 +536,7 @@ typedef struct _ICECandidates {
  * sent to the Rendezvous Server.
  */
 class ICECandidatesMessage  : public InterfaceMessage {
+
   public:
 
     /**
@@ -483,6 +568,11 @@ class ICECandidatesMessage  : public InterfaceMessage {
     String destinationPeerID;
 
     ICECandidatesMessage() : requestToAddSTUNInfo(false) { }
+
+    ~ICECandidatesMessage() {
+        candidates.clear();
+        requestToAddSTUNInfo = false;
+    }
 
 };
 
@@ -518,6 +608,9 @@ typedef enum _ResponseType {
  * Structure defining the Relay server info.
  */
 typedef struct _RelayInfo {
+
+  public:
+
     /**
      * The Relay server address.
      */
@@ -530,12 +623,17 @@ typedef struct _RelayInfo {
 
     _RelayInfo() : port(3478) { }
 
+    ~_RelayInfo() { }
+
 } RelayInfo;
 
 /**
  * Structure defining the STUN server info.
  */
 typedef struct _STUNServerInfo {
+
+  public:
+
     /**
      * The STUN server address.
      */
@@ -579,12 +677,15 @@ typedef struct _STUNServerInfo {
 
     _STUNServerInfo() : port(3478) { }
 
+    ~_STUNServerInfo() { }
+
 } STUNServerInfo;
 
 /**
  * Structure defining the search match response message.
  */
 class SearchMatchResponse : public InterfaceResponse {
+
   public:
 
     /* The unique identifier assigned to a match by the server.
@@ -614,24 +715,32 @@ class SearchMatchResponse : public InterfaceResponse {
      */
     STUNServerInfo STUNInfo;
 
+    ~SearchMatchResponse() { }
+
 };
 
 /**
  * The StartICEChecks response structure received from the Rendezvous Server.
  */
 class StartICEChecksResponse : public InterfaceResponse {
+
   public:
+
     /**
      * The peerAddress of the remote daemon running the client that received the
      * address candidates from this daemon.
      */
     String peerAddr;
+
+    ~StartICEChecksResponse() { }
+
 };
 
 /**
  * Structure defining the match revoked message.
  */
 class MatchRevokedResponse : public InterfaceResponse {
+
   public:
 
     /**
@@ -653,6 +762,10 @@ class MatchRevokedResponse : public InterfaceResponse {
 
     MatchRevokedResponse() : deleteAll(false) { }
 
+    ~MatchRevokedResponse() {
+        services.clear();
+    }
+
 };
 
 /**
@@ -660,6 +773,7 @@ class MatchRevokedResponse : public InterfaceResponse {
  * sent to the Rendezvous Server.
  */
 class AddressCandidatesResponse : public InterfaceResponse {
+
   public:
 
     /**
@@ -696,12 +810,18 @@ class AddressCandidatesResponse : public InterfaceResponse {
 
     AddressCandidatesResponse() : STUNInfoPresent(false) { }
 
+    ~AddressCandidatesResponse() {
+        candidates.clear();
+    }
 };
 
 /**
  * The structure defining a response received from the Rendezvous Server.
  */
 typedef struct _Response {
+
+  public:
+
     /**
      * The response type
      */
@@ -712,7 +832,17 @@ typedef struct _Response {
      */
     InterfaceResponse* response;
 
-    _Response() : type(INVALID_RESPONSE) { }
+    _Response() : type(INVALID_RESPONSE), response(NULL) { }
+
+    ~_Response() { }
+
+    void Clear(void) {
+        if (response) {
+            delete response;
+            response = NULL;
+        }
+    }
+
 } Response;
 
 /**
@@ -720,10 +850,16 @@ typedef struct _Response {
  * from the Rendezvous Server.
  */
 typedef struct _ResponseMessage {
+  public:
+
     /**
      * The list of response messages
      */
     list<Response> msgs;
+
+    ~_ResponseMessage() {
+        msgs.clear();
+    }
 
 } ResponseMessage;
 
@@ -741,7 +877,9 @@ typedef enum _SASLAuthenticationMechanism {
  * The structure defining the Client Login Request.
  */
 class ClientLoginRequest : public InterfaceMessage {
+
   public:
+
     /**
      * This boolean indicates if this message is the initial message
      * sent from the client to the server in the SASL exchange
@@ -772,13 +910,16 @@ class ClientLoginRequest : public InterfaceMessage {
 
     ClientLoginRequest() : firstMessage(false), clearClientState(false), mechanism(SCRAM_SHA_1_MECHANISM) { }
 
+    ~ClientLoginRequest() { };
 };
 
 /**
  * The structure defining the Config Data.
  */
 class ConfigData {
+
   public:
+
     /**
      * Boolean indicating if a valid Tkeepalive is present.
      */
@@ -786,6 +927,10 @@ class ConfigData {
 
     /* The keep alive timer value in seconds at the server. */
     uint32_t Tkeepalive;
+
+    ConfigData() { }
+
+    ~ConfigData() { }
 
     void SetTkeepalive(uint32_t value) {
         TkeepalivePresent = true;
@@ -798,10 +943,16 @@ class ConfigData {
  */
 typedef struct _ClientLoginFirstResponse {
 
+  public:
+
     /**
      * The authentication message complaint to RFC5802.
      */
     String message;
+
+    _ClientLoginFirstResponse() { }
+
+    ~_ClientLoginFirstResponse() { }
 
 } ClientLoginFirstResponse;
 
@@ -809,6 +960,8 @@ typedef struct _ClientLoginFirstResponse {
  * The structure defining the Client Login Final Response.
  */
 typedef struct _ClientLoginFinalResponse {
+
+  public:
 
     /**
      * The authentication message complaint to RFC5802.
@@ -864,6 +1017,10 @@ typedef struct _ClientLoginFinalResponse {
      * Configuration values.
      */
     ConfigData configData;
+
+    _ClientLoginFinalResponse() { }
+
+    ~_ClientLoginFinalResponse() { }
 
     void SetpeerID(String peerid) {
         peerIDPresent = true;
@@ -942,6 +1099,8 @@ typedef enum _SASLError {
  * The structure defining the authentication message complaint to RFC5802.
  */
 typedef struct _SASLMessage {
+
+  public:
 
     /**
      * Boolean indicating if a valid a attribute is present.
@@ -1044,6 +1203,10 @@ typedef struct _SASLMessage {
      * This attribute specifies an error that occurred during authentication exchange.
      */
     SASLError e;
+
+    _SASLMessage() { }
+
+    ~_SASLMessage() { }
 
     void Set_a(String value) {
         aPresent = true;
@@ -1164,7 +1327,9 @@ typedef struct _SASLMessage {
  * The structure defining the Daemon Registration Message.
  */
 class DaemonRegistrationMessage : public InterfaceMessage {
+
   public:
+
     /**
      * The daemon ID.
      */
@@ -1195,12 +1360,16 @@ class DaemonRegistrationMessage : public InterfaceMessage {
      */
     String osVersion;
 
+    DaemonRegistrationMessage() { }
+
+    ~DaemonRegistrationMessage() { }
 };
 
 /**
  * The structure defining the Token Refresh Message.
  */
 class TokenRefreshMessage : public InterfaceMessage {
+
   public:
 
     /**
@@ -1215,6 +1384,10 @@ class TokenRefreshMessage : public InterfaceMessage {
 
     /* Listener to call back on availability of new refreshed tokens */
     TokenRefreshListener* tokenRefreshListener;
+
+    TokenRefreshMessage() : tokenRefreshListener(NULL) { }
+
+    ~TokenRefreshMessage() { }
 };
 
 /**
