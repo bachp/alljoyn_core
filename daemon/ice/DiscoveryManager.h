@@ -714,6 +714,12 @@ class DiscoveryManager : public Thread, public AlarmListener {
      */
     void GetRendezvousConnIPAddresses(IPAddress& onDemandAddress, IPAddress& persistentAddress);
 
+    /**
+     * @internal
+     * @brief Worker function to clear the OutboundMessageQueue.
+     */
+    void ClearOutboundMessageQueue(void);
+
   private:
 
     /**
