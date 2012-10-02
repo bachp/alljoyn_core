@@ -412,7 +412,7 @@ class DaemonICETransport : public Transport, public RemoteEndpoint::EndpointList
 
         AlarmContext(ICEPacketStream* stream) : contextType(CONTEXT_NAT_KEEPALIVE), pktStream(stream) { }
 
-        virtual ~AlarmContext() { }
+        ~AlarmContext() { }
 
         ContextType contextType;
 
