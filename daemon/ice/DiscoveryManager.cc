@@ -177,7 +177,7 @@ DiscoveryManager::DiscoveryManager(BusAttachment& bus)
     tempSentBTMACList.clear();
     lastSentBTMACList.clear();
 
-    OutboundMessageQueue.clear();
+    ClearOutboundMessageQueue();
 
 #ifdef ENABLE_PROXIMITY_FRAMEWORK
     /* Initialize the ProximityScanEngine */
@@ -1111,7 +1111,7 @@ void* DiscoveryManager::Run(void* arg)
                 //
                 if (!(Connection)) {
 
-                    OutboundMessageQueue.clear();
+                    ClearOutboundMessageQueue();
 
                     if (InterfaceUpdateAlarm) {
                         DiscoveryManagerTimer.RemoveAlarm(*InterfaceUpdateAlarm);
@@ -1318,7 +1318,14 @@ void* DiscoveryManager::Run(void* arg)
                                                 //
                                                 // The current message has been sent to the Rendezvous Server.
                                                 // So we can discard it.
-                                                //
+                                                // Free the memory allocated for this message if it happens to
+                                                // be a TOKEN_REFRESH message. Otherwise, the message is copied
+                                                // to LastOnDemandMessageSent and the memory is released
+                                                // accordingly in SendMessage()
+
+                                                if (OutboundMessageQueue.front().messageType == TOKEN_REFRESH) {
+                                                    OutboundMessageQueue.front().Clear();
+                                                }
                                                 OutboundMessageQueue.pop_front();
                                             }
                                         } else {
@@ -1326,6 +1333,7 @@ void* DiscoveryManager::Run(void* arg)
                                             // The current message is invalid.
                                             // So we can discard it.
                                             //
+                                            OutboundMessageQueue.front().Clear();
                                             OutboundMessageQueue.pop_front();
                                         }
                                     }
@@ -1645,6 +1653,7 @@ void DiscoveryManager::PurgeOutboundMessageQueue(MessageType messageType)
 
     for (list<RendezvousMessage>::iterator i = OutboundMessageQueue.begin(); i != OutboundMessageQueue.end();) {
         if ((*i).messageType == messageType) {
+            i->Clear();
             OutboundMessageQueue.erase(i++);
         } else {
             ++i;
@@ -3383,6 +3392,14 @@ void DiscoveryManager::GetRendezvousConnIPAddresses(IPAddress& onDemandAddress, 
         Connection->GetRendezvousConnIPAddresses(onDemandAddress, persistentAddress);
     } else {
         QCC_DbgPrintf(("DiscoveryManager::GetRendezvousConnIPAddresses(): Not connected to the Server"));
+    }
+}
+
+void DiscoveryManager::ClearOutboundMessageQueue(void)
+{
+    while (!OutboundMessageQueue.empty()) {
+        OutboundMessageQueue.front().Clear();
+        OutboundMessageQueue.pop_front();
     }
 }
 
