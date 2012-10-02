@@ -3240,38 +3240,86 @@ void DiscoveryManager::GetUserCredentials(void)
     String userName = String("");
     String password = String(" ");
 
-    QStatus status;
+    QStatus status = ER_OK;
 
     /* Read the user credentials from the Client Login Interface */
-    ClientLoginBusListener* clientLoginBusListener;
-
+    ClientLoginBusListener* clientLoginBusListener = NULL;
     clientLoginBusListener = new ClientLoginBusListener();
-    bus.RegisterBusListener(*clientLoginBusListener);
 
-    bool hasOwer = false;
-
-    while (true) {
-        status = bus.NameHasOwner(ClientLoginServiceName.c_str(), hasOwer);
-        if (ER_OK != status) {
-            QCC_LogError(status, ("DiscoveryManager::GetUserCredentials(): NameHasOwner failed"));
-        }
-        if (hasOwer) {
-            QCC_DbgPrintf(("DiscoveryManager::GetUserCredentials(): Successfully connected to %s", ClientLoginServiceName.c_str()));
-            break;
-        } else {
-            QCC_DbgPrintf(("DiscoveryManager::GetUserCredentials(): No %s owner found yet", ClientLoginServiceName.c_str()));
-            return;
-        }
+    if (!clientLoginBusListener) {
+        status = ER_FAIL;
+        QCC_LogError(status, ("DiscoveryManager::GetUserCredentials(): Unable to setup ClientLoginBusListener"));
+        return;
     }
 
-    ProxyBusObject* remoteObj = new ProxyBusObject(bus, ClientLoginServiceName.c_str(), ClientLoginServiceObject.c_str(), 0);
+    bus.RegisterBusListener(*clientLoginBusListener);
+
+    bool hasOwner = false;
+
+    status = bus.NameHasOwner(ClientLoginServiceName.c_str(), hasOwner);
+
+    if (ER_OK != status) {
+        QCC_LogError(status, ("DiscoveryManager::GetUserCredentials(): NameHasOwner failed"));
+
+        if (clientLoginBusListener) {
+            delete clientLoginBusListener;
+            clientLoginBusListener = NULL;
+        }
+
+        return;
+    }
+
+    if (!hasOwner) {
+        QCC_DbgPrintf(("DiscoveryManager::GetUserCredentials(): No %s owner found yet", ClientLoginServiceName.c_str()));
+
+        if (clientLoginBusListener) {
+            delete clientLoginBusListener;
+            clientLoginBusListener = NULL;
+        }
+
+        return;
+    }
+
+    QCC_DbgPrintf(("DiscoveryManager::GetUserCredentials(): Successfully connected to %s", ClientLoginServiceName.c_str()));
+
+    ProxyBusObject* remoteObj = NULL;
+    remoteObj = new ProxyBusObject(bus, ClientLoginServiceName.c_str(), ClientLoginServiceObject.c_str(), 0);
+
+    if (!remoteObj) {
+        status = ER_FAIL;
+        QCC_LogError(status, ("DiscoveryManager::GetUserCredentials(): Unable to setup ProxyBusObject"));
+
+        if (remoteObj) {
+            delete remoteObj;
+            remoteObj = NULL;
+        }
+
+        if (clientLoginBusListener) {
+            delete clientLoginBusListener;
+            clientLoginBusListener = NULL;
+        }
+
+        return;
+    }
 
     status = remoteObj->IntrospectRemoteObject();
     if (ER_OK != status) {
         QCC_LogError(status, ("DiscoveryManager::GetUserCredentials(): Problem introspecting the remote object %s", ClientLoginServiceObject.c_str()));
-    } else {
-        QCC_DbgPrintf(("DiscoveryManager::GetUserCredentials(): Introspection on the remote object %s successful", ClientLoginServiceObject.c_str()));
+
+        if (remoteObj) {
+            delete remoteObj;
+            remoteObj = NULL;
+        }
+
+        if (clientLoginBusListener) {
+            delete clientLoginBusListener;
+            clientLoginBusListener = NULL;
+        }
+
+        return;
     }
+
+    QCC_DbgPrintf(("DiscoveryManager::GetUserCredentials(): Introspection on the remote object %s successful", ClientLoginServiceObject.c_str()));
 
     // Call the remote method GetClientAccountName on the service
     Message userNameReply(bus);
@@ -3281,10 +3329,21 @@ void DiscoveryManager::GetUserCredentials(void)
         qcc::String errorMsg;
         userNameReply->GetErrorName(&errorMsg);
         QCC_DbgPrintf(("DiscoveryManager::GetUserCredentials(): Call to %s returned error message : %s", GetAccountNameMethod.c_str(), errorMsg.c_str()));
+
+        if (remoteObj) {
+            delete remoteObj;
+            remoteObj = NULL;
+        }
+
+        if (clientLoginBusListener) {
+            delete clientLoginBusListener;
+            clientLoginBusListener = NULL;
+        }
+
         return;
-    } else {
-        QCC_DbgPrintf(("DiscoveryManager::GetUserCredentials(): Method call %s was successful", GetAccountNameMethod.c_str()));
     }
+
+    QCC_DbgPrintf(("DiscoveryManager::GetUserCredentials(): Method call %s was successful", GetAccountNameMethod.c_str()));
 
     MsgArg* userNameArg;
     size_t userNameArgSize;
@@ -3292,14 +3351,38 @@ void DiscoveryManager::GetUserCredentials(void)
     status = userNameArgs->Get("s", &userNameArgSize, &userNameArg);
     if (ER_OK != status) {
         QCC_LogError(status, ("DiscoveryManager::GetUserCredentials(): Error while unmarshalling the string received from the service %s", ClientLoginServiceName.c_str()));
-    } else {
-        status = userNameArg->Get("s", &userName);
-        if (ER_OK != status) {
-            QCC_LogError(status, ("DiscoveryManager::GetUserCredentials(): Error while getting the value for expected signature = %s", userNameArg->Signature().c_str()));
-        } else {
-            QCC_DbgPrintf(("DiscoveryManager::GetUserCredentials(): userName = %s", userName.c_str()));
+
+        if (remoteObj) {
+            delete remoteObj;
+            remoteObj = NULL;
         }
+
+        if (clientLoginBusListener) {
+            delete clientLoginBusListener;
+            clientLoginBusListener = NULL;
+        }
+
+        return;
     }
+
+    status = userNameArg->Get("s", &userName);
+    if (ER_OK != status) {
+        QCC_LogError(status, ("DiscoveryManager::GetUserCredentials(): Error while getting the value for expected signature = %s", userNameArg->Signature().c_str()));
+
+        if (remoteObj) {
+            delete remoteObj;
+            remoteObj = NULL;
+        }
+
+        if (clientLoginBusListener) {
+            delete clientLoginBusListener;
+            clientLoginBusListener = NULL;
+        }
+
+        return;
+    }
+
+    QCC_DbgPrintf(("DiscoveryManager::GetUserCredentials(): userName = %s", userName.c_str()));
 
     // Call the remote method GetClientAccountPassword on the service
     Message passwordReply(bus);
@@ -3309,10 +3392,22 @@ void DiscoveryManager::GetUserCredentials(void)
         qcc::String errorMsg;
         passwordReply->GetErrorName(&errorMsg);
         QCC_DbgPrintf(("DiscoveryManager::GetUserCredentials(): Call to %s returned error message : %s", GetAccountPasswordMethod.c_str(), errorMsg.c_str()));
+
+        if (remoteObj) {
+            delete remoteObj;
+            remoteObj = NULL;
+        }
+
+        if (clientLoginBusListener) {
+            delete clientLoginBusListener;
+            clientLoginBusListener = NULL;
+        }
+
         return;
-    } else {
-        QCC_DbgPrintf(("DiscoveryManager::GetUserCredentials(): Method call %s was successful", GetAccountPasswordMethod.c_str()));
     }
+
+    QCC_DbgPrintf(("DiscoveryManager::GetUserCredentials(): Method call %s was successful", GetAccountPasswordMethod.c_str()));
+
 
     MsgArg* passwordArg;
     size_t passwordArgSize;
@@ -3320,14 +3415,38 @@ void DiscoveryManager::GetUserCredentials(void)
     status = passwordArgs->Get("s", &passwordArgSize, &passwordArg);
     if (ER_OK != status) {
         QCC_LogError(status, ("DiscoveryManager::GetUserCredentials(): Error while unmarshalling the string received from the service %s", ClientLoginServiceName.c_str()));
-    } else {
-        status = passwordArg->Get("s", &password);
-        if (ER_OK != status) {
-            QCC_LogError(status, ("DiscoveryManager::GetUserCredentials(): Error while getting the value for expected signature = %s", passwordArg->Signature().c_str()));
-        } else {
-            QCC_DbgPrintf(("DiscoveryManager::GetUserCredentials(): password = %s", password.c_str()));
+
+        if (remoteObj) {
+            delete remoteObj;
+            remoteObj = NULL;
         }
+
+        if (clientLoginBusListener) {
+            delete clientLoginBusListener;
+            clientLoginBusListener = NULL;
+        }
+
+        return;
     }
+
+    status = passwordArg->Get("s", &password);
+    if (ER_OK != status) {
+        QCC_LogError(status, ("DiscoveryManager::GetUserCredentials(): Error while getting the value for expected signature = %s", passwordArg->Signature().c_str()));
+
+        if (remoteObj) {
+            delete remoteObj;
+            remoteObj = NULL;
+        }
+
+        if (clientLoginBusListener) {
+            delete clientLoginBusListener;
+            clientLoginBusListener = NULL;
+        }
+
+        return;
+    }
+
+    QCC_DbgPrintf(("DiscoveryManager::GetUserCredentials(): password = %s", password.c_str()));
 
     userCredentials.SetCredentials(userName, password);
 }
