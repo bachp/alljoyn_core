@@ -1156,6 +1156,28 @@ class DiscoveryManager : public Thread, public AlarmListener {
     /* Boolean indicating if IPv6 interface should be used for connections with the Server and also
      * as probable ICE candidates */
     bool EnableIPv6;
+
+    class ClientLoginBusListener : public BusListener, public SessionListener {
+      public:
+        ClientLoginBusListener() : BusListener(), sessionId(0) { }
+
+        ~ClientLoginBusListener() { }
+
+        void FoundAdvertisedName(const char* name, TransportMask transport, const char* namePrefix)
+        {
+        }
+
+        SessionId GetSessionId() const { return sessionId; }
+
+      private:
+        SessionId sessionId;
+    };
+
+    /* Bus listener object used to get user login credentials from the client login service */
+    ClientLoginBusListener* clientLoginBusListener;
+
+    /* Proxy Bus object used to get user login credentials from the client login service */
+    ProxyBusObject* clientLoginRemoteObj;
 };
 
 } // namespace ajn
