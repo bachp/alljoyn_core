@@ -99,16 +99,14 @@ class ProximityScanEngine : public qcc::AlarmListener, public qcc::Thread {
 
     qcc::Mutex bssid_lock;                                      /* Mutex for initial_bssid and final_bssid */
 
-    qcc::Timer mainTimer;                                                               /* Timer to which all the alarms are added */
-    Alarm* tScan;
-    AlarmListener* myListener;
+    qcc::Timer mainTimer;                                       /* Timer to which all the alarms are added */
 
-    int tadd_count;                                                                             /* tadd = 4 * tscan */
+    int tadd_count;                                             /* tadd = 4 * tscan */
     int no_scan_results_count;
 
-    DiscoveryManager* discoveryManager;                                           /* Pointer to the instance of DiscoveryManager that calls ProximityScanner */
+    DiscoveryManager* discoveryManager;                         /* Pointer to the instance of DiscoveryManager that calls ProximityScanner */
 
-    ProximityScanner* proximityScanner;                                           /* Object that implements the platform specific Scan function */
+    ProximityScanner* proximityScanner;                         /* Object that implements the platform specific Scan function */
     BusAttachment& bus;
 
 };
