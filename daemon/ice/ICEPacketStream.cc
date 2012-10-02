@@ -54,7 +54,7 @@ ICEPacketStream::ICEPacketStream(ICESession& iceSession, Stun& stun, const ICECa
     sourceEvent(&Event::neverSet),
     sinkEvent(&Event::alwaysSet),
     interfaceMtu(stun.GetMtu()),
-    maxPacketStreamMtu(::min(ajn::MAX_ICE_INTERFACE_MTU, interfaceMtu)),
+    maxPacketStreamMtu((interfaceMtu <= ajn::MAX_ICE_INTERFACE_MTU) ? interfaceMtu : ajn::MAX_ICE_INTERFACE_MTU),
     mtuWithStunOverhead(maxPacketStreamMtu - ajn::STUN_OVERHEAD_SIZE),
     usingTurn((selectedPair.local->GetType() == _ICECandidate::Relayed_Candidate) || (selectedPair.remote->GetType() == _ICECandidate::Relayed_Candidate)),
     localTurn((selectedPair.local->GetType() == _ICECandidate::Relayed_Candidate)),
@@ -75,7 +75,7 @@ ICEPacketStream::ICEPacketStream(ICESession& iceSession, Stun& stun, const ICECa
 
     /* Set remoteMappedAddress to the remote's most external address (regardless of candidate type) */
     switch (selectedPair.remote->GetType()) {
-    case _ICECandidate::Relayed_Candidate:
+    case _ICECandidate::Relayed_Candidate :
     case _ICECandidate::ServerReflexive_Candidate:
     case _ICECandidate::PeerReflexive_Candidate:
         remoteMappedAddress = selectedPair.remote->GetMappedAddress().addr;

@@ -141,7 +141,7 @@ class ScanService : public BusObject {
             if (ER_OK != status) {
                 LOGE("Ping: Error sending reply (%s)", QCC_StatusText(status));
             }
-        } else   {
+        } else {
             jsize scanresultsize = env->GetArrayLength(scanresults);
 
 
