@@ -1395,8 +1395,23 @@ QStatus BusAttachment::JoinSession(const char* sessionHost, SessionPort sessionP
     SetSessionOpts(opts, args[2]);
 
     const ProxyBusObject& alljoynObj = this->GetAllJoynProxyObj();
-    QStatus status = alljoynObj.MethodCall(org::alljoyn::Bus::InterfaceName, "JoinSession", args, ArraySize(args), reply);
 
+    QStatus status = alljoynObj.MethodCall(org::alljoyn::Bus::InterfaceName, "JoinSession", args, ArraySize(args), reply
+
+/*
+ * If we are running on Android, there is a possibility that we are using the
+ * Wi-Fi Direct transport.  In that case, timeouts must be long enough to
+ * admit the possibility of required user intervention on the service side.
+ *
+ * We should really plumb down the transport mask and decide more intelligently
+ * but this would mean an API change, which I'm not ready to contemplate right
+ * now.
+ */
+#if defined(QCC_OS_ANDROID)
+                                           , 120000);
+#else
+                                           );
+#endif
     if (ER_OK == status) {
         status = GetJoinSessionResponse(reply, sessionId, opts);
     } else {

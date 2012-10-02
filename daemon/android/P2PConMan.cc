@@ -278,7 +278,7 @@ QStatus P2PConMan::Init(BusAttachment* const bus, const qcc::String& guid)
     return m_pimpl->Init(bus, guid);
 }
 
-QStatus P2PConMan::CreateTemporaryNetwork(const qcc::String& device, uint32_t intent)
+QStatus P2PConMan::CreateTemporaryNetwork(const qcc::String& device, int32_t intent)
 {
     QCC_DbgPrintf(("P2PConMan::CreateTemporaryNetwork()"));
 

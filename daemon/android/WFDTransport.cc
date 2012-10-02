@@ -1561,11 +1561,51 @@ void WFDTransport::EnableAdvertisementInstance(ListenRequest& listenRequest)
     assert(m_isListening);
     assert(m_listenPort);
     assert(m_isNsEnabled);
-    assert(P2PNameService::Instance().Started() && "WFDTransport::EnableAdvertisementInstance(): P2PNameService not started");
 
-    QStatus status = P2PNameService::Instance().AdvertiseName(TRANSPORT_WFD, listenRequest.m_requestParam);
+    /*
+     * We're going to need the P2P name service and connection manager to make
+     * this happen, so they'd better be started and ready to go.
+     */
+    assert(P2PNameService::Instance().Started() && "WFDTransport::EnableAdvertisementInstance(): P2PNameService not started");
+    assert(P2PConMan::Instance().Started() && "WFDTransport::EnableAdvertisementInstance(): P2PNameService not started");
+
+    /*
+     * If we're going to advertise a name, we must tell the underlying P2P
+     * system that we want to be a group owner (GO).  The model we use is
+     * that services become GO and clients become station nodes (STA).
+     *
+     * There is no management of the underlying device in Android, and that
+     * is where we are going to be running.  Basically, the last caller in
+     * gets to write over any previous callers.
+     *
+     * This means that if we have an existing client (STA) connection to another
+     * device, and the user decides to advertise a service, we will summarily
+     * kill the STA connection and prepare the device for incoming connections
+     * to the service as a GO.
+     *
+     * This means that if we are advertising/hosting a service and a client
+     * decides to connect to another device, we will summarily kill the GO
+     * connection and try to connect to the STA.
+     *
+     * To try and keep the user experience simple and understandable, we only
+     * allow one service to advertise over WFD at a time and we only allow one
+     * client to connect over WFD at a time.
+     *
+     * So, every time we advertise, we just take out anything else that may
+     * be there.
+     */
+
+    qcc::String localDevice("");
+    QStatus status = P2PConMan::Instance().CreateTemporaryNetwork(localDevice, P2PConMan::DEVICE_MUST_BE_GO);
+    if (status != ER_OK) {
+        QCC_LogError(status, ("WFDTransport::EnableAdvertisementInstance(): Unable to create a GO side network"));
+        return;
+    }
+
+    status = P2PNameService::Instance().AdvertiseName(TRANSPORT_WFD, listenRequest.m_requestParam);
     if (status != ER_OK) {
         QCC_LogError(status, ("WFDTransport::EnableAdvertisementInstance(): Failed to advertise \"%s\"", listenRequest.m_requestParam.c_str()));
+        return;
     }
 
     QCC_DbgPrintf(("WFDTransport::EnableAdvertisementInstance(): Done"));

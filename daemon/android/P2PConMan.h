@@ -101,7 +101,7 @@ class P2PConMan {
      * @return ER_OK if the network is successfully created, otherwise (hopefully)
      *     appropriate error code reflecting outcome.
      */
-    QStatus CreateTemporaryNetwork(const qcc::String& device, uint32_t intent);
+    QStatus CreateTemporaryNetwork(const qcc::String& device, int32_t intent);
 
     /**
      * @brief Destroy a temporary physical network connection to the provided

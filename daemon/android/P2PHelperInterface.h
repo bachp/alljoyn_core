@@ -66,6 +66,7 @@ class P2PHelperInterface : public MessageReceiver {
     static const int DEVICE_MUST_BE_STA = 0;
 
     static const int P2P_OK = 0;
+    static const int P2P_ERR = -1;
 
     P2PHelperInterface();
     virtual ~P2PHelperInterface();

@@ -104,7 +104,7 @@ class P2PConManImpl {
      * @return ER_OK if the network is successfully created, otherwise (hopefully)
      *     appropriate error code reflecting outcome.
      */
-    QStatus CreateTemporaryNetwork(const qcc::String& device, uint32_t intent);
+    QStatus CreateTemporaryNetwork(const qcc::String& device, int32_t intent);
 
     /**
      * @brief Destroy a temporary physical network connection to the provided
@@ -144,6 +144,7 @@ class P2PConManImpl {
     QStatus CreateConnectSpec(const qcc::String& device, const qcc::String& guid, qcc::String& spec);
 
   private:
+    static const uint32_t PRIVATE_ALERT_CODE = 0xfeedbeef;               /**< An alert code to distinguish us waking threads */
     static const uint32_t TEMPORARY_NETWORK_ESTABLISH_TIMEOUT = 120000;  /**< The timeout for temporary network creation */
     static const uint32_t CREATE_CONNECT_SPEC_TIMEOUT = 15000;           /**< The timeout for IP address discovery */
 
@@ -304,10 +305,11 @@ class P2PConManImpl {
     int32_t m_establishLinkResult;  /**< The result from an EstablishLinkAsync call done during network connection */
     int32_t m_linkError;            /**< The error reported from an OnLinkError callback done during network connection */
 
-    int32_t m_handle;       /**< The handle returned by the P2P Helper Service that identifies the network connection */
-    qcc::String m_device;   /**< The device (which is really the remote MAC address) to which we are connected */
-    ConnState m_connState;  /**< The state of the one and only suported temporary network connection */
-    qcc::Thread* m_thread;  /**< A single thread that is blocked waiting for a temporary network to form */
+    int32_t m_handle;         /**< The handle returned by the P2P Helper Service that identifies the network connection */
+    qcc::String m_device;     /**< The device (which is really the remote MAC address) to which we are connected */
+    ConnState m_connState;    /**< The state of the one and only suported temporary network connection */
+    qcc::Thread* m_l2thread;  /**< A single thread that is blocked waiting for a temporary network to form */
+    qcc::Thread* m_l3thread;  /**< A single thread that is blocked waiting for address and port discovery */
 
 
     bool m_handleEstablishLinkReplyFired;  /**< Indicates that a HandleEstablishLinkReply() callback happened */
