@@ -95,25 +95,25 @@ class MyMessage : public _Message {
 
     QStatus MethodCall(const char* destination,
                        const char* objPath,
-                       const char* interface,
+                       const char* iface,
                        const char* methodName,
                        const MsgArg* argList,
                        size_t numArgs,
                        uint8_t flags = 0)
     {
         qcc::String sig = MsgArg::Signature(argList, numArgs);
-        return CallMsg(sig, destination, 0, objPath, interface, methodName, argList, numArgs, flags);
+        return CallMsg(sig, destination, 0, objPath, iface, methodName, argList, numArgs, flags);
     }
 
     QStatus Signal(const char* destination,
                    const char* objPath,
-                   const char* interface,
+                   const char* iface,
                    const char* signalName,
                    const MsgArg* argList,
                    size_t numArgs)
     {
         qcc::String sig = MsgArg::Signature(argList, numArgs);
-        return SignalMsg(sig, destination, 0, objPath, interface, signalName, argList, numArgs, 0, 0);
+        return SignalMsg(sig, destination, 0, objPath, iface, signalName, argList, numArgs, 0, 0);
     }
 
     QStatus UnmarshalBody() { return UnmarshalArgs("*"); }

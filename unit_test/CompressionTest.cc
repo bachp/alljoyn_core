@@ -52,22 +52,22 @@ class MyMessage : public _Message {
 
     QStatus MethodCall(const char* destination,
                        const char* objPath,
-                       const char* interface,
+                       const char* iface,
                        const char* methodName,
                        uint8_t flags = 0)
     {
         flags |= ALLJOYN_FLAG_COMPRESSED;
-        return CallMsg("", destination, 0, objPath, interface, methodName, NULL, 0, flags);
+        return CallMsg("", destination, 0, objPath, iface, methodName, NULL, 0, flags);
     }
 
     QStatus Signal(const char* destination,
                    const char* objPath,
-                   const char* interface,
+                   const char* iface,
                    const char* signalName,
                    uint16_t ttl,
                    uint32_t sessionId = 0)
     {
-        return SignalMsg("", destination, sessionId, objPath, interface, signalName, NULL, 0, ALLJOYN_FLAG_COMPRESSED, ttl);
+        return SignalMsg("", destination, sessionId, objPath, iface, signalName, NULL, 0, ALLJOYN_FLAG_COMPRESSED, ttl);
     }
 
     QStatus Unmarshal(RemoteEndpoint& ep, const qcc::String& endpointName, bool pedantic = true)
