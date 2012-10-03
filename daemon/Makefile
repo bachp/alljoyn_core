@@ -26,7 +26,6 @@ DAEMON_SRCS += $(wildcard ice/*.cc)
 DAEMON_SRCS += $(wildcard JSON/*.cc)
 DAEMON_SRCS += $(wildcard ns/*.cc)
 DAEMON_SRCS += \
-	$(OS_GROUP)/ICEPacketStream.cc \
 	$(OS_GROUP)/ProximityScanner.cc \
 	$(OS_GROUP)/Socket.cc 
 
