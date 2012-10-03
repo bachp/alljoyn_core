@@ -62,7 +62,9 @@ enum PeerState {
 
 enum FindState {
     IDLE("IDLE"),
-    DISCOVERING("DISCOVERING");
+    DISCOVERING("DISCOVERING"),
+    INITIATING("INITIATING"),
+    FIND_PEERS("FIND_PEERS");
     private String name;
     private FindState(String name) {
         this.name = name;
@@ -92,7 +94,7 @@ public class P2pManager implements ConnectionInfoListener, DnsSdServiceResponseL
 
     private Handler mHandler = null;
     private Runnable mPeriodicDiscovery = null;
-    private Runnable mPeriodicPeerFind = null;
+    private Runnable mPeriodicFind = null;
     private Runnable mRequestConnectionInfo = null;
 
     private static final long periodicInterval = 40000;
@@ -100,7 +102,6 @@ public class P2pManager implements ConnectionInfoListener, DnsSdServiceResponseL
 
     private ArrayList <String> mServiceRequestList;
     private ArrayList <String> mRequestedNames;
-    private ArrayList <String> mAdvertisedNames;
 
     private class FoundServiceInfo {
         public String name;
@@ -113,7 +114,20 @@ public class P2pManager implements ConnectionInfoListener, DnsSdServiceResponseL
             this.guid = guid;
         }
     }
+
     private HashMap <String, ArrayList<FoundServiceInfo> > mDeviceServices;
+
+    private class LocalServiceInfo {
+        public String guid;
+        public int timer;
+
+        LocalServiceInfo (String guid, int timer) {
+            this.guid = guid;
+            this.timer = timer;
+        }
+    }
+
+    private HashMap <String, LocalServiceInfo> mAdvertisedNames;
 
     private static final int OK = 0;
     private static final int ERROR = -1;
@@ -142,7 +156,7 @@ public class P2pManager implements ConnectionInfoListener, DnsSdServiceResponseL
 
         mServiceRequestList = new ArrayList<String>();
         mRequestedNames = new ArrayList<String>();
-        mAdvertisedNames = new ArrayList<String>();
+        mAdvertisedNames = new HashMap<String, LocalServiceInfo>();
         mDeviceServices = new HashMap<String, ArrayList<FoundServiceInfo> >();
 
         //Object groupApprover = DialogListenerProxy.newDialogListener(manager, channel);
@@ -150,23 +164,9 @@ public class P2pManager implements ConnectionInfoListener, DnsSdServiceResponseL
 
         mHandler = new Handler();
 
-        mPeriodicPeerFind = new Runnable() {
-            public void run() {
-                if (!isEnabled || manager == null || channel == null) {
-                    return;
-                }
-
-                manager.discoverPeers(channel, null);
-
-                // Repost every 2 minutes
-                // (corresponds to hardcoded peer discovery timeout in frameworks)
-                mHandler.postDelayed(mPeriodicPeerFind, 120000);
-            }
-        };
-
         mPeriodicDiscovery = new Runnable() {
             public void run() {
-                if (!isEnabled /* || (mFindState == FindState.IDLE && not advertising)*/) {
+                if (!isEnabled) {
                     return;
                 }
 
@@ -175,17 +175,25 @@ public class P2pManager implements ConnectionInfoListener, DnsSdServiceResponseL
                                          {
                                              public void onSuccess() {
                                                  Log.d(TAG, "Service discovery started");
-                                                 mFindState = FindState.DISCOVERING;
                                              }
 
                                              public void onFailure(int reasonCode) {
                                                  Log.d(TAG, "Service discovery failed: " + reasonCode);
                                                  if (reasonCode == WifiP2pManager.NO_SERVICE_REQUESTS)
-                                                     restartServiceSearch();
-                                                 mFindState = FindState.IDLE;
+                                                     startServiceSearch(false);
                                              }
                                          });
                 mHandler.postDelayed(mPeriodicDiscovery, periodicInterval);
+            }
+        };
+
+        mPeriodicFind = new Runnable() {
+            public void run() {
+                if (!isEnabled) {
+                    return;
+                }
+                manager.discoverPeers(channel, null);
+                mHandler.postDelayed(mPeriodicFind, periodicInterval);
             }
         };
 
@@ -202,6 +210,7 @@ public class P2pManager implements ConnectionInfoListener, DnsSdServiceResponseL
         };
 
         context.registerReceiver(receiver, intentFilter); // TODO: When to unregister?
+
     };
 
     private void addServiceRequest(final String name) {
@@ -226,7 +235,7 @@ public class P2pManager implements ConnectionInfoListener, DnsSdServiceResponseL
                                   });
     }
 
-    private void restartServiceSearch() {
+    private void startServiceSearch(boolean start) {
 
         synchronized (mServiceRequestList) {
             mServiceRequestList.clear();
@@ -258,12 +267,49 @@ public class P2pManager implements ConnectionInfoListener, DnsSdServiceResponseL
                 addServiceRequest(mRequestedNames.get(i));
         }
 
+        if (start)
+            doDiscoverServices(true);
+
+    }
+
+    private void addLocalServiceName(final String name, String guid, int timer) {
+
+        Map<String, String> txt = new HashMap<String, String>();
+        txt.put("GUID", guid);
+        txt.put("TIMER", Integer.toString(timer));
+
+        WifiP2pDnsSdServiceInfo serviceInfo = WifiP2pDnsSdServiceInfo.newInstance(name, "_alljoyn._tcp", txt);
+
+        manager.addLocalService(channel, serviceInfo,
+                                new ActionListener() {
+                                    public void onSuccess() {
+                                        Log.d(TAG, "AddLocalServiceName ( " + name + " ) success");
+                                    }
+
+                                    public void onFailure(int reasonCode) {
+                                        Log.d(TAG, "AddLocalServiceName ( " + name + " ) fail. Reason : " + reasonCode);
+                                    }
+                                });
+    }
+
+    synchronized private void startAdvertisements() {
+
+        if(mFindState == FindState.IDLE)
+                doFindPeers(true);
+
+        if (mAdvertisedNames.isEmpty())
+            return;
+
+        for (String name: mAdvertisedNames.keySet()) {
+            LocalServiceInfo info = mAdvertisedNames.get(name);
+            addLocalServiceName(name, info.guid, info.timer);
+        }
     }
 
     public void shutdown() {
         mHandler.removeCallbacks(mPeriodicDiscovery);
+        mHandler.removeCallbacks(mPeriodicFind);
         mHandler.removeCallbacks(mRequestConnectionInfo);
-        mHandler.removeCallbacks(mPeriodicPeerFind);
         if (receiver != null) {
             context.unregisterReceiver(receiver);
         }
@@ -279,14 +325,20 @@ public class P2pManager implements ConnectionInfoListener, DnsSdServiceResponseL
     private void doDiscoverServices(boolean start) {
         mHandler.removeCallbacks(mPeriodicDiscovery);
         if (start) {
+            synchronized (mFindState) {
+                if (mFindState == FindState.IDLE || mFindState == FindState.FIND_PEERS)
+                    mFindState = FindState.INITIATING;
+                if (mFindState == FindState.FIND_PEERS)
+                    mHandler.removeCallbacks(mPeriodicFind);
+            }
             mPeriodicDiscovery.run();
         }
     }
 
     private void doFindPeers(boolean start) {
-        mHandler.removeCallbacks(mPeriodicPeerFind);
+        mHandler.removeCallbacks(mPeriodicFind);
         if (start) {
-            mPeriodicPeerFind.run();
+            mPeriodicFind.run();
         }
     }
 
@@ -296,11 +348,17 @@ public class P2pManager implements ConnectionInfoListener, DnsSdServiceResponseL
     }
 
     /*package*/ void setEnabled(boolean enabled) {
-        // TODO: Cancel advertisements or automatically re-register them?
         isEnabled = enabled;
 
-        // When WiFi is disabled, onConnectionInfoAvailable() handles sending
-        // of OnLinkError or OnLinkLost.
+        // Restart service search and advertisement
+        if (isEnabled) {
+            startServiceSearch(true);
+            startAdvertisements();
+        } else {
+            doFindPeers(false);
+            doDiscoverServices(false);
+        }
+
     }
 
     private int getHandle(String addr) {
@@ -578,7 +636,7 @@ public class P2pManager implements ConnectionInfoListener, DnsSdServiceResponseL
         synchronized (mRequestedNames) {
             if (!mRequestedNames.isEmpty() && mRequestedNames.contains(namePrefix)) {
                 Log.d(TAG, "Request for " + namePrefix + " already added");
-                if (mFindState != FindState.DISCOVERING)
+                if (mFindState != FindState.INITIATING && mFindState != FindState.DISCOVERING)
                     doDiscoverServices(true);
                 return OK;
             }
@@ -590,7 +648,7 @@ public class P2pManager implements ConnectionInfoListener, DnsSdServiceResponseL
         // Find all AllJoyn services first.  If we are already in discovery mode, then
         // we are already finding all AllJoyn services.
         // Do not create a new request, just keep it on RequestedNames.
-        if (mFindState == FindState.DISCOVERING)
+        if (mFindState == FindState.INITIATING || mFindState == FindState.DISCOVERING)
             return OK;
 
         WifiP2pDnsSdServiceRequest serviceRequest = WifiP2pDnsSdServiceRequest.newInstance("_alljoyn._tcp");
@@ -674,22 +732,26 @@ public class P2pManager implements ConnectionInfoListener, DnsSdServiceResponseL
             mServiceRequestList.clear();
             manager.clearServiceRequests(channel, null);
             doDiscoverServices(false);
-            mFindState = FindState.IDLE;
-        }
+       }
 
         return OK;
     }
 
-    /*package*/ void discoveryChanged(int state) {
+    /*package*/ synchronized void discoveryChanged(int state) {
         if (state == WifiP2pManager.WIFI_P2P_DISCOVERY_STARTED) {
             Log.d(TAG, "discoveryChanged: STARTED");
-        }
-        else {
+            if (mFindState ==  FindState.INITIATING)
+                mFindState = FindState.DISCOVERING;
+            else
+                mFindState = FindState.FIND_PEERS;
+        } else {
             Log.d(TAG, "discoveryChanged: STOPPED");
+            if (isEnabled  && !mAdvertisedNames.isEmpty()) {
+                // If P2P is enabled we should keep advertisements alive
+                startAdvertisements();
+            } else
+                mFindState = FindState.IDLE;
         }
-
-        // TODO: Any reason to restart discovery here?
-        //doDiscoverServices(true);
     }
 
     /**
@@ -720,30 +782,13 @@ public class P2pManager implements ConnectionInfoListener, DnsSdServiceResponseL
         txt.put("GUID", guid);
         txt.put("TIMER", Integer.toString(timer));
 
-        //TODO Need to implement arg check for size. Deep in the bowels of JNI code is a hidden limitation:
-        // command buffer size cannot exceed 256. Buffer includes string version of WPA supplicant command
-        // plus actual payload...
+        LocalServiceInfo info = new LocalServiceInfo(guid, timer); 
 
-        WifiP2pDnsSdServiceInfo serviceInfo = WifiP2pDnsSdServiceInfo.newInstance(name, "_alljoyn._tcp", txt);
+        synchronized (mAdvertisedNames) {
+            mAdvertisedNames.put(name, info);
+        }
 
-        mAdvertisedNames.add(name);
-
-        manager.addLocalService(channel, serviceInfo,
-                                new ActionListener() {
-                                    public void onSuccess() {
-                                        Log.d(TAG, "AdvertiseName ( " + name + " ) success");
-                                        // This is for keeping P2P discovery active
-                                        if (mFindState != FindState.DISCOVERING)
-                                            doFindPeers(true);
-                                    }
-
-                                    public void onFailure(int reasonCode) {
-                                        Log.d(TAG, "AdvertiseName ( " + name + " ) failed: " + reasonCode);
-                                        if (!mAdvertisedNames.isEmpty())
-                                            mAdvertisedNames.remove(name);
-                                    }
-                                });
-
+        addLocalServiceName(name, guid, timer);
 
         return OK;
     }
@@ -771,7 +816,9 @@ public class P2pManager implements ConnectionInfoListener, DnsSdServiceResponseL
         }
 
         synchronized (mAdvertisedNames) {
-            if (!mAdvertisedNames.isEmpty() && !mAdvertisedNames.contains(name))
+            if (mAdvertisedNames.isEmpty())
+                return OK;
+            if (!mAdvertisedNames.containsKey(name))
                 return OK;
         }
 
@@ -799,8 +846,15 @@ public class P2pManager implements ConnectionInfoListener, DnsSdServiceResponseL
 
         Runnable removeService = new Runnable() {
             public void run() {
-                if (!isEnabled || manager == null || channel == null /* || (mFindState == FindState.IDLE && not advertising)*/) {
+                if (!isEnabled || manager == null || channel == null) {
                     return;
+                }
+
+                // Catch the case when a service advertisement has been added back in
+                // after canceling.
+                synchronized(mAdvertisedNames) {
+                    if (mAdvertisedNames.containsKey(name))
+                        return;
                 }
 
                 manager.removeLocalService(channel, serviceInfo,
@@ -815,8 +869,6 @@ public class P2pManager implements ConnectionInfoListener, DnsSdServiceResponseL
                                                }
                                            });
 
-                if (mAdvertisedNames.isEmpty())
-                    doFindPeers(false);
             }
         };
         mHandler.postDelayed(removeService, MAX_ADVERTISE_TIMEOUT);
