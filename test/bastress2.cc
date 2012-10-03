@@ -62,10 +62,10 @@ static bool s_useMultipointSessions = true;
 static OperationMode s_operationMode;
 static volatile sig_atomic_t g_interrupt = false;
 
-//static void SigIntHandler(int sig)
-//{
-//    g_interrupt = true;
-//}
+static void SigIntHandler(int sig)
+{
+    g_interrupt = true;
+}
 
 /*constants*/
 static const char* INTERFACE_NAME = "org.alljoyn.Bus.test.bastress";
@@ -285,9 +285,9 @@ inline void ThreadClass::ClientRun() {
             limitReached = true;
         }
         count++;
-//        if (g_interrupt) {
-//            break;
-//        }
+        if (g_interrupt) {
+            break;
+        }
     }
 
     if (joinComplete && limitReached == false) {
@@ -411,9 +411,9 @@ inline void ThreadClass::ServiceRun() {
                 limitReached = true;
             }
             count++;
-//            if (g_interrupt) {
-//                break;
-//            }
+            if (g_interrupt) {
+                break;
+            }
         }
     }
 
@@ -524,12 +524,12 @@ int main(int argc, char**argv)
         iterations = 1;
     }
 
-//    /* Install SIGINT handler */
-//    signal(SIGINT, SigIntHandler);
+    /* Install SIGINT handler */
+    signal(SIGINT, SigIntHandler);
 
     ThreadClass** threadList = new ThreadClass *[threads];
 
-    while (iterations--) {
+    while (!g_interrupt && iterations--) {
 
         QCC_SyncPrintf("Starting threads... \n");
         for (unsigned int i = 0; i < threads; i++) {

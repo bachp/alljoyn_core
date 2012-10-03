@@ -155,13 +155,17 @@ _ICECandidate::~_ICECandidate(void)
     if (sharedStunServerReflexiveCandidate) {
         delete sharedStunServerReflexiveCandidate;
     }
+    if (candidateThread) {
+        delete candidateThread;
+        candidateThread = NULL;
+    }
 }
 
 QStatus _ICECandidate::StartListener()
 {
     QCC_DbgTrace(("%s", __FUNCTION__));
     assert(!candidateThread);
-    candidateThread = new ICECandidateThread(new ICECandidate(this));
+    candidateThread = new ICECandidateThread(this);
 
     // Start the thread which will listen for responses, ICE checks
     return candidateThread->Start();

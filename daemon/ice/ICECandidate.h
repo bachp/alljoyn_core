@@ -235,29 +235,17 @@ class _ICECandidate {
 
     class ICECandidateThread : public qcc::Thread {
       public:
-        ICECandidateThread(ICECandidate* candidate) :
+        ICECandidateThread(_ICECandidate* candidate) :
             qcc::Thread("iceCand"), candidate(candidate) { }
 
         ThreadReturn STDCALL Run(void* arg)
         {
-            (*candidate)->AwaitRequestsAndResponses();
+            candidate->AwaitRequestsAndResponses();
             return 0;
         }
 
-        void ThreadExit(qcc::Thread* p)
-        {
-            /* Cleanup Candidate */
-            (*candidate)->candidateThread = NULL;
-
-            /* Decrement candidate reference */
-            delete candidate;
-
-            /* Remove self */
-            delete this;
-        }
-
       private:
-        ICECandidate* candidate;
+        _ICECandidate* candidate;
     };
 
     ICECandidateThread* candidateThread;
