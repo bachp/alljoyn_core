@@ -51,11 +51,11 @@ static const SessionPort SERVICE_PORT = 42;
 static bool s_joinComplete = false;
 static SessionId s_sessionId = 0;
 
-static volatile sig_atomic_t g_interrupt = false;
+static volatile sig_atomic_t s_interrupt = false;
 
 static void SigIntHandler(int sig)
 {
-    g_interrupt = true;
+    s_interrupt = true;
 }
 
 /*
@@ -157,20 +157,80 @@ class SrpKeyXListener : public AuthListener {
 
 /** Static bus listener */
 static MyBusListener g_busListener;
+static char clientName[] = "Client%u";
 
-
-/** Main entry point */
-int main(int argc, char** argv, char** envArg)
+void MakeClientName(void)
 {
-    QStatus status = ER_OK;
+#ifndef CLIENT
+#define CLIENT 0
+#endif
 
-    printf("AllJoyn Library version: %s\n", ajn::GetVersion());
-    printf("AllJoyn Library build info: %s\n", ajn::GetBuildInfo());
+    int client = CLIENT;
 
-    /* Install SIGINT handler */
-    signal(SIGINT, SigIntHandler);
+    // Prevent overwriting the client name buffer.
+    if (client < 0 || client > 99) {
+        client = 0;
+    }
 
+    sprintf(clientName, clientName, client);
+}
+
+/** Create the interface, report the result to stdout, and return the result status. */
+QStatus CreateInterface(void)
+{
+    /* Add org.alljoyn.Bus.method_sample interface */
+    InterfaceDescription* testIntf = NULL;
+    QStatus status = g_msgBus->CreateInterface(INTERFACE_NAME, testIntf, true);
+
+    if (status == ER_OK) {
+        printf("Interface '%s' created.\n", INTERFACE_NAME);
+        testIntf->AddMethod("Ping", "s",  "s", "inStr,outStr", 0);
+        testIntf->Activate();
+    } else {
+        printf("Failed to create interface '%s'.\n", INTERFACE_NAME);
+    }
+
+    return status;
+}
+
+/** Start the message bus, report the result to stdout, and return the result status. */
+QStatus StartMessageBus(void)
+{
+    QStatus status = g_msgBus->Start();
+
+    if (ER_OK == status) {
+        printf("BusAttachment started.\n");
+    } else {
+        printf("BusAttachment::Start failed.\n");
+    }
+
+    return status;
+}
+
+/** Enable security, report the result to stdout, and return the result status. */
+QStatus EnableSecurity(void)
+{
+    /*
+     * note the location of the keystore file has been specified and the
+     * isShared parameter is being set to true. So this keystore file can
+     * be used by multiple applications.
+     */
+    QStatus status = g_msgBus->EnablePeerSecurity("ALLJOYN_SRP_KEYX", new SrpKeyXListener(), "/.alljoyn_keystore/central.ks", true);
+
+    if (ER_OK == status) {
+        printf("BusAttachment::EnablePeerSecurity successful.\n");
+    } else {
+        printf("BusAttachment::EnablePeerSecurity failed (%s).\n", QCC_StatusText(status));
+    }
+
+    return status;
+}
+
+/** Handle the connection to the bus, report the result to stdout, and return the result status. */
+QStatus ConnectToBus(void)
+{
     const char* connectArgs = getenv("BUS_ADDRESS");
+
     if (connectArgs == NULL) {
 #ifdef _WIN32
         connectArgs = "tcp:addr=127.0.0.1,port=9956";
@@ -179,70 +239,53 @@ int main(int argc, char** argv, char** envArg)
 #endif
     }
 
-    /* Create message bus */
-    g_msgBus = new BusAttachment("SRPSecurityClientA", true);
+    QStatus status = g_msgBus->Connect(connectArgs);
 
-    /* Add org.alljoyn.bus.samples.secure.SecureInterface interface */
-    InterfaceDescription* testIntf = NULL;
-    status = g_msgBus->CreateInterface(INTERFACE_NAME, testIntf, true);
-    if (status == ER_OK) {
-        testIntf->AddMethod("Ping", "s",  "s", "inStr,outStr", 0);
-        testIntf->Activate();
+    if (ER_OK == status) {
+        printf("BusAttachment connected to '%s'.\n", connectArgs);
     } else {
-        printf("Failed to create interface %s\n", INTERFACE_NAME);
+        printf("BusAttachment::Connect('%s') failed.\n", connectArgs);
     }
 
-    /* Start the msg bus */
-    if (ER_OK == status) {
-        status = g_msgBus->Start();
-        if (ER_OK != status) {
-            printf("BusAttachment::Start failed\n");
-        } else {
-            printf("BusAttachment started.\n");
-        }
-    }
+    return status;
+}
 
-    /*
-     * enable security
-     * note the location of the keystore file has been specified and the
-     * isShared parameter is being set to true. So this keystore file can
-     * be used by multiple applications
-     */
-    if (ER_OK == status) {
-        status = g_msgBus->EnablePeerSecurity("ALLJOYN_SRP_KEYX", new SrpKeyXListener(), "/.alljoyn_keystore/central.ks", true);
-        if (ER_OK != status) {
-            printf("BusAttachment::EnablePeerSecurity failed (%s)\n", QCC_StatusText(status));
-        } else {
-            printf("BusAttachment::EnablePeerSecurity successful\n");
-        }
-    }
+/** Register a bus listener in order to get discovery indications and report the event to stdout. */
+void RegisterBusListener(void)
+{
+    /* Static bus listener */
+    static MyBusListener s_busListener;
 
-    /* Connect to the bus */
-    if (ER_OK == status) {
-        status = g_msgBus->Connect(connectArgs);
-        if (ER_OK != status) {
-            printf("BusAttachment::Connect(\"%s\") failed\n", connectArgs);
-        } else {
-            printf("BusAttchement connected to %s\n", connectArgs);
-        }
-    }
+    g_msgBus->RegisterBusListener(s_busListener);
+    printf("BusListener Registered.\n");
+}
 
-    /* Register a bus listener in order to get discovery indications */
-    if (ER_OK == status) {
-        g_msgBus->RegisterBusListener(g_busListener);
-        printf("BusListener Registered.\n");
-    }
-
+/** Begin discovery on the well-known name of the service to be called, report the result to
+   stdout, and return the result status. */
+QStatus FindAdvertisedName(void)
+{
     /* Begin discovery on the well-known name of the service to be called */
-    if (ER_OK == status) {
-        status = g_msgBus->FindAdvertisedName(SERVICE_NAME);
-        if (status != ER_OK) {
-            printf("org.alljoyn.Bus.FindAdvertisedName failed (%s))\n", QCC_StatusText(status));
-        }
+    QStatus status = g_msgBus->FindAdvertisedName(SERVICE_NAME);
+
+    if (status == ER_OK) {
+        printf("org.alljoyn.Bus.FindAdvertisedName ('%s') succeeded.\n", SERVICE_NAME);
+    } else {
+        printf("org.alljoyn.Bus.FindAdvertisedName ('%s') failed (%s).\n", SERVICE_NAME, QCC_StatusText(status));
     }
 
-    /* Wait for join session to complete */
-    while (!s_joinComplete && !g_interrupt) {
+    return status;
+}
+
+/** Wait for join session to complete, report the event to stdout, and return the result status. */
+QStatus WaitForJoinSessionCompletion(void)
+{
+    unsigned int count = 0;
+
+    while (!s_joinComplete && !s_interrupt) {
+        if (0 == (count++ % 10)) {
+            printf("Waited %u seconds for JoinSession completion.\n", count / 10);
+        }
+
 #ifdef _WIN32
         Sleep(100);
 #else
@@ -250,32 +293,100 @@ int main(int argc, char** argv, char** envArg)
 #endif
     }
 
-    if (status == ER_OK && g_interrupt == false) {
-        ProxyBusObject remoteObj(*g_msgBus, SERVICE_NAME, SERVICE_PATH, s_sessionId);
-        const InterfaceDescription* alljoynTestIntf = g_msgBus->GetInterface(INTERFACE_NAME);
-        assert(alljoynTestIntf);
-        remoteObj.AddInterface(*alljoynTestIntf);
+    return s_joinComplete && !s_interrupt ? ER_OK : ER_ALLJOYN_JOINSESSION_REPLY_CONNECT_FAILED;
+}
 
-        Message reply(*g_msgBus);
-        MsgArg inputs[1];
-        inputs[0].Set("s", "ClientA says Hello AllJoyn!");
-        status = remoteObj.MethodCall(INTERFACE_NAME, "Ping", inputs, 1, reply, 5000);
-        if (ER_OK == status) {
-            printf("%s.Ping (path=%s) returned \"%s\"\n", INTERFACE_NAME,
-                   SERVICE_PATH, reply->GetArg(0)->v_string.str);
-        } else {
-            printf("MethodCall on %s.Ping failed\n", INTERFACE_NAME);
-        }
+/** Do a method call, report the result to stdout, and return the result status. */
+QStatus MakeMethodCall(void)
+{
+    ProxyBusObject remoteObj(*g_msgBus, SERVICE_NAME, SERVICE_PATH, s_sessionId);
+    const InterfaceDescription* alljoynTestIntf = g_msgBus->GetInterface(INTERFACE_NAME);
+
+    assert(alljoynTestIntf);
+    remoteObj.AddInterface(*alljoynTestIntf);
+
+    Message reply(*g_msgBus);
+    MsgArg inputs[1];
+    char buffer[80];
+
+    sprintf(buffer, "%s says Hello AllJoyn!", clientName);
+
+    inputs[0].Set("s", buffer);
+
+    QStatus status = remoteObj.MethodCall(INTERFACE_NAME, "Ping", inputs, 1, reply, 5000);
+
+    if (ER_OK == status) {
+        printf("%s.Ping (path=%s) returned \"%s\".\n", INTERFACE_NAME,
+               SERVICE_PATH, reply->GetArg(0)->v_string.str);
+    } else {
+        printf("MethodCall on %s.Ping failed.\n", INTERFACE_NAME);
+    }
+
+    return status;
+}
+
+/** Main entry point */
+int main(int argc, char** argv, char** envArg)
+{
+    printf("AllJoyn Library version: %s.\n", ajn::GetVersion());
+    printf("AllJoyn Library build info: %s.\n", ajn::GetBuildInfo());
+
+    /* Install SIGINT handler */
+    signal(SIGINT, SigIntHandler);
+
+    MakeClientName();
+
+    QStatus status = ER_OK;
+
+    /* Create the application name. */
+    char buffer[40];
+
+    sprintf(buffer, "SRPSecurity%s", clientName);
+
+    /* Create message bus */
+    g_msgBus = new BusAttachment(buffer, true);
+
+    /* This test for NULL is only required if new() behavior is to return NULL
+     * instead of throwing an exception upon an out of memory failure.
+     */
+    if (!g_msgBus) {
+        status = ER_OUT_OF_MEMORY;
+    }
+
+    if (ER_OK == status) {
+        status = CreateInterface();
+    }
+
+    if (ER_OK == status) {
+        status = StartMessageBus();
+    }
+
+    if (ER_OK == status) {
+        status = EnableSecurity();
+    }
+
+    if (ER_OK == status) {
+        status = ConnectToBus();
+    }
+
+    if (ER_OK == status) {
+        RegisterBusListener();
+        status = FindAdvertisedName();
+    }
+
+    if (ER_OK == status) {
+        status = WaitForJoinSessionCompletion();
+    }
+
+    if (ER_OK == status) {
+        status = MakeMethodCall();
     }
 
     /* Deallocate bus */
-    if (g_msgBus) {
-        BusAttachment* deleteMe = g_msgBus;
-        g_msgBus = NULL;
-        delete deleteMe;
-    }
+    delete g_msgBus;
+    g_msgBus = NULL;
 
-    printf("exiting with status %d (%s)\n", status, QCC_StatusText(status));
+    printf("Basic client exiting with status 0x%04x (%s).\n", status, QCC_StatusText(status));
 
     return (int) status;
 }
