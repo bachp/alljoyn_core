@@ -1313,7 +1313,8 @@ _MsgArg::~_MsgArg()
             // Convert object to Platform::String
             Platform::String ^ t = dynamic_cast<Platform::String ^>(obj);
             // Check for failed conversion
-            if (nullptr != obj || nullptr == rawObj) {
+            // In WinRT for an empty String "", obj returned by Coerce() is 0x0000000000000000 L
+            if (nullptr != obj || nullptr == rawObj || ((nullptr == obj) && (nullptr != rawObj))) {
                 Platform::String ^ param = t;
                 // Convert arg to qcc::String
                 qcc::String strParam = PlatformToMultibyteString(param);
