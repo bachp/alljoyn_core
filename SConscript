@@ -125,7 +125,7 @@ if env['OS_CONF'] == 'android':
     env.InstallAs('$DISTDIR/README.txt', 'docs/README.android')
 
 env.Install('$DISTDIR', 'README.md')
-env.Install('$DISTDIR', 'NOTICE')
+env.Install('$DISTDIR', 'NOTICE.txt')
 
 # Build docs
 env.SConscript('docs/SConscript')
