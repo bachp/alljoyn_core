@@ -381,7 +381,7 @@ void ProximityScanner::Scan(bool request_scan) {
 
 #elif defined(QCC_OS_DARWIN)
 
-#if defined(QCC_OS_IPHONE)
+#if defined(QCC_OS_IPHONE) && !defined(QCC_OS_IPHONE_SIMULATOR)
 void ProximityScanner::Scan(bool request_scan) {
     QCC_DbgTrace(("ProximityScanner::Scan()"));
 
