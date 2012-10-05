@@ -148,11 +148,22 @@ QStatus CreateInterface(void)
 }
 
 /** Register the bus object and connect, report the result to stdout, and return the status code. */
-QStatus RegisterBusObjectAndConnect(BasicSampleObject* obj)
+QStatus RegisterBusObject(BasicSampleObject* obj)
 {
-    printf("Registering the bus object.\n");
-    s_msgBus->RegisterBusObject(*obj);
+    QStatus status = s_msgBus->RegisterBusObject(*obj);
 
+    if (ER_OK == status) {
+        printf("RegisterBusObject succeeded.\n");
+    } else {
+        printf("RegisterBusObject failed (%s).\n", QCC_StatusText(status));
+    }
+
+    return status;
+}
+
+/** Connect to the daemon, report the result to stdout, and return the status code. */
+QStatus ConnectToDaemon(void)
+{
     const char* connectArgs = getenv("BUS_ADDRESS");
 
     if (connectArgs == NULL) {
@@ -166,9 +177,9 @@ QStatus RegisterBusObjectAndConnect(BasicSampleObject* obj)
     QStatus status = s_msgBus->Connect(connectArgs);
 
     if (ER_OK == status) {
-        printf("Connected to '%s'.\n", connectArgs);
+        printf("Connect to '%s' succeeded.\n", connectArgs);
     } else {
-        printf("Failed to connect to '%s'.\n", connectArgs);
+        printf("Failed to connect to '%s' (%s).\n", connectArgs, QCC_StatusText(status));
     }
 
     return status;
@@ -278,7 +289,11 @@ int main(int argc, char** argv, char** envArg)
     BasicSampleObject testObj(*s_msgBus, SERVICE_PATH);
 
     if (ER_OK == status) {
-        status = RegisterBusObjectAndConnect(&testObj);
+        status = RegisterBusObject(&testObj);
+    }
+
+    if (ER_OK == status) {
+        status = ConnectToDaemon();
     }
 
     /*
