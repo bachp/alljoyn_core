@@ -689,6 +689,13 @@ PacketEngine::ChannelInfo::~ChannelInfo()
         delete ac;
     }
 
+    txLock.Lock();
+    while (!txControlQueue.empty()) {
+        engine.pool.ReturnPacket(txControlQueue.front());
+        txControlQueue.pop_front();
+    }
+    txLock.Unlock();
+
     delete ackAlarmContext;
     delete[] rxPackets;
     delete[] txPackets;
@@ -1508,6 +1515,7 @@ qcc::ThreadReturn STDCALL PacketEngine::TxPacketThread::Run(void* arg)
                     if (letoh32(p->payload[0]) == PACKET_COMMAND_DISCONNECT_RSP) {
                         QCC_DbgPrintf(("PacketEngine::TxThread: Send DisconnectRsp. Closing id=0x%x", ci->id));
                         ci->state = ChannelInfo::CLOSED;
+                        engine->pool.ReturnPacket(p);
                         break;
                     }
                     engine->pool.ReturnPacket(p);

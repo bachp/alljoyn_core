@@ -273,73 +273,15 @@ class DiscoveryManager : public Thread, public AlarmListener {
     };
 
     /**
-     * @internal
-     * @brief Enum describing the type of Discovery Manager message.
-     */
-    enum MessageType {
-        INVALID_MESSAGE = 0,              /*Invalid message type*/
-        ADVERTISEMENT,                    /*Advertisement Message*/
-        SEARCH,                           /*Search Message*/
-        ADDRESS_CANDIDATES,               /*Address candidates Message*/
-        PROXIMITY,                        /*Proximity Message*/
-        RENDEZVOUS_SESSION_DELETE,        /*Rendezvous Session Delete Message*/
-        GET_MESSAGE,                      /*GET Message*/
-        CLIENT_LOGIN,                     /*Client Login Message*/
-        DAEMON_REGISTRATION,              /*Daemon Registration Message*/
-        TOKEN_REFRESH                     /*Token refresh Message*/
-    };
-
-    /**
-     * @internal
-     * @brief Class describing the fields of a Discovery Manager message.
-     */
-    class RendezvousMessage {
-      public:
-
-        /*HTTP Method to be used to send this message to the Rendezvous Server*/
-        HttpConnection::Method httpMethod;
-
-        /*RendezvousMessage Type*/
-        MessageType messageType;
-
-        InterfaceMessage* interfaceMessage;
-
-        /*Constructor*/
-        RendezvousMessage() {
-            messageType = INVALID_MESSAGE;
-            httpMethod = HttpConnection::METHOD_INVALID;
-            interfaceMessage = NULL;
-        }
-
-        /*Destructor*/
-        ~RendezvousMessage() {
-            messageType = INVALID_MESSAGE;
-            httpMethod = HttpConnection::METHOD_INVALID;
-        }
-
-        void Clear() {
-            messageType = INVALID_MESSAGE;
-            httpMethod = HttpConnection::METHOD_INVALID;
-
-            if (interfaceMessage) {
-                delete interfaceMessage;
-                interfaceMessage = NULL;
-            }
-        }
-    };
-
-    /**
      * @brief Compose an Advertisement or Search message to be sent to the Rendezvous Server.
      *
      * @param[in] advertisement   If true, Advertisement message is sent or else Search message is sent.
-     *
-     * @param[in] httpMethod      HTTP Method to use to send the message to the Rendezvous Server.
      *
      * @param[in] message         Composed message
      *
      * @return None.
      */
-    void ComposeAdvertisementorSearch(bool advertisement, HttpConnection::Method httpMethod, RendezvousMessage& message);
+    void ComposeAdvertisementorSearch(bool advertisement, InterfaceMessage& message);
 
     /**
      * @brief Queue an ICE Address Candidate message for transmission out to the Rendezvous Server.
@@ -381,7 +323,7 @@ class DiscoveryManager : public Thread, public AlarmListener {
      *
      * NOTE: The function calling this method should ensure to lock DiscoveryManagerMutex
      */
-    QStatus QueueProximityMessage(ProximityMessage proximity, list<String> bssids, list<String> btMacIds);
+    QStatus QueueProximityMessage(ProximityMessage& proximity, list<String> bssids, list<String> btMacIds);
 
     /**
      * @brief Compose a Proximity message for transmission out to the Rendezvous Server.
@@ -390,13 +332,9 @@ class DiscoveryManager : public Thread, public AlarmListener {
      *
      * @param[in] proximity   Proximity message to be sent to the Rendezvous Server
      *
-     * @param[in] httpMethod  HTTP method to be used to send the Proximity message
-     *
-     * @param[in] message     Composed message
-     *
      * NOTE: The function calling this method should ensure to lock DiscoveryManagerMutex
      */
-    void ComposeProximityMessage(HttpConnection::Method httpMethod, RendezvousMessage& message);
+    void ComposeProximityMessage(ProximityMessage& message);
 
 #ifndef ENABLE_PROXIMITY_FRAMEWORK
     // Adding sample messages for proximity. This will be removed once the framework
@@ -548,7 +486,7 @@ class DiscoveryManager : public Thread, public AlarmListener {
      *
      * Ensure that the function invoking this function locks the DiscoveryManagerMutex.
      */
-    void QueueMessage(RendezvousMessage message);
+    void QueueMessage(InterfaceMessage& message);
 
     /**
      * @internal
@@ -561,7 +499,7 @@ class DiscoveryManager : public Thread, public AlarmListener {
      * @brief Send a message to the Rendezvous Server.
      * @return  ER_OK if successful.
      */
-    QStatus SendMessage(RendezvousMessage message);
+    QStatus SendMessage(InterfaceMessage& message);
 
     /**
      * @internal
@@ -607,7 +545,7 @@ class DiscoveryManager : public Thread, public AlarmListener {
      *
      * @return ER_OK if successful.
      */
-    QStatus PrepareOutgoingMessage(RendezvousMessage messageType, HttpConnection::Method& httpMethod, String& uri, bool& contentPresent, String& content);
+    QStatus PrepareOutgoingMessage(InterfaceMessage& message, String& uri, bool& contentPresent, String& content);
 
     /**
      * @internal
@@ -673,7 +611,7 @@ class DiscoveryManager : public Thread, public AlarmListener {
      * @internal
      * @brief Compose and queue a token refresh message
      */
-    void ComposeAndQueueTokenRefreshMessage(TokenRefreshMessage refreshMessage);
+    void ComposeAndQueueTokenRefreshMessage(TokenRefreshMessage& refreshMessage);
 
     /**
      * @internal
@@ -810,7 +748,7 @@ class DiscoveryManager : public Thread, public AlarmListener {
      *
      * @brief Last message sent on the On Demand connection.
      */
-    RendezvousMessage LastOnDemandMessageSent;
+    InterfaceMessage* LastOnDemandMessageSent;
 
     /**
      * @internal
@@ -940,7 +878,7 @@ class DiscoveryManager : public Thread, public AlarmListener {
     /**
      * @internal
      * @brief A sorted list of all of the advertising well known names that were last sent to the Rendezvous Server. This is copy of currentAdvertiseList taken when
-     * an Advertisement RendezvousMessage is sent. Though this is extra memory consumed for already existing information this is required to reduce the turn around
+     * an Advertisement InterfaceMessage is sent. Though this is extra memory consumed for already existing information this is required to reduce the turn around
      * time required to respond to the responses from the Rendezvous Server.
      */
     list<String> lastSentAdvertiseList;
@@ -976,7 +914,7 @@ class DiscoveryManager : public Thread, public AlarmListener {
     /**
      * @internal
      * @brief A sorted list of all of the discovering well known names that were last sent to the Rendezvous Server. This is copy of currentSearchList taken when
-     * an Search RendezvousMessage is sent. Though this is extra memory consumed for already existing information this is required to reduce the turn around
+     * an Search InterfaceMessage is sent. Though this is extra memory consumed for already existing information this is required to reduce the turn around
      * time required to respond to the responses from the Rendezvous Server.
      */
     list<String> lastSentSearchList;
@@ -1119,13 +1057,13 @@ class DiscoveryManager : public Thread, public AlarmListener {
      * @brief A list of messages queued for transmission out to the
      * Rendezvous Server.
      */
-    list<RendezvousMessage> OutboundMessageQueue;
+    list<InterfaceMessage*> OutboundMessageQueue;
 
     /* GET Message */
-    RendezvousMessage GETMessage;
+    InterfaceMessage GETMessage;
 
     /* Rendezvous Session Delete Message */
-    RendezvousMessage RendezvousSessionDeleteMessage;
+    InterfaceMessage RendezvousSessionDeleteMessage;
 
     /* The SCRAM-SHA-1 authentication module */
     SCRAM_SHA_1 SCRAMAuthModule;

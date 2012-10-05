@@ -51,8 +51,8 @@ ICEPacketStream::ICEPacketStream(ICESession& iceSession, Stun& stun, const ICECa
     relayServerAddress(iceSession.GetRelayServerAddr()),
     relayServerPort(iceSession.GetRelayServerPort()),
     sock(stun.GetSocketFD()),
-    sourceEvent(&Event::neverSet),
-    sinkEvent(&Event::alwaysSet),
+    sourceEvent(new Event(sock, Event::IO_READ, false)),
+    sinkEvent(new Event(sock, Event::IO_WRITE, false)),
     interfaceMtu(stun.GetMtu()),
     maxPacketStreamMtu((interfaceMtu <= ajn::MAX_ICE_INTERFACE_MTU) ? interfaceMtu : ajn::MAX_ICE_INTERFACE_MTU),
     mtuWithStunOverhead(maxPacketStreamMtu - ajn::STUN_OVERHEAD_SIZE),
@@ -257,12 +257,7 @@ ICEPacketStream::~ICEPacketStream()
 
 QStatus ICEPacketStream::Start()
 {
-    QStatus status = ER_OK;
-
-    sourceEvent = new qcc::Event(sock, qcc::Event::IO_READ, false);
-    sinkEvent = new qcc::Event(sock, qcc::Event::IO_WRITE, false);
-
-    return status;
+    return ER_OK;
 }
 
 String ICEPacketStream::GetIPAddr() const
