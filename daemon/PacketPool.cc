@@ -59,6 +59,9 @@ PacketPool::~PacketPool()
 
 Packet* PacketPool::GetPacket() {
     Packet* p = NULL;
+#ifdef PACKET_LEAK_DEBUG
+    p = new Packet(mtu);
+#else
     lock.Lock();
     usedCount++;
     if (freeList.size() > 0) {
@@ -69,10 +72,14 @@ Packet* PacketPool::GetPacket() {
         lock.Unlock();
         p = new Packet(mtu);
     }
+#endif
     return p;
 }
 
 void PacketPool::ReturnPacket(Packet* p) {
+#ifdef PACKET_LEAK_DEBUG
+    delete p;
+#else
     lock.Lock();
     --usedCount;
     if ((freeList.size() * 2) > usedCount) {
@@ -83,6 +90,7 @@ void PacketPool::ReturnPacket(Packet* p) {
         freeList.push_back(p);
         lock.Unlock();
     }
+#endif
 }
 
 }

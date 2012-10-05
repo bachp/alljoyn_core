@@ -562,5 +562,6 @@ int main(int argc, char**argv)
 
     }
 
+    delete [] threadList;
     return (int) status;
 }

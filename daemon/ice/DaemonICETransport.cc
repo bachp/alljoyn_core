@@ -520,7 +520,7 @@ DaemonICETransport::DaemonICETransport(BusAttachment& bus) :
     m_listener(0),
     m_packetEngine("ice_packet_engine"),
     m_iceCallback(m_listener, this),
-    daemonICETransportTimer("DaemonICETransportTimer")
+    daemonICETransportTimer("ICETransTimer", true)
 {
     /*
      * We know we are daemon code, so we'd better be running with a daemon
@@ -939,6 +939,7 @@ bool DaemonICETransport::PacketEngineAcceptCB(PacketEngine& engine, const Packet
              * because the first ref of a new packet stream comes from AllocateICESessionThread
              */
             if (daemonICETransportTimer.RemoveAlarm(icePktStream->GetTimeoutAlarm())) {
+                delete (AlarmContext*) icePktStream->GetTimeoutAlarm()->GetContext();
                 ReleaseICEPacketStream(*icePktStream);
             }
         } else {

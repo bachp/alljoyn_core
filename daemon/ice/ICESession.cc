@@ -86,6 +86,10 @@ ICESession::~ICESession(void)
     delete[] shortTermHmacKey;
     delete[] remoteShortTermHmacKey;
 
+    if (hmacKey) {
+        delete hmacKey;
+    }
+
     Unlock();
 }
 
@@ -504,11 +508,11 @@ QStatus ICESession::UpdateLocalICECandidates(void)
     StunCredential stunCredential(String(reinterpret_cast<char*>(pwdBuf), sizeof(pwdBuf)));
 
     // Size buffer first
-    stunCredential.GetKey(NULL, hmacKeyLen);
-    uint8_t* key = new uint8_t[hmacKeyLen];
+    //stunCredential.GetKey(NULL, hmacKeyLen);
+    //uint8_t* key = new uint8_t[hmacKeyLen];
 
     // Now get the real key ...
-    stunCredential.GetKey(key, hmacKeyLen);
+    //stunCredential.GetKey(key, hmacKeyLen);
 
     ufrag = BytesToHexString(ufragBuf, sizeof(ufragBuf));
     pwd = BytesToHexString(pwdBuf, sizeof(pwdBuf));
