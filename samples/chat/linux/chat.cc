@@ -25,27 +25,28 @@
 #include <cassert>
 #include <cstdio>
 #include <cstdlib>
+#include <signal.h>
 
 using namespace ajn;
 
-/* constants */
+/* constants. */
 static const char* CHAT_SERVICE_INTERFACE_NAME = "org.alljoyn.bus.samples.chat";
 static const char* NAME_PREFIX = "org.alljoyn.bus.samples.chat.";
 static const char* CHAT_SERVICE_OBJECT_PATH = "/chatService";
 static const SessionPort CHAT_PORT = 27;
 
-/* forward declaration */
-class ChatObject;
-class MyBusListener;
-
-/* static data */
+/* static data. */
 static ajn::BusAttachment* s_bus = NULL;
-static ChatObject* s_chatObj = NULL;
-static MyBusListener* s_busListener = NULL;
 static qcc::String s_advertisedName;
 static qcc::String s_joinName;
 static SessionId s_sessionId = 0;
 static bool s_joinComplete = false;
+static volatile sig_atomic_t s_interrupt = false;
+
+static void SigIntHandler(int sig)
+{
+    s_interrupt = true;
+}
 
 /*
  * get a line of input from the the file pointer (most likely stdin).
@@ -71,7 +72,8 @@ char*get_line(char*str, size_t num, FILE*fp)
             str[last] = '\0';
         }
     }
-    return p;
+
+    return s_interrupt ? NULL : p;
 }
 
 /* Bus object */
@@ -165,21 +167,24 @@ class MyBusListener : public BusListener, public SessionPortListener, public Ses
     }
 };
 
+/* More static data. */
+static ChatObject* s_chatObj = NULL;
+static MyBusListener s_busListener;
 
 #ifdef __cplusplus
 extern "C" {
 #endif
 
-static void usage()
+/** Send usage information to stdout and exit with EXIT_FAILURE. */
+static void Usage()
 {
     printf("Usage: chat [-h] [-s <name>] | [-j <name>]\n");
-    exit(1);
+    exit(EXIT_FAILURE);
 }
 
-int main(int argc, char** argv)
+/** Parse the the command line arguments. If a problem occurs exit via Usage(). */
+static void ParseCommandLine(int argc, char** argv)
 {
-    QStatus status = ER_OK;
-
     /* Parse command line args */
     for (int i = 1; i < argc; ++i) {
         if (0 == ::strcmp("-s", argv[i])) {
@@ -188,7 +193,7 @@ int main(int argc, char** argv)
                 s_advertisedName += argv[i];
             } else {
                 printf("Missing parameter for \"-s\" option\n");
-                usage();
+                Usage();
             }
         } else if (0 == ::strcmp("-j", argv[i])) {
             if ((++i < argc) && (argv[i][0] != '-')) {
@@ -196,32 +201,37 @@ int main(int argc, char** argv)
                 s_joinName += argv[i];
             } else {
                 printf("Missing parameter for \"-j\" option\n");
-                usage();
+                Usage();
             }
         } else if (0 == ::strcmp("-h", argv[i])) {
-            usage();
+            Usage();
         } else {
             printf("Unknown argument \"%s\"\n", argv[i]);
-            usage();
+            Usage();
         }
     }
+}
 
+/** Validate the data obtained from the command line. If invalid exit via Usage(). */
+void ValidateCommandLine()
+{
     /* Validate command line */
     if (s_advertisedName.empty() && s_joinName.empty()) {
         printf("Must specify either -s or -j\n");
-        usage();
+        Usage();
     } else if (!s_advertisedName.empty() && !s_joinName.empty()) {
         printf("Cannot specify both -s  and -j\n");
-        usage();
+        Usage();
     }
+}
 
-    /* Create message bus */
-    BusAttachment* bus = new BusAttachment("chat", true);
-    s_bus = bus;
-
+/** Create the interface, report the result to stdout, and return the result status. */
+QStatus CreateInterface(void)
+{
     /* Create org.alljoyn.bus.samples.chat interface */
     InterfaceDescription* chatIntf = NULL;
-    status = bus->CreateInterface(CHAT_SERVICE_INTERFACE_NAME, chatIntf);
+    QStatus status = s_bus->CreateInterface(CHAT_SERVICE_INTERFACE_NAME, chatIntf);
+
     if (ER_OK == status) {
         chatIntf->AddSignal("Chat", "s",  "str", 0);
         chatIntf->Activate();
@@ -229,102 +239,240 @@ int main(int argc, char** argv)
         printf("Failed to create interface \"%s\" (%s)\n", CHAT_SERVICE_INTERFACE_NAME, QCC_StatusText(status));
     }
 
-    /* Create and register the bus object that will be used to send and receive signals */
-    ChatObject chatObj(*bus, CHAT_SERVICE_OBJECT_PATH);
-    bus->RegisterBusObject(chatObj);
-    s_chatObj = &chatObj;
+    return status;
+}
 
-    /* Start the msg bus */
+/** Start the message bus, report the result to stdout, and return the status code. */
+QStatus StartMessageBus(void)
+{
+    QStatus status = s_bus->Start();
+
     if (ER_OK == status) {
-        status = bus->Start();
-        if (ER_OK != status) {
-            printf("BusAttachment::Start failed (%s)\n", QCC_StatusText(status));
-        }
+        printf("BusAttachment started.\n");
+    } else {
+        printf("Start of BusAttachment failed (%s).\n", QCC_StatusText(status));
     }
 
-    /* Register a bus listener */
+    return status;
+}
+
+/** Register the bus object and connect, report the result to stdout, and return the status code. */
+QStatus RegisterBusObject(void)
+{
+    QStatus status = s_bus->RegisterBusObject(*s_chatObj);
+
     if (ER_OK == status) {
-        s_busListener = new MyBusListener();
-        s_bus->RegisterBusListener(*s_busListener);
+        printf("RegisterBusObject succeeded.\n");
+    } else {
+        printf("RegisterBusObject failed (%s).\n", QCC_StatusText(status));
     }
 
-    /* Get env vars */
-    const char* connectSpec = getenv("BUS_ADDRESS");
-    if (connectSpec == NULL) {
+    return status;
+}
+
+/** Connect to the daemon, report the result to stdout, and return the status code. */
+QStatus ConnectToDaemon(void)
+{
+    const char* connectArgs = getenv("BUS_ADDRESS");
+
+    if (connectArgs == NULL) {
 #ifdef _WIN32
-        connectSpec = "tcp:addr=127.0.0.1,port=9956";
+        connectArgs = "tcp:addr=127.0.0.1,port=9956";
 #else
-        connectSpec = "unix:abstract=alljoyn";
+        connectArgs = "unix:abstract=alljoyn";
 #endif
     }
 
-    /* Connect to the local daemon */
+    QStatus status = s_bus->Connect(connectArgs);
+
     if (ER_OK == status) {
-        status = s_bus->Connect(connectSpec);
-        if (ER_OK != status) {
-            printf("BusAttachment::Connect(%s) failed (%s)\n", connectSpec, QCC_StatusText(status));
+        printf("Connect to '%s' succeeded.\n", connectArgs);
+    } else {
+        printf("Failed to connect to '%s' (%s).\n", connectArgs, QCC_StatusText(status));
+    }
+
+    return status;
+}
+
+/** Request the service name, report the result to stdout, and return the status code. */
+QStatus RequestName(void)
+{
+    QStatus status = s_bus->RequestName(s_advertisedName.c_str(), DBUS_NAME_FLAG_DO_NOT_QUEUE);
+
+    if (ER_OK == status) {
+        printf("RequestName('%s') succeeded.\n", s_advertisedName.c_str());
+    } else {
+        printf("RequestName('%s') failed (status=%s).\n", s_advertisedName.c_str(), QCC_StatusText(status));
+    }
+
+    return status;
+}
+
+/** Create the session, report the result to stdout, and return the status code. */
+QStatus CreateSession(TransportMask mask)
+{
+    SessionOpts opts(SessionOpts::TRAFFIC_MESSAGES, true, SessionOpts::PROXIMITY_ANY, mask);
+    SessionPort sp = CHAT_PORT;
+    QStatus status = s_bus->BindSessionPort(sp, opts, s_busListener);
+
+    if (ER_OK == status) {
+        printf("BindSessionPort succeeded.\n");
+    } else {
+        printf("BindSessionPort failed (%s).\n", QCC_StatusText(status));
+    }
+
+    return status;
+}
+
+/** Advertise the service name, report the result to stdout, and return the status code. */
+QStatus AdvertiseName(TransportMask mask)
+{
+    QStatus status = s_bus->AdvertiseName(s_advertisedName.c_str(), mask);
+
+    if (ER_OK == status) {
+        printf("Advertisement of the service name '%s' succeeded.\n", s_advertisedName.c_str());
+    } else {
+        printf("Failed to advertise name '%s' (%s).\n", s_advertisedName.c_str(), QCC_StatusText(status));
+    }
+
+    return status;
+}
+
+/** Begin discovery on the well-known name of the service to be called, report the result to
+   stdout, and return the result status. */
+QStatus FindAdvertisedName(void)
+{
+    /* Begin discovery on the well-known name of the service to be called */
+    QStatus status = s_bus->FindAdvertisedName(s_joinName.c_str());
+
+    if (status == ER_OK) {
+        printf("org.alljoyn.Bus.FindAdvertisedName ('%s') succeeded.\n", s_joinName.c_str());
+    } else {
+        printf("org.alljoyn.Bus.FindAdvertisedName ('%s') failed (%s).\n", s_joinName.c_str(), QCC_StatusText(status));
+    }
+
+    return status;
+}
+
+/** Wait for join session to complete, report the event to stdout, and return the result status. */
+QStatus WaitForJoinSessionCompletion(void)
+{
+    unsigned int count = 0;
+
+    while (!s_joinComplete && !s_interrupt) {
+        if (0 == (count++ % 100)) {
+            printf("Waited %u seconds for JoinSession completion.\n", count / 100);
         }
+
+#ifdef _WIN32
+        Sleep(10);
+#else
+        usleep(10 * 1000);
+#endif
+    }
+
+    return s_joinComplete && !s_interrupt ? ER_OK : ER_ALLJOYN_JOINSESSION_REPLY_CONNECT_FAILED;
+}
+
+/** Take input from stdin and send it as a chat message, continue until an error or
+ * SIGINT occurs, return the result status. */
+QStatus DoTheChat(void)
+{
+    const int bufSize = 1024;
+    char buf[bufSize];
+    QStatus status = ER_OK;
+
+    while ((ER_OK == status) && (get_line(buf, bufSize, stdin))) {
+        status = s_chatObj->SendChatSignal(buf);
+    }
+
+    return status;
+}
+
+int main(int argc, char** argv)
+{
+    /* Install SIGINT handler. */
+    signal(SIGINT, SigIntHandler);
+
+    ParseCommandLine(argc, argv);
+    ValidateCommandLine();
+
+    QStatus status = ER_OK;
+
+    /* Create message bus */
+    s_bus = new BusAttachment("chat", true);
+
+    if (!s_bus) {
+        status = ER_OUT_OF_MEMORY;
+    }
+
+    if (ER_OK == status) {
+        status = CreateInterface();
+    }
+
+    if (ER_OK == status) {
+        s_bus->RegisterBusListener(s_busListener);
+    }
+
+    if (ER_OK == status) {
+        status = StartMessageBus();
+    }
+
+    /* Create the bus object that will be used to send and receive signals */
+    ChatObject chatObj(*s_bus, CHAT_SERVICE_OBJECT_PATH);
+
+    s_chatObj = &chatObj;
+
+    if (ER_OK == status) {
+        status = RegisterBusObject();
+    }
+
+    if (ER_OK == status) {
+        status = ConnectToDaemon();
     }
 
     /* Advertise or discover based on command line options */
     if (!s_advertisedName.empty()) {
-        /* Request name */
-        QStatus status = s_bus->RequestName(s_advertisedName.c_str(), DBUS_NAME_FLAG_DO_NOT_QUEUE);
-        if (ER_OK != status) {
-            printf("RequestName(%s) failed (status=%s)\n", s_advertisedName.c_str(), QCC_StatusText(status));
-            status = (status == ER_OK) ? ER_FAIL : status;
+        /*
+         * Advertise this service on the bus.
+         * There are three steps to advertising this service on the bus.
+         * 1) Request a well-known name that will be used by the client to discover
+         *    this service.
+         * 2) Create a session.
+         * 3) Advertise the well-known name.
+         */
+        if (ER_OK == status) {
+            status = RequestName();
         }
 
-        /* Bind the session port*/
-        SessionOpts opts(SessionOpts::TRAFFIC_MESSAGES, true, SessionOpts::PROXIMITY_ANY, TRANSPORT_ANY);
+        const TransportMask SERVICE_TRANSPORT_TYPE = TRANSPORT_ANY;
+
         if (ER_OK == status) {
-            SessionPort sp = CHAT_PORT;
-            status = s_bus->BindSessionPort(sp, opts, *s_busListener);
-            if (ER_OK != status) {
-                printf("BindSessionPort failed (%s)\n", QCC_StatusText(status));
-            }
+            status = CreateSession(SERVICE_TRANSPORT_TYPE);
         }
 
-        /* Advertise name */
         if (ER_OK == status) {
-            status = s_bus->AdvertiseName(s_advertisedName.c_str(), opts.transports);
-            if (status != ER_OK) {
-                printf("Failed to advertise name %s (%s)\n", s_advertisedName.c_str(), QCC_StatusText(status));
-            }
+            status = AdvertiseName(SERVICE_TRANSPORT_TYPE);
         }
     } else {
-        /* Discover name */
-        status = s_bus->FindAdvertisedName(s_joinName.c_str());
-        if (status != ER_OK) {
-            printf("org.alljoyn.Bus.FindAdvertisedName failed (%s)\n", QCC_StatusText(status));
+        if (ER_OK == status) {
+            status = FindAdvertisedName();
         }
 
-        /* Wait for join session to complete */
-        while (!s_joinComplete) {
-#ifdef _WIN32
-            Sleep(10);
-#else
-            usleep(10 * 1000);
-#endif
+        if (ER_OK == status) {
+            status = WaitForJoinSessionCompletion();
         }
     }
 
-    /* Take input from stdin and send it as a chat messages */
-    const int bufSize = 1024;
-    char buf[bufSize];
-    while ((ER_OK == status) && (get_line(buf, bufSize, stdin))) {
-        status = chatObj.SendChatSignal(buf);
+    if (ER_OK == status) {
+        status = DoTheChat();
     }
 
     /* Cleanup */
-    delete bus;
-    bus = NULL;
+    delete s_bus;
     s_bus = NULL;
 
-    if (NULL != s_busListener) {
-        delete s_busListener;
-        s_busListener = NULL;
-    }
+    printf("Chat exiting with status 0x%04x (%s).\n", status, QCC_StatusText(status));
 
     return (int) status;
 }
