@@ -8,12 +8,17 @@
    Version 2.0 (the "Apache License") except as noted below under Exceptions; 
    you may not use this software except in compliance with the Apache License.
 
+   On certain supported platforms building this software enables
+   incorporation of GCC RTE v3.1 header files and linking with the standard
+   C++ library which permits licensing under the AllJoyn or other licenses,
+   but only if an Eligible Compile Process is used as indicated in the RTE
+   language.
+
    Unless required by applicable law or agreed to in writing, software
    distributed under the Apache License is distributed on an "AS IS" BASIS,
    WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
    See the Apache License for the specific language governing permissions
    and limitations under the Apache License.
-
 
                                  Apache License
                            Version 2.0, January 2004
