@@ -852,7 +852,7 @@ void DiscoveryManager::ComposeProximityMessage(ProximityMessage& message)
 
     /* Get the current Proximity information */
     if (ProximityScanner) {
-        *proximityMsg = ProximityScanner->GetScanResults(currentBSSIDList, currentBTMACList);
+        message = ProximityScanner->GetScanResults(currentBSSIDList, currentBTMACList);
     }
 #else
     message = proximity[currentProximityIndex];
