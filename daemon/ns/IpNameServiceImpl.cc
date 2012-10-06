@@ -1179,21 +1179,21 @@ QStatus IpNameServiceImpl::Locate(const qcc::String& wkn, LocatePolicy policy)
 
         //
         // We understand all messages from version zero to version one, but we
-        // are sending a version zero message;
+        // are sending a version zero message.  The whole point of sending a
+        // version zero message is that can be understood by down-level code
+        // so we can't use the new versioning scheme.  We have to use some
+        // sneaky way to tell an in-the know version one client that the
+        // packet is from a version one client and that is through the setting
+        // of the UDP flag.
         //
-        whoHas.SetVersion(1, 0);
-
+        whoHas.SetVersion(0, 0);
         whoHas.SetTcpFlag(true);
+        whoHas.SetUdpFlag(true);
         whoHas.SetIPv4Flag(true);
         whoHas.AddName(wkn);
 
-        //
-        // We understand all messages from version zero to version one, but we
-        // are sending a version zero message;
-        //
-        whoHas.SetVersion(1, 0);
-
         Header header;
+        whoHas.SetVersion(0, 0);
         header.SetTimer(m_tDuration);
         header.AddQuestion(whoHas);
 
@@ -1356,10 +1356,14 @@ QStatus IpNameServiceImpl::AdvertiseName(TransportMask transportMask, vector<qcc
 
         //
         // We understand all messages from version zero to version one, and we
-        // are sending a version zero message;
+        // are sending a version zero message.  The whole point of sending a
+        // version zero message is that can be understood by down-level code
+        // so we can't use the new versioning scheme.  We have to use some
+        // sneaky way to tell an in-the know version one client that the
+        // packet is from a version one client and that is through the setting
+        // of the UDP flag.
         //
-        isAt.SetVersion(1, 0);
-
+        isAt.SetVersion(0, 0);
         isAt.SetTcpFlag(true);
         isAt.SetUdpFlag(false);
 
@@ -1394,7 +1398,7 @@ QStatus IpNameServiceImpl::AdvertiseName(TransportMask transportMask, vector<qcc
         // the advertisements for that number of seconds.
         //
         Header header;
-        header.SetVersion(1, 0);
+        header.SetVersion(0, 0);
         header.SetTimer(m_tDuration);
         header.AddAnswer(isAt);
 
@@ -1602,12 +1606,16 @@ QStatus IpNameServiceImpl::CancelAdvertiseName(TransportMask transportMask, vect
 
         //
         // We understand all messages from version zero to version one, and we
-        // are sending a version zero message;
+        // are sending a version zero message.  The whole point of sending a
+        // version zero message is that can be understood by down-level code
+        // so we can't use the new versioning scheme.  We have to use some
+        // sneaky way to tell an in-the know version one client that the
+        // packet is from a version one client and that is through the setting
+        // of the UDP flag.
         //
-        isAt.SetVersion(1, 0);
-
+        isAt.SetVersion(0, 0);
         isAt.SetTcpFlag(true);
-        isAt.SetUdpFlag(false);
+        isAt.SetUdpFlag(true);
 
         //
         // Always send the provided daemon GUID out with the reponse.
@@ -1642,7 +1650,7 @@ QStatus IpNameServiceImpl::CancelAdvertiseName(TransportMask transportMask, vect
         // zero of the protocol.
         //
         Header header;
-        header.SetVersion(1, 0);
+        header.SetVersion(0, 0);
 
         //
         // We want to signal that everyone can forget about these names
@@ -2090,9 +2098,9 @@ void IpNameServiceImpl::SendOutboundMessages(void)
                         // We're modifying the answsers in-place so clear any
                         // state we might have added on the last iteration.
                         //
-                        isAt->SetVersion(1, 0);
+                        isAt->SetVersion(0, 0);
                         isAt->SetTcpFlag(true);
-                        isAt->SetUdpFlag(false);
+                        isAt->SetUdpFlag(true);
                         isAt->ClearIPv4();
                         isAt->ClearIPv6();
 
@@ -2551,9 +2559,14 @@ void IpNameServiceImpl::Retransmit(bool exiting)
 
         //
         // We understand all messages from version zero to version one, and we
-        // are sending a version zero message;
+        // are sending a version zero message.  The whole point of sending a
+        // version zero message is that can be understood by down-level code
+        // so we can't use the new versioning scheme.  We have to use some
+        // sneaky way to tell an in-the know version one client that the
+        // packet is from a version one client and that is through the setting
+        // of the UDP flag.
         //
-        header.SetVersion(1, 0);
+        header.SetVersion(0, 0);
 
         header.SetTimer(exiting ? 0 : m_tDuration);
 
@@ -2565,7 +2578,7 @@ void IpNameServiceImpl::Retransmit(bool exiting)
         IsAt isAt;
         isAt.SetCompleteFlag(false);
         isAt.SetTcpFlag(true);
-        isAt.SetUdpFlag(false);
+        isAt.SetUdpFlag(true);
         isAt.SetGuid(m_guid);
         isAt.SetPort(m_port);
 
@@ -2928,9 +2941,11 @@ void IpNameServiceImpl::HandleProtocolAnswer(IsAt isAt, uint32_t timer, qcc::IPA
     //
     uint32_t nsVersion, msgVersion;
     isAt.GetVersion(nsVersion, msgVersion);
-    if (nsVersion == 1 && msgVersion == 0) {
-        QCC_DbgPrintf(("IpNameServiceImpl::HandleProtocolAnswer(): Ignoring version zero message from version one peer"));
-        return;
+    if (nsVersion == 0 && msgVersion == 0) {
+        if (isAt.GetUdpFlag()) {
+            QCC_DbgPrintf(("IpNameServiceImpl::HandleProtocolAnswer(): Ignoring version zero message from version one peer"));
+            return;
+        }
     }
 
     vector<qcc::String> wkn;
