@@ -1365,7 +1365,7 @@ QStatus IpNameServiceImpl::AdvertiseName(TransportMask transportMask, vector<qcc
         //
         isAt.SetVersion(0, 0);
         isAt.SetTcpFlag(true);
-        isAt.SetUdpFlag(false);
+        isAt.SetUdpFlag(true);
 
         //
         // Always send the provided daemon GUID out with the reponse.
