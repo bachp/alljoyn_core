@@ -1176,13 +1176,24 @@ QStatus IpNameServiceImpl::Locate(const qcc::String& wkn, LocatePolicy policy)
     //
     {
         WhoHas whoHas;
-        whoHas.SetVersion(0);
+
+        //
+        // We understand all messages from version zero to version one, but we
+        // are sending a version zero message;
+        //
+        whoHas.SetVersion(1, 0);
+
         whoHas.SetTcpFlag(true);
         whoHas.SetIPv4Flag(true);
         whoHas.AddName(wkn);
 
+        //
+        // We understand all messages from version zero to version one, but we
+        // are sending a version zero message;
+        //
+        whoHas.SetVersion(1, 0);
+
         Header header;
-        header.SetVersion(0);
         header.SetTimer(m_tDuration);
         header.AddQuestion(whoHas);
 
@@ -1205,11 +1216,17 @@ QStatus IpNameServiceImpl::Locate(const qcc::String& wkn, LocatePolicy policy)
     //
     {
         WhoHas whoHas;
-        whoHas.SetVersion(1);
+
+        //
+        // We understand all messages from version zero to version one, and we
+        // are sending a version one message;
+        //
+        whoHas.SetVersion(1, 1);
+
         whoHas.AddName(wkn);
 
         Header header;
-        header.SetVersion(1);
+        header.SetVersion(1, 1);
         header.SetTimer(m_tDuration);
         header.AddQuestion(whoHas);
 
@@ -1336,7 +1353,13 @@ QStatus IpNameServiceImpl::AdvertiseName(TransportMask transportMask, vector<qcc
         // exposed to the user unneccesarily.
         //
         IsAt isAt;
-        isAt.SetVersion(0);
+
+        //
+        // We understand all messages from version zero to version one, and we
+        // are sending a version zero message;
+        //
+        isAt.SetVersion(1, 0);
+
         isAt.SetTcpFlag(true);
         isAt.SetUdpFlag(false);
 
@@ -1371,7 +1394,7 @@ QStatus IpNameServiceImpl::AdvertiseName(TransportMask transportMask, vector<qcc
         // the advertisements for that number of seconds.
         //
         Header header;
-        header.SetVersion(0);
+        header.SetVersion(1, 0);
         header.SetTimer(m_tDuration);
         header.AddAnswer(isAt);
 
@@ -1411,7 +1434,13 @@ QStatus IpNameServiceImpl::AdvertiseName(TransportMask transportMask, vector<qcc
     //
     {
         IsAt isAt;
-        isAt.SetVersion(1);
+
+        //
+        // We understand all messages from version zero to version one, and we
+        // are sending a version one message;
+        //
+        isAt.SetVersion(1, 1);
+
         isAt.SetTransportMask(transportMask);
 
         //
@@ -1456,7 +1485,7 @@ QStatus IpNameServiceImpl::AdvertiseName(TransportMask transportMask, vector<qcc
         // the advertisements for that number of seconds.
         //
         Header header;
-        header.SetVersion(1);
+        header.SetVersion(1, 1);
         header.SetTimer(m_tDuration);
         header.AddAnswer(isAt);
 
@@ -1570,7 +1599,13 @@ QStatus IpNameServiceImpl::CancelAdvertiseName(TransportMask transportMask, vect
         // This code assumes that the daemon talks over TCP.  True for now.
         //
         IsAt isAt;
-        isAt.SetVersion(0);
+
+        //
+        // We understand all messages from version zero to version one, and we
+        // are sending a version zero message;
+        //
+        isAt.SetVersion(1, 0);
+
         isAt.SetTcpFlag(true);
         isAt.SetUdpFlag(false);
 
@@ -1607,7 +1642,7 @@ QStatus IpNameServiceImpl::CancelAdvertiseName(TransportMask transportMask, vect
         // zero of the protocol.
         //
         Header header;
-        header.SetVersion(0);
+        header.SetVersion(1, 0);
 
         //
         // We want to signal that everyone can forget about these names
@@ -1631,7 +1666,12 @@ QStatus IpNameServiceImpl::CancelAdvertiseName(TransportMask transportMask, vect
         // been asked to withdraw.
         //
         IsAt isAt;
-        isAt.SetVersion(1);
+
+        //
+        // We understand all messages from version zero to version one, and we
+        // are sending a version one message;
+        //
+        isAt.SetVersion(1, 1);
 
         //
         // Version one allows us to provide four possible endpoints.
@@ -1677,7 +1717,7 @@ QStatus IpNameServiceImpl::CancelAdvertiseName(TransportMask transportMask, vect
         // one of the protocol.
         //
         Header header;
-        header.SetVersion(1);
+        header.SetVersion(1, 1);
 
         //
         // We want to signal that everyone can forget about these names
@@ -2041,14 +2081,16 @@ void IpNameServiceImpl::SendOutboundMessages(void)
                     // if we have one of those, do the version-zero specific
                     // changes.
                     //
-                    if (header.GetVersion() == 0) {
+                    uint32_t nsVersion, msgVersion;
+                    header.GetVersion(nsVersion, msgVersion);
+                    if (msgVersion == 0) {
                         QCC_DbgPrintf(("IpNameServiceImpl::SendOutboundMessages(): Answer %d. gets version zero", j));
 
                         //
                         // We're modifying the answsers in-place so clear any
                         // state we might have added on the last iteration.
                         //
-                        isAt->SetVersion(0);
+                        isAt->SetVersion(1, 0);
                         isAt->SetTcpFlag(true);
                         isAt->SetUdpFlag(false);
                         isAt->ClearIPv4();
@@ -2069,16 +2111,17 @@ void IpNameServiceImpl::SendOutboundMessages(void)
 
                     //
                     // Check for version one in the header and if we have one of
-                    // those, do the version-zero specific changes.
+                    // those, do the version-one specific changes.
                     //
-                    if (header.GetVersion() == 1) {
+                    header.GetVersion(nsVersion, msgVersion);
+                    if (msgVersion == 1) {
                         QCC_DbgPrintf(("IpNameServiceImpl::SendOutboundMessages(): Answer %d. gets version one", j));
 
                         //
                         // We're modifying the answsers in-place so clear any
                         // state we might have added on the last iteration.
                         //
-                        isAt->SetVersion(1);
+                        isAt->SetVersion(1, 1);
 
                         //
                         // XXX This is bogus.
@@ -2505,12 +2548,19 @@ void IpNameServiceImpl::Retransmit(bool exiting)
         // set the timer to zero, which means that the name is no longer valid.
         //
         Header header;
-        header.SetVersion(0);
+
+        //
+        // We understand all messages from version zero to version one, and we
+        // are sending a version zero message;
+        //
+        header.SetVersion(1, 0);
+
         header.SetTimer(exiting ? 0 : m_tDuration);
 
         //
         // The underlying protocol is capable of identifying both TCP and UDP
-        // services.  Right now, the only possibility is TCP.
+        // services.  Right now, the only possibility is TCP.  See the comment in
+        // AdvertiseName for why we set the UDP flag.
         //
         IsAt isAt;
         isAt.SetCompleteFlag(false);
@@ -2624,7 +2674,13 @@ void IpNameServiceImpl::Retransmit(bool exiting)
         // set the timer to zero, which means that the name is no longer valid.
         //
         Header header;
-        header.SetVersion(1);
+
+        //
+        // We understand all messages from version zero to version one, and we
+        // are sending a version one message;
+        //
+        header.SetVersion(1, 1);
+
         header.SetTimer(exiting ? 0 : m_tDuration);
 
         //
@@ -2632,7 +2688,13 @@ void IpNameServiceImpl::Retransmit(bool exiting)
         // services.  Right now, the only possibility is TCP.
         //
         IsAt isAt;
-        isAt.SetVersion(1);
+
+        //
+        // We understand all messages from version zero to version one, and we
+        // are sending a version one message;
+        //
+        isAt.SetVersion(1, 1);
+
         isAt.SetCompleteFlag(false);
 
         //
@@ -2853,14 +2915,28 @@ void IpNameServiceImpl::HandleProtocolAnswer(IsAt isAt, uint32_t timer, qcc::IPA
     // going on the net, so it's pointless to go any further.
     //
     if (m_callback == 0) {
-        QCC_DbgHLPrintf(("IpNameServiceImpl::HandleProtocolAnswer(): No callback, so nothing to do"));
+        QCC_DbgPrintf(("IpNameServiceImpl::HandleProtocolAnswer(): No callback, so nothing to do"));
+        return;
+    }
+
+    //
+    // For version zero messages from version one transports, we need to
+    // disregard the name service messages sent out in compatibility mode
+    // (version zero messages).  We know that a version one name service will be
+    // following up with a version one packet, so a version zero compatibility
+    // message provides incomplete information -- we drop such messages here.
+    //
+    uint32_t nsVersion, msgVersion;
+    isAt.GetVersion(nsVersion, msgVersion);
+    if (nsVersion == 1 && msgVersion == 0) {
+        QCC_DbgPrintf(("IpNameServiceImpl::HandleProtocolAnswer(): Ignoring version zero message from version one peer"));
         return;
     }
 
     vector<qcc::String> wkn;
 
     for (uint8_t i = 0; i < isAt.GetNumberNames(); ++i) {
-        QCC_DbgHLPrintf(("IpNameServiceImpl::HandleProtocolAnswer(): Got well-known name %s", isAt.GetName(i).c_str()));
+        QCC_DbgPrintf(("IpNameServiceImpl::HandleProtocolAnswer(): Got well-known name %s", isAt.GetName(i).c_str()));
         wkn.push_back(isAt.GetName(i));
     }
 
@@ -2871,7 +2947,7 @@ void IpNameServiceImpl::HandleProtocolAnswer(IsAt isAt, uint32_t timer, qcc::IPA
     sort(wkn.begin(), wkn.end());
 
     qcc::String guid = isAt.GetGuid();
-    QCC_DbgHLPrintf(("IpNameServiceImpl::HandleProtocolAnswer(): Got GUID %s", guid.c_str()));
+    QCC_DbgPrintf(("IpNameServiceImpl::HandleProtocolAnswer(): Got GUID %s", guid.c_str()));
 
     //
     // How we infer addresses is different between version zero of the protocol
@@ -2881,7 +2957,8 @@ void IpNameServiceImpl::HandleProtocolAnswer(IsAt isAt, uint32_t timer, qcc::IPA
     // do not do this in version one messages.  The advertised addresses must
     // always be present in the message.
     //
-    if (isAt.GetVersion() == 0) {
+    isAt.GetVersion(nsVersion, msgVersion);
+    if (msgVersion == 0) {
         //
         // We always get an address from the system since we got the message
         // over a call to recvfrom().  This will either be an IPv4 or an IPv6
@@ -2912,20 +2989,20 @@ void IpNameServiceImpl::HandleProtocolAnswer(IsAt isAt, uint32_t timer, qcc::IPA
         qcc::String recvfromAddress, ipv4address, ipv6address;
 
         recvfromAddress = address.ToString();
-        QCC_DbgHLPrintf(("IpNameServiceImpl::HandleProtocolAnswer(): Got IP %s from recvfrom", recvfromAddress.c_str()));
+        QCC_DbgPrintf(("IpNameServiceImpl::HandleProtocolAnswer(): Got IP %s from recvfrom", recvfromAddress.c_str()));
 
         if (isAt.GetIPv4Flag()) {
             ipv4address = isAt.GetIPv4();
-            QCC_DbgHLPrintf(("IpNameServiceImpl::HandleProtocolAnswer(): Got IPv4 %s from message", ipv4address.c_str()));
+            QCC_DbgPrintf(("IpNameServiceImpl::HandleProtocolAnswer(): Got IPv4 %s from message", ipv4address.c_str()));
         }
 
         if (isAt.GetIPv6Flag()) {
             ipv6address = isAt.GetIPv6();
-            QCC_DbgHLPrintf(("IpNameServiceImpl::HandleProtocolAnswer(): Got IPv6 %s from message", ipv6address.c_str()));
+            QCC_DbgPrintf(("IpNameServiceImpl::HandleProtocolAnswer(): Got IPv6 %s from message", ipv6address.c_str()));
         }
 
         uint16_t port = isAt.GetPort();
-        QCC_DbgHLPrintf(("IpNameServiceImpl::HandleProtocolAnswer(): Got port %d from message", port));
+        QCC_DbgPrintf(("IpNameServiceImpl::HandleProtocolAnswer(): Got port %d from message", port));
 
         //
         //
@@ -2952,7 +3029,7 @@ void IpNameServiceImpl::HandleProtocolAnswer(IsAt isAt, uint32_t timer, qcc::IPA
         //
         if ((address.IsIPv4() && !ipv4address.size())) {
             snprintf(addrbuf, sizeof(addrbuf), "r4addr=%s,r4port=%d", recvfromAddress.c_str(), port);
-            QCC_DbgHLPrintf(("IpNameServiceImpl::HandleProtocolAnswer(): Calling back with %s", addrbuf));
+            QCC_DbgPrintf(("IpNameServiceImpl::HandleProtocolAnswer(): Calling back with %s", addrbuf));
             qcc::String busAddress(addrbuf);
 
             if (m_callback) {
@@ -2966,7 +3043,7 @@ void IpNameServiceImpl::HandleProtocolAnswer(IsAt isAt, uint32_t timer, qcc::IPA
         //
         if (ipv4address.size()) {
             snprintf(addrbuf, sizeof(addrbuf), "r4addr=%s,r4port=%d", ipv4address.c_str(), port);
-            QCC_DbgHLPrintf(("IpNameServiceImpl::HandleProtocolAnswer(): Calling back with %s", addrbuf));
+            QCC_DbgPrintf(("IpNameServiceImpl::HandleProtocolAnswer(): Calling back with %s", addrbuf));
             qcc::String busAddress(addrbuf);
 
             if (m_callback) {
@@ -2987,7 +3064,7 @@ void IpNameServiceImpl::HandleProtocolAnswer(IsAt isAt, uint32_t timer, qcc::IPA
                 (*m_callback)(busAddress, guid, wkn, timer);
             }
         }
-    } else if (isAt.GetVersion() == 1) {
+    } else if (msgVersion == 1) {
         //
         // In the version one protocol, the maximum size static buffer for the
         // longest bus address we can generate corresponds to two fully occupied
@@ -3103,7 +3180,9 @@ void IpNameServiceImpl::HandleProtocolMessage(uint8_t const* buffer, uint32_t nb
     //
     // We only understand version zero and one messages.
     //
-    if (header.GetVersion() != 0 && header.GetVersion() != 1) {
+    uint32_t nsVersion, msgVersion;
+    header.GetVersion(nsVersion, msgVersion);
+    if (msgVersion != 0 && msgVersion != 1) {
         QCC_DbgPrintf(("IpNameServiceImpl::HandleProtocolMessage(): Unknown version: Error"));
         return;
     }
@@ -3127,10 +3206,13 @@ void IpNameServiceImpl::HandleProtocolMessage(uint8_t const* buffer, uint32_t nb
     for (uint8_t i = 0; i < header.GetNumberAnswers(); ++i) {
         IsAt isAt = header.GetAnswer(i);
         //
-        // The version isn't actually carried in the is-at message, we have to
-        // set it from the header version before passing it off.
+        // The version isn't actually carried in the is-at message since that
+        // would be redundant, so we have to set it from the header version
+        // before passing it off.
         //
-        isAt.SetVersion(header.GetVersion());
+        uint32_t nsVersion, msgVersion;
+        header.GetVersion(nsVersion, msgVersion);
+        isAt.SetVersion(nsVersion, msgVersion);
         if (m_loopback || (isAt.GetGuid() != m_guid)) {
             HandleProtocolAnswer(isAt, header.GetTimer(), address);
         }

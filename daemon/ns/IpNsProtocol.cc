@@ -298,7 +298,12 @@ size_t IsAt::GetSerializedSize(void) const
 {
     size_t size;
 
-    switch (m_version) {
+    //
+    // The message version is in the least significant nibble of the version.
+    // We don't care about the peer name service protocol version which is
+    // meta-data about the other side and is in the most significant nibble.
+    //
+    switch (m_version & 0xf) {
     case 0:
         //
         // We have one octet for type and flags, one octet for count and
@@ -418,7 +423,12 @@ size_t IsAt::Serialize(uint8_t* buffer) const
     uint8_t typeAndFlags;
     uint8_t* p = NULL;
 
-    switch (m_version) {
+    //
+    // The message version is in the least significant nibble of the version.
+    // We don't care about the peer name service protocol version which is
+    // meta-data about the other side and is in the most significant nibble.
+    //
+    switch (m_version & 0xf) {
     case 0:
         //
         // The first octet is type (M = 1) and flags.
@@ -686,7 +696,12 @@ size_t IsAt::Deserialize(uint8_t const* buffer, uint32_t bufsize)
     uint8_t const* p = NULL;
     uint8_t numberNames = 0;
 
-    switch (m_version) {
+    //
+    // The message version is in the least significant nibble of the version.
+    // We don't care about the peer name service protocol version which is
+    // meta-data about the other side and is in the most significant nibble.
+    //
+    switch (m_version & 0xf) {
     case 0:
         //
         // If there's not enough room in the buffer to get the fixed part out then
@@ -1080,7 +1095,12 @@ size_t WhoHas::GetSerializedSize(void) const
     //
     size_t size = 0;
 
-    switch (m_version) {
+    //
+    // The message version is in the least significant nibble of the version.
+    // We don't care about the peer name service protocol version which is
+    // meta-data about the other side and is in the most significant nibble.
+    //
+    switch (m_version & 0xf) {
     case 0:
     case 1:
         //
@@ -1126,9 +1146,13 @@ size_t WhoHas::Serialize(uint8_t* buffer) const
     //
     // The only difference between version zero and one is that in version one
     // the flags are deprecated and revert to reserved.  So we just don't
-    // serialize them if we are doing a version one object.
+    // serialize them if we are writing a version one object.
     //
-    if (m_version == 0) {
+    // The message version is in the least significant nibble of the version.
+    // We don't care about the peer name service protocol version which is
+    // meta-data about the other side and is in the most significant nibble.
+    //
+    if ((m_version & 0xf) == 0) {
         if (m_flagT) {
             QCC_DbgPrintf(("WhoHas::Serialize(): T flag"));
             typeAndFlags |= 0x8;
@@ -1217,7 +1241,11 @@ size_t WhoHas::Deserialize(uint8_t const* buffer, uint32_t bufsize)
     // is that the flags are deprecated in version one.  In the case of
     // deserializing a version one object, we just don't set the old flags.
     //
-    switch (m_version) {
+    // The message version is in the least significant nibble of the version.
+    // We don't care about the peer name service protocol version which is
+    // meta-data about the other side and is in the most significant nibble.
+    //
+    switch (m_version & 0xf) {
     case 0:
         m_flagT = (typeAndFlags & 0x8) != 0;
         QCC_DbgPrintf(("WhoHas::Deserialize(): T flag %d", m_flagT));
@@ -1288,16 +1316,6 @@ Header::Header()
 
 Header::~Header()
 {
-}
-
-void Header::SetVersion(uint8_t version)
-{
-    m_version = version;
-}
-
-uint8_t Header::GetVersion(void) const
-{
-    return m_version;
 }
 
 void Header::SetTimer(uint8_t timer)
@@ -1475,15 +1493,24 @@ size_t Header::Deserialize(uint8_t const* buffer, uint32_t bufsize)
     size_t size = 0;
 
     //
-    // The first octet is version.  If we get a bogus version, there's not much
-    // more we can do.  If we propagate a bogus version on down into any who-has
-    // or is-at sections, they will assert since passing down a bad version is
-    // a programming error here.
+    // The first octet is version.  We need to filter out bogus versions here
+    // since we are going to promptly set this version in the included who-has
+    // and is-at messages and they will assert that the versions we set actually
+    // make sense.
     //
-    if (buffer[0] != 0) {
-        QCC_DbgPrintf(("Header::Deserialize(): Unrecognized version %d", buffer[0]));
+    uint8_t nsVersion, msgVersion;
+    nsVersion = buffer[0] >> 4;
+    msgVersion = buffer[0] & 0xf;
+    if (nsVersion != 0 && nsVersion != 1) {
+        QCC_DbgPrintf(("Header::Deserialize(): Bad remote name service version %d", nsVersion));
         return 0;
     }
+
+    if (msgVersion != 0 && msgVersion != 1) {
+        QCC_DbgPrintf(("Header::Deserialize(): Bad message version %d", msgVersion));
+        return 0;
+    }
+
     m_version = buffer[0];
     size += 1;
 
@@ -1518,7 +1545,7 @@ size_t Header::Deserialize(uint8_t const* buffer, uint32_t bufsize)
     for (uint8_t i = 0; i < qCount; ++i) {
         QCC_DbgPrintf(("Header::Deserialize(): WhoHas::Deserialize() question %d", i));
         WhoHas whoHas;
-        whoHas.SetVersion(m_version);
+        whoHas.SetVersion(m_version >> 4, m_version & 0xf);
 
         //
         // Tell the question to read itself out.  If there's not enough buffer
@@ -1542,7 +1569,7 @@ size_t Header::Deserialize(uint8_t const* buffer, uint32_t bufsize)
     for (uint8_t i = 0; i < aCount; ++i) {
         QCC_DbgPrintf(("Header::Deserialize(): IsAt::Deserialize() answer %d", i));
         IsAt isAt;
-        isAt.SetVersion(m_version);
+        isAt.SetVersion(m_version >> 4, m_version & 0xf);
 
         //
         // Tell the answer to read itself out.  If there's not enough buffer

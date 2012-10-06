@@ -577,9 +577,28 @@ class IsAt : public ProtocolElement {
      * @internal
      * @brief Set the wire protocol version that the object will use.
      *
-     * The name service protocol is versioned. This tells the object which version
-     * of the wire protocol to use when serializing the bits and which version to
-     * expect when deserializing the bits.
+     * The name service protocol is versioned.  For backward compatibility, we
+     * need to be able to get down-version messages to "old" daemons and current
+     * version messages to "new" daemons.  The first thing to observe is that,
+     * like most protocols, the wire protocol is versioned, not extensible.
+     * This means that in order to support multiple versions, we will need to
+     * send multiple messages.  This introduces ambiguitiy in the receiver of
+     * the messages since it cannot know whether or not "new" messages will
+     * appear after 'old" ones.  To resolve this ambiguity, the wire protocol
+     * version is constructed of two versions:  a message version and a sender
+     * protocol version.
+     *
+     * If a new version of the protocol is defined, new senders will be modified
+     * to generate the new version, and new receivers will be able to receive
+     * new messages.  The message version tells a receiver what the absolute
+     * format of the current message is; and the sender protocol version
+     * provides a context shared between the sender and the receiver that can
+     * indicate more, or better, information may be forthcoming.
+     *
+     * The message version tells "this" object which version of the wire
+     * protocol to use when serializing the bits and which version to expect
+     * when deserializing the bits.  The sender protocol version is meta-data
+     * for higher level code.
      *
      * The version is found in the Header, so we will know for sure what version
      * the overall packet will take.  Objects of class IsAt support all versions
@@ -591,19 +610,21 @@ class IsAt : public ProtocolElement {
      * It is up to higher levels to understand the contextual implications, if any,
      * of writing or reading down-version packets.
      *
-     * @param version The version  (0 .. 255) of the protocol.
+     * @param nsVersion The version  (0 .. 16) of the sender's latest implemented protocol.
+     * @param msgVersion The version  (0 .. 16) of the actual message.
      */
-    void SetVersion(uint8_t version) { m_version = version; }
+    void SetVersion(uint32_t nsVersion, uint32_t msgVersion) { m_version = nsVersion << 4 | msgVersion; }
 
     /**
      * @internal
      * @brief Get the wire protocol version that the object will use.
      *
-     * @return The version  (0 .. 255) of the protocol.
+     * @param nsVersion Gets the version  (0 .. 16) of the sender's latest implemented protocol.
+     * @param msgVersion Gets the version  (0 .. 16) of the actual message.
      *
      * @see SetVersion()
      */
-    uint8_t GetVersion() { return m_version; }
+    void GetVersion(uint32_t& nsVersion, uint32_t& msgVersion) { nsVersion = m_version >> 4; msgVersion = m_version & 0xf; }
 
     /**
      * @internal
@@ -1276,33 +1297,54 @@ class WhoHas : public ProtocolElement {
      * @internal
      * @brief Set the wire protocol version that the object will use.
      *
-     * The name service protocol is versioned. This tells the object which version
-     * of the wire protocol to use when serializing the bits and which version to
-     * expect when deserializing the bits.
+     * The name service protocol is versioned.  For backward compatibility, we
+     * need to be able to get down-version messages to "old" daemons and current
+     * version messages to "new" daemons.  The first thing to observe is that,
+     * like most protocols, the wire protocol is versioned, not extensible.
+     * This means that in order to support multiple versions, we will need to
+     * send multiple messages.  This introduces ambiguitiy in the receiver of
+     * the messages since it cannot know whether or not "new" messages will
+     * appear after 'old" ones.  To resolve this ambiguity, the wire protocol
+     * version is constructed of two versions:  a message version and a sender
+     * protocol version.
+     *
+     * If a new version of the protocol is defined, new senders will be modified
+     * to generate the new version, and new receivers will be able to receive
+     * new messages.  The message version tells a receiver what the absolute
+     * format of the current message is; and the sender protocol version
+     * provides a context shared between the sender and the receiver that can
+     * indicate more, or better, information may be forthcoming.
+     *
+     * The message version tells "this" object which version of the wire
+     * protocol to use when serializing the bits and which version to expect
+     * when deserializing the bits.  The sender protocol version is meta-data
+     * for higher level code.
      *
      * The version is found in the Header, so we will know for sure what version
-     * the overall packet will take.  Objects of class WhoHas support all
-     * versions known at the time of compilation.  If the version of the wire
-     * protocol read does not provide a value for a given field, a default value
-     * will be provided.  Objects of class WhoHas can support writing
-     * down-version packets for compatibility.
+     * the overall packet will take.  Objects of class IsAt support all versions
+     * known at the time of compilation.  If the version of the wire protocol
+     * read does not provide a value for a given field, a default value will be
+     * provided.  Objects of class IsAt can support writing down-version packets
+     * for compatibility.
      *
      * It is up to higher levels to understand the contextual implications, if any,
      * of writing or reading down-version packets.
      *
-     * @param version The version  (0 .. 255) of the protocol.
+     * @param nsVersion The version  (0 .. 16) of the sender's latest implemented protocol.
+     * @param msgVersion The version  (0 .. 16) of the actual message.
      */
-    void SetVersion(uint8_t version) { m_version = version; }
+    void SetVersion(uint32_t nsVersion, uint32_t msgVersion) { m_version = nsVersion << 4 | msgVersion; }
 
     /**
      * @internal
-     * @brief Set the wire protocol version that the object will use.
+     * @brief Get the wire protocol version that the object will use.
      *
-     * @return version The version  (0 .. 255) of the protocol.
+     * @param nsVersion Gets the version  (0 .. 16) of the sender's latest implemented protocol.
+     * @param msgVersion Gets the version  (0 .. 16) of the actual message.
      *
      * @see SetVersion()
      */
-    uint8_t GetVersion() { return m_version; }
+    void GetVersion(uint32_t& nsVersion, uint32_t& msgVersion) { nsVersion = m_version >> 4; msgVersion = m_version & 0xf; }
 
     /**
      * @internal
@@ -1551,19 +1593,56 @@ class Header : public ProtocolElement {
 
     /**
      * @internal
-     * @brief Set the version of the protocol message.
+     * @brief Set the wire protocol version that the object will use.
      *
-     * @param version The version  (0 .. 255) of the protocol.
+     * The name service protocol is versioned.  For backward compatibility, we
+     * need to be able to get down-version messages to "old" daemons and current
+     * version messages to "new" daemons.  The first thing to observe is that,
+     * like most protocols, the wire protocol is versioned, not extensible.
+     * This means that in order to support multiple versions, we will need to
+     * send multiple messages.  This introduces ambiguitiy in the receiver of
+     * the messages since it cannot know whether or not "new" messages will
+     * appear after 'old" ones.  To resolve this ambiguity, the wire protocol
+     * version is constructed of two versions:  a message version and a sender
+     * protocol version.
+     *
+     * If a new version of the protocol is defined, new senders will be modified
+     * to generate the new version, and new receivers will be able to receive
+     * new messages.  The message version tells a receiver what the absolute
+     * format of the current message is; and the sender protocol version
+     * provides a context shared between the sender and the receiver that can
+     * indicate more, or better, information may be forthcoming.
+     *
+     * The message version tells "this" object which version of the wire
+     * protocol to use when serializing the bits and which version to expect
+     * when deserializing the bits.  The sender protocol version is meta-data
+     * for higher level code.
+     *
+     * The version is found in the Header, so we will know for sure what version
+     * the overall packet will take.  Objects of class IsAt support all versions
+     * known at the time of compilation.  If the version of the wire protocol
+     * read does not provide a value for a given field, a default value will be
+     * provided.  Objects of class IsAt can support writing down-version packets
+     * for compatibility.
+     *
+     * It is up to higher levels to understand the contextual implications, if any,
+     * of writing or reading down-version packets.
+     *
+     * @param nsVersion The version  (0 .. 16) of the sender's latest implemented protocol.
+     * @param msgVersion The version  (0 .. 16) of the actual message.
      */
-    void SetVersion(uint8_t version);
+    void SetVersion(uint32_t nsVersion, uint32_t msgVersion) { m_version = nsVersion << 4 | msgVersion; }
 
     /**
      * @internal
-     * @brief get the version of the protocol message.
+     * @brief Get the wire protocol version that the object will use.
      *
-     * @return The version  (0 .. 255) of the protocol.
+     * @param nsVersion Gets the version  (0 .. 16) of the sender's latest implemented protocol.
+     * @param msgVersion Gets the version  (0 .. 16) of the actual message.
+     *
+     * @see SetVersion()
      */
-    uint8_t GetVersion(void) const;
+    void GetVersion(uint32_t& nsVersion, uint32_t& msgVersion) { nsVersion = m_version >> 4; msgVersion = m_version & 0xf; }
 
     /**
      * @internal
