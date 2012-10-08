@@ -1,5 +1,5 @@
-AllJoyn Version 3.0.0 Release Notes
------------------------------------
+AllJoyn Version 3.0 and 3.0.1 Release Notes
+-------------------------------------------
 
 Platform Support
 ----------------
@@ -16,15 +16,15 @@ Platform Support
 11) OSX 10.7 Lion
 
 
-Features added in this release
-------------------------------
+Features added in Release 3.0
+-----------------------------
 
 * Added support for iOS and OSX.
 * Added support for Windows 8 and Windows RT.
 
 
-Issues Addressed in this Release
---------------------------------
+Issues Addressed in Release 3.0
+-------------------------------
 
 ALLJOYN-(various): Stability issues related to bundled daemon usage
 
@@ -43,8 +43,13 @@ ALLJOYN-1369: ICE transport does not operate over a symmetric NAT
 ALLJOYN-1373: Memory leak in ICE transport
 
 
-Known issues and limitations with this release
-----------------------------------------------
+Issues in Release 3.0 Addressed in Release 3.0.1
+------------------------------------------------
+ALLJOYN-1423: Name service compatibility between 3.0 and < 3.0 daemons broken.
+
+
+Known issues and limitations with Release 3.0.1
+-----------------------------------------------
 
 ALLJOYN-1217: AllJoyn operation over Bluetooth is stable with up to 3
 devices. Some instabilites are seen with 4 or more devices.
