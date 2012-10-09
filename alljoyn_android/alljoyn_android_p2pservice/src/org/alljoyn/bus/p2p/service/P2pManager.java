@@ -355,6 +355,7 @@ public class P2pManager implements ConnectionInfoListener, DnsSdServiceResponseL
             startServiceSearch(true);
             startAdvertisements();
         } else {
+            mFindState = FindState.IDLE;
             doFindPeers(false);
             doDiscoverServices(false);
         }
