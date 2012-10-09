@@ -199,7 +199,7 @@ static bool GetPermsAssignedByAndroid(uint32_t uid, std::set<qcc::String>& permi
     snprintf(userId, MAX_ID_SIZE, "%d", uid);
     FileSource source(xml);
     if (!source.IsValid()) {
-        QCC_LogError(ER_FAIL, ("Failed to open %", "/data/system/packages.xml"));
+        QCC_LogError(ER_FAIL, ("Failed to open %s", xml));
         return false;
     }
 
@@ -283,7 +283,7 @@ static bool GetPermsAssignedByAndroid(uint32_t uid, std::set<qcc::String>& permi
         }
     }
     if (!found) {
-        QCC_LogError(ER_ALLJOYN_ACCESS_PERMISSION_WARNING, ("Cannot find permission info for userId %d in File %s", uid, "/data/system/packages.xml"));
+        QCC_LogError(ER_ALLJOYN_ACCESS_PERMISSION_WARNING, ("Cannot find permission info for userId %d in File %s", uid, xml));
     }
     return found;
 }
