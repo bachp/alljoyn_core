@@ -2018,7 +2018,10 @@ void TCPTransport::EnableAdvertisementInstance(ListenRequest& listenRequest)
          */
         if (!m_isListening) {
             for (list<qcc::String>::iterator i = m_listening.begin(); i != m_listening.end(); ++i) {
-                DoStartListen(*i);
+                QStatus status = DoStartListen(*i);
+                if (ER_OK != status) {
+                    continue;
+                }
                 assert(m_listenPort);
                 m_isListening = true;
             }
@@ -2035,10 +2038,11 @@ void TCPTransport::EnableAdvertisementInstance(ListenRequest& listenRequest)
                 IpNameService::Instance().Enable(TRANSPORT_TCP, m_listenPort, 0, 0, 0);
                 m_isNsEnabled = true;
             }
-        } else {
-            QCC_LogError(ER_FAIL, ("TCPTransport::EnableAdvertisementInstance(): Advertise with no TCP listeners"));
-            return;
         }
+    }
+    if (!m_isListening) {
+        QCC_LogError(ER_FAIL, ("TCPTransport::EnableAdvertisementInstance(): Advertise with no TCP listeners"));
+        return;
     }
 
     /*
@@ -2138,7 +2142,10 @@ void TCPTransport::EnableDiscoveryInstance(ListenRequest& listenRequest)
          */
         if (!m_isListening) {
             for (list<qcc::String>::iterator i = m_listening.begin(); i != m_listening.end(); ++i) {
-                DoStartListen(*i);
+                QStatus status = DoStartListen(*i);
+                if (ER_OK != status) {
+                    continue;
+                }
                 assert(m_listenPort);
                 m_isListening = true;
             }
@@ -2155,10 +2162,11 @@ void TCPTransport::EnableDiscoveryInstance(ListenRequest& listenRequest)
                 IpNameService::Instance().Enable(TRANSPORT_TCP, m_listenPort, 0, 0, 0);
                 m_isNsEnabled = true;
             }
-        } else {
-            QCC_LogError(ER_FAIL, ("TCPTransport::EnableDiscoveryInstance(): Discover with no TCP listeners"));
-            return;
         }
+    }
+    if (!m_isListening) {
+        QCC_LogError(ER_FAIL, ("TCPTransport::EnableDiscoveryInstance(): Discover with no TCP listeners"));
+        return;
     }
 
     /*
@@ -3057,7 +3065,7 @@ void TCPTransport::QueueStartListen(qcc::String& normSpec)
     Alert();
 }
 
-void TCPTransport::DoStartListen(qcc::String& normSpec)
+QStatus TCPTransport::DoStartListen(qcc::String& normSpec)
 {
     QCC_DbgPrintf(("TCPTransport::DoStartListen()"));
 
@@ -3155,7 +3163,7 @@ void TCPTransport::DoStartListen(qcc::String& normSpec)
     if (status != ER_OK) {
         m_listenFdsLock.Unlock(MUTEX_CONTEXT);
         QCC_LogError(status, ("TCPTransport::DoStartListen(): Socket() failed"));
-        return;
+        return status;
     }
     /*
      * Set the SO_REUSEADDR socket option so we don't have to wait for four
@@ -3166,7 +3174,7 @@ void TCPTransport::DoStartListen(qcc::String& normSpec)
         m_listenFdsLock.Unlock(MUTEX_CONTEXT);
         QCC_LogError(status, ("TCPTransport::DoStartListen(): SetReuseAddress() failed"));
         qcc::Close(listenFd);
-        return;
+        return status;
     }
     /*
      * We call accept in a loop so we need the listenFd to non-blocking
@@ -3176,7 +3184,7 @@ void TCPTransport::DoStartListen(qcc::String& normSpec)
         m_listenFdsLock.Unlock(MUTEX_CONTEXT);
         QCC_LogError(status, ("TCPTransport::DoStartListen(): SetBlocking() failed"));
         qcc::Close(listenFd);
-        return;
+        return status;
     }
     /*
      * Bind the socket to the listen address and start listening for incoming
@@ -3241,6 +3249,8 @@ void TCPTransport::DoStartListen(qcc::String& normSpec)
     if (status == ER_OK) {
         Alert();
     }
+
+    return status;
 }
 
 QStatus TCPTransport::StopListen(const char* listenSpec)

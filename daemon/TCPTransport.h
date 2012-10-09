@@ -389,7 +389,7 @@ class TCPTransport : public Transport, public RemoteEndpoint::EndpointListener, 
      * @see StartListen
      * @see QueueStartListen
      */
-    void DoStartListen(qcc::String& listenSpec);
+    QStatus DoStartListen(qcc::String& listenSpec);
 
     /**
      * @internal
