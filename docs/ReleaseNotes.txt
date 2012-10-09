@@ -1,5 +1,5 @@
-AllJoyn Version 3.0 and 3.0.1 Release Notes
--------------------------------------------
+AllJoyn Version 3.0.1 Release Notes
+-----------------------------------
 
 Platform Support
 ----------------
@@ -45,7 +45,10 @@ ALLJOYN-1373: Memory leak in ICE transport
 
 Issues in Release 3.0 Addressed in Release 3.0.1
 ------------------------------------------------
-ALLJOYN-1423: Name service compatibility between 3.0 and < 3.0 daemons broken.
+ALLJOYN-1423: Name service compatibility between 3.0 and < 3.0 daemons
+is broken.
+
+ALLJOYN-1417: Memory leaks in ICE transport
 
 
 Known issues and limitations with Release 3.0.1
@@ -60,6 +63,12 @@ using the ICE transport.
 ALLJOYN-1395: Windows 8 samples are delivered with 64-bit build files
 only. Users must modify the samples' project files, etc. in order to build
 for 32-bit systems.
+
+ALLJOYN-1421: Win8 devices with more than one network adapter cannot
+successfully advertise services to other devices.
+
+ALLJOYN-1424: AllJoyn 3.0.1 cannot advertise over multicast to an AllJoyn
+2.3.6 based application.
 
 
 Compatibility
@@ -92,9 +101,15 @@ BusListener::FoundAdvertisedName cannot make AllJoyn remote procedure calls or
 any type of blocking call without first enabling concurrent callbacks via the
 new BusAttachment.EnableConcurrentCallbacks() API.
 
+Version 3.0.0 shipped with an issue (ALLJOYN-1423) that prevented earlier versions
+of AllJoyn from seeing multicast advertisements produced by 3.0.0 based
+applications. This issue was addressed in version 3.0.1.
+
 
 Change history
 --------------
+
+3.0.0 - Added support for Win8 / WinRT and iOS / OSX
 
 2.6.0 - Support for "bundled daemon" wherein an application developer can
         include all necessary AllJoyn components directly into their app.
