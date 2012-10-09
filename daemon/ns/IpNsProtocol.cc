@@ -1058,7 +1058,7 @@ size_t IsAt::Deserialize(uint8_t const* buffer, uint32_t bufsize)
 }
 
 WhoHas::WhoHas()
-    : m_version(0), m_flagT(false), m_flagU(false), m_flagS(false), m_flagF(false)
+    : m_version(0), m_transportMask(TRANSPORT_NONE), m_flagT(false), m_flagU(false), m_flagS(false), m_flagF(false)
 {
 }
 
@@ -1235,6 +1235,12 @@ size_t WhoHas::Deserialize(uint8_t const* buffer, uint32_t bufsize)
         QCC_DbgPrintf(("WhoHas::Deserialize(): Incorrect type %d", typeAndFlags & 0xc0));
         return 0;
     }
+
+    //
+    // Due to an oversight, the transport mask was not actually serialized,
+    // so we initialize it to 0, which means no transport.
+    //
+    m_transportMask = TRANSPORT_NONE;
 
     //
     // The only difference between the version zero and version one protocols

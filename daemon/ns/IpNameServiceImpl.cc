@@ -413,16 +413,21 @@ bool IpNameServiceImplWildcardMatch(qcc::String str, qcc::String pat)
 
 IpNameServiceImpl::IpNameServiceImpl()
     : Thread("IpNameServiceImpl"), m_state(IMPL_SHUTDOWN), m_terminal(false),
-    m_callback(0), m_port(0),
-    m_reliableIPv4Port(0), m_unreliableIPv4Port(0), m_reliableIPv6Port(0), m_unreliableIPv6Port(0),
     m_timer(0), m_tDuration(DEFAULT_DURATION),
     m_tRetransmit(RETRANSMIT_TIME), m_tQuestion(QUESTION_TIME),
     m_modulus(QUESTION_MODULUS), m_retries(NUMBER_RETRIES),
     m_loopback(false), m_enableIPv4(false), m_enableIPv6(false),
-    m_any(false), m_wakeEvent(), m_forceLazyUpdate(false),
+    m_wakeEvent(), m_forceLazyUpdate(false),
     m_enabled(false), m_doEnable(false), m_doDisable(false)
 {
     QCC_DbgPrintf(("IpNameServiceImpl::IpNameServiceImpl()"));
+
+    memset(&m_any[0], 0, sizeof(m_any));
+    memset(&m_callback[0], 0, sizeof(m_callback));
+    memset(&m_reliableIPv4Port[0], 0, sizeof(m_reliableIPv4Port));
+    memset(&m_unreliableIPv4Port[0], 0, sizeof(m_unreliableIPv4Port));
+    memset(&m_reliableIPv6Port[0], 0, sizeof(m_reliableIPv6Port));
+    memset(&m_unreliableIPv6Port[0], 0, sizeof(m_unreliableIPv6Port));
 }
 
 QStatus IpNameServiceImpl::Init(const qcc::String& guid, bool loopback)
@@ -495,16 +500,20 @@ IpNameServiceImpl::~IpNameServiceImpl()
     ClearLiveInterfaces();
 #endif
 
-    //
-    // We can just blow away the requested interfaces without a care.
-    //
-    m_requestedInterfaces.clear();
+    for (uint32_t i = 0; i < N_TRANSPORTS; ++i) {
+        //
+        // Delete any callbacks that any users of this class may have set.  We
+        // assume we are not multithreaded at this point.
+        //
+        delete m_callback[i];
+        m_callback[i] = NULL;
 
-    //
-    // Delete any callbacks that a user of this class may have set.
-    //
-    delete m_callback;
-    m_callback = 0;
+        //
+        // We can just blow away the requested interfaces without a care since
+        // nobody else clears them and we are obviously done with them.
+        //
+        m_requestedInterfaces[i].clear();
+    }
 
     //
     // All shut down and ready for bed.
@@ -512,9 +521,18 @@ IpNameServiceImpl::~IpNameServiceImpl()
     m_state = IMPL_SHUTDOWN;
 }
 
-QStatus IpNameServiceImpl::OpenInterface(const qcc::String& name)
+QStatus IpNameServiceImpl::OpenInterface(TransportMask transportMask, const qcc::String& name)
 {
     QCC_DbgPrintf(("IpNameServiceImpl::OpenInterface(%s)", name.c_str()));
+
+    //
+    // Exactly one bit must be set in a transport mask in order to identify the
+    // one transport (in the AllJoyn sense) that is making the request.
+    //
+    if (CountOnes(transportMask) != 1) {
+        QCC_LogError(ER_BAD_TRANSPORT_MASK, ("IpNameServiceImpl::OpenInterface(): Bad transport mask"));
+        return ER_BAD_TRANSPORT_MASK;
+    }
 
     //
     // Can only call OpenInterface() if the object is running.
@@ -530,18 +548,23 @@ QStatus IpNameServiceImpl::OpenInterface(const qcc::String& name)
     //
     if (name == INTERFACES_WILDCARD) {
         qcc::IPAddress wildcard("0.0.0.0");
-        return OpenInterface(wildcard);
+        return OpenInterface(transportMask, wildcard);
     }
-    //
 
+    uint32_t transportIndex = IndexFromBit(transportMask);
+    assert(transportIndex < 16 && "IpNameServiceImpl::OpenInterface(): Bad transport index");
+
+    //
     // There are at least two threads that can wander through the vector below
     // so we need to protect access to the list with a convenient mutex.
     //
+    // printf("%s: m_mutex.Lock()\n", __FUNCTION__);
     m_mutex.Lock();
 
-    for (uint32_t i = 0; i < m_requestedInterfaces.size(); ++i) {
-        if (m_requestedInterfaces[i].m_interfaceName == name) {
+    for (uint32_t i = 0; i < m_requestedInterfaces[transportIndex].size(); ++i) {
+        if (m_requestedInterfaces[transportIndex][i].m_interfaceName == name) {
             QCC_DbgPrintf(("IpNameServiceImpl::OpenInterface(): Already opened."));
+            // printf("%s: m_mutex.Unlock()\n", __FUNCTION__);
             m_mutex.Unlock();
             return ER_OK;
         }
@@ -550,17 +573,31 @@ QStatus IpNameServiceImpl::OpenInterface(const qcc::String& name)
     InterfaceSpecifier specifier;
     specifier.m_interfaceName = name;
     specifier.m_interfaceAddr = qcc::IPAddress("0.0.0.0");
+    specifier.m_transportMask = transportMask;
 
-    m_requestedInterfaces.push_back(specifier);
+    m_requestedInterfaces[transportIndex].push_back(specifier);
     m_forceLazyUpdate = true;
     m_wakeEvent.SetEvent();
+    // printf("%s: m_mutex.Unlock()\n", __FUNCTION__);
     m_mutex.Unlock();
     return ER_OK;
 }
 
-QStatus IpNameServiceImpl::OpenInterface(const qcc::IPAddress& addr)
+QStatus IpNameServiceImpl::OpenInterface(TransportMask transportMask, const qcc::IPAddress& addr)
 {
     QCC_DbgPrintf(("IpNameServiceImpl::OpenInterface(%s)", addr.ToString().c_str()));
+
+    //
+    // Exactly one bit must be set in a transport mask in order to identify the
+    // one transport (in the AllJoyn sense) that is making the request.
+    //
+    if (CountOnes(transportMask) != 1) {
+        QCC_LogError(ER_BAD_TRANSPORT_MASK, ("IpNameServiceImpl::OpenInterface(): Bad transport mask"));
+        return ER_BAD_TRANSPORT_MASK;
+    }
+
+    uint32_t transportIndex = IndexFromBit(transportMask);
+    assert(transportIndex < 16 && "IpNameServiceImpl::OpenInterface(): Bad transport index");
 
     //
     // Can only call OpenInterface() if the object is running.
@@ -574,6 +611,7 @@ QStatus IpNameServiceImpl::OpenInterface(const qcc::IPAddress& addr)
     // There are at least two threads that can wander through the vector below
     // so we need to protect access to the list with a convenient mutex.
     //
+    // printf("%s: m_mutex.Lock()\n", __FUNCTION__);
     m_mutex.Lock();
 
     //
@@ -586,18 +624,21 @@ QStatus IpNameServiceImpl::OpenInterface(const qcc::IPAddress& addr)
     // indicate this mode of operation and clear it if we see a CloseInterface()
     // on INADDR_ANY.  These calls are not reference counted.
     //
+    m_any[transportIndex] = false;
     if (addr == qcc::IPAddress("0.0.0.0") ||
         addr == qcc::IPAddress("0::0") ||
         addr == qcc::IPAddress("::")) {
         QCC_DbgPrintf(("IpNameServiceImpl::OpenInterface(): Wildcard address"));
-        m_any = true;
+        m_any[transportIndex] = true;
+        // printf("%s: m_mutex.Unlock()\n", __FUNCTION__);
         m_mutex.Unlock();
         return ER_OK;
     }
 
-    for (uint32_t i = 0; i < m_requestedInterfaces.size(); ++i) {
-        if (m_requestedInterfaces[i].m_interfaceAddr == addr) {
+    for (uint32_t i = 0; i < m_requestedInterfaces[transportIndex].size(); ++i) {
+        if (m_requestedInterfaces[transportIndex][i].m_interfaceAddr == addr) {
             QCC_DbgPrintf(("IpNameServiceImpl::OpenInterface(): Already opened."));
+            // printf("%s: m_mutex.Unlock()\n", __FUNCTION__);
             m_mutex.Unlock();
             return ER_OK;
         }
@@ -606,17 +647,28 @@ QStatus IpNameServiceImpl::OpenInterface(const qcc::IPAddress& addr)
     InterfaceSpecifier specifier;
     specifier.m_interfaceName = "";
     specifier.m_interfaceAddr = addr;
+    specifier.m_transportMask = transportMask;
 
-    m_requestedInterfaces.push_back(specifier);
+    m_requestedInterfaces[transportIndex].push_back(specifier);
     m_forceLazyUpdate = true;
     m_wakeEvent.SetEvent();
+    // printf("%s: m_mutex.Unlock()\n", __FUNCTION__);
     m_mutex.Unlock();
     return ER_OK;
 }
 
-QStatus IpNameServiceImpl::CloseInterface(const qcc::String& name)
+QStatus IpNameServiceImpl::CloseInterface(TransportMask transportMask, const qcc::String& name)
 {
     QCC_DbgPrintf(("IpNameServiceImpl::CloseInterface(%s)", name.c_str()));
+
+    //
+    // Exactly one bit must be set in a transport mask in order to identify the
+    // one transport (in the AllJoyn sense) that is making the request.
+    //
+    if (CountOnes(transportMask) != 1) {
+        QCC_LogError(ER_BAD_TRANSPORT_MASK, ("IpNameServiceImpl::CloseInterface(): Bad transport mask"));
+        return ER_BAD_TRANSPORT_MASK;
+    }
 
     //
     // Can only call CloseInterface() if the object is running.
@@ -626,10 +678,14 @@ QStatus IpNameServiceImpl::CloseInterface(const qcc::String& name)
         return ER_FAIL;
     }
 
+    uint32_t transportIndex = IndexFromBit(transportMask);
+    assert(transportIndex < 16 && "IpNameServiceImpl::CloseInterface(): Bad transport index");
+
     //
     // There are at least two threads that can wander through the vector below
     // so we need to protect access to the list with a convenient mutex.
     //
+    // printf("%s: m_mutex.Lock()\n", __FUNCTION__);
     m_mutex.Lock();
 
     //
@@ -637,9 +693,9 @@ QStatus IpNameServiceImpl::CloseInterface(const qcc::String& name)
     // socket in this call, we just remove the request and the lazy updator will
     // just not use it when it re-evaluates what to do (called immediately below).
     //
-    for (vector<InterfaceSpecifier>::iterator i = m_requestedInterfaces.begin(); i != m_requestedInterfaces.end();) {
+    for (vector<InterfaceSpecifier>::iterator i = m_requestedInterfaces[transportIndex].begin(); i != m_requestedInterfaces[transportIndex].end();) {
         if ((*i).m_interfaceName == name) {
-            m_requestedInterfaces.erase(i++);
+            m_requestedInterfaces[transportIndex].erase(i++);
         } else {
             ++i;
         }
@@ -647,13 +703,23 @@ QStatus IpNameServiceImpl::CloseInterface(const qcc::String& name)
 
     m_forceLazyUpdate = true;
     m_wakeEvent.SetEvent();
+    // printf("%s: m_mutex.Unlock()\n", __FUNCTION__);
     m_mutex.Unlock();
     return ER_OK;
 }
 
-QStatus IpNameServiceImpl::CloseInterface(const qcc::IPAddress& addr)
+QStatus IpNameServiceImpl::CloseInterface(TransportMask transportMask, const qcc::IPAddress& addr)
 {
     QCC_DbgPrintf(("IpNameServiceImpl::CloseInterface(%s)", addr.ToString().c_str()));
+
+    //
+    // Exactly one bit must be set in a transport mask in order to identify the
+    // one transport (in the AllJoyn sense) that is making the request.
+    //
+    if (CountOnes(transportMask) != 1) {
+        QCC_LogError(ER_BAD_TRANSPORT_MASK, ("IpNameServiceImpl::CloseInterface(): Bad transport mask"));
+        return ER_BAD_TRANSPORT_MASK;
+    }
 
     //
     // Can only call CloseInterface() if the object is running.
@@ -663,10 +729,14 @@ QStatus IpNameServiceImpl::CloseInterface(const qcc::IPAddress& addr)
         return ER_FAIL;
     }
 
+    uint32_t transportIndex = IndexFromBit(transportMask);
+    assert(transportIndex < 16 && "IpNameServiceImpl::CloseInterface(): Bad transport index");
+
     //
     // There are at least two threads that can wander through the vector below
     // so we need to protect access to the list with a convenient mutex.
     //
+    // printf("%s: m_mutex.Lock()\n", __FUNCTION__);
     m_mutex.Lock();
 
     //
@@ -680,7 +750,8 @@ QStatus IpNameServiceImpl::CloseInterface(const qcc::IPAddress& addr)
         addr == qcc::IPAddress("0::0") ||
         addr == qcc::IPAddress("::")) {
         QCC_DbgPrintf(("IpNameServiceImpl::CloseInterface(): Wildcard address"));
-        m_any = false;
+        m_any[transportIndex] = false;
+        // printf("%s: m_mutex.Unlock()\n", __FUNCTION__);
         m_mutex.Unlock();
         return ER_OK;
     }
@@ -690,9 +761,9 @@ QStatus IpNameServiceImpl::CloseInterface(const qcc::IPAddress& addr)
     // socket in this call, we just remove the request and the lazy updator will
     // just not use it when it re-evaluates what to do (called immediately below).
     //
-    for (vector<InterfaceSpecifier>::iterator i = m_requestedInterfaces.begin(); i != m_requestedInterfaces.end();) {
+    for (vector<InterfaceSpecifier>::iterator i = m_requestedInterfaces[transportIndex].begin(); i != m_requestedInterfaces[transportIndex].end();) {
         if ((*i).m_interfaceAddr == addr) {
-            m_requestedInterfaces.erase(i++);
+            m_requestedInterfaces[transportIndex].erase(i++);
         } else {
             ++i;
         }
@@ -700,6 +771,7 @@ QStatus IpNameServiceImpl::CloseInterface(const qcc::IPAddress& addr)
 
     m_forceLazyUpdate = true;
     m_wakeEvent.SetEvent();
+    // printf("%s: m_mutex.Unlock()\n", __FUNCTION__);
     m_mutex.Unlock();
     return ER_OK;
 }
@@ -867,36 +939,60 @@ void IpNameServiceImpl::LazyUpdateInterfaces(void)
         //
         // The current real interface entry is a candidate for use.  We need to
         // decide if we are actually going to use it either based on the
-        // wildcard mode or the list of requestedInterfaces provided by our
-        // user.
+        // wildcard mode or the list of requestedInterfaces provided by each of
+        // the transports.
         //
         bool useEntry = false;
+        for (uint32_t j = 0; j < N_TRANSPORTS; ++j) {
+            QCC_DbgPrintf(("IpNameServiceImpl::LazyUpdateInterfaces(): Checking out interfaces on behalf of transport %d.", j));
+            if (m_any[j]) {
+                QCC_DbgPrintf(("IpNameServiceImpl::LazyUpdateInterfaces(): Use because wildcard set mode for transport %d", j));
 
-        if (m_any) {
-            QCC_DbgPrintf(("IpNameServiceImpl::LazyUpdateInterfaces(): Use because wildcard mode"));
-            useEntry = true;
-        } else {
-            for (uint32_t j = 0; j < m_requestedInterfaces.size(); ++j) {
                 //
-                // If the current real interface name matches the name in the
-                // requestedInterface list, we will try to use it.
+                // All interfaces means all except for "special use" interfaces
+                // like Wi-Fi Direct interfaces on Android.  This should really
+                // be a call out to the P2P connection manager asking it this is
+                // an interface involved in WFD in case other interface names
+                // may be used.  It's just too tempting to just use the fact
+                // that we know the one possible interface for now is "p2p0".
                 //
-                if (m_requestedInterfaces[j].m_interfaceName.size() != 0 &&
-                    m_requestedInterfaces[j].m_interfaceName == entries[i].m_name) {
-                    QCC_DbgPrintf(("IpNameServiceImpl::LazyUpdateInterfaces(): Found matching requestedInterface name"));
+                // Note that this assumes that the Wi-Fi Direct transport will
+                // never try to open an interface with a wild-card.
+                //
+#if defined(QCC_OS_ANDROID)
+                if (entries[i].m_name != "p2p0") {
                     useEntry = true;
-                    break;
                 }
+#else
+                //
+                // There is no such thing as a "special use" interface on any of
+                // our other platforms, so we always use them.
+                //
+                useEntry = true;
+#endif
+            } else {
+                for (uint32_t k = 0; k < m_requestedInterfaces[j].size(); ++k) {
+                    //
+                    // If the current real interface name matches the name in the
+                    // requestedInterface list, we will try to use it.
+                    //
+                    if (m_requestedInterfaces[j][k].m_interfaceName.size() != 0 &&
+                        m_requestedInterfaces[j][k].m_interfaceName == entries[i].m_name) {
+                        QCC_DbgPrintf(("IpNameServiceImpl::LazyUpdateInterfaces(): Found matching requestedInterface name"));
+                        useEntry = true;
+                        break;
+                    }
 
-                //
-                // If the current real interface IP Address matches the name in
-                // the requestedInterface list, we will try to use it.
-                //
-                if (m_requestedInterfaces[j].m_interfaceName.size() == 0 &&
-                    m_requestedInterfaces[j].m_interfaceAddr == qcc::IPAddress(entries[i].m_addr)) {
-                    QCC_DbgPrintf(("IpNameServiceImpl::LazyUpdateInterfaces(): Found matching requestedInterface address"));
-                    useEntry = true;
-                    break;
+                    //
+                    // If the current real interface IP Address matches the name in
+                    // the requestedInterface list, we will try to use it.
+                    //
+                    if (m_requestedInterfaces[j][k].m_interfaceName.size() == 0 &&
+                        m_requestedInterfaces[j][k].m_interfaceAddr == qcc::IPAddress(entries[i].m_addr)) {
+                        QCC_DbgPrintf(("IpNameServiceImpl::LazyUpdateInterfaces(): Found matching requestedInterface address"));
+                        useEntry = true;
+                        break;
+                    }
                 }
             }
         }
@@ -1104,38 +1200,96 @@ QStatus IpNameServiceImpl::Enable(TransportMask transportMask,
                                   uint16_t reliableIPv4Port, uint16_t reliableIPv6Port,
                                   uint16_t unreliableIPv4Port, uint16_t unreliableIPv6Port)
 {
-    //
-    // Version zero of the name service uses a single port, m_port, that
-    // corresponds directly to the reliable IPv4 port of version one.  Version
-    // one admits the possibility of four ports.
-    //
-    // XXX These must be set on a per-transport basis.
-    //
-    m_port = m_reliableIPv4Port = reliableIPv4Port;
-    m_unreliableIPv4Port = unreliableIPv4Port;
-    m_reliableIPv6Port = reliableIPv6Port;
-    m_unreliableIPv6Port = reliableIPv6Port;
+    QCC_DbgHLPrintf(("IpNameServiceImpl::Enable()"));
 
     //
-    // XXX This doesn't make sense now.  doDisable and doEnable are global across
-    // all transports, not for each transport.
+    // Exactly one bit must be set in a transport mask in order to identify the
+    // one transport (in the AllJoyn sense) that is making the request.
     //
-    if (m_reliableIPv4Port || m_unreliableIPv4Port || m_reliableIPv6Port || m_unreliableIPv6Port) {
-        //
-        // If a previous disable request has not yet been serviced, remove the
-        // request. Only the latest request must be serviced and that is this
-        // enable (since the port is non-zero).
-        //
+    if (CountOnes(transportMask) != 1) {
+        QCC_LogError(ER_BAD_TRANSPORT_MASK, ("IpNameServiceImpl::Enable(): Bad transport mask"));
+        return ER_BAD_TRANSPORT_MASK;
+    }
+
+    uint32_t i = IndexFromBit(transportMask);
+    assert(i < 16 && "IpNameServiceImpl::SetCallback(): Bad callback index");
+
+    //
+    // This is a bit non-intuitive.  We have to disable the name service (stop
+    // listening on the sockets for the multicast groups) to pass the Android
+    // Compatibility Test.  We have to make sure that if we are disabling the
+    // name service by removing its last advertisement, we leave ourselves up
+    // for long enough to get the last cancel advertised name out.
+    //
+    // We synchronize with the main run thread which will do that work by
+    // requesting it to enable or disable, and it figures out the right thing
+    // to do with respect to the advertised names.
+    //
+    // We keep track of what is going on with two variables:
+    //
+    //     <somethingWasEnabled> tells us if there was an enabled port somewhere
+    //         before we started.
+    //
+    //     <enabling> tells us if this operation is to enable or disable some
+    //         port.
+    //
+    bool somethingWasEnabled = false;
+    for (uint32_t j = 0; j < N_TRANSPORTS; ++j) {
+        if (m_reliableIPv4Port[j] || m_unreliableIPv4Port[j] || m_reliableIPv6Port[j] || m_unreliableIPv6Port[j]) {
+            somethingWasEnabled = true;
+        }
+    }
+
+    bool enabling = reliableIPv4Port || unreliableIPv4Port || reliableIPv6Port || unreliableIPv6Port;
+
+    //
+    // If enabling is true, then we need to cancel any pending disables since
+    // the name service needs to be alive and we absolutely don't want to do a
+    // pending shutdown sequence if it is queued.
+    //
+    if (enabling) {
         m_doDisable = false;
-        m_doEnable = true;
-    } else {
+
         //
-        // If the previous enable request has not yet been serviced, remove the
-        // request. Only the latest request must be serviced and that is this
-        // disable (since the port is zero).
+        // If we weren't already enabled, then we certainly want to be so
+        // since we know we're going to add a port listener in a moment.
         //
+        if (somethingWasEnabled == false) {
+            m_doEnable = true;
+        }
+    }
+
+    m_reliableIPv4Port[i] = reliableIPv4Port;
+    m_unreliableIPv4Port[i] = unreliableIPv4Port;
+    m_reliableIPv6Port[i] = reliableIPv6Port;
+    m_unreliableIPv6Port[i] = reliableIPv6Port;
+
+    //
+    // We might be wanting to disable the name service depending on whether we
+    // end up disabling the last of the enabled ports.
+    //
+    bool somethingIsEnabled = false;
+    for (uint32_t j = 0; j < N_TRANSPORTS; ++j) {
+        if (m_reliableIPv4Port[j] || m_unreliableIPv4Port[j] || m_reliableIPv6Port[j] || m_unreliableIPv6Port[j]) {
+            somethingIsEnabled = true;
+        }
+    }
+
+    //
+    // If the end result of doing the operation above ends up that there are no
+    // longer any enabled ports, the name service definitely needs to end up
+    // disabled.  Therefore we need to cancel any any pending enable requests.
+    //
+    if (somethingIsEnabled == false) {
         m_doEnable = false;
-        m_doDisable = true;
+
+        //
+        // If we weren't already disabled, and we are then we certainly want to be so
+        // since we know we just deleted the  going to add a port listener in a moment.
+        //
+        if (somethingWasEnabled == true) {
+            m_doDisable = true;
+        }
     }
 
     m_forceLazyUpdate = true;
@@ -1148,17 +1302,40 @@ QStatus IpNameServiceImpl::Enabled(TransportMask transportMask,
                                    uint16_t& reliableIPv4Port, uint16_t& reliableIPv6Port,
                                    uint16_t& unreliableIPv4Port, uint16_t& unreliableIPv6Port)
 {
-    reliableIPv4Port = m_reliableIPv4Port;
-    reliableIPv6Port = 0;
-    unreliableIPv4Port = m_unreliableIPv4Port;
-    unreliableIPv4Port = 0;
+    QCC_DbgHLPrintf(("IpNameServiceImpl::Enabled()"));
+
+    //
+    // Exactly one bit must be set in a transport mask in order to identify the
+    // one transport (in the AllJoyn sense) that is making the request.
+    //
+    if (CountOnes(transportMask) != 1) {
+        QCC_LogError(ER_BAD_TRANSPORT_MASK, ("IpNameServiceImpl::Enable(): Bad transport mask"));
+        return ER_BAD_TRANSPORT_MASK;
+    }
+
+    uint32_t i = IndexFromBit(transportMask);
+    assert(i < 16 && "IpNameServiceImpl::SetCallback(): Bad callback index");
+
+    reliableIPv4Port = m_reliableIPv4Port[i];
+    unreliableIPv4Port = m_unreliableIPv4Port[i];
+    reliableIPv6Port = m_reliableIPv6Port[i];
+    unreliableIPv6Port = m_unreliableIPv6Port[i];
 
     return ER_OK;
 }
 
-QStatus IpNameServiceImpl::Locate(const qcc::String& wkn, LocatePolicy policy)
+QStatus IpNameServiceImpl::FindAdvertisedName(TransportMask transportMask, const qcc::String& wkn, LocatePolicy policy)
 {
-    QCC_DbgHLPrintf(("IpNameServiceImpl::Locate(): %s with policy %d", wkn.c_str(), policy));
+    QCC_DbgHLPrintf(("IpNameServiceImpl::FindAdvertisedName(): %s with policy %d", wkn.c_str(), policy));
+
+    //
+    // Exactly one bit must be set in a transport mask in order to identify the
+    // one transport (in the AllJoyn sense) that is making the request.
+    //
+    if (CountOnes(transportMask) != 1) {
+        QCC_LogError(ER_BAD_TRANSPORT_MASK, ("IpNameServiceImpl::FindAdvertisedName(): Bad transport mask"));
+        return ER_BAD_TRANSPORT_MASK;
+    }
 
     //
     // Send a request to the network over our multicast channel, asking for
@@ -1179,21 +1356,22 @@ QStatus IpNameServiceImpl::Locate(const qcc::String& wkn, LocatePolicy policy)
 
         //
         // We understand all messages from version zero to version one, but we
-        // are sending a version zero message;
+        // are sending a version zero message.  The whole point of sending a
+        // version zero message is that can be understood by down-level code
+        // so we can't use the new versioning scheme.  We have to use some
+        // sneaky way to tell an in-the know version one client that the
+        // packet is from a version one client and that is through the setting
+        // of the UDP flag.
         //
-        whoHas.SetVersion(1, 0);
-
+        whoHas.SetVersion(0, 0);
+        whoHas.SetTransportMask(transportMask);
         whoHas.SetTcpFlag(true);
+        whoHas.SetUdpFlag(true);
         whoHas.SetIPv4Flag(true);
         whoHas.AddName(wkn);
 
-        //
-        // We understand all messages from version zero to version one, but we
-        // are sending a version zero message;
-        //
-        whoHas.SetVersion(1, 0);
-
         Header header;
+        header.SetVersion(0, 0);
         header.SetTimer(m_tDuration);
         header.AddQuestion(whoHas);
 
@@ -1201,8 +1379,10 @@ QStatus IpNameServiceImpl::Locate(const qcc::String& wkn, LocatePolicy policy)
         // We may want to retransmit this request a few times depending on our
         // retry policy, so add it to the list of messages to retry.
         //
+        // printf("%s: m_mutex.Lock()\n", __FUNCTION__);
         m_mutex.Lock();
         m_retry.push_back(header);
+        // printf("%s: m_mutex.Unlock()\n", __FUNCTION__);
         m_mutex.Unlock();
 
         //
@@ -1219,10 +1399,10 @@ QStatus IpNameServiceImpl::Locate(const qcc::String& wkn, LocatePolicy policy)
 
         //
         // We understand all messages from version zero to version one, and we
-        // are sending a version one message;
+        // are sending a version one message.
         //
         whoHas.SetVersion(1, 1);
-
+        whoHas.SetTransportMask(transportMask);
         whoHas.AddName(wkn);
 
         Header header;
@@ -1234,8 +1414,10 @@ QStatus IpNameServiceImpl::Locate(const qcc::String& wkn, LocatePolicy policy)
         // We may want to retransmit this request a few times depending on our
         // retry policy, so add it to the list of messages to retry.
         //
+        // printf("%s: m_mutex.Lock()\n", __FUNCTION__);
         m_mutex.Lock();
         m_retry.push_back(header);
+        // printf("%s: m_mutex.Unlock()\n", __FUNCTION__);
         m_mutex.Unlock();
 
         //
@@ -1261,15 +1443,62 @@ void IpNameServiceImpl::SetCriticalParameters(
     m_retries = retries;
 }
 
-void IpNameServiceImpl::SetCallback(Callback<void, const qcc::String&, const qcc::String&, vector<qcc::String>&, uint8_t>* cb)
+QStatus IpNameServiceImpl::SetCallback(TransportMask transportMask,
+                                       Callback<void, const qcc::String&, const qcc::String&, vector<qcc::String>&, uint8_t>* cb)
 {
-    Callback<void, const qcc::String&, const qcc::String&, vector<qcc::String>&, uint8_t>*  goner = m_callback;
-
     QCC_DbgPrintf(("IpNameServiceImpl::SetCallback()"));
 
-    m_callback = NULL;
+    //
+    // Exactly one bit must be set in a transport mask in order to identify the
+    // one transport (in the AllJoyn sense) that is making the request.
+    //
+    if (CountOnes(transportMask) != 1) {
+        QCC_LogError(ER_BAD_TRANSPORT_MASK, ("IpNameServiceImpl::SetCallback(): Bad transport mask"));
+        return ER_BAD_TRANSPORT_MASK;
+    }
+
+    uint32_t i = IndexFromBit(transportMask);
+    assert(i < 16 && "IpNameServiceImpl::SetCallback(): Bad callback index");
+
+    Callback<void, const qcc::String&, const qcc::String&, vector<qcc::String>&, uint8_t>*  goner = m_callback[i];
+    m_callback[i] = NULL;
     delete goner;
-    m_callback = cb;
+    m_callback[i] = cb;
+
+    return ER_OK;
+}
+
+void IpNameServiceImpl::ClearCallbacks(void)
+{
+    QCC_DbgPrintf(("IpNameServiceImpl::ClearCallbacks()"));
+
+    //
+    // Delete any callbacks that any users of this class may have set.
+    //
+    for (uint32_t i = 0; i < N_TRANSPORTS; ++i) {
+        Callback<void, const qcc::String&, const qcc::String&, vector<qcc::String>&, uint8_t>*  goner = m_callback[i];
+        m_callback[i] = NULL;
+        delete goner;
+    }
+}
+
+size_t IpNameServiceImpl::NumAdvertisements(TransportMask transportMask)
+{
+    QCC_DbgHLPrintf(("IpNameServiceImpl::NumAdvertisements()"));
+
+    //
+    // Exactly one bit must be set in a transport mask in order to identify the
+    // one transport (in the AllJoyn sense) that is making the request.
+    //
+    if (CountOnes(transportMask) != 1) {
+        QCC_LogError(ER_BAD_TRANSPORT_MASK, ("IpNameServiceImpl::NumAdvertisements(): Bad transport mask"));
+        return 0;
+    }
+
+    uint32_t i = IndexFromBit(transportMask);
+    assert(i < 16 && "IpNameServiceImpl::SetCallback(): Bad callback index");
+
+    return m_advertised[i].size();
 }
 
 QStatus IpNameServiceImpl::AdvertiseName(TransportMask transportMask, const qcc::String& wkn)
@@ -1286,6 +1515,18 @@ QStatus IpNameServiceImpl::AdvertiseName(TransportMask transportMask, vector<qcc
 {
     QCC_DbgHLPrintf(("IpNameServiceImpl::AdvertiseName()"));
 
+    //
+    // Exactly one bit must be set in a transport mask in order to identify the
+    // one transport (in the AllJoyn sense) that is making the request.
+    //
+    if (CountOnes(transportMask) != 1) {
+        QCC_LogError(ER_BAD_TRANSPORT_MASK, ("IpNameServiceImpl::AdvertiseName(): Bad transport mask"));
+        return ER_BAD_TRANSPORT_MASK;
+    }
+
+    uint32_t transportIndex = IndexFromBit(transportMask);
+    assert(transportIndex < 16 && "IpNameServiceImpl::AdvertiseName(): Bad transport index");
+
     if (m_state != IMPL_RUNNING) {
         QCC_DbgPrintf(("IpNameServiceImpl::AdvertiseName(): Not IMPL_RUNNING"));
         return ER_FAIL;
@@ -1296,6 +1537,7 @@ QStatus IpNameServiceImpl::AdvertiseName(TransportMask transportMask, vector<qcc
     // We are running short on toes, so don't shoot any more off by not being
     // thread-unaware.
     //
+    // printf("%s: m_mutex.Lock()\n", __FUNCTION__);
     m_mutex.Lock();
 
     //
@@ -1304,14 +1546,15 @@ QStatus IpNameServiceImpl::AdvertiseName(TransportMask transportMask, vector<qcc
     // name.
     //
     for (uint32_t i = 0; i < wkn.size(); ++i) {
-        list<qcc::String>::iterator j = find(m_advertised.begin(), m_advertised.end(), wkn[i]);
-        if (j == m_advertised.end()) {
-            m_advertised.push_back(wkn[i]);
+        list<qcc::String>::iterator j = find(m_advertised[transportIndex].begin(), m_advertised[transportIndex].end(), wkn[i]);
+        if (j == m_advertised[transportIndex].end()) {
+            m_advertised[transportIndex].push_back(wkn[i]);
         } else {
             //
             // Nothing has changed, so don't bother.
             //
             QCC_DbgPrintf(("IpNameServiceImpl::AdvertiseName(): Duplicate advertisement"));
+            // printf("%s: m_mutex.Unlock()\n", __FUNCTION__);
             m_mutex.Unlock();
             return ER_OK;
         }
@@ -1322,7 +1565,7 @@ QStatus IpNameServiceImpl::AdvertiseName(TransportMask transportMask, vector<qcc
     // the content of the advertised names versus a change in the order of the
     // names.
     //
-    m_advertised.sort();
+    m_advertised[transportIndex].sort();
 
     //
     // If the advertisement retransmission timer is cleared, then set us
@@ -1333,6 +1576,7 @@ QStatus IpNameServiceImpl::AdvertiseName(TransportMask transportMask, vector<qcc
         m_timer = m_tDuration;
     }
 
+    // printf("%s: m_mutex.Unlock()\n", __FUNCTION__);
     m_mutex.Unlock();
 
     //
@@ -1356,12 +1600,16 @@ QStatus IpNameServiceImpl::AdvertiseName(TransportMask transportMask, vector<qcc
 
         //
         // We understand all messages from version zero to version one, and we
-        // are sending a version zero message;
+        // are sending a version zero message.  The whole point of sending a
+        // version zero message is that can be understood by down-level code
+        // so we can't use the new versioning scheme.  We have to use some
+        // sneaky way to tell an in-the know version one client that the
+        // packet is from a version one client and that is through the setting
+        // of the UDP flag.
         //
-        isAt.SetVersion(1, 0);
-
+        isAt.SetVersion(0, 0);
         isAt.SetTcpFlag(true);
-        isAt.SetUdpFlag(false);
+        isAt.SetUdpFlag(true);
 
         //
         // Always send the provided daemon GUID out with the reponse.
@@ -1375,10 +1623,12 @@ QStatus IpNameServiceImpl::AdvertiseName(TransportMask transportMask, vector<qcc
         isAt.SetCompleteFlag(true);
 
         //
-        // Set the port here.  When the message goes out a selected interface, the
-        // protocol handler will write out the addresses according to its rules.
+        // The only possibility for version zero is that the port is the
+        // reliable IPv4 port.  When the message goes out a selected interface,
+        // the protocol handler will write out the addresses according to its
+        // rules.
         //
-        isAt.SetPort(m_port);
+        isAt.SetPort(m_reliableIPv4Port[transportIndex]);
 
         //
         // Add the provided names to the is-at message that will be sent out on the
@@ -1394,20 +1644,20 @@ QStatus IpNameServiceImpl::AdvertiseName(TransportMask transportMask, vector<qcc
         // the advertisements for that number of seconds.
         //
         Header header;
-        header.SetVersion(1, 0);
+        header.SetVersion(0, 0);
         header.SetTimer(m_tDuration);
         header.AddAnswer(isAt);
 
         //
-        // We don't want allow the caller to advertise an unlimited number of names
-        // and consume all available network resources.  We expect Advertise() to
-        // typically be called once per advertised name, but since we allow a vector
-        // of names we need to limit that size somehow.  The easy way is to assume
-        // that all of the names are the maximum size and just limit based on the
-        // maximum NS packet size and the maximum name size of 256 bytes.  This,
-        // however, leaves just five names which seems too restrictive.  So, we do
-        // it the more time-consuming way and put together the message and then see
-        // if it's "too big."
+        // We don't want allow the caller to advertise an unlimited number of
+        // names and consume all available network resources.  We expect
+        // AdvertiseName() to typically be called once per advertised name, but
+        // since we allow a vector of names we need to limit that size somehow.
+        // The easy way is to assume that all of the names are the maximum size
+        // and just limit based on the maximum NS packet size and the maximum
+        // name size of 256 bytes.  This, however, leaves just five names which
+        // seems too restrictive.  So, we do it the more time-consuming way and
+        // put together the message and then see if it's "too big."
         //
         // This isn't terribly elegant, but we don't know the IP address(es) over
         // which the message will be sent.  These are added in the loop that
@@ -1424,7 +1674,7 @@ QStatus IpNameServiceImpl::AdvertiseName(TransportMask transportMask, vector<qcc
             //
             QueueProtocolMessage(header);
         } else {
-            QCC_LogError(ER_PACKET_TOO_LARGE, ("IpNameServiceImpl::Advertise(): Resulting NS message too large"));
+            QCC_LogError(ER_PACKET_TOO_LARGE, ("IpNameServiceImpl::AdvertiseName(): Resulting NS message too large"));
             return ER_PACKET_TOO_LARGE;
         }
     }
@@ -1441,23 +1691,27 @@ QStatus IpNameServiceImpl::AdvertiseName(TransportMask transportMask, vector<qcc
         //
         isAt.SetVersion(1, 1);
 
+        //
+        // Tell the other side what transport is advertising these names.
+        //
         isAt.SetTransportMask(transportMask);
 
         //
-        // Version one allows us to provide four possible endpoints.
-        // XXX FIXME These should be stored per-transport mask (16 possible).
+        // Version one allows us to provide four possible endpoints.  The
+        // address will be rewritten on the way out with the address of the
+        // appropriate interface.
         //
-        if (m_reliableIPv4Port) {
-            isAt.SetReliableIPv4(m_reliableIPv4Address, m_reliableIPv4Port);
+        if (m_reliableIPv4Port[transportIndex]) {
+            isAt.SetReliableIPv4("", m_reliableIPv4Port[transportIndex]);
         }
-        if (m_unreliableIPv4Port) {
-            isAt.SetUnreliableIPv4(m_unreliableIPv4Address, m_unreliableIPv4Port);
+        if (m_unreliableIPv4Port[transportIndex]) {
+            isAt.SetUnreliableIPv4("", m_unreliableIPv4Port[transportIndex]);
         }
-        if (m_reliableIPv6Port) {
-            isAt.SetReliableIPv6(m_reliableIPv6Address, m_reliableIPv6Port);
+        if (m_reliableIPv6Port[transportIndex]) {
+            isAt.SetReliableIPv6("", m_reliableIPv6Port[transportIndex]);
         }
-        if (m_unreliableIPv6Port) {
-            isAt.SetUnreliableIPv6(m_unreliableIPv6Address, m_unreliableIPv6Port);
+        if (m_unreliableIPv6Port[transportIndex]) {
+            isAt.SetUnreliableIPv6("", m_unreliableIPv6Port[transportIndex]);
         }
 
         //
@@ -1490,15 +1744,15 @@ QStatus IpNameServiceImpl::AdvertiseName(TransportMask transportMask, vector<qcc
         header.AddAnswer(isAt);
 
         //
-        // We don't want allow the caller to advertise an unlimited number of names
-        // and consume all available network resources.  We expect Advertise() to
-        // typically be called once per advertised name, but since we allow a vector
-        // of names we need to limit that size somehow.  The easy way is to assume
-        // that all of the names are the maximum size and just limit based on the
-        // maximum NS packet size and the maximum name size of 256 bytes.  This,
-        // however, leaves just five names which seems too restrictive.  So, we do
-        // it the more time-consuming way and put together the message and then see
-        // if it's "too big."
+        // We don't want allow the caller to advertise an unlimited number of
+        // names and consume all available network resources.  We expect
+        // AdvertiseName() to typically be called once per advertised name, but
+        // since we allow a vector of names we need to limit that size somehow.
+        // The easy way is to assume that all of the names are the maximum size
+        // and just limit based on the maximum NS packet size and the maximum
+        // name size of 256 bytes.  This, however, leaves just five names which
+        // seems too restrictive.  So, we do it the more time-consuming way and
+        // put together the message and then see if it's "too big."
         //
         // This isn't terribly elegant, but we don't know the IP address(es) over
         // which the message will be sent.  These are added in the loop that
@@ -1537,6 +1791,18 @@ QStatus IpNameServiceImpl::CancelAdvertiseName(TransportMask transportMask, vect
 {
     QCC_DbgPrintf(("IpNameServiceImpl::CancelAdvertiseName()"));
 
+    //
+    // Exactly one bit must be set in a transport mask in order to identify the
+    // one transport (in the AllJoyn sense) that is making the request.
+    //
+    if (CountOnes(transportMask) != 1) {
+        QCC_LogError(ER_BAD_TRANSPORT_MASK, ("IpNameServiceImpl::CancelAdvertiseName(): Bad transport mask"));
+        return ER_BAD_TRANSPORT_MASK;
+    }
+
+    uint32_t transportIndex = IndexFromBit(transportMask);
+    assert(transportIndex < 16 && "IpNameServiceImpl::CancelAdvertiseName(): Bad transport index");
+
     if (m_state != IMPL_RUNNING) {
         QCC_DbgPrintf(("IpNameServiceImpl::CancelAdvertiseName(): Not IMPL_RUNNING"));
         return ER_FAIL;
@@ -1547,6 +1813,7 @@ QStatus IpNameServiceImpl::CancelAdvertiseName(TransportMask transportMask, vect
     // We are running short on toes, so don't shoot any more off by not being
     // thread-unaware.
     //
+    // printf("%s: m_mutex.Lock()\n", __FUNCTION__);
     m_mutex.Lock();
 
     //
@@ -1555,9 +1822,9 @@ QStatus IpNameServiceImpl::CancelAdvertiseName(TransportMask transportMask, vect
     bool changed = false;
 
     for (uint32_t i = 0; i < wkn.size(); ++i) {
-        list<qcc::String>::iterator j = find(m_advertised.begin(), m_advertised.end(), wkn[i]);
-        if (j != m_advertised.end()) {
-            m_advertised.erase(j);
+        list<qcc::String>::iterator j = find(m_advertised[transportIndex].begin(), m_advertised[transportIndex].end(), wkn[i]);
+        if (j != m_advertised[transportIndex].end()) {
+            m_advertised[transportIndex].erase(j);
             changed = true;
         }
     }
@@ -1567,10 +1834,18 @@ QStatus IpNameServiceImpl::CancelAdvertiseName(TransportMask transportMask, vect
     // this so turn off the retransmit timer.  The main thread is playing with
     // this number too, so this must be done with the mutex locked.
     //
-    if (m_advertised.size() == 0) {
+    bool activeAdvertisements = false;
+    for (uint32_t i = 0; i < N_TRANSPORTS; ++i) {
+        if (m_advertised[i].size()) {
+            activeAdvertisements = true;
+        }
+    }
+
+    if (activeAdvertisements == false) {
         m_timer = 0;
     }
 
+    // printf("%s: m_mutex.Unlock()\n", __FUNCTION__);
     m_mutex.Unlock();
 
     //
@@ -1602,12 +1877,16 @@ QStatus IpNameServiceImpl::CancelAdvertiseName(TransportMask transportMask, vect
 
         //
         // We understand all messages from version zero to version one, and we
-        // are sending a version zero message;
+        // are sending a version zero message.  The whole point of sending a
+        // version zero message is that can be understood by down-level code
+        // so we can't use the new versioning scheme.  We have to use some
+        // sneaky way to tell an in-the know version one client that the
+        // packet is from a version one client and that is through the setting
+        // of the UDP flag.
         //
-        isAt.SetVersion(1, 0);
-
+        isAt.SetVersion(0, 0);
         isAt.SetTcpFlag(true);
-        isAt.SetUdpFlag(false);
+        isAt.SetUdpFlag(true);
 
         //
         // Always send the provided daemon GUID out with the reponse.
@@ -1615,10 +1894,11 @@ QStatus IpNameServiceImpl::CancelAdvertiseName(TransportMask transportMask, vect
         isAt.SetGuid(m_guid);
 
         //
-        // Set the port here.  When the message goes out a selected interface, the
+        // The only possibility in version zero is that the port is the reliable
+        // IPv4 port.  When the message goes out a selected interface, the
         // protocol handler will write out the addresses according to its rules.
         //
-        isAt.SetPort(m_port);
+        isAt.SetPort(m_reliableIPv4Port[transportIndex]);
 
         //
         // Copy the names we are withdrawing the advertisement for into the
@@ -1633,7 +1913,7 @@ QStatus IpNameServiceImpl::CancelAdvertiseName(TransportMask transportMask, vect
         // withdrawing all of the advertisements.  If the complete flag is
         // not set, we have some advertisements remaining.
         //
-        if (m_advertised.size() == 0) {
+        if (m_advertised[transportIndex].size() == 0) {
             isAt.SetCompleteFlag(true);
         }
 
@@ -1642,7 +1922,7 @@ QStatus IpNameServiceImpl::CancelAdvertiseName(TransportMask transportMask, vect
         // zero of the protocol.
         //
         Header header;
-        header.SetVersion(1, 0);
+        header.SetVersion(0, 0);
 
         //
         // We want to signal that everyone can forget about these names
@@ -1674,20 +1954,27 @@ QStatus IpNameServiceImpl::CancelAdvertiseName(TransportMask transportMask, vect
         isAt.SetVersion(1, 1);
 
         //
-        // Version one allows us to provide four possible endpoints.
-        // XXX FIXME These should be stored per-transport mask (16 possible).
+        // Tell the other side what transport is no longer advertising these
+        // names.
         //
-        if (m_reliableIPv4Port) {
-            isAt.SetReliableIPv4(m_reliableIPv4Address, m_reliableIPv4Port);
+        isAt.SetTransportMask(transportMask);
+
+        //
+        // Version one allows us to provide four possible endpoints.  The
+        // address will be rewritten on the way out with the address of the
+        // appropriate interface.
+        //
+        if (m_reliableIPv4Port[transportIndex]) {
+            isAt.SetReliableIPv4("", m_reliableIPv4Port[transportIndex]);
         }
-        if (m_unreliableIPv4Port) {
-            isAt.SetUnreliableIPv4(m_unreliableIPv4Address, m_unreliableIPv4Port);
+        if (m_unreliableIPv4Port[transportIndex]) {
+            isAt.SetUnreliableIPv4("", m_unreliableIPv4Port[transportIndex]);
         }
-        if (m_reliableIPv6Port) {
-            isAt.SetReliableIPv6(m_reliableIPv6Address, m_reliableIPv6Port);
+        if (m_reliableIPv6Port[transportIndex]) {
+            isAt.SetReliableIPv6("", m_reliableIPv6Port[transportIndex]);
         }
-        if (m_unreliableIPv6Port) {
-            isAt.SetUnreliableIPv6(m_unreliableIPv6Address, m_unreliableIPv6Port);
+        if (m_unreliableIPv6Port[transportIndex]) {
+            isAt.SetUnreliableIPv6("", m_unreliableIPv6Port[transportIndex]);
         }
 
         //
@@ -1708,7 +1995,7 @@ QStatus IpNameServiceImpl::CancelAdvertiseName(TransportMask transportMask, vect
         // withdrawing all of the advertisements.  If the complete flag is
         // not set, we have some advertisements remaining.
         //
-        if (m_advertised.size() == 0) {
+        if (m_advertised[transportIndex].size() == 0) {
             isAt.SetCompleteFlag(true);
         }
 
@@ -1739,9 +2026,11 @@ void IpNameServiceImpl::QueueProtocolMessage(Header& header)
 {
     QCC_DbgPrintf(("IpNameServiceImpl::QueueProtocolMessage()"));
 
+    // printf("%s: m_mutex.Lock()\n", __FUNCTION__);
     m_mutex.Lock();
     m_outbound.push_back(header);
     m_wakeEvent.SetEvent();
+    // printf("%s: m_mutex.Unlock()\n", __FUNCTION__);
     m_mutex.Unlock();
 }
 
@@ -2064,6 +2353,75 @@ void IpNameServiceImpl::SendOutboundMessages(void)
                 }
 
                 //
+                // We need to be careful to only send messages out on the
+                // interfaces that have been opened by the transport that is the
+                // source of the message.
+                //
+                // For example, if the Wi-Fi Direct transport has only opened
+                // the p2p0 interface, we don't want to be sending the who-has
+                // or is-at messages that happen as a result of its
+                // FindAdvertisedName or AdvertiseName calls out the eth0
+                // interface.  Both of those interfaces may be live, if for
+                // example the TCP transport has opened the wildcard interface;
+                // but irrespective of what the TCP transport has done, messages
+                // from the WFD transport need to only go out p2p0.
+                //
+                bool interfaceApproved = false;
+                for (uint8_t j = 0; j < header.GetNumberQuestions(); ++j) {
+                    WhoHas* whoHas;
+                    header.GetQuestion(j, &whoHas);
+
+                    TransportMask transportMask = whoHas->GetTransportMask();
+                    assert(transportMask != TRANSPORT_NONE &&
+                           "IpNameServiceImpl::SendOutboundMessages(): TransportMask must always be set");
+
+                    uint32_t transportIndex = IndexFromBit(transportMask);
+                    assert(transportIndex < 16 && "IpNameServiceImpl::SendOutboundMessages(): Bad transport index");
+
+                    //
+                    // We have to be careful about sending messages from
+                    // transports that open a wildcard interface.  All
+                    // interfaces means all except for "special use" interfaces
+                    // like Wi-Fi Direct interfaces on Android.  This should
+                    // really be a call out to the P2P connection manager asking
+                    // it this is an interface involved in WFD in case other
+                    // interface names may be used.  It's just too tempting to
+                    // just use the fact that we know the one possible interface
+                    // for now is "p2p0".
+                    //
+#if defined(QCC_OS_ANDROID)
+                    if (m_any[transportIndex] && m_liveInterfaces[i].m_interfaceName != "p2p0") {
+                        interfaceApproved = true;
+                    }
+#else
+                    if (m_any[transportIndex]) {
+                        interfaceApproved = true;
+                    }
+#endif
+
+                    //
+                    // Now, the question is whether or not the current interface
+                    // as indicated by the interface name is on the list of
+                    // requested interfaces for the transport mask found in the
+                    // message.  If it is not, we must not send this message out
+                    // the current interface.
+                    //
+                    // printf("%s: m_mutex.Lock()\n", __FUNCTION__);
+                    m_mutex.Lock();
+
+                    for (uint32_t k = 0; k < m_requestedInterfaces[transportIndex].size(); ++k) {
+                        if (m_requestedInterfaces[transportIndex][i].m_interfaceName == m_liveInterfaces[i].m_interfaceName) {
+                            QCC_DbgPrintf(("IpNameServiceImpl::SendoutboundMessages(): Interface is approved."));
+                            interfaceApproved = true;
+                            break;
+                        }
+                    }
+
+                    // printf("%s: m_mutex.Unlock()\n", __FUNCTION__);
+                    m_mutex.Unlock();
+                }
+
+                //
                 // At this point, we are ready to multicast out an interface and
                 // we know our IPv4 and IPv6 addresses if they exist.  Now, we
                 // have to walk the list of answer messages and rewrite the
@@ -2074,6 +2432,55 @@ void IpNameServiceImpl::SendOutboundMessages(void)
 
                     IsAt* isAt;
                     header.GetAnswer(j, &isAt);
+
+                    TransportMask transportMask = isAt->GetTransportMask();
+                    assert(transportMask != TRANSPORT_NONE &&
+                           "IpNameServiceImpl::SendOutboundMessages(): TransportMask must always be set");
+
+                    uint32_t transportIndex = IndexFromBit(transportMask);
+                    assert(transportIndex < 16 && "IpNameServiceImpl::SendOutboundMessages(): Bad transport index");
+
+                    //
+                    // We have to be careful about sending messages from
+                    // transports that open a wildcard interface.  All
+                    // interfaces means all except for "special use" interfaces
+                    // like Wi-Fi Direct interfaces on Android.  This should
+                    // really be a call out to the P2P connection manager asking
+                    // it this is an interface involved in WFD in case other
+                    // interface names may be used.  It's just too tempting to
+                    // just use the fact that we know the one possible interface
+                    // for now is "p2p0".
+                    //
+#if defined(QCC_OS_ANDROID)
+                    if (m_any[transportIndex] && m_liveInterfaces[i].m_interfaceName != "p2p0") {
+                        interfaceApproved = true;
+                    }
+#else
+                    if (m_any[transportIndex]) {
+                        interfaceApproved = true;
+                    }
+#endif
+
+                    //
+                    // Now, the question is whether or not the current interface
+                    // as indicated by the interface name is on the list of
+                    // requested interfaces for the transport mask found in the
+                    // message.  If it is not, we must not send this message out
+                    // the current interface.
+                    //
+                    // printf("%s: m_mutex.Lock()\n", __FUNCTION__);
+                    m_mutex.Lock();
+
+                    for (uint32_t k = 0; k < m_requestedInterfaces[transportIndex].size(); ++k) {
+                        if (m_requestedInterfaces[transportIndex][i].m_interfaceName == m_liveInterfaces[j].m_interfaceName) {
+                            QCC_DbgPrintf(("IpNameServiceImpl::SendoutboundMessages(): Interface is approved."));
+                            interfaceApproved = true;
+                            break;
+                        }
+                    }
+
+                    // printf("%s: m_mutex.Unlock()\n", __FUNCTION__);
+                    m_mutex.Unlock();
 
                     //
                     // Exactly what we need to set depends on the version of the
@@ -2089,10 +2496,13 @@ void IpNameServiceImpl::SendOutboundMessages(void)
                         //
                         // We're modifying the answsers in-place so clear any
                         // state we might have added on the last iteration.
+                        // Remember that we must use the old version scheme
+                        // with old messages and we have to sneak in the post
+                        // zero version indication by setting the UDP flag.
                         //
-                        isAt->SetVersion(1, 0);
+                        isAt->SetVersion(0, 0);
                         isAt->SetTcpFlag(true);
-                        isAt->SetUdpFlag(false);
+                        isAt->SetUdpFlag(true);
                         isAt->ClearIPv4();
                         isAt->ClearIPv6();
 
@@ -2122,32 +2532,28 @@ void IpNameServiceImpl::SendOutboundMessages(void)
                         // state we might have added on the last iteration.
                         //
                         isAt->SetVersion(1, 1);
-
-                        //
-                        // XXX This is bogus.
-                        // How do we really keep track of this?
-                        //
-                        isAt->SetTransportMask(TRANSPORT_TCP);
                         isAt->ClearReliableIPv4();
                         isAt->ClearUnreliableIPv4();
                         isAt->ClearReliableIPv6();
                         isAt->ClearUnreliableIPv6();
 
+                        uint32_t transportIndex = IndexFromBit(isAt->GetTransportMask());
+
                         //
                         // Now we can write the various addresses into the
                         // packet if they are called for.
                         //
-                        if (haveIPv4Address && m_reliableIPv4Port) {
-                            isAt->SetReliableIPv4(ipv4Address.ToString(), m_reliableIPv4Port);
+                        if (haveIPv4Address && m_reliableIPv4Port[transportIndex]) {
+                            isAt->SetReliableIPv4(ipv4Address.ToString(), m_reliableIPv4Port[transportIndex]);
                         }
-                        if (haveIPv4Address && m_unreliableIPv4Port) {
-                            isAt->SetUnreliableIPv4(ipv4Address.ToString(), m_unreliableIPv4Port);
+                        if (haveIPv4Address && m_unreliableIPv4Port[transportIndex]) {
+                            isAt->SetUnreliableIPv4(ipv4Address.ToString(), m_unreliableIPv4Port[transportIndex]);
                         }
-                        if (m_reliableIPv6Port) {
-                            isAt->SetReliableIPv6(ipv6Address.ToString(), m_reliableIPv6Port);
+                        if (m_reliableIPv6Port[transportIndex]) {
+                            isAt->SetReliableIPv6(ipv6Address.ToString(), m_reliableIPv6Port[transportIndex]);
                         }
-                        if (m_unreliableIPv6Port) {
-                            isAt->SetUnreliableIPv6(ipv6Address.ToString(), m_unreliableIPv6Port);
+                        if (m_unreliableIPv6Port[transportIndex]) {
+                            isAt->SetUnreliableIPv6(ipv6Address.ToString(), m_unreliableIPv6Port[transportIndex]);
                         }
                     }
                 }
@@ -2156,17 +2562,30 @@ void IpNameServiceImpl::SendOutboundMessages(void)
                 // At this point, we have ignored the questions (who-has) on the
                 // header since they stay the same, and we have rewritten the
                 // answers (is-at) on the header according to the version.  Now
-                // we can the modified message on out the current interface.
+                // we can the modified message on out the current interface if
+                // it was approved.
                 //
-                QCC_DbgPrintf(("IpNameServiceImpl::SendOutboundMessages(): SendProtocolMessageg()"));
-                SendProtocolMessage(m_liveInterfaces[i].m_sockFd, ipv6Address, interfaceAddressPrefixLen, flags,
-                                    interfaceIsIPv4, header);
+                // Discarding the message at the end of the process can throw
+                // away work we've spent a considerable amount of time doing, but
+                // we are backfitting this functionality on existing code that
+                // had no idea about transport masks, so this was the way to go
+                // since we are concerned about regressions as this was done at
+                // a relatively late time in the release process.  Feel free to
+                // refactor this.
+                //
+                if (interfaceApproved) {
+                    QCC_DbgPrintf(("IpNameServiceImpl::SendOutboundMessages(): SendProtocolMessage()"));
+                    SendProtocolMessage(m_liveInterfaces[i].m_sockFd, ipv6Address, interfaceAddressPrefixLen, flags,
+                                        interfaceIsIPv4, header);
+                } else {
+                    QCC_DbgPrintf(("IpNameServiceImpl::SendOutboundMessages(): Do not SendProtocolMessage(): Not approved."));
+                }
             }
         }
 
         //
-        // The current message has been sent to all of the live interfaces, so
-        // we can discard it and loop back for another.
+        // The current message has been sent to all of the live interfaces that
+        // make sense, so we can discard it and loop back for another.
         //
         m_outbound.pop_front();
     }
@@ -2230,6 +2649,7 @@ void* IpNameServiceImpl::Run(void* arg)
         }
 
         GetTimeNow(&tNow);
+        // printf("%s: m_mutex.Lock()\n", __FUNCTION__);
         m_mutex.Lock();
 
         //
@@ -2268,11 +2688,11 @@ void* IpNameServiceImpl::Run(void* arg)
         // range.
         //
         // What drives the middle ground between MAX and MIN timing?  The
-        // presence or absence of Locate() and Advertise() calls.  If the
-        // application is poked by an impatient user who "knows" she should be
-        // able to connect, she may arrange to send out a Locate() or
-        // Advertise().  This is indicated to us by a message on the m_outbound
-        // queue.
+        // presence or absence of FindAdvertisedName() and AdvertiseName()
+        // calls.  If the application is poked by an impatient user who "knows"
+        // she should be able to connect, she may arrange to send out a
+        // FindAdvertiseName() or AdvertiseName().  This is indicated to us by a
+        // message on the m_outbound queue.
         //
         // So there are three basic cases which cause us to rn the lazy updater:
         //
@@ -2311,7 +2731,7 @@ void* IpNameServiceImpl::Run(void* arg)
         //
         if (IsStopping()) {
             QCC_DbgPrintf(("IpNameServiceImpl::Run(): Stopping.  ClearLiveInterfaces() and break"));
-            QCC_DbgPrintf(("IpNameServiceImpl::Run(): Giving mutex"));
+            // printf("%s: m_mutex.Unlock()\n", __FUNCTION__);
             m_mutex.Unlock();
             ClearLiveInterfaces();
             break;
@@ -2344,6 +2764,7 @@ void* IpNameServiceImpl::Run(void* arg)
         // we definitely need to release other (user) threads that might
         // be waiting to talk to us.
         //
+        // printf("%s: m_mutex.Unlock()\n", __FUNCTION__);
         m_mutex.Unlock();
 
         //
@@ -2383,15 +2804,18 @@ void* IpNameServiceImpl::Run(void* arg)
                 // the is-at messages metioned above, and then we run until they
                 // are all processed and then we exit.
                 //
-                // Calling Retransmit(true) will queue the desired terminal
-                // is-at messages on the m_outbound list.  To ensure that they
-                // are sent before we exit, we set m_termianl to true.  We will
-                // have set m_state to IMPL_STOPPING in IpNameServiceImpl::Stop.  This
-                // stops new external requests from being acted upon.  We then
-                // continue in our loop until the outbound queue is empty and
-                // then exit the run routine (above).
+                // Calling Retransmit(index, true) will queue the desired
+                // terminal is-at messages from the given transport on the
+                // m_outbound list.  To ensure that they are sent before we
+                // exit, we set m_terminal to true.  We will have set m_state to
+                // IMPL_STOPPING in IpNameServiceImpl::Stop.  This stops new
+                // external requests from being acted upon.  We then continue in
+                // our loop until the outbound queue is empty and then exit the
+                // run routine (above).
                 //
-                Retransmit(true);
+                for (uint32_t index = 0; index < N_TRANSPORTS; ++index) {
+                    Retransmit(index, true);
+                }
                 m_terminal = true;
                 break;
             } else if (*i == &timerEvent) {
@@ -2511,7 +2935,7 @@ void IpNameServiceImpl::Retry(void)
     }
 }
 
-void IpNameServiceImpl::Retransmit(bool exiting)
+void IpNameServiceImpl::Retransmit(uint32_t transportIndex, bool exiting)
 {
     QCC_DbgPrintf(("IpNameServiceImpl::Retransmit()"));
 
@@ -2520,8 +2944,15 @@ void IpNameServiceImpl::Retransmit(bool exiting)
     // We are running short on toes, so don't shoot any more off by not being
     // thread-unaware.
     //
-    QCC_DbgPrintf(("IpNameServiceImpl::Retransmit(): Taking lock"));
+    // printf("%s: m_mutex.Lock()\n", __FUNCTION__);
     m_mutex.Lock();
+
+    if (m_advertised[transportIndex].empty()) {
+        QCC_DbgPrintf(("IpNameServiceImpl::Retransmit(): Nothing to do for transportIndex %d", transportIndex));
+        // printf("%s: m_mutex.Unlock()\n", __FUNCTION__);
+        m_mutex.Unlock();
+        return;
+    }
 
     //
     // We are now at version one of the protocol.  There is a significant
@@ -2532,9 +2963,10 @@ void IpNameServiceImpl::Retransmit(bool exiting)
     // of message.  Since the version is located in the message header, this
     // means two messages.
     //
-    // Do it once for version zero.
+    // Do it once for version zero, but only if the transport index corresponds
+    // to TRANSPORT_TCP since that was the only possibility in version zero.
     //
-    {
+    if (transportIndex == IndexFromBit(TRANSPORT_TCP)) {
         //
         // Keep track of how many messages we actually send in order to get all of
         // the advertisements out.
@@ -2551,9 +2983,14 @@ void IpNameServiceImpl::Retransmit(bool exiting)
 
         //
         // We understand all messages from version zero to version one, and we
-        // are sending a version zero message;
+        // are sending a version zero message.  The whole point of sending a
+        // version zero message is that can be understood by down-level code
+        // so we can't use the new versioning scheme.  We have to use some
+        // sneaky way to tell an in-the know version one client that the
+        // packet is from a version one client and that is through the setting
+        // of the UDP flag.
         //
-        header.SetVersion(1, 0);
+        header.SetVersion(0, 0);
 
         header.SetTimer(exiting ? 0 : m_tDuration);
 
@@ -2563,11 +3000,17 @@ void IpNameServiceImpl::Retransmit(bool exiting)
         // AdvertiseName for why we set the UDP flag.
         //
         IsAt isAt;
+        isAt.SetVersion(0, 0);
         isAt.SetCompleteFlag(false);
         isAt.SetTcpFlag(true);
-        isAt.SetUdpFlag(false);
+        isAt.SetUdpFlag(true);
         isAt.SetGuid(m_guid);
-        isAt.SetPort(m_port);
+
+        //
+        // The only possibility in version zero is that the port is the IPv4
+        // reliable port.
+        //
+        isAt.SetPort(m_reliableIPv4Port[transportIndex]);
 
         QCC_DbgPrintf(("IpNameServiceImpl::Retransmit(): Loop through advertised names"));
 
@@ -2580,7 +3023,7 @@ void IpNameServiceImpl::Retransmit(bool exiting)
         // A user can consume all available resources here by flooding us with
         // advertisements but she will only be shooting herself in the foot.
         //
-        for (list<qcc::String>::iterator i = m_advertised.begin(); i != m_advertised.end(); ++i) {
+        for (list<qcc::String>::iterator i = m_advertised[transportIndex].begin(); i != m_advertised[transportIndex].end(); ++i) {
             QCC_DbgPrintf(("IpNameServiceImpl::Retransmit(): Accumulating \"%s\"", (*i).c_str()));
 
             //
@@ -2695,23 +3138,29 @@ void IpNameServiceImpl::Retransmit(bool exiting)
         //
         isAt.SetVersion(1, 1);
 
+        //
+        // We don't know if this is going to be a complete and final list yet,
+        // but we do know which transport we are doing this on behalf of.
+        //
         isAt.SetCompleteFlag(false);
+        isAt.SetTransportMask(BitFromIndex(transportIndex));
 
         //
-        // Version one allows us to provide four possible endpoints.
-        // XXX FIXME These should be stored per-transport mask (16 possible).
+        // Version one allows us to provide four possible endpoints.  The address
+        // will be rewritten on the way out with the address of the appropriate
+        // interface.
         //
-        if (m_reliableIPv4Port) {
-            isAt.SetReliableIPv4(m_reliableIPv4Address, m_reliableIPv4Port);
+        if (m_reliableIPv4Port[transportIndex]) {
+            isAt.SetReliableIPv4("", m_reliableIPv4Port[transportIndex]);
         }
-        if (m_unreliableIPv4Port) {
-            isAt.SetUnreliableIPv4(m_unreliableIPv4Address, m_unreliableIPv4Port);
+        if (m_unreliableIPv4Port[transportIndex]) {
+            isAt.SetUnreliableIPv4("", m_unreliableIPv4Port[transportIndex]);
         }
-        if (m_reliableIPv6Port) {
-            isAt.SetReliableIPv6(m_reliableIPv6Address, m_reliableIPv6Port);
+        if (m_reliableIPv6Port[transportIndex]) {
+            isAt.SetReliableIPv6("", m_reliableIPv6Port[transportIndex]);
         }
-        if (m_unreliableIPv6Port) {
-            isAt.SetUnreliableIPv6(m_unreliableIPv6Address, m_unreliableIPv6Port);
+        if (m_unreliableIPv6Port[transportIndex]) {
+            isAt.SetUnreliableIPv6("", m_unreliableIPv6Port[transportIndex]);
         }
 
         isAt.SetGuid(m_guid);
@@ -2727,7 +3176,7 @@ void IpNameServiceImpl::Retransmit(bool exiting)
         // A user can consume all available resources here by flooding us with
         // advertisements but she will only be shooting herself in the foot.
         //
-        for (list<qcc::String>::iterator i = m_advertised.begin(); i != m_advertised.end(); ++i) {
+        for (list<qcc::String>::iterator i = m_advertised[transportIndex].begin(); i != m_advertised[transportIndex].end(); ++i) {
             QCC_DbgPrintf(("IpNameServiceImpl::Retransmit(): Accumulating \"%s\"", (*i).c_str()));
 
             //
@@ -2804,7 +3253,7 @@ void IpNameServiceImpl::Retransmit(bool exiting)
         QueueProtocolMessage(header);
     }
 
-    QCC_DbgPrintf(("IpNameServiceImpl::Retransmit(): Giving lock"));
+    // printf("%s: m_mutex.Unlock()\n", __FUNCTION__);
     m_mutex.Unlock();
 }
 
@@ -2813,6 +3262,7 @@ void IpNameServiceImpl::DoPeriodicMaintenance(void)
 #if HAPPY_WANDERER
     Wander();
 #endif
+    // printf("%s: m_mutex.Lock()\n", __FUNCTION__);
     m_mutex.Lock();
 
     //
@@ -2829,11 +3279,14 @@ void IpNameServiceImpl::DoPeriodicMaintenance(void)
         --m_timer;
         if (m_timer == m_tRetransmit) {
             QCC_DbgPrintf(("IpNameServiceImpl::DoPeriodicMaintenance(): Retransmit()"));
-            Retransmit(false);
+            for (uint32_t index = 0; index < N_TRANSPORTS; ++index) {
+                Retransmit(index, false);
+            }
             m_timer = m_tDuration;
         }
     }
 
+    // printf("%s: m_mutex.Unlock()\n", __FUNCTION__);
     m_mutex.Unlock();
 }
 
@@ -2843,67 +3296,89 @@ void IpNameServiceImpl::HandleProtocolQuestion(WhoHas whoHas, qcc::IPAddress add
 
     //
     // There are at least two threads wandering through the advertised list.
-    // We are running short on toes, so don't shoot any more off by not being
-    // thread-unaware.
     //
-    QCC_DbgHLPrintf(("IpNameServiceImpl::HandleProtocolQuestion(): Taking lock"));
+    // printf("%s: m_mutex.Lock()\n", __FUNCTION__);
     m_mutex.Lock();
 
     //
-    // Loop through the names we are being asked about, and if we have
-    // advertised any of them, we are going to need to respond to this
-    // question.
+    // The who-has message doesn't specify which transport is doing the asking.
+    // This is an oversight and should be fixed in a subsequent version.  The
+    // only reasonable thing to do is to return name matches found in all of
+    // the advertising transports.
     //
-    bool respond = false;
-    for (uint32_t i = 0; i < whoHas.GetNumberNames(); ++i) {
-        qcc::String wkn = whoHas.GetName(i);
+    for (uint32_t index = 0; index < N_TRANSPORTS; ++index) {
 
         //
-        // Zero length strings are unmatchable.  If you want to do a wildcard
-        // match, you've got to send a wildcard character.
+        // If there are no names being advertised by the transport identified by
+        // its index, there is nothing to do.
         //
-        if (wkn.size() == 0) {
+        if (m_advertised[index].empty()) {
             continue;
         }
 
         //
-        // check to see if this name on the list of names we advertise.
+        // Loop through the names we are being asked about, and if we have
+        // advertised any of them, we are going to need to respond to this
+        // question.
         //
-        for (list<qcc::String>::iterator j = m_advertised.begin(); j != m_advertised.end(); ++j) {
+        bool respond = false;
+        for (uint32_t i = 0; i < whoHas.GetNumberNames(); ++i) {
+            qcc::String wkn = whoHas.GetName(i);
 
             //
-            // The requested name comes in from the WhoHas message and we
-            // allow wildcards there.
+            // Zero length strings are unmatchable.  If you want to do a wildcard
+            // match, you've got to send a wildcard character.
             //
-            if (IpNameServiceImplWildcardMatch((*j), wkn)) {
-                QCC_DbgHLPrintf(("IpNameServiceImpl::HandleProtocolQuestion(): request for %s does not match my %s",
-                                 wkn.c_str(), (*j).c_str()));
+            if (wkn.size() == 0) {
                 continue;
-            } else {
-                respond = true;
+            }
+
+            //
+            // check to see if this name on the list of names we advertise.
+            //
+            for (list<qcc::String>::iterator j = m_advertised[index].begin(); j != m_advertised[index].end(); ++j) {
+
+                //
+                // The requested name comes in from the WhoHas message and we
+                // allow wildcards there.
+                //
+                if (IpNameServiceImplWildcardMatch((*j), wkn)) {
+                    QCC_DbgHLPrintf(("IpNameServiceImpl::HandleProtocolQuestion(): request for %s does not match my %s",
+                                     wkn.c_str(), (*j).c_str()));
+                    continue;
+                } else {
+                    respond = true;
+                    break;
+                }
+            }
+
+            //
+            // If we find a match, don't bother going any further since we need
+            // to respond in any case.
+            //
+            if (respond) {
                 break;
             }
         }
 
         //
-        // If we find a match, don't bother going any further since we need
-        // to respond in any case.
+        // Since any response we send must include all of the advertisements we
+        // are exporting; this just means to retransmit all of our advertisements.
         //
         if (respond) {
-            break;
+            // printf("%s: m_mutex.Unlock()\n", __FUNCTION__);
+            m_mutex.Unlock();
+
+            Retransmit(index, false);
+
+            // printf("%s: m_mutex.Lock()\n", __FUNCTION__);
+            m_mutex.Lock();
         }
     }
 
-    QCC_DbgHLPrintf(("IpNameServiceImpl::HandleProtocolQuestion(): Giving lock"));
+    // printf("%s: m_mutex.Unlock()\n", __FUNCTION__);
     m_mutex.Unlock();
 
-    //
-    // Since any response we send must include all of the advertisements we
-    // are exporting; this just means to retransmit all of our advertisements.
-    //
-    if (respond) {
-        Retransmit(false);
-    }
 }
 
 void IpNameServiceImpl::HandleProtocolAnswer(IsAt isAt, uint32_t timer, qcc::IPAddress address)
@@ -2911,11 +3386,38 @@ void IpNameServiceImpl::HandleProtocolAnswer(IsAt isAt, uint32_t timer, qcc::IPA
     QCC_DbgHLPrintf(("IpNameServiceImpl::HandleProtocolAnswer()"));
 
     //
-    // If there are no callbacks we can't tell the user anything about what is
-    // going on the net, so it's pointless to go any further.
+    // We have to determine where the transport mask is going to come
+    // from.  For version zero messages, we infer it as TRANSPORT_TCP
+    // since that was the only possibility.  For version one and greater
+    // messages the transport mask is included in the message.
     //
-    if (m_callback == 0) {
-        QCC_DbgPrintf(("IpNameServiceImpl::HandleProtocolAnswer(): No callback, so nothing to do"));
+    TransportMask transportMask;
+    uint32_t transportIndex;
+
+    uint32_t nsVersion, msgVersion;
+    isAt.GetVersion(nsVersion, msgVersion);
+    if (msgVersion == 0) {
+        transportMask = TRANSPORT_TCP;
+        transportIndex = IndexFromBit(TRANSPORT_TCP);
+    } else {
+        transportMask = isAt.GetTransportMask();
+
+        if (CountOnes(transportMask) != 1) {
+            QCC_LogError(ER_BAD_TRANSPORT_MASK, ("IpNameServiceImpl::HandleProtocolAnswer(): Bad transport mask"));
+            return;
+        }
+
+        transportIndex = IndexFromBit(transportMask);
+        assert(transportIndex < 16 && "IpNameServiceImpl::SetCallback(): Bad callback index");
+    }
+
+    //
+    // If there is no callback for the provided transport, we can't tell the
+    // user anything about what is going on the net, so it's pointless to go any
+    // further.
+    //
+    if (m_callback[transportIndex] == NULL) {
+        QCC_DbgPrintf(("IpNameServiceImpl::HandleProtocolAnswer(): No callback for transport, so nothing to do"));
         return;
     }
 
@@ -2925,12 +3427,14 @@ void IpNameServiceImpl::HandleProtocolAnswer(IsAt isAt, uint32_t timer, qcc::IPA
     // (version zero messages).  We know that a version one name service will be
     // following up with a version one packet, so a version zero compatibility
     // message provides incomplete information -- we drop such messages here.
+    // The indication that this is the case is both versions being zero with a
+    // UDP flag being true.
     //
-    uint32_t nsVersion, msgVersion;
-    isAt.GetVersion(nsVersion, msgVersion);
-    if (nsVersion == 1 && msgVersion == 0) {
-        QCC_DbgPrintf(("IpNameServiceImpl::HandleProtocolAnswer(): Ignoring version zero message from version one peer"));
-        return;
+    if (nsVersion == 0 && msgVersion == 0) {
+        if (isAt.GetUdpFlag()) {
+            QCC_DbgPrintf(("IpNameServiceImpl::HandleProtocolAnswer(): Ignoring version zero message from version one peer"));
+            return;
+        }
     }
 
     vector<qcc::String> wkn;
@@ -3029,11 +3533,11 @@ void IpNameServiceImpl::HandleProtocolAnswer(IsAt isAt, uint32_t timer, qcc::IPA
         //
         if ((address.IsIPv4() && !ipv4address.size())) {
             snprintf(addrbuf, sizeof(addrbuf), "r4addr=%s,r4port=%d", recvfromAddress.c_str(), port);
-            QCC_DbgPrintf(("IpNameServiceImpl::HandleProtocolAnswer(): Calling back with %s", addrbuf));
             qcc::String busAddress(addrbuf);
 
-            if (m_callback) {
-                (*m_callback)(busAddress, guid, wkn, timer);
+            if (m_callback[transportIndex]) {
+                QCC_DbgPrintf(("IpNameServiceImpl::HandleProtocolAnswer(): Calling back with %s", addrbuf));
+                (*m_callback[transportIndex])(busAddress, guid, wkn, timer);
             }
         }
 
@@ -3043,11 +3547,11 @@ void IpNameServiceImpl::HandleProtocolAnswer(IsAt isAt, uint32_t timer, qcc::IPA
         //
         if (ipv4address.size()) {
             snprintf(addrbuf, sizeof(addrbuf), "r4addr=%s,r4port=%d", ipv4address.c_str(), port);
-            QCC_DbgPrintf(("IpNameServiceImpl::HandleProtocolAnswer(): Calling back with %s", addrbuf));
             qcc::String busAddress(addrbuf);
 
-            if (m_callback) {
-                (*m_callback)(busAddress, guid, wkn, timer);
+            if (m_callback[transportIndex]) {
+                QCC_DbgPrintf(("IpNameServiceImpl::HandleProtocolAnswer(): Calling back with %s", addrbuf));
+                (*m_callback[transportIndex])(busAddress, guid, wkn, timer);
             }
         }
 
@@ -3057,11 +3561,11 @@ void IpNameServiceImpl::HandleProtocolAnswer(IsAt isAt, uint32_t timer, qcc::IPA
         //
         if (ipv6address.size()) {
             snprintf(addrbuf, sizeof(addrbuf), "r6addr=%s,r6port=%d", ipv6address.c_str(), port);
-            QCC_DbgHLPrintf(("IpNameServiceImpl::HandleProtocolAnswer(): Calling back with %s", addrbuf));
             qcc::String busAddress(addrbuf);
 
-            if (m_callback) {
-                (*m_callback)(busAddress, guid, wkn, timer);
+            if (m_callback[transportIndex]) {
+                QCC_DbgHLPrintf(("IpNameServiceImpl::HandleProtocolAnswer(): Calling back with %s", addrbuf));
+                (*m_callback[transportIndex])(busAddress, guid, wkn, timer);
             }
         }
     } else if (msgVersion == 1) {
@@ -3149,10 +3653,9 @@ void IpNameServiceImpl::HandleProtocolAnswer(IsAt isAt, uint32_t timer, qcc::IPA
         //
         qcc::String busAddress(addrbuf);
 
-        QCC_DbgHLPrintf(("IpNameServiceImpl::HandleProtocolAnswer(): Calling back with %s", busAddress.c_str()));
-
-        if (m_callback) {
-            (*m_callback)(busAddress, guid, wkn, timer);
+        if (m_callback[transportIndex]) {
+            QCC_DbgHLPrintf(("IpNameServiceImpl::HandleProtocolAnswer(): Calling back with %s", busAddress.c_str()));
+            (*m_callback[transportIndex])(busAddress, guid, wkn, timer);
         }
     }
 }
@@ -3222,12 +3725,14 @@ void IpNameServiceImpl::HandleProtocolMessage(uint8_t const* buffer, uint32_t nb
 QStatus IpNameServiceImpl::Start()
 {
     QCC_DbgPrintf(("IpNameServiceImpl::Start()"));
+    // printf("%s: m_mutex.Lock()\n", __FUNCTION__);
     m_mutex.Lock();
     assert(IsRunning() == false);
     QCC_DbgPrintf(("IpNameServiceImpl::Start(): Starting thread"));
     QStatus status = Thread::Start(this);
     QCC_DbgPrintf(("IpNameServiceImpl::Start(): Started"));
     m_state = IMPL_RUNNING;
+    // printf("%s: m_mutex.Unlock()\n", __FUNCTION__);
     m_mutex.Unlock();
     return status;
 }
@@ -3240,6 +3745,7 @@ bool IpNameServiceImpl::Started()
 QStatus IpNameServiceImpl::Stop()
 {
     QCC_DbgPrintf(("IpNameServiceImpl::Stop()"));
+    // printf("%s: m_mutex.Lock()\n", __FUNCTION__);
     m_mutex.Lock();
     if (m_state != IMPL_SHUTDOWN) {
         m_state = IMPL_STOPPING;
@@ -3247,6 +3753,7 @@ QStatus IpNameServiceImpl::Stop()
     QCC_DbgPrintf(("IpNameServiceImpl::Stop(): Stopping thread"));
     QStatus status = Thread::Stop();
     QCC_DbgPrintf(("IpNameServiceImpl::Stop(): Stopped"));
+    // printf("%s: m_mutex.Unlock()\n", __FUNCTION__);
     m_mutex.Unlock();
     return status;
 }
@@ -3260,6 +3767,94 @@ QStatus IpNameServiceImpl::Join()
     QCC_DbgPrintf(("IpNameServiceImpl::Join(): Joined"));
     m_state = IMPL_SHUTDOWN;
     return status;
+}
+
+//
+// Count the number of bits set in a 32-bit word using one of the many
+// well-known high-performance algorithms for calculating Population Count while
+// determining Hamming Distance.  It's completely obscure and mostly
+// incomprehensible at first glance.  Google hamming distance or popcount if you
+// dare.
+//
+// This is a well-investigated operation so similar code snippets are widely
+// available on the web and are in the public domain.
+//
+// We use this method in the process of ensuring that only one bit is set in a
+// TransportMask.  This is because there must be a one-to-one correspondence
+// between a transport mask bit and a transport.
+//
+uint32_t IpNameServiceImpl::CountOnes(uint32_t data)
+{
+    QCC_DbgPrintf(("IpNameServiceImpl::CountOnes(0x%x)", data));
+
+    data = data - ((data >> 1) & 0x55555555);
+    data = (data & 0x33333333) + ((data >> 2) & 0x33333333);
+    uint32_t result = (((data + (data >> 4)) & 0x0F0F0F0F) * 0x01010101) >> 24;
+
+    QCC_DbgPrintf(("IpNameServiceImpl::CountOnes(): %d bits are set", result));
+    return result;
+}
+
+//
+// Convert a data word with one bit set to an index into a table corresponding
+// to that bit.  This uses one of the many well-known high performance
+// algorithms for counting the nunber of consecutive trailing zero bits in an
+// integer.  This is similar to finding log base two of the data word.  Google
+// consecutive trailing zero bits if you dare.
+//
+// This is a well-investigated operation so similar code snippets are widely
+// available on the web and are in the public domain.
+//
+// We use this method to convert from a transport mask to an index into a table
+// corresponding to some property of the transport that is using the name service.
+// We assume that the data has been verified to contain one bit set in the low
+// order word.
+//
+uint32_t IpNameServiceImpl::IndexFromBit(uint32_t data)
+{
+    QCC_DbgPrintf(("IpNameServiceImpl::IndexFromBit(0x%x)", data));
+
+    uint32_t c = 32;
+    data &= -signed(data);
+
+    if (data) --c;
+    if (data & 0x0000ffff) c -= 16;
+    if (data & 0x00ff00ff) c -= 8;
+    if (data & 0x0f0f0f0f) c -= 4;
+    if (data & 0x33333333) c -= 2;
+    if (data & 0x55555555) c -= 1;
+
+    //
+    // If the number of trailing bits that are set to zero is count, then the
+    // first set bit must be at position count + 1.  Since array indices are
+    // zero-based, the index into an array corresponding to the first set bit
+    // is count (index == number of trailing zero bits).
+    //
+    QCC_DbgPrintf(("IpNameServiceImpl::IndexFromBit(): Index is %d.", c));
+    return c;
+}
+
+//
+// Convert a data word with one bit set to an index into a table corresponding
+// to that bit.  This uses one of the many well-known high performance
+// algorithms for counting the nunber of consecutive trailing zero bits in an
+// integer.  This is similar to finding log base two of the data word.  Google
+// consecutive trailing zero bits if you dare.
+//
+// This is a well-investigated operation so similar code snippets are widely
+// available on the web and are in the public domain.
+//
+// We use this method to convert from a transport mask to an index into a table
+// corresponding to some property of the transport that is using the name service.
+// We assume that the data has been verified to contain one bit set in the low
+// order word.
+//
+TransportMask IpNameServiceImpl::BitFromIndex(uint32_t index)
+{
+    QCC_DbgPrintf(("IpNameServiceImpl::BitFromIndex(%d.)", index));
+    uint32_t result = 1 << index;
+    QCC_DbgPrintf(("IpNameServiceImpl::BitFromIndex(): Bit is 0x%x", result));
+    return result;
 }
 
 } // namespace ajn

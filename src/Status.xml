@@ -228,4 +228,5 @@ Copyright 2010 - 2012, Qualcomm Innovation Center, Inc.
   <status name="ER_P2P" value="0x90dd" comment="An error occurred in a Wi-Fi Direct helper method call"/>
   <status name="ER_P2P_TIMEOUT" value="0x90de" comment="A timeout occurred in a Wi-Fi Direct helper method call"/>
   <status name="ER_P2P_NOT_CONNECTED" value="0x90df" comment="A required Wi-Fi Direct network connection does not exist"/>
+  <status name="ER_BAD_TRANSPORT_MASK" value="0x90e0" comment="Exactly one mask bit was not set in the provided TransportMask"/>
 </status_block>

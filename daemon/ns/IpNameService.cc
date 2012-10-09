@@ -82,12 +82,11 @@ IpNameService::~IpNameService()
     // the main thread, it is possible that other transport threads will also
     // be calling.  Like in hunting rabbits, We've got to be very, very careful.
     //
-    //
     // First, make sure no callbacks leak out of the private implementation
-    // during this critical time by turning off ALL callbacks to all transports.
+    // during this critical time by turning off ALL callbacks to ALL transports.
     //
     if (m_pimpl) {
-        m_pimpl->SetCallback(NULL);
+        m_pimpl->ClearCallbacks();
     }
 
     //
@@ -290,7 +289,7 @@ void IpNameService::SetCallback(TransportMask transportMask,
     }
 
     ASSERT_STATE("SetCallback");
-    m_pimpl->SetCallback(/* transportMask, */ cb);
+    m_pimpl->SetCallback(transportMask, cb);
 }
 
 QStatus IpNameService::OpenInterface(TransportMask transportMask, const qcc::String& name)
@@ -307,7 +306,7 @@ QStatus IpNameService::OpenInterface(TransportMask transportMask, const qcc::Str
     }
 
     ASSERT_STATE("OpenInterface");
-    return m_pimpl->OpenInterface(/* transportMask, */ name);
+    return m_pimpl->OpenInterface(transportMask, name);
 }
 
 QStatus IpNameService::OpenInterface(TransportMask transportMask, const qcc::IPAddress& address)
@@ -324,7 +323,7 @@ QStatus IpNameService::OpenInterface(TransportMask transportMask, const qcc::IPA
     }
 
     ASSERT_STATE("OpenInterface");
-    return m_pimpl->OpenInterface(/* transportMask, */ address);
+    return m_pimpl->OpenInterface(transportMask, address);
 }
 
 QStatus IpNameService::CloseInterface(TransportMask transportMask, const qcc::String& name)
@@ -341,7 +340,7 @@ QStatus IpNameService::CloseInterface(TransportMask transportMask, const qcc::St
     }
 
     ASSERT_STATE("CloseInterface");
-    return m_pimpl->CloseInterface(/* transportMask, */ name);
+    return m_pimpl->CloseInterface(transportMask, name);
 }
 
 QStatus IpNameService::CloseInterface(TransportMask transportMask, const qcc::IPAddress& address)
@@ -357,7 +356,7 @@ QStatus IpNameService::CloseInterface(TransportMask transportMask, const qcc::IP
         return ER_OK;
     }
     ASSERT_STATE("CloseInterface");
-    return m_pimpl->CloseInterface(/* transportMask, */ address);
+    return m_pimpl->CloseInterface(transportMask, address);
 }
 
 QStatus IpNameService::Enable(TransportMask transportMask,
@@ -414,7 +413,7 @@ QStatus IpNameService::FindAdvertisedName(TransportMask transportMask, const qcc
     }
 
     ASSERT_STATE("FindAdvertisedName");
-    return m_pimpl->Locate(/* transportMask, */ prefix);
+    return m_pimpl->FindAdvertisedName(transportMask, prefix);
 }
 
 QStatus IpNameService::CancelFindAdvertisedName(TransportMask transportMask, const qcc::String& prefix)

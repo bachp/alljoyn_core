@@ -321,7 +321,7 @@ QStatus AdvTunnel::RelayAdv()
             uint16_t port = static_cast<uint16_t>(qcc::StringToU32(argMap["r4port"]));
             status = ns->Enable(TRANSPORT_TCP, (uint16_t)port, 0, 0, 0);
             if (status == ER_OK) {
-                ns->OpenInterface("*");
+                ns->OpenInterface(TRANSPORT_TCP, "*");
             }
         }
     } else {
@@ -341,7 +341,7 @@ QStatus AdvTunnel::RelayAdv()
     /*
      * If nothing is being advertised for this guid we don't need this name service any more.
      */
-    if (ns->NumAdvertisements() == 0) {
+    if (ns->NumAdvertisements(TRANSPORT_TCP) == 0) {
         printf("Removing unused name server\n");
         nsRelay.erase(guid);
         delete ns;
@@ -462,7 +462,8 @@ int main(int argc, char** argv)
 
     g_ns = &ns;
 
-    ns.SetCallback(new CallbackImpl<AdvTunnel, void, const qcc::String&, const qcc::String&, std::vector<qcc::String>&, uint8_t>
+    ns.SetCallback(TRANSPORT_TCP,
+                   new CallbackImpl<AdvTunnel, void, const qcc::String&, const qcc::String&, std::vector<qcc::String>&, uint8_t>
                        (&tunnel, &AdvTunnel::Found));
 
     ns.Enable(TRANSPORT_TCP, port, 0, 0, 0);
@@ -473,8 +474,8 @@ int main(int argc, char** argv)
     if (sniffMode) {
         ns.Init(guid);
         ns.Start();
-        ns.OpenInterface("*");
-        ns.Locate("");
+        ns.OpenInterface(TRANSPORT_TCP, "*");
+        ns.FindAdvertisedName(TRANSPORT_TCP, "");
         printf("Started sniffing for advertised names\n");
         qcc::Sleep(10000000);
         ns.Stop();
@@ -494,8 +495,8 @@ int main(int argc, char** argv)
             ns.Init(guid);
             ns.Start();
 
-            ns.OpenInterface("*");
-            ns.Locate("");
+            ns.OpenInterface(TRANSPORT_TCP, "*");
+            ns.FindAdvertisedName(TRANSPORT_TCP, "");
 
             printf("Start relay\n");
 

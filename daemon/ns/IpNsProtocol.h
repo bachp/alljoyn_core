@@ -650,7 +650,7 @@ class IsAt : public ProtocolElement {
      *
      * @see SetVersion()
      */
-    TransportMask GetTransportMask(TransportMask mask) { return m_transportMask; }
+    TransportMask GetTransportMask(void) { return m_transportMask; }
 
     /**
      * @internal
@@ -1348,6 +1348,40 @@ class WhoHas : public ProtocolElement {
 
     /**
      * @internal
+     * @brief Set the transport mask of the transport sending the advertisement
+     *
+     * The IP name service protocol can be used by a number of different AllJoyn
+     * transports.  These transports may need to build a wall around their own
+     * advertisements so we provide the name service with a way to plumb the
+     * advertisements from end-to-end according to transport.
+     *
+     * It is up to higher levels to understand the contextual implications, if any,
+     * of peeking at other transports' advertisements or discovery requests.
+     *
+     * @param mask The transport mask of the object.
+     *
+     * @warning Due to an oversight, the transport mask is not actually sent in
+     * a version one who-has message.  The transport mask is carried around internally
+     * in outgoing messages, but is set to zero for incoming messages.
+     */
+    void SetTransportMask(TransportMask mask) { m_transportMask = mask; }
+
+    /**
+     * @internal
+     * @brief Get the transport mask of the transport that is sending the message.
+     *
+     * @return The transport mask of the transport that is sending the message.
+     *
+     * @see SetTransportMask()
+     *
+     * @warning Due to an oversight, the transport mask is not actually sent in
+     * a version one who-has message.  The transport mask is carried around internally
+     * in outgoing messages, but is set to zero for incoming messages.
+     */
+    TransportMask GetTransportMask(void) { return m_transportMask; }
+
+    /**
+     * @internal
      * @brief Set the protocol flag indicating that the daemon generating
      * this question is interested in hearing about daemons listening on a TCP
      * socket.
@@ -1515,6 +1549,7 @@ class WhoHas : public ProtocolElement {
 
   private:
     uint8_t m_version;
+    TransportMask m_transportMask;
     bool m_flagT;
     bool m_flagU;
     bool m_flagS;

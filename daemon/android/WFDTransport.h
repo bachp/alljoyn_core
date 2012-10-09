@@ -619,6 +619,7 @@ class WFDTransport : public Transport, public RemoteEndpoint::EndpointListener, 
 
     bool m_p2pNsAcquired;  /**< True if we've done an Acquire() on the P2P name service singleton */
     bool m_p2pCmAcquired;  /**< True if we've done an Acquire() on the P2P connection manager singleton */
+    bool m_ipNsAcquired;   /**< True if we've done an Acquire() on the IP name service singleton */
 };
 
 } // namespace ajn

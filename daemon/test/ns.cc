@@ -304,7 +304,7 @@ int main(int argc, char** argv)
                 // Tell the name service to talk and listen over the interface we chose
                 // above.
                 //
-                status = ns.OpenInterface(entries[i].m_name);
+                status = ns.OpenInterface(TRANSPORT_TCP, entries[i].m_name);
                 if (status != ER_OK) {
                     QCC_LogError(status, ("OpenInterface failed"));
                     ERROR_EXIT;
@@ -337,17 +337,17 @@ int main(int argc, char** argv)
 
     Finder finder;
 
-    ns.SetCallback(new CallbackImpl<Finder, void, const qcc::String&, const qcc::String&,
-                                    std::vector<qcc::String>&, uint8_t>(&finder, &Finder::Callback));
+    ns.SetCallback(TRANSPORT_TCP, new CallbackImpl<Finder, void, const qcc::String&, const qcc::String&,
+                                                   std::vector<qcc::String>&, uint8_t>(&finder, &Finder::Callback));
 
     if (wildcard) {
         //
         // Enable discovery on all of the test names in one go.
         //
-        printf("locate org.randomteststring.*\n");
-        status = ns.Locate("org.randomteststring.*");
+        printf("FindAdvertisedName org.randomteststring.*\n");
+        status = ns.FindAdvertisedName(TRANSPORT_TCP, "org.randomteststring.*");
         if (status != ER_OK) {
-            QCC_LogError(status, ("Locate failed"));
+            QCC_LogError(status, ("FindAdvertisedName failed"));
             ERROR_EXIT;
         }
     } else {
@@ -355,11 +355,11 @@ int main(int argc, char** argv)
         // Enable discovery on all of the test names individually
         //
         for (uint32_t i = 0; !wildcard && i < g_numberNames; ++i) {
-            printf("Locate %s\n", g_names[i]);
+            printf("FindAdvertisedName %s\n", g_names[i]);
 
-            status = ns.Locate(g_names[i]);
+            status = ns.FindAdvertisedName(TRANSPORT_TCP, g_names[i]);
             if (status != ER_OK) {
-                QCC_LogError(status, ("Locate failed"));
+                QCC_LogError(status, ("FindAdvertisedName failed"));
                 ERROR_EXIT;
             }
         }

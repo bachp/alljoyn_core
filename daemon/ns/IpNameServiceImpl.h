@@ -270,7 +270,7 @@ class IpNameServiceImpl : public qcc::Thread {
      * @see qcc::IfConfig()
      * @see qcc::IfConfigEntry
      */
-    QStatus OpenInterface(/* TransportMask transportMask, */ const qcc::String& name);
+    QStatus OpenInterface(TransportMask transportMask, const qcc::String& name);
 
     /**
      * @brief Tell the name service to begin listening and transmitting
@@ -298,7 +298,7 @@ class IpNameServiceImpl : public qcc::Thread {
      * @see qcc::IfConfig()
      * @see qcc::IfConfigEntry
      */
-    QStatus OpenInterface(/* TransportMask transportMask, */ const qcc::IPAddress& address);
+    QStatus OpenInterface(TransportMask transportMask, const qcc::IPAddress& address);
 
     /**
      * @brief Tell the name service to stop listening and transmitting
@@ -313,7 +313,7 @@ class IpNameServiceImpl : public qcc::Thread {
      *
      * @see OpenInterface
      */
-    QStatus CloseInterface(/* TransportMask transportMask, */ const qcc::String& name);
+    QStatus CloseInterface(TransportMask transportMask, const qcc::String& name);
 
     /**
      * @brief Tell the name service to stop listening and transmitting
@@ -328,7 +328,7 @@ class IpNameServiceImpl : public qcc::Thread {
      *
      * @see OpenInterface
      */
-    QStatus CloseInterface(/* TransportMask transportMask, */ const qcc::IPAddress& address);
+    QStatus CloseInterface(TransportMask transportMask, const qcc::IPAddress& address);
 
     /**
      * @brief Notify the name service that that there is or is not a listener on
@@ -499,7 +499,7 @@ class IpNameServiceImpl : public qcc::Thread {
      *
      * @return Status of the operation.  Returns ER_OK on success.
      */
-    QStatus Locate(/* TransportMask transportMask, */ const qcc::String& wkn, LocatePolicy policy = ALWAYS_RETRY);
+    QStatus FindAdvertisedName(TransportMask transportMask, const qcc::String& wkn, LocatePolicy policy = ALWAYS_RETRY);
 
     /**
      * @brief Set the Callback for notification of discovery events.
@@ -570,9 +570,19 @@ class IpNameServiceImpl : public qcc::Thread {
      * legal and reasonable situation.
      *
      * @param[in] cb the Callback pointer.
+     *
+     * @return Status of the operation.  Returns ER_OK on success.
      */
-    void SetCallback( /* TransportMask transportMask, */
-        Callback<void, const qcc::String&, const qcc::String&, std::vector<qcc::String>&, uint8_t>* cb);
+    QStatus SetCallback(TransportMask transportMask,
+                        Callback<void, const qcc::String&, const qcc::String&, std::vector<qcc::String>&, uint8_t>* cb);
+
+    /**
+     * @brief Clear the callbacks for all transports.
+     *
+     * Used during the shutdown of the IpNameService singleton to make sure that
+     * no more callbacks escape from the implementation.
+     */
+    void ClearCallbacks(void);
 
     /**
      * @brief Advertise an AllJoyn daemon service.
@@ -649,9 +659,12 @@ class IpNameServiceImpl : public qcc::Thread {
     /**
      * @brief Returns a count of the number of names currently being advertised
      *
+     * @param[in] transportMask A bitmask containing the transport requesting the
+     *     advertisement be canceled.
+     *
      * @return  Returns the number of names currently being advertised
      */
-    size_t NumAdvertisements() { return m_advertised.size(); }
+    size_t NumAdvertisements(TransportMask transportMask);
 
   private:
     /**
@@ -663,6 +676,12 @@ class IpNameServiceImpl : public qcc::Thread {
      * @brief Assigning an IpNameServiceImpl object is forbidden.
      */
     IpNameServiceImpl& operator =(const IpNameServiceImpl& other);
+
+    /**
+     * @brief The number of transports that can be represented in a 16-bit
+     * transport mask.
+     */
+    static const uint32_t N_TRANSPORTS = 16;
 
     /**
      * @brief The temporary IPv4 multicast address for the multicast name
@@ -738,6 +757,7 @@ class IpNameServiceImpl : public qcc::Thread {
 
     class InterfaceSpecifier {
       public:
+        TransportMask m_transportMask;      /**< The transport mask that identifies the transport talking to the interface */
         qcc::String m_interfaceName;        /**< The interface (cf. eth0) we want to talk to */
         qcc::IPAddress m_interfaceAddr;     /**< The address (cf. 1.2.3.4) we want to talk to */
     };
@@ -756,11 +776,12 @@ class IpNameServiceImpl : public qcc::Thread {
     /**
      * @internal
      * @brief A vector of information specifying any interfaces we may want to
-     * send or receive multicast packets over.  Interfaces in this vector may
-     * be up or down, or may be completely unrelated to any interface in the
-     * actual host system.  These are what the user is telling us to use.
+     * send or receive multicast packets over for a particular transport.
+     * Interfaces in this vector may be up or down, or may be completely
+     * unrelated to any interface in the actual host system.  These are what the
+     * user is telling us to use.
      */
-    std::vector<InterfaceSpecifier> m_requestedInterfaces;
+    std::vector<InterfaceSpecifier> m_requestedInterfaces[N_TRANSPORTS];
 
     /**
      * @internal
@@ -828,13 +849,17 @@ class IpNameServiceImpl : public qcc::Thread {
      */
     void HandleProtocolAnswer(IsAt isAt, uint32_t timer, qcc::IPAddress address);
 
-    Callback<void, const qcc::String&, const qcc::String&, std::vector<qcc::String>&, uint8_t>* m_callback;
+    /**
+     * One possible callback for each of the corresponding transport masks in a
+     * sixteen-bit word.
+     */
+    Callback<void, const qcc::String&, const qcc::String&, std::vector<qcc::String>&, uint8_t>* m_callback[N_TRANSPORTS];
 
     /**
-     * @internal
-     * @brief A list of all of the names that the user has advertised.
+     * @internal @brief A vector of list of all of the names that the various
+     * transports have advertised.
      */
-    std::list<qcc::String> m_advertised;
+    std::list<qcc::String> m_advertised[N_TRANSPORTS];
 
     /**
      * @internal
@@ -844,85 +869,63 @@ class IpNameServiceImpl : public qcc::Thread {
     qcc::String m_guid;
 
     /**
-     * @internal
-     * @brief The IPv4 address of the daemon assoicated with this instance of the
-     * name service (the daemon's IPv4 address).
+     * @internal @brief The IPv4 address of the transports on this daemon that
+     * are listening for reliable (TCP) inbound connections.  Not defined if the
+     * corresponding port is zero.
      */
-    qcc::String m_ipv4address;
+    qcc::String m_reliableIPv4Address[N_TRANSPORTS];
 
     /**
      * @internal
-     * @brief The IPv6 address of the daemon assoicated with this instance of the
-     * name service (the daemon's IPv6 address).
-     */
-    qcc::String m_ipv6address;
-
-    /**
-     * @internal
-     * @brief The port assoicated with this instance of the name service
-     * (the daemon port).
-     */
-    uint16_t m_port;
-
-    /**
-     * @internal
-     * @brief The IPv4 address of the transport on this daemon that is listening for
-     * reliable (TCP) inbound connections.  Not defined if the corresponding port is
-     * zero.
-     */
-    qcc::String m_reliableIPv4Address;
-
-    /**
-     * @internal
-     * @brief The port on this daemon that is listening for reliable (TCP)
+     * @brief The ports on this daemon that are listening for reliable (TCP)
      * inbound connections over IPv4.
      */
-    uint16_t m_reliableIPv4Port;
+    uint16_t m_reliableIPv4Port[N_TRANSPORTS];
 
     /**
      * @internal
-     * @brief The IPv4 address of the transport on this daemon that is listening for
+     * @brief The IPv4 address of the transports on this daemon that are listening for
      * unreliable (UDP) inbound connections.  Not defined if the corresponding port is
      * zero.
      */
-    qcc::String m_unreliableIPv4Address;
+    qcc::String m_unreliableIPv4Address[N_TRANSPORTS];
 
     /**
      * @internal
-     * @brief The port on this daemon that is listening for unreliable (UDP)
+     * @brief The ports on this daemon that are listening for unreliable (UDP)
      * inbound connections over IPv4.
      */
-    uint16_t m_unreliableIPv4Port;
+    uint16_t m_unreliableIPv4Port[N_TRANSPORTS];
 
     /**
      * @internal
-     * @brief The IPv6 address of the transport on this daemon that is listening for
+     * @brief The IPv6 address of the transports on this daemon that are listening for
      * reliable (TCP) inbound connections.  Not defined if the corresponding port is
      * zero.
      */
-    qcc::String m_reliableIPv6Address;
+    qcc::String m_reliableIPv6Address[N_TRANSPORTS];
 
     /**
      * @internal
-     * @brief The port on this daemon that is listening for reliable (TCP)
+     * @brief The port on this daemon that are listening for reliable (TCP)
      * inbound connections over IPv6.
      */
-    uint16_t m_reliableIPv6Port;
+    uint16_t m_reliableIPv6Port[N_TRANSPORTS];
 
     /**
      * @internal
-     * @brief The IPv6 address of the transport on this daemon that is listening for
+     * @brief The IPv6 address of the transports on this daemon that are listening for
      * unreliable (UDP) inbound connections.  Not defined if the corresponding port is
      * zero.
      */
-    qcc::String m_unreliableIPv6Address;
+    qcc::String m_unreliableIPv6Address[N_TRANSPORTS];
 
     /**
      * @internal
      * @brief The port on this daemon that is listening for unreliable (UDP)
      * inbound connections over IPv6.
      */
-    uint16_t m_unreliableIPv6Port;
+    uint16_t m_unreliableIPv6Port[N_TRANSPORTS];
 
     /**
      * @internal
@@ -942,7 +945,7 @@ class IpNameServiceImpl : public qcc::Thread {
      * @internal
      * @brief Retransmit exported advertisements.
      */
-    void Retransmit(bool exiting);
+    void Retransmit(uint32_t index, bool exiting);
 
     /**
      * @internal
@@ -999,11 +1002,12 @@ class IpNameServiceImpl : public qcc::Thread {
     qcc::String m_overrideInterface;
 
     /**
-     * @internal
-     * @brief Use all available interfaces whenever they may be up if true.
-     * Think INADDR_ANY or in6addr_any.
+     * @internal @brief Set to true if a given transpot has indicated that it
+     * wants to use all available interfaces whenever they may be up if true.
+     * Think INADDR_ANY or in6addr_any.  this is typically what most transports
+     * want to do.
      */
-    bool m_any;
+    bool m_any[N_TRANSPORTS];
 
     /**
      * @internal
@@ -1047,6 +1051,37 @@ class IpNameServiceImpl : public qcc::Thread {
      * of our desired interfaces as possible.
      */
     void LazyUpdateInterfaces(void);
+
+    /**
+     * @internal
+     * @brief Count the number of bits that are sent in the provided integer.
+     *
+     * Methods to count the number of set bits in a data word are used to in the
+     * process of calculating the Hamming Distance between two binary strings.
+     * We use this "population count" function to count the numbr of set bits in
+     * a TransportMask in order to enforce the one-to-one correspondence between
+     * a transport and its one and only mask bit in our API.
+     */
+    uint32_t CountOnes(uint32_t data);
+
+    /**
+     * @internal
+     * @brief Return the bit position corresponding to the guaranteed single bit
+     * set in the provided data word.
+     *
+     * Used to convert a transport mask to an index into a table corresponding
+     * to the transport mask.
+     */
+    uint32_t IndexFromBit(uint32_t data);
+
+    /**
+     * @internal
+     * @brief Return the TransportMask implied by the index in the data word.
+     *
+     * Used to convert an index into a table corresponding to the transport mask
+     * back into the original transport mask.
+     */
+    TransportMask BitFromIndex(uint32_t data);
 
     /**
      * @internal

@@ -434,7 +434,7 @@ void* WFDEndpoint::AuthThread::Run(void* arg)
 WFDTransport::WFDTransport(BusAttachment& bus)
     : Thread("WFDTransport"), m_bus(bus), m_stopping(false), m_listener(0),
     m_isAdvertising(false), m_isDiscovering(false), m_isListening(false), m_isNsEnabled(false),
-    m_listenPort(0), m_p2pNsAcquired(false), m_p2pCmAcquired(false)
+    m_listenPort(0), m_p2pNsAcquired(false), m_p2pCmAcquired(false), m_ipNsAcquired(false)
 {
     QCC_DbgTrace(("WFDTransport::WFDTransport()"));
     /*
@@ -560,6 +560,7 @@ QStatus WFDTransport::Start()
      */
     m_p2pNsAcquired = false;
     m_p2pCmAcquired = false;
+    m_ipNsAcquired = false;
 
     /*
      * Start the server accept loop through the thread base class.  This will
@@ -669,6 +670,10 @@ QStatus WFDTransport::Join(void)
     if (m_p2pCmAcquired) {
         P2PConMan::Instance().Release();
         m_p2pCmAcquired = false;
+    }
+    if (m_ipNsAcquired) {
+        IpNameService::Instance().Release();
+        m_ipNsAcquired = false;
     }
 
     /*
@@ -1406,6 +1411,10 @@ void WFDTransport::RunListenMachine(void)
                 P2PConMan::Instance().Acquire(&m_bus, m_bus.GetInternal().GetGlobalGUID().ToString());
                 m_p2pCmAcquired = true;
             }
+            if (m_ipNsAcquired == false) {
+                IpNameService::Instance().Acquire(m_bus.GetInternal().GetGlobalGUID().ToString());
+                m_ipNsAcquired = true;
+            }
             break;
 
         default:
@@ -1493,6 +1502,9 @@ void WFDTransport::StopListenInstance(ListenRequest& listenRequest)
         QCC_LogError(ER_FAIL, ("WFDTransport::StopListenInstance(): No listeners with outstanding advertisements."));
         for (list<qcc::String>::iterator i = m_advertising.begin(); i != m_advertising.end(); ++i) {
             if (m_p2pNsAcquired) {
+                P2PNameService::Instance().CancelAdvertiseName(TRANSPORT_WFD, *i);
+            }
+            if (m_ipNsAcquired) {
                 IpNameService::Instance().CancelAdvertiseName(TRANSPORT_WFD, *i);
             }
         }
@@ -1564,10 +1576,13 @@ void WFDTransport::EnableAdvertisementInstance(ListenRequest& listenRequest)
 
     /*
      * We're going to need the P2P name service and connection manager to make
-     * this happen, so they'd better be started and ready to go.
+     * this happen, and we're going to need the IP name service to respond when
+     * the other side looks for an IP address and port, so they'd better be
+     * started and ready to go.
      */
     assert(P2PNameService::Instance().Started() && "WFDTransport::EnableAdvertisementInstance(): P2PNameService not started");
     assert(P2PConMan::Instance().Started() && "WFDTransport::EnableAdvertisementInstance(): P2PNameService not started");
+    assert(IpNameService::Instance().Started() && "WFDTransport::EnableAdvertisementInstance(): IpNameService not started");
 
     /*
      * If we're going to advertise a name, we must tell the underlying P2P
@@ -1602,6 +1617,22 @@ void WFDTransport::EnableAdvertisementInstance(ListenRequest& listenRequest)
         return;
     }
 
+    /*
+     * We need to advertise the name over the IP name service because that is
+     * how the other side is going to determine addressing informaion for the
+     * ultimately desired TCP/UDP connection.
+     */
+    status = IpNameService::Instance().AdvertiseName(TRANSPORT_WFD, listenRequest.m_requestParam);
+    if (status != ER_OK) {
+        QCC_LogError(status, ("WFDTransport::EnableAdvertisementInstance(): Failed to advertise \"%s\"", listenRequest.m_requestParam.c_str()));
+        return;
+    }
+
+    /*
+     * We need to advertise the name over the P2P name service because that is
+     * the reason for being of this transport -- Wi-Fi Direct pre-association
+     * service discovery.
+     */
     status = P2PNameService::Instance().AdvertiseName(TRANSPORT_WFD, listenRequest.m_requestParam);
     if (status != ER_OK) {
         QCC_LogError(status, ("WFDTransport::EnableAdvertisementInstance(): Failed to advertise \"%s\"", listenRequest.m_requestParam.c_str()));
@@ -1623,13 +1654,14 @@ void WFDTransport::DisableAdvertisementInstance(ListenRequest& listenRequest)
     bool isFirst;
     bool isEmpty = NewAdvertiseOp(DISABLE_ADVERTISEMENT, listenRequest.m_requestParam, isFirst);
 
-    /*
-     * We always cancel any advertisement to allow the name service to
-     * send out its lost advertisement message.
-     */
-    QStatus status = P2PNameService::Instance().CancelAdvertiseName(TRANSPORT_WFD, listenRequest.m_requestParam);
+    QStatus status = IpNameService::Instance().CancelAdvertiseName(TRANSPORT_WFD, listenRequest.m_requestParam);
     if (status != ER_OK) {
-        QCC_LogError(status, ("WFDTransport::DisableAdvertisementInstance(): Failed to Cancel \"%s\"", listenRequest.m_requestParam.c_str()));
+        QCC_LogError(status, ("WFDTransport::DisableAdvertisementInstance(): Failed to IP Cancel \"%s\"", listenRequest.m_requestParam.c_str()));
+    }
+
+    status = P2PNameService::Instance().CancelAdvertiseName(TRANSPORT_WFD, listenRequest.m_requestParam);
+    if (status != ER_OK) {
+        QCC_LogError(status, ("WFDTransport::DisableAdvertisementInstance(): Failed to P2P Cancel \"%s\"", listenRequest.m_requestParam.c_str()));
     }
 
     /*
