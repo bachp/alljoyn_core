@@ -1081,7 +1081,7 @@ class IpNameServiceImpl : public qcc::Thread {
      * Used to convert an index into a table corresponding to the transport mask
      * back into the original transport mask.
      */
-    TransportMask BitFromIndex(uint32_t data);
+    TransportMask MaskFromIndex(uint32_t data);
 
     /**
      * @internal

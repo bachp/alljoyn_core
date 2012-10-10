@@ -281,6 +281,40 @@ namespace ajn {
 //
 const char* IpNameServiceImpl::INTERFACES_WILDCARD = "*";
 
+//
+// Define WORKAROUND_2_3_BUG to send name service messages over the old site
+// administered addresses to work around a forward compatibility bug introduced
+// in version 2.3 daemons.  They neglect to join the new IANA assigned multicast
+// groups and so cannot receive advertisements on those groups.  In order to
+// workaround this problem, we send version zero name service messages over the
+// old groups.  The old versions can send new IANA multicast group messages so
+// we can receive advertisements from them.  They just can't hear our new
+// messages
+//
+#define WORKAROUND_2_3_BUG
+#if defined(WORKAROUND_2_3_BUG)
+
+//
+// This is just a random IPv4 multicast group chosen out of the defined site
+// administered block of addresses.  This was a temporary choice while an IANA
+// reservation was in process, and remains for backward compatibility.
+//
+const char* IpNameServiceImpl::IPV4_MULTICAST_GROUP = "239.255.37.41";
+
+//
+// This is an IPv6 version of the temporary IPv4 multicast address described
+// above.  IPv6 multicast groups are composed of a prefix containing 0xff and
+// then flags (4 bits) followed by the IPv6 Scope (4 bits) and finally the IPv4
+// group, as in "ff03::239.255.37.41".  The Scope corresponding to the IPv4
+// Local Scope group is defined to be "3" by RFC 2365.  Unfortunately, the
+// qcc::IPAddress code can't deal with "ff03::239.255.37.41" so we have to
+// translate it.
+//
+const char* IpNameServiceImpl::IPV6_MULTICAST_GROUP = "ff03::efff:2529";
+
+#endif
+
+
 #if 1
 //
 // This is the IANA assigned IPv4 multicast group for AllJoyn.  This is
@@ -1365,8 +1399,17 @@ QStatus IpNameServiceImpl::FindAdvertisedName(TransportMask transportMask, const
         //
         whoHas.SetVersion(0, 0);
         whoHas.SetTransportMask(transportMask);
+
+        //
+        // We have to use some sneaky way to tell an in-the know version one
+        // client that the packet is from a version one client and that is
+        // through the setting of the UDP flag.  TCP transports are the only
+        // possibility for version zero packets and it always sets the TCP
+        // flag, of course.
+        //
         whoHas.SetTcpFlag(true);
         whoHas.SetUdpFlag(true);
+
         whoHas.SetIPv4Flag(true);
         whoHas.AddName(wkn);
 
@@ -1602,12 +1645,24 @@ QStatus IpNameServiceImpl::AdvertiseName(TransportMask transportMask, vector<qcc
         // We understand all messages from version zero to version one, and we
         // are sending a version zero message.  The whole point of sending a
         // version zero message is that can be understood by down-level code
-        // so we can't use the new versioning scheme.  We have to use some
-        // sneaky way to tell an in-the know version one client that the
-        // packet is from a version one client and that is through the setting
-        // of the UDP flag.
+        // so we can't use the new versioning scheme.
         //
         isAt.SetVersion(0, 0);
+
+        //
+        // We don't actually send the transport mask in version zero packets
+        // but we make a note to ourselves to let us know on behalf ow what
+        // transport we will be sending.
+        //
+        isAt.SetTransportMask(transportMask);
+
+        //
+        // We have to use some sneaky way to tell an in-the know version one
+        // client that the packet is from a version one client and that is
+        // through the setting of the UDP flag.  TCP transports are the only
+        // possibility for version zero packets and it always sets the TCP
+        // flag, of course.
+        //
         isAt.SetTcpFlag(true);
         isAt.SetUdpFlag(true);
 
@@ -1690,10 +1745,6 @@ QStatus IpNameServiceImpl::AdvertiseName(TransportMask transportMask, vector<qcc
         // are sending a version one message;
         //
         isAt.SetVersion(1, 1);
-
-        //
-        // Tell the other side what transport is advertising these names.
-        //
         isAt.SetTransportMask(transportMask);
 
         //
@@ -1885,6 +1936,21 @@ QStatus IpNameServiceImpl::CancelAdvertiseName(TransportMask transportMask, vect
         // of the UDP flag.
         //
         isAt.SetVersion(0, 0);
+
+        //
+        // We don't actually send the transport mask in version zero packets
+        // but we make a note to ourselves to let us know on behalf ow what
+        // transport we will be sending.
+        //
+        isAt.SetTransportMask(transportMask);
+
+        //
+        // We have to use some sneaky way to tell an in-the know version one
+        // client that the packet is from a version one client and that is
+        // through the setting of the UDP flag.  TCP transports are the only
+        // possibility for version zero packets and it always sets the TCP
+        // flag, of course.
+        //
         isAt.SetTcpFlag(true);
         isAt.SetUdpFlag(true);
 
@@ -2158,6 +2224,9 @@ void IpNameServiceImpl::SendProtocolMessage(
     }
 #endif
 
+    uint32_t nsVersion, msgVersion;
+    header.GetVersion(nsVersion, msgVersion);
+
     size_t size = header.GetSerializedSize();
 
     if (size > NS_MESSAGE_MAX) {
@@ -2185,6 +2254,19 @@ void IpNameServiceImpl::SendProtocolMessage(
         //
 #if 1
         if (flags & qcc::IfConfigEntry::MULTICAST) {
+
+#if defined(WORKAROUND_2_3_BUG)
+
+            if (msgVersion == 0) {
+                QCC_DbgPrintf(("IpNameServiceImpl::SendProtocolMessage():  Sending to IPv4 Site Administered multicast group"));
+                qcc::IPAddress ipv4SiteAdminMulticast(IPV4_MULTICAST_GROUP);
+                QStatus status = qcc::SendTo(sockFd, ipv4SiteAdminMulticast, MULTICAST_PORT, buffer, size, sent);
+                if (status != ER_OK) {
+                    QCC_LogError(ER_FAIL, ("IpNameServiceImpl::SendProtocolMessage():  Error sending to IPv4 Site Administered multicast group"));
+                }
+            }
+#endif
+
             QCC_DbgPrintf(("IpNameServiceImpl::SendProtocolMessage():  Sending to IPv4 Local Network Control Block multicast group"));
             qcc::IPAddress ipv4LocalMulticast(IPV4_ALLJOYN_MULTICAST_GROUP);
             QStatus status = qcc::SendTo(sockFd, ipv4LocalMulticast, MULTICAST_PORT, buffer, size, sent);
@@ -2248,6 +2330,20 @@ void IpNameServiceImpl::SendProtocolMessage(
         }
     } else {
         if (flags & qcc::IfConfigEntry::MULTICAST) {
+
+#if defined(WORKAROUND_2_3_BUG)
+
+            if (msgVersion == 0) {
+                QCC_DbgPrintf(("IpNameServiceImpl::SendProtocolMessage():  Sending to IPv6 Site Administered multicast group"));
+                qcc::IPAddress ipv6SiteAdmin(IPV6_MULTICAST_GROUP);
+                QStatus status = qcc::SendTo(sockFd, ipv6SiteAdmin, MULTICAST_PORT, buffer, size, sent);
+                if (status != ER_OK) {
+                    QCC_LogError(ER_FAIL, ("IpNameServiceImpl::SendProtocolMessage():  Error sending to IPv6 Site Administered multicast group "));
+                }
+            }
+
+#endif
+
             QCC_DbgPrintf(("IpNameServiceImpl::SendProtocolMessage():  Sending to IPv6 Link-Local Scope multicast group"));
             qcc::IPAddress ipv6AllJoyn(IPV6_ALLJOYN_MULTICAST_GROUP);
             QStatus status = qcc::SendTo(sockFd, ipv6AllJoyn, MULTICAST_PORT, buffer, size, sent);
@@ -2276,6 +2372,12 @@ void IpNameServiceImpl::SendOutboundMessages(void)
         // (who-has) objects and a number of "answer" (is-at) objects.
         //
         Header header = m_outbound.front();
+
+        //
+        // Exactly what we will do depends on the version of the message.
+        //
+        uint32_t nsVersion, msgVersion;
+        header.GetVersion(nsVersion, msgVersion);
 
         //
         // When higher level code queues up messages, it doesn't know to what
@@ -2483,13 +2585,9 @@ void IpNameServiceImpl::SendOutboundMessages(void)
                     m_mutex.Unlock();
 
                     //
-                    // Exactly what we need to set depends on the version of the
-                    // message.  First, check for version zero in the header and
-                    // if we have one of those, do the version-zero specific
+                    // If we are version zero, do the version zero-specific
                     // changes.
                     //
-                    uint32_t nsVersion, msgVersion;
-                    header.GetVersion(nsVersion, msgVersion);
                     if (msgVersion == 0) {
                         QCC_DbgPrintf(("IpNameServiceImpl::SendOutboundMessages(): Answer %d. gets version zero", j));
 
@@ -2520,10 +2618,8 @@ void IpNameServiceImpl::SendOutboundMessages(void)
                     }
 
                     //
-                    // Check for version one in the header and if we have one of
-                    // those, do the version-one specific changes.
+                    // If we are version one, do the version one-specific changes.
                     //
-                    header.GetVersion(nsVersion, msgVersion);
                     if (msgVersion == 1) {
                         QCC_DbgPrintf(("IpNameServiceImpl::SendOutboundMessages(): Answer %d. gets version one", j));
 
@@ -2985,25 +3081,40 @@ void IpNameServiceImpl::Retransmit(uint32_t transportIndex, bool exiting)
         // We understand all messages from version zero to version one, and we
         // are sending a version zero message.  The whole point of sending a
         // version zero message is that can be understood by down-level code
-        // so we can't use the new versioning scheme.  We have to use some
-        // sneaky way to tell an in-the know version one client that the
-        // packet is from a version one client and that is through the setting
-        // of the UDP flag.
+        // so we can't use the new versioning scheme.
         //
         header.SetVersion(0, 0);
 
         header.SetTimer(exiting ? 0 : m_tDuration);
 
-        //
-        // The underlying protocol is capable of identifying both TCP and UDP
-        // services.  Right now, the only possibility is TCP.  See the comment in
-        // AdvertiseName for why we set the UDP flag.
-        //
         IsAt isAt;
         isAt.SetVersion(0, 0);
+
+        //
+        // We don't actually send the transport mask in version zero packets
+        // but we make a note to ourselves to let us know on behalf of what
+        // transport we will be sending.
+        //
+        isAt.SetTransportMask(MaskFromIndex(transportIndex));
+
+        //
+        // The Complete Flag tells the other side that the message it recieves
+        // contains the complete list of well-known names advertised by the
+        // source.  We don't know that we fit them all in yet, so this must be
+        // initialized to false.
+        //
         isAt.SetCompleteFlag(false);
+
+        //
+        // We have to use some sneaky way to tell an in-the know version one
+        // client that the packet is from a version one client and that is
+        // through the setting of the UDP flag.  TCP transports are the only
+        // possibility for version zero packets and it always sets the TCP
+        // flag, of course.
+        //
         isAt.SetTcpFlag(true);
         isAt.SetUdpFlag(true);
+
         isAt.SetGuid(m_guid);
 
         //
@@ -3143,7 +3254,7 @@ void IpNameServiceImpl::Retransmit(uint32_t transportIndex, bool exiting)
         // but we do know which transport we are doing this on behalf of.
         //
         isAt.SetCompleteFlag(false);
-        isAt.SetTransportMask(BitFromIndex(transportIndex));
+        isAt.SetTransportMask(MaskFromIndex(transportIndex));
 
         //
         // Version one allows us to provide four possible endpoints.  The address
@@ -3849,11 +3960,11 @@ uint32_t IpNameServiceImpl::IndexFromBit(uint32_t data)
 // We assume that the data has been verified to contain one bit set in the low
 // order word.
 //
-TransportMask IpNameServiceImpl::BitFromIndex(uint32_t index)
+TransportMask IpNameServiceImpl::MaskFromIndex(uint32_t index)
 {
-    QCC_DbgPrintf(("IpNameServiceImpl::BitFromIndex(%d.)", index));
+    QCC_DbgPrintf(("IpNameServiceImpl::MaskFromIndex(%d.)", index));
     uint32_t result = 1 << index;
-    QCC_DbgPrintf(("IpNameServiceImpl::BitFromIndex(): Bit is 0x%x", result));
+    QCC_DbgPrintf(("IpNameServiceImpl::MaskFromIndex(): Bit is 0x%x", result));
     return result;
 }
 
