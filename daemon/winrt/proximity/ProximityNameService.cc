@@ -142,7 +142,7 @@ void ProximityNameService::ConnectionRequestedEventHandler(Platform::Object ^ se
                                  loAddrStr = loAddrStr.substr(0, pos);
                              }
                              m_currentP2PLink.localIp = loAddrStr;
-
+                             QCC_DbgPrintf(("P2P keep-live connection is established"));
                              TransmitMyWKNs();
                              StartMaintainanceTimer();
                          } catch (Exception ^ e) {
@@ -454,6 +454,7 @@ QStatus ProximityNameService::EstasblishProximityConnection(qcc::String guidStr)
             m_currentP2PLink.socketClosed = false;
             m_currentP2PLink.dataReader = ref new DataReader(m_currentP2PLink.socket->InputStream);
             m_currentP2PLink.dataWriter = ref new DataWriter(m_currentP2PLink.socket->OutputStream);
+            QCC_DbgPrintf(("P2P keep-live connection is established"));
             StartReader();
             TransmitMyWKNs();
             StartMaintainanceTimer();
