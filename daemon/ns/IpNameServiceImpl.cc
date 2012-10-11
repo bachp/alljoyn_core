@@ -1189,14 +1189,22 @@ void IpNameServiceImpl::LazyUpdateInterfaces(void)
         // to do.  The See the Long Sidebar above.
         //
         if (entries[i].m_family == qcc::QCC_AF_INET) {
+#ifndef QCC_OS_WINRT
             status = qcc::Bind(sockFd, qcc::IPAddress("0.0.0.0"), MULTICAST_PORT);
+#else
+            status = qcc::Bind(sockFd, qcc::IPAddress(entries[i].m_addr), MULTICAST_PORT);
+#endif
             if (status != ER_OK) {
                 QCC_LogError(status, ("IpNameServiceImpl::LazyUpdateInterfaces(): bind(0.0.0.0) failed"));
                 qcc::Close(sockFd);
                 continue;
             }
         } else if (entries[i].m_family == qcc::QCC_AF_INET6) {
+#ifndef QCC_OS_WINRT
             status = qcc::Bind(sockFd, qcc::IPAddress("::"), MULTICAST_PORT);
+#else
+            status = qcc::Bind(sockFd, qcc::IPAddress(entries[i].m_addr), MULTICAST_PORT);
+#endif
             if (status != ER_OK) {
                 QCC_LogError(status, ("IpNameServiceImpl::LazyUpdateInterfaces(): bind(::) failed"));
                 qcc::Close(sockFd);
