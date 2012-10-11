@@ -37,16 +37,6 @@ P2PNameService::P2PNameService()
     : m_constructed(false), m_destroyed(false), m_refCount(0), m_pimpl(NULL)
 {
     QCC_DbgPrintf(("P2PNameService::P2PNameService()"));
-
-    //
-    // AllJoyn is a multithreaded system.  Since the name service instance is
-    // created on first use, the first use is in the Start() method of each
-    // transport wanting to use the P2PNameService.  Since the starting of all
-    // of the transports happens on a single thread, we assume we are
-    // single-threaded here and don't do anything fancy to prevent interleaving
-    // scenarios on the private implementation constructor.
-    //
-    m_pimpl = new P2PNameServiceImpl;
     m_constructed = true;
 }
 
@@ -55,65 +45,18 @@ P2PNameService::~P2PNameService()
     QCC_DbgPrintf(("P2PNameService::~P2PNameService()"));
 
     //
-    // We get here (on Linux) because when main() returns, the function
-    // __run_exit_handlers() is called which, in turn, calls the destructors of
-    // all of the static objects in whatever order the linker has decided will
-    // be best.
+    // Unfortunately, at global static object destruction time, it is too late
+    // to be calling into the private implementation which is going to be
+    // indirectly talking to another helper object which is talking to the
+    // AllJoyn DBus interface.  We have to ensure that this object goes away
+    // while there is enough infrastructure left in the AllJoyn bus to acquire
+    // locks, etc., that it may need.
     //
-    // For us, the troublesome object is going to be the BundledDaemon.  It is
-    // torn down by the call to its destructor which may happen before or after
-    // the call to our destructor.  If we are destroyed first, the bundled
-    // daemon may happily continue to call into the name service singleton since
-    // it may have no idea that it is about to go away.
+    // So, by the time we get here, there had better not be a private
+    // implementation object left around, since we will most likely crash if we
+    // try to delete it.
     //
-    // Eventually, we want to explicitly control the construction and
-    // destruction order, but for now we have to live with the insanity (and
-    // complexity) of dealing with out-of-order destruction.
-    //
-    // The name service singleton is a static, so its underlying memory won't go
-    // away.  So by marking the singleton as destroyed we will have a lasting
-    // indication that it has become unusable in case some bozo (the bundled
-    // daemon) accesses us during destruction time after we have been destroyed.
-    //
-    // The exit handlers are going to be called by the main thread (that
-    // originally called the main function), so the destructors will be called
-    // sequentially.  The interesting problem, though, is that the BundledDaemon
-    // is going to have possibly more than one transport running, and typically
-    // each of those transports has multiple threads that could conceivably be
-    // making name service calls.  So, while our destructor is being called by
-    // the main thread, it is possible that other transport threads will also
-    // be calling.  Like in hunting rabbits, We've got to be very, very careful.
-    //
-    //
-    // First, make sure no callbacks leak out of the private implementation
-    // during this critical time by turning off ALL callbacks to all transports.
-    //
-    if (m_pimpl) {
-        m_pimpl->SetCallback(TRANSPORT_ANY, NULL);
-    }
-
-    //
-    // Now we slam shut an entry gate so that no new callers can get through and
-    // try to do things while we are destroying the private implementation.
-    //
-    m_destroyed = true;
-
-    //
-    // No new callers will now be let in, but there may be existing callers
-    // rummaging around in the object.  If the private implemetation is not
-    // careful about multithreading, it can begin destroying itself with
-    // existing calls in progress.  Thankfully, that's not our problem here.
-    // We assume it will do the right thing.
-    //
-    if (m_pimpl) {
-
-        //
-        // Deleting the private implementation must accomplish an orderly shutdown
-        // with an impled Stop() and Join().
-        //
-        delete m_pimpl;
-        m_pimpl = NULL;
-    }
+    assert(m_pimpl == NULL && "P2PConMan::P2PConMan(): private implementation not deleted");
 }
 
 #define ASSERT_STATE(function) \
@@ -144,9 +87,12 @@ void P2PNameService::Acquire(BusAttachment* bus, const qcc::String& guid)
     //
     assert(m_constructed && "P2PNameService::Acquire(): Singleton not constructed");
 
-    ASSERT_STATE("Acquire");
     int refs = qcc::IncrementAndFetch(&m_refCount);
     if (refs == 1) {
+        m_pimpl = new P2PNameServiceImpl;
+
+        ASSERT_STATE("Acquire");
+
         //
         // The first transport in gets to set the GUID.  There should be only
         // one GUID associated with a daemon process, so this should never
@@ -185,6 +131,17 @@ void P2PNameService::Release()
         //
         Stop();
         Join();
+
+        //
+        // Unfortunately, at global static object destruction time, it is too
+        // late to be calling into the private implementation which is going to
+        // be indirectly talking to another helper object which is talking to
+        // the AllJoyn DBus interface.  We have to ensure that this object goes
+        // away while there is enough infrastructure left in the AllJoyn bus to
+        // acquire locks, etc., that it may need.  That is here and now.
+        //
+        delete m_pimpl;
+        m_pimpl = NULL;
     }
 }
 

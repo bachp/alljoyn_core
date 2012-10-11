@@ -994,7 +994,6 @@ void IpNameServiceImpl::LazyUpdateInterfaces(void)
         //
         bool useEntry = false;
         for (uint32_t j = 0; j < N_TRANSPORTS; ++j) {
-            QCC_DbgPrintf(("IpNameServiceImpl::LazyUpdateInterfaces(): Checking out interfaces on behalf of transport %d.", j));
             if (m_any[j]) {
                 QCC_DbgPrintf(("IpNameServiceImpl::LazyUpdateInterfaces(): Use because wildcard set mode for transport %d", j));
 
@@ -1031,7 +1030,8 @@ void IpNameServiceImpl::LazyUpdateInterfaces(void)
                     //
                     if (m_requestedInterfaces[j][k].m_interfaceName.size() != 0 &&
                         m_requestedInterfaces[j][k].m_interfaceName == entries[i].m_name) {
-                        QCC_DbgPrintf(("IpNameServiceImpl::LazyUpdateInterfaces(): Found matching requestedInterface name"));
+                        QCC_DbgPrintf(("IpNameServiceImpl::LazyUpdateInterfaces(): Use because found requestedInterface name "
+                                       " \"%s\" for transport %d", entries[i].m_name.c_str(), i));
                         useEntry = true;
                         break;
                     }
@@ -1042,7 +1042,8 @@ void IpNameServiceImpl::LazyUpdateInterfaces(void)
                     //
                     if (m_requestedInterfaces[j][k].m_interfaceName.size() == 0 &&
                         m_requestedInterfaces[j][k].m_interfaceAddr == qcc::IPAddress(entries[i].m_addr)) {
-                        QCC_DbgPrintf(("IpNameServiceImpl::LazyUpdateInterfaces(): Found matching requestedInterface address"));
+                        QCC_DbgPrintf(("IpNameServiceImpl::LazyUpdateInterfaces(): Use because found requestedInterface address "
+                                       "\"%s\" for transport %d.", entries[i].m_addr.c_str(), i));
                         useEntry = true;
                         break;
                     }
