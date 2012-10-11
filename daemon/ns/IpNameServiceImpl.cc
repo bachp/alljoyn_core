@@ -291,8 +291,8 @@ const char* IpNameServiceImpl::INTERFACES_WILDCARD = "*";
 // we can receive advertisements from them.  They just can't hear our new
 // messages
 //
-#define WORKAROUND_2_3_BUG
-#if defined(WORKAROUND_2_3_BUG)
+#define WORKAROUND_2_3_BUG 0
+#if WORKAROUND_2_3_BUG
 
 //
 // This is just a random IPv4 multicast group chosen out of the defined site
@@ -488,6 +488,12 @@ QStatus IpNameServiceImpl::Init(const qcc::String& guid, bool loopback)
     m_enableIPv4 = config->Get("ip_name_service/property@enable_ipv4", "true") == "true";
     m_enableIPv6 = config->Get("ip_name_service/property@enable_ipv6", "true") == "true";
     m_broadcast = config->Get("ip_name_service/property@disable_directed_broadcast", "false") == "false";
+
+    //
+    // Override the broadcast bit so we never actually use it (it didn't actually
+    // work any better than multicast as it happens).
+    //
+    m_broadcast = false;
 
     m_guid = guid;
     m_loopback = loopback;
@@ -725,11 +731,11 @@ QStatus IpNameServiceImpl::CloseInterface(TransportMask transportMask, const qcc
     //
     // use Meyers' idiom to keep iterators sane.  Note that we don't close the
     // socket in this call, we just remove the request and the lazy updator will
-    // just not use it when it re-evaluates what to do (called immediately below).
+    // just not use it when it re-evaluates what to do.
     //
     for (vector<InterfaceSpecifier>::iterator i = m_requestedInterfaces[transportIndex].begin(); i != m_requestedInterfaces[transportIndex].end();) {
         if ((*i).m_interfaceName == name) {
-            m_requestedInterfaces[transportIndex].erase(i++);
+            i = m_requestedInterfaces[transportIndex].erase(i);
         } else {
             ++i;
         }
@@ -793,11 +799,11 @@ QStatus IpNameServiceImpl::CloseInterface(TransportMask transportMask, const qcc
     //
     // use Meyers' idiom to keep iterators sane.  Note that we don't close the
     // socket in this call, we just remove the request and the lazy updator will
-    // just not use it when it re-evaluates what to do (called immediately below).
+    // just not use it when it re-evaluates what to do.
     //
     for (vector<InterfaceSpecifier>::iterator i = m_requestedInterfaces[transportIndex].begin(); i != m_requestedInterfaces[transportIndex].end();) {
         if ((*i).m_interfaceAddr == addr) {
-            m_requestedInterfaces[transportIndex].erase(i++);
+            i = m_requestedInterfaces[transportIndex].erase(i);
         } else {
             ++i;
         }
@@ -813,6 +819,13 @@ QStatus IpNameServiceImpl::CloseInterface(TransportMask transportMask, const qcc
 void IpNameServiceImpl::ClearLiveInterfaces(void)
 {
     QCC_DbgPrintf(("IpNameServiceImpl::ClearLiveInterfaces()"));
+
+    //
+    // ClearLiveInterfaces is not called with the mutex taken so we need to
+    // grab it.
+    //
+    // printf("%s: m_mutex.Lock()\n", __FUNCTION__);
+    m_mutex.Lock();
 
     for (uint32_t i = 0; i < m_liveInterfaces.size(); ++i) {
         if (m_liveInterfaces[i].m_sockFd == -1) {
@@ -860,6 +873,9 @@ void IpNameServiceImpl::ClearLiveInterfaces(void)
 
     QCC_DbgPrintf(("IpNameServiceImpl::ClearLiveInterfaces(): Clear interfaces"));
     m_liveInterfaces.clear();
+
+    // printf("%s: m_mutex.Unlock()\n", __FUNCTION__);
+    m_mutex.Unlock();
 
     QCC_DbgPrintf(("IpNameServiceImpl::ClearLiveInterfaces(): Done"));
 }
@@ -1005,6 +1021,9 @@ void IpNameServiceImpl::LazyUpdateInterfaces(void)
                 useEntry = true;
 #endif
             } else {
+                // printf("%s: m_mutex.Lock()\n", __FUNCTION__);
+                m_mutex.Lock();
+
                 for (uint32_t k = 0; k < m_requestedInterfaces[j].size(); ++k) {
                     //
                     // If the current real interface name matches the name in the
@@ -1028,6 +1047,9 @@ void IpNameServiceImpl::LazyUpdateInterfaces(void)
                         break;
                     }
                 }
+
+                // printf("%s: m_mutex.Unlock()\n", __FUNCTION__);
+                m_mutex.Unlock();
             }
         }
 
@@ -1226,6 +1248,10 @@ void IpNameServiceImpl::LazyUpdateInterfaces(void)
         live.m_index = entries[i].m_index;
         live.m_sockFd = sockFd;
         live.m_event = new qcc::Event(sockFd, qcc::Event::IO_READ, false);
+
+        //
+        // Lazy update is called with the mutex taken, so this is safe here.
+        //
         m_liveInterfaces.push_back(live);
     }
 }
@@ -2255,7 +2281,7 @@ void IpNameServiceImpl::SendProtocolMessage(
 #if 1
         if (flags & qcc::IfConfigEntry::MULTICAST) {
 
-#if defined(WORKAROUND_2_3_BUG)
+#if WORKAROUND_2_3_BUG
 
             if (msgVersion == 0) {
                 QCC_DbgPrintf(("IpNameServiceImpl::SendProtocolMessage():  Sending to IPv4 Site Administered multicast group"));
@@ -2331,7 +2357,7 @@ void IpNameServiceImpl::SendProtocolMessage(
     } else {
         if (flags & qcc::IfConfigEntry::MULTICAST) {
 
-#if defined(WORKAROUND_2_3_BUG)
+#if WORKAROUND_2_3_BUG
 
             if (msgVersion == 0) {
                 QCC_DbgPrintf(("IpNameServiceImpl::SendProtocolMessage():  Sending to IPv6 Site Administered multicast group"));
@@ -2361,6 +2387,9 @@ void IpNameServiceImpl::SendOutboundMessages(void)
     //
     // We know what interfaces can be currently used to send messages
     // over, so now send any messages we have queued for transmission.
+    //
+    // We expect to be called with the mutex taken so we can wander
+    // around in the various protected data structures freely.
     //
     while (m_outbound.size() && (m_state == IMPL_RUNNING || m_terminal)) {
 
@@ -2402,7 +2431,8 @@ void IpNameServiceImpl::SendOutboundMessages(void)
         //
         QCC_DbgPrintf(("IpNameServiceImpl::SendOutboundMessages(): Walk interfaces"));
         for (uint32_t i = 0; (m_state == IMPL_RUNNING || m_terminal) && (i < m_liveInterfaces.size()); ++i) {
-            QCC_DbgPrintf(("IpNameServiceImpl::SendOutboundMessages(): Checking out live interface %d.", i));
+            QCC_DbgPrintf(("IpNameServiceImpl::SendOutboundMessages(): Checking out live interface %d. (\"%s\")",
+                           i, m_liveInterfaces[i].m_interfaceName.c_str()));
 
             //
             // Don't bother if the socket FD isn't initialized, since we
@@ -2410,7 +2440,7 @@ void IpNameServiceImpl::SendOutboundMessages(void)
             //
             if (m_liveInterfaces[i].m_sockFd != -1) {
 
-                QCC_DbgPrintf(("IpNameServiceImpl::SendOutboundMessages(): Interface %d. is live and IPv6", i));
+                QCC_DbgPrintf(("IpNameServiceImpl::SendOutboundMessages(): Interface %d. is live", i));
 
                 uint32_t interfaceAddressPrefixLen = m_liveInterfaces[i].m_prefixlen;
                 uint32_t flags = m_liveInterfaces[i].m_flags;
@@ -2418,6 +2448,7 @@ void IpNameServiceImpl::SendOutboundMessages(void)
                 qcc::IPAddress ipv4Address;
                 bool haveIPv4Address = m_liveInterfaces[i].m_address.IsIPv4();
                 if (haveIPv4Address) {
+                    QCC_DbgPrintf(("IpNameServiceImpl::SendOutboundMessages(): Interface %d. is IPv4", i));
                     ipv4Address = m_liveInterfaces[i].m_address;
                 }
                 bool interfaceIsIPv4 = haveIPv4Address;
@@ -2425,6 +2456,7 @@ void IpNameServiceImpl::SendOutboundMessages(void)
                 qcc::IPAddress ipv6Address;
                 bool haveIPv6Address = m_liveInterfaces[i].m_address.IsIPv6();
                 if (haveIPv6Address) {
+                    QCC_DbgPrintf(("IpNameServiceImpl::SendOutboundMessages(): Interface %d. is IPv6", i));
                     ipv6Address = m_liveInterfaces[i].m_address;
                 }
 
@@ -2512,8 +2544,9 @@ void IpNameServiceImpl::SendOutboundMessages(void)
                     m_mutex.Lock();
 
                     for (uint32_t k = 0; k < m_requestedInterfaces[transportIndex].size(); ++k) {
-                        if (m_requestedInterfaces[transportIndex][i].m_interfaceName == m_liveInterfaces[i].m_interfaceName) {
-                            QCC_DbgPrintf(("IpNameServiceImpl::SendoutboundMessages(): Interface is approved."));
+                        if (m_requestedInterfaces[transportIndex][k].m_interfaceName == m_liveInterfaces[i].m_interfaceName) {
+                            QCC_DbgPrintf(("IpNameServiceImpl::SendoutboundMessages(): Interface \"%s\" is approved.",
+                                           m_liveInterfaces[i].m_interfaceName.c_str()));
                             interfaceApproved = true;
                             break;
                         }
@@ -2574,8 +2607,9 @@ void IpNameServiceImpl::SendOutboundMessages(void)
                     m_mutex.Lock();
 
                     for (uint32_t k = 0; k < m_requestedInterfaces[transportIndex].size(); ++k) {
-                        if (m_requestedInterfaces[transportIndex][i].m_interfaceName == m_liveInterfaces[j].m_interfaceName) {
-                            QCC_DbgPrintf(("IpNameServiceImpl::SendoutboundMessages(): Interface is approved."));
+                        if (m_requestedInterfaces[transportIndex][k].m_interfaceName == m_liveInterfaces[j].m_interfaceName) {
+                            QCC_DbgPrintf(("IpNameServiceImpl::SendoutboundMessages(): Interface \"%s\" is approved.",
+                                           m_liveInterfaces[j].m_interfaceName.c_str()));
                             interfaceApproved = true;
                             break;
                         }
@@ -3839,10 +3873,10 @@ QStatus IpNameServiceImpl::Start()
     // printf("%s: m_mutex.Lock()\n", __FUNCTION__);
     m_mutex.Lock();
     assert(IsRunning() == false);
+    m_state = IMPL_RUNNING;
     QCC_DbgPrintf(("IpNameServiceImpl::Start(): Starting thread"));
     QStatus status = Thread::Start(this);
     QCC_DbgPrintf(("IpNameServiceImpl::Start(): Started"));
-    m_state = IMPL_RUNNING;
     // printf("%s: m_mutex.Unlock()\n", __FUNCTION__);
     m_mutex.Unlock();
     return status;

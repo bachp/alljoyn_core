@@ -239,13 +239,15 @@ void P2PNameServiceImpl::SetCallback(TransportMask transportMask,
 
 QStatus P2PNameServiceImpl::GetDeviceForGuid(const qcc::String& guid, qcc::String& device)
 {
-    QCC_DbgPrintf(("P2PNameServiceImpl::GetDeviceForGuid()"));
+    QCC_DbgPrintf(("P2PNameServiceImpl::GetDeviceForGuid(): GUID \"%s\"", guid.c_str()));
     std::map<qcc::StringMapKey, qcc::String>::iterator i = m_devices.find(guid);
     if (i != m_devices.end()) {
         device = i->second;
+        QCC_DbgPrintf(("P2PNameServiceImpl::GetDeviceForGuid(): Device is \"%s\"", device.c_str()));
         return ER_OK;
     } else {
         device = "";
+        QCC_DbgPrintf(("P2PNameServiceImpl::GetDeviceForGuid(): No such GUID"));
         return ER_NO_SUCH_DEVICE;
     }
 }
@@ -253,6 +255,9 @@ QStatus P2PNameServiceImpl::GetDeviceForGuid(const qcc::String& guid, qcc::Strin
 void P2PNameServiceImpl::OnFoundAdvertisedName(qcc::String& name, qcc::String& namePrefix, qcc::String& guid, qcc::String& device)
 {
     QCC_DbgPrintf(("P2PNameServiceImpl::OnFoundAdvertisedName()"));
+
+    QCC_DbgPrintf(("P2PNameServiceImpl::OnFoundAdvertisedName(): Remembering device \"%s\" has daemon of GUID \"%s\"",
+                   device.c_str(), guid.c_str()));
 
     m_devices[guid] = device;
 
@@ -267,6 +272,10 @@ void P2PNameServiceImpl::OnFoundAdvertisedName(qcc::String& name, qcc::String& n
 void P2PNameServiceImpl::OnLostAdvertisedName(qcc::String& name, qcc::String& namePrefix, qcc::String& guid, qcc::String& device)
 {
     QCC_DbgPrintf(("P2PNameServiceImpl::OnLostAdvertisedName()"));
+
+    QCC_DbgPrintf(("P2PNameServiceImpl::OnLostAdvertisedName(): Device \"%s\" lost.  Daemon of GUID \"%s\" is gone",
+                   device.c_str(), guid.c_str()));
+
 
     std::map<qcc::StringMapKey, qcc::String>::iterator i = m_devices.find(guid);
     if (i != m_devices.end()) {

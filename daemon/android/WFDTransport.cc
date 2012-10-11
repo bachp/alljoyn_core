@@ -1558,7 +1558,14 @@ void WFDTransport::EnableAdvertisementInstance(ListenRequest& listenRequest)
          */
         if (m_isListening) {
             if (!m_isNsEnabled) {
+                /*
+                 * We have to enable the P2P name service to get pre-association
+                 * service discovery working, and we have to enable the IP name
+                 * service to allow clients to discover our address and port
+                 * information.
+                 */
                 P2PNameService::Instance().Enable(TRANSPORT_WFD);
+                IpNameService::Instance().Enable(TRANSPORT_WFD, m_listenPort, 0, 0, 0);
                 m_isNsEnabled = true;
             }
         } else {
@@ -1618,8 +1625,25 @@ void WFDTransport::EnableAdvertisementInstance(ListenRequest& listenRequest)
     }
 
     /*
+     * We need to tell the IP name service that it should listen for incoming
+     * messages over the "p2p0" interface (when that interface comes up) because
+     * a client side wanting to connect to us will use the IP name service to
+     * determine addressing information for its ultimately desired TCP/UDP
+     * connection.
+     *
+     * We shouldn't really be hardcoding the interface name here, but asking the
+     * P2PConMan what string to use.  Hoever, since we are under rather extreme
+     * time pressure, we just use what we know and move on.
+     */
+    status = IpNameService::Instance().OpenInterface(TRANSPORT_WFD, "p2p0");
+    if (status != ER_OK) {
+        QCC_LogError(status, ("WFDTransport::EnableAdvertisementInstance(): Failed to OpenInterface(p2p0)"));
+        return;
+    }
+
+    /*
      * We need to advertise the name over the IP name service because that is
-     * how the other side is going to determine addressing informaion for the
+     * how the other side is going to determine addressing information for the
      * ultimately desired TCP/UDP connection.
      */
     status = IpNameService::Instance().AdvertiseName(TRANSPORT_WFD, listenRequest.m_requestParam);
@@ -1673,9 +1697,12 @@ void WFDTransport::DisableAdvertisementInstance(ListenRequest& listenRequest)
 
         /*
          * Since the cancel advertised name has been sent, we can disable the
-         * name service.
+         * P2P name service.  Telling the IP name service we don't have any
+         * enabled ports tells it to disable.
          */
         P2PNameService::Instance().Disable(TRANSPORT_WFD);
+        IpNameService::Instance().Enable(TRANSPORT_WFD, 0, 0, 0, 0);
+
         m_isNsEnabled = false;
 
         /*
@@ -1789,7 +1816,12 @@ void WFDTransport::DisableDiscoveryInstance(ListenRequest& listenRequest)
      */
     if (isEmpty && !m_isAdvertising) {
 
+        /*
+         * We disable the P2P name service explicitly.  Telling the IP name
+         * service that we have no enabled ports tells it to disable.
+         */
         P2PNameService::Instance().Disable(TRANSPORT_WFD);
+        IpNameService::Instance().Enable(TRANSPORT_WFD, 0, 0, 0, 0);
         m_isNsEnabled = false;
 
         /*
@@ -2199,7 +2231,7 @@ QStatus WFDTransport::Connect(const char* connectSpec, const SessionOpts& opts, 
          */
         status = P2PConMan::Instance().CreateTemporaryNetwork(device, P2PConMan::DEVICE_MUST_BE_STA);
         if (status != ER_OK) {
-            QCC_LogError(status, ("WFDTransport::Connect(): Unable to create a temporary network with device \"%s\" is gone", device.c_str()));
+            QCC_LogError(status, ("WFDTransport::Connect(): Unable to create a temporary network with device \"%s\"", device.c_str()));
             return status;
         }
     }
@@ -2236,6 +2268,13 @@ QStatus WFDTransport::Connect(const char* connectSpec, const SessionOpts& opts, 
     }
 
     /*
+     * The newSpec is coming almost directly from the IP name service.  The
+     * name service will not know to prepend the spec with "wfd:" since it
+     * is used across multiple transports, but we need it now.
+     */
+    qcc::String spec = qcc::String("wfd:") + newSpec;
+
+    /*
      * Just like any other spec, we need to make sure it is normalized.  We
      * hope that the connection manager gets it right, but we don't tempt
      * fate.  Since the spec will include an address and port, and our
@@ -2244,9 +2283,9 @@ QStatus WFDTransport::Connect(const char* connectSpec, const SessionOpts& opts, 
      * address and port information.  We're done with the GUID, so we
      * just reuse the normSpec and argMap from above.
      */
-    status = NormalizeListenSpec(newSpec.c_str(), normSpec, argMap);
+    status = NormalizeListenSpec(spec.c_str(), normSpec, argMap);
     if (ER_OK != status) {
-        QCC_LogError(status, ("WFDTransport::Connect(): Invalid connect spec \"%s\" from connection manager", newSpec.c_str()));
+        QCC_LogError(status, ("WFDTransport::Connect(): Invalid connect spec \"%s\" from connection manager", spec.c_str()));
         return status;
     }
 

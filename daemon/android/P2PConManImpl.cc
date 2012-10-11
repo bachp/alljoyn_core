@@ -40,7 +40,8 @@
 namespace ajn {
 
 P2PConManImpl::P2PConManImpl()
-    : m_state(IMPL_SHUTDOWN), m_myP2pHelperListener(0), m_p2pHelperInterface(0), m_bus(0), m_connState(CONN_IDLE)
+    : m_state(IMPL_SHUTDOWN), m_myP2pHelperListener(0), m_p2pHelperInterface(0), m_bus(0),
+    m_connState(CONN_IDLE), m_l2thread(0), m_l3thread(0)
 {
     QCC_DbgPrintf(("P2PConManImpl::P2PConManImpl()"));
 }
@@ -94,15 +95,45 @@ QStatus P2PConManImpl::Init(BusAttachment* bus, const qcc::String& guid)
     return ER_OK;
 }
 
-QStatus P2PConManImpl::CreateTemporaryNetwork(const qcc::String& device, int32_t intent)
+QStatus P2PConManImpl::CreateTemporaryNetwork(const qcc::String& device, int32_t goIntent)
 {
-    QCC_DbgHLPrintf(("P2PConManImpl::CreateTemporaryNetwork(): device = \"%s\", intent = %d.", device.c_str(), intent));
+    //
+    // This method does one of two things depending on the provided goIntent.
+    // The goIntent corresponds to a Group Owner Intent Attribute as used in the
+    // Wi-Fi P2P GO Negotiation request with the following changes in
+    // interpretation: Where the P2P spec indicates a relative value indicating
+    // the desire of the P2P device to be a Group Owner, we define the value
+    // zero as indicating an absolute requirement that the device must be a STA
+    // (as seen in the constant P2PConMan::DEVICE_MUST_BE_STA = 0) and the value
+    // 15 indicates an absolute requirement that the device must be a GO (as
+    // seen in the constant P2PConMan::DEVICE_MUST_BE_GO = 15).
+    //
+    // When we actually make the RPC call to establish the link, which we do by
+    // calling into our helper object's EstablishLinkAsync method, if we are
+    // a client, we expect a goIntent indicating that the device must be the STA
+    // and we also expect the temporary network to be formed at that time.  If
+    // we are a service, we expect the goIntent to be 15, but since there is no
+    // client involved yet, there cannot be an actual temporary network formed.
+    // Such a call, with goIntent set to 15 is treated as an advisory message
+    // by the framework.  We are telling it that we are the service here, and
+    // we should be expecting remote AllJoyn clients to try and connect as the
+    // STA nodes in the relationship.
+    //
+    // A sucessful response to EstablishLinkAsync in the case of a service (GO)
+    // indicates that the framework is capable of accepting remote connections
+    // from STA nodes, not that a network has actually been formed.  When we
+    // return success from CreateTemporaryNetwork in the case of a GO, we are
+    // also communicating the fact that, as far as we can tell, we are ready
+    // to accept incoming connections.
+    //
+    QCC_DbgHLPrintf(("P2PConManImpl::CreateTemporaryNetwork(): device = \"%s\", intent = %d.", device.c_str(), goIntent));
 
     if (m_state != IMPL_RUNNING) {
         QCC_DbgPrintf(("P2PConManImpl::CreateTemporaryNetwork(): Not IMPL_RUNNING"));
         return ER_FAIL;
     }
 
+    //
     //
     // We only allow one thread at a time to be in here trying to make or
     // destroy a connection.  This means that the last thread to try and
@@ -113,6 +144,36 @@ QStatus P2PConManImpl::CreateTemporaryNetwork(const qcc::String& device, int32_t
     // an OnLinkLost actually came back for the link we are releasing.
     //
     m_establishLock.Lock(MUTEX_CONTEXT);
+
+    //
+    // Since we are now supposed to be the only thread dealing with layer two
+    // connections, we expect that a previous thread has cleaned up after itself.
+    //
+    assert(m_l2thread == NULL && "P2PConManImpl::CreateTemporaryNetwork(): m_l2thread was left set");
+
+    //
+    // XXX BUGBUG FIXME
+    //
+    // Apparently there is no way in the Android Application Framework to allow
+    // the device receiving a connection request to convey a Group Owner Intent.
+    // This means that in the case of a client/server relationship, the server
+    // cannot specify that it needs to be the GO.
+    //
+    // We wanted to sue an establish link with no remote device and a GO intent
+    // of fifteen as an advisory message to communicate this fact.  It can't
+    // work as it stands, so we don't bother telling the P2P Helper Service
+    // since down't know what to do with it.  So if we see DEVICE_MUST_BE_GO we
+    // just ignore the request.  We will get a callback from the Framework, via
+    // the P2P Helper Service when the link is finally established, at which
+    // pont we just remember the handle that is returned there and go to
+    // CONN_CONNECTED directly in the callback.
+    //
+    if (goIntent == P2PConMan::DEVICE_MUST_BE_GO) {
+        QCC_LogError(ER_FAIL, ("P2PConManImpl::CreateTemporaryNetwork(): FIXME: GO intent request ignored temporarily."));
+        m_connState = CONN_READY;
+        m_establishLock.Unlock(MUTEX_CONTEXT);
+        return ER_OK;
+    }
 
     //
     // Ask the Wi-Fi P2P helper to join the P2P group owned by the device we
@@ -171,7 +232,7 @@ QStatus P2PConManImpl::CreateTemporaryNetwork(const qcc::String& device, int32_t
     m_onLinkEstablishedFired = false;
 
     QCC_DbgPrintf(("P2PConManImpl::CreateTemporaryNetwork(): EstablishLinkAsync()"));
-    QStatus status = m_p2pHelperInterface->EstablishLinkAsync(device.c_str(), intent);
+    QStatus status = m_p2pHelperInterface->EstablishLinkAsync(device.c_str(), goIntent);
     if (status != ER_OK) {
         m_l2thread = NULL;
         m_handle = -1;
@@ -211,7 +272,7 @@ QStatus P2PConManImpl::CreateTemporaryNetwork(const qcc::String& device, int32_t
                 break;
             } else {
                 QCC_DbgPrintf(("P2PConManImpl::CreateTemporaryNetwork(): EstablishLinkAsync(): Reply success"));
-                if (intent == P2PConMan::DEVICE_MUST_BE_GO) {
+                if (goIntent == P2PConMan::DEVICE_MUST_BE_GO) {
                     QCC_DbgPrintf(("P2PConManImpl::CreateTemporaryNetwork(): GO intent acknowledged"));
                     break;
                 }
@@ -409,6 +470,12 @@ QStatus P2PConManImpl::CreateConnectSpec(const qcc::String& device, const qcc::S
     //
     m_discoverLock.Lock(MUTEX_CONTEXT);
 
+    //
+    // Since we are now supposed to be the only thread dealing with layer three
+    // addresses, we expect that a previous thread has cleaned up after itself.
+    //
+    assert(m_l3thread == NULL && "P2PConManImpl::CreateConnectSpec(): m_l3thread was left set");
+
     m_l3thread = qcc::Thread::GetThread();
     m_foundAdvertisedNameFired = false;
     m_busAddress = "";
@@ -578,8 +645,26 @@ void P2PConManImpl::OnLinkEstablished(int32_t handle)
 {
     QCC_DbgHLPrintf(("P2PConManImpl::OnLinkEstablished(): handle = %d", handle));
 
-    if (m_connState != CONN_CONNECTING) {
-        QCC_DbgPrintf(("P2PConManImpl::OnLinkEstablished(): Not CONN_CONNECTING"));
+    if (m_connState != CONN_CONNECTING && m_connState != CONN_READY) {
+        QCC_DbgPrintf(("P2PConManImpl::OnLinkEstablished(): Not CONN_CONNECTING or CONN_READY"));
+        return;
+    }
+
+    //
+    // If we are in the CONN_READY state, we are the service side of the equation.
+    // We have told the framework that we are the service side, but we don't have
+    // a handle back from it since there was no connection -- we just advised the
+    // framework that we were there.  The CreateTemporaryNetwork call is long gone
+    // so we don't communicate back to it, we just need to make a note to ourselves
+    // that a connection is up, and remember the handle describin the connection.
+    // Since we don't know anything about our own device, we leave the address of
+    // the P2P Device empty.
+    //
+    if (m_connState == CONN_READY) {
+        QCC_DbgPrintf(("P2PConManImpl::OnLinkEstablished(): OnLinkEstablished for GO"));
+        m_handle = handle;
+        m_connState = CONN_CONNECTED;
+        m_device = "";
         return;
     }
 

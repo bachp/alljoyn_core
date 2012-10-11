@@ -177,7 +177,8 @@ class P2PConManImpl {
     enum ConnState {
         CONN_INVALID,           /**< Should never be seen on a constructed object */
         CONN_IDLE,              /**< No connection and no connection in progress */
-        CONN_CONNECTING,        /**< A connection attempt is in progress */
+        CONN_READY,             /**< Ready to accept new connections (applies to GO side) */
+        CONN_CONNECTING,        /**< A connection attempt is in progress (applies to STA side) */
         CONN_CONNECTED,         /**< We think we have a temporary network up and running */
     };
 
