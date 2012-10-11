@@ -707,9 +707,10 @@ class AllJoynObj : public BusObject, public NameListener, public TransportListen
      *
      * @param b2bEp    Bus to bus endpoint being shutdown.
      * @param sockFd   [OUT] b2bEp's socket descriptor.
+     * @param duplicateSocket Duplicate the socket before returning
      * @return   ER_OK if successful.
      */
-    QStatus ShutdownEndpoint(RemoteEndpoint& b2bEp, qcc::SocketFd& sockFd);
+    QStatus ShutdownEndpoint(RemoteEndpoint& b2bEp, qcc::SocketFd& sockFd, bool duplicateSocket);
 
     /**
      * Get a list of the currently advertised names

@@ -304,6 +304,13 @@ class TCPTransport : public Transport, public RemoteEndpoint::EndpointListener, 
     std::list<qcc::String> m_listening;                            /**< ListenSpecs on which the transport is listening */
     qcc::Mutex m_discoLock;                                        /**< Mutex that protects discovery and advertisement lists */
 
+    // for UDP-related EP management:
+    PacketEngine m_packetEngine;                                   /**< The UDP packet engine*/
+    UDPPacketStream* m_packetStream;                                /**< Wrapper for a UDP socket*/
+
+    typedef std::map<uint32_t, UDPEndpoint*> StreamEndpointMap;
+    StreamEndpointMap m_streamEndpointMap;                          /**< Need to maintain a mapping of the PacketEngineStream back to the EP */
+
     /**
      * @internal
      * @brief Commmand codes sent to the server accept loop thread.

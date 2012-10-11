@@ -56,6 +56,7 @@ static const SessionPort SESSION_PORT = 33;
 static BusAttachment* g_msgBus = NULL;
 static Event g_discoverEvent;
 static String g_wellKnownName = "org.alljoyn.raw_test";
+static SessionOpts::TrafficType g_trafficType = SessionOpts::TRAFFIC_RAW_RELIABLE;
 
 /** AllJoynListener receives discovery events from AllJoyn */
 class MyBusListener : public BusListener {
@@ -69,7 +70,7 @@ class MyBusListener : public BusListener {
 
         if (0 == strcmp(name, g_wellKnownName.c_str())) {
             /* We found a remote bus that is advertising bbservice's well-known name so connect to it */
-            SessionOpts opts(SessionOpts::TRAFFIC_RAW_RELIABLE, false, SessionOpts::PROXIMITY_ANY, TRANSPORT_ANY);
+            SessionOpts opts(g_trafficType, false, SessionOpts::PROXIMITY_ANY, TRANSPORT_ANY);
             g_msgBus->EnableConcurrentCallbacks();
             QStatus status = g_msgBus->JoinSession(name, SESSION_PORT, NULL, sessionId, opts);
             if (ER_OK != status) {
@@ -116,6 +117,7 @@ static void usage(void)
     printf("Usage: rawclient [-h] [-n <well-known name>]\n\n");
     printf("Options:\n");
     printf("   -h                    = Print this help message\n");
+    printf("   -u                    = Use unreliable transport\n");
     printf("   -n <well-known name>  = Well-known bus name advertised by bbservice\n");
     printf("\n");
 }
@@ -146,6 +148,8 @@ int main(int argc, char** argv)
         } else if (0 == strcmp("-h", argv[i])) {
             usage();
             exit(0);
+        } else if (0 == strcmp("-u", argv[i])) {
+            g_trafficType = SessionOpts::TRAFFIC_RAW_UNRELIABLE;
         } else {
             status = ER_FAIL;
             printf("Unknown option %s\n", argv[i]);

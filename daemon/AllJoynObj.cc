@@ -318,8 +318,7 @@ void AllJoynObj::BindSessionPort(const InterfaceDescription::Member* member, Mes
                       opts.isMultipoint ? "true" : "false", opts.traffic, opts.proximity, opts.transports));
 
         /* Validate some Session options */
-        if ((opts.traffic == SessionOpts::TRAFFIC_RAW_UNRELIABLE) ||
-            ((opts.traffic == SessionOpts::TRAFFIC_RAW_RELIABLE) && opts.isMultipoint)) {
+        if (opts.traffic == SessionOpts::TRAFFIC_RAW_RELIABLE && opts.isMultipoint) {
             replyCode = ALLJOYN_BINDSESSIONPORT_REPLY_INVALID_OPTS;
         }
     }
@@ -857,7 +856,7 @@ ThreadReturn STDCALL AllJoynObj::JoinSessionThread::RunJoin()
                      */
                     b2bEp->IncrementPushCount();
                     ajObj.ReleaseLocks();
-                    status = ajObj.ShutdownEndpoint(*b2bEp, smEntry->fd);
+                    status = ajObj.ShutdownEndpoint(*b2bEp, smEntry->fd, optsOut.traffic == SessionOpts::TRAFFIC_RAW_RELIABLE);
                     b2bEp->DecrementPushCount();
                     ajObj.AcquireLocks();
                     b2bEp = static_cast<RemoteEndpoint*>(ajObj.router.FindEndpoint(b2bEpName));
@@ -1482,7 +1481,7 @@ qcc::ThreadReturn STDCALL AllJoynObj::JoinSessionThread::RunAttach()
                 SessionMapEntry* smEntry = ajObj.SessionMapFind(creatorName, id);
                 if (smEntry) {
                     if (smEntry->streamingEp) {
-                        status = ajObj.ShutdownEndpoint(*smEntry->streamingEp, smEntry->fd);
+                        status = ajObj.ShutdownEndpoint(*smEntry->streamingEp, smEntry->fd, optsOut.traffic == SessionOpts::TRAFFIC_RAW_RELIABLE);
                         if (status != ER_OK) {
                             QCC_LogError(status, ("Failed to shutdown raw endpoint"));
                         }
@@ -1499,8 +1498,8 @@ qcc::ThreadReturn STDCALL AllJoynObj::JoinSessionThread::RunAttach()
             if (b2bEp) {
                 QStatus tStatus;
                 SocketFd srcB2bFd, b2bFd;
-                status = ajObj.ShutdownEndpoint(*srcB2BEp, srcB2bFd);
-                tStatus = ajObj.ShutdownEndpoint(*b2bEp, b2bFd);
+                status = ajObj.ShutdownEndpoint(*srcB2BEp, srcB2bFd, optsOut.traffic == SessionOpts::TRAFFIC_RAW_RELIABLE);
+                tStatus = ajObj.ShutdownEndpoint(*b2bEp, b2bFd, optsOut.traffic == SessionOpts::TRAFFIC_RAW_RELIABLE);
                 status = (status == ER_OK) ? tStatus : status;
                 if (status == ER_OK) {
                     SocketStream* ss1 = new SocketStream(srcB2bFd);
@@ -1983,16 +1982,26 @@ QStatus AllJoynObj::SendGetSessionInfo(const char* creatorName,
     return status;
 }
 
-QStatus AllJoynObj::ShutdownEndpoint(RemoteEndpoint& b2bEp, SocketFd& sockFd)
+QStatus AllJoynObj::ShutdownEndpoint(RemoteEndpoint& b2bEp, SocketFd& sockFd, bool duplicateSocket)
 {
-    SocketStream& ss = static_cast<SocketStream&>(b2bEp.GetStream());
+    Stream& ss = b2bEp.GetStream();
     /* Grab the file descriptor for the B2B endpoint and close the endpoint */
     ss.DetachSocketFd();
     SocketFd epSockFd = ss.GetSocketFd();
     if (!epSockFd) {
         return ER_BUS_NOT_CONNECTED;
     }
-    QStatus status = SocketDup(epSockFd, sockFd);
+
+    QStatus status = ER_OK;
+    if (duplicateSocket) {
+        // if this is a UDP socket, do not duplicate the FD
+        // because the PacketEngineStream will not close it.
+        // We'll end up with an unclosed FD
+        status = SocketDup(epSockFd, sockFd);
+    } else {
+        sockFd = epSockFd;
+    }
+
     if (status == ER_OK) {
         status = b2bEp.StopAfterTxEmpty();
         if (status == ER_OK) {
@@ -3278,8 +3287,8 @@ void AllJoynObj::FoundNames(const qcc::String& busAddr,
                             const vector<qcc::String>* names,
                             uint8_t ttl)
 {
-    QCC_DbgTrace(("AllJoynObj::FoundNames(busAddr = \"%s\", guid = \"%s\", names = %s, ttl = %d)",
-                  busAddr.c_str(), guid.c_str(), StringVectorToString(names, ",").c_str(), ttl));
+//    QCC_DbgTrace(("AllJoynObj::FoundNames(busAddr = \"%s\", guid = \"%s\", names = %s, ttl = %d)",
+//                  busAddr.c_str(), guid.c_str(), StringVectorToString(names, ",").c_str(), ttl));
 
     if (NULL == foundNameSignal) {
         return;

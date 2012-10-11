@@ -35,6 +35,7 @@ class PacketEngine;
  */
 class PacketEngineStream : public qcc::Stream {
     friend class PacketEngine;
+    class StreamPumpExitHandler;
 
   public:
     /** Default Constructor */
@@ -110,12 +111,25 @@ class PacketEngineStream : public qcc::Stream {
      */
     void SetSendTimeout(uint32_t sendTimeout) { this->sendTimeout = sendTimeout; }
 
+    /**
+     * Return a SocketFd representing the raw socket
+     *
+     * @return the File Descriptor
+     */
+    qcc::SocketFd GetSocketFd();
+
+    /**
+     * Convert this stream to a file descriptor
+     */
+    void DetachSocketFd();
+
   private:
     PacketEngine* engine;
     uint32_t chanId;
     qcc::Event* sourceEvent;
     qcc::Event* sinkEvent;
     uint32_t sendTimeout;
+    qcc::SocketFd fd;
 
     PacketEngineStream(PacketEngine& engine, uint32_t chanId, qcc::Event& sourceEvent, qcc::Event& sinkEvent);
 };

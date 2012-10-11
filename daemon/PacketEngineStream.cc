@@ -20,6 +20,7 @@
  ******************************************************************************/
 
 #include <qcc/platform.h>
+#include <qcc/StreamPump.h>
 
 #include <algorithm>
 #include <limits>
@@ -37,12 +38,47 @@ using namespace qcc;
 
 namespace ajn {
 
+class PacketEngineStream::StreamPumpExitHandler : public ThreadListener {
+  public:
+
+    StreamPumpExitHandler(StreamPump* pump, PacketEngine& engine, PacketEngineStream* stream)
+        : pump(pump),
+        engine(engine),
+        stream(stream)
+    { }
+
+    ~StreamPumpExitHandler()
+    {
+        delete pump;
+    }
+
+    virtual void ThreadExit(Thread* thread);
+
+    StreamPump* pump;
+    PacketEngine& engine;
+    PacketEngineStream* stream;
+};
+
+void PacketEngineStream::StreamPumpExitHandler::ThreadExit(Thread* thread)
+{
+    QCC_DbgTrace(("PacketEngineStream::StreamPumpExitHandler::ThreadExit()"));
+    /**
+     * callback when the StreamPump thread exits.  Called when:
+     * 1) PacketEngineStream is closed or
+     * 2) SocketStream is closed
+     */
+    engine.Disconnect(*stream);
+    delete this;
+}
+
+
 PacketEngineStream::PacketEngineStream() :
     engine(NULL),
     chanId(0),
     sourceEvent(NULL),
     sinkEvent(NULL),
-    sendTimeout(Event::WAIT_FOREVER)
+    sendTimeout(Event::WAIT_FOREVER),
+    fd(0)
 {
 }
 
@@ -51,7 +87,8 @@ PacketEngineStream::PacketEngineStream(PacketEngine& engine, uint32_t chanId, Ev
     chanId(chanId),
     sourceEvent(&sourceEvent),
     sinkEvent(&sinkEvent),
-    sendTimeout(Event::WAIT_FOREVER)
+    sendTimeout(Event::WAIT_FOREVER),
+    fd(0)
 {
 }
 
@@ -60,7 +97,8 @@ PacketEngineStream::PacketEngineStream(const PacketEngineStream& other) :
     chanId(other.chanId),
     sourceEvent(other.sourceEvent),
     sinkEvent(other.sinkEvent),
-    sendTimeout(other.sendTimeout)
+    sendTimeout(other.sendTimeout),
+    fd(other.fd)
 {
 }
 
@@ -72,6 +110,7 @@ PacketEngineStream& PacketEngineStream::operator=(const PacketEngineStream& othe
         sourceEvent = other.sourceEvent;
         sinkEvent = other.sinkEvent;
         sendTimeout = other.sendTimeout;
+        fd = other.fd;
     }
     return *this;
 }
@@ -84,6 +123,7 @@ bool PacketEngineStream::operator==(const PacketEngineStream& other) const
 
 PacketEngineStream::~PacketEngineStream()
 {
+    QCC_DbgTrace(("PacketEngineStream::~PacketEngineStream()"));
 }
 
 QStatus PacketEngineStream::PullBytes(void* buf, size_t reqBytes, size_t& actualBytes, uint32_t timeout)
@@ -279,6 +319,48 @@ QStatus PacketEngineStream::PushBytes(const void* buf, size_t numBytes, size_t& 
     engine->ReleaseChannelInfo(*ci);
 
     return status;
+}
+
+
+void PacketEngineStream::DetachSocketFd()
+{
+    QCC_DbgTrace(("PacketEngineStream::DetachSocketFd()"));
+    SocketFd fds[2];
+    QStatus status = SocketPair(fds);
+
+    if (status != ER_OK) {
+        qcc::Close(fds[0]);
+        qcc::Close(fds[1]);
+        return;
+    }
+
+
+    char name[64];
+    snprintf(name, sizeof(name), "StreamPump-%u", chanId);
+
+    // thisCopy will be deleted by StreamPump::~StreamPump
+    PacketEngineStream* thisCopy = new PacketEngineStream(*this);
+    // pump will be deleted by StreamPumpExitHandler::StreamPumpExitHandler
+    qcc::StreamPump* pump = new StreamPump(thisCopy, new SocketStream(fds[0]), 4096, name);
+
+    // handler will delete itself when the StreamPump thread exits
+    StreamPumpExitHandler* handler = new StreamPumpExitHandler(pump, *engine, thisCopy);
+    status = pump->Start(NULL, handler);
+
+
+    if (status == ER_OK) {
+        thisCopy->fd = fd = fds[1];
+    } else {
+        delete handler;
+        qcc::Close(fds[0]);
+        qcc::Close(fds[1]);
+    }
+}
+
+qcc::SocketFd PacketEngineStream::GetSocketFd()
+{
+    QCC_DbgTrace(("PacketEngineStream::GetSocketFd(): %d", fd));
+    return fd;
 }
 
 }
