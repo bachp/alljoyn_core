@@ -796,9 +796,9 @@ QStatus ProxyBusObject::MethodCall(const InterfaceDescription::Member& method,
             lock->Unlock(MUTEX_CONTEXT);
         }
 
-        if ((status == ER_OK) && (SYNC_METHOD_ALERTCODE_OK == thisThread->GetAlertCode())) {
+        if (status == ER_OK) {
             replyMsg = ctxt->replyMsg;
-        } else if (SYNC_METHOD_ALERTCODE_ABORT == thisThread->GetAlertCode()) {
+        } else if ((status == ER_ALERTED_THREAD) && (SYNC_METHOD_ALERTCODE_ABORT == thisThread->GetAlertCode())) {
             /*
              * We can't touch anything in this case since the external thread that was waiting
              * can't know whether this object still exists.
