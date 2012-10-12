@@ -57,6 +57,7 @@ RendezvousServerConnection::RendezvousServerConnection(String rdvzServer, bool e
     persistentConn(NULL),
     networkInterface(NULL),
     RendezvousServer(rdvzServer),
+    RendezvousServerIPAddress(),
     EnableIPv6(enableIPv6),
     UseHTTP(useHttp)
 {
@@ -74,7 +75,12 @@ RendezvousServerConnection::~RendezvousServerConnection()
     Disconnect();
 
     /* Clear the networkInterface */
-    delete networkInterface;
+    if (networkInterface) {
+        delete networkInterface;
+        networkInterface = NULL;
+    }
+
+    RendezvousServerIPAddress.clear();
 }
 
 QStatus RendezvousServerConnection::Connect(uint8_t interfaceFlags, ConnectionFlag connFlag)
@@ -338,7 +344,22 @@ QStatus RendezvousServerConnection::SetupHTTPConn(SocketFd sockFd, HttpConnectio
         return status;
     }
 
-    status = (*httpConn)->SetHost(RendezvousServer);
+    String serverIPAddress;
+
+    /* If we have a valid value in RendezvousServerIPAddress, use it for connection or else
+     * use the Server host name for connection */
+    if (!RendezvousServerIPAddress.empty()) {
+        QCC_DbgPrintf(("%s: Using stored RDVZ Server IP address %s", __FUNCTION__, RendezvousServerIPAddress.c_str()));
+        status = (*httpConn)->SetHost(RendezvousServerIPAddress);
+    } else {
+        status = (*httpConn)->SetHost(RendezvousServer);
+        if (status == ER_OK) {
+            /* We have done a DNS lookup on the Server name. Store off the resolved IP address
+             * of the Server */
+            (*httpConn)->GetHostIPAddress(serverIPAddress);
+            QCC_DbgPrintf(("%s: Retrieved resolved RDVZ Server IP address %s", __FUNCTION__, serverIPAddress.c_str()));
+        }
+    }
 
     if (status == ER_OK) {
         if (!UseHTTP) {
@@ -348,9 +369,22 @@ QStatus RendezvousServerConnection::SetupHTTPConn(SocketFd sockFd, HttpConnectio
         status = (*httpConn)->Connect(sockFd);
 
         if (status != ER_OK) {
+            (*httpConn)->Clear();
+            delete (*httpConn);
             *httpConn = NULL;
+            /* If we failed the connection that we attempted with the cached address in RendezvousServerIPAddress,
+             * clear it */
+            if (!RendezvousServerIPAddress.empty()) {
+                RendezvousServerIPAddress.clear();
+            }
             QCC_LogError(status, ("RendezvousServerConnection::SetupHTTPConn(): Unable to connect to the Rendezvous Server over HTTP"));
             return status;
+        } else {
+            /* Store off the resolved RDVZ server IP address in RendezvousServerIPAddress */
+            if (!serverIPAddress.empty()) {
+                RendezvousServerIPAddress = serverIPAddress;
+                QCC_DbgPrintf(("%s: Set RendezvousServerIPAddress to %s", __FUNCTION__, RendezvousServerIPAddress.c_str()));
+            }
         }
 
         QCC_DbgPrintf(("RendezvousServerConnection::SetupHTTPConn(): Connected to Rendezvous Server. *httpConn(0x%x)\n", *httpConn));

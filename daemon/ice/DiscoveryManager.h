@@ -704,6 +704,15 @@ class DiscoveryManager : public Thread, public AlarmListener {
     /**
      * @internal
      *
+     * @brief Time period after which the cached IP address of the RDVZ server will be cleared and new
+     * DNS lookup would be performed on the server host name. Current setting is 24 Hours i.e.
+     * (24 * 60 * 60 * 1000)ms
+     */
+    static const uint32_t DNS_LOOKUP_INTERVAL_IN_MS = 24 * 60 * 60 * 1000;
+
+    /**
+     * @internal
+     *
      * @brief Client Login Service Name
      */
     String ClientLoginServiceName;
@@ -753,9 +762,23 @@ class DiscoveryManager : public Thread, public AlarmListener {
     /**
      * @internal
      *
-     * @brief Rendezvous server address.
+     * @brief Rendezvous server host name.
      */
     String RendezvousServer;
+
+    /**
+     * @internal
+     *
+     * @brief Rendezvous server IP address.
+     */
+    String RendezvousServerIPAddress;
+
+    /**
+     * @internal
+     *
+     * @brief Time stamp of the instance when a DNS lookup was last done on the Server host name.
+     */
+    uint64_t LastDNSLookupTimeStamp;
 
     /* Map of the all the sessions that have been initiated by the AllJoyn client attached to this daemon*/
     multimap<String, SessionEntry> OutgoingICESessions;

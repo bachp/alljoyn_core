@@ -85,6 +85,8 @@ DiscoveryManager::DiscoveryManager(BusAttachment& bus) :
     PeerID(),
     PeerAddr(),
     LastOnDemandMessageSent(NULL),
+    RendezvousServerIPAddress(),
+    LastDNSLookupTimeStamp(0),
     DiscoveryManagerState(IMPL_SHUTDOWN),
     PersistentIdentifier(),
     InterfaceFlags(NONE),
@@ -883,15 +885,47 @@ QStatus DiscoveryManager::Connect(void)
 
         /* Set up or update the Persistent Connection if we have active Advertisements or Searches */
         if (((!(currentAdvertiseList.empty()))) || ((!(currentSearchList.empty())))) {
+
+            /* If RendezvousServerIPAddress has a valid IP address, check if DNS_LOOKUP_INTERVAL_IN_MS has passed after
+             * the last DNS lookup. If it has, then we need to do DNS lookup again */
+            if (!RendezvousServerIPAddress.empty()) {
+                if ((GetTimestamp64() - LastDNSLookupTimeStamp) >= DNS_LOOKUP_INTERVAL_IN_MS) {
+                    QCC_DbgPrintf(("%s: Clear RendezvousServerIPAddress", __FUNCTION__));
+                    RendezvousServerIPAddress.clear();
+                }
+            }
+
+            Connection->SetRendezvousServerIPAddress(RendezvousServerIPAddress);
+
             RendezvousServerConnection::ConnectionFlag connFlag = RendezvousServerConnection::BOTH;
 
             status = Connection->Connect(InterfaceFlags, connFlag);
 
             if (status == ER_OK) {
                 QCC_DbgPrintf(("DiscoveryManager::Connect(): Successfully connected to the Rendezvous Server"));
+
+                /* If RendezvousServerIPAddress is empty, then we would have done a DNS lookup in this connect
+                 * attempt. Save off the looked up IP address in RendezvousServerIPAddress and also update
+                 * LastDNSLookupTimeStamp to point to the time now */
+                if (RendezvousServerIPAddress.empty()) {
+                    Connection->GetRendezvousServerIPAddress(RendezvousServerIPAddress);
+                    LastDNSLookupTimeStamp = GetTimestamp64();
+                    QCC_DbgPrintf(("%s: Setting RendezvousServerIPAddress %s", __FUNCTION__, RendezvousServerIPAddress.c_str()));
+                }
+
             } else {
                 status = ER_UNABLE_TO_CONNECT_TO_RENDEZVOUS_SERVER;
                 QCC_LogError(status, ("DiscoveryManager::Connect(): %s", QCC_StatusText(status)));
+
+                /* If we used the IP address value in RendezvousServerIPAddress for connecting to the server and we failed
+                 * to connect in-spite of a valid network interface being up, clear the value in RendezvousServerIPAddress
+                 * so that we perform a DNS lookup in the next connect attempt */
+                if (!RendezvousServerIPAddress.empty()) {
+                    if (Connection->IsAnyNetworkInterfaceUp()) {
+                        QCC_DbgPrintf(("%s: Clear RendezvousServerIPAddress", __FUNCTION__));
+                        RendezvousServerIPAddress.clear();
+                    }
+                }
             }
         }
     }
