@@ -2177,6 +2177,8 @@ QStatus WFDTransport::Connect(const char* connectSpec, const SessionOpts& opts, 
         return status;
     }
 
+    QCC_DbgPrintf(("WFDTransport::Connect(): Normalized connect spec is \"%s\"", normSpec.c_str()));
+
     map<qcc::String, qcc::String>::iterator iter = argMap.find("guid");
     assert(iter != argMap.end() && "WFDTransport::Connect(): Transport spec must provide \"guid\"");
     qcc::String guid = iter->second;
@@ -2212,6 +2214,8 @@ QStatus WFDTransport::Connect(const char* connectSpec, const SessionOpts& opts, 
         return status;
     }
 
+    QCC_DbgPrintf(("WFDTransport::Connect(): Device \"%s\" corresponds to GUID \"%s\"", device.c_str(), guid.c_str()));
+
     /*
      * Now that we know the device address, we can check to see if we have a
      * physical network connection to the remote device.  Since we are doing a
@@ -2219,6 +2223,9 @@ QStatus WFDTransport::Connect(const char* connectSpec, const SessionOpts& opts, 
      * network and the daemon doing the advertising will be the GO.
      */
     if (P2PConMan::Instance().IsConnected(device) == false) {
+
+        QCC_DbgPrintf(("WFDTransport::Connect(): Device \"%s\" is not connected", device.c_str()));
+
         /*
          * If we are not connected onto a common physical network with the
          * device the first order of business is to make that happen.  Creating
@@ -2229,6 +2236,7 @@ QStatus WFDTransport::Connect(const char* connectSpec, const SessionOpts& opts, 
          * talking on the order of a couple of minutes here if things happen in
          * the worst case.
          */
+        QCC_DbgPrintf(("WFDTransport::Connect(): CreateTemporaryNetwork() with device \"%s\"", device.c_str()));
         status = P2PConMan::Instance().CreateTemporaryNetwork(device, P2PConMan::DEVICE_MUST_BE_STA);
         if (status != ER_OK) {
             QCC_LogError(status, ("WFDTransport::Connect(): Unable to CreateTemporaryNetwork() with device \"%s\"", device.c_str()));
@@ -2261,6 +2269,7 @@ QStatus WFDTransport::Connect(const char* connectSpec, const SessionOpts& opts, 
      * for the IP addresses to be found.
      */
     qcc::String newSpec;
+    QCC_DbgPrintf(("WFDTransport::Connect(): CreateConnectSpec()"));
     status = P2PConMan::Instance().CreateConnectSpec(device, guid, newSpec);
     if (status != ER_OK) {
         QCC_LogError(status, ("WFDTransport::Connect(): Unable to CreateConnectSpec() with device \"%s\"", device.c_str()));
@@ -2273,6 +2282,8 @@ QStatus WFDTransport::Connect(const char* connectSpec, const SessionOpts& opts, 
      * is used across multiple transports, but we need it now.
      */
     qcc::String spec = qcc::String("wfd:") + newSpec;
+
+    QCC_DbgPrintf(("WFDTransport::Connect(): CreateTemporaryNetwork() says connect spec is \"%s\"", spec.c_str()));
 
     /*
      * Just like any other spec, we need to make sure it is normalized.  We
@@ -2289,6 +2300,8 @@ QStatus WFDTransport::Connect(const char* connectSpec, const SessionOpts& opts, 
         return status;
     }
 
+    QCC_DbgPrintf(("WFDTransport::Connect(): Normalized connect spec is \"%s\"", normSpec.c_str()));
+    
     /*
      * From this point on, the Wi-Fi Direct transport connect looks just like
      * the TCP transport connect.
@@ -2354,7 +2367,7 @@ QStatus WFDTransport::Connect(const char* connectSpec, const SessionOpts& opts, 
 
         /*
          * If the provided connectSpec is already explicitly listened to, it is
-         * an error.
+         * an error.  We expect to never see INADDR_ANY in a normSpec.
          */
         if (i->first == normSpec) {
             m_listenFdsLock.Unlock(MUTEX_CONTEXT);
