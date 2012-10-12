@@ -2301,7 +2301,7 @@ QStatus WFDTransport::Connect(const char* connectSpec, const SessionOpts& opts, 
     }
 
     QCC_DbgPrintf(("WFDTransport::Connect(): Normalized connect spec is \"%s\"", normSpec.c_str()));
-    
+
     /*
      * From this point on, the Wi-Fi Direct transport connect looks just like
      * the TCP transport connect.
