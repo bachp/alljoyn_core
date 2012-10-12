@@ -78,7 +78,7 @@ PacketEngineStream::PacketEngineStream() :
     sourceEvent(NULL),
     sinkEvent(NULL),
     sendTimeout(Event::WAIT_FOREVER),
-    fd(0)
+    fd(qcc::INVALID_SOCKET_FD)
 {
 }
 
@@ -88,7 +88,7 @@ PacketEngineStream::PacketEngineStream(PacketEngine& engine, uint32_t chanId, Ev
     sourceEvent(&sourceEvent),
     sinkEvent(&sinkEvent),
     sendTimeout(Event::WAIT_FOREVER),
-    fd(0)
+    fd(qcc::INVALID_SOCKET_FD)
 {
 }
 

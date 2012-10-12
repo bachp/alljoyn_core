@@ -420,7 +420,7 @@ class AllJoynObj : public BusObject, public NameListener, public TransportListen
             id(0),
             sessionPort(0),
             opts(),
-            fd(-1),
+            fd(qcc::INVALID_SOCKET_FD),
             streamingEp(NULL),
             isInitializing(false) { }
     };
@@ -708,9 +708,10 @@ class AllJoynObj : public BusObject, public NameListener, public TransportListen
      * @param b2bEp    Bus to bus endpoint being shutdown.
      * @param sockFd   [OUT] b2bEp's socket descriptor.
      * @param duplicateSocket Duplicate the socket before returning
+     * @param isInProcess     Is this a bundled daemon? (is the EP NULL?)
      * @return   ER_OK if successful.
      */
-    QStatus ShutdownEndpoint(RemoteEndpoint& b2bEp, qcc::SocketFd& sockFd, bool duplicateSocket);
+    QStatus ShutdownEndpoint(RemoteEndpoint& b2bEp, qcc::SocketFd& sockFd, bool duplicateSocket, bool isInProcess);
 
     /**
      * Get a list of the currently advertised names
