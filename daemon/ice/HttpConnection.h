@@ -379,6 +379,9 @@ class HttpConnection {
     /** Returns the IPAddress of the local interface over which the HTTP connection exists */
     IPAddress GetLocalInterfaceAddress(void) { return localIPAddress; };
 
+    /** Returns the IP address of the host */
+    void GetHostIPAddress(qcc::String& address) { address = hostIPAddress; };
+
   private:
     /**
      * @internal
