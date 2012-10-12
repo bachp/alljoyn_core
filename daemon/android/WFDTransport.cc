@@ -2231,7 +2231,7 @@ QStatus WFDTransport::Connect(const char* connectSpec, const SessionOpts& opts, 
          */
         status = P2PConMan::Instance().CreateTemporaryNetwork(device, P2PConMan::DEVICE_MUST_BE_STA);
         if (status != ER_OK) {
-            QCC_LogError(status, ("WFDTransport::Connect(): Unable to create a temporary network with device \"%s\"", device.c_str()));
+            QCC_LogError(status, ("WFDTransport::Connect(): Unable to CreateTemporaryNetwork() with device \"%s\"", device.c_str()));
             return status;
         }
     }
@@ -2263,7 +2263,7 @@ QStatus WFDTransport::Connect(const char* connectSpec, const SessionOpts& opts, 
     qcc::String newSpec;
     status = P2PConMan::Instance().CreateConnectSpec(device, guid, newSpec);
     if (status != ER_OK) {
-        QCC_LogError(status, ("WFDTransport::Connect(): Unable to create a temporary network with device \"%s\" is gone", device.c_str()));
+        QCC_LogError(status, ("WFDTransport::Connect(): Unable to CreateConnectSpec() with device \"%s\"", device.c_str()));
         return status;
     }
 
@@ -2674,7 +2674,7 @@ QStatus WFDTransport::Disconnect(const char* connectSpec)
      */
     status = P2PConMan::Instance().DestroyTemporaryNetwork(device, P2PConMan::DEVICE_MUST_BE_STA);
     if (status != ER_OK) {
-        QCC_LogError(status, ("WFDTransport::Disconnect(): Unable to destroy temporary network with device \"%s\"", device.c_str()));
+        QCC_LogError(status, ("WFDTransport::Disconnect(): Unable to DestroyTemporaryNetwork with device \"%s\"", device.c_str()));
         return status;
     }
 

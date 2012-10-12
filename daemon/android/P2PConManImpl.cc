@@ -234,10 +234,17 @@ QStatus P2PConManImpl::CreateTemporaryNetwork(const qcc::String& device, int32_t
     QCC_DbgPrintf(("P2PConManImpl::CreateTemporaryNetwork(): EstablishLinkAsync()"));
     QStatus status = m_p2pHelperInterface->EstablishLinkAsync(device.c_str(), goIntent);
     if (status != ER_OK) {
+        m_threadLock.Lock();
+        if (m_l2thread->GetAlertCode() == PRIVATE_ALERT_CODE) {
+            m_l2thread->GetStopEvent().ResetEvent();
+            m_l2thread->ResetAlertCode();
+        }
         m_l2thread = NULL;
         m_handle = -1;
         m_device = "";
         m_connState = CONN_IDLE;
+        m_threadLock.Unlock();
+
         m_establishLock.Unlock(MUTEX_CONTEXT);
         QCC_LogError(status, ("P2PConManImpl::CreateTemporaryNetwork(): EstablishLinkAsync(): Call failure"));
         return status;
@@ -351,6 +358,7 @@ QStatus P2PConManImpl::CreateTemporaryNetwork(const qcc::String& device, int32_t
                 assert(m_l2thread != NULL && "P2PConManImpl::CreateTemporaryNetwork(): m_l2thread must not be NULL");
                 if (m_l2thread->GetAlertCode() == PRIVATE_ALERT_CODE) {
                     m_l2thread->GetStopEvent().ResetEvent();
+                    m_l2thread->ResetAlertCode();
                     status = ER_OK;
                 } else {
                     QCC_LogError(status, ("P2PConManImpl::CreateTemporaryNetwork(): Thread has been Alert()ed"));
@@ -379,9 +387,17 @@ QStatus P2PConManImpl::CreateTemporaryNetwork(const qcc::String& device, int32_t
     //
     // The thread that called to start this whole deal is returning to what
     // fate we do not know.  We don't want to affect it any more, so we
-    // forget about it at this point.
+    // need to forget about it.  But before we send it on its way, we need
+    // to make sure that we don't leave the thread alerted.  Bad things can
+    // happen if the calling thread doesn't expect this.
     //
+    m_threadLock.Lock();
+    if (m_l2thread->GetAlertCode() == PRIVATE_ALERT_CODE) {
+        m_l2thread->GetStopEvent().ResetEvent();
+        m_l2thread->ResetAlertCode();
+    }
     m_l2thread = NULL;
+    m_threadLock.Unlock();
 
     m_establishLock.Unlock(MUTEX_CONTEXT);
     return status;
@@ -602,11 +618,19 @@ QStatus P2PConManImpl::CreateConnectSpec(const qcc::String& device, const qcc::S
     QCC_DbgPrintf(("P2PConManImpl::CreateConnectSpec(): Out of loop.  Status = %s", QCC_StatusText(status)));
 
     //
-    // The thread that called to start this whole deal is returning soon to what
-    // fate we do not know.  We don't want to affect it any more, so we forget
-    // about it at this point.
+    // The thread that called to start this whole deal is returning to what
+    // fate we do not know.  We don't want to affect it any more, so we
+    // need to forget about it.  But before we send it on its way, we need
+    // to make sure that we don't leave the thread alerted.  Bad things can
+    // happen if the calling thread doesn't expect this.
     //
+    m_threadLock.Lock();
+    if (m_l3thread->GetAlertCode() == PRIVATE_ALERT_CODE) {
+        m_l3thread->GetStopEvent().ResetEvent();
+        m_l3thread->ResetAlertCode();
+    }
     m_l3thread = NULL;
+    m_threadLock.Unlock();
 
     //
     // If we succeeded, the IP name service has done our work for us and
@@ -677,10 +701,12 @@ void P2PConManImpl::OnLinkEstablished(int32_t handle)
         QCC_DbgPrintf(("P2PConManImpl::OnLinkEstablished(): OnLinkEstablished with correct handle"));
         m_onLinkEstablishedFired = true;
 
+        m_threadLock.Lock();
         if (m_l2thread) {
             QCC_DbgPrintf(("P2PConManImpl::OnLinkEstablished(): Alert() blocked thread"));
             m_l2thread->Alert(PRIVATE_ALERT_CODE);
         }
+        m_threadLock.Unlock();
     }
 }
 
@@ -703,10 +729,12 @@ void P2PConManImpl::OnLinkError(int32_t handle, int32_t error)
         m_linkError = error;
         m_onLinkErrorFired = true;
 
+        m_threadLock.Lock();
         if (m_l2thread) {
             QCC_DbgPrintf(("P2PConManImpl::OnLinkEstablished(): Alert() blocked thread"));
             m_l2thread->Alert(PRIVATE_ALERT_CODE);
         }
+        m_threadLock.Unlock();
     }
 }
 
@@ -725,10 +753,12 @@ void P2PConManImpl::OnLinkLost(int32_t handle)
         m_device = "";
         m_connState = CONN_IDLE;
 
+        m_threadLock.Lock();
         if (m_l2thread) {
             QCC_DbgPrintf(("P2PConManImpl::OnLinkLost(): Alert() blocked thread"));
             m_l2thread->Alert(PRIVATE_ALERT_CODE);
         }
+        m_threadLock.Unlock();
     }
 }
 
@@ -755,10 +785,12 @@ void P2PConManImpl::HandleEstablishLinkReply(int32_t handle)
 
     m_handleEstablishLinkReplyFired = true;
 
+    m_threadLock.Lock();
     if (m_l2thread) {
         QCC_DbgPrintf(("P2PConManImpl::HandleEstablishLinkReply(): Alert() blocked thread"));
         m_l2thread->Alert(PRIVATE_ALERT_CODE);
     }
+    m_threadLock.Unlock();
 }
 
 void P2PConManImpl::HandleReleaseLinkReply(int32_t result)
@@ -789,9 +821,11 @@ void P2PConManImpl::FoundAdvertisedName(const qcc::String& busAddr, const qcc::S
     if (m_searchedGuid == guid) {
         m_busAddress = busAddr;
         m_foundAdvertisedNameFired = true;
+        m_threadLock.Lock();
         if (m_l3thread) {
             m_l3thread->Alert(PRIVATE_ALERT_CODE);
         }
+        m_threadLock.Unlock();
     }
 }
 

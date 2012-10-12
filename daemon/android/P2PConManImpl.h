@@ -312,6 +312,7 @@ class P2PConManImpl {
     qcc::Thread* m_l2thread;  /**< A single thread that is blocked waiting for a temporary network to form */
     qcc::Thread* m_l3thread;  /**< A single thread that is blocked waiting for address and port discovery */
 
+    qcc::Mutex m_threadLock;  /**< Mutex that serializes access to Alert() */
 
     bool m_handleEstablishLinkReplyFired;  /**< Indicates that a HandleEstablishLinkReply() callback happened */
     bool m_onLinkErrorFired;               /**< Indicates that an OnLinkError() callback happened */
