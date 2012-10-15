@@ -318,7 +318,8 @@ void AllJoynObj::BindSessionPort(const InterfaceDescription::Member* member, Mes
                       opts.isMultipoint ? "true" : "false", opts.traffic, opts.proximity, opts.transports));
 
         /* Validate some Session options */
-        if (opts.traffic == SessionOpts::TRAFFIC_RAW_RELIABLE && opts.isMultipoint) {
+        if ((opts.traffic == SessionOpts::TRAFFIC_RAW_UNRELIABLE) ||
+            ((opts.traffic == SessionOpts::TRAFFIC_RAW_RELIABLE) && opts.isMultipoint)) {
             replyCode = ALLJOYN_BINDSESSIONPORT_REPLY_INVALID_OPTS;
         }
     }
@@ -361,7 +362,7 @@ void AllJoynObj::BindSessionPort(const InterfaceDescription::Member* member, Mes
             entry.sessionHost = sender;
             entry.sessionPort = sessionPort;
             entry.endpointName = sender;
-            entry.fd = qcc::INVALID_SOCKET_FD;
+            entry.fd = -1;
             entry.streamingEp = NULL;
             entry.opts = opts;
             entry.id = 0;
@@ -441,7 +442,6 @@ ThreadReturn STDCALL AllJoynObj::JoinSessionThread::RunJoin()
     String b2bEpName;
     String sender = msg->GetSender();
     String vSessionEpName;
-    bool inProcessEp = false;
 
     /* Parse the message args */
     msg->GetArgs(numArgs, args);
@@ -814,7 +814,6 @@ ThreadReturn STDCALL AllJoynObj::JoinSessionThread::RunJoin()
             if (replyCode == ALLJOYN_JOINSESSION_REPLY_SUCCESS) {
                 BusEndpoint* joinerEp = ajObj.router.FindEndpoint(sender);
                 if (joinerEp) {
-                    inProcessEp = (joinerEp->GetEndpointType() == BusEndpoint::ENDPOINT_TYPE_NULL);
                     status = ajObj.router.AddSessionRoute(id, *joinerEp, NULL, *vSessionEp, b2bEp, b2bEp ? NULL : &optsOut);
                     if (status != ER_OK) {
                         replyCode = ALLJOYN_JOINSESSION_REPLY_FAILED;
@@ -858,7 +857,7 @@ ThreadReturn STDCALL AllJoynObj::JoinSessionThread::RunJoin()
                      */
                     b2bEp->IncrementPushCount();
                     ajObj.ReleaseLocks();
-                    status = ajObj.ShutdownEndpoint(*b2bEp, smEntry->fd, optsOut.traffic == SessionOpts::TRAFFIC_RAW_RELIABLE, inProcessEp);
+                    status = ajObj.ShutdownEndpoint(*b2bEp, smEntry->fd);
                     b2bEp->DecrementPushCount();
                     ajObj.AcquireLocks();
                     b2bEp = static_cast<RemoteEndpoint*>(ajObj.router.FindEndpoint(b2bEpName));
@@ -1101,7 +1100,7 @@ void AllJoynObj::LeaveSession(const InterfaceDescription::Member* member, Messag
         }
 
         /* Close any open fd for this session */
-        if (smEntry->fd != qcc::INVALID_SOCKET_FD) {
+        if (smEntry->fd != -1) {
             qcc::Shutdown(smEntry->fd);
             qcc::Close(smEntry->fd);
         }
@@ -1155,7 +1154,6 @@ qcc::ThreadReturn STDCALL AllJoynObj::JoinSessionThread::RunAttach()
     String destStr;
     bool newSME = false;
     SessionMapEntry sme;
-    bool inProcessEp = false;
 
     size_t na;
     const MsgArg* args;
@@ -1196,8 +1194,6 @@ qcc::ThreadReturn STDCALL AllJoynObj::JoinSessionThread::RunAttach()
         if (destEp && ((destEp->GetEndpointType() == BusEndpoint::ENDPOINT_TYPE_REMOTE) ||
                        (destEp->GetEndpointType() == BusEndpoint::ENDPOINT_TYPE_NULL) ||
                        (destEp->GetEndpointType() == BusEndpoint::ENDPOINT_TYPE_LOCAL))) {
-            // if the destination is a NULL EP, it's located in our process
-            inProcessEp = (destEp->GetEndpointType() == BusEndpoint::ENDPOINT_TYPE_NULL);
             /* This daemon serves dest directly */
             /* Check for a session in the session map */
             bool foundSessionMapEntry = false;
@@ -1486,7 +1482,7 @@ qcc::ThreadReturn STDCALL AllJoynObj::JoinSessionThread::RunAttach()
                 SessionMapEntry* smEntry = ajObj.SessionMapFind(creatorName, id);
                 if (smEntry) {
                     if (smEntry->streamingEp) {
-                        status = ajObj.ShutdownEndpoint(*smEntry->streamingEp, smEntry->fd, optsOut.traffic == SessionOpts::TRAFFIC_RAW_RELIABLE, inProcessEp);
+                        status = ajObj.ShutdownEndpoint(*smEntry->streamingEp, smEntry->fd);
                         if (status != ER_OK) {
                             QCC_LogError(status, ("Failed to shutdown raw endpoint"));
                         }
@@ -1503,8 +1499,8 @@ qcc::ThreadReturn STDCALL AllJoynObj::JoinSessionThread::RunAttach()
             if (b2bEp) {
                 QStatus tStatus;
                 SocketFd srcB2bFd, b2bFd;
-                status = ajObj.ShutdownEndpoint(*srcB2BEp, srcB2bFd, optsOut.traffic == SessionOpts::TRAFFIC_RAW_RELIABLE, inProcessEp);
-                tStatus = ajObj.ShutdownEndpoint(*b2bEp, b2bFd, optsOut.traffic == SessionOpts::TRAFFIC_RAW_RELIABLE, inProcessEp);
+                status = ajObj.ShutdownEndpoint(*srcB2BEp, srcB2bFd);
+                tStatus = ajObj.ShutdownEndpoint(*b2bEp, b2bFd);
                 status = (status == ER_OK) ? tStatus : status;
                 if (status == ER_OK) {
                     SocketStream* ss1 = new SocketStream(srcB2bFd);
@@ -1594,7 +1590,7 @@ void AllJoynObj::RemoveSessionRefs(const char* epName, SessionId id)
                     }
                 }
                 /* Session is lost when members + sessionHost together contain only one entry */
-                if ((it->second.fd == qcc::INVALID_SOCKET_FD) && (it->second.memberNames.empty() || ((it->second.memberNames.size() == 1) && it->second.sessionHost.empty()))) {
+                if ((it->second.fd == -1) && (it->second.memberNames.empty() || ((it->second.memberNames.size() == 1) && it->second.sessionHost.empty()))) {
                     SessionMapEntry tsme = it->second;
                     pair<String, SessionId> key = it->first;
                     if (!it->second.isInitializing) {
@@ -1679,7 +1675,7 @@ void AllJoynObj::RemoveSessionRefs(const String& vepName, const String& b2bEpNam
                     }
                 }
                 /* A session with only one member and no sessionHost or only a sessionHost are "lost" */
-                if ((it->second.fd == qcc::INVALID_SOCKET_FD) && (it->second.memberNames.empty() || ((it->second.memberNames.size() == 1) && it->second.sessionHost.empty()))) {
+                if ((it->second.fd == -1) && (it->second.memberNames.empty() || ((it->second.memberNames.size() == 1) && it->second.sessionHost.empty()))) {
                     SessionMapEntry tsme = it->second;
                     pair<String, SessionId> key = it->first;
                     if (!it->second.isInitializing) {
@@ -1987,49 +1983,31 @@ QStatus AllJoynObj::SendGetSessionInfo(const char* creatorName,
     return status;
 }
 
-QStatus AllJoynObj::ShutdownEndpoint(RemoteEndpoint& b2bEp, SocketFd& sockFd, bool duplicateSocket, bool isInProcess)
+QStatus AllJoynObj::ShutdownEndpoint(RemoteEndpoint& b2bEp, SocketFd& sockFd)
 {
-    Stream& ss = b2bEp.GetStream();
-    QStatus status = ER_OK;
-
-    isInProcess = false;
-    if (isInProcess) {
-        // for NULL ep's...
-        // should not be here yet!
-    } else {
-        /* Grab the file descriptor for the B2B endpoint and close the endpoint */
-        ss.DetachSocketFd();
-        SocketFd epSockFd = ss.GetSocketFd();
-        if (epSockFd == qcc::INVALID_SOCKET_FD) {
-            return ER_BUS_NOT_CONNECTED;
-        }
-
-        if (duplicateSocket) {
-            // if this is a UDP socket, do not duplicate the FD
-            // because the PacketEngineStream will not close it.
-            // We'll end up with an unclosed FD
-            status = SocketDup(epSockFd, sockFd);
-        } else {
-            sockFd = epSockFd;
-        }
+    SocketStream& ss = static_cast<SocketStream&>(b2bEp.GetStream());
+    /* Grab the file descriptor for the B2B endpoint and close the endpoint */
+    ss.DetachSocketFd();
+    SocketFd epSockFd = ss.GetSocketFd();
+    if (!epSockFd) {
+        return ER_BUS_NOT_CONNECTED;
     }
-
-    // now shutdown the old EP and join its threads
+    QStatus status = SocketDup(epSockFd, sockFd);
     if (status == ER_OK) {
         status = b2bEp.StopAfterTxEmpty();
         if (status == ER_OK) {
             status = b2bEp.Join();
             if (status != ER_OK) {
                 QCC_LogError(status, ("Failed to join RemoteEndpoint used for streaming"));
-                sockFd = qcc::INVALID_SOCKET_FD;
+                sockFd = -1;
             }
         } else {
             QCC_LogError(status, ("Failed to stop RemoteEndpoint used for streaming"));
-            sockFd = qcc::INVALID_SOCKET_FD;
+            sockFd = -1;
         }
     } else {
         QCC_LogError(status, ("Failed to dup remote endpoint's socket"));
-        sockFd = qcc::INVALID_SOCKET_FD;
+        sockFd = -1;
     }
     return status;
 }
@@ -2066,7 +2044,7 @@ void AllJoynObj::GetSessionFd(const InterfaceDescription::Member* member, Messag
     msg->GetArgs(numArgs, args);
     SessionId id = args[0].v_uint32;
     QStatus status;
-    SocketFd sockFd = qcc::INVALID_SOCKET_FD;
+    SocketFd sockFd = -1;
 
     QCC_DbgTrace(("AllJoynObj::GetSessionFd(%u)", id));
 
@@ -2075,21 +2053,21 @@ void AllJoynObj::GetSessionFd(const InterfaceDescription::Member* member, Messag
     SessionMapEntry* smEntry = SessionMapFind(msg->GetSender(), id);
     if (smEntry && (smEntry->opts.traffic != SessionOpts::TRAFFIC_MESSAGES)) {
         uint64_t ts = GetTimestamp64();
-        while (smEntry && ((sockFd = smEntry->fd) == qcc::INVALID_SOCKET_FD) && ((ts + 5000LL) > GetTimestamp64())) {
+        while (smEntry && ((sockFd = smEntry->fd) == -1) && ((ts + 5000LL) > GetTimestamp64())) {
             ReleaseLocks();
             qcc::Sleep(5);
             AcquireLocks();
             smEntry = SessionMapFind(msg->GetSender(), id);
         }
         /* sessionMap entry removal was delayed waiting for sockFd to become available. Delete it now. */
-        if (sockFd != qcc::INVALID_SOCKET_FD) {
+        if (sockFd != -1) {
             assert(smEntry);
             SessionMapErase(*smEntry);
         }
     }
     ReleaseLocks();
 
-    if (sockFd != qcc::INVALID_SOCKET_FD) {
+    if (sockFd != -1) {
         /* Send the fd and transfer ownership */
         MsgArg replyArg;
         replyArg.Set("h", sockFd);
@@ -3136,7 +3114,7 @@ void AllJoynObj::NameOwnerChanged(const qcc::String& alias, const qcc::String* o
                 /*
                  * as long as the file descriptor is -1 this is not a raw session
                  */
-                bool noRawSession = (it->second.fd == qcc::INVALID_SOCKET_FD);
+                bool noRawSession = (it->second.fd == -1);
                 if ((noMemberSingleHost || singleMemberNoHost) && noRawSession) {
                     SessionMapEntry tsme = it->second;
                     pair<String, SessionId> key = it->first;
@@ -3300,8 +3278,8 @@ void AllJoynObj::FoundNames(const qcc::String& busAddr,
                             const vector<qcc::String>* names,
                             uint8_t ttl)
 {
-//    QCC_DbgTrace(("AllJoynObj::FoundNames(busAddr = \"%s\", guid = \"%s\", names = %s, ttl = %d)",
-//                  busAddr.c_str(), guid.c_str(), StringVectorToString(names, ",").c_str(), ttl));
+    QCC_DbgTrace(("AllJoynObj::FoundNames(busAddr = \"%s\", guid = \"%s\", names = %s, ttl = %d)",
+                  busAddr.c_str(), guid.c_str(), StringVectorToString(names, ",").c_str(), ttl));
 
     if (NULL == foundNameSignal) {
         return;

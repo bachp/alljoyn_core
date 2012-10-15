@@ -766,68 +766,6 @@ void* TCPEndpoint::AuthThread::Run(void* arg)
     return (void*)status;
 }
 
-// specialization of WLAN EP for TCP connections
-class TCPTransport::TCPEndpoint : public WLANEndpoint {
-  public:
-    TCPEndpoint(
-        TCPTransport* transport,
-        BusAttachment& bus,
-        bool incoming,
-        const qcc::String connectSpec,
-        qcc::SocketFd sock,
-        const IPAddress& ipAddr,
-        uint16_t port)
-        : WLANEndpoint(transport, bus, incoming, connectSpec, &m_SocketStream, ipAddr, port, "TCPEndpoint", WLANEndpoint::SOCKET_TCP),
-        m_SocketStream(sock)
-    {   }
-
-
-    QStatus SetLinkTimeout(uint32_t& linkTimeout)
-    {
-        QStatus status = ER_OK;
-        if (linkTimeout > 0) {
-            uint32_t to = std::max(linkTimeout, TCP_LINK_TIMEOUT_MIN_LINK_TIMEOUT);
-            to -= TCP_LINK_TIMEOUT_PROBE_RESPONSE_DELAY * TCP_LINK_TIMEOUT_PROBE_ATTEMPTS;
-            status = RemoteEndpoint::SetLinkTimeout(to, TCP_LINK_TIMEOUT_PROBE_RESPONSE_DELAY, TCP_LINK_TIMEOUT_PROBE_ATTEMPTS);
-            if ((status == ER_OK) && (to > 0)) {
-                linkTimeout = to + TCP_LINK_TIMEOUT_PROBE_RESPONSE_DELAY * TCP_LINK_TIMEOUT_PROBE_ATTEMPTS;
-            }
-        } else {
-            status = RemoteEndpoint::SetLinkTimeout(0, 0, 0);
-        }
-        return status;
-    }
-
-    virtual void Close() { m_SocketStream.Close(); }
-
-  private:
-    qcc::SocketStream m_SocketStream;       /**< Stream used by authentication code */
-};
-
-
-// specialization of WLAN EP for UDP-based (unreliable) "connections"
-class TCPTransport::UDPEndpoint : public WLANEndpoint {
-  public:
-    UDPEndpoint(
-        TCPTransport* transport,
-        const IPAddress& ipAddr,
-        uint16_t port,
-        PacketEngine& packetEngine,
-        const PacketEngineStream& stream,
-        BusAttachment& bus,
-        bool incoming,
-        const qcc::String connectSpec)
-        : WLANEndpoint(transport, bus, incoming, connectSpec, &m_packetEngineStream, ipAddr, port, "UDPEndpoint", WLANEndpoint::SOCKET_UDP),
-        m_packetEngine(packetEngine),
-        m_packetEngineStream(stream)
-    {   }
-
-    virtual void Close() { m_packetEngine.Disconnect(m_packetEngineStream); }
-
-    PacketEngine&      m_packetEngine;
-    PacketEngineStream m_packetEngineStream;
-};
-
 TCPTransport::TCPTransport(BusAttachment& bus)
     : Thread("TCPTransport"), m_bus(bus), m_stopping(false), m_listener(0),
     m_foundCallback(m_listener),
@@ -1351,15 +1289,6 @@ void TCPTransport::EndpointExit(RemoteEndpoint* ep)
 
     TCPEndpoint* tep = static_cast<TCPEndpoint*>(ep);
     assert(tep);
-
-    // if the thread is shut down before being disconnected (raw sockets)
-    if (tep->GetSocketType() == WLANEndpoint::SOCKET_UDP) {
-        UDPEndpoint* uep = static_cast<UDPEndpoint*>(tep);
-        StreamEndpointMap::iterator it = m_streamEndpointMap.find(uep->m_packetEngineStream.GetChannelId());
-        if (it != m_streamEndpointMap.end()) {
-            m_streamEndpointMap.erase(it);
-        }
-    }
 
     /*
      * The endpoint can exit if it was asked to by us in response to a
@@ -2784,51 +2713,10 @@ QStatus TCPTransport::Connect(const char* connectSpec, const SessionOpts& opts, 
      * to connect to the remote TCP address and port specified in the connectSpec.
      */
     SocketFd sockFd = -1;
-
-    WLANEndpoint* conn = NULL;
-    bool try_tcp = true;
-    qcc::String udp_connector = DaemonConfig::Access()->Get("ip_transport/use_udp_connector", "false");
-    bool try_udp = (udp_connector == "true");
-
-    switch (opts.traffic) {
-    case SessionOpts::TRAFFIC_RAW_RELIABLE:
-        // can't have a raw reliable session over a UDP RemoteEndpoint
-        try_udp = false;
-        break;
-
-    case SessionOpts::TRAFFIC_RAW_UNRELIABLE:
-        // can't have a raw unreliable over a TCP RemoteEndpoint
-        try_tcp = false;
-        break;
-
-    case SessionOpts::TRAFFIC_MESSAGES:
-        break;
-
-    default:
-        assert(!"Invalid opts.traffic");
-        break;
-    }
-
-
-    if (try_udp && udp_port != 0 && m_packetStream != NULL) {
-        ConnectInfo info;
-        info.ep = NULL;
-        info.connectSpec = normSpec;
-        qcc::IPAddress u4Addr(ait->second);
-        status = m_packetEngine.Connect(GetPacketDest(u4Addr, udp_port), *m_packetStream, *this, &info);
-        if (status == ER_OK) {
-            // wait for the connection to be established by the PacketEngine thread
-            status = Event::Wait(info.event);
-            if (status == ER_OK && info.status == ER_OK) {
-                status = info.status;
-                conn = info.ep;
-                try_tcp = false;
-            } else {
-                QCC_LogError(info.status, ("TCPTransport::Connect(): PacketEngine::Connect failed"));
-            }
-        } else {
-            QCC_LogError(status, ("TCPTransport::Connect(): PacketEngine::Connect() failed"));
-        }
+    status = Socket(QCC_AF_INET, QCC_SOCK_STREAM, sockFd);
+    if (status == ER_OK) {
+        /* Turn off Nagle */
+        status = SetNagle(sockFd, false);
     }
 
     if (status == ER_OK) {
@@ -3834,102 +3722,6 @@ void TCPTransport::FoundCallback::Found(const qcc::String& busAddr, const qcc::S
     if (m_listener) {
         QCC_DbgPrintf(("TCPTransport::FoundCallback::Found(): FoundNames(): %s", newBusAddr.c_str()));
         m_listener->FoundNames(newBusAddr, guid, TRANSPORT_TCP, &nameList, timer);
-    }
-}
-
-void TCPTransport::PacketEngineConnectCB(PacketEngine& engine, QStatus status, const PacketEngineStream* stream, const PacketDest& dest, void* context)
-{
-    QCC_DbgTrace(("TCPTransport::PacketEngineConnectCB(%s)", engine.ToString(*m_packetStream, dest).c_str()));
-    // called when we have successfully connected to a remote stream
-    // set up the new UDPTransport *HERE*
-    ConnectInfo* info = static_cast<ConnectInfo*>(context);
-
-    if (status == ER_OK) {
-        assert(stream != NULL);
-        IPAddress ipAddr;
-        uint16_t port;
-        GetAddressAndPort(dest, ipAddr, port);
-
-        const uint8_t nil = 0;
-        size_t sent = 0;
-        PacketEngineStream stream2(*stream);
-        status = stream2.PushBytes(&nil, sizeof(uint8_t), sent);
-        if (status != ER_OK || sent == 0) {
-            QCC_LogError(status, ("TCPTransport::PacketEngineConnectCB(): Failed to send initial NUL byte"));
-        }
-
-        if (status == ER_OK) {
-            info->ep = new UDPEndpoint(this, ipAddr, port, m_packetEngine, *stream, m_bus, false, info->connectSpec);
-        }
-    } else {
-        QCC_LogError(status, ("TCPTransport::PacketEngineConnectCB(): Failed to Connect()"));
-    }
-
-    info->status = status;
-    info->event.SetEvent();
-}
-
-bool TCPTransport::PacketEngineAcceptCB(PacketEngine& engine, const PacketEngineStream& stream, const PacketDest& dest)
-{
-    QCC_DbgTrace(("TCPTransport::PacketEngineAcceptCB"));
-
-    DaemonConfig* config = DaemonConfig::Access();
-    bool result = false;
-
-    const uint32_t maxAuth = config->Get("ip_transport/max_incomplete_connections", ALLJOYN_MAX_INCOMPLETE_CONNECTIONS_TCP_DEFAULT);
-    const uint32_t maxConn = config->Get("ip_transport/max_completed_connections", ALLJOYN_MAX_COMPLETED_CONNECTIONS_TCP_DEFAULT);
-
-    m_endpointListLock.Lock(MUTEX_CONTEXT);
-    if ((m_authList.size() < maxAuth) && (m_authList.size() + m_endpointList.size() < maxConn)) {
-        IPAddress ipAddr;
-        uint16_t port;
-        GetAddressAndPort(dest, ipAddr, port);
-        UDPEndpoint* conn = new UDPEndpoint(this, ipAddr, port, m_packetEngine, stream, m_bus, true, "");
-        m_streamEndpointMap[stream.GetChannelId()] = conn;
-
-        Timespec tNow;
-        GetTimeNow(&tNow);
-        conn->SetStartTime(tNow);
-
-        result = true;
-        /*
-         * By putting the connection on the m_authList, we are
-         * transferring responsibility for the connection to the
-         * Authentication thread.  Therefore, we must check that the
-         * thread actually started running to ensure the handoff
-         * worked.  If it didn't we need to deal with the connection
-         * here.  Since there are no threads running we can just
-         * pitch the connection.
-         */
-        std::pair<EndpointSet::iterator, bool> ins = m_authList.insert(conn);
-        if (conn->Authenticate() != ER_OK) {
-            m_authList.erase(ins.first);
-            delete conn;
-            conn = NULL;
-            result = false;
-        }
-
-        m_endpointListLock.Unlock(MUTEX_CONTEXT);
-    } else {
-        m_endpointListLock.Unlock(MUTEX_CONTEXT);
-        // need a non-const copy to close
-        PacketEngineStream stream2(stream);
-        engine.Disconnect(stream2);
-        result = false;
-    }
-
-    return result;
-}
-
-void TCPTransport::PacketEngineDisconnectCB(PacketEngine& engine, const PacketEngineStream& stream, const PacketDest& dest)
-{
-    QCC_DbgTrace(("TCPTransport::PacketEngineDisconnectCB"));
-
-    StreamEndpointMap::iterator it = m_streamEndpointMap.find(stream.GetChannelId());
-    if (it != m_streamEndpointMap.end()) {
-        UDPEndpoint* conn = it->second;
-        m_streamEndpointMap.erase(it);
-        conn->Stop();
     }
 }
 

@@ -97,7 +97,6 @@ static void usage(void)
     printf("Usage: rawservice [-h] [-n <name>]\n\n");
     printf("Options:\n");
     printf("   -h         = Print this help message\n");
-    printf("   -u         = Unreliable transport\n");
     printf("   -n <name>  = Well-known name to advertise\n");
 }
 
@@ -108,7 +107,6 @@ int main(int argc, char** argv)
 
     printf("AllJoyn Library version: %s\n", ajn::GetVersion());
     printf("AllJoyn Library build info: %s\n", ajn::GetBuildInfo());
-    SessionOpts opts(SessionOpts::TRAFFIC_RAW_RELIABLE, false, SessionOpts::PROXIMITY_ANY, TRANSPORT_ANY);
 
     /* Install SIGINT handler */
     signal(SIGINT, SigIntHandler);
@@ -127,8 +125,6 @@ int main(int argc, char** argv)
             } else {
                 g_wellKnownName = argv[i];
             }
-        } else if (0 == strcmp("-u", argv[i])) {
-            opts.traffic = SessionOpts::TRAFFIC_RAW_UNRELIABLE;
         } else {
             status = ER_FAIL;
             printf("Unknown option %s\n", argv[i]);
@@ -177,6 +173,7 @@ int main(int argc, char** argv)
     }
 
     /* Bind the session port */
+    SessionOpts opts(SessionOpts::TRAFFIC_RAW_RELIABLE, false, SessionOpts::PROXIMITY_ANY, TRANSPORT_ANY);
     SessionPort sp = SESSION_PORT;
     status = g_msgBus->BindSessionPort(sp, opts, mySessionPortListener);
     if (status != ER_OK) {

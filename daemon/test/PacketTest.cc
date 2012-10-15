@@ -62,7 +62,7 @@ class PacketEngineController : public PacketEngineListener {
 
     void Join();
 
-    String GetIPAddr() const { return udpStream.GetIPAddr().ToString(); }
+    String GetIPAddr() const { return udpStream.GetIPAddr(); }
 
     QStatus Connect(const qcc::String& addr, uint16_t port)
     {
