@@ -28,6 +28,9 @@ if env['OS'] != 'win8':
     # Chat Sample program
     env.SConscript('chat/SConscript')
 
+    # File transfer Sample program
+    env.SConscript('FileTransfer/SConscript')
+
 # Install readme
 if env['OS_CONF'] == 'windows':
     env.InstallAs('$DISTDIR/samples/README.txt', 'README.windows.txt')
