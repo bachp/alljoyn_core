@@ -44,12 +44,7 @@ const char* SERVICE_NAME = "org.alljoyn.bus.samples.fileTransfer";
 const char* SERVICE_PATH = "/fileTransfer";
 const SessionPort SERVICE_PORT = 88;
 
-static int count = 0;
-
-#define MAX_ARRAY_SIZE 131072
-
-static bool filePending = true;
-
+static bool s_fileTransferComplete = false;
 static bool s_joinComplete = false;
 SessionId s_sessionId = 0;
 
@@ -169,57 +164,50 @@ class FileTransferObject : public BusObject {
     {
         uint32_t currArray;
 
-        try {
-            msg->GetArg(1)->Get("u", &currArray);
-            printf(">>>>> %u\n", currArray);
+        msg->GetArg(1)->Get("u", &currArray);
 
-            if (currArray != 0) {
-                char* filePathAndName;
-                msg->GetArg(0)->Get("s", &filePathAndName);
+        if (currArray != 0) {
+            char* filePathAndName;
+            msg->GetArg(0)->Get("s", &filePathAndName);
 
-                uint8_t* data;
-                size_t size;
-                msg->GetArg(2)->Get("ay", &size, &data);
+            uint8_t* data;
+            size_t size;
+            msg->GetArg(2)->Get("ay", &size, &data);
 
-                if (NULL == this->outputStream) {
-                    char buf[MAX_PATH];
+            if (NULL == this->outputStream) {
+                char* fileName = filePathAndName;
+                char* fileNameBack = strrchr(filePathAndName, '\\');
+                char* fileNameForward = strrchr(filePathAndName, '/');
 
-                    char* fileName = filePathAndName;
-                    char* fileNameBack = strrchr(filePathAndName, '\\');
-                    char* fileNameForward = strrchr(filePathAndName, '/');
-
-                    if (fileNameBack && fileNameForward) {
-                        fileName = (fileNameBack > fileNameForward ? fileNameBack : fileNameForward) + 1;
-                    } else {
-                        if (fileNameForward) {
-                            fileName = fileNameForward + 1;
-                        }
-                        if (fileNameBack) {
-                            fileName = fileNameBack + 1;
-                        }
+                if (fileNameBack && fileNameForward) {
+                    fileName = (fileNameBack > fileNameForward ? fileNameBack : fileNameForward) + 1;
+                } else {
+                    if (fileNameForward) {
+                        fileName = fileNameForward + 1;
                     }
-
-                    printf("Opening the output stream to transfer the file '%s'.\n", fileName);
-                    this->outputStream = new ofstream(fileName, ios::out | ios::binary);
+                    if (fileNameBack) {
+                        fileName = fileNameBack + 1;
+                    }
                 }
 
-                printf("Array Num : %i\tSize : %u\n", currArray, size);
-
-                if (this->outputStream->is_open()) {
-                    this->outputStream->write((char*)data, size);
-                }
-            } else {
-                if (this->outputStream->is_open()) {
-                    printf("The file was transfered sucessfully.\n");
-                    this->outputStream->close();
-                }
-
-                delete this->outputStream;
-                this->outputStream = NULL;
-                filePending = false;
+                printf("Opening the output stream to transfer the file '%s'.\n", fileName);
+                this->outputStream = new ofstream(fileName, ios::out | ios::binary);
             }
-        } catch (std::exception ex) {
-            printf("There was a problem writing the data sent from the service to the output file.\n");
+
+            printf("Array Num : %i\tSize : %u\n", currArray, (unsigned int)size);
+
+            if (this->outputStream->is_open()) {
+                this->outputStream->write((char*)data, size);
+            }
+        } else {
+            if (this->outputStream->is_open()) {
+                printf("The file was transfered sucessfully.\n");
+                this->outputStream->close();
+            }
+
+            delete this->outputStream;
+            this->outputStream = NULL;
+            s_fileTransferComplete = true;
         }
     }
 
@@ -341,7 +329,7 @@ QStatus WaitForFileTransferComplete(void)
 {
     unsigned int count = 0;
 
-    while (filePending && !s_interrupt) {
+    while (!s_fileTransferComplete && !s_interrupt) {
         if (0 == (count++ % 10)) {
             printf("Waited %u seconds for file transfer completion.\n", count / 10);
         }
@@ -353,7 +341,7 @@ QStatus WaitForFileTransferComplete(void)
 #endif
     }
 
-    return !filePending && !s_interrupt ? ER_OK : ER_FAIL;
+    return s_fileTransferComplete && !s_interrupt ? ER_OK : ER_FAIL;
 }
 
 int main(int argc, char** argv, char** envArg)

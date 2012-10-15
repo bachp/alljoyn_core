@@ -48,10 +48,8 @@ const char* SERVICE_NAME = "org.alljoyn.bus.samples.fileTransfer";
 const char* SERVICE_PATH = "/fileTransfer";
 const SessionPort SERVICE_PORT = 88;
 
-static char* fileName;
-
-static int count = 0;
-static bool filePending = true;
+static char* s_fileName = NULL;
+static bool s_filePending = true;
 
 static bool sessionJoinComplete = false;
 SessionId serviceSessionId = 0;
@@ -95,65 +93,60 @@ class FileTransferObject : public BusObject {
     // Write the data supplied by the service to an output file with filename provided
     void FileTransfer()
     {
-        Sleep(1000);
         // Give the file buffer a scope such that it can be deleted if an exception occurs.
         char* buf = new char[ALLJOYN_MAX_ARRAY_LEN];
 
-        try {
-            ifstream inputStream(fileName, ios::in | ios::binary);
+        ifstream inputStream(s_fileName, ios::in | ios::binary);
 
-            if (inputStream.is_open()) {
-                MsgArg args[3];
-                QStatus status = ER_OK;
-                const uint8_t flags = ALLJOYN_FLAG_GLOBAL_BROADCAST;
-                uint32_t count = 1;
+        if (inputStream.is_open()) {
+            MsgArg args[3];
+            QStatus status = ER_OK;
+            const uint8_t flags = ALLJOYN_FLAG_GLOBAL_BROADCAST;
+            uint32_t count = 1;
 
-                // Get length of the file.
-                filebuf* streamBuf = inputStream.rdbuf();
-                filebuf::pos_type length = streamBuf->pubseekoff(0, ios::end, ios::in);
+            // Get length of the file.
+            filebuf* streamBuf = inputStream.rdbuf();
+            filebuf::pos_type length = streamBuf->pubseekoff(0, ios::end, ios::in);
 
-                // Seek back to the beginning for reading the file.
-                streamBuf->pubseekpos(0, ios::in);
+            // Seek back to the beginning for reading the file.
+            streamBuf->pubseekpos(0, ios::in);
 
-                while (length > 0) {
-                    uint32_t bufferLength = ALLJOYN_MAX_ARRAY_LEN;
+            while (length > 0) {
+                std::streamsize bufferLength = ALLJOYN_MAX_ARRAY_LEN;
 
-                    if (length > ALLJOYN_MAX_ARRAY_LEN) {
-                        length -= ALLJOYN_MAX_ARRAY_LEN;
-                    } else {
-                        bufferLength = length;
-                        length = 0;
-                    }
-
-                    inputStream.read(buf, bufferLength);
-
-                    args[0].Set("s", fileName);
-                    args[1].Set("u", count);
-                    args[2].Set("ay", bufferLength, buf);
-
-                    status = Signal(NULL, serviceSessionId, *fileTransferMember, args, 3, 0, flags);
-
-                    printf("Sent signal with Array#: %u and returned status: %s.\n", count, QCC_StatusText(status));
-
-                    count++;
+                if (length > (filebuf::pos_type)ALLJOYN_MAX_ARRAY_LEN) {
+                    length -= (filebuf::pos_type)ALLJOYN_MAX_ARRAY_LEN;
+                } else {
+                    bufferLength = length;
+                    length = 0;
                 }
 
-                char eof[] = { 0 };
+                inputStream.read(buf, bufferLength);
 
-                args[0].Set("s", fileName);
-                args[1].Set("u", 0);
-                args[2].Set("ay", 1, eof);
+                args[0].Set("s", s_fileName);
+                args[1].Set("u", count);
+                args[2].Set("ay", bufferLength, buf);
 
                 status = Signal(NULL, serviceSessionId, *fileTransferMember, args, 3, 0, flags);
 
-                filePending = false;
+                printf("Sent signal with Array#: %u and returned status: %s.\n", count, QCC_StatusText(status));
 
-                printf("Sent end of file signal and returned status: %s.\n", QCC_StatusText(status));
-            } else {
-                printf("The file doesn't exist or the permissions is stopping the app from opening the file.\n");
+                count++;
             }
-        } catch (std::exception ex) {
-            printf("There was a problem writing the data sent from the service to the output file.\n");
+
+            char eof[] = { 0 };
+
+            args[0].Set("s", s_fileName);
+            args[1].Set("u", 0);
+            args[2].Set("ay", 1, eof);
+
+            status = Signal(NULL, serviceSessionId, *fileTransferMember, args, 3, 0, flags);
+
+            s_filePending = false;
+
+            printf("Sent end of file signal and returned status: %s.\n", QCC_StatusText(status));
+        } else {
+            printf("The file doesn't exist or the permissions is stopping the app from opening the file.\n");
         }
 
         delete [] buf;
@@ -266,7 +259,7 @@ void WaitForProgramComplete(void)
 #endif
         }
 
-        while (filePending && !g_interrupt) {
+        while (s_filePending && !g_interrupt) {
 #ifdef _WIN32
             Sleep(100);
 #else
@@ -396,7 +389,7 @@ int main(int argc, char** argv, char** envArg)
     if (argc <= 1) {
         Usage(ER_BAD_ARG_1);
     } else {
-        fileName = argv[1];
+        s_fileName = argv[1];
     }
 
 
