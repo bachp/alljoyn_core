@@ -423,13 +423,17 @@ bool NameTable::SetVirtualAlias(const qcc::String& alias,
     } else {
         virtualAliasNames.erase(StringMapKey(alias));
     }
+
+    String oldName = oldOwner ? oldOwner->GetUniqueName() : "";
+    String newName = newOwner ? newOwner->GetUniqueName() : "";
+
     lock.Unlock(MUTEX_CONTEXT);
 
     /* Virtual aliases cannot override locally requested aliases */
     if (madeChange && !maskingLocalName) {
         CallListeners(alias,
-                      oldOwner ? &(oldOwner->GetUniqueName()) : NULL,
-                      newOwner ? &(newOwner->GetUniqueName()) : NULL);
+                      oldName.empty() ? NULL : &oldName,
+                      newName.empty() ? NULL : &newName);
     }
     return madeChange;
 }
