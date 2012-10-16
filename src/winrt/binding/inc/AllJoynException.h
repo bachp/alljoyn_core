@@ -28,13 +28,26 @@ namespace AllJoyn {
 extern const char* QCC_StatusComment(uint32_t status);
 #endif
 
+/// <summary>
+/// A help class to interpret a COM exception throwed by AllJoyn.
+/// </summary>
 public ref class AllJoynException sealed {
   public:
+    /// <summary>
+    /// Tranlate the COMException HResult value to a QStatus code.
+    /// </summary>
+    /// <param name="hresult">The HResult value of a COMException </param>
+    /// <returns>A corresponding QStatus code </returns>
     static QStatus FromCOMException(int hresult)
     {
         return (QStatus)(hresult & 0x7FFFFFFF);
     }
 #ifndef NDEBUG
+    /// <summary>
+    /// Get a string that gives more detail explanation of the COMException.
+    /// </summary>
+    /// <param name="hresult">The HResult value of a COMException </param>
+    /// <returns>A string explaining the reason of the exception </returns>
     static Platform::String ^ GetExceptionMessage(int hresult)
     {
         return MultibyteToPlatformString(QCC_StatusComment(hresult & 0x7FFFFFFF));

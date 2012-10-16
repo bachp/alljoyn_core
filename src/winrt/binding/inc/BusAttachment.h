@@ -58,13 +58,34 @@ public enum class RequestNameType {
     DBUS_NAME_DO_NOT_QUEUE = DBUS_NAME_FLAG_DO_NOT_QUEUE
 };
 
+/// <summary>
+///The result of the asynchronous operation for joining a session
+/// </summary>
 public ref class JoinSessionResult sealed {
   public:
+    /// <summary>
+    ///The BusAttachment object that makes the call.
+    /// </summary>
     property BusAttachment ^ Bus;
+    /// <summary>
+    ///User defined context which will be passed as-is to callback.
+    /// </summary>
     property Platform::Object ^ Context;
+    /// <summary>
+    ///Optional listener called when session related events occur. May be NULL.
+    /// </summary>
     property SessionListener ^ Listener;
+    /// <summary>
+    ///Result of the operation. The value is ER_OK is the session is joined successfully.
+    /// </summary>
     property QStatus Status;
+    /// <summary>
+    ///The session id of the session joined.
+    /// </summary>
     property ajn::SessionId SessionId;
+    /// <summary>
+    ///Session options imposed by the session creator.
+    /// </summary>
     property SessionOpts ^ Opts;
 
   private:
@@ -117,11 +138,26 @@ public ref class JoinSessionResult sealed {
     qcc::Event _event;
 };
 
+/// <summary>
+///The result of the asynchronous operation for setting the link idle timeout
+/// </summary>
 public ref class SetLinkTimeoutResult sealed {
   public:
+    /// <summary>
+    ///The BusAttachment object that makes the call
+    /// </summary>
     property BusAttachment ^ Bus;
+    /// <summary>
+    ///User defined context which will be passed as-is to callback.
+    /// </summary>
     property Platform::Object ^ Context;
+    /// <summary>
+    ///Result of the operation. The value is ER_OK if the link timeout is set successfully.
+    /// </summary>
     property QStatus Status;
+    /// <summary>
+    ///The actual link idle timeout value.
+    /// </summary>
     property uint32_t Timeout;
 
   private:

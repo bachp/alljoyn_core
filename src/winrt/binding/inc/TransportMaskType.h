@@ -20,7 +20,9 @@
 
 namespace AllJoyn {
 
-/// <summary>Bitmask of all transport types</summary>
+/// <summary>
+///Bitmask of all transport types
+/// </summary>
 [Platform::Metadata::Flags]
 public enum class TransportMaskType : uint32_t {
     /// <summary>no transports</summary>

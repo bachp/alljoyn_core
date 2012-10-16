@@ -77,6 +77,9 @@ class _SessionListener : protected ajn::SessionListener {
     __SessionListener ^ _eventsAndProperties;
 };
 
+/// <summary>
+///AllJoyn uses this class to inform users of session related events.
+/// </summary>
 public ref class SessionListener sealed {
   public:
     SessionListener(BusAttachment ^ bus);

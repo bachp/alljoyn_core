@@ -24,6 +24,7 @@
 
 namespace AllJoyn {
 
+/// <summary>Session carries message traffic</summary>
 [Platform::Metadata::Flags]
 public enum class ProximityType : uint32_t {
     PROXIMITY_ANY      = ajn::SessionOpts::PROXIMITY_ANY,
@@ -70,6 +71,9 @@ class _SessionOpts : protected ajn::SessionOpts {
     __SessionOpts ^ _eventsAndProperties;
 };
 
+/// <summary>
+///SessionOpts contains a set of parameters that define a Session's characteristics.
+/// </summary>
 public ref class SessionOpts sealed {
   public:
     SessionOpts();

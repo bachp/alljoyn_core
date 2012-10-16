@@ -35,10 +35,22 @@ ref class InterfaceDescription;
 ref class InterfaceMember;
 class _ProxyBusObject;
 
+/// <summary>
+///The result of the asynchronous operation for introspecting the remote object on the bus to determine the interfaces and children that exist.
+/// </summary>
 public ref class IntrospectRemoteObjectResult sealed {
   public:
+    /// <summary>
+    ///The ProxyBusObject object that does the introspection
+    /// </summary>
     property ProxyBusObject ^ Proxy;
+    /// <summary>
+    ///User defined context which will be passed as-is to callback.
+    /// </summary>
     property Platform::Object ^ Context;
+    /// <summary>
+    ///The result of the operation.
+    /// </summary>
     property QStatus Status;
 
   private:
@@ -87,11 +99,26 @@ public ref class IntrospectRemoteObjectResult sealed {
     qcc::Event _event;
 };
 
+/// <summary>
+///The result of the asynchronous operation for getting a property of the remote bus object.
+/// </summary>
 public ref class GetPropertyResult sealed {
   public:
+    /// <summary>
+    ///The proxy object that makes the call.
+    /// </summary>
     property ProxyBusObject ^ Proxy;
+    /// <summary>
+    ///User defined context which will be passed as-is to callback.
+    /// </summary>
     property Platform::Object ^ Context;
+    /// <summary>
+    ///The result of the operation.
+    /// </summary>
     property QStatus Status;
+    /// <summary>
+    ///An <c>MsgArg</c> object that contains the property value.
+    /// </summary>
     property MsgArg ^ Value;
 
   private:
@@ -142,11 +169,27 @@ public ref class GetPropertyResult sealed {
     qcc::Event _event;
 };
 
+/// <summary>
+///The result of asynchronous operation for getting all properties of the remote bus object.
+/// </summary>
 public ref class GetAllPropertiesResult sealed {
   public:
+    /// <summary>
+    ///The proxy object that makes the call.
+    /// </summary>
     property ProxyBusObject ^ Proxy;
+    /// <summary>
+    ///User defined context which will be passed as-is to callback.
+    /// </summary>
     property Platform::Object ^ Context;
+    /// <summary>
+    ///The result of the operation.
+    /// </summary>
     property QStatus Status;
+    /// <summary>
+    ///An <c>MsgArg</c> object that contains the value of all properties. The object's 'Value' properties is a <c>MsgArg</c> array.
+    ///Each element of the <c>MsgArg</c> array corresponds to a Key/Value pair
+    /// </summary>
     property MsgArg ^ Value;
 
   private:
@@ -197,10 +240,22 @@ public ref class GetAllPropertiesResult sealed {
     qcc::Event _event;
 };
 
+/// <summary>
+///The result of the asynchronous operation for setting a property of the remote bus object.
+/// </summary>
 public ref class SetPropertyResult sealed {
   public:
+    /// <summary>
+    ///The proxy object that makes the call.
+    /// </summary>
     property ProxyBusObject ^ Proxy;
+    /// <summary>
+    ///User defined context which will be passed as-is to callback.
+    /// </summary>
     property Platform::Object ^ Context;
+    /// <summary>
+    ///The result of the operation.
+    /// </summary>
     property QStatus Status;
 
   private:
@@ -249,10 +304,22 @@ public ref class SetPropertyResult sealed {
     qcc::Event _event;
 };
 
+/// <summary>
+///The result of the asynchronous operation for invoking a method call of the remote bus object.
+/// </summary>
 public ref class MethodCallResult sealed {
   public:
+    /// <summary>
+    ///The proxy object that make the call.
+    /// </summary>
     property ProxyBusObject ^ Proxy;
+    /// <summary>
+    ///User defined context which will be passed as-is to callback.
+    /// </summary>
     property Platform::Object ^ Context;
+    /// <summary>
+    ///An <c>Message</c> object that contains the method call reply.
+    /// </summary>
     property Message ^ Message;
 
   private:

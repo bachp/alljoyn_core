@@ -85,6 +85,9 @@ class _SessionPortListener : protected ajn::SessionPortListener {
     __SessionPortListener ^ _eventsAndProperties;
 };
 
+/// <summary>
+///AllJoyn uses this class to inform user of session related events.
+/// </summary>
 public ref class SessionPortListener sealed {
   public:
     SessionPortListener(BusAttachment ^ bus);

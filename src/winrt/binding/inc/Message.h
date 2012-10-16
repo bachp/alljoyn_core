@@ -100,6 +100,9 @@ class _Message {
     const ajn::_Message* _message;
 };
 
+/// <summary>
+///This class implements an AllJoyn meesage
+/// </summary>
 public ref class Message sealed {
   public:
     /// <summary>

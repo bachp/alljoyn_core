@@ -199,8 +199,10 @@ class _MessageReceiver : protected ajn::MessageReceiver {
     BusAttachment ^ Bus;
 };
 
+/// <summary>MessageReceiver is for notification of a method call or signal call. Users have to provide a handler for the method/signal call </summary>
 public ref class MessageReceiver sealed {
   public:
+    /// <summary>Constructor </summary>
     MessageReceiver(BusAttachment ^ bus)
     {
         ::QStatus status = ER_OK;
