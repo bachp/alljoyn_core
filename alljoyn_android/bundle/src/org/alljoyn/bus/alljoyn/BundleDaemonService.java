@@ -76,9 +76,9 @@ public class BundleDaemonService extends Service {
                 "    <allow send_requested_reply=\"true\"/>" +
                 "    <allow receive_requested_reply=\"true\"/>" +
                 "  </policy>" +
-                "  <limit auth_timeout=\"5000\"/>" +
-                "  <limit max_incomplete_connections=\"4\"/>" +
-                "  <limit max_completed_connections=\"16\"/>" +
+                "  <limit auth_timeout=\"32768\"/>" +
+                "  <limit max_incomplete_connections=\"16\"/>" +
+                "  <limit max_completed_connections=\"64\"/>" +
                 "  <alljoyn module=\"ipns\">" +
                 "    <property interfaces=\"*\"/>" +
                 "  </alljoyn>" +
