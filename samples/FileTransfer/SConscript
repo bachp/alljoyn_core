@@ -21,4 +21,6 @@ progs = [
     env.Program('FileTransferClient',  ['FileTransferClient.cc']),
     env.Program('FileTransferService', ['FileTransferService.cc'])
     ]
-
+if 'linux' == env['OS'] or 'darwin' == env['OS'] or env['OS_GROUP'] == 'windows':
+    env.Install('$DISTDIR/bin/samples', progs )
+    env.Install(clientDistDir, env.Glob('*.cc'))
