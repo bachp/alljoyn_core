@@ -129,4 +129,6 @@ env.Install('$DISTDIR', 'NOTICE.txt')
 
 # Build docs
 env.SConscript('docs/SConscript')
-    
+
+#Build Win8 SDK installer
+env.SConscript('win8_sdk/SConscript')
