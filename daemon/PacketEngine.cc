@@ -769,18 +769,19 @@ void PacketEngine::ReleaseChannelInfo(ChannelInfo& ci)
 {
     channelInfoLock.Lock();
     if ((--ci.useCount == 0) && (ci.state == ChannelInfo::CLOSED)) {
+        PacketEngineStream stream = ci.stream;
+        PacketEngineListener& listener = ci.listener;
+        PacketDest dest = ci.dest;
+
+        /* Erase entry in channelInfos */
+        channelInfos.erase(ci.id);
 
         /* Notify disconnect cb (Must be done without holding channelInfoLock) */
         channelInfoLock.Unlock();
-        ci.listener.PacketEngineDisconnectCB(*this, ci.stream, ci.dest);
-        ci.sourceEvent.SetEvent();
-        ci.sinkEvent.SetEvent();
-
-        /* Erase entry in channelInfos */
-        channelInfoLock.Lock();
-        channelInfos.erase(ci.id);
+        listener.PacketEngineDisconnectCB(*this, stream, dest);
+    } else {
+        channelInfoLock.Unlock();
     }
-    channelInfoLock.Unlock();
 }
 
 void PacketEngine::SendAck(ChannelInfo& ci, uint16_t seqNum, bool allowDelay)
