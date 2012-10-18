@@ -126,13 +126,19 @@ namespace AllJoynUnitTests
                     busObject.AddMethodHandler(null, catReceiver);
                     Assert.IsFalse(true);
                 }
-                catch (Exception ex) { }
+                catch (Exception ex)
+                {
+                    Logger.LogMessage("%s", ex.Message);
+                }
                 try
                 {
                     busObject.AddMethodHandler(intf[0].GetMethod("cat"), null);
                     Assert.IsFalse(true);
                 }
-                catch (Exception ex) { }
+                catch (Exception ex)
+                {
+                    Logger.LogMessage("%s", ex.Message);
+                }
 
                 busObject.AddMethodHandler(intf[0].GetMethod("cat"), catReceiver);
                 busObject.AddMethodHandler(intf[0].GetMethod("sayhi"), sayHiReceiver);

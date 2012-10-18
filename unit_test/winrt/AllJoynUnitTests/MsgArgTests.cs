@@ -362,7 +362,7 @@ namespace AllJoynUnitTests
             MsgArg s1 = new MsgArg("(yxd)", new object[] { (byte)212, 35683450634546, 39.435723 });
             MsgArg s2 = new MsgArg("(yxd)", new object[] { (byte)111, -2346656767823, -34.83457 });
             MsgArg s3 = new MsgArg("(yxd)", new object[] { (byte)7, (Int64)3245445, 732.234 });
-            MsgArg s4 = new MsgArg("(u(yxd)sd(yxd)iq(yxd)b)", new object[] { (UInt32)8743,
+            MsgArg s4 = new MsgArg(sig1, new object[] { (UInt32)8743,
                 (byte)212, 35683450634546, 39.435723,
                 "testingthestructs",
                 2456.666,

@@ -16,6 +16,20 @@ import os
 
 Import('env')
 
+# Call this function to verify there is a valid developer license to run the unit test.
+def have_developer_license():
+    from ctypes import windll, byref, create_string_buffer
+    have_valid_license = False
+    try:
+        filetime = create_string_buffer(8)    # buffer the size of a FILETIME structure
+        if (0 == windll.wsclient.CheckDeveloperLicense(byref(filetime))):
+            have_valid_license = True
+    except:
+        print('Warning: No valid Windows Store developer license detected, unit tests will not be run.')
+        pass
+    return have_valid_license
+
+
 if(not(env.has_key('GTEST_DIR'))):
     print('GTEST_DIR not specified skipping alljoyn_core unit test build')
 
@@ -74,7 +88,7 @@ else:
 
     gtest_dir = unittest_env['GTEST_DIR']
     # use the relative path from the build directory.
-    # include all header files even if they will not be in the public repository.  
+    # include all header files even if they will not be in the public repository.
     unittest_env.Replace(CPPPATH = [gtest_dir + '/include', 
                                 '../../../../../../../alljoyn_core/inc',
                                 '../../../../../../../alljoyn_core/src', 
@@ -129,3 +143,55 @@ else:
 
     #install gtest utilities
     env.Install('$TESTDIR/bin', Dir('test_report').srcnode())
+
+if env['OS'] == 'win8' and have_developer_license() and (env['CPU'] == 'x86' or env['CPU'] == 'x86_64'):
+    appx_env = env.Clone();
+
+    # choose the correct build flavor
+    if appx_env['CPU'] == 'x86':
+        platform = 'x86'
+    elif appx_env['CPU'] == 'x86_64':
+        platform = 'x64'
+
+
+    # this magic setting is needed for vstest.console.exe to run for the right processor architecture
+    if appx_env['HOST_ARCH'] == 'x86_64':
+        appx_env['ENV']['PROCESSOR_ARCHITECTURE'] = 'AMD64'
+    elif appx_env['HOST_ARCH'] == 'x86':
+        appx_env['ENV']['PROCESSOR_ARCHITECTURE'] = 'X86'
+
+
+    unit_test_appx_name_stem = 'winrt/AllJoynUnitTests/AppPackages/AllJoynUnitTests_1.0.0.0_'+platform+'_'+appx_env['VARIANT']+'_Test/AllJoynUnitTests_1.0.0.0_' + platform + '_'+ appx_env['VARIANT'] + '.appx'
+    unit_test_appx_name = '../../../../alljoyn_core/unit_test/' + unit_test_appx_name_stem
+
+
+    # make_appx_cmd:
+    #    produces the appx files with the unit tests inside,
+    #    depends on AllJoyn.dll to exist
+    #    runs msbuild on the AllJoynUnitTests solution file.
+    make_appx_cmd = appx_env.Command(
+                          unit_test_appx_name,
+                        [   # source files to depend upon
+                            'winrt/AllJoynUnitTests.sln',
+                            '$DISTDIR/bin/AllJoyn.dll',
+                            '$DISTDIR/bin/AllJoyn.winmd'
+                        ],
+                        'msbuild.exe ${SOURCE.abspath} /t:Clean,Rebuild /p:Configuration=' + appx_env['VARIANT'] + ';Platform=' + platform,
+                        )
+
+    # the unit test:
+    #    produces no files,
+    #    depends on the .appx to exist
+    #    runs vstest.console.exe on the appx file.
+    run_appx_unit_test = appx_env.Command( None,
+                        unit_test_appx_name_stem,
+                        'vstest.console.exe "${SOURCE.abspath} " /InIsolation /platform:' + platform
+                        )
+
+#    # Install vsix at the same level as the architecture directory
+#    makeappx_install = appx_env.Install('$DISTDIR/../test', source = unit_test_appx_name_stem )
+#    appx_env.Depends(makeappx_install, make_appx_cmd)
+
+
+    # make sure the appx file is built before trying to run the unit test.
+    appx_env.Depends(run_appx_unit_test, make_appx_cmd)

@@ -391,6 +391,7 @@ namespace AllJoynUnitTests
             }
             catch (Exception ex)
             {
+                Logger.LogMessage("%s", ex.Message);
             }
         }
 
