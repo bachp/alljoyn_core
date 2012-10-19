@@ -245,6 +245,34 @@ class IpNameServiceImpl : public qcc::Thread {
                                uint32_t modulus, uint32_t retries);
 
     /**
+     * @brief Creat a virtual network interface. In normal cases WiFi-Direct
+     * creates a soft-AP for a temporary network. In some OSs like WinRT, there is
+     * no API to detect the presence of the soft-AP. Thus we need to manually create
+     * a virtual network interface for it.
+     *
+     * @param entry Contains the network interface parameters
+     *
+     * @return Status of the operation.  Returns ER_OK on success.
+     *
+     * @see qcc::IfConfig()
+     * @see qcc::IfConfigEntry
+     */
+    QStatus CreateVirtualInterface(const qcc::IfConfigEntry& entry);
+
+    /**
+     * @brief Delete a virtual network interface. In normal cases WiFi-Direct
+     * creates a soft-AP for a temporary network. Once the P2P keep-alive connection is
+     * terminated, we delete the virual network interface that represents the
+     * soft-AP.
+     *
+     * @param ifceName The virtual network interface name
+     *
+     * @return Status of the operation.  Returns ER_OK on success.
+     *
+     */
+    QStatus DeleteVirtualInterface(const qcc::String& ifceName);
+
+    /**
      * @brief Tell the name service to begin listening and transmitting
      * on the provided network interface.
      *
@@ -772,6 +800,12 @@ class IpNameServiceImpl : public qcc::Thread {
         uint32_t m_index;           /**< The interface index of the protocol/device we are using if IPv6 */
         uint32_t m_flags;           /**< The flags we found during the qcc::IfConfig() that originally discovered this iface */
     };
+
+    /**
+     * @internal
+     * @brief A vector of information specifying any interfaces we have mannual created
+     */
+    std::vector<qcc::IfConfigEntry> m_virtualInterfaces;
 
     /**
      * @internal

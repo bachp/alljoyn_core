@@ -561,6 +561,40 @@ IpNameServiceImpl::~IpNameServiceImpl()
     m_state = IMPL_SHUTDOWN;
 }
 
+QStatus IpNameServiceImpl::CreateVirtualInterface(const qcc::IfConfigEntry& entry)
+{
+    QCC_DbgPrintf(("IpNameServiceImpl::CreateVirtualInterface(%s)", entry.m_name.c_str()));
+
+    std::vector<qcc::IfConfigEntry>::const_iterator it = m_virtualInterfaces.begin();
+    for (; it != m_virtualInterfaces.end(); it++) {
+        if (it->m_name == entry.m_name) {
+            QCC_DbgPrintf(("Interface(%s) already exists", entry.m_name.c_str()));
+            return ER_FAIL;
+        }
+    }
+    m_virtualInterfaces.push_back(entry);
+    m_forceLazyUpdate = true;
+    m_wakeEvent.SetEvent();
+    return ER_OK;
+}
+
+QStatus IpNameServiceImpl::DeleteVirtualInterface(const qcc::String& ifceName)
+{
+    QCC_DbgPrintf(("IpNameServiceImpl::DeleteVirtualInterface(%s)", ifceName.c_str()));
+
+    std::vector<qcc::IfConfigEntry>::const_iterator it = m_virtualInterfaces.begin();
+    for (; it != m_virtualInterfaces.end(); it++) {
+        if (it->m_name == ifceName) {
+            m_virtualInterfaces.erase(it);
+            m_forceLazyUpdate = true;
+            m_wakeEvent.SetEvent();
+            return ER_OK;
+        }
+    }
+    QCC_DbgPrintf(("Interface(%s) does not exist", ifceName.c_str()));
+    return ER_FAIL;
+}
+
 QStatus IpNameServiceImpl::OpenInterface(TransportMask transportMask, const qcc::String& name)
 {
     QCC_DbgPrintf(("IpNameServiceImpl::OpenInterface(%s)", name.c_str()));
@@ -943,6 +977,11 @@ void IpNameServiceImpl::LazyUpdateInterfaces(void)
         return;
     }
 
+    // add the virtual network interfaces if any
+    if (m_virtualInterfaces.size() > 0) {
+        entries.insert(entries.end(), m_virtualInterfaces.begin(), m_virtualInterfaces.end());
+    }
+
     //
     // There are two fundamental ways we can look for interfaces to use.  We
     // can either walk the list of IfConfig entries (real interfaces on the
@@ -1031,7 +1070,7 @@ void IpNameServiceImpl::LazyUpdateInterfaces(void)
                     if (m_requestedInterfaces[j][k].m_interfaceName.size() != 0 &&
                         m_requestedInterfaces[j][k].m_interfaceName == entries[i].m_name) {
                         QCC_DbgPrintf(("IpNameServiceImpl::LazyUpdateInterfaces(): Use because found requestedInterface name "
-                                       " \"%s\" for transport %d", entries[i].m_name.c_str(), i));
+                                       " \"%s\" for transport %d", entries[i].m_name.c_str(), j));
                         useEntry = true;
                         break;
                     }

@@ -25,8 +25,10 @@
 #include <qcc/Debug.h>
 #include <qcc/Thread.h>
 #include <qcc/Util.h>
+#include <qcc/IfConfig.h>
 #include <qcc/winrt/utility.h>
 
+#include "ns/IpNameService.h"
 #include "ProximityNameService.h"
 #include "ppltasks.h"
 
@@ -106,6 +108,7 @@ void ProximityNameService::Start()
     QCC_DbgPrintf(("ProximityNameService::Start()"));
     Windows::Foundation::EventRegistrationToken m_token = PeerFinder::ConnectionRequested += ref new TypedEventHandler<Platform::Object ^, Windows::Networking::Proximity::ConnectionRequestedEventArgs ^>(this, \
                                                                                                                                                                                                            &ProximityNameService::ConnectionRequestedEventHandler, CallbackContext::Same);
+    IpNameService::Instance().Acquire(m_sguid);
 }
 
 void ProximityNameService::Stop()
@@ -115,6 +118,7 @@ void ProximityNameService::Stop()
     NotifyDisconnected();
     m_connRefCount = 0;
     PeerFinder::ConnectionRequested -= m_token;
+    IpNameService::Instance().Release();
 }
 
 void ProximityNameService::ConnectionRequestedEventHandler(Platform::Object ^ sender, ConnectionRequestedEventArgs ^ TriggeredConnectionStateChangedEventArgs)
@@ -142,7 +146,22 @@ void ProximityNameService::ConnectionRequestedEventHandler(Platform::Object ^ se
                                  loAddrStr = loAddrStr.substr(0, pos);
                              }
                              m_currentP2PLink.localIp = loAddrStr;
+
+                             IfConfigEntry wfdEntry;
+                             wfdEntry.m_name = "win-wfd";
+                             wfdEntry.m_addr = loAddrStr;
+                             wfdEntry.m_prefixlen = static_cast<uint32_t>(-1);
+                             wfdEntry.m_family = qcc::QCC_AF_INET6;
+                             wfdEntry.m_flags = qcc::IfConfigEntry::UP;
+                             wfdEntry.m_flags |= qcc::IfConfigEntry::MULTICAST;
+                             wfdEntry.m_mtu = 1500;
+                             wfdEntry.m_index = 18;
+                             IpNameService::Instance().CreateVirtualInterface(wfdEntry);
+                             IpNameService::Instance().OpenInterface(TRANSPORT_WFD, "win-wfd");
                              QCC_DbgPrintf(("P2P keep-live connection is established"));
+                             if (m_advertised.size() > 0) {
+                                 IpNameService::Instance().AdvertiseName(TRANSPORT_WFD, *(m_advertised.begin()));
+                             }
                              TransmitMyWKNs();
                              StartMaintainanceTimer();
                          } catch (Exception ^ e) {
@@ -169,6 +188,7 @@ bool ProximityNameService::IsBrowseConnectSupported()
 void ProximityNameService::EnableAdvertisement(const qcc::String& name)
 {
     QCC_DbgPrintf(("ProximityNameService::EnableAdvertisement (%s)", name.c_str()));
+    assert(m_advertised.size() == 0 && "Only one service is allowed");
     m_mutex.Lock(MUTEX_CONTEXT);
     try {
         if (IsBrowseConnectSupported()) {
@@ -216,13 +236,20 @@ void ProximityNameService::EnableAdvertisement(const qcc::String& name)
 void ProximityNameService::DisableAdvertisement(vector<qcc::String>& wkns)
 {
     QCC_DbgPrintf(("ProximityNameService::DisableAdvertisement()"));
+    assert(wkns.size() == 1 && "Only one service name is expected");
     m_mutex.Lock(MUTEX_CONTEXT);
     try {
         if (IsBrowseConnectSupported()) {
             Platform::String ^ updatedName;
             bool changed = false;
             for (uint32_t i = 0; i < wkns.size(); ++i) {
-                set<qcc::String>::iterator j = m_advertised.find(wkns[i]);
+                qcc::String name = wkns[i];
+                size_t pos = name.find_last_of('.');
+                if (pos != qcc::String::npos) {
+                    name = name.substr(pos + 1);
+                }
+
+                set<qcc::String>::iterator j = m_advertised.find(name);
                 if (j != m_advertised.end()) {
                     m_advertised.erase(j);
                     changed = true;
@@ -234,7 +261,8 @@ void ProximityNameService::DisableAdvertisement(vector<qcc::String>& wkns)
             }
             m_doDiscovery = ShouldDoDiscovery();
             if (IsConnected()) {
-                QCC_DbgPrintf(("DisableAdvertisement() already connected, TransmitMyWKNs Immidiately"));
+                IpNameService::Instance().CancelAdvertiseName(TRANSPORT_WFD, *(wkns.begin()));
+                QCC_DbgPrintf(("DisableAdvertisement() already connected, Transm)itMyWKNs Immidiately"));
                 TransmitMyWKNs();
                 m_mutex.Unlock(MUTEX_CONTEXT);
                 return;
@@ -259,7 +287,7 @@ void ProximityNameService::DisableAdvertisement(vector<qcc::String>& wkns)
 void ProximityNameService::EnableDiscovery(const qcc::String& namePrefix)
 {
     QCC_DbgPrintf(("ProximityNameService::EnableDiscovery (%s)", namePrefix.c_str()));
-    assert(namePrefix.size() > 0);
+    assert(namePrefix.size() > 0 && "The name prefix is expected to be non-empty");
     m_mutex.Lock(MUTEX_CONTEXT);
     try {
         if (IsBrowseConnectSupported()) {
@@ -444,6 +472,7 @@ QStatus ProximityNameService::EstasblishProximityConnection(qcc::String guidStr)
                 rAddrStr = rAddrStr.substr(0, pos);
             }
             m_currentP2PLink.remoteIp = rAddrStr;
+
             qcc::String loAddrStr = PlatformToMultibyteString(m_currentP2PLink.socket->Information->LocalAddress->CanonicalName);
             pos = loAddrStr.find_first_of('%');
             if (qcc::String::npos != pos) {
@@ -454,6 +483,21 @@ QStatus ProximityNameService::EstasblishProximityConnection(qcc::String guidStr)
             m_currentP2PLink.socketClosed = false;
             m_currentP2PLink.dataReader = ref new DataReader(m_currentP2PLink.socket->InputStream);
             m_currentP2PLink.dataWriter = ref new DataWriter(m_currentP2PLink.socket->OutputStream);
+
+            IfConfigEntry wfdEntry;
+            wfdEntry.m_name = "win-wfd";
+            wfdEntry.m_addr = loAddrStr;
+            wfdEntry.m_prefixlen = static_cast<uint32_t>(-1);
+            wfdEntry.m_family = qcc::QCC_AF_INET6;
+            wfdEntry.m_flags = qcc::IfConfigEntry::UP;
+            wfdEntry.m_flags |= qcc::IfConfigEntry::MULTICAST;
+            wfdEntry.m_mtu = 1500;
+            wfdEntry.m_index = 18;
+            IpNameService::Instance().CreateVirtualInterface(wfdEntry);
+            IpNameService::Instance().OpenInterface(TRANSPORT_WFD, "win-wfd");
+            if (m_advertised.size() > 0) {
+                IpNameService::Instance().AdvertiseName(TRANSPORT_WFD, *(m_advertised.begin()));
+            }
             QCC_DbgPrintf(("P2P keep-live connection is established"));
             StartReader();
             TransmitMyWKNs();
@@ -493,6 +537,8 @@ void ProximityNameService::ResetConnection()
             m_currentP2PLink.localPort = 0;
             m_currentP2PLink.remotePort = 0;
             m_currentP2PLink.peerGuid = qcc::String::Empty;
+            IpNameService::Instance().CloseInterface(TRANSPORT_WFD, "win-wfd");
+            IpNameService::Instance().DeleteVirtualInterface("win-wfd");
         }
     }
     m_peersMap.clear();

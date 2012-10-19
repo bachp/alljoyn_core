@@ -292,6 +292,40 @@ void IpNameService::SetCallback(TransportMask transportMask,
     m_pimpl->SetCallback(transportMask, cb);
 }
 
+QStatus IpNameService::CreateVirtualInterface(const qcc::IfConfigEntry& entry)
+{
+    //
+    // If the entry gate has been closed, we do not allow an OpenInterface to
+    // actually open anything.  The singleton is going away and so we assume we
+    // are running __run_exit_handlers() so main() has returned.  We are
+    // definitely shutting down, and the process is going to exit, so tricking
+    // callers who may be temporarily running is okay.
+    //
+    if (m_destroyed) {
+        return ER_OK;
+    }
+
+    ASSERT_STATE("CreateVirtualInterface");
+    return m_pimpl->CreateVirtualInterface(entry);
+}
+
+QStatus IpNameService::DeleteVirtualInterface(const qcc::String& ifceName)
+{
+    //
+    // If the entry gate has been closed, we do not allow an OpenInterface to
+    // actually open anything.  The singleton is going away and so we assume we
+    // are running __run_exit_handlers() so main() has returned.  We are
+    // definitely shutting down, and the process is going to exit, so tricking
+    // callers who may be temporarily running is okay.
+    //
+    if (m_destroyed) {
+        return ER_OK;
+    }
+
+    ASSERT_STATE("DeleteVirtualInterface");
+    return m_pimpl->DeleteVirtualInterface(ifceName);
+}
+
 QStatus IpNameService::OpenInterface(TransportMask transportMask, const qcc::String& name)
 {
     //

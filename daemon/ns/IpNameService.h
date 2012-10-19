@@ -28,7 +28,7 @@
 
 #include <qcc/String.h>
 #include <qcc/IPAddress.h>
-
+#include <qcc/IfConfig.h>
 #include <alljoyn/TransportMask.h>
 
 #include <Status.h>
@@ -144,6 +144,34 @@ class IpNameService {
      */
     void SetCallback(TransportMask transportMask,
                      Callback<void, const qcc::String&, const qcc::String&, std::vector<qcc::String>&, uint8_t>* cb);
+
+    /**
+     * @brief Creat a virtual network interface. In normal cases WiFi-Direct
+     * creates a soft-AP for a temporary network. In some OSs like WinRT, there is
+     * no API to detect the presence of the soft-AP. Thus we need to manually create
+     * a virtual network interface for it.
+     *
+     * @param entry Contains the network interface parameters
+     *
+     * @return Status of the operation.  Returns ER_OK on success.
+     *
+     * @see qcc::IfConfig()
+     * @see qcc::IfConfigEntry
+     */
+    QStatus CreateVirtualInterface(const qcc::IfConfigEntry& entry);
+
+    /**
+     * @brief Delete a virtual network interface. In normal cases WiFi-Direct
+     * creates a soft-AP for a temporary network. Once the P2P keep-alive connection is
+     * terminated, we delete the virual network interface that represents the
+     * soft-AP.
+     *
+     * @param ifceName The virtual network interface name
+     *
+     * @return Status of the operation.  Returns ER_OK on success.
+     *
+     */
+    QStatus DeleteVirtualInterface(const qcc::String& ifceName);
 
     /**
      * @brief Enable the name service to advertise over the provided network interface
