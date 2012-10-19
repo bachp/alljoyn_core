@@ -22,9 +22,13 @@ import java.util.ArrayList;
 import java.util.Enumeration;
 import java.util.HashMap;
 import java.util.Iterator;
+import java.util.List;
 import java.util.Map;
 import java.lang.Runnable;
 
+import android.app.Activity;
+import android.app.ActivityManager;
+import android.app.ActivityManager.RunningTaskInfo;
 import android.content.Context;
 import android.content.IntentFilter;
 import android.net.wifi.WpsInfo;
@@ -32,13 +36,15 @@ import android.net.wifi.p2p.WifiP2pConfig;
 import android.net.wifi.p2p.WifiP2pDevice;
 import android.net.wifi.p2p.WifiP2pDeviceList;
 import android.net.wifi.p2p.WifiP2pInfo;
+import android.net.wifi.p2p.WifiP2pGroup;
 import android.net.wifi.p2p.WifiP2pManager;
 import android.net.wifi.p2p.WifiP2pManager.ActionListener;
 import android.net.wifi.p2p.WifiP2pManager.Channel;
 import android.net.wifi.p2p.WifiP2pManager.ConnectionInfoListener;
-import android.net.wifi.p2p.WifiP2pManager.PeerListListener;
+import android.net.wifi.p2p.WifiP2pManager.GroupInfoListener;
 import android.net.wifi.p2p.WifiP2pManager.DnsSdServiceResponseListener;
 import android.net.wifi.p2p.WifiP2pManager.DnsSdTxtRecordListener;
+import android.net.wifi.p2p.WifiP2pManager.PeerListListener;
 import android.net.wifi.p2p.nsd.WifiP2pDnsSdServiceRequest;
 import android.net.wifi.p2p.nsd.WifiP2pDnsSdServiceInfo;
 import android.util.Log;
@@ -75,7 +81,7 @@ enum FindState {
     }
 }
 
-public class P2pManager implements ConnectionInfoListener, DnsSdServiceResponseListener, DnsSdTxtRecordListener, PeerListListener {
+public class P2pManager implements ConnectionInfoListener, DnsSdServiceResponseListener, DnsSdTxtRecordListener, GroupInfoListener, PeerListListener {
     public static final String TAG = "P2pManager";
     private WifiP2pManager manager;
     private P2pInterface busInterface = null;
@@ -87,15 +93,20 @@ public class P2pManager implements ConnectionInfoListener, DnsSdServiceResponseL
     private Channel channel;
     private WifiP2pDevice device = null;
     private WifiP2pDeviceList peerList = null;
+    private WifiP2pDevice mGroupOwner = null;
 
-    private WifiP2pConfig peerConfig = null;
-    private PeerState peerState = PeerState.DISCONNECTED;
+    private WifiP2pConfig mPeerConfig = null;
+    private PeerState mPeerState = PeerState.DISCONNECTED;
     private FindState mFindState = FindState.IDLE;
 
     private Handler mHandler = null;
     private Runnable mPeriodicDiscovery = null;
     private Runnable mPeriodicFind = null;
     private Runnable mRequestConnectionInfo = null;
+
+    private boolean mPendingConnect = false;
+    private boolean isInitiator = false;
+    private boolean isBundled = false;
 
     private static final long periodicInterval = 40000;
     private static final long connectionTimeout = 150000;
@@ -198,6 +209,7 @@ public class P2pManager implements ConnectionInfoListener, DnsSdServiceResponseL
         };
 
         final ConnectionInfoListener connInfoListener = this;
+
         mRequestConnectionInfo = new Runnable() {
             public void run() {
                 if (!isEnabled) {
@@ -342,13 +354,69 @@ public class P2pManager implements ConnectionInfoListener, DnsSdServiceResponseL
         }
     }
 
-    private void setPeerState(PeerState newState) {
-        Log.d(TAG, "Peer state changing from " + peerState + " to " + newState + " for " + hashCode());
-        peerState = newState;
+    private boolean isForeground() {
+        // Treat the case of preinstalled daemon as always in foreground
+        if (!isBundled)
+            return true;
+
+        String name = context.getPackageName();
+
+        Log.d(TAG, "Check if foreground app " + name);
+
+        if (name == null) return false;
+
+        ActivityManager activityMgr = (ActivityManager)context.getSystemService(Activity.ACTIVITY_SERVICE);
+        List<RunningTaskInfo> tasks = activityMgr.getRunningTasks(1);
+
+        if (tasks.size() == 0) {
+            return false;
+        }
+
+        boolean res = name.equals(tasks.get(0).baseActivity.getPackageName());
+
+        Log.d(TAG, "Foreground app " + tasks.get(0).baseActivity.getPackageName());
+
+        return res;
     }
 
-    /*package*/ void setEnabled(boolean enabled) {
+    private void initiateConnect() {
+        mPendingConnect = false;
+        if (mPeerConfig == null)
+            return;
+        Log.d(TAG, "Initiate connection to " + mPeerConfig.deviceAddress);
+
+        setPeerState(PeerState.INITIATED);
+        manager.connect(channel, mPeerConfig,
+                        new ActionListener()
+                        {
+                            public void onSuccess() {
+                                Log.d(TAG, "connect initiated");
+                                if (mPeerState == PeerState.INITIATED) {
+                                    setPeerState(PeerState.CONNECTING);
+                                }
+                                mHandler.postDelayed(mRequestConnectionInfo, connectionTimeout);
+                            }
+
+                            public void onFailure(int reasonCode) {
+                                Log.d(TAG, "connect failed: " + reasonCode);
+                                int handle = getHandle(mPeerConfig.deviceAddress);
+                                setPeerState(PeerState.DISCONNECTED);
+                                isInitiator = false;
+                                mPeerConfig = null;
+                                busInterface.OnLinkError(handle, reasonCode);
+                            }
+                        });
+    }
+
+    private void setPeerState(PeerState newState) {
+        Log.d(TAG, "Peer state changing from " + mPeerState + " to " + newState + " for " + hashCode());
+        mPeerState = newState;
+    }
+
+    /*package*/ synchronized void setEnabled(boolean enabled) {
         isEnabled = enabled;
+        isInitiator = false;
+        mPeerConfig = null;
 
         // Restart service search and advertisement
         if (isEnabled) {
@@ -356,6 +424,7 @@ public class P2pManager implements ConnectionInfoListener, DnsSdServiceResponseL
             startAdvertisements();
         } else {
             mFindState = FindState.IDLE;
+            setPeerState(PeerState.DISCONNECTED);
             doFindPeers(false);
             doDiscoverServices(false);
         }
@@ -370,6 +439,13 @@ public class P2pManager implements ConnectionInfoListener, DnsSdServiceResponseL
         }
     }
 
+    synchronized public void onGroupInfoAvailable(WifiP2pGroup group) {
+        Log.d(TAG, "onGroupInfoAvaialble");
+        mGroupOwner =group.getOwner();
+        if (mGroupOwner != null)
+            Log.d(TAG, "Group owner " + mGroupOwner.deviceAddress);
+    }
+
     public void onConnectionInfoAvailable(WifiP2pInfo info) {
         Log.d(TAG, "onConnectionInfoAvailable()");
         Log.d(TAG, "Group Formed: " + info.groupFormed);
@@ -380,21 +456,27 @@ public class P2pManager implements ConnectionInfoListener, DnsSdServiceResponseL
 
         mHandler.removeCallbacks(mRequestConnectionInfo);
 
-        Log.d(TAG, "peerState: " + peerState);
+        if (info.groupFormed)
+            manager.requestGroupInfo(channel, this);
+        else
+            mGroupOwner = null;
 
-        switch (peerState) {
+        synchronized (mPeerState) {
+        Log.d(TAG, "peerState: " + mPeerState);
+
+        switch (mPeerState) {
         case INITIATED:
         case CONNECTING:
             if (info.groupFormed) {
                 setPeerState(PeerState.CONNECTED);
-                busInterface.OnLinkEstablished(getHandle(peerConfig.deviceAddress));
+                busInterface.OnLinkEstablished(getHandle(mPeerConfig.deviceAddress));
             } else {
                 int handle = 0;
-                if (peerConfig != null) {
-                    handle = getHandle(peerConfig.deviceAddress);
+                if (mPeerConfig != null) {
+                    handle = getHandle(mPeerConfig.deviceAddress);
                 }
                 setPeerState(PeerState.DISCONNECTED);
-                peerConfig = null;
+                mPeerConfig = null;
                 if (handle != 0) {
                     busInterface.OnLinkError(handle, -1);
                 }
@@ -404,11 +486,11 @@ public class P2pManager implements ConnectionInfoListener, DnsSdServiceResponseL
         case CONNECTED:
             if (!info.groupFormed) {
                 int handle = 0;
-                if (peerConfig != null) {
-                    handle = getHandle(peerConfig.deviceAddress);
+                if (mPeerConfig != null) {
+                    handle = getHandle(mPeerConfig.deviceAddress);
                 }
                 setPeerState(PeerState.DISCONNECTED);
-                peerConfig = null;
+                mPeerConfig = null;
                 busInterface.OnLinkLost(handle);
             }
             break;
@@ -416,28 +498,42 @@ public class P2pManager implements ConnectionInfoListener, DnsSdServiceResponseL
         case DISCONNECTING:
         case DISCONNECTED:
             if (info.groupFormed) {
-                Log.d(TAG, "Incoming connection");
-                // Assume it's an incoming connection
+                int handle = 0;
+                Log.d(TAG, "Connection not initiated by this AJN entity");
                 setPeerState(PeerState.CONNECTED);
-                // Dummy, for now
-                peerConfig = new WifiP2pConfig();
-                // Looks like the P2P framework does not tell us who connected.  Confirm?
-                peerConfig.deviceAddress = "";
-                busInterface.OnLinkEstablished(0);
+                isInitiator = false;
+
+                if (mPendingConnect && mPeerConfig != null) {
+                    // Race condition? Some other WFD entity connected while we were
+                    // in a process of initiating pending connect request.
+                    // Inform the daemon that pending connection failed
+                    // TODO: We might want to wait till we get group info and check if
+                    // the uninitiated connection happened to be to the desired device.
+                    busInterface.OnLinkError(getHandle(mPeerConfig.deviceAddress), -1);
+                    mPeerConfig = null;
+                }
+
+                mPendingConnect = false;
+                busInterface.OnLinkEstablished(handle);
+
             } else {
                 int handle = 0;
-                if (peerConfig != null) {
-                    handle = getHandle(peerConfig.deviceAddress);
+                if (!mPendingConnect && mPeerConfig != null) {
+                    handle = getHandle(mPeerConfig.deviceAddress);
+                    mPeerConfig = null;
                 }
                 setPeerState(PeerState.DISCONNECTED);
-                peerConfig = null;
                 busInterface.OnLinkLost(handle);
+
+                if (mPendingConnect)
+                    initiateConnect();
             }
             break;
 
         default:
-            Log.d(TAG, "Bad peer state: " + peerState);
+            Log.d(TAG, "Bad peer state: " + mPeerState);
             break;
+        }
         }
     }
 
@@ -797,7 +893,7 @@ public class P2pManager implements ConnectionInfoListener, DnsSdServiceResponseL
         txt.put("GUID", guid);
         txt.put("TIMER", Integer.toString(timer));
 
-        LocalServiceInfo info = new LocalServiceInfo(guid, timer); 
+        LocalServiceInfo info = new LocalServiceInfo(guid, timer);
 
         synchronized (mAdvertisedNames) {
             mAdvertisedNames.put(name, info);
@@ -924,74 +1020,54 @@ public class P2pManager implements ConnectionInfoListener, DnsSdServiceResponseL
             return ERROR;
         }
 
-        if (peerState != PeerState.DISCONNECTED) {
-            Log.e(TAG, "Already connected or in progress: " + peerState);
+        if (deviceAddress == null ||  deviceAddress.isEmpty()) {
+                Log.e(TAG, "Device address empty");
+                return ERROR;
+        }
+
+        if (mPeerState != PeerState.DISCONNECTED && isInitiator) {
+            Log.e(TAG, "Already connected or in progress: " + mPeerState);
             return ERROR;
         }
 
-        if (deviceAddress.isEmpty()) {
+        isInitiator = true;
 
-            if (device == null) {
-                Log.e(TAG, "No local device known");
-                return ERROR;
-            }
-
-            final int handle = getHandle(this.device.deviceAddress);
-
-// This appears to be unnecessary. Would be needed for legacy WiFi compatibility (to appear as AP)
-//            manager.createGroup(channel,
-//                                new ActionListener()
-//                                {
-//                                    public void onSuccess() {
-//                                        Log.d(TAG, "Created a P2P group.");
-//                                    }
-//
-//                                    public void onFailure(int reasonCode) {
-//                                        Log.d(TAG, "Creating a P2P group failed. Reason : " + reasonCode);
-//                                        try {
-//                                            busInterface.OnLinkError(handle, reasonCode);
-//                                        } catch (BusException ex) {
-//                                            Log.e(TAG, ex.getClass().getName());
-//                                        }
-//                                    }
-//                                });
-//
-//            Log.d(TAG, "Group created");
-
-
-            return handle;
-        }
+        // if no connection, initiate connect;
+        // else if connection exists to the same device, call onLinkEstablished
+        // else if connection exists to a different device and the current app is in foreground, 
+        // tear the existing connection down and initiate a new one.
 
         // Remove pending  calls
         mHandler.removeCallbacks(mRequestConnectionInfo);
 
-        peerConfig = new WifiP2pConfig();
-        peerConfig.deviceAddress = deviceAddress;
-        peerConfig.groupOwnerIntent = groupOwnerIntent;
-        peerConfig.wps.setup = WpsInfo.PBC;
-        setPeerState(PeerState.INITIATED);
+        mPeerConfig = new WifiP2pConfig();
+        mPeerConfig.deviceAddress = deviceAddress;
+        mPeerConfig.groupOwnerIntent = groupOwnerIntent;
+        mPeerConfig.wps.setup = WpsInfo.PBC;
 
-        manager.connect(channel, peerConfig,
-                        new ActionListener()
-                        {
-                            public void onSuccess() {
-                                Log.d(TAG, "connect initiated");
-                                if (peerState == PeerState.INITIATED) {
-                                    setPeerState(PeerState.CONNECTING);
-                                }
-                                mHandler.postDelayed(mRequestConnectionInfo, connectionTimeout);
-                            }
+        // Check if connection to the target device already exists
+        // (not initiated by this entity)
+        if (mPeerState == PeerState.CONNECTED && mGroupOwner != null) {
+            if (mGroupOwner.deviceAddress.equals(deviceAddress)) {
+                Log.d(TAG, "Connection to " + deviceAddress + " already exists");
+                busInterface.OnLinkEstablished(getHandle(mPeerConfig.deviceAddress));
+            } else {
+                if (isForeground()) {
+                    mPendingConnect = true;
+                    releaseLink(0);
+                } else {
+                    Log.d(TAG, "Cannot override existing connection to " + mGroupOwner.deviceAddress);
+                    mPeerConfig  = null;
+                    return ERROR;
+                }
+            }
+        } else {
+            Log.d(TAG, "Start connection");
+            initiateConnect();
+        }
+        Log.d(TAG, "establishLink(): Returning: " + getHandle(mPeerConfig.deviceAddress));
 
-                            public void onFailure(int reasonCode) {
-                                Log.d(TAG, "connect failed: " + reasonCode);
-                                int handle = getHandle(peerConfig.deviceAddress);
-                                setPeerState(PeerState.DISCONNECTED);
-                                peerConfig = null;
-                                busInterface.OnLinkError(handle, reasonCode);
-                            }
-                        });
-        Log.d(TAG, "establishLink(): Returning: " + getHandle(peerConfig.deviceAddress));
-        return getHandle(peerConfig.deviceAddress);
+        return getHandle(mPeerConfig.deviceAddress);
     }
 
     /**
@@ -1014,7 +1090,7 @@ public class P2pManager implements ConnectionInfoListener, DnsSdServiceResponseL
             return ERROR;
         }
 
-        switch (peerState) {
+        switch (mPeerState) {
         case INITIATED:
         case CONNECTING:
             setPeerState(PeerState.DISCONNECTING);
@@ -1024,7 +1100,7 @@ public class P2pManager implements ConnectionInfoListener, DnsSdServiceResponseL
                                       public void onSuccess() {
                                           Log.d(TAG, "cancelConnect initiated");
                                           setPeerState(PeerState.DISCONNECTED);
-                                          peerConfig = null;
+                                          mPeerConfig = null;
                                       }
 
                                       public void onFailure(int reasonCode) {
@@ -1036,7 +1112,7 @@ public class P2pManager implements ConnectionInfoListener, DnsSdServiceResponseL
                                            * in doing it again.
                                            */
                                           setPeerState(PeerState.DISCONNECTED);
-                                          peerConfig = null;
+                                          mPeerConfig = null;
                                       }
                                   });
 
@@ -1055,11 +1131,11 @@ public class P2pManager implements ConnectionInfoListener, DnsSdServiceResponseL
                                     public void onFailure(int reasonCode) {
                                         Log.d(TAG, "removeGroup failed: " + reasonCode);
                                         int handle = 0;
-                                        if (peerConfig != null) {
-                                            handle = getHandle(peerConfig.deviceAddress);
+                                        if (mPeerConfig != null) {
+                                            handle = getHandle(mPeerConfig.deviceAddress);
                                         }
                                         setPeerState(PeerState.DISCONNECTED);
-                                        peerConfig = null;
+                                        mPeerConfig = null;
                                         if (handle != 0) {
                                             busInterface.OnLinkError(handle, reasonCode);
                                         }
