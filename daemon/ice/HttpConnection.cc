@@ -138,24 +138,29 @@ void HttpConnection::SetUrlPath(String urlPath)
     this->urlPath = urlEncode(urlPath);
 }
 
-QStatus HttpConnection::SetHost(String host)
+void HttpConnection::SetHost(String host)
 {
     QCC_DbgPrintf(("HttpConnection::SetHost(): Setting the host to %s\n", host.c_str()));
-    QStatus status = ER_OK;
     SetRequestHeader("Host", host);
     this->host = host;
+    QCC_DbgPrintf(("HttpConnection::SetHost(): requestHeaders[Host] = %s\n", requestHeaders["Host"].c_str()));
+}
+
+QStatus HttpConnection::SetHostIPAddress(String host)
+{
+    QStatus status = ER_OK;
     IPAddress tempAddr;
     // Retrieve the Server IP Address from the Server Name
     status = tempAddr.SetAddress(host, true, NAME_RESOLUTION_TIMEOUT_IN_MS);
 
     if (status != ER_OK) {
-        QCC_LogError(status, ("HttpConnection::SetHost(): Invalid Rendezvous Server address specified"));
+        QCC_LogError(status, ("HttpConnection::SetHostIPAddress(): Invalid Rendezvous Server address specified"));
         return status;
     }
 
     this->hostIPAddress = tempAddr.ToString();
 
-    QCC_DbgPrintf(("HttpConnection::SetHost(): requestHeaders[Host] = %s\n", requestHeaders["Host"].c_str()));
+    QCC_DbgPrintf(("HttpConnection::SetHostIPAddress(): Setting the host ip address to %s\n", tempAddr.ToString().c_str()));
 
     return status;
 }

@@ -337,6 +337,7 @@ QStatus RendezvousServerConnection::SetupHTTPConn(SocketFd sockFd, HttpConnectio
     QCC_DbgPrintf(("RendezvousServerConnection::SetupHTTPConn(): sockFd = %d", sockFd));
 
     *httpConn = new HttpConnection();
+    (*httpConn)->SetHost(RendezvousServer);
 
     if (!(*httpConn)) {
         status = ER_FAIL;
@@ -350,9 +351,9 @@ QStatus RendezvousServerConnection::SetupHTTPConn(SocketFd sockFd, HttpConnectio
      * use the Server host name for connection */
     if (!RendezvousServerIPAddress.empty()) {
         QCC_DbgPrintf(("%s: Using stored RDVZ Server IP address %s", __FUNCTION__, RendezvousServerIPAddress.c_str()));
-        status = (*httpConn)->SetHost(RendezvousServerIPAddress);
+        status = (*httpConn)->SetHostIPAddress(RendezvousServerIPAddress);
     } else {
-        status = (*httpConn)->SetHost(RendezvousServer);
+        status = (*httpConn)->SetHostIPAddress(RendezvousServer);
         if (status == ER_OK) {
             /* We have done a DNS lookup on the Server name. Store off the resolved IP address
              * of the Server */
