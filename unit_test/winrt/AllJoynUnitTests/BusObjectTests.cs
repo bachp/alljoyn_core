@@ -162,7 +162,11 @@ namespace AllJoynUnitTests
                 }
                 catch (Exception ex)
                 {
+#if DEBUG
                     string err = AllJoynException.GetExceptionMessage(ex.HResult);
+#else
+                    QStatus err = AllJoynException.FromCOMException(ex.HResult);
+#endif
                     Assert.IsFalse(true);
                 }
             }

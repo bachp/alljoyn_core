@@ -153,6 +153,11 @@ if env['OS'] == 'win8' and have_developer_license() and (env['CPU'] == 'x86' or 
     elif appx_env['CPU'] == 'x86_64':
         platform = 'x64'
 
+    # Change the name slightly when building a debug version
+    if appx_env['VARIANT'].lower() == 'debug':
+        debug_name = '_Debug'
+    else:
+        debug_name = ''
 
     # this magic setting is needed for vstest.console.exe to run for the right processor architecture
     if appx_env['HOST_ARCH'] == 'x86_64':
@@ -161,7 +166,7 @@ if env['OS'] == 'win8' and have_developer_license() and (env['CPU'] == 'x86' or 
         appx_env['ENV']['PROCESSOR_ARCHITECTURE'] = 'X86'
 
 
-    unit_test_appx_name_stem = 'winrt/AllJoynUnitTests/AppPackages/AllJoynUnitTests_1.0.0.0_'+platform+'_'+appx_env['VARIANT']+'_Test/AllJoynUnitTests_1.0.0.0_' + platform + '_'+ appx_env['VARIANT'] + '.appx'
+    unit_test_appx_name_stem = 'winrt/AllJoynUnitTests/AppPackages/AllJoynUnitTests_1.0.0.0_' + platform + debug_name + '_Test/AllJoynUnitTests_1.0.0.0_' + platform + debug_name + '.appx'
     unit_test_appx_name = '../../../../alljoyn_core/unit_test/' + unit_test_appx_name_stem
 
 
