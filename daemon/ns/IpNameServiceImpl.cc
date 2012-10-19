@@ -582,7 +582,7 @@ QStatus IpNameServiceImpl::DeleteVirtualInterface(const qcc::String& ifceName)
 {
     QCC_DbgPrintf(("IpNameServiceImpl::DeleteVirtualInterface(%s)", ifceName.c_str()));
 
-    std::vector<qcc::IfConfigEntry>::const_iterator it = m_virtualInterfaces.begin();
+    std::vector<qcc::IfConfigEntry>::iterator it = m_virtualInterfaces.begin();
     for (; it != m_virtualInterfaces.end(); it++) {
         if (it->m_name == ifceName) {
             m_virtualInterfaces.erase(it);

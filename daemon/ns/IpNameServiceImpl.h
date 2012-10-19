@@ -33,6 +33,7 @@
 #include <qcc/Thread.h>
 #include <qcc/Mutex.h>
 #include <qcc/Socket.h>
+#include <qcc/IfConfig.h>
 
 #include <alljoyn/TransportMask.h>
 
