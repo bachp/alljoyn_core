@@ -778,6 +778,18 @@ public class P2pManager implements ConnectionInfoListener, DnsSdServiceResponseL
             return ERROR;
         }
 
+        // Workaround for an issue when only one advertised service can be consistenly discovered.
+        // The logic for keeping track of advertisements in mAdvertisementNames is currently
+        // unused due to bug in the deeper layers preventing consistent discovery of more than
+        // one advertised service. However. We will keep it it intact in optmistic hopes that
+        // this issue will be fixed in future.
+        synchronized (mAdvertisedNames) {
+            if (!mAdvertisedNames.isEmpty()) {
+                Log.d(TAG, "Remove the previous advertisement before adding a new one");
+                return ERROR;
+            }
+        }
+
         Map<String, String> txt = new HashMap<String, String>();
         int timer = 255;
         txt.put("GUID", guid);
