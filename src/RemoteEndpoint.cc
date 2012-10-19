@@ -242,11 +242,10 @@ QStatus RemoteEndpoint::Join(void)
     /*
      * block until the two threads have been joined and the EP has been deleted
      * but *only* if this REP has started successfully, otherwise we'll wait forever
-     * for two threads that have never been spawned.
-     * Also, wait until this endpoint unregisters itself from its DaemonRouter.
+     * for two threads that have never been spawned
      */
     if (started) {
-        while (exitCount < 3) {
+        while (exitCount < 2) {
             qcc::Sleep(10);
         }
     }
@@ -282,7 +281,6 @@ void RemoteEndpoint::ThreadExit(Thread* thread)
         if (NULL != listener) {
             listener->EndpointExit(this);
         }
-        IncrementAndFetch(&exitCount);
     }
 }
 
