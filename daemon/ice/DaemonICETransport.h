@@ -656,7 +656,7 @@ class DaemonICETransport : public Transport, public RemoteEndpoint::EndpointList
     Timer daemonICETransportTimer;
 
     qcc::Mutex pktStreamMapLock;
-    typedef std::multimap<qcc::String, std::pair<ICEPacketStream, int32_t> > PacketStreamMap;
+    typedef std::multimap<qcc::String, std::pair<ICEPacketStream, uint32_t> > PacketStreamMap;
     PacketStreamMap pktStreamMap;
 };
 
