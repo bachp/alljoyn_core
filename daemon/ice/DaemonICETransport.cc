@@ -438,8 +438,6 @@ void* DaemonICEEndpoint::AuthThread::Run(void* arg)
      */
     conn->m_transport->Authenticated(conn);
 
-    QCC_DbgTrace(("DaemonICEEndpoint::AuthThread::Run(): Returning"));
-
     /*
      * We are now done with the authentication process.  We have succeeded doing
      * the authentication and we may or may not have succeeded in starting the
@@ -459,6 +457,10 @@ void* DaemonICEEndpoint::AuthThread::Run(void* arg)
     conn->m_transport->EndpointListLock();
     conn->m_authState = AUTH_SUCCEEDED;
     conn->m_transport->EndpointListUnlock();
+
+    m_transport->wakeDaemonICETransportRun.SetEvent();
+
+    QCC_DbgTrace(("DaemonICEEndpoint::AuthThread::Run(): Returning"));
 
     return (void*)status;
 }
@@ -552,15 +554,6 @@ DaemonICETransport::~DaemonICETransport()
     /* Make sure all threads are safely gone */
     Stop();
     Join();
-
-    /* Deregister  packetStreams from packetEngine before packetStreams are destroyed */
-    pktStreamMapLock.Lock();
-    multimap<String, pair<ICEPacketStream, int32_t> >::iterator pit = pktStreamMap.begin();
-    while (pit != pktStreamMap.end()) {
-        m_packetEngine.RemovePacketStream(pit->second.first);
-        ++pit;
-    }
-    pktStreamMapLock.Unlock();
 
     delete m_dm;
     m_dm = NULL;
@@ -691,7 +684,6 @@ QStatus DaemonICETransport::Start()
     m_dm = new DiscoveryManager(m_bus);
 
     assert(m_dm);
-    m_stopping = false;
 
     /*
      * Get the guid from the bus attachment which will act as the globally unique
@@ -791,6 +783,24 @@ QStatus DaemonICETransport::Stop(void)
         m_dm->Stop();
     }
 
+    /* Deregister  packetStreams from packetEngine before packetStreams are destroyed */
+    pktStreamMapLock.Lock();
+    multimap<String, pair<ICEPacketStream, uint32_t> >::iterator pit = pktStreamMap.begin();
+    while (pit != pktStreamMap.end()) {
+        if (pit->second.second > 0) {
+            pit->second.second = 0;
+            m_packetEngine.RemovePacketStream(pit->second.first);
+        }
+        ++pit;
+    }
+    pktStreamMapLock.Unlock();
+
+    /* Stop the Packet Engine */
+    status = m_packetEngine.Stop();
+    if (status != ER_OK) {
+        QCC_LogError(status, ("%s: PacketEngine::Stop() failed", __FUNCTION__));
+    }
+
     /* Stop the timer */
     daemonICETransportTimer.Stop();
 
@@ -873,6 +883,12 @@ QStatus DaemonICETransport::Join(void)
         m_dm->Join();
     }
 
+    /* Join the Packet Engine */
+    status = m_packetEngine.Join();
+    if (status != ER_OK) {
+        QCC_LogError(status, ("%s: PacketEngine::Join() failed", __FUNCTION__));
+    }
+
     m_stopping = false;
 
     return ER_OK;
@@ -908,6 +924,11 @@ void DaemonICETransport::PacketEngineConnectCB(PacketEngine& engine,
 {
     QCC_DbgTrace(("DaemonICETransport::PacketEngineConnectCB(status=%s, context=%p)", QCC_StatusText(status), context));
 
+    if (IsRunning() == false || m_stopping == true) {
+        QCC_LogError(ER_BUS_TRANSPORT_NOT_STARTED, ("%s: DaemonICETransport not running or stopping; exiting", __FUNCTION__));
+        return;
+    }
+
     DaemonICEEndpoint* ep = static_cast<DaemonICEEndpoint*>(context);
     assert(ep->m_connectWaitEvent);
 
@@ -926,7 +947,13 @@ bool DaemonICETransport::PacketEngineAcceptCB(PacketEngine& engine, const Packet
 {
     QCC_DbgTrace(("%s(stream=%p)", __FUNCTION__, &stream));
 
+    if (IsRunning() == false || m_stopping == true) {
+        QCC_LogError(ER_BUS_TRANSPORT_NOT_STARTED, ("%s: DaemonICETransport not running or stopping; exiting", __FUNCTION__));
+        return false;
+    }
+
     QStatus status = ER_FAIL;
+
     ICEPacketStream* icePktStream = static_cast<ICEPacketStream*>(engine.GetPacketStream(stream));
 
     /* Increment the ref count on this pktStream */
@@ -981,14 +1008,18 @@ bool DaemonICETransport::PacketEngineAcceptCB(PacketEngine& engine, const Packet
     bool ret = (status == ER_OK);
 
     QCC_DbgPrintf(("%s connect attempt from %s", ret ? "Accepting" : "Rejecting", icePktStream ? engine.ToString(*icePktStream, dest).c_str() : "<unknown>"));
+
     return ret;
 }
 
 void DaemonICETransport::PacketEngineDisconnectCB(PacketEngine& engine, const PacketEngineStream& stream, const PacketDest& dest)
 {
-    ICEPacketStream* icePktStream = static_cast<ICEPacketStream*>(engine.GetPacketStream(stream));
+    QCC_DbgTrace(("%s(this=%p, stream=%p)", __FUNCTION__, this, &stream));
 
-    QCC_DbgTrace(("%s(this=%p, stream=%p, dest=%s)", __FUNCTION__, this, &stream, icePktStream ? engine.ToString(*icePktStream, dest).c_str() : "<unknown>"));
+    if (IsRunning() == false || m_stopping == true) {
+        QCC_LogError(ER_BUS_TRANSPORT_NOT_STARTED, ("%s: DaemonICETransport not running or stopping; exiting", __FUNCTION__));
+        return;
+    }
 
     /* Find endpoint that uses stream and stop it */
     m_endpointListLock.Lock(MUTEX_CONTEXT);
@@ -1260,8 +1291,8 @@ ThreadReturn STDCALL DaemonICETransport::AllocateICESessionThread::Run(void* arg
 
                                                     /* Wrap ICE session FD in a new ICEPacketStream */
                                                     ICEPacketStream pks(*iceSession, *stunActivityPtr->stun, *selectedCandidatePairList[0]);
-                                                    multimap<String, pair<ICEPacketStream, int32_t> >::iterator sit =
-                                                        transportObj->pktStreamMap.insert(pair<String, pair<ICEPacketStream, int32_t> >(connectSpec, pair<ICEPacketStream, int32_t>(pks, 1)));
+                                                    multimap<String, pair<ICEPacketStream, uint32_t> >::iterator sit =
+                                                        transportObj->pktStreamMap.insert(pair<String, pair<ICEPacketStream, uint32_t> >(connectSpec, pair<ICEPacketStream, uint32_t>(pks, 1)));
                                                     pktStream = &(sit->second.first);
 
                                                     /* Start ICEPacketStream */
@@ -1453,7 +1484,7 @@ void DaemonICETransport::ManageEndpoints(Timespec tTimeout)
              * to enable this single special case where we are allowed to set
              * the state.
              */
-            QCC_DbgHLPrintf(("DaemonICETransport::ManageEndpoints(): Scavenging failed authenticator"));
+            QCC_DbgHLPrintf(("DaemonICETransport::ManageEndpoints(): Handle successfully authenticated endpoint"));
             m_endpointListLock.Unlock(MUTEX_CONTEXT);
             ep->AuthJoin();
             ep->SetAuthDone();
@@ -1471,6 +1502,7 @@ void DaemonICETransport::ManageEndpoints(Timespec tTimeout)
          * joined.
          */
         if (endpointState == DaemonICEEndpoint::EP_FAILED) {
+            QCC_DbgHLPrintf(("DaemonICETransport::ManageEndpoints(): Handle failed endpoint"));
             m_endpointList.erase(i);
             m_endpointListLock.Unlock(MUTEX_CONTEXT);
             delete ep;
@@ -1492,6 +1524,7 @@ void DaemonICETransport::ManageEndpoints(Timespec tTimeout)
          * the endpoint AuthJoin() to join the auth thread.
          */
         if (endpointState == DaemonICEEndpoint::EP_STOPPING) {
+            QCC_DbgHLPrintf(("DaemonICETransport::ManageEndpoints(): Handle stopping endpoint"));
             m_endpointList.erase(i);
             m_endpointListLock.Unlock(MUTEX_CONTEXT);
             ep->Join();
@@ -2592,7 +2625,7 @@ ICEPacketStream* DaemonICETransport::AcquireICEPacketStream(const String& connec
 {
     ICEPacketStream* ret = NULL;
     pktStreamMapLock.Lock(MUTEX_CONTEXT);
-    multimap<String, pair<ICEPacketStream, int32_t> >::iterator it = pktStreamMap.find(connectSpec);
+    multimap<String, pair<ICEPacketStream, uint32_t> >::iterator it = pktStreamMap.find(connectSpec);
     if (it != pktStreamMap.end()) {
         it->second.second++;
         QCC_DbgPrintf(("%s: Acquired packet stream %s refCount=%d", __FUNCTION__, connectSpec.c_str(), it->second.second));
@@ -2606,7 +2639,7 @@ QStatus DaemonICETransport::AcquireICEPacketStreamByPointer(ICEPacketStream* ice
 {
     QStatus status = ER_FAIL;
     pktStreamMapLock.Lock(MUTEX_CONTEXT);
-    multimap<String, pair<ICEPacketStream, int32_t> >::iterator it = pktStreamMap.begin();
+    multimap<String, pair<ICEPacketStream, uint32_t> >::iterator it = pktStreamMap.begin();
     while (it != pktStreamMap.end()) {
         if (icePktStream == &(it->second.first)) {
             it->second.second++;
@@ -2626,12 +2659,12 @@ void DaemonICETransport::ReleaseICEPacketStream(const ICEPacketStream& icePktStr
 
     pktStreamMapLock.Lock(MUTEX_CONTEXT);
     bool found = false;
-    multimap<String, pair<ICEPacketStream, int32_t> >::iterator it = pktStreamMap.begin();
+    multimap<String, pair<ICEPacketStream, uint32_t> >::iterator it = pktStreamMap.begin();
     while (it != pktStreamMap.end()) {
-        if (&icePktStream == &(it->second.first)) {
+        if ((&icePktStream == &(it->second.first)) && (it->second.second > 0)) {
             --it->second.second;
             QCC_DbgPrintf(("%s: Releasing packet stream %p refCount=%d", __FUNCTION__, &icePktStream, it->second.second));
-            if (it->second.second <= 0) {
+            if (it->second.second == 0) {
                 QStatus status = m_packetEngine.RemovePacketStream(it->second.first);
                 if (status != ER_OK) {
                     QCC_LogError(status, ("RemovePacketStream failed"));
