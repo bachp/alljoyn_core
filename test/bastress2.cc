@@ -61,6 +61,7 @@ static bool s_noDestruct = false;
 static bool s_useMultipointSessions = true;
 static OperationMode s_operationMode;
 static volatile sig_atomic_t g_interrupt = false;
+static TransportMask s_transports = TRANSPORT_ANY;
 
 static void SigIntHandler(int sig)
 {
@@ -169,7 +170,7 @@ class ClientBusListener : public BusListener, public SessionListener {
             /* Since we are in a callback we must enable concurrent callbacks before calling a synchronous method. */
             owner->bus->EnableConcurrentCallbacks();
 
-            SessionOpts opts(SessionOpts::TRAFFIC_MESSAGES, s_useMultipointSessions, SessionOpts::PROXIMITY_ANY, TRANSPORT_ANY);
+            SessionOpts opts(SessionOpts::TRAFFIC_MESSAGES, s_useMultipointSessions, SessionOpts::PROXIMITY_ANY, s_transports);
             QStatus status = owner->bus->JoinSession(name, SERVICE_PORT, this, owner->sessionId, opts);
             if (ER_OK != status) {
                 QCC_SyncPrintf("JoinSession to %s failed (status=%s)\n", name, QCC_StatusText(status));
@@ -247,7 +248,7 @@ inline void ThreadClass::DefaultRun() {
         QCC_LogError(status, ("RequestName(%s) failed.", name.c_str()));
     }
     /* Begin Advertising the well-known name */
-    status = bus->AdvertiseName(name.c_str(), TRANSPORT_ANY);
+    status = bus->AdvertiseName(name.c_str(), s_transports);
     if (ER_OK != status) {
         QCC_LogError(status, ("Could not advertise (%s)", name.c_str()));
     }
@@ -388,7 +389,7 @@ inline void ThreadClass::ServiceRun() {
     }
 
     /* Create session */
-    SessionOpts opts(SessionOpts::TRAFFIC_MESSAGES, s_useMultipointSessions, SessionOpts::PROXIMITY_ANY, TRANSPORT_ANY);
+    SessionOpts opts(SessionOpts::TRAFFIC_MESSAGES, s_useMultipointSessions, SessionOpts::PROXIMITY_ANY, s_transports);
     if (ER_OK == status) {
         SessionPort sp = SERVICE_PORT;
         status = bus->BindSessionPort(sp, opts, *serviceBusListener);
@@ -450,7 +451,10 @@ inline qcc::ThreadReturn STDCALL ThreadClass::Run(void* arg) {
 
     bus = new BusAttachment(name.c_str(), true);
     QStatus status =  bus->Start();
-
+    if (status != ER_OK) {
+        QCC_LogError(status, ("ThreadClass::Run failed"));
+        return this;
+    }
 
     /* Force bundled daemon */
     status = bus->Connect("null:");
@@ -493,6 +497,7 @@ static void usage(void)
     QCC_SyncPrintf("   -oc                   = Operate in client mode\n");
     QCC_SyncPrintf("   -os                   = Operate in service mode\n");
     QCC_SyncPrintf("   -p                    = Use point-to-point sessions, default is multipoint\n");
+    QCC_SyncPrintf("   -m <mask>             = Transport mask to use for client\n");
 }
 
 /** Main entry point */
@@ -534,6 +539,15 @@ int main(int argc, char**argv)
             s_operationMode = Service;
         } else if (0 == strcmp("-p", argv[i])) {
             s_useMultipointSessions = false;
+        } else if (0 == strcmp("-m", argv[i])) {
+            ++i;
+            if (i == argc) {
+                QCC_SyncPrintf("option %s requires a parameter\n", argv[i - 1]);
+                usage();
+                exit(1);
+            } else {
+                s_transports = static_cast<TransportMask>(StringToU32(argv[i], 16, TRANSPORT_ANY));
+            }
         } else {
             usage();
             exit(1);
