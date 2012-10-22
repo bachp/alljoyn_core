@@ -231,29 +231,64 @@ BusAttachment::~BusAttachment(void)
     }
 
     /*
-     * Make sure that the ListenerUnregistered callback is called when the
-     * BusAttachment is being destroyed.
-     * clear the contents of the BusListener, SessionPortListeners, and
-     * SessionListeners before destroying the BusAttachment.
+     * Make sure there is no BusListener callback is in progress.
+     * Then remove listener and call ListenerUnregistered callback
      */
     busInternal->listenersLock.Lock(MUTEX_CONTEXT);
     Internal::ListenerSet::iterator it = busInternal->listeners.begin();
     while (it != busInternal->listeners.end()) {
         Internal::ProtectedBusListener l = *it;
+
+        /* Remove listener and wait for any outstanding listener callback(s) to complete */
         busInternal->listeners.erase(it);
         busInternal->listenersLock.Unlock(MUTEX_CONTEXT);
+        while (l.GetRefCount() > 1) {
+            qcc::Sleep(4);
+        }
+
+        /* Call Listener Unregistered */
         (*l)->ListenerUnregistered();
+
         busInternal->listenersLock.Lock(MUTEX_CONTEXT);
         it = busInternal->listeners.begin();
     }
-
     busInternal->listenersLock.Unlock(MUTEX_CONTEXT);
 
+    /* clear the contents of the sessionListeners and wait for any outstanding callbacks. */
     busInternal->sessionListenersLock.Lock(MUTEX_CONTEXT);
-    busInternal->sessionPortListeners.clear();
-    busInternal->sessionListeners.clear();
+    Internal::SessionListenerMap::iterator slit = busInternal->sessionListeners.begin();
+    while (slit != busInternal->sessionListeners.end()) {
+        Internal::ProtectedSessionListener l = slit->second;
+
+        /* Remove listener and wait for any outstanding listener callback(s) to complete */
+        busInternal->sessionListeners.erase(slit);
+        busInternal->sessionListenersLock.Unlock(MUTEX_CONTEXT);
+        while (l.GetRefCount() > 1) {
+            qcc::Sleep(4);
+        }
+
+        busInternal->sessionListenersLock.Lock(MUTEX_CONTEXT);
+        slit = busInternal->sessionListeners.begin();
+    }
+
+    /* clear the contents of the sessionPortListeners and wait for any outstanding callbacks. */
+    Internal::SessionPortListenerMap::iterator split = busInternal->sessionPortListeners.begin();
+    while (split != busInternal->sessionPortListeners.end()) {
+        Internal::ProtectedSessionPortListener l = split->second;
+
+        /* Remove listener and wait for any outstanding listener callback(s) to complete */
+        busInternal->sessionPortListeners.erase(split);
+        busInternal->sessionListenersLock.Unlock(MUTEX_CONTEXT);
+        while (l.GetRefCount() > 1) {
+            qcc::Sleep(4);
+        }
+
+        busInternal->sessionListenersLock.Lock(MUTEX_CONTEXT);
+        split = busInternal->sessionPortListeners.begin();
+    }
     busInternal->sessionListenersLock.Unlock(MUTEX_CONTEXT);
 
+    /* Remove the BusAttachement internals */
     delete busInternal;
     busInternal = NULL;
 }
