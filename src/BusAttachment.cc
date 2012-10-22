@@ -1462,12 +1462,22 @@ QStatus BusAttachment::LeaveSession(const SessionId& sessionId)
         QCC_LogError(status, ("%s.LeaveSession returned ERROR_MESSAGE (error=%s)", org::alljoyn::Bus::InterfaceName, reply->GetErrorDescription().c_str()));
     }
 
-    if (status == ER_OK) {
-        busInternal->sessionListenersLock.Lock(MUTEX_CONTEXT);
-        Internal::SessionListenerMap::iterator it = busInternal->sessionListeners.find(sessionId);
-        if (it != busInternal->sessionListeners.end()) {
-            busInternal->sessionListeners.erase(it);
+    /*
+     * Remove sessionListener and wait for callbacks to complete.
+     * Do this regardless of whether LeaveSession succeeds or fails.
+     */
+    busInternal->sessionListenersLock.Lock(MUTEX_CONTEXT);
+    Internal::SessionListenerMap::iterator it = busInternal->sessionListeners.find(sessionId);
+    if (it != busInternal->sessionListeners.end()) {
+        Internal::ProtectedSessionListener l = it->second;
+        busInternal->sessionListeners.erase(it);
+        busInternal->sessionListenersLock.Unlock(MUTEX_CONTEXT);
+
+        /* Wait for any outstanding callback to complete */
+        while (l.GetRefCount() > 1) {
+            qcc::Sleep(4);
         }
+    } else {
         busInternal->sessionListenersLock.Unlock(MUTEX_CONTEXT);
     }
 
