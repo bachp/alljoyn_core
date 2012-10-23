@@ -52,6 +52,10 @@
 #include "DaemonTransport.h"
 #include "DaemonICETransport.h"
 
+#if defined(QCC_OS_ANDROID)
+#include "android/WFDTransport.h"
+#endif
+
 #if defined(QCC_OS_DARWIN)
 #warning BT Support on Darwin needs to be implemented
 #else
@@ -106,6 +110,9 @@ static const char
     "  <listen>launchd:env=DBUS_LAUNCHD_SESSION_BUS_SOCKET</listen>"
     "  <listen>bluetooth:</listen>"
     "  <listen>tcp:r4addr=0.0.0.0,r4port=9955</listen>"
+#if defined(QCC_OS_ANDROID)
+    "  <listen>wfd:r4addr=0.0.0.0,r4port=9956</listen>"
+#endif
     "  <listen>ice:</listen>"
     "  <limit auth_timeout=\"5000\"/>"
     "  <limit max_incomplete_connections=\"16\"/>"
@@ -162,7 +169,7 @@ class OptParse {
 
     OptParse(int argc, char** argv) :
         argc(argc), argv(argv), fork(false), noFork(false), noBT(false), noTCP(
-            false), noICE(false), noLaunchd(false), noSwitchUser(false),
+            false), noICE(false), noWFD(false), noLaunchd(false), noSwitchUser(false),
         printAddressFd(-1), printPidFd(-1), session(false), system(
             false), internal(false), configService(false),
         verbosity(LOG_WARNING) {
@@ -187,6 +194,9 @@ class OptParse {
     }
     bool GetNoICE() const {
         return noICE;
+    }
+    bool GetNoWFD() const {
+        return noWFD;
     }
     bool GetNoLaunchd() const {
         return noLaunchd;
@@ -220,6 +230,7 @@ class OptParse {
     bool noBT;
     bool noTCP;
     bool noICE;
+    bool noWFD;
     bool noLaunchd;
     bool noSwitchUser;
     int printAddressFd;
@@ -407,6 +418,8 @@ OptParse::ParseResultCode OptParse::ParseResult()
             noTCP = true;
         } else if (arg.compare("--no-ice") == 0) {
             noICE = true;
+        } else if (arg.compare("--no-wfd") == 0) {
+            noWFD = true;
         } else if (arg.compare("--no-launchd") == 0) {
             noLaunchd = true;
         } else if (arg.compare("--no-switch-user") == 0) {
@@ -503,6 +516,9 @@ int daemon(OptParse& opts) {
         } else if (addrStr.compare(0, sizeof("ice:") - 1, "ice:") == 0) {
             skip = opts.GetNoICE();
 
+        } else if (addrStr.compare(0, sizeof("wfd:") - 1, "wfd:") == 0) {
+            skip = opts.GetNoWFD();
+
         } else if (addrStr.compare("bluetooth:") == 0) {
             skip = opts.GetNoBT();
 
@@ -545,6 +561,11 @@ int daemon(OptParse& opts) {
 #else
 #warning ICE transport factory is not operational yet for Windows and Darwin
 #endif
+#if defined(QCC_OS_ANDROID)
+    cntr.Add(new TransportFactory<WFDTransport>(WFDTransport::TransportName, false));
+#endif
+
+
 
     Bus ajBus("alljoyn-daemon", cntr, listenSpecs.c_str());
 
