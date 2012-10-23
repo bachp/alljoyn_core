@@ -1115,7 +1115,6 @@ class BusAttachment : public MessageReceiver {
     QStatus GetJoinSessionResponse(Message& reply, SessionId& sessionId, SessionOpts& opts);
 
     qcc::String connectSpec;  /**< The connect spec used to connect to the bus */
-    bool hasStarted;          /**< Indicates if the bus has ever been started */
     bool isStarted;           /**< Indicates if the bus has been started */
     bool isStopping;          /**< Indicates Stop has been called */
     uint32_t concurrency;     /**< The maximum number of concurrent method and signal handlers locally executing */
