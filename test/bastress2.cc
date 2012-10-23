@@ -318,6 +318,12 @@ inline void ThreadClass::ClientRun() {
 
     bus->LeaveSession(sessionId);
 
+    /* Cancel discovery on the well-known name of the service */
+    status = bus->CancelFindAdvertisedName(SERVICE_NAME);
+    if (status != ER_OK) {
+        QCC_SyncPrintf("org.alljoyn.Bus.CancelFindAdvertisedName failed (%s))\n", QCC_StatusText(status));
+    }
+
     if (clientBusListener) {
         bus->UnregisterBusListener(*clientBusListener);
         delete clientBusListener;
@@ -421,6 +427,12 @@ inline void ThreadClass::ServiceRun() {
     QCC_SyncPrintf("Service named %s is stopping...\n", buf);
     QCC_SyncPrintf("------------------------------------------------------------\n");
 
+    /* Cancel Advertise name */
+    status = bus->CancelAdvertiseName(serviceName.c_str(), opts.transports);
+    if (status != ER_OK) {
+        QCC_SyncPrintf("Failed to cancel advertise name %s (%s)\n", serviceName.c_str(), QCC_StatusText(status));
+    }
+
     if (busObject) {
         bus->UnregisterBusObject(*busObject);
         delete busObject;
@@ -454,6 +466,14 @@ inline qcc::ThreadReturn STDCALL ThreadClass::Run(void* arg) {
     }
 
     if (!s_noDestruct) {
+        if (s_operationMode == Default) {
+            /* Cancel Advertising the well-known name */
+            status = bus->CancelAdvertiseName(name.c_str(), s_transports);
+            if (ER_OK != status) {
+                QCC_LogError(status, ("Could not cancel advertising (%s)", name.c_str()));
+            }
+        }
+
         delete bus;
         bus = NULL;
     }
