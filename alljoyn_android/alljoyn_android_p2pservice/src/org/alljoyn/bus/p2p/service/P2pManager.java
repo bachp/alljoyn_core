@@ -531,7 +531,10 @@ public class P2pManager implements ConnectionInfoListener, DnsSdServiceResponseL
             services = mDeviceServices.get(address);
             mDeviceServices.remove(address);
         } else {
-            services = new ArrayList<FoundServiceInfo>();
+            if (timer != 0)
+                services = new ArrayList<FoundServiceInfo>();
+            else
+                return;
         }
 
         Iterator<FoundServiceInfo> itr = services.iterator();
@@ -599,11 +602,10 @@ public class P2pManager implements ConnectionInfoListener, DnsSdServiceResponseL
 
         updateDeviceServiceList(name, namePrefix, guid, timer, srcDevice.deviceAddress);
 
-        if (timer != 0) {
+        if (timer != 0)
             busInterface.OnFoundAdvertisedName(name, namePrefix, guid, /*timer,*/ srcDevice.deviceAddress);
-        } else {
+        else
             busInterface.OnLostAdvertisedName(name, namePrefix, guid, srcDevice.deviceAddress);
-        }
     }
 
     /**
