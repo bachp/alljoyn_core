@@ -168,6 +168,13 @@ class ClientBusListener : public BusListener, public SessionListener {
                 return;
             }
 
+            /* Only proceed further if we want to connect over the transport over which the FoundAdvertisedName
+             * was received */
+            if ((s_transports & transport) == 0) {
+                QCC_SyncPrintf("We are not interested in connecting over a transport with mask 0x%x.\n", transport);
+                return;
+            }
+
             /* Since we are in a callback we must enable concurrent callbacks before calling a synchronous method. */
             owner->bus->EnableConcurrentCallbacks();
 
