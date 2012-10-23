@@ -184,7 +184,6 @@ static class ClientTransportFactoryContainer : public TransportFactoryContainer 
 
 
 BusAttachment::BusAttachment(const char* applicationName, bool allowRemoteMessages, uint32_t concurrency) :
-    hasStarted(false),
     isStarted(false),
     isStopping(false),
     concurrency(concurrency),
@@ -196,7 +195,6 @@ BusAttachment::BusAttachment(const char* applicationName, bool allowRemoteMessag
 }
 
 BusAttachment::BusAttachment(Internal* busInternal, uint32_t concurrency) :
-    hasStarted(false),
     isStarted(false),
     isStopping(false),
     concurrency(concurrency),
@@ -287,11 +285,6 @@ QStatus BusAttachment::Start()
      * separately (in order to be specific with error messages) before
      * continuing to allow a Start.
      */
-    if (hasStarted) {
-        status = ER_BUS_BUS_ALREADY_STARTED;
-        QCC_LogError(status, ("BusAttachment::Start(): Start may not ever be called more than once"));
-        return status;
-    }
 
     if (isStarted) {
         status = ER_BUS_BUS_ALREADY_STARTED;
@@ -305,7 +298,7 @@ QStatus BusAttachment::Start()
         return status;
     }
 
-    isStarted = hasStarted = true;
+    isStarted = true;
 
     /* Start the timer */
     status = busInternal->timer.Start();
