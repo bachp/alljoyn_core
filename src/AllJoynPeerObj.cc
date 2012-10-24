@@ -54,7 +54,33 @@ using namespace qcc;
 
 namespace ajn {
 
-static const uint32_t PEER_AUTH_VERSION = 0x00010000;
+/*
+ * Version number of the key generation algorithm.
+ */
+static const uint32_t MIN_KEYGEN_VERSION = 0x00;
+static const uint32_t MAX_KEYGEN_VERSION = 0x01;
+
+/*
+ * The base authentication version number
+ */
+static const uint32_t MIN_AUTH_VERSION = 0x0001;
+static const uint32_t MAX_AUTH_VERSION = 0x0001;
+
+static const uint32_t PREFERRED_AUTH_VERSION = (MAX_AUTH_VERSION << 16) | MIN_KEYGEN_VERSION;
+
+static bool IsCompatibleVersion(uint32_t version)
+{
+    uint16_t authV = version >> 16;
+    uint8_t keyV = version & 0xFF;
+
+    if ((authV < MIN_AUTH_VERSION) || (authV > MAX_AUTH_VERSION)) {
+        return false;
+    }
+    if ((keyV < MIN_KEYGEN_VERSION) || (keyV > MAX_KEYGEN_VERSION)) {
+        return false;
+    }
+    return (version & 0xFF00) == 0;
+}
 
 static void SetRights(PeerState& peerState, bool mutual, bool challenger)
 {
@@ -394,18 +420,22 @@ void AllJoynPeerObj::ExchangeGuids(const InterfaceDescription::Member* member, M
 
         QCC_DbgHLPrintf(("ExchangeGuids Local %s", localGuidStr.c_str()));
         QCC_DbgHLPrintf(("ExchangeGuids Remote %s", remotePeerGuid.ToString().c_str()));
+
+        if (!IsCompatibleVersion(version)) {
+            version = PREFERRED_AUTH_VERSION;
+        }
+        /*
+         * If we proposed a different version we simply assume it is acceptable. The remote peer
+         * will try a different version or give up if it doesn't like our suggestion.
+         */
+        peerState->SetGuidAndAuthVersion(remotePeerGuid, version);
         /*
          * Associate the remote peer GUID with the sender peer state.
          */
-        peerState->SetGuid(remotePeerGuid);
-        if (version == PEER_AUTH_VERSION) {
-            MsgArg replyArgs[2];
-            replyArgs[0].Set("s", localGuidStr.c_str());
-            replyArgs[1].Set("u", PEER_AUTH_VERSION);
-            MethodReply(msg, replyArgs, ArraySize(replyArgs));
-        } else {
-            MethodReply(msg, ER_BUS_PEER_AUTH_VERSION_MISMATCH);
-        }
+        MsgArg replyArgs[2];
+        replyArgs[0].Set("s", localGuidStr.c_str());
+        replyArgs[1].Set("u", version);
+        MethodReply(msg, replyArgs, ArraySize(replyArgs));
     } else {
         MethodReply(msg, ER_BUS_NO_PEER_GUID);
     }
@@ -426,9 +456,9 @@ QStatus AllJoynPeerObj::KeyGen(PeerState& peerState, String seed, qcc::String& v
 {
     assert(bus);
     QStatus status;
-    KeyStore& keyStore = bus->GetInternal().GetKeyStore();
-    static const char* label = "session key";
+    KeyStore& keyStore = bus.GetInternal().GetKeyStore();
     KeyBlob masterSecret;
+    uint8_t keyGenVersion = peerState->GetAuthVersion() & 0xFF;
 
     status = keyStore.GetKey(peerState->GetGuid(), masterSecret, peerState->authorizations);
     if ((status == ER_OK) && masterSecret.HasExpired()) {
@@ -437,26 +467,45 @@ QStatus AllJoynPeerObj::KeyGen(PeerState& peerState, String seed, qcc::String& v
     if (status == ER_OK) {
         size_t keylen = Crypto_AES::AES128_SIZE + VERIFIER_LEN;
         uint8_t* keymatter = new uint8_t[keylen];
-        /*
-         * Session key is generated using the procedure described in RFC 5246
-         */
-        Crypto_PseudorandomFunction(masterSecret, label, seed, keymatter, keylen);
-        KeyBlob sessionKey(keymatter, Crypto_AES::AES128_SIZE, KeyBlob::AES);
-        /*
-         * Tag the session key with auth mechanism tag from the master secret
-         */
-        sessionKey.SetTag(masterSecret.GetTag(), role);
-        sessionKey.SetExpiration(SESSION_KEY_EXPIRATION);
-        /*
-         * Store session key in the peer state.
-         */
-        peerState->SetKey(sessionKey, PEER_SESSION_KEY);
-        /*
-         * Return verifier string
-         */
-        verifier = BytesToHexString(keymatter + Crypto_AES::AES128_SIZE, VERIFIER_LEN);
+
+        QCC_DbgHLPrintf(("KeyGen using key gen version %d", keyGenVersion));
+        if (keyGenVersion == 0) {
+            /*
+             * Session key is generated using the procedure described in RFC 5246
+             */
+            status = Crypto_PseudorandomFunction(masterSecret, "session key", seed, keymatter, keylen);
+        } else if (keyGenVersion == 1) {
+            /*
+             * Session key is generated using AES-CCM key gen procedure
+             */
+            status = Crypto_CCM_KeyGen(masterSecret, "session key", seed, keymatter, Crypto_AES::AES128_SIZE);
+            if (status == ER_OK) {
+                status = Crypto_CCM_KeyGen(masterSecret, "verifier", seed, keymatter + Crypto_AES::AES128_SIZE,  VERIFIER_LEN);
+            }
+        } else {
+            /*
+             * Not expected
+             */
+            status = ER_BUS_SECURITY_FATAL;
+        }
+        if (status == ER_OK) {
+            KeyBlob sessionKey(keymatter, Crypto_AES::AES128_SIZE, KeyBlob::AES);
+            /*
+             * Tag the session key with auth mechanism tag from the master secret
+             */
+            sessionKey.SetTag(masterSecret.GetTag(), role);
+            sessionKey.SetExpiration(SESSION_KEY_EXPIRATION);
+            /*
+             * Store session key in the peer state.
+             */
+            peerState->SetKey(sessionKey, PEER_SESSION_KEY);
+            /*
+             * Return verifier string
+             */
+            verifier = BytesToHexString(keymatter + Crypto_AES::AES128_SIZE, VERIFIER_LEN);
+            QCC_DbgHLPrintf(("KeyGen verifier %s", verifier.c_str()));
+        }
         delete [] keymatter;
-        QCC_DbgHLPrintf(("KeyGen verifier %s", verifier.c_str()));
     }
     /*
      * Store any changes to the key store.
@@ -670,7 +719,7 @@ QStatus AllJoynPeerObj::AuthenticatePeer(AllJoynMessageType msgType, const qcc::
     qcc::String localGuidStr = bus->GetInternal().GetKeyStore().GetGuid();
     MsgArg args[2];
     args[0].Set("s", localGuidStr.c_str());
-    args[1].Set("u", PEER_AUTH_VERSION);
+    args[1].Set("u", PREFERRED_AUTH_VERSION);
     Message replyMsg(*bus);
     status = remotePeerObj.MethodCall(*(ifc->GetMember("ExchangeGuids")), args, ArraySize(args), replyMsg, DEFAULT_TIMEOUT);
     if (status != ER_OK) {
@@ -695,10 +744,12 @@ QStatus AllJoynPeerObj::AuthenticatePeer(AllJoynMessageType msgType, const qcc::
     qcc::GUID128 remotePeerGuid(replyMsg->GetArg(0)->v_string.str);
     uint32_t version = replyMsg->GetArg(1)->v_uint32;
     qcc::String remoteGuidStr = remotePeerGuid.ToString();
-
-    if (version != PEER_AUTH_VERSION) {
+    /*
+     * Check that we can support the version the remote peer proposed.
+     */
+    if (!IsCompatibleVersion(version)) {
         status = ER_BUS_PEER_AUTH_VERSION_MISMATCH;
-        QCC_LogError(status, ("ExchangeGuids expected %u got %u", PEER_AUTH_VERSION, version));
+        QCC_LogError(status, ("ExchangeGuids incompatible authentication version %u", version));
         return status;
     }
 
@@ -709,7 +760,7 @@ QStatus AllJoynPeerObj::AuthenticatePeer(AllJoynMessageType msgType, const qcc::
      * for this peer.
      */
     peerState = peerStateTable->GetPeerState(sender, busName);
-    peerState->SetGuid(remotePeerGuid);
+    peerState->SetGuidAndAuthVersion(remotePeerGuid, version);
     /*
      * We can now return if the peer is authenticated.
      */

@@ -120,9 +120,19 @@ class _PeerState {
     const qcc::GUID128& GetGuid() { return guid; }
 
     /**
-     * Sets the GUID for this peer.
+     * Gets the authentication version number for this peer.
+     *
+     * @return  Returns the authentication version for this peer.
      */
-    void SetGuid(const qcc::GUID128& guid) { this->guid = guid; }
+    uint32_t GetAuthVersion() { return authVersion; }
+
+    /**
+     * Sets the GUID for and authentication version this peer.
+     */
+    void SetGuidAndAuthVersion(const qcc::GUID128& guid, uint32_t authVersion) {
+        this->guid = guid;
+        this->authVersion = authVersion;
+    }
 
     /**
      * Sets the session key for this peer
@@ -289,6 +299,11 @@ class _PeerState {
      * The GUID for this peer.
      */
     qcc::GUID128 guid;
+
+    /**
+     * The authentication version number for this peer
+     */
+    uint32_t authVersion;
 
     /**
      * Array of message type authorizations.
