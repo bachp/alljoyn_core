@@ -113,7 +113,7 @@ class MyBusListener : public BusListener, public SessionListener {
 
 class FileTransferObject : public BusObject {
   public:
-    FileTransferObject(const char* path) : BusObject(*s_busAtt, path)
+    FileTransferObject(const char* path) : BusObject(path)
     {
         this->outputStream = NULL;
 
@@ -215,7 +215,7 @@ class FileTransferObject : public BusObject {
 
   private:
     // Don't allow default constructors.
-    FileTransferObject() : BusObject(*(new BusAttachment(NULL)), NULL)
+    FileTransferObject() : BusObject(NULL)
     {
         assert(0);
     }

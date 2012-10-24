@@ -449,7 +449,7 @@ TEST_F(PerfTest, BusObject_ALLJOYN_328_BusObject_destruction)
     serviceBus->Start();
 
     /* Dynamically create a BusObject and register it with the Bus */
-    BusObject*obj1 = new  BusObject(*serviceBus, "/home/narasubr", true);
+    BusObject*obj1 = new  BusObject("/home/narasubr", true);
 
     QStatus status = serviceBus->RegisterBusObject(*obj1);
     ASSERT_EQ(ER_OK, status) << "  Actual Status: " << QCC_StatusText(status);

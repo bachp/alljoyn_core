@@ -82,7 +82,7 @@ static void SigIntHandler(int sig)
 
 class PingObject : public BusObject {
   public:
-    PingObject() : BusObject(*g_msgBus, ::org::alljoyn::jitter_test::Path) { }
+    PingObject() : BusObject(::org::alljoyn::jitter_test::Path) { }
 
     void TimedPing(const InterfaceDescription::Member* member, Message& msg)
     {
@@ -114,7 +114,7 @@ class PingThread : public qcc::Thread, BusObject {
   public:
     PingThread(uint32_t iterations, uint32_t delay) :
         qcc::Thread("PingThread"),
-        BusObject(*g_msgBus, ::org::alljoyn::jitter_test::Path),
+        BusObject(::org::alljoyn::jitter_test::Path),
         sessionId(0),
         iterations(iterations),
         delay(delay)

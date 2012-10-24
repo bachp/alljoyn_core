@@ -126,7 +126,7 @@ class ProxyBusObjectTest : public testing::Test {
     class ProxyBusObjectTestBusObject : public BusObject {
       public:
         ProxyBusObjectTestBusObject(BusAttachment& bus, const char* path) :
-            BusObject(bus, path)
+            BusObject(path)
         {
 
         }

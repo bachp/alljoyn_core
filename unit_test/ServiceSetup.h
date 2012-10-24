@@ -110,7 +110,7 @@ class ServiceObject : public BusObject {
     const InterfaceDescription::Member* my_signal_member;
     const InterfaceDescription::Member* my_signal_member_2;
     bool objectRegistered;
-
+    BusAttachment& myBus;
 };
 
 #endif

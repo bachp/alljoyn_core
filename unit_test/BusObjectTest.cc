@@ -38,7 +38,7 @@ class BusObjectTest : public testing::Test {
     class BusObjectTestBusObject : public BusObject {
       public:
         BusObjectTestBusObject(BusAttachment& bus, const char* path)
-            : BusObject(bus, path), wasRegistered(false), wasUnregistered(false) { }
+            : BusObject(path), wasRegistered(false), wasUnregistered(false) { }
         virtual ~BusObjectTestBusObject() { }
         virtual void ObjectRegistered(void) {
             BusObject::ObjectRegistered();

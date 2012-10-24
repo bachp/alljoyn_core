@@ -78,7 +78,7 @@ class ThreadClass : public Thread {
             QCC_LogError(status, ("Could not advertise (%s)", name.c_str()));
         }
 
-        BusObject bo(*b1, "/org/cool");
+        BusObject bo("/org/cool");
         b1->RegisterBusObject(bo);
         b1->UnregisterBusObject(bo);
 

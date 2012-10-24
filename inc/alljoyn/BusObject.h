@@ -25,6 +25,9 @@
  ******************************************************************************/
 
 #include <qcc/platform.h>
+
+#include <assert.h>
+
 #include <qcc/String.h>
 #include <alljoyn/InterfaceDescription.h>
 #include <alljoyn/MsgArg.h>
@@ -68,12 +71,21 @@ class BusObject : public MessageReceiver {
     /**
      * %BusObject constructor.
      *
+     * @param path           Object path for object.
+     * @param isPlaceholder  Place-holder objects are created by the bus itself and serve only
+     *                       as parent objects (in the object path sense) to other objects.
+     */
+    BusObject(const char* path, bool isPlaceholder = false);
+
+    /**
+     * %BusObject constructor (Deprecated).
+     *
      * @param bus            Bus that this object exists on.
      * @param path           Object path for object.
      * @param isPlaceholder  Place-holder objects are created by the bus itself and serve only
      *                       as parent objects (in the object path sense) to other objects.
      */
-    BusObject(BusAttachment& bus, const char* path, bool isPlaceholder = false);
+    QCC_DEPRECATED(BusObject(BusAttachment& bus, const char* path, bool isPlaceholder = false));
 
     /**
      * %BusObject destructor.
@@ -83,7 +95,8 @@ class BusObject : public MessageReceiver {
     /**
      * Emit PropertiesChanged to signal the bus that this property has been updated
      *
-     *  This is protected because JNI needs to be able to call it
+     *  This is protected because JNI needs to be able to call it.
+     *  BusObject must be registered before calling this method.
      *
      * @param ifcName   The name of the interface
      * @param propName  The name of the property being changed
@@ -98,7 +111,10 @@ class BusObject : public MessageReceiver {
      * @return a reference to the BusAttachment
      */
     const BusAttachment& GetBusAttachment() const
-    { return bus; }
+    {
+        assert(bus);
+        return *bus;
+    }
 
   protected:
 
@@ -112,7 +128,7 @@ class BusObject : public MessageReceiver {
     } MethodEntry;
 
     /** Bus associated with object */
-    BusAttachment& bus;
+    BusAttachment* bus;
 
     /**
      * Reply to a method call.
@@ -122,6 +138,7 @@ class BusObject : public MessageReceiver {
      * @param numArgs  The number of arguments
      * @return
      *      - #ER_OK if successful
+     *      - #ER_BUS_OBJECT_NOT_REGISTERED if bus object has not yet been registered
      *      - An error status otherwise
      */
     QStatus MethodReply(const Message& msg, const MsgArg* args = NULL, size_t numArgs = 0);
@@ -134,6 +151,7 @@ class BusObject : public MessageReceiver {
      * @param errorMessage     An error message string
      * @return
      *      - #ER_OK if successful
+     *      - #ER_BUS_OBJECT_NOT_REGISTERED if bus object has not yet been registered
      *      - An error status otherwise
      */
     QStatus MethodReply(const Message& msg, const char* error, const char* errorMessage = NULL);
@@ -145,6 +163,7 @@ class BusObject : public MessageReceiver {
      * @param status     The status code for the error
      * @return
      *      - #ER_OK if successful
+     *      - #ER_BUS_OBJECT_NOT_REGISTERED if bus object has not yet been registered
      *      - An error status otherwise
      */
     QStatus MethodReply(const Message& msg, QStatus status);
@@ -167,6 +186,7 @@ class BusObject : public MessageReceiver {
      *                         - If ::ALLJOYN_FLAG_ENCRYPTED is set the message is authenticated and the payload if any is encrypted.
      * @return
      *      - #ER_OK if successful
+     *      - #ER_BUS_OBJECT_NOT_REGISTERED if bus object has not yet been registered
      *      - An error status otherwise
      */
     QStatus Signal(const char* destination,
@@ -356,11 +376,12 @@ class BusObject : public MessageReceiver {
      * This utility method is called by the bus during object registration.
      * Do not call this object explicitly.
      *
+     * @param bus  BusAttachement to associate with BusObject.
      * @return
      *      - #ER_OK if all the methods were added
      *      - #ER_BUS_NO_SUCH_INTERFACE is method can not be added because interface does not exist.
      */
-    QStatus DoRegistration();
+    QStatus DoRegistration(BusAttachment& bus);
 
     /**
      * Returns true if this object implements the given interface.
@@ -431,8 +452,6 @@ class BusObject : public MessageReceiver {
 
     /** true if object is a placeholder (i.e. only exists to be the parent of a more meaningful object instance) */
     bool isPlaceholder;
-
-
 };
 
 }

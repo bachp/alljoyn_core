@@ -78,7 +78,7 @@ static const SessionPort SERVICE_PORT = 25;
 class BasicSampleObject : public BusObject {
   public:
     BasicSampleObject(BusAttachment& bus, const char* path) :
-        BusObject(bus, path)
+        BusObject(path)
     {
         /** Add the test interface to this object */
         const InterfaceDescription* exampleIntf = bus.GetInterface(INTERFACE_NAME);
@@ -261,7 +261,7 @@ inline void ThreadClass::DefaultRun() {
         QCC_LogError(status, ("Could not advertise (%s)", name.c_str()));
     }
 
-    BusObject bo(*bus, "/org/cool");
+    BusObject bo("/org/cool");
     bus->RegisterBusObject(bo);
     bus->UnregisterBusObject(bo);
     if (!s_noDestruct) {

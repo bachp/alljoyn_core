@@ -77,7 +77,7 @@ QStatus MyAuthListener::RequestPwd(const qcc::String& authMechanism, uint8_t min
 
 /* Service Object class */
 
-ServiceObject::ServiceObject(BusAttachment& bus, const char* path) : BusObject(bus, path), objectRegistered(false)
+ServiceObject::ServiceObject(BusAttachment& bus, const char* path) : BusObject(path), objectRegistered(false), myBus(bus)
 {
 
 }
@@ -103,7 +103,7 @@ QStatus ServiceObject::AddInterfaceToObject(const InterfaceDescription* intf)
 void ServiceObject::PopulateSignalMembers()
 {
     /* Register the signal handler with the bus */
-    const InterfaceDescription* regTestIntf = bus.GetInterface(
+    const InterfaceDescription* regTestIntf = myBus.GetInterface(
         ::org::alljoyn::alljoyn_test::InterfaceName);
     assert(regTestIntf);
     my_signal_member = regTestIntf->GetMember("my_signal");
@@ -133,7 +133,7 @@ void ServiceObject::RequestName(const char* name)
     assert(name);
     /* Request a well-known name */
     /* Note that you cannot make a blocking method call here */
-    const ProxyBusObject& dbusObj = bus.GetDBusProxyObj();
+    const ProxyBusObject& dbusObj = myBus.GetDBusProxyObj();
     MsgArg args[2];
     args[0].Set("s", name);
     args[1].Set("u", 6);
@@ -151,7 +151,7 @@ void ServiceObject::RequestName(const char* name)
 
 QStatus ServiceObject::InstallMethodHandlers()
 {
-    const InterfaceDescription* regTestIntf = bus.GetInterface(::org::alljoyn::alljoyn_test::InterfaceName);
+    const InterfaceDescription* regTestIntf = myBus.GetInterface(::org::alljoyn::alljoyn_test::InterfaceName);
     assert(regTestIntf);
     /* Register the method handlers with the object */
     const MethodEntry methodEntries[] = {

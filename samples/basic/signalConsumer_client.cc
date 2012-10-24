@@ -107,7 +107,7 @@ class MyBusListener : public BusListener {
 class SignalListeningObject : public BusObject {
   public:
     SignalListeningObject(BusAttachment& bus, const char* path) :
-        BusObject(bus, path),
+        BusObject(path),
         nameChangedMember(NULL)
     {
         /* Add org.alljoyn.Bus.signal_sample interface */
@@ -147,7 +147,8 @@ class SignalListeningObject : public BusObject {
     }
 
     QStatus SubscribeNameChangedSignal(void) {
-        return bus.AddMatch("type='signal',interface='org.alljoyn.Bus.signal_sample',member='nameChanged'");
+        assert(bus);
+        return bus->AddMatch("type='signal',interface='org.alljoyn.Bus.signal_sample',member='nameChanged'");
     }
 
     void NameChangedSignalHandler(const InterfaceDescription::Member* member,

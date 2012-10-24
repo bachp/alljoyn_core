@@ -118,8 +118,8 @@ const char* InterfaceName = "org.alljoyn.alljoyn_test.values";
 class LocalTestObject : public BusObject {
   public:
 
-    LocalTestObject(BusAttachment& bus, const char* path, unsigned long reportInterval)
-        : BusObject(bus, path),
+    LocalTestObject(BusAttachment& bus, const char* path, unsigned long reportInterval) :
+        BusObject(path),
         reportInterval(reportInterval),
         prop_str_val("hello world"),
         prop_ro_str("I cannot be written"),
@@ -156,10 +156,11 @@ class LocalTestObject : public BusObject {
 
     void ObjectRegistered(void) {
         BusObject::ObjectRegistered();
+        assert(bus);
 
         /* Request a well-known name */
         /* Note that you cannot make a blocking method call here */
-        const ProxyBusObject& dbusObj = bus.GetDBusProxyObj();
+        const ProxyBusObject& dbusObj = bus->GetDBusProxyObj();
         MsgArg args[2];
         args[0].Set("s", ::org::alljoyn::alljoyn_test::WellKnownName);
         args[1].Set("u", 6);

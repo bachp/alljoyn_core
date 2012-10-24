@@ -51,16 +51,15 @@ using namespace qcc;
 
 namespace ajn {
 
-
+// JPDEBUG
 DBusObj::DBusObj(Bus& bus, BusController* busController) :
-    BusObject(bus, org::freedesktop::DBus::ObjectPath, false),
+    BusObject(org::freedesktop::DBus::ObjectPath, false),
     bus(bus),
     router(reinterpret_cast<DaemonRouter&>(bus.GetInternal().GetRouter())),
     dbusIntf(NULL),
     busController(busController)
 {
 }
-
 
 DBusObj::~DBusObj()
 {

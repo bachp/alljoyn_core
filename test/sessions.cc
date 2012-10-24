@@ -125,7 +125,7 @@ char* get_line(char*str, size_t num, FILE*fp)
 class SessionTestObject : public BusObject {
   public:
 
-    SessionTestObject(BusAttachment& bus, const char* path) : BusObject(bus, path), chatSignalMember(NULL)
+    SessionTestObject(BusAttachment& bus, const char* path) : BusObject(path), chatSignalMember(NULL)
     {
         QStatus status;
 

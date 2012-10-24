@@ -28,22 +28,20 @@ using namespace qcc;
 using namespace ajn;
 
 
-ServiceTestObject::ServiceTestObject(BusAttachment& bus, const char*path) : BusObject(bus, path)
+ServiceTestObject::ServiceTestObject(BusAttachment& bus, const char*path) : BusObject(path), myBus(bus)
 {
-
-
 }
 
 void ServiceTestObject::RegisterForNameAcquiredSignals()
 {
     QStatus status = ER_OK;
-    const InterfaceDescription* intf = bus.GetInterface("org.freedesktop.DBus");
+    const InterfaceDescription* intf = myBus.GetInterface("org.freedesktop.DBus");
     assert(intf);
     /* register the signal handler for the the 'NameAcquired' signal */
-    status =  bus.RegisterSignalHandler(this,
-                                        static_cast<MessageReceiver::SignalHandler>(&ServiceTestObject::NameAcquiredSignalHandler),
-                                        intf->GetMember("NameAcquired"),
-                                        NULL);
+    status =  myBus.RegisterSignalHandler(this,
+                                          static_cast<MessageReceiver::SignalHandler>(&ServiceTestObject::NameAcquiredSignalHandler),
+                                          intf->GetMember("NameAcquired"),
+                                          NULL);
     if (status != ER_OK) {
         QCC_LogError(status, ("Problem while registering name Acquired signal handler"));
     }
@@ -52,14 +50,14 @@ void ServiceTestObject::RegisterForNameAcquiredSignals()
 
 void ServiceTestObject::PopulateSignalMembers(const char*interface_name) {
     /* Register the signal handler with the bus */
-    const InterfaceDescription* regTestIntf = bus.GetInterface(interface_name);
+    const InterfaceDescription* regTestIntf = myBus.GetInterface(interface_name);
     assert(regTestIntf);
     my_signal_member = regTestIntf->GetMember("my_signal");
     assert(my_signal_member);
 }
 
 QStatus ServiceTestObject::InstallMethodHandlers(const char*interface_name) {
-    const InterfaceDescription* regTestIntf = bus.GetInterface(interface_name);
+    const InterfaceDescription* regTestIntf = myBus.GetInterface(interface_name);
     assert(regTestIntf);
     /* Register the method handlers with the object */
     const MethodEntry methodEntries[] = {

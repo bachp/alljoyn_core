@@ -415,7 +415,7 @@ QStatus LocalEndpoint::RegisterBusObject(BusObject& object)
             off++;
             BusObject* parent = FindLocalObject(parentPath.c_str());
             if (!parent) {
-                parent = new BusObject(bus, parentPath.c_str(), true);
+                parent = new BusObject(parentPath.c_str(), true);
                 QStatus status = DoRegisterBusObject(*parent, lastParent, true);
                 if (ER_OK != status) {
                     delete parent;
@@ -453,7 +453,7 @@ QStatus LocalEndpoint::DoRegisterBusObject(BusObject& object, BusObject* parent,
     }
 
     /* Register object. */
-    QStatus status = object.DoRegistration();
+    QStatus status = object.DoRegistration(bus);
     if (ER_OK == status) {
         /* Link new object to its parent */
         if (parent) {

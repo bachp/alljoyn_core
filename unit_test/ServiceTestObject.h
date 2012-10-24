@@ -73,4 +73,5 @@ class ServiceTestObject : public BusObject {
     qcc::String prop_ro_str;
     int32_t prop_int_val;
     int output1;
+    BusAttachment& myBus;
 };

@@ -22,6 +22,8 @@
 
 #include <qcc/platform.h>
 
+#include <assert.h>
+
 #include <qcc/Debug.h>
 #include <qcc/String.h>
 #include <qcc/Crypto.h>
@@ -129,15 +131,17 @@ AllJoynPeerObj::AllJoynPeerObj(BusAttachment& bus) :
 
 QStatus AllJoynPeerObj::Start()
 {
-    bus.RegisterBusListener(*this);
+    assert(bus);
+    bus->RegisterBusListener(*this);
     dispatcher.Start();
     return ER_OK;
 }
 
 QStatus AllJoynPeerObj::Stop()
 {
+    assert(bus);
     dispatcher.Stop();
-    bus.UnregisterBusListener(*this);
+    bus->UnregisterBusListener(*this);
     return ER_OK;
 }
 
@@ -162,7 +166,8 @@ AllJoynPeerObj::~AllJoynPeerObj()
 
 QStatus AllJoynPeerObj::Init()
 {
-    QStatus status = bus.RegisterBusObject(*this);
+    assert(bus);
+    QStatus status = bus->RegisterBusObject(*this);
     QCC_DbgHLPrintf(("AllJoynPeerObj::Init %s", QCC_StatusText(status)));
     return status;
 }
@@ -194,7 +199,8 @@ QStatus AllJoynPeerObj::RequestHeaderExpansion(Message& msg, RemoteEndpoint* sen
     bool expansionPending = false;
     uint32_t token = msg->GetCompressionToken();
 
-    assert(sender == bus.GetInternal().GetRouter().FindEndpoint(msg->GetRcvEndpointName()));
+    assert(bus);
+    assert(sender == bus->GetInternal().GetRouter().FindEndpoint(msg->GetRcvEndpointName()));
 
     lock.Lock(MUTEX_CONTEXT);
     /*
@@ -247,17 +253,19 @@ bool AllJoynPeerObj::RemoveCompressedMessage(Message& msg, uint32_t token)
 
 void AllJoynPeerObj::ExpandHeader(Message& msg, const qcc::String& receivedFrom)
 {
+    assert(bus);
     QStatus status = ER_OK;
     uint32_t token = msg->GetCompressionToken();
-    const HeaderFields* expFields = bus.GetInternal().GetCompressionRules()->GetExpansion(token);
+
+    const HeaderFields* expFields = bus->GetInternal().GetCompressionRules()->GetExpansion(token);
     if (!expFields) {
-        Message replyMsg(bus);
+        Message replyMsg(*bus);
         MsgArg arg("u", token);
         /*
          * The endpoint the message was received on knows the expansion rule for the token we just received.
          */
-        ProxyBusObject remotePeerObj(bus, receivedFrom.c_str(), org::alljoyn::Bus::Peer::ObjectPath, 0);
-        const InterfaceDescription* ifc = bus.GetInterface(org::alljoyn::Bus::Peer::HeaderCompression::InterfaceName);
+        ProxyBusObject remotePeerObj(*bus, receivedFrom.c_str(), org::alljoyn::Bus::Peer::ObjectPath, 0);
+        const InterfaceDescription* ifc = bus->GetInterface(org::alljoyn::Bus::Peer::HeaderCompression::InterfaceName);
         if (ifc == NULL) {
             status = ER_BUS_NO_SUCH_INTERFACE;
         }
@@ -268,7 +276,7 @@ void AllJoynPeerObj::ExpandHeader(Message& msg, const qcc::String& receivedFrom)
         if (status == ER_OK) {
             status = replyMsg->AddExpansionRule(token, replyMsg->GetArg(0));
             if (status == ER_OK) {
-                expFields = bus.GetInternal().GetCompressionRules()->GetExpansion(token);
+                expFields = bus->GetInternal().GetCompressionRules()->GetExpansion(token);
                 if (!expFields) {
                     status = ER_BUS_HDR_EXPANSION_INVALID;
                 }
@@ -290,7 +298,7 @@ void AllJoynPeerObj::ExpandHeader(Message& msg, const qcc::String& receivedFrom)
      * front message from the list.
      */
     while (RemoveCompressedMessage(msg, token)) {
-        Router& router = bus.GetInternal().GetRouter();
+        Router& router = bus->GetInternal().GetRouter();
         BusEndpoint* sender = router.FindEndpoint(msg->GetRcvEndpointName());
         if (sender) {
             /*
@@ -338,8 +346,9 @@ QStatus AllJoynPeerObj::Get(const char* ifcName, const char* propName, MsgArg& v
 
 void AllJoynPeerObj::ExchangeGroupKeys(const InterfaceDescription::Member* member, Message& msg)
 {
+    assert(bus);
     QStatus status;
-    PeerStateTable* peerStateTable = bus.GetInternal().GetPeerStateTable();
+    PeerStateTable* peerStateTable = bus->GetInternal().GetPeerStateTable();
     KeyBlob key;
 
     /*
@@ -376,11 +385,12 @@ void AllJoynPeerObj::ExchangeGroupKeys(const InterfaceDescription::Member* membe
 
 void AllJoynPeerObj::ExchangeGuids(const InterfaceDescription::Member* member, Message& msg)
 {
+    assert(bus);
     qcc::GUID128 remotePeerGuid(msg->GetArg(0)->v_string.str);
     uint32_t version = msg->GetArg(1)->v_uint32;
-    qcc::String localGuidStr = bus.GetInternal().GetKeyStore().GetGuid();
+    qcc::String localGuidStr = bus->GetInternal().GetKeyStore().GetGuid();
     if (!localGuidStr.empty()) {
-        PeerState peerState = bus.GetInternal().GetPeerStateTable()->GetPeerState(msg->GetSender());
+        PeerState peerState = bus->GetInternal().GetPeerStateTable()->GetPeerState(msg->GetSender());
 
         QCC_DbgHLPrintf(("ExchangeGuids Local %s", localGuidStr.c_str()));
         QCC_DbgHLPrintf(("ExchangeGuids Remote %s", remotePeerGuid.ToString().c_str()));
@@ -414,8 +424,9 @@ void AllJoynPeerObj::ExchangeGuids(const InterfaceDescription::Member* member, M
 
 QStatus AllJoynPeerObj::KeyGen(PeerState& peerState, String seed, qcc::String& verifier, KeyBlob::Role role)
 {
+    assert(bus);
     QStatus status;
-    KeyStore& keyStore = bus.GetInternal().GetKeyStore();
+    KeyStore& keyStore = bus->GetInternal().GetKeyStore();
     static const char* label = "session key";
     KeyBlob masterSecret;
 
@@ -456,14 +467,15 @@ QStatus AllJoynPeerObj::KeyGen(PeerState& peerState, String seed, qcc::String& v
 
 void AllJoynPeerObj::GenSessionKey(const InterfaceDescription::Member* member, Message& msg)
 {
+    assert(bus);
     QStatus status;
-    PeerState peerState = bus.GetInternal().GetPeerStateTable()->GetPeerState(msg->GetSender());
+    PeerState peerState = bus->GetInternal().GetPeerStateTable()->GetPeerState(msg->GetSender());
     qcc::GUID128 remotePeerGuid(msg->GetArg(0)->v_string.str);
     qcc::GUID128 localPeerGuid(msg->GetArg(1)->v_string.str);
     /*
      * Check that target GUID is our GUID.
      */
-    if (bus.GetInternal().GetKeyStore().GetGuid() != localPeerGuid.ToString()) {
+    if (bus->GetInternal().GetKeyStore().GetGuid() != localPeerGuid.ToString()) {
         MethodReply(msg, ER_BUS_NO_PEER_GUID);
     } else {
         qcc::String nonce = RandHexString(NONCE_LEN);
@@ -482,6 +494,7 @@ void AllJoynPeerObj::GenSessionKey(const InterfaceDescription::Member* member, M
 
 void AllJoynPeerObj::AuthAdvance(Message& msg)
 {
+    assert(bus);
     QStatus status = ER_OK;
     ajn::SASLEngine* sasl = NULL;
     ajn::SASLEngine::AuthState authState;
@@ -501,8 +514,8 @@ void AllJoynPeerObj::AuthAdvance(Message& msg)
     lock.Unlock(MUTEX_CONTEXT);
 
     if (!sasl) {
-        sasl = new SASLEngine(bus, ajn::AuthMechanism::CHALLENGER, peerAuthMechanisms.c_str(), sender.c_str(), peerAuthListener);
-        qcc::String localGuidStr = bus.GetInternal().GetKeyStore().GetGuid();
+        sasl = new SASLEngine(*bus, ajn::AuthMechanism::CHALLENGER, peerAuthMechanisms.c_str(), sender.c_str(), peerAuthListener);
+        qcc::String localGuidStr = bus->GetInternal().GetKeyStore().GetGuid();
         if (!localGuidStr.empty()) {
             sasl->SetLocalId(localGuidStr);
         } else {
@@ -519,10 +532,10 @@ void AllJoynPeerObj::AuthAdvance(Message& msg)
      * If auth conversation was sucessful store the master secret in the key store.
      */
     if ((status == ER_OK) && (authState == SASLEngine::ALLJOYN_AUTH_SUCCESS)) {
-        PeerState peerState = bus.GetInternal().GetPeerStateTable()->GetPeerState(sender);
+        PeerState peerState = bus->GetInternal().GetPeerStateTable()->GetPeerState(sender);
         SetRights(peerState, sasl->AuthenticationIsMutual(), true /*challenger*/);
         KeyBlob masterSecret;
-        KeyStore& keyStore = bus.GetInternal().GetKeyStore();
+        KeyStore& keyStore = bus->GetInternal().GetKeyStore();
         status = sasl->GetMasterSecret(masterSecret);
         mech = sasl->GetMechanism();
         if (status == ER_OK) {
@@ -586,12 +599,13 @@ void AllJoynPeerObj::AuthChallenge(const ajn::InterfaceDescription::Member* memb
 
 void AllJoynPeerObj::ForceAuthentication(const qcc::String& busName)
 {
-    PeerStateTable* peerStateTable = bus.GetInternal().GetPeerStateTable();
+    assert(bus);
+    PeerStateTable* peerStateTable = bus->GetInternal().GetPeerStateTable();
     if (peerStateTable->IsKnownPeer(busName)) {
         lock.Lock(MUTEX_CONTEXT);
         PeerState peerState = peerStateTable->GetPeerState(busName);
         peerState->ClearKeys();
-        bus.ClearKeys(peerState->GetGuid().ToString());
+        bus->ClearKeys(peerState->GetGuid().ToString());
         lock.Unlock(MUTEX_CONTEXT);
     }
 }
@@ -604,12 +618,13 @@ void AllJoynPeerObj::ForceAuthentication(const qcc::String& busName)
 
 QStatus AllJoynPeerObj::AuthenticatePeer(AllJoynMessageType msgType, const qcc::String& busName, bool wait)
 {
+    assert(bus);
     QStatus status;
     ajn::SASLEngine::AuthState authState;
-    PeerStateTable* peerStateTable = bus.GetInternal().GetPeerStateTable();
+    PeerStateTable* peerStateTable = bus->GetInternal().GetPeerStateTable();
     PeerState peerState = peerStateTable->GetPeerState(busName);
     qcc::String mech;
-    const InterfaceDescription* ifc = bus.GetInterface(org::alljoyn::Bus::Peer::Authentication::InterfaceName);
+    const InterfaceDescription* ifc = bus->GetInterface(org::alljoyn::Bus::Peer::Authentication::InterfaceName);
     if (ifc == NULL) {
         return ER_BUS_NO_SUCH_INTERFACE;
     }
@@ -644,7 +659,7 @@ QStatus AllJoynPeerObj::AuthenticatePeer(AllJoynMessageType msgType, const qcc::
         lock.Unlock(MUTEX_CONTEXT);
     }
 
-    ProxyBusObject remotePeerObj(bus, busName.c_str(), org::alljoyn::Bus::Peer::ObjectPath, 0);
+    ProxyBusObject remotePeerObj(*bus, busName.c_str(), org::alljoyn::Bus::Peer::ObjectPath, 0);
     remotePeerObj.AddInterface(*ifc);
 
     /*
@@ -652,11 +667,11 @@ QStatus AllJoynPeerObj::AuthenticatePeer(AllJoynMessageType msgType, const qcc::
      * unique bus name from which we can determine if we have already have a session key, a
      * master secret or if we have to start an authentication conversation.
      */
-    qcc::String localGuidStr = bus.GetInternal().GetKeyStore().GetGuid();
+    qcc::String localGuidStr = bus->GetInternal().GetKeyStore().GetGuid();
     MsgArg args[2];
     args[0].Set("s", localGuidStr.c_str());
     args[1].Set("u", PEER_AUTH_VERSION);
-    Message replyMsg(bus);
+    Message replyMsg(*bus);
     status = remotePeerObj.MethodCall(*(ifc->GetMember("ExchangeGuids")), args, ArraySize(args), replyMsg, DEFAULT_TIMEOUT);
     if (status != ER_OK) {
         /*
@@ -720,7 +735,7 @@ QStatus AllJoynPeerObj::AuthenticatePeer(AllJoynMessageType msgType, const qcc::
      * local peer we obviously don't need to authenticate but we must initialize a peer state object
      * with a session key and group key.
      */
-    if (bus.GetUniqueName() == sender) {
+    if (bus->GetUniqueName() == sender) {
         assert(remoteGuidStr == localGuidStr);
         QCC_DbgHLPrintf(("Securing local peer to itself"));
         KeyBlob key;
@@ -757,7 +772,7 @@ QStatus AllJoynPeerObj::AuthenticatePeer(AllJoynMessageType msgType, const qcc::
     peerState->SetAuthEvent(&authEvent);
     lock.Unlock(MUTEX_CONTEXT);
 
-    KeyStore& keyStore = bus.GetInternal().GetKeyStore();
+    KeyStore& keyStore = bus->GetInternal().GetKeyStore();
     bool firstPass = true;
     do {
         /*
@@ -811,13 +826,13 @@ QStatus AllJoynPeerObj::AuthenticatePeer(AllJoynMessageType msgType, const qcc::
          * Initiaize the SASL engine as responder (i.e. client) this terminology seems backwards but
          * is the terminology used by the DBus specification.
          */
-        SASLEngine sasl(bus, ajn::AuthMechanism::RESPONDER, peerAuthMechanisms, busName.c_str(), peerAuthListener);
+        SASLEngine sasl(*bus, ajn::AuthMechanism::RESPONDER, peerAuthMechanisms, busName.c_str(), peerAuthListener);
         sasl.SetLocalId(localGuidStr);
         qcc::String inStr;
         qcc::String outStr;
         status = sasl.Advance(inStr, outStr, authState);
         while (status == ER_OK) {
-            Message replyMsg(bus);
+            Message replyMsg(*bus);
             MsgArg arg("s", outStr.c_str());
             status = remotePeerObj.MethodCall(*(ifc->GetMember("AuthChallenge")), &arg, 1, replyMsg, AUTH_TIMEOUT);
             if (status == ER_OK) {
@@ -849,7 +864,7 @@ QStatus AllJoynPeerObj::AuthenticatePeer(AllJoynMessageType msgType, const qcc::
      * that we just established.
      */
     if (status == ER_OK) {
-        Message replyMsg(bus);
+        Message replyMsg(*bus);
         KeyBlob key;
         StringSink snk;
         peerStateTable->GetGroupKey(key);
@@ -896,7 +911,8 @@ QStatus AllJoynPeerObj::AuthenticatePeer(AllJoynMessageType msgType, const qcc::
 
 QStatus AllJoynPeerObj::AuthenticatePeerAsync(const qcc::String& busName)
 {
-    Message invalidMsg(bus);
+    assert(bus);
+    Message invalidMsg(*bus);
     return DispatchRequest(invalidMsg, SECURE_CONNECTION, busName);
 }
 
@@ -923,6 +939,7 @@ void AllJoynPeerObj::AlarmTriggered(const Alarm& alarm, QStatus reason)
 {
     QStatus status;
 
+    assert(bus);
     QCC_DbgHLPrintf(("AllJoynPeerObj::AlarmTriggered"));
     Request* req = static_cast<Request*>(alarm->GetContext());
 
@@ -939,11 +956,11 @@ void AllJoynPeerObj::AlarmTriggered(const Alarm& alarm, QStatus reason)
          * Pause timeouts so reply handlers don't expire while waiting for authentication to complete
          */
         if (req->msg->GetType() == MESSAGE_METHOD_CALL) {
-            bus.GetInternal().GetLocalEndpoint().PauseReplyHandlerTimeout(req->msg);
+            bus->GetInternal().GetLocalEndpoint().PauseReplyHandlerTimeout(req->msg);
         }
         status = AuthenticatePeer(req->msg->GetType(), req->msg->GetDestination(), false);
         if (status != ER_WOULDBLOCK) {
-            PeerStateTable* peerStateTable = bus.GetInternal().GetPeerStateTable();
+            PeerStateTable* peerStateTable = bus->GetInternal().GetPeerStateTable();
             /*
              * Check each message that is queued waiting for an authentication to complete
              * to see if this is the authentication the message was waiting for.
@@ -958,15 +975,15 @@ void AllJoynPeerObj::AlarmTriggered(const Alarm& alarm, QStatus reason)
                          * If the failed message was a method call push an error response.
                          */
                         if (req->msg->GetType() == MESSAGE_METHOD_CALL) {
-                            Message reply(bus);
+                            Message reply(*bus);
                             reply->ErrorMsg(status, req->msg->GetCallSerial());
-                            bus.GetInternal().GetLocalEndpoint().PushMessage(reply);
+                            bus->GetInternal().GetLocalEndpoint().PushMessage(reply);
                         }
                     } else {
                         if (msg->GetType() == MESSAGE_METHOD_CALL) {
-                            bus.GetInternal().GetLocalEndpoint().ResumeReplyHandlerTimeout(msg);
+                            bus->GetInternal().GetLocalEndpoint().ResumeReplyHandlerTimeout(msg);
                         }
-                        bus.GetInternal().GetRouter().PushMessage(msg, bus.GetInternal().GetLocalEndpoint());
+                        bus->GetInternal().GetRouter().PushMessage(msg, bus->GetInternal().GetLocalEndpoint());
                     }
                     iter = msgsPendingAuth.erase(iter);
                 } else {
@@ -1006,7 +1023,8 @@ void AllJoynPeerObj::AlarmTriggered(const Alarm& alarm, QStatus reason)
 
 void AllJoynPeerObj::HandleSecurityViolation(Message& msg, QStatus status)
 {
-    PeerStateTable* peerStateTable = bus.GetInternal().GetPeerStateTable();
+    assert(bus);
+    PeerStateTable* peerStateTable = bus->GetInternal().GetPeerStateTable();
 
     QCC_DbgTrace(("HandleSecurityViolation %s %s", QCC_StatusText(status), msg->Description().c_str()));
 
@@ -1039,6 +1057,8 @@ void AllJoynPeerObj::HandleSecurityViolation(Message& msg, QStatus status)
 
 void AllJoynPeerObj::NameOwnerChanged(const char* busName, const char* previousOwner, const char* newOwner)
 {
+    assert(bus);
+
     /*
      * We are only interested in names that no longer have an owner.
      */
@@ -1047,7 +1067,7 @@ void AllJoynPeerObj::NameOwnerChanged(const char* busName, const char* previousO
         /*
          * Clean up peer state.
          */
-        bus.GetInternal().GetPeerStateTable()->DelPeerState(busName);
+        bus->GetInternal().GetPeerStateTable()->DelPeerState(busName);
         /*
          * We are no longer in an authentication conversation with this peer.
          */
@@ -1064,6 +1084,7 @@ void AllJoynPeerObj::AcceptSession(const InterfaceDescription::Member* member, M
     size_t numArgs;
     const MsgArg* args;
 
+    assert(bus);
     msg->GetArgs(numArgs, args);
     SessionPort sessionPort = args[0].v_uint16;
     SessionId sessionId = args[1].v_uint32;
@@ -1075,7 +1096,7 @@ void AllJoynPeerObj::AcceptSession(const InterfaceDescription::Member* member, M
         MsgArg replyArg;
 
         /* Call bus listeners */
-        bool isAccepted = bus.GetInternal().CallAcceptListeners(sessionPort, joiner.c_str(), opts);
+        bool isAccepted = bus->GetInternal().CallAcceptListeners(sessionPort, joiner.c_str(), opts);
 
         /* Reply to AcceptSession */
         replyArg.Set("b", isAccepted);
@@ -1083,7 +1104,7 @@ void AllJoynPeerObj::AcceptSession(const InterfaceDescription::Member* member, M
 
         if ((status == ER_OK) && isAccepted) {
             const uint32_t VER_250 = 33882112;
-            BusEndpoint* sender = bus.GetInternal().GetRouter().FindEndpoint(msg->GetRcvEndpointName());
+            BusEndpoint* sender = bus->GetInternal().GetRouter().FindEndpoint(msg->GetRcvEndpointName());
 
             // if not REMOTE, it must be a bundled daemon, which is the same version
             if (sender && sender->GetEndpointType() == BusEndpoint::ENDPOINT_TYPE_REMOTE) {
@@ -1091,7 +1112,7 @@ void AllJoynPeerObj::AcceptSession(const InterfaceDescription::Member* member, M
 
                 // remote daemon is older than version 2.5.0; it will *NOT* send the SessionJoined signal
                 if (rep->GetRemoteAllJoynVersion() < VER_250) {
-                    bus.GetInternal().CallJoinedListeners(sessionPort, sessionId, joiner.c_str());
+                    bus->GetInternal().CallJoinedListeners(sessionPort, sessionId, joiner.c_str());
                 }
             }
         }
@@ -1104,6 +1125,8 @@ void AllJoynPeerObj::AcceptSession(const InterfaceDescription::Member* member, M
 
 void AllJoynPeerObj::SessionJoined(const InterfaceDescription::Member* member, const char* srcPath, Message& msg)
 {
+    assert(bus);
+
     // dispatch to the dispatcher thread
     size_t numArgs;
     const MsgArg* args;
@@ -1113,7 +1136,7 @@ void AllJoynPeerObj::SessionJoined(const InterfaceDescription::Member* member, c
     const SessionPort sessionPort = args[0].v_uint16;
     const SessionId sessionId = args[1].v_uint32;
     const char* joiner = args[2].v_string.str;
-    bus.GetInternal().CallJoinedListeners(sessionPort, sessionId, joiner);
+    bus->GetInternal().CallJoinedListeners(sessionPort, sessionId, joiner);
 }
 
 }

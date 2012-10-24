@@ -270,7 +270,7 @@ QStatus _ICECandidate::ReadReceivedMessage(uint32_t timeoutMsec)
     bool ICEcontrollingRequest = false;
     bool useCandidateRequest = false;
     //uint64_t controlTieBreaker = 0;
-    uint32_t requestPriority = 0;
+    //uint32_t requestPriority = 0;
     StunTransactionID tid;
 
     ICESession* session = component->GetICEStream()->GetSession();
@@ -481,8 +481,8 @@ QStatus _ICECandidate::ReadReceivedMessage(uint32_t timeoutMsec)
         }
 
         case STUN_ATTR_PRIORITY: {
-            const StunAttributePriority& sa = *reinterpret_cast<StunAttributePriority*>(*stunAttrIt);
-            requestPriority = sa.GetPriority();
+            //const StunAttributePriority& sa = *reinterpret_cast<StunAttributePriority*>(*stunAttrIt);
+            //requestPriority = sa.GetPriority();
             break;
         }
 

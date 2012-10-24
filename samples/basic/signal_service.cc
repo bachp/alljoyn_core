@@ -67,7 +67,7 @@ static void SigIntHandler(int sig)
 class BasicSampleObject : public BusObject {
   public:
     BasicSampleObject(BusAttachment& bus, const char* path) :
-        BusObject(bus, path),
+        BusObject(path),
         nameChangedMember(NULL),
         prop_name("Default name")
     {

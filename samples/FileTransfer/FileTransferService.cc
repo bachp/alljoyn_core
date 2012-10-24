@@ -63,7 +63,7 @@ static void SigIntHandler(int sig)
 
 class FileTransferObject : public BusObject {
   public:
-    FileTransferObject(const char* path) : BusObject(*s_msgBus, path)
+    FileTransferObject(const char* path) : BusObject(path)
     {
         // Add the File Transfer Interface
         InterfaceDescription* fileTransferInterface = NULL;

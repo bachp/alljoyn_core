@@ -37,7 +37,6 @@
 #include <alljoyn/BusObject.h>
 
 #include <Status.h>
-
 #include "Router.h"
 #include "LocalTransport.h"
 #include "AllJoynPeerObj.h"
@@ -187,12 +186,13 @@ void BusObject::GetProp(const InterfaceDescription::Member* member, Message& msg
 
 void BusObject::EmitPropChanged(const char* ifcName, const char* propName, MsgArg& val, SessionId id)
 {
-    const InterfaceDescription* ifc = bus.GetInterface(ifcName);
+    assert(bus);
+    const InterfaceDescription* ifc = bus->GetInterface(ifcName);
 
     qcc::String emitsChanged;
     if (ifc && ifc->GetPropertyAnnotation(propName, org::freedesktop::DBus::AnnotateEmitsChanged, emitsChanged)) {
         if (emitsChanged == "true") {
-            const InterfaceDescription* bus_ifc = bus.GetInterface(org::freedesktop::DBus::InterfaceName);
+            const InterfaceDescription* bus_ifc = bus->GetInterface(org::freedesktop::DBus::InterfaceName);
             const InterfaceDescription::Member* propChanged = (bus_ifc ? bus_ifc->GetMember("PropertiesChanged") : NULL);
 
             if (NULL != propChanged) {
@@ -204,7 +204,7 @@ void BusObject::EmitPropChanged(const char* ifcName, const char* propName, MsgAr
                 Signal(NULL, id, *propChanged, args, ArraySize(args));
             }
         } else if (emitsChanged == "invalidates") {
-            const InterfaceDescription* bus_ifc = bus.GetInterface(org::freedesktop::DBus::InterfaceName);
+            const InterfaceDescription* bus_ifc = bus->GetInterface(org::freedesktop::DBus::InterfaceName);
             const InterfaceDescription::Member* propChanged = (bus_ifc ? bus_ifc->GetMember("PropertiesChanged") : NULL);
 
             if (NULL != propChanged) {
@@ -384,7 +384,6 @@ void BusObject::InstallMethods(MethodTable& methodTable)
 QStatus BusObject::AddInterface(const InterfaceDescription& iface)
 {
     QStatus status = ER_OK;
-
     if (isRegistered) {
         status = ER_BUS_CANNOT_ADD_INTERFACE;
         QCC_LogError(status, ("Cannot add an interface to an object that is already registered"));
@@ -412,35 +411,22 @@ QStatus BusObject::AddInterface(const InterfaceDescription& iface)
     /* Add the new interface */
     components->ifaces.push_back(&iface);
 
-    /* If the the interface has properties make sure the Properties interface and its method handlers are registered. */
-    if (iface.HasProperties() && !ImplementsInterface(org::freedesktop::DBus::Properties::InterfaceName)) {
-        /* Add the org::freedesktop::DBus::Properties interface to this list of interfaces implemented by this obj */
-        const InterfaceDescription* propIntf = bus.GetInterface(org::freedesktop::DBus::Properties::InterfaceName);
-        assert(propIntf);
-        components->ifaces.push_back(propIntf);
-
-        /* Attach the handlers */
-        const MethodEntry propHandlerList[] = {
-            { propIntf->GetMember("Get"),    static_cast<MessageReceiver::MethodHandler>(&BusObject::GetProp) },
-            { propIntf->GetMember("Set"),    static_cast<MessageReceiver::MethodHandler>(&BusObject::SetProp) },
-            { propIntf->GetMember("GetAll"), static_cast<MessageReceiver::MethodHandler>(&BusObject::GetAllProps) }
-        };
-        status = AddMethodHandlers(propHandlerList, ArraySize(propHandlerList));
-        if (ER_OK != status) {
-            QCC_LogError(status, ("Failed to add property getter/setter message receivers for %s", GetPath()));
-            goto ExitAddInterface;
-        }
-    }
 
 ExitAddInterface:
 
     return status;
 }
 
-QStatus BusObject::DoRegistration()
+QStatus BusObject::DoRegistration(BusAttachment& busAttachment)
 {
+    QStatus status;
+
+    // Set the BusAttachment as part of the object registration. This will
+    // overwrite the one from the (deprecated) constructor.
+    bus = &busAttachment;
+
     /* Add the standard DBus interfaces */
-    const InterfaceDescription* introspectable = bus.GetInterface(org::freedesktop::DBus::Introspectable::InterfaceName);
+    const InterfaceDescription* introspectable = bus->GetInterface(org::freedesktop::DBus::Introspectable::InterfaceName);
     assert(introspectable);
     components->ifaces.push_back(introspectable);
 
@@ -449,8 +435,31 @@ QStatus BusObject::DoRegistration()
         { introspectable->GetMember("Introspect"),    static_cast<MessageReceiver::MethodHandler>(&BusObject::Introspect) }
     };
 
-    QStatus status = AddMethodHandlers(methodEntries, ArraySize(methodEntries));
+    /* If any of the interfaces has properties make sure the Properties interface and its method handlers are registered. */
+    for (size_t i = 0; i < components->ifaces.size(); ++i) {
+        const InterfaceDescription* iface = components->ifaces[i];
+        if (iface->HasProperties() && !ImplementsInterface(org::freedesktop::DBus::Properties::InterfaceName)) {
 
+            /* Add the org::freedesktop::DBus::Properties interface to this list of interfaces implemented by this obj */
+            const InterfaceDescription* propIntf = bus->GetInterface(org::freedesktop::DBus::Properties::InterfaceName);
+            assert(propIntf);
+            components->ifaces.push_back(propIntf);
+
+            /* Attach the handlers */
+            const MethodEntry propHandlerList[] = {
+                { propIntf->GetMember("Get"),    static_cast<MessageReceiver::MethodHandler>(&BusObject::GetProp) },
+                { propIntf->GetMember("Set"),    static_cast<MessageReceiver::MethodHandler>(&BusObject::SetProp) },
+                { propIntf->GetMember("GetAll"), static_cast<MessageReceiver::MethodHandler>(&BusObject::GetAllProps) }
+            };
+            status = AddMethodHandlers(propHandlerList, ArraySize(propHandlerList));
+            if (ER_OK != status) {
+                QCC_LogError(status, ("Failed to add property getter/setter message receivers for %s", GetPath()));
+                return status;
+            }
+            break;
+        }
+    }
+    status = AddMethodHandlers(methodEntries, ArraySize(methodEntries));
     return status;
 }
 
@@ -462,8 +471,13 @@ QStatus BusObject::Signal(const char* destination,
                           uint16_t timeToLive,
                           uint8_t flags)
 {
+    /* Protect against calling Signal before object is registered */
+    if (!bus) {
+        return ER_BUS_OBJECT_NOT_REGISTERED;
+    }
+
     QStatus status;
-    Message msg(bus);
+    Message msg(*bus);
 
     /*
      * If the interface is secure or encryption is explicitly requested the signal must be encrypted.
@@ -471,7 +485,7 @@ QStatus BusObject::Signal(const char* destination,
     if (signalMember.iface->IsSecure()) {
         flags |= ALLJOYN_FLAG_ENCRYPTED;
     }
-    if ((flags & ALLJOYN_FLAG_ENCRYPTED) && !bus.IsPeerSecurityEnabled()) {
+    if ((flags & ALLJOYN_FLAG_ENCRYPTED) && !bus->IsPeerSecurityEnabled()) {
         return ER_BUS_SECURITY_NOT_ENABLED;
     }
     status = msg->SignalMsg(signalMember.signature,
@@ -485,7 +499,7 @@ QStatus BusObject::Signal(const char* destination,
                             flags,
                             timeToLive);
     if (status == ER_OK) {
-        status = bus.GetInternal().GetRouter().PushMessage(msg, bus.GetInternal().GetLocalEndpoint());
+        status = bus->GetInternal().GetRouter().PushMessage(msg, bus->GetInternal().GetLocalEndpoint());
     }
     return status;
 }
@@ -494,13 +508,18 @@ QStatus BusObject::MethodReply(const Message& msg, const MsgArg* args, size_t nu
 {
     QStatus status;
 
+    /* Protect against calling before object is registered */
+    if (!bus) {
+        return ER_BUS_OBJECT_NOT_REGISTERED;
+    }
+
     if (msg->GetType() != MESSAGE_METHOD_CALL) {
         status = ER_BUS_NO_CALL_FOR_REPLY;
     } else {
-        Message reply(bus);
+        Message reply(*bus);
         status = reply->ReplyMsg(msg, args, numArgs);
         if (status == ER_OK) {
-            status = bus.GetInternal().GetRouter().PushMessage(reply, bus.GetInternal().GetLocalEndpoint());
+            status = bus->GetInternal().GetRouter().PushMessage(reply, bus->GetInternal().GetLocalEndpoint());
         }
     }
     return status;
@@ -510,14 +529,19 @@ QStatus BusObject::MethodReply(const Message& msg, const char* errorName, const 
 {
     QStatus status;
 
+    /* Protect against calling before object is registered */
+    if (!bus) {
+        return ER_BUS_OBJECT_NOT_REGISTERED;
+    }
+
     if (msg->GetType() != MESSAGE_METHOD_CALL) {
         status = ER_BUS_NO_CALL_FOR_REPLY;
         return status;
     } else {
-        Message error(bus);
+        Message error(*bus);
         status = error->ErrorMsg(msg, errorName, errorMessage ? errorMessage : "");
         if (status == ER_OK) {
-            status = bus.GetInternal().GetRouter().PushMessage(error, bus.GetInternal().GetLocalEndpoint());
+            status = bus->GetInternal().GetRouter().PushMessage(error, bus->GetInternal().GetLocalEndpoint());
         }
     }
     return status;
@@ -525,15 +549,20 @@ QStatus BusObject::MethodReply(const Message& msg, const char* errorName, const 
 
 QStatus BusObject::MethodReply(const Message& msg, QStatus status)
 {
+    /* Protect against calling before object is registered */
+    if (!bus) {
+        return ER_BUS_OBJECT_NOT_REGISTERED;
+    }
+
     if (status == ER_OK) {
         return MethodReply(msg);
     } else {
         if (msg->GetType() != MESSAGE_METHOD_CALL) {
             return ER_BUS_NO_CALL_FOR_REPLY;
         } else {
-            Message error(bus);
+            Message error(*bus);
             error->ErrorMsg(msg, status);
-            return bus.GetInternal().GetRouter().PushMessage(error, bus.GetInternal().GetLocalEndpoint());
+            return bus->GetInternal().GetRouter().PushMessage(error, bus->GetInternal().GetLocalEndpoint());
         }
     }
 }
@@ -611,7 +640,18 @@ void BusObject::InUseDecrement() {
 }
 
 BusObject::BusObject(BusAttachment& bus, const char* path, bool isPlaceholder) :
-    bus(bus),
+    bus(&bus),
+    components(new Components),
+    path(path),
+    parent(NULL),
+    isRegistered(false),
+    isPlaceholder(isPlaceholder)
+{
+    components->inUseCounter = 0;
+}
+
+BusObject::BusObject(const char* path, bool isPlaceholder) :
+    bus(0),
     components(new Components),
     path(path),
     parent(NULL),
@@ -635,8 +675,8 @@ BusObject::~BusObject()
     /*
      * If this object has a parent it has not been unregistered so do so now.
      */
-    if (parent) {
-        bus.GetInternal().GetLocalEndpoint().UnregisterBusObject(*this);
+    if (bus && parent) {
+        bus->GetInternal().GetLocalEndpoint().UnregisterBusObject(*this);
     }
     delete components;
 }

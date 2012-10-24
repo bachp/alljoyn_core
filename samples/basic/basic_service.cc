@@ -62,7 +62,7 @@ static void SigIntHandler(int sig)
 class BasicSampleObject : public BusObject {
   public:
     BasicSampleObject(BusAttachment& bus, const char* path) :
-        BusObject(bus, path)
+        BusObject(path)
     {
         /** Add the test interface to this object */
         const InterfaceDescription* exampleIntf = bus.GetInterface(INTERFACE_NAME);

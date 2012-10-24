@@ -149,7 +149,7 @@ class LocalTestObject : public BusObject {
 
     LocalTestObject(BusAttachment& bus, const char* path, unsigned long signalDelay, unsigned long disconnectDelay,
                     unsigned long reportInterval, unsigned long maxSignals) :
-        BusObject(bus, path),
+        BusObject(path),
         signalDelay(signalDelay),
         disconnectDelay(disconnectDelay),
         reportInterval(reportInterval),
@@ -227,7 +227,8 @@ class LocalTestObject : public BusObject {
 
     void RegisterSignalHandler()
     {
-        QStatus status = bus.AddMatch("type='signal',interface='org.alljoyn.alljoyn_test',member='my_signal'");
+        assert(bus);
+        QStatus status = bus->AddMatch("type='signal',interface='org.alljoyn.alljoyn_test',member='my_signal'");
         if (status != ER_OK) {
             QCC_LogError(status, ("Failed to register Match rule for 'org.alljoyn.alljoyn_test.my_signal'"));
         }
@@ -236,11 +237,12 @@ class LocalTestObject : public BusObject {
 
     void ObjectRegistered(void)
     {
+        assert(bus);
         BusObject::ObjectRegistered();
 
         /* Request a well-known name */
         /* Note that you cannot make a blocking method call here */
-        const ProxyBusObject& dbusObj = bus.GetDBusProxyObj();
+        const ProxyBusObject& dbusObj = bus->GetDBusProxyObj();
         MsgArg args[2];
         args[0].Set("s", g_advertiseName.c_str());
         args[1].Set("u", DBUS_NAME_FLAG_REPLACE_EXISTING | DBUS_NAME_FLAG_DO_NOT_QUEUE);
@@ -257,6 +259,7 @@ class LocalTestObject : public BusObject {
 
     void NameAcquiredCB(Message& msg, void* context)
     {
+        assert(bus);
         /* Check name acquired result */
         size_t numArgs;
         const MsgArg* args;
@@ -264,7 +267,7 @@ class LocalTestObject : public BusObject {
 
         if (args[0].v_uint32 == DBUS_REQUEST_NAME_REPLY_PRIMARY_OWNER) {
             /* Begin Advertising the well known name to remote busses */
-            const ProxyBusObject& alljoynObj = bus.GetAllJoynProxyObj();
+            const ProxyBusObject& alljoynObj = bus->GetAllJoynProxyObj();
             MsgArg args[2];
             size_t numArgs = ArraySize(args);
             MsgArg::Set(args, numArgs, "sq", g_advertiseName.c_str(), TRANSPORT_ANY);

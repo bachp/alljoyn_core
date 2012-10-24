@@ -231,4 +231,5 @@ Copyright 2010 - 2012, Qualcomm Innovation Center, Inc.
   <status name="ER_BAD_TRANSPORT_MASK" value="0x90e0" comment="Exactly one mask bit was not set in the provided TransportMask"/>
   <status name="ER_PROXIMITY_CONNECTION_ESTABLISH_FAIL" value="0x90e1" comment="Fail to establish P2P proximity connection"/>
   <status name="ER_PROXIMITY_NO_PEERS_FOUND" value="0x90e2" comment="Cannot find proximity P2P peers"/>  
+  <status name="ER_BUS_OBJECT_NOT_REGISTERED" value="0x90e3" comment="Operation not permitted on unregistered bus object"/>  
 </status_block>

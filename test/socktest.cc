@@ -100,7 +100,7 @@ static const char ifcXML[] =
 class SockService : public BusObject {
   public:
 
-    SockService(BusAttachment& bus) : BusObject(bus, ::org::alljoyn::sock_test::Path)
+    SockService(BusAttachment& bus) : BusObject(::org::alljoyn::sock_test::Path)
     {
         const InterfaceDescription* ifc = bus.GetInterface(::org::alljoyn::sock_test::Interface);
         if (ifc) {
@@ -112,8 +112,9 @@ class SockService : public BusObject {
 
     void ObjectRegistered(void)
     {
+        assert(bus);
         BusObject::ObjectRegistered();
-        const ProxyBusObject& dbusObj = bus.GetDBusProxyObj();
+        const ProxyBusObject& dbusObj = bus->GetDBusProxyObj();
         MsgArg args[2];
         size_t numArgs = ArraySize(args);
         MsgArg::Set(args, numArgs, "su", ::org::alljoyn::sock_test::Service, 6);

@@ -80,7 +80,7 @@ char*get_line(char*str, size_t num, FILE*fp)
 class ChatObject : public BusObject {
   public:
 
-    ChatObject(BusAttachment& bus, const char* path) : BusObject(bus, path), chatSignalMember(NULL)
+    ChatObject(BusAttachment& bus, const char* path) : BusObject(path), chatSignalMember(NULL)
     {
         QStatus status;
 

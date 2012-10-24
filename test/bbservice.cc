@@ -429,7 +429,7 @@ class LocalTestObject : public BusObject {
   public:
 
     LocalTestObject(BusAttachment& bus, const char* path, unsigned long reportInterval, const SessionOpts& opts) :
-        BusObject(bus, path),
+        BusObject(path),
         reportInterval(reportInterval),
         prop_str_val("hello world"),
         prop_ro_str("I cannot be written"),
@@ -473,7 +473,7 @@ class LocalTestObject : public BusObject {
     void ObjectRegistered(void)
     {
         QStatus status;
-        Message reply(bus);
+        Message reply(*g_msgBus);
 
         /* Enable concurrent callbacks since some of the calls below could block */
         g_msgBus->EnableConcurrentCallbacks();
@@ -489,12 +489,12 @@ class LocalTestObject : public BusObject {
             QCC_LogError(status, ("BindSessionPort failed"));
         }
         /* Add rule for receiving test signals */
-        status = bus.AddMatch("type='signal',interface='org.alljoyn.alljoyn_test',member='my_signal'");
+        status = g_msgBus->AddMatch("type='signal',interface='org.alljoyn.alljoyn_test',member='my_signal'");
         if (status != ER_OK) {
             QCC_LogError(status, ("Failed to register Match rule for 'org.alljoyn.alljoyn_test.my_signal'"));
         }
         /* Request a well-known name */
-        status = bus.RequestName(g_wellKnownName.c_str(), DBUS_NAME_FLAG_REPLACE_EXISTING | DBUS_NAME_FLAG_DO_NOT_QUEUE);
+        status = g_msgBus->RequestName(g_wellKnownName.c_str(), DBUS_NAME_FLAG_REPLACE_EXISTING | DBUS_NAME_FLAG_DO_NOT_QUEUE);
         if (status != ER_OK) {
             QCC_LogError(status, ("RequestName(%s) failed.", g_wellKnownName.c_str()));
             return;
@@ -533,12 +533,12 @@ class LocalTestObject : public BusObject {
         }
         if (g_ping_back) {
             MsgArg pingArg("s", "pingback");
-            const InterfaceDescription* ifc = bus.GetInterface(::org::alljoyn::alljoyn_test::InterfaceName);
+            const InterfaceDescription* ifc = g_msgBus->GetInterface(::org::alljoyn::alljoyn_test::InterfaceName);
             if (ifc) {
                 const InterfaceDescription::Member* pingMethod = ifc->GetMember("my_ping");
 
                 ProxyBusObject remoteObj;
-                remoteObj = ProxyBusObject(bus, msg->GetSender(), ::org::alljoyn::alljoyn_test::ObjectPath, msg->GetSessionId());
+                remoteObj = ProxyBusObject(*g_msgBus, msg->GetSender(), ::org::alljoyn::alljoyn_test::ObjectPath, msg->GetSessionId());
                 remoteObj.AddInterface(*ifc);
                 /*
                  * Make a fire-and-forget method call. If the signal was encrypted encrypt the ping

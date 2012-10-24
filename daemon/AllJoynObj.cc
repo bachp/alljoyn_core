@@ -79,8 +79,9 @@ void AllJoynObj::ReleaseLocks()
     router.UnlockNameTable();
 }
 
+// JPDEBUG
 AllJoynObj::AllJoynObj(Bus& bus, BusController* busController) :
-    BusObject(bus, org::alljoyn::Bus::ObjectPath, false),
+    BusObject(org::alljoyn::Bus::ObjectPath, false),
     bus(bus),
     router(reinterpret_cast<DaemonRouter&>(bus.GetInternal().GetRouter())),
     foundNameSignal(NULL),
