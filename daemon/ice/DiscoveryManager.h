@@ -521,6 +521,13 @@ class DiscoveryManager : public Thread, public AlarmListener {
 
     /**
      * @internal
+     * @brief Clear the StunAndTurnServerInfo and all found advertisements from the
+     * searchMap and inform AllJoynObj about the same.
+     */
+    void ResetDiscoveryState(void);
+
+    /**
+     * @internal
      * @brief Handle the Address Candidates Response message.
      */
     QStatus HandleAddressCandidatesResponse(AddressCandidatesResponse response);

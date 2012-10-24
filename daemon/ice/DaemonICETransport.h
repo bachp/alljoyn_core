@@ -587,6 +587,12 @@ class DaemonICETransport : public Transport, public RemoteEndpoint::EndpointList
 
     void ReleaseICEPacketStream(const ICEPacketStream& icePktStream);
 
+    void StopAllEndpoints(bool isSuddenDisconnect = false);
+
+    void JoinAllEndpoints(void);
+
+    void ClearPacketStreamMap(void);
+
 
     class ICECallback {
       public:

@@ -739,32 +739,8 @@ QStatus DaemonICETransport::Stop(void)
         QCC_LogError(status, ("DaemonICETransport::Stop(): Failed to Stop() DaemonICETransport Run thread"));
     }
 
-    m_endpointListLock.Lock(MUTEX_CONTEXT);
-
-    /*
-     * Ask any authenticating endpoints to shut down and exit their threads.  By its
-     * presence on the m_authList, we know that the endpoint is authenticating and
-     * the authentication thread has responsibility for dealing with the endpoint
-     * data structure.  We call Stop() to stop that thread from running.  The
-     * endpoint Rx and Tx threads will not be running yet.
-     */
-    for (set<DaemonICEEndpoint*>::iterator i = m_authList.begin(); i != m_authList.end(); ++i) {
-        (*i)->AuthStop();
-    }
-
-    /*
-     * Ask any running endpoints to shut down and exit their threads.  By its
-     * presence on the m_endpointList, we know that authentication is complete and
-     * the Rx and Tx threads have responsibility for dealing with the endpoint
-     * data structure.  We call Stop() to stop those threads from running.  Since
-     * the connection is on the m_endpointList, we know that the authentication
-     * thread has handed off responsibility.
-     */
-    for (set<DaemonICEEndpoint*>::iterator i = m_endpointList.begin(); i != m_endpointList.end(); ++i) {
-        (*i)->Stop();
-    }
-
-    m_endpointListLock.Unlock(MUTEX_CONTEXT);
+    /* Stop all the DaemonICEEndpoints */
+    StopAllEndpoints();
 
     /*
      * The use model for DaemonICETransport is that it works like a thread.
@@ -783,17 +759,8 @@ QStatus DaemonICETransport::Stop(void)
         m_dm->Stop();
     }
 
-    /* Deregister  packetStreams from packetEngine before packetStreams are destroyed */
-    pktStreamMapLock.Lock();
-    multimap<String, pair<ICEPacketStream, uint32_t> >::iterator pit = pktStreamMap.begin();
-    while (pit != pktStreamMap.end()) {
-        if (pit->second.second > 0) {
-            pit->second.second = 0;
-            m_packetEngine.RemovePacketStream(pit->second.first);
-        }
-        ++pit;
-    }
-    pktStreamMapLock.Unlock();
+    /* Clear the PacketStreamMap */
+    ClearPacketStreamMap();
 
     /* Stop the Packet Engine */
     status = m_packetEngine.Stop();
@@ -823,57 +790,8 @@ QStatus DaemonICETransport::Join(void)
         return status;
     }
 
-    /*
-     * A required call to Stop() that needs to happen before this Join will ask
-     * all of the endpoints to stop; and will also cause any authenticating
-     * endpoints to stop.  We still need to wait here until all of the threads
-     * running in those endpoints actually stop running.
-     *
-     * Since Stop() is a request to stop, and this is what has ultimately been
-     * done to both authentication threads and Rx and Tx threads, it is possible
-     * that a thread is actually running after the call to Stop().  If that
-     * thead happens to be an authenticating endpoint, it is possible that an
-     * authentication actually completes after Stop() is called.  This will move
-     * a connection from the m_authList to the m_endpointList, so we need to
-     * make sure we wait for all of the connections on the m_authList to go away
-     * before we look for the connections on the m_endpointlist.
-     */
-    m_endpointListLock.Lock(MUTEX_CONTEXT);
-
-    /*
-     * Any authenticating endpoints have been asked to shut down and exit their
-     * authentication threads in a previously required Stop().  We need to
-     * Join() all of these auth threads here.
-     */
-    set<DaemonICEEndpoint*>::iterator it = m_authList.begin();
-    while (it != m_authList.end()) {
-        DaemonICEEndpoint* ep = *it;
-        m_authList.erase(it);
-        m_endpointListLock.Unlock(MUTEX_CONTEXT);
-        ep->AuthJoin();
-        delete ep;
-        m_endpointListLock.Lock(MUTEX_CONTEXT);
-        it = m_authList.upper_bound(ep);
-    }
-
-    /*
-     * Any running endpoints have been asked it their threads in a previously
-     * required Stop().  We need to Join() all of these threads here.  This
-     * Join() will wait on the endpoint rx and tx threads to exit as opposed to
-     * the joining of the auth thread we did above.
-     */
-    it = m_endpointList.begin();
-    while (it != m_endpointList.end()) {
-        DaemonICEEndpoint* ep = *it;
-        m_endpointList.erase(it);
-        m_endpointListLock.Unlock(MUTEX_CONTEXT);
-        ep->Join();
-        delete ep;
-        m_endpointListLock.Lock(MUTEX_CONTEXT);
-        it = m_endpointList.upper_bound(ep);
-    }
-
-    m_endpointListLock.Unlock(MUTEX_CONTEXT);
+    /* Join all the DaemonICEEndpoints */
+    JoinAllEndpoints();
 
     /* Join the timer */
     daemonICETransportTimer.Join();
@@ -2495,7 +2413,9 @@ void DaemonICETransport::ICECallback::ICE(ajn::DiscoveryManager::CallbackType cb
                 m_daemonICETransport->PurgeSessionsMap(guid, nameList);
             }
         } else if (cbType == m_daemonICETransport->m_dm->ALLOCATE_ICE_SESSION) {
+
             m_daemonICETransport->RecordIncomingICESessions(guid);
+
         }
     }
 }
@@ -2680,6 +2600,107 @@ void DaemonICETransport::ReleaseICEPacketStream(const ICEPacketStream& icePktStr
     if (!found) {
         QCC_LogError(ER_FAIL, ("%s: Cannot find icePacketStream=%p", __FUNCTION__, &icePktStream));
     }
+}
+
+void DaemonICETransport::StopAllEndpoints(bool isSuddenDisconnect) {
+    QCC_DbgPrintf(("%s: isSuddenDisconnect(%d)", __FUNCTION__, isSuddenDisconnect));
+
+    m_endpointListLock.Lock(MUTEX_CONTEXT);
+    /*
+     * Ask any authenticating endpoints to shut down and exit their threads.  By its
+     * presence on the m_authList, we know that the endpoint is authenticating and
+     * the authentication thread has responsibility for dealing with the endpoint
+     * data structure.  We call Stop() to stop that thread from running.  The
+     * endpoint Rx and Tx threads will not be running yet.
+     */
+    for (set<DaemonICEEndpoint*>::iterator i = m_authList.begin(); i != m_authList.end(); ++i) {
+        (*i)->SetSuddenDisconnect(isSuddenDisconnect);
+        (*i)->AuthStop();
+    }
+
+    /*
+     * Ask any running endpoints to shut down and exit their threads.  By its
+     * presence on the m_endpointList, we know that authentication is complete and
+     * the Rx and Tx threads have responsibility for dealing with the endpoint
+     * data structure.  We call Stop() to stop those threads from running.  Since
+     * the connection is on the m_endpointList, we know that the authentication
+     * thread has handed off responsibility.
+     */
+    for (set<DaemonICEEndpoint*>::iterator i = m_endpointList.begin(); i != m_endpointList.end(); ++i) {
+        (*i)->SetSuddenDisconnect(isSuddenDisconnect);
+        (*i)->Stop();
+    }
+    m_endpointListLock.Unlock(MUTEX_CONTEXT);
+}
+
+void DaemonICETransport::JoinAllEndpoints(void) {
+    QCC_DbgPrintf(("%s", __FUNCTION__));
+    /*
+     * A required call to Stop() that needs to happen before this Join will ask
+     * all of the endpoints to stop; and will also cause any authenticating
+     * endpoints to stop.  We still need to wait here until all of the threads
+     * running in those endpoints actually stop running.
+     *
+     * Since Stop() is a request to stop, and this is what has ultimately been
+     * done to both authentication threads and Rx and Tx threads, it is possible
+     * that a thread is actually running after the call to Stop().  If that
+     * thead happens to be an authenticating endpoint, it is possible that an
+     * authentication actually completes after Stop() is called.  This will move
+     * a connection from the m_authList to the m_endpointList, so we need to
+     * make sure we wait for all of the connections on the m_authList to go away
+     * before we look for the connections on the m_endpointlist.
+     */
+    m_endpointListLock.Lock(MUTEX_CONTEXT);
+
+    /*
+     * Any authenticating endpoints have been asked to shut down and exit their
+     * authentication threads in a previously required Stop().  We need to
+     * Join() all of these auth threads here.
+     */
+    set<DaemonICEEndpoint*>::iterator it = m_authList.begin();
+    while (it != m_authList.end()) {
+        DaemonICEEndpoint* ep = *it;
+        m_authList.erase(it);
+        m_endpointListLock.Unlock(MUTEX_CONTEXT);
+        ep->AuthJoin();
+        delete ep;
+        m_endpointListLock.Lock(MUTEX_CONTEXT);
+        it = m_authList.upper_bound(ep);
+    }
+
+    /*
+     * Any running endpoints have been asked it their threads in a previously
+     * required Stop().  We need to Join() all of these threads here.  This
+     * Join() will wait on the endpoint rx and tx threads to exit as opposed to
+     * the joining of the auth thread we did above.
+     */
+    it = m_endpointList.begin();
+    while (it != m_endpointList.end()) {
+        DaemonICEEndpoint* ep = *it;
+        m_endpointList.erase(it);
+        m_endpointListLock.Unlock(MUTEX_CONTEXT);
+        ep->Join();
+        delete ep;
+        m_endpointListLock.Lock(MUTEX_CONTEXT);
+        it = m_endpointList.upper_bound(ep);
+    }
+
+    m_endpointListLock.Unlock(MUTEX_CONTEXT);
+}
+
+void DaemonICETransport::ClearPacketStreamMap(void) {
+    QCC_DbgPrintf(("%s", __FUNCTION__));
+    /* Deregister  packetStreams from packetEngine before packetStreams are destroyed */
+    pktStreamMapLock.Lock();
+    multimap<String, pair<ICEPacketStream, uint32_t> >::iterator pit = pktStreamMap.begin();
+    while (pit != pktStreamMap.end()) {
+        if (pit->second.second > 0) {
+            pit->second.second = 0;
+            m_packetEngine.RemovePacketStream(pit->second.first);
+        }
+        ++pit;
+    }
+    pktStreamMapLock.Unlock();
 }
 
 } // namespace ajn
