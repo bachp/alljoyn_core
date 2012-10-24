@@ -289,6 +289,13 @@ void DiscoveryManager::Disconnect(void)
         delete LastOnDemandMessageSent;
         LastOnDemandMessageSent = NULL;
     }
+
+    /* Send LostAdvertisedName for all discovered services because we'll ensure to send a Search
+     * Message again on a re-connect and get the latest set of advertisements. Also delete all
+     * active sessions */
+    DiscoveryManagerMutex.Lock(MUTEX_CONTEXT);
+    ResetDiscoveryState();
+    DiscoveryManagerMutex.Unlock(MUTEX_CONTEXT);
 }
 
 QStatus DiscoveryManager::Init(const String& guid)
@@ -1910,7 +1917,7 @@ QStatus DiscoveryManager::HandleMatchRevokedResponse(MatchRevokedResponse respon
         //
         if (iceCallback) {
 
-            QCC_DbgPrintf(("DiscoveryManager::PurgeNameMap(): Trying to invoke the iceCallback\n"));
+            QCC_DbgPrintf(("DiscoveryManager::HandleMatchRevokedResponse(): Trying to invoke the iceCallback\n"));
 
             (*iceCallback)(FOUND, response.peerAddr, NULL, 0);
         }
@@ -1956,7 +1963,7 @@ QStatus DiscoveryManager::HandleMatchRevokedResponse(MatchRevokedResponse respon
 
                                 if (*services_it == tempList.front()) {
                                     remoteDaemonServices_it->services.erase(services_it);
-                                    QCC_DbgPrintf(("DiscoveryManager::HandleSearchMatchResponse(): The service %s with GUID %s has been removed from searchMap\n",
+                                    QCC_DbgPrintf(("DiscoveryManager::HandleMatchRevokedResponse(): The service %s with GUID %s has been removed from searchMap\n",
                                                    tempList.front().c_str(), response.peerAddr.c_str()));
                                     // Break out of the remoteDaemonServices_it->services for loop
                                     break;
@@ -1996,6 +2003,44 @@ QStatus DiscoveryManager::HandleMatchRevokedResponse(MatchRevokedResponse respon
     }
 
     return status;
+}
+
+void DiscoveryManager::ResetDiscoveryState(void)
+{
+
+    QCC_DbgPrintf(("%s: Trying to invoke found callback to record unavailability of all previously available services", __FUNCTION__));
+
+    // Remove the discovered entries from the searchMap
+    map<String, SearchResponseInfo>::iterator it;
+    for (it = searchMap.begin(); it != searchMap.end(); ++it) {
+        it->second.response.clear();
+    }
+
+    // Clear the lastSentSearchList so that the Run() thread will re-send the Search to the RDVZ server on a reconnect
+    lastSentSearchList.clear();
+
+    list<String> guid;
+
+    std::map<String, RemoteDaemonStunInfo>::iterator sit;
+    for (sit = StunAndTurnServerInfo.begin(); sit != StunAndTurnServerInfo.end(); ++sit) {
+        guid.push_back(sit->first);
+    }
+
+    StunAndTurnServerInfo.clear();
+
+    while (!guid.empty()) {
+        //
+        // Invoke the found callback to purge the nameMap
+        //
+        if (iceCallback) {
+
+            QCC_DbgPrintf(("%s: Trying to invoke the iceCallback\n", __FUNCTION__));
+
+            (*iceCallback)(FOUND, guid.front(), NULL, 0);
+        }
+
+        guid.pop_front();
+    }
 }
 
 QStatus DiscoveryManager::HandleAddressCandidatesResponse(AddressCandidatesResponse response)

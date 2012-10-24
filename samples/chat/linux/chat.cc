@@ -139,7 +139,18 @@ class MyBusListener : public BusListener, public SessionPortListener, public Ses
         } else {
             printf("JoinSession failed (status=%s)\n", QCC_StatusText(status));
         }
+        uint32_t timeout = 20;
+        status = s_bus->SetLinkTimeout(s_sessionId, timeout);
+        if (ER_OK == status) {
+            printf("Set link timeout to %d\n", timeout);
+        } else {
+            printf("Set link timeout failed\n");
+        }
         s_joinComplete = true;
+    }
+    void LostAdvertisedName(const char* name, TransportMask transport, const char* namePrefix)
+    {
+        printf("Got LostAdvertisedName for %s from transport 0x%x\n", name, transport);
     }
     void NameOwnerChanged(const char* busName, const char* previousOwner, const char* newOwner)
     {
@@ -162,6 +173,14 @@ class MyBusListener : public BusListener, public SessionPortListener, public Ses
     {
         s_sessionId = id;
         printf("SessionJoined with %s (id=%d)\n", joiner, id);
+        s_bus->EnableConcurrentCallbacks();
+        uint32_t timeout = 20;
+        QStatus status = s_bus->SetLinkTimeout(s_sessionId, timeout);
+        if (ER_OK == status) {
+            printf("Set link timeout to %d\n", timeout);
+        } else {
+            printf("Set link timeout failed\n");
+        }
     }
 };
 
