@@ -700,8 +700,10 @@ public class P2pManager implements ConnectionInfoListener, DnsSdServiceResponseL
 
         if (timer != 0)
             busInterface.OnFoundAdvertisedName(name, namePrefix, guid, /*timer,*/ srcDevice.deviceAddress);
-        else
-            busInterface.OnLostAdvertisedName(name, namePrefix, guid, srcDevice.deviceAddress);
+        else {
+            removeServiceRequestFromList(name);
+            busInterface.OnLostAdvertisedName(name, namePrefix, guid, srcDevice.deviceAddress);            
+        }
     }
 
     /**
@@ -771,6 +773,35 @@ public class P2pManager implements ConnectionInfoListener, DnsSdServiceResponseL
         return OK;
     }
 
+    synchronized private void removeServiceRequestFromList(String namePrefix) {
+
+       for (int i = 0; !mServiceRequestList.isEmpty() && i < mServiceRequestList.size(); i++) {
+            final String name = mServiceRequestList.get(i);
+            Log.d(TAG, name);
+
+            if (!name.startsWith(namePrefix))
+                continue;
+
+            WifiP2pDnsSdServiceRequest serviceRequest = WifiP2pDnsSdServiceRequest.newInstance(name, "_alljoyn._tcp");
+            Log.d(TAG, "Remove service name request for" + name);
+            manager.removeServiceRequest(channel, serviceRequest,
+                                         new WifiP2pManager.ActionListener()
+                                         {
+                                             public void onSuccess() {
+                                                 Log.d(TAG, "removeServiceRequest success for" + name);
+                                             }
+
+                                             public void onFailure(int reasonCode) {
+                                                 Log.d(TAG, "removeServiceRequest for " + name + " failed: " + reasonCode);
+                                             }
+                                         });
+
+            mServiceRequestList.remove(name);
+            break;
+        }
+
+    }
+
     /**
      * Cancel interest in a well-known name prefix for the purpose of discovery.
      *
@@ -797,30 +828,7 @@ public class P2pManager implements ConnectionInfoListener, DnsSdServiceResponseL
             namePrefix = namePrefix.substring(0, index);
 
         // Remove all pending service requests associated with this prefix
-        for (int i = 0; !mServiceRequestList.isEmpty() && i < mServiceRequestList.size(); i++) {
-            String name = mServiceRequestList.get(i);
-            Log.d(TAG, name);
-
-            if (!name.startsWith(namePrefix))
-                continue;
-
-            WifiP2pDnsSdServiceRequest serviceRequest = WifiP2pDnsSdServiceRequest.newInstance(name, "_alljoyn._tcp");
-            Log.d(TAG, "Remove service name request for" + name);
-            manager.removeServiceRequest(channel, serviceRequest,
-                                         new WifiP2pManager.ActionListener()
-                                         {
-                                             public void onSuccess() {
-                                                 Log.d(TAG, "removeServiceRequest success");
-                                             }
-
-                                             public void onFailure(int reasonCode) {
-                                                 Log.d(TAG, "removeServiceRequest failed: " + reasonCode);
-                                             }
-                                         });
-
-            mServiceRequestList.remove(name);
-            break;
-        }
+        removeServiceRequestFromList(namePrefix);
 
         if (!mRequestedNames.isEmpty() && mRequestedNames.contains(namePrefix))
             mRequestedNames.remove(namePrefix);
