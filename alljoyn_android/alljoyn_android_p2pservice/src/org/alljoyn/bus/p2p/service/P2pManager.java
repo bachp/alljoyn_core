@@ -338,10 +338,12 @@ public class P2pManager implements ConnectionInfoListener, DnsSdServiceResponseL
         mHandler.removeCallbacks(mPeriodicDiscovery);
         if (start) {
             synchronized (mFindState) {
-                if (mFindState == FindState.IDLE || mFindState == FindState.FIND_PEERS)
-                    mFindState = FindState.INITIATING;
+                // Remove callback to find peers, discovery handles both peer and service find
                 if (mFindState == FindState.FIND_PEERS)
                     mHandler.removeCallbacks(mPeriodicFind);
+
+                if (mFindState == FindState.IDLE || mFindState == FindState.FIND_PEERS)
+                    mFindState = FindState.INITIATING;
             }
             mPeriodicDiscovery.run();
         }
