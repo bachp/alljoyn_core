@@ -144,7 +144,11 @@ else:
     #install gtest utilities
     env.Install('$TESTDIR/bin', Dir('test_report').srcnode())
 
-if env['OS'] == 'win8' and have_developer_license() and (env['CPU'] == 'x86' or env['CPU'] == 'x86_64'):
+if (env['OS'] == 'win8' and
+    env['WINRT_UNITTEST'] == 'on' and
+    have_developer_license() and
+    (env['CPU'] == 'x86' or env['CPU'] == 'x86_64')):
+
     appx_env = env.Clone();
 
     # choose the correct build flavor
