@@ -264,6 +264,16 @@ inline void ThreadClass::DefaultRun() {
     BusObject bo(*bus, "/org/cool");
     bus->RegisterBusObject(bo);
     bus->UnregisterBusObject(bo);
+    if (!s_noDestruct) {
+        /* Cancel Advertising the well-known name */
+        status = bus->CancelAdvertiseName(name.c_str(), s_transports);
+        if (ER_OK != status) {
+            QCC_LogError(status, ("Could not cancel advertising (%s)", name.c_str()));
+        }
+
+        delete bus;
+        bus = NULL;
+    }
 }
 
 inline void ThreadClass::ClientRun() {
@@ -335,6 +345,15 @@ inline void ThreadClass::ClientRun() {
 
     if (clientBusListener) {
         bus->UnregisterBusListener(*clientBusListener);
+    }
+
+    if (!s_noDestruct) {
+        /* Delete BusAttachment before deleting clientBusListener */
+        delete bus;
+        bus = NULL;
+    }
+
+    if (clientBusListener) {
         delete clientBusListener;
         clientBusListener = NULL;
     }
@@ -450,6 +469,15 @@ inline void ThreadClass::ServiceRun() {
 
     if (serviceBusListener) {
         bus->UnregisterBusListener(*serviceBusListener);
+    }
+
+    if (!s_noDestruct) {
+        /* Delete BusAttachment before deleting serviceBusListener */
+        delete bus;
+        bus = NULL;
+    }
+
+    if (serviceBusListener) {
         delete serviceBusListener;
         serviceBusListener = NULL;
     }
@@ -475,19 +503,6 @@ inline qcc::ThreadReturn STDCALL ThreadClass::Run(void* arg) {
         ClientRun();
     } else if (s_operationMode == Service) {
         ServiceRun();
-    }
-
-    if (!s_noDestruct) {
-        if (s_operationMode == Default) {
-            /* Cancel Advertising the well-known name */
-            status = bus->CancelAdvertiseName(name.c_str(), s_transports);
-            if (ER_OK != status) {
-                QCC_LogError(status, ("Could not cancel advertising (%s)", name.c_str()));
-            }
-        }
-
-        delete bus;
-        bus = NULL;
     }
 
     return this;
