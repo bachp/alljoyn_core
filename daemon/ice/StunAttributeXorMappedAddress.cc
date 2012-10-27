@@ -139,7 +139,7 @@ QStatus StunAttributeXorMappedAddress::RenderBinary(uint8_t*& buf, size_t& bufSi
     xorSG.TrimFromBegining(sizeof(uint32_t));
     xorSG.CopyToBuffer(xorBytes, sizeof(xorBytes));
 
-    for (index = 0; index < addr.Size(); ++index) {
+    for (index = 0; index < addr.Size(); index++) {
         buf[index] = xorAddr[index] ^ xorBytes[index];
         QCC_DbgPrintf(("xorAddr[%u] = %02x  ^  xorBytes[%u] = %02x  =>  buf[%u] = %02x",
                        index, xorAddr[index],

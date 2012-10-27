@@ -588,18 +588,9 @@ bool Reader::decodeNumber(Token& token)
 bool Reader::decodeDouble(Token& token)
 {
     double value = 0;
-    const int bufferSize = 32;
     int count;
-    int length = int(token.end_ - token.start_);
-    if (length <= bufferSize) {
-        Char buffer[bufferSize];
-        memcpy(buffer, token.start_, length);
-        buffer[length] = 0;
-        count = sscanf(buffer, "%lf", &value);
-    } else {
-        std::string buffer(token.start_, token.end_);
-        count = sscanf(buffer.c_str(), "%lf", &value);
-    }
+    std::string buffer(token.start_, token.end_);
+    count = sscanf(buffer.c_str(), "%lf", &value);
 
     if (count != 1)
         return addError("'" + std::string(token.start_, token.end_) + "' is not a number.", token);

@@ -140,17 +140,19 @@ bool NetworkInterface::IsMultiHomed(void)
         return false;
     } else {
         vector<qcc::IfConfigEntry>::iterator iter;
-        qcc::IfConfigEntry* prev = NULL;
+        qcc::IfConfigEntry prev;
+        bool start = true;
 
         for (iter = liveInterfaces.begin(); iter != liveInterfaces.end(); ++iter) {
-            if (prev == NULL) {
-                *prev = *iter;
+            if (start) {
+                prev = *iter;
+                start = false;
                 continue;
             }
-            if (prev->m_name != iter->m_name) {
+            if (prev.m_name != iter->m_name) {
                 return true;
             } else {
-                *prev = *iter;
+                prev = *iter;
             }
         }
     }

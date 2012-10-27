@@ -176,25 +176,22 @@ QStatus RendezvousServerConnection::SetupConnection(ConnectionFlag connFlag)
 {
     QStatus status = ER_OK;
 
-    HttpConnection** httpConn = NULL;
-    bool* isConnected = NULL;
-    bool* connectionChanged = NULL;
-    String connType;
+    if ((connFlag != PERSISTENT_CONNECTION) && (connFlag != ON_DEMAND_CONNECTION)) {
+        status = ER_UNABLE_TO_CONNECT_TO_RENDEZVOUS_SERVER;
+        QCC_LogError(status, ("%s: Invalid connection flag 0x%x specified", connFlag));
+        return status;
+    }
 
-    if (connFlag == PERSISTENT_CONNECTION) {
+    HttpConnection** httpConn = &persistentConn;
+    bool* isConnected = &persistentIsConnected;
+    bool* connectionChanged = &persistentConnectionChanged;
+    String connType = String("Persistent Connection");
 
-        httpConn = &persistentConn;
-        isConnected = &persistentIsConnected;
-        connectionChanged = &persistentConnectionChanged;
-        connType = String("Persistent Connection");
-
-    } else if (connFlag == ON_DEMAND_CONNECTION) {
-
+    if (connFlag == ON_DEMAND_CONNECTION) {
         httpConn = &onDemandConn;
         isConnected = &onDemandIsConnected;
         connectionChanged = &onDemandConnectionChanged;
         connType = String("On Demand Connection");
-
     }
 
     SocketFd sockFd = -1;
@@ -337,13 +334,14 @@ QStatus RendezvousServerConnection::SetupHTTPConn(SocketFd sockFd, HttpConnectio
     QCC_DbgPrintf(("RendezvousServerConnection::SetupHTTPConn(): sockFd = %d", sockFd));
 
     *httpConn = new HttpConnection();
-    (*httpConn)->SetHost(RendezvousServer);
 
     if (!(*httpConn)) {
         status = ER_FAIL;
         QCC_LogError(status, ("RendezvousServerConnection::SetupHTTPConn(): Unable to setup a HTTP connection with the Server"));
         return status;
     }
+
+    (*httpConn)->SetHost(RendezvousServer);
 
     String serverIPAddress;
 
@@ -369,26 +367,27 @@ QStatus RendezvousServerConnection::SetupHTTPConn(SocketFd sockFd, HttpConnectio
 
         status = (*httpConn)->Connect(sockFd);
 
-        if (status != ER_OK) {
-            (*httpConn)->Clear();
-            delete (*httpConn);
-            *httpConn = NULL;
-            /* If we failed the connection that we attempted with the cached address in RendezvousServerIPAddress,
-             * clear it */
-            if (!RendezvousServerIPAddress.empty()) {
-                RendezvousServerIPAddress.clear();
-            }
-            QCC_LogError(status, ("RendezvousServerConnection::SetupHTTPConn(): Unable to connect to the Rendezvous Server over HTTP"));
-            return status;
-        } else {
+        if (status == ER_OK) {
             /* Store off the resolved RDVZ server IP address in RendezvousServerIPAddress */
             if (!serverIPAddress.empty()) {
                 RendezvousServerIPAddress = serverIPAddress;
                 QCC_DbgPrintf(("%s: Set RendezvousServerIPAddress to %s", __FUNCTION__, RendezvousServerIPAddress.c_str()));
             }
-        }
 
-        QCC_DbgPrintf(("RendezvousServerConnection::SetupHTTPConn(): Connected to Rendezvous Server. *httpConn(0x%x)\n", *httpConn));
+            QCC_DbgPrintf(("RendezvousServerConnection::SetupHTTPConn(): Connected to Rendezvous Server. *httpConn(0x%x)\n", *httpConn));
+        }
+    }
+
+    if (status != ER_OK) {
+        (*httpConn)->Clear();
+        delete (*httpConn);
+        *httpConn = NULL;
+        /* If we failed the connection that we attempted with the cached address in RendezvousServerIPAddress,
+         * clear it */
+        if (!RendezvousServerIPAddress.empty()) {
+            RendezvousServerIPAddress.clear();
+        }
+        QCC_LogError(status, ("RendezvousServerConnection::SetupHTTPConn(): Unable to connect to the Rendezvous Server"));
     }
 
     return status;
