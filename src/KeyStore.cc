@@ -347,8 +347,10 @@ QStatus KeyStore::Pull(Source& source, const qcc::String& password)
     }
 
     /* This is the only chance to generate the key store key */
-    delete keyStoreKey;
-    keyStoreKey = new KeyBlob(password + GetGuid(), Crypto_AES::AES128_SIZE, KeyBlob::AES);
+    if (!keyStoreKey) {
+        keyStoreKey = new KeyBlob;
+    }
+    keyStoreKey->Derive(password + GetGuid(), Crypto_AES::AES128_SIZE, KeyBlob::AES);
 
     /* Allow for an uninitialized (empty) key store */
     if (status == ER_NONE) {
