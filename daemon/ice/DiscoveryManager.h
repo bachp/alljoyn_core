@@ -683,7 +683,6 @@ class DiscoveryManager : public Thread, public AlarmListener {
      * The modulus indicating the minimum time between interface updates.
      * Units are milli seconds.
      */
-    /*PPN - Review duration*/
     static const uint32_t INTERFACE_UPDATE_MIN_INTERVAL = 180000;
 
     /**

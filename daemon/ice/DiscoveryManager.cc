@@ -302,6 +302,8 @@ QStatus DiscoveryManager::Init(const String& guid)
 {
     QCC_DbgPrintf(("DiscoveryManager::Init()\n"));
 
+    QStatus status = ER_OK;
+
     //
     // Can only call Init() if the object is not running or in the process
     // of initializing
@@ -314,13 +316,24 @@ QStatus DiscoveryManager::Init(const String& guid)
 
     PersistentIdentifier = guid;
 
-    assert(IsRunning() == false);
+    //
+    // Initialize and add the InterfaceUpdateAlarm to DiscoveryManagerTimer so that it fires periodically
+    //
+    uint32_t interfaceUpdateMinimumInterval = INTERFACE_UPDATE_MIN_INTERVAL;
+    qcc::AlarmListener* discoveryManagerListener = this;
+    void* context = NULL;
+    InterfaceUpdateAlarm = new Alarm(interfaceUpdateMinimumInterval, discoveryManagerListener, context, interfaceUpdateMinimumInterval);
+    status = DiscoveryManagerTimer.AddAlarm(*InterfaceUpdateAlarm);
 
-    Start(this);
+    if (status == ER_OK) {
+        assert(IsRunning() == false);
+        Start(this);
+        DiscoveryManagerState = IMPL_RUNNING;
+    } else {
+        QCC_LogError(status, ("%s: Unable to add the InterfaceUpdateAlarm to DiscoveryManagerTimer"));
+    }
 
-    DiscoveryManagerState = IMPL_RUNNING;
-
-    return ER_OK;
+    return status;
 }
 
 QStatus DiscoveryManager::OpenInterface(const String& name)
@@ -956,8 +969,6 @@ void* DiscoveryManager::Run(void* arg)
     vector<Event*> checkEvents, signaledEvents;
     uint32_t waitTimeout;
 
-    bool skipForceInterfaceUpdateFlagReset = false;
-
     //
     // Create a set of events to wait on.
     // We always wait on the stop event, the timer event and the event used
@@ -995,6 +1006,10 @@ void* DiscoveryManager::Run(void* arg)
                 if (ForceInterfaceUpdateFlag || (!Connection)) {
 
                     QCC_DbgPrintf(("DiscoveryManager::Run(): ForceInterfaceUpdateFlag(%d)\n", ForceInterfaceUpdateFlag));
+
+                    /* Reset the ForceInterfaceUpdateFlag */
+                    ForceInterfaceUpdateFlag = false;
+
 
                     /**
                      * Unlock the mutex before the call to connect and lock it back later. This is required to ensure that we do not
@@ -1086,8 +1101,7 @@ void* DiscoveryManager::Run(void* arg)
                                 status = SendMessage(GETMessage);
 
                                 if (status != ER_OK) {
-                                    /* Disconnect from the Server and set skipForceInterfaceUpdateFlagReset so that we dont end up resetting
-                                     * the ForceInterfaceUpdateFlag */
+                                    /* Disconnect from the Server */
                                     Disconnect();
 #ifdef ENABLE_PROXIMITY_FRAMEWORK
                                     /* Release and acquire back the DiscoveryManagerMutex before call to StopScan
@@ -1100,7 +1114,6 @@ void* DiscoveryManager::Run(void* arg)
                                     }
                                     DiscoveryManagerMutex.Lock(MUTEX_CONTEXT);
 #endif
-                                    skipForceInterfaceUpdateFlagReset = true;
                                 } else {
                                     SentFirstGETMessage = true;
                                 }
@@ -1113,12 +1126,6 @@ void* DiscoveryManager::Run(void* arg)
                             delete Connection;
                             Connection = NULL;
                         }
-                    }
-
-                    if (!skipForceInterfaceUpdateFlagReset) {
-                        ForceInterfaceUpdateFlag = false;
-                    } else {
-                        skipForceInterfaceUpdateFlagReset = false;
                     }
                 }
 
@@ -1133,25 +1140,6 @@ void* DiscoveryManager::Run(void* arg)
                 if (!(Connection)) {
 
                     ClearOutboundMessageQueue();
-
-                    if (InterfaceUpdateAlarm) {
-                        DiscoveryManagerTimer.RemoveAlarm(*InterfaceUpdateAlarm);
-                        delete InterfaceUpdateAlarm;
-                        InterfaceUpdateAlarm = NULL;
-                    }
-
-                    uint32_t interfaceUpdateMinimumInterval = INTERFACE_UPDATE_MIN_INTERVAL;
-                    qcc::AlarmListener* discoveryManagerListener = this;
-                    void* context = NULL;
-                    uint32_t zero = 0;
-                    InterfaceUpdateAlarm = new Alarm(interfaceUpdateMinimumInterval, discoveryManagerListener, context, zero);
-                    status = DiscoveryManagerTimer.AddAlarm(*InterfaceUpdateAlarm);
-
-                    if (status != ER_OK) {
-                        /* We do not take any action if we are not able to add the alarm to the timer as if some issue comes up with the
-                         * connection we handle it resetting up the connection */
-                        QCC_LogError(status, ("DiscoveryManager::Run(): Unable to add InterfaceUpdateAlarm to DiscoveryManagerTimer"));
-                    }
 
 #ifdef ENABLE_PROXIMITY_FRAMEWORK
                     /* Release and acquire back the DiscoveryManagerMutex before call to StopScan
@@ -1177,8 +1165,9 @@ void* DiscoveryManager::Run(void* arg)
 
                                 if (status != ER_OK) {
 
-                                    /* Disconnect from the Server and set ForceInterfaceUpdateFlag */
+                                    /* Disconnect from the Server */
                                     Disconnect();
+
 #ifdef ENABLE_PROXIMITY_FRAMEWORK
                                     /* Release and acquire back the DiscoveryManagerMutex before call to StopScan
                                      * to ensure that there is no deadlock between the ProximityScanEngine
@@ -1191,7 +1180,9 @@ void* DiscoveryManager::Run(void* arg)
                                     DiscoveryManagerMutex.Lock(MUTEX_CONTEXT);
 #endif
 
-                                    ForceInterfaceUpdateFlag = true;
+                                    /* continue so that we go to the top of the while
+                                       loop and attempt a re-connect immediately */
+                                    continue;
 
                                 }
                             }
@@ -1204,7 +1195,7 @@ void* DiscoveryManager::Run(void* arg)
                                 status = SendMessage(GETMessage);
 
                                 if (status != ER_OK) {
-                                    /* Disconnect from the Server and set ForceInterfaceUpdateFlag */
+                                    /* Disconnect from the Server */
                                     Disconnect();
 #ifdef ENABLE_PROXIMITY_FRAMEWORK
                                     /* Release and acquire back the DiscoveryManagerMutex before call to StopScan
@@ -1217,7 +1208,6 @@ void* DiscoveryManager::Run(void* arg)
                                     }
                                     DiscoveryManagerMutex.Lock(MUTEX_CONTEXT);
 #endif
-                                    ForceInterfaceUpdateFlag = true;
                                 } else {
                                     SentFirstGETMessage = true;
                                 }
@@ -1229,7 +1219,7 @@ void* DiscoveryManager::Run(void* arg)
 
                                 if (status != ER_OK) {
 
-                                    /* Disconnect from the Server and set ForceInterfaceUpdateFlag */
+                                    /* Disconnect from the Server */
                                     Disconnect();
 
 #ifdef ENABLE_PROXIMITY_FRAMEWORK
@@ -1244,7 +1234,9 @@ void* DiscoveryManager::Run(void* arg)
                                     DiscoveryManagerMutex.Lock(MUTEX_CONTEXT);
 #endif
 
-                                    ForceInterfaceUpdateFlag = true;
+                                    /* continue so that we go to the top of the while
+                                       loop and attempt a re-connect immediately */
+                                    continue;
 
                                 } else {
                                     /* Clear the RegisterDaemonWithServer if we could send the Daemon Registration Message successfully to
@@ -1271,13 +1263,12 @@ void* DiscoveryManager::Run(void* arg)
                                             UpdateInformationOnServerFlag = false;
                                         }
 
-                                        /* Set the wake event */
                                         WakeEvent.SetEvent();
                                     } else {
 
                                         UpdateInformationOnServerFlag = false;
 
-                                        /* Disconnect from the Server and set ForceInterfaceUpdateFlag */
+                                        /* Disconnect from the Server */
                                         Disconnect();
 
 #ifdef ENABLE_PROXIMITY_FRAMEWORK
@@ -1292,7 +1283,9 @@ void* DiscoveryManager::Run(void* arg)
                                         DiscoveryManagerMutex.Lock(MUTEX_CONTEXT);
 #endif
 
-                                        ForceInterfaceUpdateFlag = true;
+                                        /* continue so that we go to the top of the while
+                                           loop and attempt a re-connect immediately */
+                                        continue;
                                     }
 
                                 } else {
@@ -1313,12 +1306,12 @@ void* DiscoveryManager::Run(void* arg)
                                             status = SendMessage(*message);
 
                                             //
-                                            // If we are unable to send the message, disconnect from the Server and then set ForceInterfaceUpdateFlag.
+                                            // If we are unable to send the message, disconnect from the Server.
                                             //
                                             if (status != ER_OK) {
                                                 QCC_DbgPrintf(("DiscoveryManager::Run(): SendMessage was unsuccessful"));
 
-                                                /* Disconnect from the Server and set ForceInterfaceUpdateFlag */
+                                                /* Disconnect from the Server */
                                                 Disconnect();
 
 #ifdef ENABLE_PROXIMITY_FRAMEWORK
@@ -1332,7 +1325,10 @@ void* DiscoveryManager::Run(void* arg)
                                                 }
                                                 DiscoveryManagerMutex.Lock(MUTEX_CONTEXT);
 #endif
-                                                ForceInterfaceUpdateFlag = true;
+
+                                                /* continue so that we go to the top of the while
+                                                   loop and attempt a re-connect immediately */
+                                                continue;
 
                                             } else {
                                                 //
@@ -1484,8 +1480,6 @@ void* DiscoveryManager::Run(void* arg)
             }
 #endif
 
-            ForceInterfaceUpdateFlag = true;
-
             signaledEvents.clear();
         }
 
@@ -1545,10 +1539,6 @@ void* DiscoveryManager::Run(void* arg)
                 }
 #endif
 
-                // We just set ForceInterfaceUpdateFlag to true so that the loop handles the
-                // setting up of a new connection
-                ForceInterfaceUpdateFlag = true;
-
                 ConnectionResetEvent.ResetEvent();
 
             } else if (*i == &DisconnectEvent) {
@@ -1591,8 +1581,7 @@ void* DiscoveryManager::Run(void* arg)
 
                     } else {
 
-                        /* Something has gone wrong. So we disconnect and set the ForceInterfaceUpdateFlag */
-
+                        /* Something has gone wrong. So we disconnect. */
                         Disconnect();
 
 #ifdef ENABLE_PROXIMITY_FRAMEWORK
@@ -1601,8 +1590,6 @@ void* DiscoveryManager::Run(void* arg)
                             ProximityScanner->StopScan();
                         }
 #endif
-
-                        ForceInterfaceUpdateFlag = true;
 
                     }
 
@@ -1621,7 +1608,7 @@ void* DiscoveryManager::Run(void* arg)
 
                     } else {
 
-                        /* Something has gone wrong. So we disconnect and set the ForceInterfaceUpdateFlag */
+                        /* Something has gone wrong. So we disconnect. */
                         Disconnect();
 
 #ifdef ENABLE_PROXIMITY_FRAMEWORK
@@ -1630,8 +1617,6 @@ void* DiscoveryManager::Run(void* arg)
                             ProximityScanner->StopScan();
                         }
 #endif
-
-                        ForceInterfaceUpdateFlag = true;
 
                     }
                 }
@@ -2241,8 +2226,6 @@ void DiscoveryManager::HandlePersistentConnectionResponse(HttpConnection::HTTPRe
                     ProximityScanner->StopScan();
                 }
 #endif
-
-                ForceInterfaceUpdateFlag = true;
             }
 
         }
@@ -2262,8 +2245,6 @@ void DiscoveryManager::HandlePersistentConnectionResponse(HttpConnection::HTTPRe
                 ProximityScanner->StopScan();
             }
 #endif
-
-            ForceInterfaceUpdateFlag = true;
         }
 
     } else if (response.statusCode == HttpConnection::HTTP_UNAUTHORIZED_REQUEST) {
@@ -2284,7 +2265,6 @@ void DiscoveryManager::HandlePersistentConnectionResponse(HttpConnection::HTTPRe
 
             /* We need to re-authenticate with the Server */
             ClientAuthenticationRequiredFlag = true;
-            ForceInterfaceUpdateFlag = true;
         }
 
     } else {
@@ -2301,25 +2281,6 @@ void DiscoveryManager::HandlePersistentConnectionResponse(HttpConnection::HTTPRe
             ProximityScanner->StopScan();
         }
 #endif
-
-        if (InterfaceUpdateAlarm) {
-            DiscoveryManagerTimer.RemoveAlarm(*InterfaceUpdateAlarm);
-            delete InterfaceUpdateAlarm;
-            InterfaceUpdateAlarm = NULL;
-        }
-
-        uint32_t interfaceUpdateMinimumInterval = INTERFACE_UPDATE_MIN_INTERVAL;
-        qcc::AlarmListener* discoveryManagerListener = this;
-        void* context = NULL;
-        uint32_t zero = 0;
-        InterfaceUpdateAlarm = new Alarm(interfaceUpdateMinimumInterval, discoveryManagerListener, context, zero);
-        status = DiscoveryManagerTimer.AddAlarm(*InterfaceUpdateAlarm);
-
-        if (status != ER_OK) {
-            /* We do not take any action if we are not able to add the alarm to the timer as if some issue comes up with the
-             * connection we handle it resetting up the connection */
-            QCC_LogError(status, ("DiscoveryManager::HandlePersistentConnectionResponse(): Unable to add InterfaceUpdateAlarm to DiscoveryManagerTimer"));
-        }
     }
 }
 
@@ -2597,8 +2558,6 @@ void DiscoveryManager::HandleOnDemandConnectionResponse(HttpConnection::HTTPResp
                         ProximityScanner->StopScan();
                     }
 #endif
-
-                    ForceInterfaceUpdateFlag = true;
                 }
             } else if (LastOnDemandMessageSent && (LastOnDemandMessageSent->messageType == TOKEN_REFRESH)) {
                 status = HandleTokenRefreshResponse(response.payload);
@@ -2612,8 +2571,6 @@ void DiscoveryManager::HandleOnDemandConnectionResponse(HttpConnection::HTTPResp
                         ProximityScanner->StopScan();
                     }
 #endif
-
-                    ForceInterfaceUpdateFlag = true;
                 }
             } else {
 
@@ -2628,8 +2585,6 @@ void DiscoveryManager::HandleOnDemandConnectionResponse(HttpConnection::HTTPResp
                         ProximityScanner->StopScan();
                     }
 #endif
-
-                    ForceInterfaceUpdateFlag = true;
                 }
 
             }
@@ -2653,8 +2608,6 @@ void DiscoveryManager::HandleOnDemandConnectionResponse(HttpConnection::HTTPResp
                     ProximityScanner->StopScan();
                 }
 #endif
-
-                ForceInterfaceUpdateFlag = true;
             }
         }
 
@@ -2676,19 +2629,6 @@ void DiscoveryManager::HandleOnDemandConnectionResponse(HttpConnection::HTTPResp
 
             /* We need to re-authenticate with the Server */
             ClientAuthenticationRequiredFlag = true;
-
-            if (InterfaceUpdateAlarm) {
-                DiscoveryManagerTimer.RemoveAlarm(*InterfaceUpdateAlarm);
-                delete InterfaceUpdateAlarm;
-                InterfaceUpdateAlarm = NULL;
-            }
-
-            uint32_t interfaceUpdateMinimumInterval = INTERFACE_UPDATE_MIN_INTERVAL;
-            qcc::AlarmListener* discoveryManagerListener = this;
-            void* context = NULL;
-            uint32_t zero = 0;
-            InterfaceUpdateAlarm = new Alarm(interfaceUpdateMinimumInterval, discoveryManagerListener, context, zero);
-            status = DiscoveryManagerTimer.AddAlarm(*InterfaceUpdateAlarm);
         }
 
     } else {
@@ -2705,25 +2645,6 @@ void DiscoveryManager::HandleOnDemandConnectionResponse(HttpConnection::HTTPResp
             ProximityScanner->StopScan();
         }
 #endif
-
-        if (InterfaceUpdateAlarm) {
-            DiscoveryManagerTimer.RemoveAlarm(*InterfaceUpdateAlarm);
-            delete InterfaceUpdateAlarm;
-            InterfaceUpdateAlarm = NULL;
-        }
-
-        uint32_t interfaceUpdateMinimumInterval = INTERFACE_UPDATE_MIN_INTERVAL;
-        qcc::AlarmListener* discoveryManagerListener = this;
-        void* context = NULL;
-        uint32_t zero = 0;
-        InterfaceUpdateAlarm = new Alarm(interfaceUpdateMinimumInterval, discoveryManagerListener, context, zero);
-        status = DiscoveryManagerTimer.AddAlarm(*InterfaceUpdateAlarm);
-
-        if (status != ER_OK) {
-            /* We do not take any action if we are not able to add the alarm to the timer as if some issue comes up with the
-             * connection we handle it resetting up the connection */
-            QCC_LogError(status, ("DiscoveryManager::HandleOnDemandConnectionResponse(): Unable to add InterfaceUpdateAlarm to DiscoveryManagerTimer"));
-        }
     }
 
     /* Reset SentMessageOverOnDemandConnection to indicate that we received a response */
