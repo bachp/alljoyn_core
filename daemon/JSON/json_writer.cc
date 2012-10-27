@@ -79,7 +79,7 @@ std::string valueToString(Int value)
 std::string valueToString(UInt value)
 {
     char buffer[32];
-    char*current = buffer + sizeof(buffer);
+    char* current = buffer + sizeof(buffer);
     uintToString(value, current);
     assert(current >= buffer);
     return current;

@@ -335,7 +335,7 @@ void SCRAM_SHA_1::GenerateSaltedPassword(void)
 
     //QCC_DbgPrintf(("SCRAM_SHA_1::GenerateSaltedPassword(): salt = %s", salt.c_str()));
 
-    uint8_t saltByteArray[20], j;
+    uint8_t saltByteArray[salt.size() + 4], j;
 
     /* Extract the contents of the decoded salt string into a byte array */
     for (j = 0; j < salt.size(); j++) {
