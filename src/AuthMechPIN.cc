@@ -78,7 +78,7 @@ static const char* msLabel = "master secret";
 void AuthMechPIN::ComputeMS(const qcc::String& serverNonce, const qcc::String& pincode)
 {
     uint8_t keymatter[24];
-    KeyBlob secret(pincode.data(), pincode.size(), KeyBlob::GENERIC);
+    KeyBlob secret((uint8_t*)pincode.data(), pincode.size(), KeyBlob::GENERIC);
 
     QCC_DbgHLPrintf(("ClientNonce:  %s", BytesToHexString((uint8_t*)clientNonce.data(), clientNonce.size()).c_str()));
     QCC_DbgHLPrintf(("ServerNonce:  %s", BytesToHexString((uint8_t*)serverNonce.data(), serverNonce.size()).c_str()));

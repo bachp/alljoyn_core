@@ -246,6 +246,13 @@ class MyAuthListener : public AuthListener {
             creds.SetExpiration(keyExpiration);
         }
 
+        if (strcmp(authMechanism, "ALLJOYN_PIN_KEYX") == 0) {
+            if (credMask & AuthListener::CRED_PASSWORD) {
+                creds.SetPassword("ABCDEFGH");
+            }
+            return authCount == 1;
+        }
+
         if (strcmp(authMechanism, "ALLJOYN_SRP_KEYX") == 0) {
             if (credMask & AuthListener::CRED_PASSWORD) {
                 if (authCount == 3) {
@@ -397,6 +404,9 @@ int main(int argc, char** argv)
 
                 if (strcmp(argv[i], "RSA") == 0) {
                     authMechs += "ALLJOYN_RSA_KEYX";
+                    ok = true;
+                } else if (strcmp(argv[i], "PIN") == 0) {
+                    authMechs += "ALLJOYN_PIN_KEYX";
                     ok = true;
                 } else if (strcmp(argv[i], "SRP") == 0) {
                     authMechs += "ALLJOYN_SRP_KEYX";
