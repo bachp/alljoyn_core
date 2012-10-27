@@ -119,18 +119,20 @@ class FileTransferObject : public BusObject {
 
         InterfaceDescription* fileTransferInterface = NULL;
         QStatus status = s_busAtt->CreateInterface(INTERFACE_NAME, fileTransferInterface);
-        if (status == ER_OK) {
+
+        if (fileTransferInterface && status == ER_OK) {
             printf("Interface Created.\n");
             fileTransferInterface->AddSignal("FileTransfer", "suay", "name,curr,data", 0, 0);
             fileTransferInterface->Activate();
+
+            status = AddInterface(*fileTransferInterface);
         } else {
             printf("Failed to create interface '%s'\n", INTERFACE_NAME);
         }
 
-        status = AddInterface(*fileTransferInterface);
-
         const InterfaceDescription::Member* fileTransferMember;
-        if (status == ER_OK) {
+
+        if (fileTransferInterface && status == ER_OK) {
             printf("Interface successfully added to the bus.\n");
             /* Register the signal handler 'FileTransfer' with the bus*/
             fileTransferMember = fileTransferInterface->GetMember("FileTransfer");
@@ -221,7 +223,6 @@ class FileTransferObject : public BusObject {
     // Don't allow default copy constructors.
     FileTransferObject& operator=(const FileTransferObject& obj)
     {
-        assert(0);
         return *this;
     }
 
@@ -369,7 +370,6 @@ int main(int argc, char** argv, char** envArg)
     if (ER_OK == status) {
         status = RegisterBusObject(&busObject);
     }
-
 
     if (ER_OK == status) {
         status = StartMessageBus();

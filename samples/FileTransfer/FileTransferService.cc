@@ -77,17 +77,15 @@ class FileTransferObject : public BusObject {
             printf("Failed to create interface '%s'\n", INTERFACE_NAME);
         }
 
-        const InterfaceDescription* FT_INTERFACE = s_msgBus->GetInterface(INTERFACE_NAME);
-        if (status == ER_OK) {
-            AddInterface(*FT_INTERFACE);
+        if (fileTransferInterface && status == ER_OK) {
+            AddInterface(*fileTransferInterface);
+            fileTransferMember = fileTransferInterface->GetMember("FileTransfer");
+            assert(fileTransferMember);
+
             printf("Interface successfully added to the bus.\n");
         } else {
             printf("Failed to Add interface: %s\n", INTERFACE_NAME);
         }
-
-        fileTransferMember = FT_INTERFACE->GetMember("FileTransfer");
-        assert(fileTransferMember);
-
     }
 
     // Write the data supplied by the service to an output file with filename provided
