@@ -478,10 +478,7 @@ QStatus AllJoynPeerObj::KeyGen(PeerState& peerState, String seed, qcc::String& v
             /*
              * Session key is generated using AES-CCM key gen procedure
              */
-            status = Crypto_CCM_KeyGen(masterSecret, "session key", seed, keymatter, Crypto_AES::AES128_SIZE);
-            if (status == ER_OK) {
-                status = Crypto_CCM_KeyGen(masterSecret, "verifier", seed, keymatter + Crypto_AES::AES128_SIZE,  VERIFIER_LEN);
-            }
+            status = Crypto_PseudorandomFunctionCCM(masterSecret, "session key", seed, keymatter, keylen);
         } else {
             /*
              * Not expected
