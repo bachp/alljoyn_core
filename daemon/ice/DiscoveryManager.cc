@@ -1179,11 +1179,6 @@ void* DiscoveryManager::Run(void* arg)
                                     }
                                     DiscoveryManagerMutex.Lock(MUTEX_CONTEXT);
 #endif
-
-                                    /* continue so that we go to the top of the while
-                                       loop and attempt a re-connect immediately */
-                                    continue;
-
                                 }
                             }
 
