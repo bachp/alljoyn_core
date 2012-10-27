@@ -75,18 +75,20 @@ static const char* msLabel = "master secret";
 /*
  * Compute the key exchange key from the server and client nonces and the pin code.
  */
-void AuthMechPIN::ComputeMS(const qcc::String& serverNonce, const qcc::String& pincode)
+void AuthMechPIN::ComputeMS(const qcc::String& otherNonce, const qcc::String& pincode)
 {
     uint8_t keymatter[24];
     KeyBlob secret((uint8_t*)pincode.data(), pincode.size(), KeyBlob::GENERIC);
 
-    QCC_DbgHLPrintf(("ClientNonce:  %s", BytesToHexString((uint8_t*)clientNonce.data(), clientNonce.size()).c_str()));
-    QCC_DbgHLPrintf(("ServerNonce:  %s", BytesToHexString((uint8_t*)serverNonce.data(), serverNonce.size()).c_str()));
-
+    assert(nonce.size() == otherNonce.size());
+    for (size_t i = 0; i < otherNonce.size(); ++i) {
+        nonce[i] ^= otherNonce[i];
+    }
+    QCC_DbgHLPrintf(("Nonce:  %s", BytesToHexString((uint8_t*)nonce.data(), nonce.size()).c_str()));
     /*
      * Use the PRF function to compute the master secret and verifier string.
      */
-    Crypto_PseudorandomFunctionCCM(secret, msLabel, clientNonce + serverNonce, keymatter, sizeof(keymatter));
+    Crypto_PseudorandomFunctionCCM(secret, msLabel, nonce, keymatter, sizeof(keymatter));
     masterSecret.Set(keymatter, sizeof(keymatter), KeyBlob::GENERIC);
     QCC_DbgHLPrintf(("MasterSecret:  %s", BytesToHexString(masterSecret.GetData(), masterSecret.GetSize()).c_str()));
     masterSecret.SetExpiration(expiration);
@@ -98,7 +100,7 @@ qcc::String AuthMechPIN::InitialResponse(AuthResult& result)
     /*
      * Client starts the conversation by sending a random string.
      */
-    clientNonce = HexStringToByteString(response);
+    nonce = HexStringToByteString(response);
     result = ALLJOYN_AUTH_CONTINUE;
     return response;
 }
@@ -122,10 +124,9 @@ qcc::String AuthMechPIN::Response(const qcc::String& challenge, AuthResult& resu
         return response;
     }
     qcc::String serverNonce = HexStringToByteString(challenge.substr(0, pos));
-    /*
-     * Get pincode
-     */
-    if (listener.RequestCredentials(GetName(), authPeer.c_str(), authCount, "", AuthListener::CRED_PASSWORD, creds)) {
+    if (serverNonce.size() != NONCE_LEN) {
+        result = ALLJOYN_AUTH_FAIL;
+    } else if (listener.RequestCredentials(GetName(), authPeer.c_str(), authCount, "", AuthListener::CRED_PASSWORD, creds)) {
         if (creds.IsSet(AuthListener::CRED_EXPIRATION)) {
             expiration = creds.GetExpiration();
         }
@@ -147,13 +148,15 @@ qcc::String AuthMechPIN::Challenge(const qcc::String& response, AuthResult& resu
     QStatus status = ER_OK;
     qcc::String challenge;
 
-    if (clientNonce.empty()) {
+    if (nonce.empty()) {
         AuthListener::Credentials creds;
         /*
          * Client sent random string. Server returns a random string.
          */
-        clientNonce = HexStringToByteString(response);
-        if (listener.RequestCredentials(GetName(), authPeer.c_str(), authCount, "", AuthListener::CRED_PASSWORD, creds)) {
+        nonce = HexStringToByteString(response);
+        if (nonce.size() != NONCE_LEN) {
+            result = ALLJOYN_AUTH_FAIL;
+        } else if (listener.RequestCredentials(GetName(), authPeer.c_str(), authCount, "", AuthListener::CRED_PASSWORD, creds)) {
             if (creds.IsSet(AuthListener::CRED_EXPIRATION)) {
                 expiration = creds.GetExpiration();
             }
@@ -171,7 +174,7 @@ qcc::String AuthMechPIN::Challenge(const qcc::String& response, AuthResult& resu
         if (response == ComputeVerifier("client finish")) {
             result = ALLJOYN_AUTH_OK;
         } else {
-            clientNonce.clear();
+            nonce.clear();
             result = ALLJOYN_AUTH_RETRY;
         }
     }

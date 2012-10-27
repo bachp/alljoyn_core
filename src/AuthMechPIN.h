@@ -114,7 +114,7 @@ class AuthMechPIN : public AuthMechanism {
 
     qcc::String ComputeVerifier(const char* label);
 
-    qcc::String clientNonce;
+    qcc::String nonce;
 
 };
 
