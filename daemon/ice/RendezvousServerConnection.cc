@@ -197,7 +197,7 @@ QStatus RendezvousServerConnection::SetupConnection(ConnectionFlag connFlag)
     SocketFd sockFd = -1;
     HttpConnection* newHttpConn = NULL;
 
-    if (isConnected) {
+    if (*isConnected) {
         if (*httpConn) {
             if (IsInterfaceLive((*httpConn)->GetLocalInterfaceAddress())) {
                 QCC_DbgPrintf(("RendezvousServerConnection::SetupConnection(): Keeping the current connection with the Rendezvous Server"));
@@ -211,7 +211,7 @@ QStatus RendezvousServerConnection::SetupConnection(ConnectionFlag connFlag)
 
     if (status == ER_OK) {
         /* Tear down the old connection if we were already connected */
-        if (isConnected) {
+        if (*isConnected) {
 
             /* We do not check the return status here because we have already successfully set up a new
              * connection. Its ok if some cleanup has failed */

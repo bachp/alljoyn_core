@@ -375,10 +375,10 @@ class ICESession {
         hmacKey = new uint8_t[hmacKeyLen];
         if (!hmacKey) {
             QCC_LogError(ER_ICE_ALLOCATING_MEMORY, ("Allocating memory for HMAC key"));
+        } else {
+            // now get the real key
+            stunCredential.GetKey(hmacKey, hmacKeyLen);
         }
-
-        // now get the real key
-        stunCredential.GetKey(hmacKey, hmacKeyLen);
     }
 
     // Private, used only by friend ICEManager

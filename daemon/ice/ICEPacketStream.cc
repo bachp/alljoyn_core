@@ -594,7 +594,7 @@ QStatus ICEPacketStream::StripStunOverhead(size_t rcvdBytes, void* dataBuf, size
 
             uint16_t rawMsgType = 0;  // Initializer to make GCC 4.3.2 happy.
             uint16_t rawMsgSize = 0;
-            uint32_t magicCookie;
+            uint32_t magicCookie = 0;
 
             _rcvdBytes = rcvdBytes;
             _rxRenderBuf = rxRenderBuf;
