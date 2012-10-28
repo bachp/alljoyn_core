@@ -333,12 +333,15 @@ void SCRAM_SHA_1::GenerateSaltedPassword(void)
 
     Crypto_ASN1::DecodeBase64(ServerFirstResponse.s, salt);
 
-    //QCC_DbgPrintf(("SCRAM_SHA_1::GenerateSaltedPassword(): salt = %s", salt.c_str()));
+    if (salt.size() != SALT_SIZE) {
+        QCC_LogError(ER_FAIL, ("%s: Size of the salt(%d) is != %d", __FUNCTION__, salt.size(), SALT_SIZE));
+        return;
+    }
 
-    uint8_t saltByteArray[salt.size() + 4], j;
+    uint8_t saltByteArray[SALT_BYTE_ARRAY_SIZE], j;
 
     /* Extract the contents of the decoded salt string into a byte array */
-    for (j = 0; j < salt.size(); j++) {
+    for (j = 0; j < SALT_SIZE; j++) {
         saltByteArray[j] = salt[j];
     }
     /* Append 4-octet equivalent of 1 i.e. INT(1) to the salt byte array as per the spec */

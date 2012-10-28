@@ -48,6 +48,16 @@ class SCRAM_SHA_1 {
      */
     static const uint32_t SASL_NONCE_SIZE = 16;
 
+    /**
+     * @brief Size in bytes of the salt
+     */
+    static const uint32_t SALT_SIZE = 16;
+
+    /**
+     * @brief Size in bytes of the salt byte array
+     */
+    static const uint32_t SALT_BYTE_ARRAY_SIZE = SALT_SIZE + 4;
+
     /* Constructor */
     SCRAM_SHA_1();
 
