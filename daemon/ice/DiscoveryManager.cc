@@ -39,7 +39,6 @@
 #include <qcc/Util.h>
 #include <alljoyn/BusAttachment.h>
 
-
 #include "DiscoveryManager.h"
 #include "RendezvousServerInterface.h"
 #include "DaemonConfig.h"
@@ -192,6 +191,106 @@ DiscoveryManager::DiscoveryManager(BusAttachment& bus) :
     clientLoginBusListener = new ClientLoginBusListener();
     this->bus.RegisterBusListener(*clientLoginBusListener);
     clientLoginRemoteObj = new ProxyBusObject(bus, ClientLoginServiceName.c_str(), ClientLoginServiceObject.c_str(), 0);
+}
+
+DiscoveryManager::DiscoveryManager(const DiscoveryManager& other) :
+    bus(other.bus),
+    ClientLoginServiceName(other.ClientLoginServiceName),
+    ClientLoginServiceObject(other.ClientLoginServiceObject),
+    GetAccountNameMethod(other.GetAccountNameMethod),
+    GetAccountPasswordMethod(other.GetAccountPasswordMethod),
+    PeerID(other.PeerID),
+    PeerAddr(other.PeerAddr),
+    LastOnDemandMessageSent(NULL),
+    RendezvousServerIPAddress(other.RendezvousServerIPAddress),
+    LastDNSLookupTimeStamp(other.LastDNSLookupTimeStamp),
+    DiscoveryManagerState(other.DiscoveryManagerState),
+    PersistentIdentifier(other.PersistentIdentifier),
+    InterfaceFlags(other.InterfaceFlags),
+    Connection(NULL),
+    ConnectionAuthenticationComplete(other.ConnectionAuthenticationComplete),
+    iceCallback(NULL),
+    WakeEvent(Event::neverSet),
+    OnDemandResponseEvent(NULL),
+    PersistentResponseEvent(NULL),
+    ConnectionResetEvent(Event::neverSet),
+    DisconnectEvent(Event::neverSet),
+    ForceInterfaceUpdateFlag(other.ForceInterfaceUpdateFlag),
+    ClientAuthenticationRequiredFlag(other.ClientAuthenticationRequiredFlag),
+    UpdateInformationOnServerFlag(other.UpdateInformationOnServerFlag),
+    RendezvousSessionActiveFlag(other.RendezvousSessionActiveFlag),
+    RegisterDaemonWithServer(other.RegisterDaemonWithServer),
+    PersistentMessageSentTimeStamp(other.PersistentMessageSentTimeStamp),
+    OnDemandMessageSentTimeStamp(other.OnDemandMessageSentTimeStamp),
+    SentMessageOverOnDemandConnection(other.SentMessageOverOnDemandConnection),
+    LastSentUpdateMessage(other.LastSentUpdateMessage),
+    GETMessage(other.GETMessage),
+    RendezvousSessionDeleteMessage(other.RendezvousSessionDeleteMessage),
+    SCRAMAuthModule(),
+    ProximityScanner(NULL),
+    ClientAuthenticationFailed(other.ClientAuthenticationFailed),
+    DiscoveryManagerTimer("DiscoveryManagerTimer"),
+    InterfaceUpdateAlarm(NULL),
+    SentFirstGETMessage(other.SentFirstGETMessage),
+    userCredentials(),
+    UseHTTP(other.UseHTTP),
+    EnableIPv6(other.EnableIPv6),
+    clientLoginBusListener(NULL),
+    clientLoginRemoteObj(NULL)
+{
+    QCC_DbgPrintf(("DiscoveryManager::DiscoveryManager(): Copy constructor\n"));
+
+    /* This constructor should never be invoked */
+    assert(false);
+}
+
+DiscoveryManager& DiscoveryManager::operator=(const DiscoveryManager& other)
+{
+    QCC_DbgPrintf(("DiscoveryManager::DiscoveryManager(): operator=\n"));
+
+    /* This operator should never be invoked */
+    assert(false);
+
+    if (this != &other) {
+        ClientLoginServiceName = other.ClientLoginServiceName;
+        ClientLoginServiceObject = other.ClientLoginServiceObject;
+        GetAccountNameMethod = other.GetAccountNameMethod;
+        GetAccountPasswordMethod = other.GetAccountPasswordMethod;
+        PeerID = other.PeerID;
+        PeerAddr = other.PeerAddr;
+        LastOnDemandMessageSent = NULL;
+        RendezvousServerIPAddress = other.RendezvousServerIPAddress;
+        LastDNSLookupTimeStamp = other.LastDNSLookupTimeStamp;
+        DiscoveryManagerState = other.DiscoveryManagerState;
+        PersistentIdentifier = other.PersistentIdentifier;
+        InterfaceFlags = other.InterfaceFlags;
+        Connection = NULL;
+        ConnectionAuthenticationComplete = other.ConnectionAuthenticationComplete;
+        iceCallback = NULL;
+        OnDemandResponseEvent = NULL;
+        PersistentResponseEvent = NULL;
+        ForceInterfaceUpdateFlag = other.ForceInterfaceUpdateFlag;
+        ClientAuthenticationRequiredFlag = other.ClientAuthenticationRequiredFlag;
+        UpdateInformationOnServerFlag = other.UpdateInformationOnServerFlag;
+        RendezvousSessionActiveFlag = other.RendezvousSessionActiveFlag;
+        RegisterDaemonWithServer = other.RegisterDaemonWithServer;
+        PersistentMessageSentTimeStamp = other.PersistentMessageSentTimeStamp;
+        OnDemandMessageSentTimeStamp = other.OnDemandMessageSentTimeStamp;
+        SentMessageOverOnDemandConnection = other.SentMessageOverOnDemandConnection;
+        LastSentUpdateMessage = other.LastSentUpdateMessage;
+        GETMessage = other.GETMessage;
+        RendezvousSessionDeleteMessage = other.RendezvousSessionDeleteMessage;
+        ProximityScanner = NULL;
+        ClientAuthenticationFailed = other.ClientAuthenticationFailed;
+        InterfaceUpdateAlarm = NULL;
+        SentFirstGETMessage = other.SentFirstGETMessage;
+        UseHTTP = other.UseHTTP;
+        EnableIPv6 = other.EnableIPv6;
+        clientLoginBusListener = NULL;
+        clientLoginRemoteObj = NULL;
+    }
+
+    return *this;
 }
 
 DiscoveryManager::~DiscoveryManager()

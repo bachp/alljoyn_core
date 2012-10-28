@@ -109,6 +109,25 @@ class ProximityScanEngine : public qcc::AlarmListener, public qcc::Thread {
     ProximityScanner* proximityScanner;                         /* Object that implements the platform specific Scan function */
     BusAttachment& bus;
 
+  private:
+
+    /* Default constructor */
+    ProximityScanEngine();
+
+    /* Just defined to make klocwork happy. Should never be used */
+    ProximityScanEngine(const ProximityScanEngine& other) :
+        mainTimer("ProximityScanTimer"),
+        bus(other.bus)
+    {
+        assert(false);
+    }
+
+    /* Just defined to make klocwork happy. Should never be used */
+    ProximityScanEngine& operator=(const ProximityScanEngine& other) {
+        assert(false);
+        return *this;
+    }
+
 };
 
 

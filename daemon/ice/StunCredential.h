@@ -49,6 +49,17 @@ using namespace qcc;
 class StunCredential {
   private:
 
+    /* Just defined to make klocwork happy. Should never be used */
+    StunCredential(const StunCredential& other) {
+        assert(false);
+    }
+
+    /* Just defined to make klocwork happy. Should never be used */
+    StunCredential& operator=(const StunCredential& other) {
+        assert(false);
+        return *this;
+    }
+
     const String password;
 
     uint8_t* hmacKey;

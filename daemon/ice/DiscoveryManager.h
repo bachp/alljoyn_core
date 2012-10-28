@@ -666,6 +666,21 @@ class DiscoveryManager : public Thread, public AlarmListener {
     void ClearOutboundMessageQueue(void);
 
   private:
+    /**
+     * @internal
+     *
+     * @brief Copy constructor
+     * This is just a dummy constructor to make klocwork happy
+     */
+    DiscoveryManager(const DiscoveryManager& other);
+
+    /**
+     * @internal
+     *
+     * @brief Assignment operator
+     * This is just a dummy definition to make klocwork happy
+     */
+    DiscoveryManager& operator=(const DiscoveryManager& other);
 
     /**
      * @internal

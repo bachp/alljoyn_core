@@ -139,6 +139,12 @@ class ICECandidatePair {
 
   private:
 
+    /* Just defined to make klocwork happy. Should never be used */
+    ICECandidatePair(const ICECandidatePair& other);
+
+    /* Just defined to make klocwork happy. Should never be used */
+    ICECandidatePair& operator=(const ICECandidatePair& other);
+
     CheckRetry* checkRetry;
 
     CheckRetry* canceledRetry;
