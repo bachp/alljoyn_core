@@ -994,16 +994,27 @@ QStatus DiscoveryManager::Connect(void)
 
     QStatus status = ER_OK;
 
+    /* Set up or update the Connection only if we have active Advertisements or Searches */
+    if (((currentAdvertiseList.empty())) && ((currentSearchList.empty()))) {
+        status = ER_UNABLE_TO_CONNECT_TO_RENDEZVOUS_SERVER;
+        QCC_LogError(status, ("%s: Both the advertise and search list are empty. No need to setup a connection.", __FUNCTION__));
+        return status;
+    }
+
     if (InterfaceFlags == NetworkInterface::NONE) {
         status = ER_FAIL;
         QCC_LogError(status, ("DiscoveryManager::Connect(): InterfaceFlags = NONE"));
     } else {
         if (!(Connection)) {
             Connection = new RendezvousServerConnection(RendezvousServer, EnableIPv6, UseHTTP);
+
+            if (!Connection) {
+                status = ER_FAIL;
+                QCC_LogError(status, ("DiscoveryManager::Connect(): Unable to initialize Connection"));
+            }
         }
 
-        /* Set up or update the Persistent Connection if we have active Advertisements or Searches */
-        if (((!(currentAdvertiseList.empty()))) || ((!(currentSearchList.empty())))) {
+        if (Connection) {
 
             /* If RendezvousServerIPAddress has a valid IP address, check if DNS_LOOKUP_INTERVAL_IN_MS has passed after
              * the last DNS lookup. If it has, then we need to do DNS lookup again */
@@ -1046,6 +1057,14 @@ QStatus DiscoveryManager::Connect(void)
                     }
                 }
             }
+        }
+    }
+
+    if (status != ER_OK) {
+        if (Connection) {
+            Connection->Disconnect();
+            delete Connection;
+            Connection = NULL;
         }
     }
 
@@ -1327,11 +1346,6 @@ void* DiscoveryManager::Run(void* arg)
                                     }
                                     DiscoveryManagerMutex.Lock(MUTEX_CONTEXT);
 #endif
-
-                                    /* continue so that we go to the top of the while
-                                       loop and attempt a re-connect immediately */
-                                    continue;
-
                                 } else {
                                     /* Clear the RegisterDaemonWithServer if we could send the Daemon Registration Message successfully to
                                      * the Server */
@@ -1376,10 +1390,6 @@ void* DiscoveryManager::Run(void* arg)
                                         }
                                         DiscoveryManagerMutex.Lock(MUTEX_CONTEXT);
 #endif
-
-                                        /* continue so that we go to the top of the while
-                                           loop and attempt a re-connect immediately */
-                                        continue;
                                     }
 
                                 } else {
@@ -1419,11 +1429,6 @@ void* DiscoveryManager::Run(void* arg)
                                                 }
                                                 DiscoveryManagerMutex.Lock(MUTEX_CONTEXT);
 #endif
-
-                                                /* continue so that we go to the top of the while
-                                                   loop and attempt a re-connect immediately */
-                                                continue;
-
                                             } else {
                                                 //
                                                 // The current message has been sent to the Rendezvous Server.
