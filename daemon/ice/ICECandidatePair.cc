@@ -49,7 +49,8 @@ ICECandidatePair::ICECandidatePair(const ICECandidate& local, const ICECandidate
     useAggressiveNomination(),
     regularlyNominated(),
     controlTieBreaker(),
-    bindRequestPriority(), isTriggered()
+    bindRequestPriority(),
+    isTriggered()
 {
     QCC_DbgTrace(("%s(%p): ", __FUNCTION__, this));
 
@@ -71,6 +72,54 @@ ICECandidatePair::~ICECandidatePair(void)
     }
 
     // ICECandidate objects ('local' and 'remote') will be reclaimed from the Component dtor.
+}
+
+/* Just defined to make klocwork happy. Should never be used */
+ICECandidatePair::ICECandidatePair(const ICECandidatePair& other) :
+    local(other.local),
+    remote(other.remote),
+    state(Frozen),
+    isValid(false),
+    checkRetry(NULL),
+    canceledRetry(NULL),
+    priority(other.priority),
+    isDefault(other.isDefault),
+    isNominated(false),
+    isNominatedContingent(false),
+    foundation(other.foundation),
+    useAggressiveNomination(other.useAggressiveNomination),
+    regularlyNominated(other.regularlyNominated),
+    controlTieBreaker(other.controlTieBreaker),
+    bindRequestPriority(other.bindRequestPriority),
+    isTriggered(other.isTriggered)
+{
+    /* This constructor should never be invoked */
+    assert(false);
+}
+
+/* Just defined to make klocwork happy. Should neve r be used */
+ICECandidatePair& ICECandidatePair::operator=(const ICECandidatePair& other) {
+    /* This operator should never be invoked */
+    assert(false);
+
+    if (this != &other) {
+        state = Frozen;
+        isValid = false;
+        checkRetry = NULL;
+        canceledRetry = NULL;
+        priority = other.priority;
+        isDefault = other.isDefault;
+        isNominated = false;
+        isNominatedContingent = false;
+        foundation = other.foundation;
+        useAggressiveNomination = other.useAggressiveNomination;
+        regularlyNominated = other.regularlyNominated;
+        controlTieBreaker = other.controlTieBreaker;
+        bindRequestPriority = other.bindRequestPriority;
+        isTriggered = other.isTriggered;
+    }
+
+    return *this;
 }
 
 

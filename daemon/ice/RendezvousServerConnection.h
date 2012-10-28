@@ -261,6 +261,20 @@ class RendezvousServerConnection {
 
   private:
 
+    /* Default constructor */
+    RendezvousServerConnection();
+
+    /* Just defined to make klocwork happy. Should never be used */
+    RendezvousServerConnection(const RendezvousServerConnection& other) {
+        assert(false);
+    }
+
+    /* Just defined to make klocwork happy. Should never be used */
+    RendezvousServerConnection& operator=(const RendezvousServerConnection& other) {
+        assert(false);
+        return *this;
+    }
+
     /**
      * @internal
      * @brief Boolean indicating if the on demand connection is up.

@@ -219,6 +219,18 @@ class ICESession {
     uint16_t GetRelayServerPort() { return TurnServer.port; };
 
   private:
+
+    /* Just defined to make klocwork happy. Should never be used */
+    ICESession(const ICESession& other) {
+        assert(false);
+    }
+
+    /* Just defined to make klocwork happy. Should never be used */
+    ICESession& operator=(const ICESession& other) {
+        assert(false);
+        return *this;
+    }
+
     uint8_t* hmacKey;
 
     size_t hmacKeyLen;
@@ -322,9 +334,9 @@ class ICESession {
         hmacKeyLen(0),
         TurnServerAvailable(false),
         terminating(false),
-        shortTermHmacKey(),
+        shortTermHmacKey(NULL),
         shortTermHmacKeyLength(0),
-        remoteShortTermHmacKey(),
+        remoteShortTermHmacKey(NULL),
         remoteShortTermHmacKeyLength(0),
         sessionState(ICEUninitialized),
         sessionListener(listener),
@@ -360,7 +372,7 @@ class ICESession {
         // size buffer first
         stunCredential.GetKey(NULL, hmacKeyLen);
 
-        hmacKey = (uint8_t*) malloc(hmacKeyLen);
+        hmacKey = new uint8_t[hmacKeyLen];
         if (!hmacKey) {
             QCC_LogError(ER_ICE_ALLOCATING_MEMORY, ("Allocating memory for HMAC key"));
         }

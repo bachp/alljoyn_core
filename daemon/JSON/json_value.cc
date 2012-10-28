@@ -88,7 +88,9 @@ static char* duplicateStringValue(const char* value, unsigned int length = unkno
 
 static void releaseStringValue(char* value)
 {
-    free(value);
+    if (value) {
+        free(value);
+    }
 }
 
 static char* makeMemberName(const char* memberName)
@@ -131,13 +133,43 @@ Value::CommentInfo::CommentInfo()
 {
 }
 
+Value::CommentInfo::CommentInfo(const Value::CommentInfo& other)
+{
+    if (comment_) {
+        free(comment_);
+    }
+
+    if (other.comment_) {
+        unsigned int length = (unsigned int)strlen(other.comment_);
+        comment_ = static_cast<char*>(malloc(length + 1));
+        memcpy(comment_, other.comment_, length);
+        comment_[length] = 0;
+    }
+}
+
+Value::CommentInfo& Value::CommentInfo::operator=(const Value::CommentInfo& other)
+{
+    if (comment_) {
+        free(comment_);
+    }
+
+    if (other.comment_) {
+        unsigned int length = (unsigned int)strlen(other.comment_);
+        comment_ = static_cast<char*>(malloc(length + 1));
+        memcpy(comment_, other.comment_, length);
+        comment_[length] = 0;
+    }
+
+    return *this;
+}
+
 Value::CommentInfo::~CommentInfo()
 {
     releaseStringValue(comment_);
 }
 
 
-void Value::CommentInfo::setComment(const char*text)
+void Value::CommentInfo::setComment(const char* text)
 {
     releaseStringValue(comment_);
     assert(text);
@@ -512,6 +544,19 @@ void Value::swap(Value& other)
     int temp2 = allocated_;
     allocated_ = other.allocated_;
     other.allocated_ = temp2;
+
+    if (comments_) {
+        free(comments_);
+    }
+
+    if (other.comments_) {
+        comments_ = new CommentInfo[numberOfCommentPlacement];
+        for (int comment = 0; comment < numberOfCommentPlacement; ++comment) {
+            const CommentInfo& otherComment = other.comments_[comment];
+            if (otherComment.comment_)
+                comments_[comment].setComment(otherComment.comment_);
+        }
+    }
 }
 
 ValueType Value::type() const

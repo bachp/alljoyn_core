@@ -389,6 +389,39 @@ class HttpConnection {
     void GetHostIPAddress(qcc::String& address) { address = hostIPAddress; };
 
   private:
+    /* Just defined to make klocwork happy. Should never be used */
+    HttpConnection(const HttpConnection& other) :
+        stream(0),
+        httpSource(),
+        host(other.host),
+        port(other.port),
+        protocol(other.protocol),
+        httpStatus(other.httpStatus),
+        isMultipartForm(other.isMultipartForm),
+        isApplicationJson(other.isApplicationJson)
+    {
+        /* This constructor should never be invoked */
+        assert(false);
+    }
+
+    /* Just defined to make klocwork happy. Should never be used */
+    HttpConnection& operator=(const HttpConnection& other) {
+        /* This operator should never be invoked */
+        assert(false);
+
+        if (this != &other) {
+            stream = 0;
+            host = other.host;
+            port = other.port;
+            protocol = other.protocol;
+            httpStatus = other.httpStatus;
+            isMultipartForm = other.isMultipartForm;
+            isApplicationJson = other.isApplicationJson;
+        }
+
+        return *this;
+    }
+
     /**
      * @internal
      *

@@ -83,11 +83,16 @@ ICESession::~ICESession(void)
     // Stop all candidate listener threads by deallocating candidates
     candidates.clear();
 
-    delete[] shortTermHmacKey;
-    delete[] remoteShortTermHmacKey;
+    if (shortTermHmacKey) {
+        delete[] shortTermHmacKey;
+    }
+
+    if (remoteShortTermHmacKey) {
+        delete[] remoteShortTermHmacKey;
+    }
 
     if (hmacKey) {
-        delete hmacKey;
+        delete[] hmacKey;
     }
 
     Unlock();
@@ -504,7 +509,6 @@ QStatus ICESession::UpdateLocalICECandidates(void)
     Crypto_GetRandomBytes(pwdBuf, ICE_CREDENTIAL_PWD_CHAR_LENGTH);
 
     // Compute the short-term credential for inbound checks.
-    size_t hmacKeyLen = 0;
     StunCredential stunCredential(String(reinterpret_cast<char*>(pwdBuf), sizeof(pwdBuf)));
 
     // Size buffer first
@@ -518,7 +522,20 @@ QStatus ICESession::UpdateLocalICECandidates(void)
     pwd = BytesToHexString(pwdBuf, sizeof(pwdBuf));
 
     shortTermHmacKeyLength = pwd.size();
+
+    if (shortTermHmacKey) {
+        delete[] shortTermHmacKey;
+        shortTermHmacKey = NULL;
+    }
+
     shortTermHmacKey = new uint8_t[shortTermHmacKeyLength];
+
+    if (!shortTermHmacKey) {
+        status = ER_ICE_ALLOCATING_MEMORY;
+        QCC_LogError(status, ("Allocating memory for shortTermHmacKey"));
+        return status;
+    }
+
     ::memcpy(shortTermHmacKey, pwd.data(), pwd.size());
 
     // Add candidates
@@ -1021,6 +1038,12 @@ QStatus ICESession::GatherHostCandidates(bool enableIpv6)
         return status;
     }
 
+    if (!component) {
+        status = ER_FAIL;
+        QCC_LogError(status, ("component is NULL"));
+        return status;
+    }
+
     // now see if we want to look for all local network interfaces
     if (addHostCandidates) {
         // Update the interface list
@@ -1045,13 +1068,16 @@ QStatus ICESession::GatherHostCandidates(bool enableIpv6)
                 continue;
             }
 
-            // (This typically ignores the specified port and OS binds to ephemeral port.)
-            status = component->CreateHostCandidate(socketType, qcc::IPAddress(networkInterfaceIter->m_addr), port, networkInterfaceIter->m_mtu);
+            if (NULL != component) {
+                // (This typically ignores the specified port and OS binds to ephemeral port.)
+                status = component->CreateHostCandidate(socketType, qcc::IPAddress(networkInterfaceIter->m_addr), port, networkInterfaceIter->m_mtu);
 
-            if (status != ER_OK) {
-                QCC_LogError(status, ("component->CreateHostCandidate"));
-                stream->RemoveComponent(component);
-                delete component;
+                if (status != ER_OK) {
+                    QCC_LogError(status, ("component->CreateHostCandidate"));
+                    stream->RemoveComponent(component);
+                    delete component;
+                    component = NULL;
+                }
             }
 
             if (NULL != implicitComponent) {
@@ -1061,6 +1087,7 @@ QStatus ICESession::GatherHostCandidates(bool enableIpv6)
                 if (status != ER_OK) {
                     QCC_LogError(status, ("implicitComponent->CreateHostCandidate"));
                     delete implicitComponent;
+                    implicitComponent = NULL;
                 }
             }
         }
@@ -1190,7 +1217,20 @@ QStatus ICESession::FormCheckLists(list<ICECandidates>& peerCandidates, String i
 
     // Size buffer first
     stunCredential.GetKey(NULL, hmacKeyLen);
+
+    if (remoteShortTermHmacKey) {
+        delete[] remoteShortTermHmacKey;
+        remoteShortTermHmacKey = NULL;
+    }
+
     remoteShortTermHmacKey = new uint8_t[hmacKeyLen];
+
+    if (!remoteShortTermHmacKey) {
+        status = ER_ICE_ALLOCATING_MEMORY;
+        QCC_LogError(status, ("Allocating memory for remoteShortTermHmacKey"));
+        return status;
+    }
+
     remoteShortTermHmacKeyLength = ice_pwd.size();
 
     // Now get the real key ...

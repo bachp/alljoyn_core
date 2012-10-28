@@ -69,6 +69,14 @@ class NetworkInterface {
     /**
      * @internal
      *
+     * @brief Default Constructor.
+     */
+    NetworkInterface() :
+        EnableIPV6(false) { }
+
+    /**
+     * @internal
+     *
      * @brief Constructor.
      *
      * @param enableIPV6 - Flag used to indicate if interfaces with IPV6 addresses

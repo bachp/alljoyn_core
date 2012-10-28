@@ -428,10 +428,12 @@ class JSON_API Value {
     struct CommentInfo {
         CommentInfo();
         ~CommentInfo();
+        CommentInfo(const CommentInfo& other);
+        CommentInfo& operator=(const CommentInfo& other);
 
         void setComment(const char*text);
 
-        char*comment_;
+        char* comment_;
     };
 
     //struct MemberNamesTransform
