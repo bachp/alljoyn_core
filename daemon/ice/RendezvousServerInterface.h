@@ -303,6 +303,8 @@ class TokenRefreshResponse : public InterfaceResponse {
      */
     uint32_t recvTime;
 
+    TokenRefreshResponse() : expiryTime(0), recvTime(0) { }
+
     ~TokenRefreshResponse() { };
 
 };

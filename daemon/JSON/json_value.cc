@@ -284,6 +284,11 @@ Value::Value(ValueType type)
     , itemIsUsed_(0)
 #endif
 {
+    value_.string_ = 0;
+    value_.map_ = NULL;
+    value_.bool_ = false;
+    value_.int_ = 0;
+
     switch (type) {
     case nullValue :
         break;
@@ -439,6 +444,14 @@ Value::Value(const Value& other)
     , itemIsUsed_(0)
 #endif
 {
+    value_.string_ = 0;
+    value_.uint_ = 0;
+    value_.real_ = 0.0;
+    value_.map_ = NULL;
+    value_.bool_ = false;
+    allocated_ = 0;
+    value_.int_ = 0;
+
     switch (type_) {
     case nullValue:
     case intValue:
@@ -452,8 +465,6 @@ Value::Value(const Value& other)
         if (other.value_.string_) {
             value_.string_ = duplicateStringValue(other.value_.string_);
             allocated_ = true;
-        } else {
-            value_.string_ = 0;
         }
         break;
 

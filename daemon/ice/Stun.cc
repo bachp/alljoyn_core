@@ -47,15 +47,16 @@ Stun::Stun(SocketFd sockfd,
            IPAddress& remoteAddr,
            uint16_t remotePort,
            bool autoFraming) :
-    rxThread(NULL),
-    remoteAddr(remoteAddr), remotePort(remotePort),
+    rxThread(NULL), turnPort(0),
+    remoteAddr(remoteAddr), remotePort(remotePort), localPort(0),
     sockfd(sockfd), type(type),
     connected(true), opened(true), usingTurn(false),
     autoFraming(autoFraming),
     rxFrameRemain(0), txFrameRemain(0),
-    rxLeftoverBuf(NULL), rxLeftoverLen(0),
+    rxLeftoverBuf(NULL), rxLeftoverPos(NULL), rxLeftoverLen(0),
     maxMTU(0),
-    component(NULL)
+    component(NULL),
+    hmacKeyLen(0)
 {
     QCC_DbgTrace(("Stun::Stun(%p)", this));
 }
@@ -68,11 +69,11 @@ Stun::Stun(SocketType type,
            size_t mtu,
            bool autoFraming) :
     rxThread(NULL),
-    turnAddr(), turnPort(),
+    turnAddr(), turnPort(), remotePort(0), localPort(0), sockfd(-1),
     type(type), connected(false), opened(false), usingTurn(false),
     autoFraming(autoFraming),
     rxFrameRemain(0), txFrameRemain(0),
-    rxLeftoverBuf(NULL), rxLeftoverLen(0),
+    rxLeftoverBuf(NULL), rxLeftoverPos(NULL), rxLeftoverLen(0),
     maxMTU(mtu),
     component(component),
     STUNInfo(stunInfo),
@@ -861,7 +862,7 @@ QStatus Stun::AppRecv(void* buf, size_t len, size_t& received)
 
 static QStatus SkipRX(SocketFd sockfd, size_t len)
 {
-    QStatus status;
+    QStatus status = ER_OK;
     uint8_t* skipBuf(new uint8_t[len]);
     size_t received;
 
@@ -1287,7 +1288,7 @@ QStatus Stun::ReceiveAppFramedSG(ScatterGatherList& appSG, size_t& received)
     ScatterGatherList fillSG(appSG);
     ScatterGatherList rxSG;
     ScatterGatherList checkSG;
-    size_t rxCnt;
+    size_t rxCnt = 0;
     uint8_t fsBuf[FRAMING_SIZE];
 
     uint8_t* extraBuf = NULL;
