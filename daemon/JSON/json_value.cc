@@ -288,6 +288,8 @@ Value::Value(ValueType type)
     value_.map_ = NULL;
     value_.bool_ = false;
     value_.int_ = 0;
+    value_.real_ = 0.0;
+
 
     switch (type) {
     case nullValue :
