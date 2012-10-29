@@ -291,8 +291,8 @@ const char* IpNameServiceImpl::INTERFACES_WILDCARD = "*";
 // we can receive advertisements from them.  They just can't hear our new
 // messages
 //
-#define WORKAROUND_2_3_BUG
-#if defined(WORKAROUND_2_3_BUG)
+#define WORKAROUND_2_3_BUG 0
+#if WORKAROUND_2_3_BUG
 
 //
 // This is just a random IPv4 multicast group chosen out of the defined site
@@ -1946,7 +1946,7 @@ void IpNameServiceImpl::SendProtocolMessage(
 #if 1
         if (flags & qcc::IfConfigEntry::MULTICAST) {
 
-#if defined(WORKAROUND_2_3_BUG)
+#if WORKAROUND_2_3_BUG
 
             if (msgVersion == 0) {
                 QCC_DbgPrintf(("IpNameServiceImpl::SendProtocolMessage():  Sending to IPv4 Site Administered multicast group"));
@@ -2022,7 +2022,7 @@ void IpNameServiceImpl::SendProtocolMessage(
     } else {
         if (flags & qcc::IfConfigEntry::MULTICAST) {
 
-#if defined(WORKAROUND_2_3_BUG)
+#if WORKAROUND_2_3_BUG
 
             if (msgVersion == 0) {
                 QCC_DbgPrintf(("IpNameServiceImpl::SendProtocolMessage():  Sending to IPv6 Site Administered multicast group"));
