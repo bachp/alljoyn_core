@@ -124,6 +124,22 @@ InterfaceDescription::Member::Member(const Member& other)
 {
 }
 
+InterfaceDescription::Member& InterfaceDescription::Member::operator=(const Member& other)
+{
+    if (this != &other) {
+        iface = other.iface;
+        memberType = other.memberType;
+        name = other.name;
+        signature = other.signature;
+        returnSignature = other.returnSignature;
+        argNames = other.argNames;
+        delete annotations;
+        annotations = new AnnotationsMap(*(other.annotations));
+        accessPerms = other.accessPerms;
+    }
+    return *this;
+}
+
 InterfaceDescription::Member::~Member()
 {
     delete annotations;
@@ -152,6 +168,18 @@ InterfaceDescription::Property::Property(const Property& other)
     annotations(new AnnotationsMap(*(other.annotations)))
 {
 
+}
+
+InterfaceDescription::Property& InterfaceDescription::Property::operator=(const Property& other)
+{
+    if (this != &other) {
+        name = other.name;
+        signature = other.signature;
+        access = other.access;
+        delete annotations;
+        annotations = new AnnotationsMap(*(other.annotations));
+    }
+    return *this;
 }
 
 InterfaceDescription::Property::~Property()

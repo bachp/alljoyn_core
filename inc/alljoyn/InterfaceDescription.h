@@ -95,8 +95,20 @@ class InterfaceDescription {
         Member(const InterfaceDescription* iface, AllJoynMessageType type, const char* name,
                const char* signature, const char* returnSignature, const char* argNames, uint8_t annotation, const char* accessPerms);
 
-        /** %Member copy constructor */
+        /**
+         * %Member copy constructor
+         * @param other  The %Member being copied to this one.
+         */
         Member(const Member& other);
+
+        /**
+         * %Member assignment operator
+         * @param other  The %Member being copied to this one.
+         *
+         * @return
+         * a reference to the %Member that was just copied
+         */
+        Member& operator=(const Member& other);
 
         /** %Member destructor */
         ~Member();
@@ -138,9 +150,22 @@ class InterfaceDescription {
 
         /** %Property constructor */
         Property(const char* name, const char* signature, uint8_t access);
-        /** %Property copy constructor */
+        /**
+         * %Property copy constructor
+         * @param other  The %Property being copied to this one.
+         */
         Property(const Property& other);
-        /** %Property destructor*/
+
+        /**
+         * %Property assignment operator
+         * @param other  The %Property being copied to this one.
+         *
+         * @return
+         * a reference to the %Property that was just copied
+         */
+        Property& operator=(const Property& other);
+
+        /** %Property destructor */
         ~Property();
 
         /**
