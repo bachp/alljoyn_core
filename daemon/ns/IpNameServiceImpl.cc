@@ -3307,9 +3307,9 @@ QStatus IpNameServiceImpl::Start()
     m_mutex.Lock();
     assert(IsRunning() == false);
     QCC_DbgPrintf(("IpNameServiceImpl::Start(): Starting thread"));
+    m_state = IMPL_RUNNING;
     QStatus status = Thread::Start(this);
     QCC_DbgPrintf(("IpNameServiceImpl::Start(): Started"));
-    m_state = IMPL_RUNNING;
     m_mutex.Unlock();
     return status;
 }
