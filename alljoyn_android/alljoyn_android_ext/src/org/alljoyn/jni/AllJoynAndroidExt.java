@@ -66,7 +66,7 @@ public class AllJoynAndroidExt extends Service {
 	private static final String TAG = "AllJoynAndroidExt";
 	
 	// Moved here from bus handler
-	
+	private BusHandler mBusHandler;
 	private HandlerThread  busThread;
 	
 	BroadcastReceiver receiver;
@@ -113,18 +113,37 @@ public class AllJoynAndroidExt extends Service {
 	@Override
 	public void onCreate(){
 
-		Log.v(TAG, "onCreate");
+		Log.d(TAG, "onCreate");
 
 		/* We have to create a separate thread which will do all the AllJoyn stuff */
-//		busThread = new HandlerThread("BusHandler");
-//		busThread.start();
-//		mBusHandler = new BusHandler(busThread.getLooper(),this);
-//		mBusHandler.sendEmptyMessage(BusHandler.CONNECT);
-		
-		
-		jniOnCreate(getPackageName());
+		busThread = new HandlerThread("BusHandler");
+		busThread.start();
+		mBusHandler = new BusHandler(busThread.getLooper());
+		mBusHandler.sendEmptyMessage(BusHandler.CONNECT);
+		//jniOnCreate(getPackageName());
 		
 	}
+	
+	 class BusHandler extends Handler { 
+		 
+		 public static final int CONNECT = 1;
+		 public BusHandler(Looper looper) {
+	            super(looper);
+		 }
+		 
+		 
+		 public void handleMessage(Message msg) {
+	            switch(msg.what) {
+	            /* Connect to a remote instance of an object implementing the SimpleInterface. */
+	            case CONNECT: {
+	            	jniOnCreate(getPackageName());
+	                break;
+	            }
+	            default:
+	                break;
+	            }
+		 }
+	 }
 	
 	public void updateTimer(){
 		
@@ -147,7 +166,7 @@ public class AllJoynAndroidExt extends Service {
 	
 	@Override
 	public int onStartCommand(Intent intent, int flags, int startId){
-		Log.v(TAG, "onStartCommand");
+		Log.d(TAG, "onStartCommand");
 		
 		//currentTime = System.currentTimeMillis();
 		if(receiver == null){
@@ -186,7 +205,7 @@ public class AllJoynAndroidExt extends Service {
 		
 		
 		if(!wifiMgr.startScan()){
-			Log.v(TAG,"startScan() returned error");
+			Log.d(TAG,"startScan() returned error");
 		}
 		
 		return START_STICKY;
@@ -194,7 +213,7 @@ public class AllJoynAndroidExt extends Service {
 	
 	@Override
 	public void onDestroy(){
-		Log.v(TAG, "onDestroy");
+		Log.d(TAG, "onDestroy");
 		// jni on destroy
       //  mBusHandler.getLooper().quit();
  //	       busThread.stop();
@@ -231,14 +250,14 @@ public class AllJoynAndroidExt extends Service {
 			// Remove -- for test ony ... always on scan
 			//request_scan = true;
 			
-			Log.v(TAG,"---------------------- Scan results request called -------------------------------------------------------- !!!");
+			Log.d(TAG,"---------------------- Scan results request called -------------------------------------------------------- !!!");
 			// Else wifi is turned on and we can proceed with the scan
 			if(scanResultMessage == null && request_scan){
-				Log.v(TAG,"***************************Requested Scan Results**************************************");
+				Log.d(TAG,"***************************Requested Scan Results**************************************");
 				// Only a start scan or timeout scan can restart the scan processing so we set this boolean
 //					stopScanRequested = false;
 				
-					Log.v(TAG," =-=-=-Scan-=-=-= Requested");
+					Log.d(TAG," =-=-=-Scan-=-=-= Requested");
 
 					wifiMgr = (WifiManager)getSystemService(Context.WIFI_SERVICE);
 					
@@ -290,14 +309,14 @@ public class AllJoynAndroidExt extends Service {
 //					}
 				
 					if(!wifiMgr.startScan()){
-						Log.v(TAG,"startScan() returned error");
+						Log.d(TAG,"startScan() returned error");
 					}
 					
 					// Check the boolean passed to the ScanResultsReceiver
 					// If it was set then you can return the result 
 					// Note : It can be the case that the scan did not return any results 
 					while(true){
-						Log.v(TAG,"Waiting for scanResultsObtained");
+						Log.d(TAG,"Waiting for scanResultsObtained");
 						if(scanResultsObtained){
 							break;
 						}
@@ -305,7 +324,7 @@ public class AllJoynAndroidExt extends Service {
 							try{	
 								Thread.sleep(5000);
 							}catch(InterruptedException ie){
-								Log.v(TAG, "Thread was interrupted while it was sleeping");
+								Log.d(TAG, "Thread was interrupted while it was sleeping");
 							}
 						}
 					}
@@ -340,19 +359,19 @@ public class AllJoynAndroidExt extends Service {
 				}
 				PrepareScanResults();
 
-				Log.v(TAG,"*************************** NOT REQUESTED Scan Results**************************************");
+				Log.d(TAG,"*************************** NOT REQUESTED Scan Results**************************************");
 
 			}
 			
 			//scanResultMessage = null;
 			
 			
-			Log.v(TAG,"************************FINAL SCAN RESULTS ****************************************");
+			Log.d(TAG,"************************FINAL SCAN RESULTS ****************************************");
 			for(int i=0 ; i < scanResultMessageToBeSent.length ; i++){
 				ScanResultMessage result = scanResultMessageToBeSent[i];
-				Log.v("Entry-->",result.bssid + " " + result.ssid + " " + result.attached);
+				Log.d("Entry-->",result.bssid + " " + result.ssid + " " + result.attached);
 			}
-			Log.v(TAG,"*************************************************************************************");
+			Log.d(TAG,"*************************************************************************************");
 			
 			return scanResultMessageToBeSent;
 		}
