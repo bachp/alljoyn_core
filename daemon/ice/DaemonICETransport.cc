@@ -1570,7 +1570,6 @@ void* DaemonICETransport::Run(void* arg)
                 QCC_DbgPrintf(("DaemonICETransport::Run(): maxConn == %d", maxConn));
                 QCC_DbgPrintf(("DaemonICETransport::Run(): mAuthList.size() == %d", m_authList.size()));
                 QCC_DbgPrintf(("DaemonICETransport::Run(): mEndpointList.size() == %d", m_endpointList.size()));
-                assert(m_authList.size() + m_endpointList.size() <= maxConn);
 
                 /*
                  * Do we have a slot available for a new connection?  If so, use
