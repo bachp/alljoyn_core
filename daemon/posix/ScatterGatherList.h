@@ -317,8 +317,10 @@ class ScatterGatherList {
 
             if (copyLen == destLen) {
                 ++dest;
-                destBuf = reinterpret_cast<uint8_t*>(dest->buf);
-                destLen = dest->len;
+                if (dest != sg.end()) {
+                    destBuf = reinterpret_cast<uint8_t*>(dest->buf);
+                    destLen = dest->len;
+                }
             } else {
                 destBuf += copyLen;
                 destLen -= copyLen;
@@ -326,8 +328,10 @@ class ScatterGatherList {
 
             if (copyLen == srcLen) {
                 ++src;
-                srcBuf = reinterpret_cast<uint8_t*>(src->buf);
-                srcLen = src->len;
+                if (src != end) {
+                    srcBuf = reinterpret_cast<uint8_t*>(src->buf);
+                    srcLen = src->len;
+                }
             } else {
                 srcBuf += copyLen;
                 srcLen -= copyLen;
