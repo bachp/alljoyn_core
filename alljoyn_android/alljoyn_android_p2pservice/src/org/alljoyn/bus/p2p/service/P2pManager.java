@@ -847,6 +847,14 @@ public class P2pManager implements ConnectionInfoListener, DnsSdServiceResponseL
     }
 
     /*package*/ synchronized void discoveryChanged(int state) {
+        //if P2P is disabled, set find state to IDLE.
+        // This is to overcome a quirky behavior in frameworks when discovery is reported
+        // as active with wifi turned off
+        if (!isEnabled) {
+            mFindState = FindState.IDLE;
+            return;
+        }
+
         if (state == WifiP2pManager.WIFI_P2P_DISCOVERY_STARTED) {
             Log.d(TAG, "discoveryChanged: STARTED");
             if (mFindState ==  FindState.INITIATING)
