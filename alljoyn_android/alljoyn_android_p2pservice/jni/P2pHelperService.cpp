@@ -53,9 +53,8 @@ using namespace qcc;
 
 class P2pService;
 static const char* P2P_SERVICE_INTERFACE_NAME = "org.alljoyn.bus.p2p.P2pInterface";
-static const char* SERVICE_OBJECT_PATH = "/P2pService";
-static const char* SERVICE_NAME = "org.alljoyn.bus.p2p";
-static const char* DAEMON_ADDR = "unix:abstract=alljoyn";
+static const char* P2P_SERVICE_OBJECT_PATH = "/P2pService";
+static const char* P2P_SERVICE_NAME = "org.alljoyn.bus.p2p";
 
 static BusAttachment* s_bus = NULL;
 static P2pService* s_obj = NULL;
@@ -745,7 +744,7 @@ extern "C" {
  * Method:    jniInit
  * Signature: (Ljava/lang/String;)I
  */
-JNIEXPORT jboolean JNICALL Java_org_alljoyn_bus_p2p_service_P2pHelperService_jniOnCreate(JNIEnv*env, jobject jobj) {
+JNIEXPORT jboolean JNICALL Java_org_alljoyn_bus_p2p_service_P2pHelperService_jniOnCreate(JNIEnv*env, jobject jobj, jstring connectSpec) {
 
     QStatus status = ER_OK;
     InterfaceDescription* p2pIntf = NULL;
@@ -790,7 +789,7 @@ JNIEXPORT jboolean JNICALL Java_org_alljoyn_bus_p2p_service_P2pHelperService_jni
             p2pIntf->Activate();
 
             /* Create the P2P service object */
-            s_obj = new P2pService(*s_bus, SERVICE_OBJECT_PATH, vm, jglobalObj);
+            s_obj = new P2pService(*s_bus, P2P_SERVICE_OBJECT_PATH, vm, jglobalObj);
             status = s_bus->RegisterBusObject(*s_obj);
             if (ER_OK != status) {
                 LOGE("BusAttachment::RegisterBusObject failed (%s)", QCC_StatusText(status));
@@ -811,28 +810,31 @@ JNIEXPORT jboolean JNICALL Java_org_alljoyn_bus_p2p_service_P2pHelperService_jni
                     return false;
                 } else {
                     /* Connect to the daemon */
-                    status = s_bus->Connect(DAEMON_ADDR);
+                    const char* cSpec = env->GetStringUTFChars(connectSpec, NULL);
+                    status = s_bus->Connect(cSpec);
                     if (ER_OK != status) {
-                        LOGE("BusAttachment::Connect(\"%s\") failed (%s)", DAEMON_ADDR, QCC_StatusText(status));
-                        s_bus->Disconnect(DAEMON_ADDR);
+                        LOGE("BusAttachment::Connect(\"%s\") failed (%s)", cSpec, QCC_StatusText(status));
+                        s_bus->Disconnect(cSpec);
                         s_bus->UnregisterBusObject(*s_obj);
                         delete s_obj;
                         delete s_bus;
                         s_obj = NULL;
                         s_bus = NULL;
+                        env->ReleaseStringUTFChars(connectSpec, cSpec);
                         return false;
                     } else {
-                        LOGE("BusAttachment::Connect(\"%s\") SUCCEEDED (%s)", DAEMON_ADDR, QCC_StatusText(status));
+                        LOGE("BusAttachment::Connect(\"%s\") SUCCEEDED (%s)", cSpec, QCC_StatusText(status));
                     }
+                    env->ReleaseStringUTFChars(connectSpec, cSpec);
                 }
             }
         }
     }
 
     /* Request name */
-    status = s_bus->RequestName(SERVICE_NAME, DBUS_NAME_FLAG_DO_NOT_QUEUE);
+    status = s_bus->RequestName(P2P_SERVICE_NAME, DBUS_NAME_FLAG_DO_NOT_QUEUE);
     if (ER_OK != status) {
-        LOGE("RequestName(%s) failed (status=%s)\n", SERVICE_NAME, QCC_StatusText(status));
+        LOGE("RequestName(%s) failed (status=%s)\n", P2P_SERVICE_NAME, QCC_StatusText(status));
         status = (status == ER_OK) ? ER_FAIL : status;
     } else {
         LOGI("Request Name was successful");
@@ -846,17 +848,18 @@ JNIEXPORT jboolean JNICALL Java_org_alljoyn_bus_p2p_service_P2pHelperService_jni
  * Method:    jniOnDestroy
  * Signature: ()V
  */
-JNIEXPORT void JNICALL Java_org_alljoyn_bus_p2p_service_P2pHelperService_jniOnDestroy(JNIEnv* env, jobject jobj) {
+JNIEXPORT void JNICALL Java_org_alljoyn_bus_p2p_service_P2pHelperService_jniOnDestroy(JNIEnv* env, jobject jobj, jstring connectSpec) {
     LOGI("jniOnDestroy");
 
+    const char* cSpec = env->GetStringUTFChars(connectSpec, NULL);
     if (s_bus) {
-        s_bus->ReleaseName(SERVICE_NAME);
-        s_bus->Disconnect(DAEMON_ADDR);
+        s_bus->ReleaseName(P2P_SERVICE_NAME);
+        s_bus->Disconnect(cSpec);
         if (s_obj) {
             s_bus->UnregisterBusObject(*s_obj);
         }
     }
-
+    env->ReleaseStringUTFChars(connectSpec, cSpec);
 
     delete s_obj;
     delete s_bus;

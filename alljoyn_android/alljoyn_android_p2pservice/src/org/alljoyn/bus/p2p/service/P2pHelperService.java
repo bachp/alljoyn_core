@@ -27,7 +27,7 @@ class P2pHelperService implements P2pInterface {
 
     private static final String TAG = "P2pHelperService";
 
-    private native boolean jniOnCreate();
+    private native boolean jniOnCreate(String daemonAddr);
     private native void jniOnDestroy();
     private native void jniOnFoundAdvertisedName(String name, String namePrefix, String guid, String device);
     private native void jniOnLostAdvertisedName(String name, String namePrefix, String guid, String device);
@@ -39,8 +39,8 @@ class P2pHelperService implements P2pInterface {
 
     private P2pManager mP2pManager = null;
 
-    public P2pHelperService(Context context) {
-        jniReady = jniOnCreate();
+    public P2pHelperService(Context context, String daemonAddr) {
+        jniReady = jniOnCreate(daemonAddr);
         if (jniReady) {
             mP2pManager = new P2pManager(context, this);
         }

@@ -53,7 +53,7 @@ public class P2pHelperAndroidService extends Service {
         mConnect = new Runnable() {
             public void run() {
                 Log.d(TAG, "Attempting connection");
-                mP2pHelperService = new P2pHelperService(getApplicationContext());
+                mP2pHelperService = new P2pHelperService(getApplicationContext(), "unix:abstract=alljoyn");
 
                 if (!mP2pHelperService.isReady()) {
                     Log.d(TAG, "P2pHelperService could not connect to daemon, retrying");
