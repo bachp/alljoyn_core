@@ -29,19 +29,19 @@ class P2pHelperService implements P2pInterface {
 
     private native boolean jniOnCreate(String daemonAddr);
     private native void jniOnDestroy();
-    private native void jniOnFoundAdvertisedName(String name, String namePrefix, String guid, String device);
-    private native void jniOnLostAdvertisedName(String name, String namePrefix, String guid, String device);
-    private native void jniOnLinkEstablished(int handle);
-    private native void jniOnLinkError(int handle, int error);
-    private native void jniOnLinkLost(int handle);
+    private native int jniOnFoundAdvertisedName(String name, String namePrefix, String guid, String device);
+    private native int jniOnLostAdvertisedName(String name, String namePrefix, String guid, String device);
+    private native int jniOnLinkEstablished(int handle);
+    private native int jniOnLinkError(int handle, int error);
+    private native int jniOnLinkLost(int handle);
 
-    private boolean jniReady = false;
+    private boolean jniConnected = false;
 
     private P2pManager mP2pManager = null;
 
     public P2pHelperService(Context context, String daemonAddr) {
-        jniReady = jniOnCreate(daemonAddr);
-        if (jniReady) {
+        jniConnected = jniOnCreate(daemonAddr);
+        if (jniConnected) {
             mP2pManager = new P2pManager(context, this);
         }
     }
@@ -51,19 +51,19 @@ class P2pHelperService implements P2pInterface {
             mP2pManager.shutdown();
             mP2pManager = null;
         }
-        jniReady = false;
+        jniConnected = false;
         jniOnDestroy();
     }
 
     protected void finalize() throws Throwable {
-        if (jniReady) {
+        if (jniConnected) {
             shutdown();
         }
     }
 
-    public void busFailed() {
-        jniReady = false;
-        // Try to restart bus?
+    public void jniFailed() {
+        Log.i(TAG, "jniFailed: shutting down");
+        shutdown();
     }
 
     public int FindAdvertisedName(String namePrefix) {
@@ -102,51 +102,61 @@ class P2pHelperService implements P2pInterface {
     }
 
     public void OnFoundAdvertisedName(String name, String namePrefix, String guid, String device) {
-        if (jniReady) {
+        if (jniConnected) {
             Log.i(TAG, "OnFoundAdvertisedName(" + name + ", " + namePrefix + ", " + guid + ", " + device + "): Sending signal");
-            jniOnFoundAdvertisedName(name, namePrefix, guid, device);
+            if (0 != jniOnFoundAdvertisedName(name, namePrefix, guid, device)) {
+                jniFailed();
+            }
         } else {
             Log.e(TAG, "OnFoundAdvertisedName() not sent, JNI not available");
         }
     }
 
     public void OnLostAdvertisedName(String name, String namePrefix, String guid, String device) {
-        if (jniReady) {
+        if (jniConnected) {
             Log.i(TAG, "OnLostAdvertisedName(" + name + ", " + namePrefix + ", " + guid + ", " + device + "): Sending signal");
-            jniOnLostAdvertisedName(name, namePrefix, guid, device);
+            if (0 != jniOnLostAdvertisedName(name, namePrefix, guid, device)) {
+                jniFailed();
+            }
         } else {
             Log.e(TAG, "OnLostAdvertisedName() not sent, JNI not available");
         }
     }
 
     public void OnLinkEstablished(int handle) {
-        if (jniReady) {
+        if (jniConnected) {
             Log.i(TAG, "OnLinkEstablished(" + handle + "): Sending signal");
-            jniOnLinkEstablished(handle);
+            if (0 != jniOnLinkEstablished(handle)) {
+                jniFailed();
+            }
         } else {
             Log.e(TAG, "OnLinkEstablished() not sent, JNI not available");
         }
     }
 
     public void OnLinkError(int handle, int error) {
-        if (jniReady) {
+        if (jniConnected) {
             Log.i(TAG, "OnLinkError(" + handle + ", " + error + "): Sending signal");
-            jniOnLinkError(handle, error);
+            if (0 != jniOnLinkError(handle, error)) {
+                jniFailed();
+            }
         } else {
             Log.e(TAG, "OnLinkError() not sent, JNI not available");
         }
     }
 
     public void OnLinkLost(int handle) {
-        if (jniReady) {
+        if (jniConnected) {
             Log.i(TAG, "OnLinkLost(" + handle + "): Sending signal");
-            jniOnLinkLost(handle);
+            if (0 != jniOnLinkLost(handle)) {
+                jniFailed();
+            }
         } else {
             Log.e(TAG, "OnLinkLost() not sent, JNI not available");
         }
     }
 
-    public boolean isReady() {
-        return jniReady;
+    public boolean isConnected() {
+        return jniConnected;
     }
 }

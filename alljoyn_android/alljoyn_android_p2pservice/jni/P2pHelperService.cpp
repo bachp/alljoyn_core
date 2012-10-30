@@ -47,6 +47,7 @@
 #endif
 
 #define ER_GENERAL -1  // @@ TODO  lazy...
+#define ER_P2P_NOT_CONNECTED ER_BUS_NOT_CONNECTED
 
 using namespace ajn;
 using namespace qcc;
@@ -641,7 +642,7 @@ class P2pService : public BusObject {
         }
     }
 
-    void sendOnFoundAdvertisedName(const char* name, const char* namePrefix, const char* guid, const char* device) {
+    int sendOnFoundAdvertisedName(const char* name, const char* namePrefix, const char* guid, const char* device) {
         MsgArg args[4];
         args[0].Set("s", name);
         args[1].Set("s", namePrefix);
@@ -653,9 +654,10 @@ class P2pService : public BusObject {
         if (ER_OK != status) {
             LOGE("sendOnFoundAdvertisedName: Error sending signal (%s)", QCC_StatusText(status));
         }
+        return static_cast<int>(status);
     }
 
-    void sendOnLostAdvertisedName(const char* name, const char* namePrefix, const char* guid, const char* device) {
+    int sendOnLostAdvertisedName(const char* name, const char* namePrefix, const char* guid, const char* device) {
         MsgArg args[4];
         args[0].Set("s", name);
         args[1].Set("s", namePrefix);
@@ -667,9 +669,10 @@ class P2pService : public BusObject {
         if (ER_OK != status) {
             LOGE("sendOnLostAdvertisedName: Error sending signal (%s)", QCC_StatusText(status));
         }
+        return static_cast<int>(status);
     }
 
-    void sendOnLinkEstablished(int handle) {
+    int sendOnLinkEstablished(int handle) {
         MsgArg arg("i", handle);
 
         LOGI("sendOnLinkEstablished(%d)", handle);
@@ -677,9 +680,10 @@ class P2pService : public BusObject {
         if (ER_OK != status) {
             LOGE("sendOnLinkEstablished: Error sending signal (%s)", QCC_StatusText(status));
         }
+        return static_cast<int>(status);
     }
 
-    void sendOnLinkError(int handle, int error) {
+    int sendOnLinkError(int handle, int error) {
         MsgArg args[2];
         args[0].Set("i", handle);
         args[1].Set("i", error);
@@ -689,9 +693,10 @@ class P2pService : public BusObject {
         if (ER_OK != status) {
             LOGE("sendOnLinkError: Error sending signal (%s)", QCC_StatusText(status));
         }
+        return static_cast<int>(status);
     }
 
-    void sendOnLinkLost(int handle) {
+    int sendOnLinkLost(int handle) {
         MsgArg arg("i", handle);
 
         LOGI("sendOnLinkLost(%d)", handle);
@@ -699,6 +704,7 @@ class P2pService : public BusObject {
         if (ER_OK != status) {
             LOGE("sendOnLinkLost: Error sending signal (%s)", QCC_StatusText(status));
         }
+        return static_cast<int>(status);
     }
 
     jobject getJObject() {
@@ -867,7 +873,8 @@ JNIEXPORT void JNICALL Java_org_alljoyn_bus_p2p_service_P2pHelperService_jniOnDe
     s_bus = NULL;
 }
 
-JNIEXPORT void JNICALL Java_org_alljoyn_bus_p2p_service_P2pHelperService_jniOnFoundAdvertisedName(JNIEnv* env, jobject jobj, jstring name, jstring namePrefix, jstring guid, jstring device) {
+JNIEXPORT jint JNICALL Java_org_alljoyn_bus_p2p_service_P2pHelperService_jniOnFoundAdvertisedName(JNIEnv* env, jobject jobj, jstring name, jstring namePrefix, jstring guid, jstring device) {
+    int status = ER_P2P_NOT_CONNECTED;
 
     if (s_obj) {
         const char* cName = env->GetStringUTFChars(name, NULL);
@@ -875,19 +882,19 @@ JNIEXPORT void JNICALL Java_org_alljoyn_bus_p2p_service_P2pHelperService_jniOnFo
         const char* cGuid = env->GetStringUTFChars(guid, NULL);
         const char* cDevice = env->GetStringUTFChars(device, NULL);
 
-        s_obj->sendOnFoundAdvertisedName(cName, cNamePrefix, cGuid, cDevice);
+        status = s_obj->sendOnFoundAdvertisedName(cName, cNamePrefix, cGuid, cDevice);
 
         env->ReleaseStringUTFChars(name, cName);
         env->ReleaseStringUTFChars(namePrefix, cNamePrefix);
         env->ReleaseStringUTFChars(guid, cGuid);
         env->ReleaseStringUTFChars(device, cDevice);
-    } else {
-        LOGE("onFoundAdvertisedName: Bad P2pService pointer %p", s_obj);
     }
+    return status;
 
 }
 
-JNIEXPORT void JNICALL Java_org_alljoyn_bus_p2p_service_P2pHelperService_jniOnLostAdvertisedName(JNIEnv* env, jobject jobj, jstring name, jstring namePrefix, jstring guid, jstring device) {
+JNIEXPORT jint JNICALL Java_org_alljoyn_bus_p2p_service_P2pHelperService_jniOnLostAdvertisedName(JNIEnv* env, jobject jobj, jstring name, jstring namePrefix, jstring guid, jstring device) {
+    int status = ER_P2P_NOT_CONNECTED;
 
     if (s_obj) {
         const char* cName = env->GetStringUTFChars(name, NULL);
@@ -895,42 +902,41 @@ JNIEXPORT void JNICALL Java_org_alljoyn_bus_p2p_service_P2pHelperService_jniOnLo
         const char* cGuid = env->GetStringUTFChars(guid, NULL);
         const char* cDevice = env->GetStringUTFChars(device, NULL);
 
-        s_obj->sendOnLostAdvertisedName(cName, cNamePrefix, cGuid, cDevice);
+        status = s_obj->sendOnLostAdvertisedName(cName, cNamePrefix, cGuid, cDevice);
 
         env->ReleaseStringUTFChars(name, cName);
         env->ReleaseStringUTFChars(namePrefix, cNamePrefix);
         env->ReleaseStringUTFChars(guid, cGuid);
         env->ReleaseStringUTFChars(device, cDevice);
-    } else {
-        LOGE("onLostAdvertisedName: Bad P2pService pointer %p", s_obj);
     }
+    return static_cast<int>(status);
 }
 
-JNIEXPORT void JNICALL Java_org_alljoyn_bus_p2p_service_P2pHelperService_jniOnLinkEstablished(JNIEnv* env, jobject jobj, jint handle) {
+JNIEXPORT jint JNICALL Java_org_alljoyn_bus_p2p_service_P2pHelperService_jniOnLinkEstablished(JNIEnv* env, jobject jobj, jint handle) {
+    int status = ER_P2P_NOT_CONNECTED;
 
     if (s_obj) {
-        s_obj->sendOnLinkEstablished(handle);
-    } else {
-        LOGE("onLinkEstablished: Bad P2pService pointer %p", s_obj);
+        status = s_obj->sendOnLinkEstablished(handle);
     }
+    return static_cast<int>(status);
 }
 
-JNIEXPORT void JNICALL Java_org_alljoyn_bus_p2p_service_P2pHelperService_jniOnLinkError(JNIEnv* env, jobject jobj, jint handle, jint error) {
+JNIEXPORT jint JNICALL Java_org_alljoyn_bus_p2p_service_P2pHelperService_jniOnLinkError(JNIEnv* env, jobject jobj, jint handle, jint error) {
+    int status = ER_P2P_NOT_CONNECTED;
 
     if (s_obj) {
-        s_obj->sendOnLinkError(handle, error);
-    } else {
-        LOGE("onLinkError: Bad P2pService pointer %p", s_obj);
+        status = s_obj->sendOnLinkError(handle, error);
     }
+    return static_cast<int>(status);
 }
 
-JNIEXPORT void JNICALL Java_org_alljoyn_bus_p2p_service_P2pHelperService_jniOnLinkLost(JNIEnv* env, jobject jobj, jint handle) {
+JNIEXPORT jint JNICALL Java_org_alljoyn_bus_p2p_service_P2pHelperService_jniOnLinkLost(JNIEnv* env, jobject jobj, jint handle) {
+    int status = ER_P2P_NOT_CONNECTED;
 
     if (s_obj) {
-        s_obj->sendOnLinkLost(handle);
-    } else {
-        LOGE("onLinkLost: Bad P2pService pointer %p", s_obj);
+        status = s_obj->sendOnLinkLost(handle);
     }
+    return static_cast<int>(status);
 }
 
 

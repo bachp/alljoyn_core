@@ -52,15 +52,15 @@ public class P2pHelperAndroidService extends Service {
         mHandler = new Handler();
         mConnect = new Runnable() {
             public void run() {
-                Log.d(TAG, "Attempting connection");
-                mP2pHelperService = new P2pHelperService(getApplicationContext(), "unix:abstract=alljoyn");
-
-                if (!mP2pHelperService.isReady()) {
-                    Log.d(TAG, "P2pHelperService could not connect to daemon, retrying");
-                    mP2pHelperService = null;
-                    mHandler.postDelayed(mConnect, connectionRetryInterval);
-                    return;
+                if (null == mP2pHelperService) {
+                    Log.d(TAG, "Attempting to connect to daemon");
+                    mP2pHelperService = new P2pHelperService(getApplicationContext(), "unix:abstract=alljoyn");
                 }
+                if (!mP2pHelperService.isConnected()) {
+                    Log.d(TAG, "Not connected to daemon");
+                    mP2pHelperService = null;
+                }
+                mHandler.postDelayed(mConnect, connectionRetryInterval);
             }
         };
     }
