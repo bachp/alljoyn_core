@@ -20,6 +20,11 @@ import android.content.Context;
 import android.util.Log;
 
 class P2pHelperService implements P2pInterface {
+
+    static {
+        System.loadLibrary("P2pHelperService");
+    }
+
     private static final String TAG = "P2pHelperService";
 
     private native boolean jniOnCreate();
@@ -35,7 +40,6 @@ class P2pHelperService implements P2pInterface {
     private P2pManager mP2pManager = null;
 
     public P2pHelperService(Context context) {
-        System.loadLibrary("P2pHelperService");
         jniReady = jniOnCreate();
         if (jniReady) {
             mP2pManager = new P2pManager(context, this);
