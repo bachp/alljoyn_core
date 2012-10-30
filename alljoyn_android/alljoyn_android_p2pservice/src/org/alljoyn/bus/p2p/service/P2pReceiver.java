@@ -22,19 +22,12 @@ import android.content.Intent;
 import android.net.wifi.p2p.WifiP2pDevice;
 import android.net.wifi.p2p.WifiP2pInfo;
 import android.net.wifi.p2p.WifiP2pManager;
-import android.net.wifi.p2p.WifiP2pManager.Channel;
-import android.net.wifi.p2p.WifiP2pManager.PeerListListener;
 import android.util.Log;
 
 public class P2pReceiver extends BroadcastReceiver {
-    private WifiP2pManager manager;
     private P2pManager p2pManager;
-    private Channel channel;
 
-    public P2pReceiver(WifiP2pManager manager, Channel channel,
-                       P2pManager p2pManager) {
-        this.manager = manager;
-        this.channel = channel;
+    public P2pReceiver(P2pManager p2pManager) {
         this.p2pManager = p2pManager;
     }
 
@@ -42,13 +35,8 @@ public class P2pReceiver extends BroadcastReceiver {
     public void onReceive(Context context, Intent intent) {
         String action = intent.getAction();
 
-        if (manager == null) {
-            Log.d(P2pManager.TAG, "onReceive(): manager is NULL");
-            return;
-        }
-
         if (p2pManager == null) {
-            Log.d(P2pManager.TAG, "onReceive(): caller is NULL");
+            Log.d(P2pManager.TAG, "onReceive(): p2pManager is NULL");
             return;
         }
 
@@ -66,8 +54,8 @@ public class P2pReceiver extends BroadcastReceiver {
             Log.d(P2pManager.TAG, "P2P Discovery Changed");
             p2pManager.discoveryChanged(intent.getIntExtra(WifiP2pManager.EXTRA_DISCOVERY_STATE, -1));
         } else if (WifiP2pManager.WIFI_P2P_PEERS_CHANGED_ACTION.equals(action)) {
-            Log.d(P2pManager.TAG, "P2P Peers Changed");
-            manager.requestPeers(channel, (PeerListListener) p2pManager);
+            // Log.d(P2pManager.TAG, "P2P Peers Changed");
+            p2pManager.peersChanged();
         }
     }
 }

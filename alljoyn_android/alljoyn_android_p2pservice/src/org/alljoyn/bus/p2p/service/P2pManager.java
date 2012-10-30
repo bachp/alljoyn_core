@@ -201,7 +201,7 @@ public class P2pManager implements ConnectionInfoListener, DnsSdServiceResponseL
         channel = manager.initialize(context, context.getMainLooper(), null);
         manager.setDnsSdResponseListeners(channel, this, this);
 
-        receiver = new P2pReceiver(manager, channel, this);
+        receiver = new P2pReceiver(this);
 
         mServiceRequestList = new ArrayList<String>();
         mRequestedNames = new ArrayList<String>();
@@ -653,7 +653,7 @@ public class P2pManager implements ConnectionInfoListener, DnsSdServiceResponseL
     }
 
     private void deviceLost(WifiP2pDevice lostPeer) {
-        Log.d(TAG, "deviceLost(): " + lostPeer.deviceAddress);
+        Log.d(TAG, "deviceLost: " + lostPeer.deviceAddress);
 
         ArrayList<FoundServiceInfo> services = null;
         String address = lostPeer.deviceAddress;
@@ -974,6 +974,10 @@ public class P2pManager implements ConnectionInfoListener, DnsSdServiceResponseL
                 setFindState(FindState.IDLE);
             }
         }
+    }
+
+    /*package*/ void peersChanged() {
+        manager.requestPeers(channel, this);
     }
 
     /**
