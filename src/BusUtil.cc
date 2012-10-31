@@ -51,14 +51,14 @@ bool IsLegalUniqueName(const char* str)
     const char* p = str;
 
     char c = *p++;
-    if (c != ':' || !(isalnum(*p) || (*p == '-') || (*p == '_'))) {
+    if (c != ':' || !(IsAlphaNumeric(*p) || (*p == '-') || (*p == '_'))) {
         return false;
     }
     p++;
 
     size_t periods = 0;
     while ((c = *p++)) {
-        if (!isalnum(c) && (c != '-') && (c != '_')) {
+        if (!IsAlphaNumeric(c) && (c != '-') && (c != '_')) {
             if ((c != '.') || (*p == '.') || (*p == 0)) {
                 return false;
             }
@@ -81,11 +81,11 @@ bool IsLegalBusName(const char* str)
     size_t periods = 0;
     char c = *p++;
     /* Must begin with an alpha character, underscore, or hyphen */
-    if (!isalpha(c) && (c != '_') && (c != '-')) {
+    if (!IsAlpha(c) && (c != '_') && (c != '-')) {
         return false;
     }
     while ((c = *p++) != 0) {
-        if (!isalnum(c) && (c != '_') && (c != '-')) {
+        if (!IsAlphaNumeric(c) && (c != '_') && (c != '-')) {
             if ((c != '.') || (*p == '.') || (*p == 0) || isdigit(*p)) {
                 return false;
             }
@@ -107,7 +107,7 @@ bool IsLegalObjectPath(const char* str)
         return false;
     }
     while ((c = *str++) != 0) {
-        if (!isalnum(c) && (c != '_')) {
+        if (!IsAlphaNumeric(c) && (c != '_')) {
             if ((c != '/') || (*str == '/') || (*str == 0)) {
                 return false;
             }
@@ -126,12 +126,12 @@ bool IsLegalInterfaceName(const char* str)
 
     /* Must begin with an alpha character or underscore */
     char c = *p++;
-    if (!isalpha(c) && (c != '_')) {
+    if (!IsAlpha(c) && (c != '_')) {
         return false;
     }
     size_t periods = 0;
     while ((c = *p++) != 0) {
-        if (!isalnum(c) && (c != '_')) {
+        if (!IsAlphaNumeric(c) && (c != '_')) {
             if ((c != '.') || (*p == '.') || (*p == 0)) {
                 return false;
             }
@@ -156,11 +156,11 @@ bool IsLegalMemberName(const char* str)
     const char* p = str;
     char c = *p++;
 
-    if (!isalpha(c) && (c != '_')) {
+    if (!IsAlpha(c) && (c != '_')) {
         return false;
     }
     while ((c = *p++) != 0) {
-        if (!isalnum(c) && (c != '_')) {
+        if (!IsAlphaNumeric(c) && (c != '_')) {
             return false;
         }
     }
