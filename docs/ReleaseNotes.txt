@@ -1,5 +1,5 @@
-AllJoyn Version 3.0 and 3.0.1 Release Notes
--------------------------------------------
+AllJoyn Version 3.0.2 Release Notes
+-----------------------------------
 
 Platform Support
 ----------------
@@ -43,23 +43,43 @@ ALLJOYN-1369: ICE transport does not operate over a symmetric NAT
 ALLJOYN-1373: Memory leak in ICE transport
 
 
-Issues in Release 3.0 Addressed in Release 3.0.1
-------------------------------------------------
-ALLJOYN-1423: Name service compatibility between 3.0 and < 3.0 daemons broken.
+Issues Addressed in Release 3.0.1
+---------------------------------
+ALLJOYN-1423: Name service compatibility between 3.0 and < 3.0 daemons
+is broken.
+
+ALLJOYN-1417: Memory leaks in ICE transport
 
 
-Known issues and limitations with Release 3.0.1
+Issues Addressed in Release 3.0.2
+---------------------------------
+
+ALLJOYN-various: Various issues related to repeatedly creating and destroying
+BusAttachments
+
+ALLJOYN-1397: XML schema for <limit> tag within alljoyn-daemon config
+file examples is incorrect.
+
+ALLJOYN-1421: Multi-homed Win8 devices can fail to advertise a
+valid IP address resulting in join session failures.
+
+ALLJOYN-1424: Fixed IP advertising incompatibility with AllJoyn
+version 2.3.6.
+
+ALLJOYN-1439: Client cannot join session with same name over ICE transport after Wifi
+is toggled on both devices.
+
+
+Known issues and limitations with Release 3.0.2
 -----------------------------------------------
 
-ALLJOYN-1217: AllJoyn operation over Bluetooth is stable with up to 3
-devices. Some instabilites are seen with 4 or more devices.
+ALLJOYN-1465: Win8 devices cannot reconnect to ICE's rendezvous server after Wifi 
+is toggled.
 
-ALLJOYN-1333: Bus teardown can produce crashes on Windows 8/RT when
-using the ICE transport.
+ALLJOYN-1394: AllJoyn on Windows RT does not support running multiple AllJoyn apps
+simultaneously.
 
-ALLJOYN-1395: Windows 8 samples are delivered with 64-bit build files
-only. Users must modify the samples' project files, etc. in order to build
-for 32-bit systems.
+ALLJOYN-1477: ICE transport does not work on Windows 7 platform.
 
 
 Compatibility
@@ -92,9 +112,17 @@ BusListener::FoundAdvertisedName cannot make AllJoyn remote procedure calls or
 any type of blocking call without first enabling concurrent callbacks via the
 new BusAttachment.EnableConcurrentCallbacks() API.
 
+Version 3.0.0 shipped with an issue (ALLJOYN-1423) that prevented earlier versions
+of AllJoyn from seeing multicast advertisements produced by 3.0.0 based
+applications. This issue was addressed in version 3.0.1.
+
 
 Change history
 --------------
+
+3.0.1 - Bug fixes.
+
+3.0.0 - Added support for Win8 / WinRT and iOS / OSX
 
 2.6.0 - Support for "bundled daemon" wherein an application developer can
         include all necessary AllJoyn components directly into their app.
