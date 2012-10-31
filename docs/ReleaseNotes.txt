@@ -63,9 +63,6 @@ file examples is incorrect.
 ALLJOYN-1421: Multi-homed Win8 devices can fail to advertise a
 valid IP address resulting in join session failures.
 
-ALLJOYN-1424: Fixed IP advertising incompatibility with AllJoyn
-version 2.3.6.
-
 ALLJOYN-1439: Client cannot join session with same name over ICE transport after Wifi
 is toggled on both devices.
 
