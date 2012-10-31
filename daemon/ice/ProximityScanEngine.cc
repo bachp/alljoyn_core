@@ -447,9 +447,12 @@ void ProximityScanEngine::StopScan() {
 
     QCC_DbgTrace(("ProximityScanEngine::StopScan() called"));
     //LOGD("============== ProximityScanEngine::StopScan() called ================");
-    // RemoveAlarms and Stop and Join the mainTimer
+
+    // Stop, RemoveAlarms and Join the mainTimer
     mainTimer.Stop();
+    mainTimer.RemoveAlarmsWithListener(*this);
     mainTimer.Join();
+
     hysteresisMap.clear();
     finalMap.clear();
     //isFirstScanComplete = false;
