@@ -315,6 +315,9 @@ QStatus BundledDaemon::Start(NullTransport* nullTransport)
     transports.insert(nullTransport);
 
     lock.Unlock(MUTEX_CONTEXT);
+
+    ajBus->AdvertiseName("org.alljoyn.Daemon", TRANSPORT_ANY);
+
     return ER_OK;
 
 ErrorExit:
