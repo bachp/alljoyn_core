@@ -2937,6 +2937,7 @@ void AllJoynObj::NameChangedSignalHandler(const InterfaceDescription::Member* me
         }
         ReleaseLocks();
     } else {
+        AcquireLocks();
         /* Change affects a well-known name (name table only) */
         VirtualEndpoint* remoteController = FindVirtualEndpoint(msg->GetSender());
         if (remoteController) {
@@ -2945,6 +2946,7 @@ void AllJoynObj::NameChangedSignalHandler(const InterfaceDescription::Member* me
         } else {
             QCC_LogError(ER_BUS_NO_ENDPOINT, ("Cannot find virtual endpoint %s", msg->GetSender()));
         }
+        ReleaseLocks();
     }
 
     if (madeChanges) {
