@@ -288,17 +288,7 @@ QStatus DaemonRouter::RegisterEndpoint(BusEndpoint& endpoint, bool isLocal)
     if (endpoint.GetEndpointType() == BusEndpoint::ENDPOINT_TYPE_BUS2BUS) {
         /* AllJoynObj is in charge of managing bus-to-bus endpoints and their names */
         RemoteEndpoint* busToBusEndpoint = static_cast<RemoteEndpoint*>(&endpoint);
-
-        /*
-         * If the bus controller is NULL, it was either never set, or it has
-         * removed itself.  If gone at this point, we certainly can't call out
-         * to it.  Since it goes away here when the BusController is going away,
-         * it probably means we are about to stop.
-         */
-        if (busController == NULL) {
-            return ER_BUS_STOPPING;
-        }
-
+       
         status = busController->GetAllJoynObj().AddBusToBusEndpoint(*busToBusEndpoint);
 
         /* Add to list of bus-to-bus endpoints */
@@ -326,16 +316,7 @@ void DaemonRouter::UnregisterEndpoint(BusEndpoint& endpoint)
         /* Inform bus controller of bus-to-bus endpoint removal */
         RemoteEndpoint* busToBusEndpoint = static_cast<RemoteEndpoint*>(&endpoint);
 
-        /*
-         * If the bus controller is NULL, it was either never set, or it has
-         * removed itself.  If gone at this point, we certainly can't call out
-         * to it.  Since it goes away here when the BusController is going away,
-         * it probably means we are about to stop; but we'll continue to do as
-         * much local cleanup as we can here.
-         */
-        if (busController != NULL) {
-            busController->GetAllJoynObj().RemoveBusToBusEndpoint(*busToBusEndpoint);
-        }
+        busController->GetAllJoynObj().RemoveBusToBusEndpoint(*busToBusEndpoint);
 
         /* Remove the bus2bus endpoint from the list */
         m_b2bEndpointsLock.Lock(MUTEX_CONTEXT);

@@ -51,8 +51,6 @@ BusController::BusController(Bus& alljoynBus) :
 
 BusController::~BusController()
 {
-    DaemonRouter& router(reinterpret_cast<DaemonRouter&>(bus.GetInternal().GetRouter()));
-    router.SetBusController(NULL);
     bus.Stop();
     bus.Join();
 }
