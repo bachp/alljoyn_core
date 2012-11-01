@@ -288,7 +288,7 @@ QStatus DaemonRouter::RegisterEndpoint(BusEndpoint& endpoint, bool isLocal)
     if (endpoint.GetEndpointType() == BusEndpoint::ENDPOINT_TYPE_BUS2BUS) {
         /* AllJoynObj is in charge of managing bus-to-bus endpoints and their names */
         RemoteEndpoint* busToBusEndpoint = static_cast<RemoteEndpoint*>(&endpoint);
-       
+
         status = busController->GetAllJoynObj().AddBusToBusEndpoint(*busToBusEndpoint);
 
         /* Add to list of bus-to-bus endpoints */
