@@ -790,7 +790,12 @@ TCPTransport::~TCPTransport()
 void TCPTransport::Authenticated(TCPEndpoint* conn)
 {
     QCC_DbgTrace(("TCPTransport::Authenticated()"));
-
+    /*
+     * If the transport is stopping, dont start the Tx and RxThreads.
+     */
+    if (m_stopping == true) {
+        return;
+    }
     /*
      * If Authenticated() is being called, it is as a result of the
      * authentication thread telling us that it has succeeded.  What we need to

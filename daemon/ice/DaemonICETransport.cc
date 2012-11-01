@@ -564,6 +564,13 @@ void DaemonICETransport::Authenticated(DaemonICEEndpoint* conn)
     QCC_DbgTrace(("DaemonICETransport::Authenticated()"));
 
     /*
+     * If the transport is stopping, dont start the Tx and RxThreads.
+     */
+    if (m_stopping == true) {
+        return;
+    }
+
+    /*
      * If Authenticated() is being called, it is as a result of the
      * authentication thread telling us that it has succeeded.  What we need to
      * do here is to try and Start() the endpoint which will spin up its TX and
