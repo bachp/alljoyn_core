@@ -108,7 +108,7 @@ class LocalEndpoint::ReplyContext {
     }
 
     ~ReplyContext() {
-        ep->GetBus().GetInternal().GetTimer().RemoveAlarm(alarm, true /* block if alarm in progress */);
+        ep->GetBus().GetInternal().GetTimer().RemoveAlarm(alarm, false /* don't block if alarm in progress */);
     }
 
     LocalEndpoint* ep;                           /* The endpoint this reply context is associated with */
