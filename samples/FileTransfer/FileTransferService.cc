@@ -132,11 +132,9 @@ class FileTransferObject : public BusObject {
                 count++;
             }
 
-            char eof[] = { 0 };
-
             args[0].Set("s", s_fileName);
-            args[1].Set("u", 0);
-            args[2].Set("ay", 1, eof);
+            args[1].Set("u", count);
+            args[2].Set("ay", 0, NULL);
 
             status = Signal(NULL, serviceSessionId, *fileTransferMember, args, 3, 0, flags);
 

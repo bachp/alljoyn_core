@@ -164,17 +164,16 @@ class FileTransferObject : public BusObject {
                                    const char* sourcePath,
                                    Message& msg)
     {
-        uint32_t currArray;
+        uint8_t* data;
+        size_t size;
+        msg->GetArg(2)->Get("ay", &size, &data);
 
-        msg->GetArg(1)->Get("u", &currArray);
-
-        if (currArray != 0) {
+        if (size != 0) {
+            uint32_t currArray;
             char* filePathAndName;
-            msg->GetArg(0)->Get("s", &filePathAndName);
 
-            uint8_t* data;
-            size_t size;
-            msg->GetArg(2)->Get("ay", &size, &data);
+            msg->GetArg(1)->Get("u", &currArray);
+            msg->GetArg(0)->Get("s", &filePathAndName);
 
             if (NULL == this->outputStream) {
                 char* fileName = filePathAndName;
