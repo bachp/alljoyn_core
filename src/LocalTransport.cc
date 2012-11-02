@@ -108,7 +108,7 @@ class LocalEndpoint::ReplyContext {
     }
 
     ~ReplyContext() {
-        ep->GetBus().GetInternal().GetTimer().RemoveAlarm(alarm, false /* don't block if alarm in progress */);
+        ep->replyTimer.RemoveAlarm(alarm, false /* don't block if alarm in progress */);
     }
 
     LocalEndpoint* ep;                           /* The endpoint this reply context is associated with */
@@ -133,6 +133,7 @@ LocalEndpoint::LocalEndpoint(BusAttachment& bus) :
     bus(bus),
     objectsLock(),
     replyMapLock(),
+    replyTimer("replyTimer", true),
     dbusObj(NULL),
     alljoynObj(NULL),
     alljoynDebugObj(NULL),
@@ -192,6 +193,11 @@ QStatus LocalEndpoint::Start()
 
     /* Start the dispatcher */
     status = dispatcher.Start();
+
+    /* Start the replyTimer */
+    if (status == ER_OK) {
+        status = replyTimer.Start();
+    }
 
     /* Set the local endpoint's unique name */
     SetUniqueName(bus.GetInternal().GetRouter().GenerateUniqueName());
@@ -253,6 +259,9 @@ QStatus LocalEndpoint::Stop(void)
     /* Stop the dispatcher */
     dispatcher.Stop();
 
+    /* Stop the replyTimer */
+    replyTimer.Stop();
+
     return ER_OK;
 }
 
@@ -262,6 +271,8 @@ QStatus LocalEndpoint::Join(void)
         peerObj->Join();
     }
     dispatcher.Join();
+    replyTimer.Join();
+
     return ER_OK;
 }
 
@@ -577,7 +588,7 @@ QStatus LocalEndpoint::RegisterReplyHandler(MessageReceiver* receiver,
         /*
          * Set timeout
          */
-        status = bus.GetInternal().GetTimer().AddAlarm(rc->alarm);
+        status = replyTimer.AddAlarm(rc->alarm);
         if (status != ER_OK) {
             UnregisterReplyHandler(methodCallMsg);
         }
@@ -622,7 +633,7 @@ bool LocalEndpoint::PauseReplyHandlerTimeout(Message& methodCallMsg)
         map<uint32_t, ReplyContext*>::iterator iter = replyMap.find(methodCallMsg->GetCallSerial());
         if (iter != replyMap.end()) {
             ReplyContext*rc = iter->second;
-            paused = rc->ep->GetBus().GetInternal().GetTimer().RemoveAlarm(rc->alarm);
+            paused = replyTimer.RemoveAlarm(rc->alarm);
         }
         replyMapLock.Unlock();
     }
@@ -637,7 +648,7 @@ bool LocalEndpoint::ResumeReplyHandlerTimeout(Message& methodCallMsg)
         map<uint32_t, ReplyContext*>::iterator iter = replyMap.find(methodCallMsg->GetCallSerial());
         if (iter != replyMap.end()) {
             ReplyContext*rc = iter->second;
-            QStatus status = rc->ep->GetBus().GetInternal().GetTimer().AddAlarm(rc->alarm);
+            QStatus status = replyTimer.AddAlarm(rc->alarm);
             if (status == ER_OK) {
                 resumed = true;
             } else {
