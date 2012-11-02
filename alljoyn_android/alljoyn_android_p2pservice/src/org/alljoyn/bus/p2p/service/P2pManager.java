@@ -69,7 +69,6 @@ enum PeerState {
 enum FindState {
     IDLE("IDLE"),
     DISCOVERING("DISCOVERING"),
-    INITIATING("INITIATING"),
     FIND_PEERS("FIND_PEERS");
     private String name;
     private FindState(String name) {
@@ -186,6 +185,11 @@ public class P2pManager implements ConnectionInfoListener, DnsSdServiceResponseL
                                          {
                                              public void onSuccess() {
                                                  Log.d(TAG, "Service discovery started");
+
+                                                 synchronized (mFindState) {
+                                                     if (mFindState != FindState.DISCOVERING)
+                                                         setFindState(FindState.DISCOVERING);
+                                                 }
                                              }
 
                                              public void onFailure(int reasonCode) {
@@ -203,6 +207,12 @@ public class P2pManager implements ConnectionInfoListener, DnsSdServiceResponseL
                 if (!isEnabled) {
                     return;
                 }
+
+                synchronized (mFindState) {
+                    if (mFindState == FindState.IDLE)
+                        setFindState(FindState.FIND_PEERS);
+                }
+
                 manager.discoverPeers(channel, null);
                 mHandler.postDelayed(mPeriodicFind, periodicInterval);
             }
@@ -338,12 +348,9 @@ public class P2pManager implements ConnectionInfoListener, DnsSdServiceResponseL
         mHandler.removeCallbacks(mPeriodicDiscovery);
         if (start) {
             synchronized (mFindState) {
-                // Remove callback to find peers, discovery handles both peer and service find
                 if (mFindState == FindState.FIND_PEERS)
                     mHandler.removeCallbacks(mPeriodicFind);
-
-                if (mFindState == FindState.IDLE || mFindState == FindState.FIND_PEERS)
-                    mFindState = FindState.INITIATING;
+                setFindState(FindState.DISCOVERING);
             }
             mPeriodicDiscovery.run();
         }
@@ -386,7 +393,6 @@ public class P2pManager implements ConnectionInfoListener, DnsSdServiceResponseL
         if (mPeerConfig == null)
             return;
         Log.d(TAG, "Initiate connection to " + mPeerConfig.deviceAddress);
-
         setPeerState(PeerState.INITIATED);
         manager.connect(channel, mPeerConfig,
                         new ActionListener()
@@ -396,6 +402,12 @@ public class P2pManager implements ConnectionInfoListener, DnsSdServiceResponseL
                                 if (mPeerState == PeerState.INITIATED) {
                                     setPeerState(PeerState.CONNECTING);
                                 }
+                                Log.d(TAG, "suspend discovery");
+                                setFindState(FindState.IDLE);
+
+                                // Suspend discovery while in active connection.
+                                mHandler.removeCallbacks(mPeriodicFind);
+                                mHandler.removeCallbacks(mPeriodicDiscovery);
                                 mHandler.postDelayed(mRequestConnectionInfo, connectionTimeout);
                             }
 
@@ -415,20 +427,30 @@ public class P2pManager implements ConnectionInfoListener, DnsSdServiceResponseL
         mPeerState = newState;
     }
 
-    /*package*/ synchronized void setEnabled(boolean enabled) {
+    private void setFindState(FindState newState) {
+        Log.d(TAG, "Discovery state changing from " + mFindState + " to " + newState + " for " + hashCode());
+        mFindState = newState;
+    }
+
+    /*package*/ void setEnabled(boolean enabled) {
         isEnabled = enabled;
         isInitiator = false;
+        mPendingConnect = false;
         mPeerConfig = null;
 
         // Restart service search and advertisement
-        if (isEnabled) {
-            startServiceSearch(true);
-            startAdvertisements();
-        } else {
-            mFindState = FindState.IDLE;
+        if (!isEnabled) {
+            Log.d(TAG, "P2P disabled");
+            synchronized (mFindState) {
+                setFindState(FindState.IDLE);
+            }
             setPeerState(PeerState.DISCONNECTED);
             doFindPeers(false);
             doDiscoverServices(false);
+        } else {
+            Log.d(TAG, "P2P enabled");
+            startServiceSearch(true);
+            startAdvertisements();
         }
 
     }
@@ -443,6 +465,10 @@ public class P2pManager implements ConnectionInfoListener, DnsSdServiceResponseL
 
     synchronized public void onGroupInfoAvailable(WifiP2pGroup group) {
         Log.d(TAG, "onGroupInfoAvaialble");
+        synchronized (mPeerState) {
+                if (mPeerState != PeerState.CONNECTED)
+                    return;
+        }
         mGroupOwner =group.getOwner();
         if (mGroupOwner != null)
             Log.d(TAG, "Group owner " + mGroupOwner.deviceAddress);
@@ -458,9 +484,7 @@ public class P2pManager implements ConnectionInfoListener, DnsSdServiceResponseL
 
         mHandler.removeCallbacks(mRequestConnectionInfo);
 
-        if (info.groupFormed)
-            manager.requestGroupInfo(channel, this);
-        else
+        if (!info.groupFormed)
             mGroupOwner = null;
 
         synchronized (mPeerState) {
@@ -471,12 +495,27 @@ public class P2pManager implements ConnectionInfoListener, DnsSdServiceResponseL
         case CONNECTING:
             if (info.groupFormed) {
                 setPeerState(PeerState.CONNECTED);
+                manager.requestGroupInfo(channel, this);
                 busInterface.OnLinkEstablished(getHandle(mPeerConfig.deviceAddress));
             } else {
                 int handle = 0;
                 if (mPeerConfig != null) {
                     handle = getHandle(mPeerConfig.deviceAddress);
                 }
+
+                //Timeout: cancel link establishment.
+                manager.cancelConnect(channel,
+                                      new ActionListener()
+                                      {
+                                          public void onSuccess() {
+                                              Log.d(TAG, "cancel  connection creation");
+                                          }
+
+                                          public void onFailure(int reasonCode) {
+                                              Log.d(TAG, "cancel connection creation" + reasonCode);
+                                          }
+                                      });
+
                 setPeerState(PeerState.DISCONNECTED);
                 mPeerConfig = null;
                 if (handle != 0) {
@@ -500,23 +539,31 @@ public class P2pManager implements ConnectionInfoListener, DnsSdServiceResponseL
         case DISCONNECTING:
         case DISCONNECTED:
             if (info.groupFormed) {
-                int handle = 0;
-                Log.d(TAG, "Connection not initiated by this AJN entity");
+                Log.d(TAG, "Incoming connection");
                 setPeerState(PeerState.CONNECTED);
+                manager.requestGroupInfo(channel, this);
                 isInitiator = false;
+
+                // Restart advertisements/discovery.
+                synchronized (mFindState) {
+                    Log.d(TAG, "Find State: " + mFindState);
+                    if (mFindState == FindState.IDLE && !mPendingConnect) {
+                        startServiceSearch(true);
+                        startAdvertisements();
+                    }
+                }
 
                 if (mPendingConnect && mPeerConfig != null) {
                     // Race condition? Some other WFD entity connected while we were
                     // in a process of initiating pending connect request.
-                    // Inform the daemon that pending connection failed
-                    // TODO: We might want to wait till we get group info and check if
+                    // TODO: Inform the daemon that initiated connection failed
+                    // We might want to wait till we get group info and check if
                     // the uninitiated connection happened to be to the desired device.
-                    busInterface.OnLinkError(getHandle(mPeerConfig.deviceAddress), -1);
                     mPeerConfig = null;
                 }
 
                 mPendingConnect = false;
-                busInterface.OnLinkEstablished(handle);
+                busInterface.OnLinkEstablished(0);
 
             } else {
                 int handle = 0;
@@ -536,6 +583,17 @@ public class P2pManager implements ConnectionInfoListener, DnsSdServiceResponseL
             Log.d(TAG, "Bad peer state: " + mPeerState);
             break;
         }
+        }
+
+        if (!info.groupFormed) {
+            //Restart suspended discovery/advertisement.
+            synchronized (mFindState) {
+                Log.d(TAG, "Disconnected state: restart advertising/discovery");
+                if (mFindState == FindState.IDLE) {
+                    startServiceSearch(true);
+                    startAdvertisements();
+                }
+            }
         }
     }
 
@@ -739,7 +797,7 @@ public class P2pManager implements ConnectionInfoListener, DnsSdServiceResponseL
         synchronized (mRequestedNames) {
             if (!mRequestedNames.isEmpty() && mRequestedNames.contains(namePrefix)) {
                 Log.d(TAG, "Request for " + namePrefix + " already added");
-                if (mFindState != FindState.INITIATING && mFindState != FindState.DISCOVERING)
+                if (mFindState != FindState.DISCOVERING)
                     doDiscoverServices(true);
                 return OK;
             }
@@ -751,7 +809,7 @@ public class P2pManager implements ConnectionInfoListener, DnsSdServiceResponseL
         // Find all AllJoyn services first.  If we are already in discovery mode, then
         // we are already finding all AllJoyn services.
         // Do not create a new request, just keep it on RequestedNames.
-        if (mFindState == FindState.INITIATING || mFindState == FindState.DISCOVERING)
+        if (mFindState == FindState.DISCOVERING)
             return OK;
 
         WifiP2pDnsSdServiceRequest serviceRequest = WifiP2pDnsSdServiceRequest.newInstance("_alljoyn._tcp");
@@ -846,28 +904,20 @@ public class P2pManager implements ConnectionInfoListener, DnsSdServiceResponseL
         return OK;
     }
 
-    /*package*/ synchronized void discoveryChanged(int state) {
-        //if P2P is disabled, set find state to IDLE.
-        // This is to overcome a quirky behavior in frameworks when discovery is reported
-        // as active with wifi turned off
-        if (!isEnabled) {
-            mFindState = FindState.IDLE;
-            return;
-        }
+    /*package*/ void discoveryChanged(int state) {
 
-        if (state == WifiP2pManager.WIFI_P2P_DISCOVERY_STARTED) {
-            Log.d(TAG, "discoveryChanged: STARTED");
-            if (mFindState ==  FindState.INITIATING)
-                mFindState = FindState.DISCOVERING;
-            else
-                mFindState = FindState.FIND_PEERS;
-        } else {
-            Log.d(TAG, "discoveryChanged: STOPPED");
-            if (isEnabled  && !mAdvertisedNames.isEmpty()) {
-                // If P2P is enabled we should keep advertisements alive
-                startAdvertisements();
-            } else
-                mFindState = FindState.IDLE;
+        synchronized (mFindState) {
+            if (!isEnabled) {
+                setFindState(FindState.IDLE);
+                return;
+            }
+
+            if (state == WifiP2pManager.WIFI_P2P_DISCOVERY_STARTED) {
+                Log.d(TAG, "discoveryChanged: STARTED");
+            } else {
+                Log.d(TAG, "discoveryChanged: STOPPED");
+                setFindState(FindState.IDLE);
+            }
         }
     }
 
@@ -1111,6 +1161,16 @@ public class P2pManager implements ConnectionInfoListener, DnsSdServiceResponseL
         switch (mPeerState) {
         case INITIATED:
         case CONNECTING:
+            mHandler.removeCallbacks(mRequestConnectionInfo);
+            // Restart suspended discovery.
+            synchronized (mFindState) {
+                Log.d(TAG, "Find State: " + mFindState);
+                if (mFindState == FindState.IDLE) {
+                    startServiceSearch(true);
+                    startAdvertisements();
+                }
+            }
+
             setPeerState(PeerState.DISCONNECTING);
             manager.cancelConnect(channel,
                                   new ActionListener()
