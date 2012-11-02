@@ -136,11 +136,6 @@ class BusAttachment::Internal : public MessageReceiver {
     void OverrideCompressionRules(CompressionRules& newRules) { compressionRules = newRules; }
 
     /**
-     * Get the shared timer.
-     */
-    qcc::Timer& GetTimer() { return timer; }
-
-    /**
      * Constructor called by BusAttachment.
      */
     Internal(const char* appName,
@@ -261,7 +256,6 @@ class BusAttachment::Internal : public MessageReceiver {
     CompressionRules compressionRules;    /* Rules for compresssing and decompressing headers */
     std::map<qcc::StringMapKey, InterfaceDescription> ifaceDescriptions;
 
-    qcc::Timer timer;                     /* Timer used for various timeouts such as method replies */
     bool allowRemoteMessages;             /* true iff endpoints of this attachment can receive messages from remote devices */
     qcc::String listenAddresses;          /* The set of bus addresses that this bus can listen on. (empty for clients) */
     qcc::Mutex stopLock;                  /* Protects BusAttachement::Stop from being reentered */

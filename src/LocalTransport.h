@@ -451,6 +451,7 @@ class LocalEndpoint : public BusEndpoint, public qcc::AlarmListener, public Mess
     qcc::Mutex replyMapLock;           /**< Mutex protecting reply contexts */
     qcc::GUID128 guid;                 /**< GUID to uniquely identify a local endpoint */
     qcc::String uniqueName;            /**< Unique name for endpoint */
+    qcc::Timer replyTimer;             /**< Timer used to timeout method calls */
 
     std::vector<BusObject*> defaultObjects;  /**< Auto-generated, heap allocated parent objects */
 

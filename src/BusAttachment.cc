@@ -113,7 +113,6 @@ BusAttachment::Internal::Internal(const char* appName,
     msgSerial(1),
     router(router ? router : new ClientRouter),
     localEndpoint(transportList.GetLocalTransport()->GetLocalEndpoint()),
-    timer("BusTimer", true),
     allowRemoteMessages(allowRemoteMessages),
     listenAddresses(listenAddresses ? listenAddresses : ""),
     stopLock(),
@@ -146,7 +145,6 @@ BusAttachment::Internal::~Internal()
     /*
      * Make sure that all threads that might possibly access this object have been joined.
      */
-    timer.Join();
     transportList.Join();
     delete router;
     router = NULL;
@@ -335,13 +333,8 @@ QStatus BusAttachment::Start()
 
     isStarted = true;
 
-    /* Start the timer */
-    status = busInternal->timer.Start();
-
-    if (ER_OK == status) {
-        /* Start the transports */
-        status = busInternal->transportList.Start(busInternal->GetListenAddresses());
-    }
+    /* Start the transports */
+    status = busInternal->transportList.Start(busInternal->GetListenAddresses());
 
     if ((status == ER_OK) && isStopping) {
         status = ER_BUS_STOPPING;
@@ -350,7 +343,6 @@ QStatus BusAttachment::Start()
 
     if (status != ER_OK) {
         QCC_LogError(status, ("BusAttachment::Start failed to start"));
-        busInternal->timer.Stop();
         busInternal->transportList.Stop();
         WaitStopInternal();
     }
@@ -573,11 +565,7 @@ QStatus BusAttachment::StopInternal(bool blockUntilStopped)
             it = busInternal->listeners.upper_bound(l);
         }
         busInternal->listenersLock.Unlock(MUTEX_CONTEXT);
-        /* Stop the timer thread */
-        status = busInternal->timer.Stop();
-        if (ER_OK != status) {
-            QCC_LogError(status, ("Timer::Stop() failed"));
-        }
+
         /* Stop the transport list */
         status = busInternal->transportList.Stop();
         if (ER_OK != status) {
@@ -614,7 +602,6 @@ void BusAttachment::WaitStopInternal()
          * clear the isStarted flag.
          */
         if (isStarted) {
-            busInternal->timer.Join();
             busInternal->transportList.Join();
 
             /* Clear peer state */
