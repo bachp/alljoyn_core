@@ -436,7 +436,7 @@ class LocalEndpoint : public BusEndpoint, public qcc::AlarmListener, public Mess
     /**
      * Registered LocalObjects
      */
-    STL_NAMESPACE_PREFIX::unordered_map<const char*, BusObject*, Hash, PathEq> localObjects;
+    std::unordered_map<const char*, BusObject*, Hash, PathEq> localObjects;
 
     /**
      * List of contexts for method call replies.

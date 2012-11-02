@@ -198,7 +198,7 @@ class MethodTable {
     };
 
     /** The hash table */
-    typedef STL_NAMESPACE_PREFIX::unordered_map<Key, Entry*, Hash, Equal> MapType;
+    typedef std::unordered_map<Key, Entry*, Hash, Equal> MapType;
     MapType hashTable;
 };
 
