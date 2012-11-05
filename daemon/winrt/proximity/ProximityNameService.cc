@@ -154,6 +154,8 @@ void ProximityNameService::ConnectionRequestedEventHandler(Platform::Object ^ se
                              IpNameService::Instance().CreateVirtualInterface(wfdEntry);
                              IpNameService::Instance().OpenInterface(TRANSPORT_WFD, "win-wfd");
                              QCC_DbgPrintf(("P2P keep-live connection is established"));
+                             assert(m_port && "m_port is invalid port");
+                             IpNameService::Instance().Enable(TRANSPORT_WFD, 0, m_port, 0, 0);
                              if (m_advertised.size() > 0) {
                                  IpNameService::Instance().AdvertiseName(TRANSPORT_WFD, *(m_advertised.begin()));
                              }
@@ -500,6 +502,8 @@ QStatus ProximityNameService::EstasblishProximityConnection(qcc::String guidStr)
             wfdEntry.m_index = 18;
             IpNameService::Instance().CreateVirtualInterface(wfdEntry);
             IpNameService::Instance().OpenInterface(TRANSPORT_WFD, "win-wfd");
+            assert(m_port && "m_port is invalid port");
+            IpNameService::Instance().Enable(TRANSPORT_WFD, 0, m_port, 0, 0);
             if (m_advertised.size() > 0) {
                 IpNameService::Instance().AdvertiseName(TRANSPORT_WFD, *(m_advertised.begin()));
             }
@@ -554,6 +558,8 @@ void ProximityNameService::ResetConnection()
         delete m_timer;
         m_timer = nullptr;
     }
+
+    IpNameService::Instance().Enable(TRANSPORT_WFD, 0, 0, 0, 0);
 }
 
 Platform::String ^ ProximityNameService::EncodeWknAdvertisement()
