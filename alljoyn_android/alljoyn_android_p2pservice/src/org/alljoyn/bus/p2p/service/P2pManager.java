@@ -50,6 +50,8 @@ import android.net.wifi.p2p.nsd.WifiP2pDnsSdServiceInfo;
 import android.util.Log;
 import android.os.Handler;
 
+import org.alljoyn.bus.Status;
+
 enum PeerState {
     DISCONNECTED("DISCONNECTED"),
     INITIATED("INITIATED"),
@@ -140,7 +142,6 @@ public class P2pManager implements ConnectionInfoListener, DnsSdServiceResponseL
     private HashMap <String, LocalServiceInfo> mAdvertisedNames;
 
     private static final int OK = 0;
-    private static final int ERROR = -1;
 
     private static final int MAX_ADVERTISE_TIMEOUT = 256000;
 
@@ -234,6 +235,17 @@ public class P2pManager implements ConnectionInfoListener, DnsSdServiceResponseL
         context.registerReceiver(receiver, intentFilter); // TODO: When to unregister?
 
     };
+
+    private int mapError(int code) {
+        switch (code) {
+            case WifiP2pManager.P2P_UNSUPPORTED:
+                return Status.P2P_DISABLED.getErrorCode();
+            case WifiP2pManager.BUSY:
+                return Status.P2P_BUSY.getErrorCode();
+            default:
+                return Status.P2P.getErrorCode();
+        }
+    }
 
     private void addServiceRequest(final String name) {
 
@@ -421,7 +433,7 @@ public class P2pManager implements ConnectionInfoListener, DnsSdServiceResponseL
                                 setPeerState(PeerState.DISCONNECTED);
                                 isInitiator = false;
                                 mPeerConfig = null;
-                                busInterface.OnLinkError(handle, reasonCode);
+                                busInterface.OnLinkError(handle, -mapError(reasonCode));
                             }
                         });
     }
@@ -479,6 +491,7 @@ public class P2pManager implements ConnectionInfoListener, DnsSdServiceResponseL
     }
 
     public void onConnectionInfoAvailable(WifiP2pInfo info) {
+
         Log.d(TAG, "onConnectionInfoAvailable()");
         Log.d(TAG, "Group Formed: " + info.groupFormed);
         Log.d(TAG, "Is Group Owner: " + info.isGroupOwner);
@@ -523,7 +536,7 @@ public class P2pManager implements ConnectionInfoListener, DnsSdServiceResponseL
                 setPeerState(PeerState.DISCONNECTED);
                 mPeerConfig = null;
                 if (handle != 0) {
-                    busInterface.OnLinkError(handle, -1);
+                    busInterface.OnLinkError(handle, -Status.P2P_TIMEOUT.getErrorCode());
                 }
             }
             break;
@@ -787,7 +800,7 @@ public class P2pManager implements ConnectionInfoListener, DnsSdServiceResponseL
 
         if (!isEnabled) {
             Log.d(TAG, "findAdvertisedName(): P2P is OFF");
-            return ERROR;
+            return -Status.P2P_DISABLED.getErrorCode();
         }
 
         // Strip the wildcard if it is present.
@@ -882,7 +895,7 @@ public class P2pManager implements ConnectionInfoListener, DnsSdServiceResponseL
 
         if (!isEnabled) {
             Log.d(TAG, "cancelFindAdvertisedName(): P2P is OFF");
-            return ERROR;
+            return -Status.P2P_DISABLED.getErrorCode();
         }
 
         // Strip the wildcard if it is present.
@@ -945,18 +958,18 @@ public class P2pManager implements ConnectionInfoListener, DnsSdServiceResponseL
 
         if (!isEnabled) {
             Log.d(TAG, "advertisedName(): P2P is OFF");
-            return ERROR;
+            return -Status.P2P_DISABLED.getErrorCode();
         }
 
         // Workaround for an issue when only one advertised service can be consistenly discovered.
         // The logic for keeping track of advertisements in mAdvertisementNames is currently
         // unused due to bug in the deeper layers preventing consistent discovery of more than
-        // one advertised service. However. We will keep it it intact in optmistic hopes that
+        // one advertised service. However. We will keep it intact in optmistic hopes that
         // this issue will be fixed in future.
         synchronized (mAdvertisedNames) {
             if (!mAdvertisedNames.isEmpty()) {
                 Log.d(TAG, "Remove the previous advertisement before adding a new one");
-                return ERROR;
+                return -Status.P2P.getErrorCode();
             }
         }
 
@@ -995,7 +1008,7 @@ public class P2pManager implements ConnectionInfoListener, DnsSdServiceResponseL
 
         if (!isEnabled) {
             Log.d(TAG, "cancelAdvertisedName(): P2P is OFF");
-            return ERROR;
+            return -Status.P2P_DISABLED.getErrorCode();
         }
 
         synchronized (mAdvertisedNames) {
@@ -1089,17 +1102,17 @@ public class P2pManager implements ConnectionInfoListener, DnsSdServiceResponseL
 
         if (!isEnabled) {
             Log.d(TAG, "establishLink(): P2P is OFF");
-            return ERROR;
+            return -Status.P2P_DISABLED.getErrorCode();
         }
 
         if (deviceAddress == null ||  deviceAddress.isEmpty()) {
                 Log.e(TAG, "Device address empty");
-                return ERROR;
+                return  -Status.INVALID_ADDRESS.getErrorCode();
         }
 
         if (mPeerState != PeerState.DISCONNECTED && isInitiator) {
             Log.e(TAG, "Already connected or in progress: " + mPeerState);
-            return ERROR;
+            return -Status.P2P.getErrorCode();
         }
 
         isInitiator = true;
@@ -1130,7 +1143,7 @@ public class P2pManager implements ConnectionInfoListener, DnsSdServiceResponseL
                 } else {
                     Log.d(TAG, "Cannot override existing connection to " + mGroupOwner.deviceAddress);
                     mPeerConfig  = null;
-                    return ERROR;
+                    return -Status.P2P.getErrorCode();
                 }
             }
         } else {
@@ -1159,7 +1172,7 @@ public class P2pManager implements ConnectionInfoListener, DnsSdServiceResponseL
 
         if (!isEnabled) {
             Log.d(TAG, "releaseLink(): P2P is OFF");
-            return ERROR;
+            return -Status.P2P_DISABLED.getErrorCode();
         }
 
         switch (mPeerState) {
@@ -1219,7 +1232,7 @@ public class P2pManager implements ConnectionInfoListener, DnsSdServiceResponseL
                                         setPeerState(PeerState.DISCONNECTED);
                                         mPeerConfig = null;
                                         if (handle != 0) {
-                                            busInterface.OnLinkError(handle, reasonCode);
+                                            busInterface.OnLinkError(handle, -mapError(reasonCode));
                                         }
                                     }
                                 });
