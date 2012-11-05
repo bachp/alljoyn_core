@@ -699,6 +699,11 @@ const qcc::String& BusAttachment::GetGlobalGUIDString() const
     return busInternal->GetGlobalGUID().ToString();
 }
 
+const qcc::String& BusAttachment::GetGlobalGUIDShortString() const
+{
+    return busInternal->GetGlobalGUID().ToShortString();
+}
+
 const ProxyBusObject& BusAttachment::GetDBusProxyObj()
 {
     return busInternal->localEndpoint.GetDBusProxyObj();

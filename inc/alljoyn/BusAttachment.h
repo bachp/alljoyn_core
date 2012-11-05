@@ -457,7 +457,7 @@ class BusAttachment : public MessageReceiver {
     const qcc::String GetUniqueName() const;
 
     /**
-     * Get the GUID of this BusAttachment.
+     * Get the GUID of this BusAttachment as a 32 character hex string.
      *
      * The returned value may be appended to an advertised well-known name in order to guarantee
      * that the resulting name is globally unique.
@@ -465,6 +465,22 @@ class BusAttachment : public MessageReceiver {
      * @return GUID of this BusAttachment as a string.
      */
     const qcc::String& GetGlobalGUIDString() const;
+
+    /**
+     * Get the GUID of this BusAttachment as an 8 character string.
+     *
+     * The returned value may be appended to an advertised well-known name in
+     * order to guarantee that the resulting name is globally unique.  Note:
+     * This version of the string is not quite as unique as the version that
+     * returns 32 hex characters, but it is sufficient since the returned
+     * string is identical to the base portion of the unique name.  Also, the
+     * returned string may begin with a digit and so the application would
+     * need to accomodate that if used immediately after a "." in a d-bus
+     * compliant bus name.
+     *
+     * @return GUID of this BusAttachment as a string.
+     */
+    const qcc::String& GetGlobalGUIDShortString() const;
 
     /**
      * Register a signal handler.
