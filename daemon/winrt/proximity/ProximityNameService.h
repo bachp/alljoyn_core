@@ -172,6 +172,7 @@ ref class ProximityNameService sealed {
      * Start a timer that triggers periodically to transmit well-known names to peers
      */
     void StartMaintainanceTimer();
+
     void TimerCallback(Windows::System::Threading::ThreadPoolTimer ^ timer);
 
     /**

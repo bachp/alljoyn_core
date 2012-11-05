@@ -76,11 +76,6 @@ ProximityNameService::~ProximityNameService()
 {
     QCC_DbgPrintf(("ProximityNameService::~ProximityNameService()"));
     ResetConnection();
-    if (m_timer != nullptr) {
-        m_timer->Cancel();
-        delete m_timer;
-        m_timer = nullptr;
-    }
 }
 
 void ProximityNameService::SetCallback(Callback<void, const qcc::String&, const qcc::String&, vector<qcc::String>&, uint8_t>* cb)
@@ -165,10 +160,10 @@ void ProximityNameService::ConnectionRequestedEventHandler(Platform::Object ^ se
                              TransmitMyWKNs();
                              StartMaintainanceTimer();
                          } catch (Exception ^ e) {
-                             RestartPeerFinder();
                              m_currentP2PLink.state = PROXIM_DISCONNECTED;
                              qcc::String err = PlatformToMultibyteString(e->Message);
                              QCC_LogError(ER_OS_ERROR, ("ConnectionRequestedEventHandler ConnectAsync() Error (%s)", err.c_str()));
+                             RestartPeerFinder();
                          }
                      });
 }
@@ -450,19 +445,29 @@ QStatus ProximityNameService::EstasblishProximityConnection(qcc::String guidStr)
     if (it != m_peersMap.end()) {
         PeerInformation ^ peerInfo = it->second;
         assert(peerInfo != nullptr);
-        QCC_DbgPrintf(("Connecting to Peer ... "));
+        QCC_DbgPrintf(("Connecting to Peer ... %d", m_peersMap.size()));
 
         m_currentP2PLink.state = PROXIM_CONNECTING;
-        try {
-            auto op = PeerFinder::ConnectAsync(peerInfo);
-            Concurrency::task<StreamSocket ^> connectTask(op);
-            m_currentP2PLink.socket = connectTask.get();
-            m_currentP2PLink.peerGuid = guidStr;
-        } catch (Exception ^ e) {
-            status = ER_PROXIMITY_CONNECTION_ESTABLISH_FAIL;
-            RestartPeerFinder();
-            qcc::String err = PlatformToMultibyteString(e->Message);
-            QCC_LogError(status, ("ProximityNameService::Connect Error (%s)", err.c_str()));
+
+        static uint32_t MAX_CONNECT_RETRY = 3;
+        for (int i = 0; i < MAX_CONNECT_RETRY; i++) {
+            try {
+                status = ER_OK;
+                auto op = PeerFinder::ConnectAsync(peerInfo);
+                Concurrency::task<StreamSocket ^> connectTask(op);
+                connectTask.wait();
+                m_currentP2PLink.socket = connectTask.get();
+                m_currentP2PLink.peerGuid = guidStr;
+                break;
+            } catch (Exception ^ e) {
+                status = ER_PROXIMITY_CONNECTION_ESTABLISH_FAIL;
+                qcc::String err = PlatformToMultibyteString(e->Message);
+                QCC_LogError(status, ("ProximityNameService::Connect Error (%s) %x", err.c_str(), e->HResult));
+                RestartPeerFinder();
+                if (i != MAX_CONNECT_RETRY) {
+                    qcc::Sleep(500);
+                }
+            }
         }
 
         if (status == ER_OK) {
@@ -542,6 +547,13 @@ void ProximityNameService::ResetConnection()
         }
     }
     m_peersMap.clear();
+
+    if (m_timer != nullptr) {
+        QCC_DbgPrintf(("ProximityNameService::StopMaintainanceTimer"));
+        m_timer->Cancel();
+        delete m_timer;
+        m_timer = nullptr;
+    }
 }
 
 Platform::String ^ ProximityNameService::EncodeWknAdvertisement()
