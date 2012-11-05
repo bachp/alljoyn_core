@@ -373,18 +373,29 @@ QStatus AllJoynPeerObj::Get(const char* ifcName, const char* propName, MsgArg& v
 void AllJoynPeerObj::ExchangeGroupKeys(const InterfaceDescription::Member* member, Message& msg)
 {
     assert(bus);
+
     QStatus status;
     PeerStateTable* peerStateTable = bus->GetInternal().GetPeerStateTable();
-    KeyBlob key;
 
     /*
      * We expect to know the peer that is making this method call
      */
     if (peerStateTable->IsKnownPeer(msg->GetSender())) {
-        StringSource src(msg->GetArg(0)->v_scalarArray.v_byte, msg->GetArg(0)->v_scalarArray.numElements);
-        status = key.Load(src);
+        PeerState peerState = peerStateTable->GetPeerState(msg->GetSender());
+        uint8_t keyGenVersion = peerState->GetAuthVersion() & 0xFF;
+        QCC_DbgHLPrintf(("ExchangeGroupKeys using key gen version %d", keyGenVersion));
+        /*
+         * KeyGen version 0 exchanges key blobs, version 1 just exchanges the key
+         */
+        KeyBlob key;
+        if (keyGenVersion == 0) {
+            StringSource src(msg->GetArg(0)->v_scalarArray.v_byte, msg->GetArg(0)->v_scalarArray.numElements);
+            status = key.Load(src);
+        } else {
+            assert(keyGenVersion == 1);
+            status = key.Set(msg->GetArg(0)->v_scalarArray.v_byte, msg->GetArg(0)->v_scalarArray.numElements, KeyBlob::AES); 
+        }
         if (status == ER_OK) {
-            PeerState peerState = peerStateTable->GetPeerState(msg->GetSender());
             /*
              * Tag the group key with the auth mechanism used by ExchangeGroupKeys. Group keys
              * are inherently directional - only initiator encrypts with the group key. We set
@@ -397,8 +408,13 @@ void AllJoynPeerObj::ExchangeGroupKeys(const InterfaceDescription::Member* membe
              */
             peerStateTable->GetGroupKey(key);
             StringSink snk;
-            key.Store(snk);
-            MsgArg replyArg("ay", snk.GetString().size(), snk.GetString().data());
+            MsgArg replyArg;
+            if (keyGenVersion == 0) {
+                key.Store(snk);
+                replyArg.Set("ay", snk.GetString().size(), snk.GetString().data());
+            } else {
+                replyArg.Set("ay", key.GetSize(), key.GetData());
+            }
             MethodReply(msg, &replyArg, 1);
         }
     } else {
@@ -413,28 +429,30 @@ void AllJoynPeerObj::ExchangeGuids(const InterfaceDescription::Member* member, M
 {
     assert(bus);
     qcc::GUID128 remotePeerGuid(msg->GetArg(0)->v_string.str);
-    uint32_t version = msg->GetArg(1)->v_uint32;
+    uint32_t authVersion = msg->GetArg(1)->v_uint32;
     qcc::String localGuidStr = bus->GetInternal().GetKeyStore().GetGuid();
     if (!localGuidStr.empty()) {
         PeerState peerState = bus->GetInternal().GetPeerStateTable()->GetPeerState(msg->GetSender());
-
+        /*
+         * If don't support the proposed version reply with our preferred version
+         */
+        if (!IsCompatibleVersion(authVersion)) {
+            authVersion = PREFERRED_AUTH_VERSION;
+        }
         QCC_DbgHLPrintf(("ExchangeGuids Local %s", localGuidStr.c_str()));
         QCC_DbgHLPrintf(("ExchangeGuids Remote %s", remotePeerGuid.ToString().c_str()));
-
-        if (!IsCompatibleVersion(version)) {
-            version = PREFERRED_AUTH_VERSION;
-        }
+        QCC_DbgHLPrintf(("ExchangeGuids AuthVersion %d", authVersion));
         /*
          * If we proposed a different version we simply assume it is acceptable. The remote peer
          * will try a different version or give up if it doesn't like our suggestion.
          */
-        peerState->SetGuidAndAuthVersion(remotePeerGuid, version);
+        peerState->SetGuidAndAuthVersion(remotePeerGuid, authVersion);
         /*
          * Associate the remote peer GUID with the sender peer state.
          */
         MsgArg replyArgs[2];
         replyArgs[0].Set("s", localGuidStr.c_str());
-        replyArgs[1].Set("u", version);
+        replyArgs[1].Set("u", authVersion);
         MethodReply(msg, replyArgs, ArraySize(replyArgs));
     } else {
         MethodReply(msg, ER_BUS_NO_PEER_GUID);
@@ -474,16 +492,12 @@ QStatus AllJoynPeerObj::KeyGen(PeerState& peerState, String seed, qcc::String& v
              * Session key is generated using the procedure described in RFC 5246
              */
             status = Crypto_PseudorandomFunction(masterSecret, "session key", seed, keymatter, keylen);
-        } else if (keyGenVersion == 1) {
+        } else {
+            assert(keyGenVersion == 1);
             /*
              * Session key is generated using AES-CCM key gen procedure
              */
             status = Crypto_PseudorandomFunctionCCM(masterSecret, "session key", seed, keymatter, keylen);
-        } else {
-            /*
-             * Not expected
-             */
-            status = ER_BUS_SECURITY_FATAL;
         }
         if (status == ER_OK) {
             KeyBlob sessionKey(keymatter, Crypto_AES::AES128_SIZE, KeyBlob::AES);
@@ -739,25 +753,25 @@ QStatus AllJoynPeerObj::AuthenticatePeer(AllJoynMessageType msgType, const qcc::
      * Extract the remote guid from the message
      */
     qcc::GUID128 remotePeerGuid(replyMsg->GetArg(0)->v_string.str);
-    uint32_t version = replyMsg->GetArg(1)->v_uint32;
+    uint32_t authVersion = replyMsg->GetArg(1)->v_uint32;
     qcc::String remoteGuidStr = remotePeerGuid.ToString();
     /*
      * Check that we can support the version the remote peer proposed.
      */
-    if (!IsCompatibleVersion(version)) {
+    if (!IsCompatibleVersion(authVersion)) {
         status = ER_BUS_PEER_AUTH_VERSION_MISMATCH;
-        QCC_LogError(status, ("ExchangeGuids incompatible authentication version %u", version));
+        QCC_LogError(status, ("ExchangeGuids incompatible authentication version %u", authVersion));
         return status;
     }
-
     QCC_DbgHLPrintf(("ExchangeGuids Local %s", localGuidStr.c_str()));
     QCC_DbgHLPrintf(("ExchangeGuids Remote %s", remoteGuidStr.c_str()));
+    QCC_DbgHLPrintf(("ExchangeGuids AuthVersion %d", authVersion));
     /*
      * Now we have the unique bus name in the reply try again to find out if we have a session key
      * for this peer.
      */
     peerState = peerStateTable->GetPeerState(sender, busName);
-    peerState->SetGuidAndAuthVersion(remotePeerGuid, version);
+    peerState->SetGuidAndAuthVersion(remotePeerGuid, authVersion);
     /*
      * We can now return if the peer is authenticated.
      */
@@ -912,16 +926,31 @@ QStatus AllJoynPeerObj::AuthenticatePeer(AllJoynMessageType msgType, const qcc::
      * that we just established.
      */
     if (status == ER_OK) {
+        uint8_t keyGenVersion = authVersion & 0xFF;
         Message replyMsg(*bus);
         KeyBlob key;
-        StringSink snk;
         peerStateTable->GetGroupKey(key);
-        key.Store(snk);
-        MsgArg arg("ay", snk.GetString().size(), snk.GetString().data());
+        StringSink snk;
+        MsgArg arg;
+        /*
+         * KeyGen version 0 exchanges key blobs, version 1 just exchanges the key
+         */
+        QCC_DbgHLPrintf(("ExchangeGroupKeys using key gen version %d", keyGenVersion));
+        if (keyGenVersion == 0) {
+            key.Store(snk);
+            arg.Set("ay", snk.GetString().size(), snk.GetString().data());
+        } else {
+            assert(keyGenVersion == 1);
+            arg.Set("ay", key.GetSize(), key.GetData());
+        }
         status = remotePeerObj.MethodCall(*(ifc->GetMember("ExchangeGroupKeys")), &arg, 1, replyMsg, DEFAULT_TIMEOUT, ALLJOYN_FLAG_ENCRYPTED);
         if (status == ER_OK) {
-            StringSource src(replyMsg->GetArg(0)->v_scalarArray.v_byte, replyMsg->GetArg(0)->v_scalarArray.numElements);
-            status = key.Load(src);
+            if (keyGenVersion == 0) {
+                StringSource src(replyMsg->GetArg(0)->v_scalarArray.v_byte, replyMsg->GetArg(0)->v_scalarArray.numElements);
+                status = key.Load(src);
+            } else {
+                status = key.Set(replyMsg->GetArg(0)->v_scalarArray.v_byte, replyMsg->GetArg(0)->v_scalarArray.numElements, KeyBlob::AES); 
+            }
             if (status == ER_OK) {
                 /*
                  * Tag the group key with the auth mechanism used by ExchangeGroupKeys. Group keys
