@@ -2626,16 +2626,14 @@ void AllJoynObj::RemoveBusToBusEndpoint(RemoteEndpoint& endpoint)
     AcquireLocks();
     String b2bEpName = endpoint.GetUniqueName();
 
-    /* Get session ids affected by loss of this B2B endpoint */
-    set<SessionId> idSet;
-    map<qcc::String, VirtualEndpoint*>::iterator it = virtualEndpoints.begin();
-    while (it != virtualEndpoints.end()) {
-        it->second->GetSessionIdsForB2B(endpoint, idSet);
-        ++it;
-    }
+    /* Remove the B2B endpoint before removing virtual endpoints to ensure
+     * that another thread does not try to re-add the B2B endpoint to a
+     * virtual endpoint while this function is in progress.
+     */
+    b2bEndpoints.erase(endpoint.GetUniqueName());
 
     /* Remove any virtual endpoints associated with a removed bus-to-bus endpoint */
-    it = virtualEndpoints.begin();
+    map<qcc::String, VirtualEndpoint*>::iterator it = virtualEndpoints.begin();
     while (it != virtualEndpoints.end()) {
         /* Clean sessionMap and report lost sessions */
 
@@ -2649,7 +2647,9 @@ void AllJoynObj::RemoveBusToBusEndpoint(RemoteEndpoint& endpoint)
         AcquireLocks();
         it = virtualEndpoints.find(vepName);
         if (it == virtualEndpoints.end()) {
-            break;
+            /* If the virtual endpoint was lost, continue to the next virtual endpoint */
+            it = virtualEndpoints.upper_bound(vepName);
+            continue;
         }
 
         /* Remove endpoint (b2b) reference from this vep */
@@ -2712,8 +2712,6 @@ void AllJoynObj::RemoveBusToBusEndpoint(RemoteEndpoint& endpoint)
         }
     }
 
-    /* Remove the B2B endpoint itself */
-    b2bEndpoints.erase(endpoint.GetUniqueName());
     ReleaseLocks();
 }
 

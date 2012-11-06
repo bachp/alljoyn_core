@@ -50,6 +50,10 @@ class VirtualEndpoint : public BusEndpoint {
      */
     VirtualEndpoint(const char* uniqueName, RemoteEndpoint& b2bEp);
 
+    ~VirtualEndpoint() {
+        /* Don't finalize the destructor while there are threads pushing to this endpoint. */
+        WaitForZeroPushCount();
+    }
     /**
      * Send an outgoing message.
      *

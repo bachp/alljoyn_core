@@ -151,6 +151,9 @@ class DaemonICEEndpoint : public RemoteEndpoint {
 
         /* Release the ICEPacketStream associated with this endpoint */
         m_transport->ReleaseICEPacketStream(m_icePktStream);
+
+        /* Don't finalize the destructor while there are threads pushing to this endpoint. */
+        WaitForZeroPushCount();
     }
 
     void SetStartTime(Timespec tStart) { m_tStart = tStart; }
