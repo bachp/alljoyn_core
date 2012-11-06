@@ -939,44 +939,6 @@ JNIEXPORT jint JNICALL Java_org_alljoyn_bus_p2p_service_P2pHelperService_jniOnLi
     return static_cast<int>(status);
 }
 
-
-JNIEXPORT jint JNICALL JNI_OnLoad(JavaVM* vm,
-                                  void* reserved)
-{
-    /* Set AllJoyn logging */
-    //QCC_SetLogLevels("ALLJOYN=7;ALL=1");
-    //QCC_UseOSLogging(true);
-
-    JNIEnv* env;
-    LOGD("Before getting environment\n");
-    if (!vm) {
-        LOGD("VM is NULL\n");
-    }
-    jint jret = vm->GetEnv((void**)&env, JNI_VERSION_1_2);
-    if (JNI_EDETACHED == jret) {
-        vm->AttachCurrentThread(&env, NULL);
-        LOGD("Attached to VM thread \n");
-    }
-    LOGD("After getting environment\n");
-
-    jclass clazz;
-    clazz = env->FindClass("org/alljoyn/bus/p2p/service/P2pHelperService");
-    if (!clazz) {
-        LOGE("***** Unable to FindClass P2pHelperService **********");
-        env->ExceptionDescribe();
-        return JNI_ERR;
-    } else {
-        LOGI("org/alljoyn/jni/P2pHelperService loaded SUCCESSFULLY");
-    }
-
-    if (JNI_EDETACHED == jret) {
-        vm->DetachCurrentThread();
-    }
-
-    return JNI_VERSION_1_2;
-}
-
-
 #ifdef __cplusplus
 }
 #endif

@@ -6,8 +6,8 @@
 LOCAL_PATH := $(call my-dir)
 
 # AllJoyn specifics
-# ALLJOYN_BASE := ../../..
-# ALLJOYN_DIST := $(ALLJOYN_BASE)/build/android/arm/$(APP_OPTIM)/dist
+#ALLJOYN_BASE := ../../..
+#ALLJOYN_DIST := $(ALLJOYN_BASE)/build/android/arm/$(APP_OPTIM)/dist
 ALLJOYN_DIST := ../..
 
 # The CLEAR_VARS variable is provided by the build system and points to a
@@ -66,7 +66,7 @@ LOCAL_CFLAGS := -Wno-psabi -Wno-write-strings -DANDROID_NDK -DTARGET_ANDROID -DL
 # as it is unnecessary because the default extension for C++ source 
 # files is '.cpp'. 
 #
-#LOCAL_CPP_EXTENSION := .cc
+LOCAL_CPP_EXTENSION := .cc
 
 # The LOCAL_SRC_FILES variables must contain a list of C and/or C++ source
 # files that will be built and assembled into a module. Note that you should
@@ -74,7 +74,7 @@ LOCAL_CFLAGS := -Wno-psabi -Wno-write-strings -DANDROID_NDK -DTARGET_ANDROID -DL
 # compute dependencies automatically for you; just list the source files
 # that will be passed directly to a compiler, and you should be good. 
 #
-LOCAL_SRC_FILES := P2pHelperService.cpp
+LOCAL_SRC_FILES := P2pHelperService.cc LoadP2pHelper.cc
 
 # The list of additional linker flags to be used when building your
 # module. This is useful to pass the name of specific system libraries
