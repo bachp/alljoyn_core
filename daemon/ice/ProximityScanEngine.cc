@@ -157,11 +157,6 @@ void ProximityScanEngine::ProcessScanResults() {
     QCC_DbgPrintf(("Size of scan Hysteresis = %d", hysteresisMap.size()));
     QCC_DbgPrintf(("Size of scan Final Map = %d", finalMap.size()));
 
-
-
-
-
-
     std::map<std::pair<qcc::String, qcc::String>, bool>::iterator it;
     std::map<std::pair<qcc::String, qcc::String>, int>::iterator hit;
 
@@ -173,8 +168,8 @@ void ProximityScanEngine::ProcessScanResults() {
 
     QCC_DbgPrintf(("Incrementing counts in the Hysteresis Map..."));
     QCC_DbgPrintf(("BEFORE Incrementing the maps are"));
-    PrintHysteresis();
-    PrintFinalMap();
+    //PrintHysteresis();
+    //PrintFinalMap();
 
     if (proximityScanner == NULL) {
         QCC_LogError(ER_FAIL, ("proximityScanner == NULL "));
@@ -293,129 +288,6 @@ void ProximityScanEngine::ProcessScanResults() {
     } else {
         request_scan = false;
     }
-
-/*
-    // Extract the SSID corresponding to the BSSID since the tokenizing code did not look nice we do it in two iterations
-    //printf("\n Printing the initial BSSID set");
-    //PrintBSSIDMap(initial_bssid);
-
-    tadd_count++;
-
-    //
-    // We have kept the time to determine whether a BSSID is worth adding to our final set to four scans
-    // If the BSSID shows up in, at least one of the four scans then we add it to the final_bssid map
-    // If it does not show up in either one of the four scans remove it from the final_bssid map
-    //
-
-    if (tadd_count == TADD_COUNT) {
-        printf("\n Tadd triggered ..... do something");
-        tadd_count = 0;
-
-        //
-        // Adding to final_bssid comes here
-        // We look at the final set set here. If we do not find the bssid in the hysteresis map then we add this
-        // bssid to the final set
-        //
-
-        map<qcc::String, int>::iterator it;
-        bssid_lock.Lock(MUTEX_CONTEXT);
-        final_bssid.clear();
-        for (it = hystereXsis_for_adding.begin(); it != hysteresis_for_adding.end(); it++) {
-            // If the BSSid showed up even once then we can add it to the final set
-            if (final_bssid.find(it->first) == final_bssid.end()) {
-                final_bssid.insert(pair<qcc::String, qcc::String>(it->first, ""));
-            }
-
-        }
-        bssid_lock.Unlock(MUTEX_CONTEXT);
-    }
-    //
-    // If we have not reached count of four scans we update the Hysteresis for adding
-    //
-    else {
-        map<qcc::String, qcc::String>::iterator bssid_it;
-        map<qcc::String, int>::iterator hys_it;
-        for (bssid_it = initial_bssid.begin(); bssid_it != initial_bssid.end(); bssid_it++) {
-            hys_it = hysteresis_for_adding.find(bssid_it->first);
-            if (hys_it == hysteresis_for_adding.end()) {
-                hysteresis_for_adding.insert(pair<qcc::String, int>(bssid_it->first, 1));
-            }
-        }
-
-    }
-
-
-
-    PrintHysteresis(hysteresis_for_adding);
-
-
-    //
-    // Dropping an existing BSSID from the final_bssid comes here
-    // We look at the final bssid set here. If we do not find the bssid present in the final set in any of the
-    // scans which is necessarily the hystereis map then we remove it from the final set
-    //
-
-    map<qcc::String, qcc::String>::iterator final_bssid_it;
-    map<qcc::String, int>::iterator hys_it;
-
-    bssid_lock.Lock(MUTEX_CONTEXT);
-    for (final_bssid_it = final_bssid.begin(); final_bssid_it != final_bssid.end(); final_bssid_it++) {
-        hys_it = hysteresis_for_adding.find(final_bssid_it->first);
-        if (hys_it == hysteresis_for_adding.end()) {
-            final_bssid.erase(final_bssid_it);
-        }
-    }
-    bssid_lock.Unlock(MUTEX_CONTEXT);
-
-    list<String> bssids;
-    list<String> macIds;
-
-    bssids.clear();
-    macIds.clear();
-
-    //
-    // At this point we have the final_bssid formed so we update the Proximity message
-    // First we access the current Proximity list. See if the elements inside have changed. If yes then we call QueueProximityMessage
-    // else we do not send the Proximity message
-    //
-    // TO DO : right now we are sending whatever is the new set instead of sending when something changes
-    //
-    ProximityMessage proximityMessage;
-    list<WiFiProximity> wifi_bssid_list;
-
-    for (final_bssid_it = final_bssid.begin(); final_bssid_it != final_bssid.end(); final_bssid_it++) {
-        WiFiProximity bssid_info;
-        bssid_info.BSSID = final_bssid_it->first;
-        bssid_info.attached = false;
-        wifi_bssid_list.push_front(bssid_info);
-
-        bssids.push_back(bssid_info.BSSID);
-    }
-    proximityMessage.wifiaps = wifi_bssid_list;
-
-    printf("\n Printing contents of proximity message");
-    for (int i = 0; i < (int)wifi_bssid_list.size(); i++) {
-        printf("\n BSSID : %s", wifi_bssid_list.front().BSSID.c_str());
-    }
-
-    PrintHysteresis(hysteresis_for_adding);
-    PrintBSSIDMap(final_bssid);
-
-   Sort the lists
-    if (!bssids.empty()) {
-        bssids.sort();
-    }
-
-    if (!macIds.empty()) {
-        macIds.sort();
-    }
-
-   //   discoveryManager.QueueProximityMessage(proximityMessage, bssids, macIds);
-
-    // Clear the hysteresis map
-    hysteresis_for_adding.clear();
-
- */
 
 }
 
