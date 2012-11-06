@@ -47,7 +47,7 @@ void WlanScanNotification(WLAN_NOTIFICATION_DATA*data, VOID*context) {
     QCC_DbgTrace(("ScanNotification()"));
     if (data->NotificationCode == wlan_notification_acm_scan_complete) {
         QCC_DbgPrintf(("\n Notification for SUCCESSFUL scanning received"));
-    } else if (data->NotificationCode == wlan_notification_acm_scan_fail)    {
+    } else if (data->NotificationCode == wlan_notification_acm_scan_fail) {
         QCC_DbgPrintf(("\n Notification for FAILED scanning received"));
     }
     notification = true;
@@ -92,7 +92,7 @@ void ProximityScanner::Scan(bool request_scan) {
     dwError = WlanOpenHandle(dwClientVersion, NULL, &dwNegotiatedVersion, &wlan_scan_handle);
     if (ERROR_SUCCESS != dwError) {
         QCC_DbgPrintf(("\n Error while creating a wlan handle"));
-    } else   {
+    } else {
         QCC_DbgPrintf(("\n Handle created successfully"));
     }
 
@@ -102,7 +102,7 @@ void ProximityScanner::Scan(bool request_scan) {
     dwError = WlanEnumInterfaces(wlan_scan_handle, NULL, &wlanInforList);
     if (ERROR_SUCCESS != dwError) {
         QCC_DbgPrintf(("\n Error while getting the WlanInfoList"));
-    } else   {
+    } else {
         QCC_DbgPrintf(("\n WlanInfoList obtained successfully"));
     }
 
@@ -111,7 +111,7 @@ void ProximityScanner::Scan(bool request_scan) {
     dwError = WlanRegisterNotification(wlan_scan_handle, WLAN_NOTIFICATION_SOURCE_ALL, TRUE,   (WLAN_NOTIFICATION_CALLBACK)WlanScanNotification, NULL, NULL, &dwPrevNotifSource);
     if (ERROR_SUCCESS != dwError) {
         QCC_DbgPrintf(("\n Could not register the ScanNotification callback\n"));
-    } else   {
+    } else {
         QCC_DbgPrintf(("\n ScanNotification callback registered successfully"));
     }
     /*
@@ -121,14 +121,14 @@ void ProximityScanner::Scan(bool request_scan) {
      */
     if (wlanInforList->dwNumberOfItems  >= 1) {
         guid = wlanInforList->InterfaceInfo[0].InterfaceGuid;
-    } else   {
+    } else {
         QCC_DbgPrintf(("\n No Wireless interface is available to proceed further\n"));
     }
     /* We have everything to make a call to WlanScan */
     dwError = WlanScan(wlan_scan_handle, &guid, NULL, NULL, NULL);
     if (ERROR_SUCCESS != dwError) {
         QCC_DbgPrintf(("\n Error while calling WlanScan function"));
-    } else   {
+    } else {
         QCC_DbgPrintf(("\n WlanScan function was called successfull"));
     }
     /* Need to come up with a better way of waiting for notifications rather than busy wait here */
@@ -143,7 +143,7 @@ void ProximityScanner::Scan(bool request_scan) {
     dwError = WlanRegisterNotification(wlan_scan_handle, WLAN_NOTIFICATION_SOURCE_NONE, TRUE, NULL, NULL, NULL, &dwPrevNotifSource);
     if (ERROR_SUCCESS != dwError) {
         QCC_DbgPrintf(("\n Error while unregistering notification callback"));
-    } else   {
+    } else {
         QCC_DbgPrintf(("\n ScanNotification callback was successfully unregistered"));
     }
 
@@ -157,7 +157,7 @@ void ProximityScanner::Scan(bool request_scan) {
     dwError = WlanGetNetworkBssList(wlan_scan_handle, &guid, NULL, (DOT11_BSS_TYPE)dot11_BSS_type_any, NULL, NULL, &wlanBssidList);
     if (ERROR_SUCCESS != dwError) {
         QCC_DbgPrintf(("\n Error while calling WlanGetNetworkBssList "));
-    } else   {
+    } else {
         QCC_DbgPrintf(("\n Call to WlanGetNetworkBssList SUCCESSFUL\n"));
     }
 
@@ -165,7 +165,7 @@ void ProximityScanner::Scan(bool request_scan) {
     dwError = WlanQueryInterface(wlan_scan_handle, &guid, wlan_intf_opcode_current_connection, NULL, &connectInfoSize, (PVOID*) &pConnectInfo, &opCode);
     if (ERROR_SUCCESS != dwError) {
         QCC_DbgPrintf(("\n Error while calling WlanQueryInterface"));
-    } else   {
+    } else {
         QCC_DbgPrintf(("\n Call to WlanQueryInterface SUCCESSFUL\n"));
     }
     char c_connected_network[18];
