@@ -1240,9 +1240,7 @@ void* DiscoveryManager::Run(void* arg)
                     } else {
                         if (Connection) {
                             /* Call Disconnect to cleanup any intermediate state */
-                            Connection->Disconnect();
-                            delete Connection;
-                            Connection = NULL;
+                            Disconnect();
                         }
                     }
                 }
@@ -1844,6 +1842,7 @@ QStatus DiscoveryManager::HandleSearchMatchResponse(SearchMatchResponse response
 
     bool found = false;
 
+    DiscoveryManagerMutex.Lock(MUTEX_CONTEXT);
     //
     // See if the well-known name that has been found is in our list of names
     // to be found.
@@ -1930,6 +1929,8 @@ QStatus DiscoveryManager::HandleSearchMatchResponse(SearchMatchResponse response
         }
     }
 
+    DiscoveryManagerMutex.Unlock(MUTEX_CONTEXT);
+
     return status;
 }
 
@@ -1939,6 +1940,7 @@ QStatus DiscoveryManager::HandleStartICEChecksResponse(StartICEChecksResponse re
 
     QStatus status = ER_OK;
 
+    DiscoveryManagerMutex.Lock(MUTEX_CONTEXT);
     // Invoke the call back to tell the DaemonICETransport that the Address Candidates message corresponding to a Service
     // has been successfully delivered to the other peer
     multimap<String, SessionEntry>::iterator it;
@@ -1949,6 +1951,7 @@ QStatus DiscoveryManager::HandleStartICEChecksResponse(StartICEChecksResponse re
             break;
         }
     }
+    DiscoveryManagerMutex.Unlock(MUTEX_CONTEXT);
 
     return status;
 }
@@ -1961,6 +1964,7 @@ QStatus DiscoveryManager::HandleMatchRevokedResponse(MatchRevokedResponse respon
 
     QStatus status = ER_OK;
 
+    DiscoveryManagerMutex.Lock(MUTEX_CONTEXT);
     //
     // If deleteall has been set, all the services from the Daemon with GUID peerID
     // should be deleted and the outgoing session maps need to be purged the same way as it is
@@ -2085,6 +2089,7 @@ QStatus DiscoveryManager::HandleMatchRevokedResponse(MatchRevokedResponse respon
             }
         }
     }
+    DiscoveryManagerMutex.Unlock(MUTEX_CONTEXT);
 
     return status;
 }
@@ -2133,6 +2138,8 @@ QStatus DiscoveryManager::HandleAddressCandidatesResponse(AddressCandidatesRespo
     QCC_DbgPrintf(("DiscoveryManager::HandleAddressCandidatesResponse(): Trying to invoke either the AllocateICESession or StartICEChecks callback\n"));
 
     QStatus status = ER_OK;
+
+    DiscoveryManagerMutex.Lock(MUTEX_CONTEXT);
 
     // If the address candidates was sent by a remote client to a service on this daemon, it will have the
     // STUN info. In this case we have to invoke the AllocateICESession callback. Otherwise, we have to
@@ -2185,6 +2192,8 @@ QStatus DiscoveryManager::HandleAddressCandidatesResponse(AddressCandidatesRespo
 
     }
 
+    DiscoveryManagerMutex.Unlock(MUTEX_CONTEXT);
+
     return status;
 }
 
@@ -2198,12 +2207,15 @@ QStatus DiscoveryManager::HandlePersistentMessageResponse(Json::Value payload)
     // If there is no callback, we can't tell the user anything about what is
     // going on, so it's pointless to go any further.
     //
+    DiscoveryManagerMutex.Lock(MUTEX_CONTEXT);
     if (!iceCallback) {
         QCC_DbgPrintf(("DiscoveryManager::HandlePersistentMessageResponse(): No callback, so nothing to do\n"));
 
+        DiscoveryManagerMutex.Unlock(MUTEX_CONTEXT);
         // We return an ER_OK because this is not an error caused by the received response
         return status;
     }
+    DiscoveryManagerMutex.Unlock(MUTEX_CONTEXT);
 
     /* Parse the response */
     ResponseMessage response;
@@ -2585,23 +2597,29 @@ QStatus DiscoveryManager::HandleOnDemandMessageResponse(Json::Value payload)
             switch (LastOnDemandMessageSent->messageType) {
             case ADVERTISEMENT:
                 // Update the last sent advertisement list with the contents of the temp sent advertisement list
+                DiscoveryManagerMutex.Lock(MUTEX_CONTEXT);
                 lastSentAdvertiseList.clear();
                 lastSentAdvertiseList = tempSentAdvertiseList;
+                DiscoveryManagerMutex.Unlock(MUTEX_CONTEXT);
                 QCC_DbgPrintf(("DiscoveryManager::HandleOnDemandMessageResponse(): Updated lastSentAdvertiseList with contents of tempSentAdvertiseList"));
                 break;
 
             case SEARCH:
                 // Update the last sent search list with the contents of the temp sent search list
+                DiscoveryManagerMutex.Lock(MUTEX_CONTEXT);
                 lastSentSearchList.clear();
                 lastSentSearchList = tempSentSearchList;
+                DiscoveryManagerMutex.Unlock(MUTEX_CONTEXT);
                 QCC_DbgPrintf(("DiscoveryManager::HandleOnDemandMessageResponse(): Updated lastSentSearchList with contents of tempSentSearchList"));
                 break;
 
             case PROXIMITY:
+                DiscoveryManagerMutex.Lock(MUTEX_CONTEXT);
                 lastSentBSSIDList.clear();
                 lastSentBSSIDList = tempSentBSSIDList;
                 lastSentBTMACList.clear();
                 lastSentBTMACList = tempSentBTMACList;
+                DiscoveryManagerMutex.Unlock(MUTEX_CONTEXT);
                 QCC_DbgPrintf(("DiscoveryManager::HandleOnDemandMessageResponse(): Updated last sent proximity lists with the contents of the temp sent proximity lists"));
                 break;
 
