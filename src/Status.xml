@@ -233,5 +233,5 @@ Copyright 2010 - 2012, Qualcomm Innovation Center, Inc.
   <status name="ER_PROXIMITY_NO_PEERS_FOUND" value="0x90e2" comment="Cannot find proximity P2P peers"/>  
   <status name="ER_BUS_OBJECT_NOT_REGISTERED" value="0x90e3" comment="Operation not permitted on unregistered bus object"/>  
   <status name="ER_P2P_DISABLED" value="0x90e4" comment="Wi-Fi Direct is disabled on the device"/>
-  <status name="ER_P2P_BUSY" value="0x90e5" comment="Wi-Fi Direct iresources are in busy state"/>
+  <status name="ER_P2P_BUSY" value="0x90e5" comment="Wi-Fi Direct resources are in busy state"/>
 </status_block>
