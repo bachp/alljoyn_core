@@ -558,6 +558,8 @@ QStatus _Message::UnmarshalArgs(const qcc::String& expectedSignature, const char
 {
     const char* sig = GetSignature();
     QStatus status = ER_OK;
+    int _numMsgArgs = 0;
+    MsgArg* _msgArgs = NULL;
 
     /*
      * We don't expect the message to have already been unmarshaled.
@@ -620,16 +622,17 @@ QStatus _Message::UnmarshalArgs(const qcc::String& expectedSignature, const char
     /*
      * Calculate how many arguments there are
      */
-    numMsgArgs = SignatureUtils::CountCompleteTypes(sig);
-    msgArgs = new MsgArg[numMsgArgs];
+    _numMsgArgs = SignatureUtils::CountCompleteTypes(sig);
+    _msgArgs = new MsgArg[_numMsgArgs];
+
     /*
      * Unmarshal the body values
      */
     bufPos = bodyPtr;
-    for (uint8_t i = 0; i < numMsgArgs; i++) {
-        status = ParseValue(&msgArgs[i], sig);
+    for (uint8_t i = 0; i < _numMsgArgs; i++) {
+        status = ParseValue(&_msgArgs[i], sig);
         if (status != ER_OK) {
-            numMsgArgs = i;
+            _numMsgArgs = i;
             goto ExitUnmarshalArgs;
         }
     }
@@ -657,7 +660,17 @@ ExitUnmarshalArgs:
         if (expectedReplySignature) {
             replySignature = expectedReplySignature;
         }
+
+        /*
+         * Atomically update msgArgs and numMsgArgs so that another user of the Message doesn't see invalid
+         * message state.
+         */
+        msgArgs = _msgArgs;
+        numMsgArgs = _numMsgArgs;
     } else {
+        if (_msgArgs) {
+            delete [] _msgArgs;
+        }
         QCC_LogError(status, ("UnmarshalArgs failed"));
     }
     return status;
