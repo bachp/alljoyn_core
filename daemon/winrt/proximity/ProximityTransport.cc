@@ -125,7 +125,10 @@ class ProximityEndpoint : public RemoteEndpoint {
         m_port(port),
         m_wasSuddenDisconnect(!incoming) { }
 
-    virtual ~ProximityEndpoint() { }
+    virtual ~ProximityEndpoint() {
+        /* Don't finalize the destructor while there are threads pushing to this endpoint. */
+        WaitForZeroPushCount();
+    }
 
     void SetStartTime(qcc::Timespec tStart) { m_tStart = tStart; }
     qcc::Timespec GetStartTime(void) { return m_tStart; }

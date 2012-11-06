@@ -57,6 +57,12 @@ class DaemonEndpoint : public RemoteEndpoint {
     {
     }
 
+    ~DaemonEndpoint() {
+
+        /* Don't finalize the destructor while there are threads pushing to this endpoint. */
+        WaitForZeroPushCount();
+    }
+
     /**
      * TCP endpoint does not support UNIX style user, group, and process IDs.
      */

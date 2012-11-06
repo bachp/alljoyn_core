@@ -62,6 +62,11 @@ class DaemonEndpoint : public RemoteEndpoint {
     {
     }
 
+    ~DaemonEndpoint() {
+        /* Don't finalize the destructor while there are threads pushing to this endpoint. */
+        WaitForZeroPushCount();
+    }
+
     /**
      * Set the user id of the endpoint.
      *

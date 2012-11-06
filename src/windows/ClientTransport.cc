@@ -58,7 +58,10 @@ class ClientEndpoint : public RemoteEndpoint {
         m_port(port)
     { }
 
-    ~ClientEndpoint() { }
+    ~ClientEndpoint() {
+        /* Don't finalize the destructor while there are threads pushing to this endpoint. */
+        WaitForZeroPushCount();
+    }
 
     const qcc::IPAddress& GetIPAddress() { return m_ipAddr; }
     uint16_t GetPort() { return m_port; }

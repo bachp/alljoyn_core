@@ -67,7 +67,10 @@ class ClientEndpoint : public RemoteEndpoint {
     }
 
     /* Destructor */
-    virtual ~ClientEndpoint() { }
+    virtual ~ClientEndpoint() {
+        /* Don't finalize the destructor while there are threads pushing to this endpoint. */
+        WaitForZeroPushCount();
+    }
 
     /**
      * Set the user id of the endpoint.

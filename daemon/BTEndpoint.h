@@ -49,7 +49,10 @@ class BTEndpoint : public RemoteEndpoint {
         redirect(redirect)
     { }
 
-    virtual ~BTEndpoint() { }
+    virtual ~BTEndpoint() {
+        /* Don't finalize the destructor while there are threads pushing to this endpoint. */
+        WaitForZeroPushCount();
+    }
 
 
     BTNodeInfo& GetNode() { return node; }

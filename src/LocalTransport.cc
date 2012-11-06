@@ -185,6 +185,9 @@ LocalEndpoint::~LocalEndpoint()
         delete peerObj;
         peerObj = NULL;
     }
+
+    /* Don't finalize the destructor while there are threads pushing to this endpoint. */
+    WaitForZeroPushCount();
 }
 
 QStatus LocalEndpoint::Start()
