@@ -42,11 +42,6 @@ class ProximityScanner {
     void PrintBSSIDMap(std::map<qcc::String, qcc::String>);
     std::map<std::pair<qcc::String, qcc::String>, bool> scanResults;
     BusAttachment& bus;
-
-    bool notification;
-
-    //void ScanNotification(WLAN_NOTIFICATION_DATA *data,VOID *context);
-
 };
 
 }
