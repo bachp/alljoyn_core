@@ -792,6 +792,8 @@ QStatus ProxyBusObject::MethodCall(const InterfaceDescription::Member& method,
                 if (it != components->waitingThreads.end()) {
                     components->waitingThreads.erase(it);
                 }
+            } else {
+                status = ER_BUS_STOPPING;
             }
             lock->Unlock(MUTEX_CONTEXT);
         }
@@ -819,6 +821,8 @@ MethodCallExit:
     if (status == ER_OK) {
         if (replyMsg->GetType() == MESSAGE_ERROR) {
             status = ER_BUS_REPLY_IS_ERROR_MESSAGE;
+        } else if (replyMsg->GetType() == MESSAGE_INVALID) {
+            status = ER_FAIL;
         }
     } else {
         replyMsg->ErrorMsg(status, 0);
