@@ -68,10 +68,7 @@ class WFDTransport : public Transport, public RemoteEndpoint::EndpointListener, 
     /**
      * Destructor
      */
-    virtual ~WFDTransport() {
-        /* Don't finalize the destructor while there are threads pushing to this endpoint. */
-        WaitForZeroPushCount();
-    };
+    virtual ~WFDTransport();
 
     /**
      * Start the transport and associate it with a router.
