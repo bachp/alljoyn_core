@@ -26,6 +26,11 @@ import android.content.Intent;
 import android.util.Log;
 
 public class P2pHelperAndroidService extends Service {
+
+    static {
+        System.loadLibrary("P2pHelperService");
+    }
+
     private static final String TAG = "P2pHelperService";
 
     public class LocalBinder extends Binder {

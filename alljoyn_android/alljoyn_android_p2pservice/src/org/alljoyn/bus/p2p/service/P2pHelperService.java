@@ -21,10 +21,6 @@ import android.util.Log;
 
 class P2pHelperService implements P2pInterface {
 
-    static {
-        System.loadLibrary("P2pHelperService");
-    }
-
     private static final String TAG = "P2pHelperService";
 
     private native boolean jniOnCreate(String daemonAddr);
@@ -38,11 +34,21 @@ class P2pHelperService implements P2pInterface {
     private boolean jniConnected = false;
 
     private P2pManager mP2pManager = null;
+    private Context mContext = null;
+    private String mDaemonAddr = null;
 
     public P2pHelperService(Context context, String daemonAddr) {
-        jniConnected = jniOnCreate(daemonAddr);
-        if (jniConnected) {
-            mP2pManager = new P2pManager(context, this);
+        mContext = context;
+        mDaemonAddr = daemonAddr;
+        mP2pManager = new P2pManager(context, this);
+    }
+
+    public synchronized void startup() {
+        if (!jniConnected) {
+            jniConnected = jniOnCreate(mDaemonAddr);
+            if (jniConnected) {
+                mP2pManager.startup();
+            }
         }
     }
 

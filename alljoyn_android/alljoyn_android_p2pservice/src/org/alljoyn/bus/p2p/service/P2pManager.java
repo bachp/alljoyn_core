@@ -210,6 +210,9 @@ public class P2pManager implements ConnectionInfoListener, DnsSdServiceResponseL
 
         //Object groupApprover = DialogListenerProxy.newDialogListener(manager, channel);
         //DialogListenerProxy.setDialogListener(manager, channel, groupApprover);
+    }
+
+    public void startup() {
 
         mHandler = new Handler();
 
@@ -671,7 +674,7 @@ public class P2pManager implements ConnectionInfoListener, DnsSdServiceResponseL
         Iterator<FoundServiceInfo> itr = services.iterator();
 
         while (itr.hasNext()) {
-            FoundServiceInfo serviceInfo = (FoundServiceInfo) itr.next();
+            FoundServiceInfo serviceInfo = itr.next();
             busInterface.OnLostAdvertisedName(serviceInfo.name, serviceInfo.prefix, serviceInfo.guid, address);
         }
     }
@@ -751,7 +754,7 @@ public class P2pManager implements ConnectionInfoListener, DnsSdServiceResponseL
         Iterator<FoundServiceInfo> itr = services.iterator();
 
         while (itr.hasNext()) {
-            serviceInfo = (FoundServiceInfo) itr.next();
+            serviceInfo = itr.next();
             if (name.equals(serviceInfo.name)) {
                 isNew = false;
                 if (timer == 0)
