@@ -432,6 +432,7 @@ class TCPEndpoint : public RemoteEndpoint {
         EP_ILLEGAL = 0,
         EP_INITIALIZED,      /**< This endpoint structure has been allocated but not used */
         EP_FAILED,           /**< Starting the RX and TX threads has failed and this endpoint is not usable */
+        EP_STARTING,          /**< The RX and TX threads are being started */
         EP_STARTED,          /**< The RX and TX threads have been started (they work as a unit) */
         EP_STOPPING,         /**< The RX and TX threads are stopping (have run ThreadExit) but have not been joined */
         EP_DONE              /**< The RX and TX threads have been shut down and joined */
@@ -516,6 +517,11 @@ class TCPEndpoint : public RemoteEndpoint {
         m_epState = EP_FAILED;
     }
 
+    void SetEpStarting(void)
+    {
+        m_epState = EP_STARTING;
+    }
+
     void SetEpStarted(void)
     {
         m_epState = EP_STARTED;
@@ -523,7 +529,7 @@ class TCPEndpoint : public RemoteEndpoint {
 
     void SetEpStopping(void)
     {
-        assert(m_epState == EP_STARTED);
+        assert(m_epState == EP_STARTING || m_epState == EP_STARTED || m_epState == EP_STOPPING);
         m_epState = EP_STOPPING;
     }
 
@@ -827,6 +833,9 @@ void TCPTransport::Authenticated(TCPEndpoint* conn)
     m_endpointListLock.Unlock(MUTEX_CONTEXT);
 
     conn->SetListener(this);
+
+    conn->SetEpStarting();
+
     QStatus status = conn->Start();
     if (status != ER_OK) {
         QCC_LogError(status, ("TCPTransport::Authenticated(): Failed to start TCP endpoint"));
