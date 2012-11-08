@@ -729,15 +729,6 @@ QStatus DaemonICETransport::Stop(void)
     m_stopping = true;
 
     /*
-     * Tell the Discovery Manager to stop calling us back if it's there (we may get
-     * called more than once in the chain of destruction) so the pointer is not
-     * required to be non-NULL.
-     */
-    if (m_dm) {
-        m_dm->SetCallback(NULL);
-    }
-
-    /*
      * Tell the DaemonICETransport Run thread to shut down through the thread
      * base class.
      */
@@ -2390,6 +2381,12 @@ void DaemonICETransport::PurgeSessionsMap(String peerID, const vector<String>* n
 
 void DaemonICETransport::ICECallback::ICE(ajn::DiscoveryManager::CallbackType cbType, const String& guid, const vector<String>* nameList, uint8_t ttl)
 {
+
+    if (m_daemonICETransport->IsRunning() == false || m_daemonICETransport->m_stopping == true) {
+        QCC_LogError(ER_BUS_TRANSPORT_NOT_STARTED, ("%s: DaemonICETransport not running or stopping; exiting", __FUNCTION__));
+        return;
+    }
+
     /*
      * Whenever the Discovery Manager receives a message indicating that a bus-name
      * is out on the network somewhere, it sends a message back to us via this
