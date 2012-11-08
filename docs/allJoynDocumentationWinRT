@@ -35,7 +35,7 @@
  *
  *@mainpage AllJoyn Documentation
  *
- *AllJoyn WinRT API Reference Manual
+ AllJoyn for Windows Runtime API Reference Manual
 @section subsection1 Overview
 AllJoyn is a device-to-device communication protocol which enables mobile devices to support peer-to-peer applications such as multi-player gaming and social networking.
 
@@ -49,6 +49,6 @@ AllJoyn is designed as a backwards-compatible extension of DBus, a standard prot
 - Multi-language support for the AllJoyn API
 
 
-This document describes the WinRT bindings for the AllJoyn API.
+This document describes the Windows Runtime bindings for the AllJoyn API.
 
  */
