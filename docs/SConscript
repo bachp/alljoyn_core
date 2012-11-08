@@ -83,8 +83,13 @@ elif env['DOCS'] == 'sandcastle':
         Depends(chm_install, chm_cmd)
 
 elif env['DOCS'] == 'chm':
+    chm_env = env.Clone();
     # the target directory 'docs/tmp' is never built this will cause doxygen
     # to run every time DOCS == 'chm'
-    env.Doxygen(source='Doxygen_chm', target=Dir('tmp'))
-    env.Clean('Doxygen_chm', Dir('chm'))
-    env.Install('$DISTDIR/bin', 'html/AllJoyn.chm')
+
+    def always_decider(dependency, target, prev_ni):
+        return 1
+
+    chm_env.Decider(always_decider)
+    chm_env.Doxygen(source='Doxygen_chm', target=File('html/AllJoyn.chm'))
+    chm_env.Install('$DISTDIR/bin', 'html/AllJoyn.chm')
