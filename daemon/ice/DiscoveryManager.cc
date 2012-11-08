@@ -340,14 +340,6 @@ DiscoveryManager::~DiscoveryManager()
     }
 #endif
 
-    //
-    // Delete any callbacks that a user of this class may have set.
-    //
-    if (iceCallback) {
-        delete iceCallback;
-        iceCallback = NULL;
-    }
-
     if (InterfaceUpdateAlarm) {
         delete InterfaceUpdateAlarm;
         InterfaceUpdateAlarm = NULL;
@@ -371,6 +363,14 @@ DiscoveryManager::~DiscoveryManager()
 
     ClearOutboundMessageQueue();
 
+    //
+    // Delete any callbacks that a user of this class may have set.
+    //
+    if (iceCallback) {
+        delete iceCallback;
+        iceCallback = NULL;
+    }
+
     DiscoveryManagerState = IMPL_SHUTDOWN;
 }
 
@@ -392,9 +392,7 @@ void DiscoveryManager::Disconnect(void)
     /* Send LostAdvertisedName for all discovered services because we'll ensure to send a Search
      * Message again on a re-connect and get the latest set of advertisements. Also delete all
      * active sessions */
-    DiscoveryManagerMutex.Lock(MUTEX_CONTEXT);
     ResetDiscoveryState();
-    DiscoveryManagerMutex.Unlock(MUTEX_CONTEXT);
 }
 
 QStatus DiscoveryManager::Init(const String& guid)
@@ -749,7 +747,9 @@ QStatus DiscoveryManager::CancelSearchName(const String& name)
                         QCC_DbgPrintf(("DiscoveryManager::CancelSearchName(): Trying to invoke the iceCallback to clear discovered services with GUID %s corresponding "
                                        "to the find name %s from nameMap\n", remoteDaemonServices_it->remoteGUID.c_str(), name.c_str()));
 
+                        DiscoveryManagerMutex.Unlock(MUTEX_CONTEXT);
                         (*iceCallback)(FOUND, remoteDaemonServices_it->remoteGUID, &wkn, 0);
+                        DiscoveryManagerMutex.Lock(MUTEX_CONTEXT);
                     }
 
                     // Purge the StunAndTurnServerInfo
@@ -1920,6 +1920,8 @@ QStatus DiscoveryManager::HandleSearchMatchResponse(SearchMatchResponse response
         }
     }
 
+    DiscoveryManagerMutex.Unlock(MUTEX_CONTEXT);
+
     if (!wkn.empty()) {
         if (iceCallback) {
 
@@ -1928,8 +1930,6 @@ QStatus DiscoveryManager::HandleSearchMatchResponse(SearchMatchResponse response
             (*iceCallback)(FOUND, response.peerAddr, &wkn, 0xFF);
         }
     }
-
-    DiscoveryManagerMutex.Unlock(MUTEX_CONTEXT);
 
     return status;
 }
@@ -2007,7 +2007,9 @@ QStatus DiscoveryManager::HandleMatchRevokedResponse(MatchRevokedResponse respon
 
             QCC_DbgPrintf(("DiscoveryManager::HandleMatchRevokedResponse(): Trying to invoke the iceCallback\n"));
 
+            DiscoveryManagerMutex.Unlock(MUTEX_CONTEXT);
             (*iceCallback)(FOUND, response.peerAddr, NULL, 0);
+            DiscoveryManagerMutex.Lock(MUTEX_CONTEXT);
         }
 
     } else {
@@ -2085,10 +2087,13 @@ QStatus DiscoveryManager::HandleMatchRevokedResponse(MatchRevokedResponse respon
 
                 QCC_DbgPrintf(("DiscoveryManager::HandleMatchRevokedResponse(): Trying to invoke the iceCallback\n"));
 
+                DiscoveryManagerMutex.Unlock(MUTEX_CONTEXT);
                 (*iceCallback)(FOUND, response.peerAddr, &wkn, 0);
+                DiscoveryManagerMutex.Lock(MUTEX_CONTEXT);
             }
         }
     }
+
     DiscoveryManagerMutex.Unlock(MUTEX_CONTEXT);
 
     return status;
@@ -2098,6 +2103,8 @@ void DiscoveryManager::ResetDiscoveryState(void)
 {
 
     QCC_DbgPrintf(("%s: Trying to invoke found callback to record unavailability of all previously available services", __FUNCTION__));
+
+    DiscoveryManagerMutex.Lock(MUTEX_CONTEXT);
 
     // Remove the discovered entries from the searchMap
     map<String, SearchResponseInfo>::iterator it;
@@ -2116,6 +2123,8 @@ void DiscoveryManager::ResetDiscoveryState(void)
     }
 
     StunAndTurnServerInfo.clear();
+
+    DiscoveryManagerMutex.Unlock(MUTEX_CONTEXT);
 
     while (!guid.empty()) {
         //
@@ -2163,7 +2172,10 @@ QStatus DiscoveryManager::HandleAddressCandidatesResponse(AddressCandidatesRespo
         // Invoke the AllocateICESession callback
         if (iceCallback) {
             QCC_DbgPrintf(("DiscoveryManager::HandleAddressCandidatesResponse(): Invoking the AllocateICESession callback\n"));
+
+            DiscoveryManagerMutex.Unlock(MUTEX_CONTEXT);
             (*iceCallback)(ALLOCATE_ICE_SESSION, response.peerAddr, &wkn, 0xFF);
+            DiscoveryManagerMutex.Lock(MUTEX_CONTEXT);
         }
     } else {
 
