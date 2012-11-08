@@ -915,22 +915,13 @@ JNIEXPORT jint JNICALL Java_org_alljoyn_bus_p2p_service_P2pHelperService_jniOnLo
     return static_cast<int>(status);
 }
 
-<<<<<<< HEAD:alljoyn_android/alljoyn_android_p2pservice/jni/P2pHelperService.cc
-JNIEXPORT jint JNICALL Java_org_alljoyn_bus_p2p_service_P2pHelperService_jniOnLinkEstablished(JNIEnv* env, jobject jobj, jint handle) {
+JNIEXPORT jint JNICALL Java_org_alljoyn_bus_p2p_service_P2pHelperService_jniOnLinkEstablished(JNIEnv* env, jobject jobj, jint handle, jstring name) {
     int status = ER_P2P_NOT_CONNECTED;
 
     if (s_obj) {
-        status = s_obj->sendOnLinkEstablished(handle);
-=======
-JNIEXPORT void JNICALL Java_org_alljoyn_bus_p2p_service_P2pHelperService_jniOnLinkEstablished(JNIEnv* env, jobject jobj, jint handle, jstring name) {
-
-    if (s_obj) {
         const char* cName = env->GetStringUTFChars(name, NULL);
-        s_obj->sendOnLinkEstablished(handle, cName);
+        status = s_obj->sendOnLinkEstablished(handle, cName);
         env->ReleaseStringUTFChars(name, cName);
-    } else {
-        LOGE("onLinkEstablished: Bad P2pService pointer %p", s_obj);
->>>>>>> P2P: Add interface name to onEstablishLink() signal:alljoyn_android/alljoyn_android_p2pservice/jni/P2pHelperService.cpp
     }
     return static_cast<int>(status);
 }
