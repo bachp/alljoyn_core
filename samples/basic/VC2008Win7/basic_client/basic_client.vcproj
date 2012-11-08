@@ -44,7 +44,7 @@
 				Name="VCCLCompilerTool"
 				AdditionalOptions="/vmm /vmg"
 				Optimization="0"
-				AdditionalIncludeDirectories="$(ALLJOYN_SDK_HOME)\CPP\inc;$(ProjectDir)\..\..\..\..\inc"
+				AdditionalIncludeDirectories="$(ALLJOYN_SDK_HOME)\inc;$(ProjectDir)\..\..\..\..\inc"
 				PreprocessorDefinitions="QCC_OS_GROUP_WINDOWS;UNICODE"
 				MinimalRebuild="true"
 				BasicRuntimeChecks="3"
@@ -63,9 +63,9 @@
 			/>
 			<Tool
 				Name="VCLinkerTool"
-				AdditionalDependencies="alljoyn.lib ws2_32.lib Secur32.lib crypt32.lib Bcrypt.lib Ncrypt.lib iphlpapi.lib"
-				AdditionalLibraryDirectories="$(ALLJOYN_SDK_HOME)\CPP\lib\$(ConfigurationName);$(ProjectDir)\..\..\..\..\lib"
-				IgnoreDefaultLibraryNames="MSVCRT.lib"
+				AdditionalDependencies="alljoyn.lib ajdaemon.lib BundledDaemon.obj ws2_32.lib Secur32.lib crypt32.lib Bcrypt.lib Ncrypt.lib iphlpapi.lib"
+				AdditionalLibraryDirectories="$(ALLJOYN_SDK_HOME)\lib\;$(ProjectDir)\..\..\..\..\lib"
+				IgnoreDefaultLibraryNames="libcmt.lib"
 				GenerateDebugInformation="true"
 				TargetMachine="1"
 			/>
@@ -118,7 +118,7 @@
 				Name="VCCLCompilerTool"
 				AdditionalOptions="/vmm /vmg"
 				Optimization="0"
-				AdditionalIncludeDirectories="$(ALLJOYN_SDK_HOME)\CPP\inc;$(ProjectDir)\..\..\..\..\inc"
+				AdditionalIncludeDirectories="$(ALLJOYN_SDK_HOME)\inc;$(ProjectDir)\..\..\..\..\inc"
 				PreprocessorDefinitions="QCC_OS_GROUP_WINDOWS;UNICODE"
 				MinimalRebuild="true"
 				BasicRuntimeChecks="3"
@@ -137,9 +137,9 @@
 			/>
 			<Tool
 				Name="VCLinkerTool"
-				AdditionalDependencies="alljoyn.lib ws2_32.lib Secur32.lib crypt32.lib Bcrypt.lib Ncrypt.lib iphlpapi.lib"
-				AdditionalLibraryDirectories="$(ALLJOYN_SDK_HOME)\CPP\lib64\$(ConfigurationName);$(ProjectDir)\..\..\..\..\lib"
-				IgnoreDefaultLibraryNames="MSVCRT.lib"
+				AdditionalDependencies="alljoyn.lib ajdaemon.lib BundledDaemon.obj ws2_32.lib Secur32.lib crypt32.lib Bcrypt.lib Ncrypt.lib iphlpapi.lib"
+				AdditionalLibraryDirectories="$(ALLJOYN_SDK_HOME)\lib\;$(ProjectDir)\..\..\..\..\lib"
+				IgnoreDefaultLibraryNames="libcmt.lib"
 				GenerateDebugInformation="true"
 				TargetMachine="17"
 			/>
@@ -193,7 +193,7 @@
 				AdditionalOptions="/vmm /vmg"
 				Optimization="2"
 				EnableIntrinsicFunctions="true"
-				AdditionalIncludeDirectories="$(ALLJOYN_SDK_HOME)\CPP\inc;$(ProjectDir)\..\..\..\..\inc"
+				AdditionalIncludeDirectories="$(ALLJOYN_SDK_HOME)\inc;$(ProjectDir)\..\..\..\..\inc"
 				PreprocessorDefinitions="QCC_OS_GROUP_WINDOWS;UNICODE;NDEBUG"
 				RuntimeLibrary="2"
 				EnableFunctionLevelLinking="true"
@@ -211,8 +211,8 @@
 			/>
 			<Tool
 				Name="VCLinkerTool"
-				AdditionalDependencies="alljoyn.lib ws2_32.lib Secur32.lib crypt32.lib Bcrypt.lib Ncrypt.lib iphlpapi.lib"
-				AdditionalLibraryDirectories="$(ALLJOYN_SDK_HOME)\CPP\lib\$(ConfigurationName);$(ProjectDir)\..\..\..\..\lib"
+				AdditionalDependencies="alljoyn.lib ajdaemon.lib BundledDaemon.obj ws2_32.lib Secur32.lib crypt32.lib Bcrypt.lib Ncrypt.lib iphlpapi.lib"
+				AdditionalLibraryDirectories="$(ALLJOYN_SDK_HOME)\lib\;$(ProjectDir)\..\..\..\..\lib"
 				IgnoreDefaultLibraryNames="libcmt.lib"
 				GenerateDebugInformation="true"
 				OptimizeReferences="2"
@@ -270,7 +270,7 @@
 				AdditionalOptions="/vmm /vmg"
 				Optimization="2"
 				EnableIntrinsicFunctions="true"
-				AdditionalIncludeDirectories="$(ALLJOYN_SDK_HOME)\CPP\inc;$(ProjectDir)\..\..\..\..\inc"
+				AdditionalIncludeDirectories="$(ALLJOYN_SDK_HOME)\inc;$(ProjectDir)\..\..\..\..\inc"
 				PreprocessorDefinitions="QCC_OS_GROUP_WINDOWS;UNICODE;NDEBUG"
 				RuntimeLibrary="2"
 				EnableFunctionLevelLinking="true"
@@ -288,8 +288,8 @@
 			/>
 			<Tool
 				Name="VCLinkerTool"
-				AdditionalDependencies="alljoyn.lib ws2_32.lib Secur32.lib crypt32.lib Bcrypt.lib Ncrypt.lib iphlpapi.lib"
-				AdditionalLibraryDirectories="$(ALLJOYN_SDK_HOME)\CPP\lib64\$(ConfigurationName);$(ProjectDir)\..\..\..\..\lib"
+				AdditionalDependencies="alljoyn.lib ajdaemon.lib BundledDaemon.obj ws2_32.lib Secur32.lib crypt32.lib Bcrypt.lib Ncrypt.lib iphlpapi.lib"
+				AdditionalLibraryDirectories="$(ALLJOYN_SDK_HOME)\lib\;$(ProjectDir)\..\..\..\..\lib"
 				IgnoreDefaultLibraryNames="libcmt.lib"
 				GenerateDebugInformation="true"
 				OptimizeReferences="2"
