@@ -672,8 +672,7 @@ class P2pService : public BusObject {
         return static_cast<int>(status);
     }
 
-
-    int sendOnLinkEstablished(int handle, const char *interfaceName) {
+    int sendOnLinkEstablished(int handle, const char*interfaceName) {
         MsgArg args[2];
         args[0].Set("i", handle);
         args[1].Set("s", interfaceName);
