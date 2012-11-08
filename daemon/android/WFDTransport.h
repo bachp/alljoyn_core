@@ -615,7 +615,15 @@ class WFDTransport : public Transport, public RemoteEndpoint::EndpointListener, 
 
     uint16_t m_listenPort;     /**< If m_isListening, is the port on which we are listening */
 
+    /**
+     * Callback from the P2P name service indicating that it has found or lost and advertised name.
+     */
     void P2PNameServiceCallback(const qcc::String& guid, qcc::String& name, uint8_t timer);
+
+    /**
+     * Callback from the P2P connection manager indicating that a link and associated interface has come up or gone down.
+     */
+    void P2PConManCallback(P2PConMan::LinkState state, const qcc::String& interface);
 
     bool m_p2pNsAcquired;  /**< True if we've done an Acquire() on the P2P name service singleton */
     bool m_p2pCmAcquired;  /**< True if we've done an Acquire() on the P2P connection manager singleton */

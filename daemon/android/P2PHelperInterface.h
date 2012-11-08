@@ -43,7 +43,7 @@ class P2PHelperListener {
 
     virtual void OnFoundAdvertisedName(qcc::String& name, qcc::String& namePrefix, qcc::String& guid, qcc::String& device) { }
     virtual void OnLostAdvertisedName(qcc::String& name, qcc::String& namePrefix, qcc::String& guid, qcc::String& device) { }
-    virtual void OnLinkEstablished(int32_t handle) { }
+    virtual void OnLinkEstablished(int32_t handle, qcc::String& interface) { }
     virtual void OnLinkError(int32_t handle, int32_t error) { }
     virtual void OnLinkLost(int32_t handle) { }
 
@@ -142,7 +142,10 @@ class P2PHelperInterface : public MessageReceiver {
         {
             QCC_DbgPrintf(("P2PHelperListenerInternal::OnLinkEstablished()"));
             if (m_parent->m_listener) {
-                m_parent->m_listener->OnLinkEstablished(message->GetArg(0)->v_int32);
+                uint32_t handle(message->GetArg(0)->v_int32);
+                qcc::String interface(message->GetArg(1)->v_string.str);
+
+                m_parent->m_listener->OnLinkEstablished(handle, interface);
             }
         }
 

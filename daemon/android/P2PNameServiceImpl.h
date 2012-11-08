@@ -316,7 +316,7 @@ class P2PNameServiceImpl {
 
     void OnFoundAdvertisedName(qcc::String& name, qcc::String& namePrefix, qcc::String& guid, qcc::String& device);
     void OnLostAdvertisedName(qcc::String& name, qcc::String& namePrefix, qcc::String& guid, qcc::String& device);
-    void OnLinkEstablished(int32_t handle) { }
+    void OnLinkEstablished(int32_t handle, qcc::String& interface) { }
     void OnLinkError(int32_t handle, int32_t error) { }
     void OnLinkLost(int32_t handle) { }
     void HandleFindAdvertisedNameReply(int32_t result);
@@ -353,10 +353,10 @@ class P2PNameServiceImpl {
             m_nsi->OnLostAdvertisedName(name, namePrefix, guid, device);
         }
 
-        virtual void OnLinkEstablished(int32_t handle)
+        virtual void OnLinkEstablished(int32_t handle, qcc::String& interface)
         {
             assert(m_nsi);
-            m_nsi->OnLinkEstablished(handle);
+            m_nsi->OnLinkEstablished(handle, interface);
         }
 
         virtual void OnLinkError(int32_t handle, int32_t error)

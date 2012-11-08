@@ -41,7 +41,7 @@ namespace ajn {
 
 P2PConManImpl::P2PConManImpl()
     : m_state(IMPL_SHUTDOWN), m_myP2pHelperListener(0), m_p2pHelperInterface(0), m_bus(0),
-    m_connState(CONN_IDLE), m_l2thread(0), m_l3thread(0)
+    m_connState(CONN_IDLE), m_l2thread(0), m_l3thread(0), m_callback(0)
 {
     QCC_DbgPrintf(("P2PConManImpl::P2PConManImpl()"));
 }
@@ -92,6 +92,23 @@ QStatus P2PConManImpl::Init(BusAttachment* bus, const qcc::String& guid)
         m_myP2pHelperListener = new MyP2PHelperListener(this);
         m_p2pHelperInterface->SetListener(m_myP2pHelperListener);
     }
+    return ER_OK;
+}
+
+QStatus P2PConManImpl::SetCallback(Callback<void, P2PConMan::LinkState, const qcc::String&>* cb)
+{
+    QCC_DbgHLPrintf(("P2PConManImpl::SetCallback()"));
+
+    if (m_state != IMPL_RUNNING) {
+        QCC_DbgPrintf(("P2PConManImpl::SetCallback(): Not IMPL_RUNNING"));
+        return ER_FAIL;
+    }
+
+    Callback<void, P2PConMan::LinkState, const qcc::String&>* goner = m_callback;
+    m_callback = NULL;
+    delete goner;
+    m_callback = cb;
+
     return ER_OK;
 }
 
@@ -242,6 +259,7 @@ QStatus P2PConManImpl::CreateTemporaryNetwork(const qcc::String& device, int32_t
         m_l2thread = NULL;
         m_handle = -1;
         m_device = "";
+        m_interface = "";
         m_connState = CONN_IDLE;
         m_threadLock.Unlock();
 
@@ -381,6 +399,7 @@ QStatus P2PConManImpl::CreateTemporaryNetwork(const qcc::String& device, int32_t
     if (status != ER_OK) {
         m_handle = -1;
         m_device = "";
+        m_interface = "";
         m_connState = CONN_IDLE;
     }
 
@@ -432,6 +451,7 @@ QStatus P2PConManImpl::DestroyTemporaryNetwork(const qcc::String& device, uint32
     int32_t handle = m_handle;
     m_handle = -1;
     m_device = "";
+    m_interface = "";
     m_connState = CONN_IDLE;
 
     QCC_DbgPrintf(("P2PConManImpl::DestroyTemporaryNetwork(): ReleaseLinkAsync()"));
@@ -665,9 +685,9 @@ QStatus P2PConManImpl::CreateConnectSpec(const qcc::String& device, const qcc::S
     return status;
 }
 
-void P2PConManImpl::OnLinkEstablished(int32_t handle)
+void P2PConManImpl::OnLinkEstablished(int32_t handle, qcc::String& interface)
 {
-    QCC_DbgHLPrintf(("P2PConManImpl::OnLinkEstablished(): handle = %d", handle));
+    QCC_DbgHLPrintf(("P2PConManImpl::OnLinkEstablished(): handle = %d, interface=\"%s\"", handle, interface.c_str()));
 
     if (m_connState != CONN_CONNECTING && m_connState != CONN_READY) {
         QCC_DbgPrintf(("P2PConManImpl::OnLinkEstablished(): Not CONN_CONNECTING or CONN_READY"));
@@ -675,20 +695,31 @@ void P2PConManImpl::OnLinkEstablished(int32_t handle)
     }
 
     //
-    // If we are in the CONN_READY state, we are the service side of the equation.
-    // We have told the framework that we are the service side, but we don't have
-    // a handle back from it since there was no connection -- we just advised the
-    // framework that we were there.  The CreateTemporaryNetwork call is long gone
-    // so we don't communicate back to it, we just need to make a note to ourselves
-    // that a connection is up, and remember the handle describin the connection.
-    // Since we don't know anything about our own device, we leave the address of
-    // the P2P Device empty.
+    // If we are in the CONN_READY state, we are the service side of the
+    // equation.  We have told the framework that we are the service side, but
+    // we don't have a handle back from it since there was no connection -- we
+    // just advised the framework that we were there.  The
+    // CreateTemporaryNetwork call is long gone so we don't communicate back to
+    // it, we just need to make a note to ourselves that a connection is up, and
+    // remember the handle describing the connection, and the interface name of
+    // the net device that was just brought up.  Since we don't know anything
+    // about our own devices, we leave the address of the P2P Device empty.
     //
     if (m_connState == CONN_READY) {
         QCC_DbgPrintf(("P2PConManImpl::OnLinkEstablished(): OnLinkEstablished for GO"));
         m_handle = handle;
+        m_interface = interface;
         m_connState = CONN_CONNECTED;
         m_device = "";
+
+        //
+        // Call back any interested parties (transports) and tell them that a
+        // link has been established and let them know which network interface
+        // is handling the link.
+        //
+        if (m_callback) {
+            (*m_callback)(P2PConMan::ESTABLISHED, m_interface);
+        }
         return;
     }
 
@@ -700,6 +731,21 @@ void P2PConManImpl::OnLinkEstablished(int32_t handle)
     if (m_handle == handle) {
         QCC_DbgPrintf(("P2PConManImpl::OnLinkEstablished(): OnLinkEstablished with correct handle"));
         m_onLinkEstablishedFired = true;
+
+        //
+        // We don't know which net device (interface name) is going to be handling
+        // the connection until the link is actually brought up.
+        //
+        m_interface = interface;
+
+        //
+        // Call back any interested parties (transports) and tell them that a
+        // link has been established and let them know which network interface
+        // is handling the link.
+        //
+        if (m_callback) {
+            (*m_callback)(P2PConMan::ESTABLISHED, m_interface);
+        }
 
         m_threadLock.Lock();
         if (m_l2thread) {
@@ -749,8 +795,20 @@ void P2PConManImpl::OnLinkLost(int32_t handle)
     //
     if (m_handle == handle) {
         QCC_DbgPrintf(("P2PConManImpl::OnLinkLost(): OnLinkLost with correct handle.  Connection is dead."));
+
+        //
+        // Call back any interested parties (transports) and tell them that a
+        // link has been established and let them know which network interface
+        // is handling the link.  Make this call before we clear the interface
+        // name since the trasports probably want to use it for cleanup.
+        //
+        if (m_callback) {
+            (*m_callback)(P2PConMan::LOST, m_interface);
+        }
+
         m_handle = -1;
         m_device = "";
+        m_interface = "";
         m_connState = CONN_IDLE;
 
         m_threadLock.Lock();
@@ -775,6 +833,9 @@ void P2PConManImpl::HandleEstablishLinkReply(int32_t handle)
     // HandleEstablishLinkReply is the response to EstablishLinkAsync that gives
     // us the handle that we will be using to identify all further responses.  A
     // negative handle means an error.
+    //
+    // XXX We have some more possibilites for error returns now than simple
+    // failure.
     //
     m_handle = handle;
     if (m_handle < 0) {
@@ -806,6 +867,9 @@ void P2PConManImpl::HandleReleaseLinkReply(int32_t result)
 
 void P2PConManImpl::HandleGetInterfaceNameFromHandleReply(qcc::String& interface)
 {
+    //
+    // Historical and currently unused.
+    //
     QCC_DbgHLPrintf(("P2PConManImpl::HandleGetInterfacenameFromHandleReply(): interface = \"%d\"", interface.c_str()));
 }
 

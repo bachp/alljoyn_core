@@ -140,7 +140,7 @@ QStatus P2PHelperInterface::Init(BusAttachment* bus)
 
             m_interface->AddSignal("OnFoundAdvertisedName",      "ssss", "name,namePrefix,guid,device");
             m_interface->AddSignal("OnLostAdvertisedName",       "ssss", "name,namePrefix,guid,device");
-            m_interface->AddSignal("OnLinkEstablished",          "i",    "handle");
+            m_interface->AddSignal("OnLinkEstablished",          "is",   "handle,interface");
             m_interface->AddSignal("OnLinkError",                "ii",   "handle,error");
             m_interface->AddSignal("OnLinkLost",                 "i",    "handle");
 

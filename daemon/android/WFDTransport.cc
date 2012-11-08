@@ -597,6 +597,13 @@ QStatus WFDTransport::Stop(void)
     }
 
     /*
+     * Tell the P2P connection manager to stop calling us back as well.
+     */
+    if (m_p2pCmAcquired) {
+        P2PConMan::Instance().SetCallback(NULL);
+    }
+
+    /*
      * Tell the server accept loop thread to shut down through the thead
      * base class.
      */
@@ -1416,6 +1423,7 @@ void WFDTransport::RunListenMachine(void)
             }
             if (m_p2pCmAcquired == false) {
                 P2PConMan::Instance().Acquire(&m_bus, m_bus.GetInternal().GetGlobalGUID().ToString());
+                P2PConMan::Instance().SetCallback(new CallbackImpl<WFDTransport, void, P2PConMan::LinkState, const qcc::String&> (this, &WFDTransport::P2PConManCallback));
                 m_p2pCmAcquired = true;
             }
             if (m_ipNsAcquired == false) {
@@ -1623,7 +1631,6 @@ void WFDTransport::EnableAdvertisementInstance(ListenRequest& listenRequest)
      * So, every time we advertise, we just take out anything else that may
      * be there.
      */
-
     qcc::String localDevice("");
     QStatus status = P2PConMan::Instance().CreateTemporaryNetwork(localDevice, P2PConMan::DEVICE_MUST_BE_GO);
     if (status != ER_OK) {
@@ -1632,26 +1639,23 @@ void WFDTransport::EnableAdvertisementInstance(ListenRequest& listenRequest)
     }
 
     /*
-     * We need to tell the IP name service that it should listen for incoming
-     * messages over the "p2p0" interface (when that interface comes up) because
-     * a client side wanting to connect to us will use the IP name service to
-     * determine addressing information for its ultimately desired TCP/UDP
-     * connection.
-     *
-     * We shouldn't really be hardcoding the interface name here, but asking the
-     * P2PConMan what string to use.  Hoever, since we are under rather extreme
-     * time pressure, we just use what we know and move on.
-     */
-    status = IpNameService::Instance().OpenInterface(TRANSPORT_WFD, "p2p0");
-    if (status != ER_OK) {
-        QCC_LogError(status, ("WFDTransport::EnableAdvertisementInstance(): Failed to OpenInterface(p2p0)"));
-        return;
-    }
-
-    /*
      * We need to advertise the name over the IP name service because that is
      * how the other side is going to determine addressing information for the
      * ultimately desired TCP/UDP connection.
+     *
+     * When we start advertising here, there will be no temporary network
+     * actually created and therefore there is no network to send advertisements
+     * out over.  We can't do anything with respect to opening an interface in
+     * the name service since we won't know the interface name until the link is
+     * actually established.  We are just enabling the advertisements here.
+     *
+     * When a client eventually connects to the group, the connection manager
+     * will get an OnLinkEstablished signal from the P2P Helper service.  This
+     * signal provides the interface name, and the signal is plumbed back to us
+     * via the callback from the P2PConMan.  We do the call to open the name
+     * service interface in our callback handler.  When this happens, the
+     * responses to FindAdvertiseName (who-has) requests will be answered and
+     * our advertisements will begin percolating out to the other (client) side.
      */
     status = IpNameService::Instance().AdvertiseName(TRANSPORT_WFD, listenRequest.m_requestParam);
     if (status != ER_OK) {
@@ -3340,6 +3344,38 @@ void WFDTransport::P2PNameServiceCallback(const qcc::String& guid, qcc::String& 
         wkns.push_back(name);
 
         m_listener->FoundNames(connectSpec, guid, TRANSPORT_WFD, &wkns, timer);
+    }
+}
+
+void WFDTransport::P2PConManCallback(P2PConMan::LinkState state, const qcc::String& interface)
+{
+    QCC_DbgPrintf(("WFDTransport::P2PConManCallback(): state = %d, interface = \"%s\"", state, interface.c_str()));
+
+    /*
+     * Whenever the P2P connection manager notices a link coming up or going down
+     * it calls us back here to let us know.
+     *
+     * We need to tell the IP name service that it should listen for incoming
+     * messages over the provided interface (when that interface comes up)
+     * because a client side wanting to connect to us will use the IP name
+     * service to determine addressing information for its ultimately desired
+     * TCP/UDP connection.  If the interface is going down, we tell the name
+     * service to stop advertising over that interface.  Advertisements will
+     * fail, but we don't want to do the work unnecessarily.
+     *
+     * We rely on these callbacks coming in pairs to correctly acquire and
+     * release associated resources.
+     */
+    if (state == P2PConMan::ESTABLISHED) {
+        QStatus status = IpNameService::Instance().OpenInterface(TRANSPORT_WFD, interface);
+        if (status != ER_OK) {
+            QCC_LogError(status, ("WFDTransport::EnableAdvertisementInstance(): Failed to OpenInterface(\"%s\")", interface.c_str()));
+        }
+    } else {
+        QStatus status = IpNameService::Instance().CloseInterface(TRANSPORT_WFD, interface);
+        if (status != ER_OK) {
+            QCC_LogError(status, ("WFDTransport::EnableAdvertisementInstance(): Failed to CloseInterface(\"%s\")", interface.c_str()));
+        }
     }
 }
 

@@ -244,6 +244,16 @@ QStatus P2PConMan::Init(BusAttachment* const bus, const qcc::String& guid)
     return m_pimpl->Init(bus, guid);
 }
 
+void P2PConMan::SetCallback(Callback<void, LinkState, const qcc::String&>* cb)
+{
+    if (m_destroyed) {
+        return;
+    }
+
+    ASSERT_STATE("SetCallback");
+    m_pimpl->SetCallback(cb);
+}
+
 QStatus P2PConMan::CreateTemporaryNetwork(const qcc::String& device, int32_t intent)
 {
     QCC_DbgPrintf(("P2PConMan::CreateTemporaryNetwork()"));

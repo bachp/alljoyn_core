@@ -95,6 +95,15 @@ class P2PConManImpl {
     QStatus Join() { m_state = IMPL_SHUTDOWN; return ER_OK; }
 
     /**
+     * @brief Set the callback function that is called to notify a transport about
+     *     the coming and going of a Wi-Fi Direct link.
+     *
+     * @param cb The callback method on the transport that will be called to notify
+     *     a transport about link state changes.
+     */
+    QStatus SetCallback(Callback<void, P2PConMan::LinkState, const qcc::String&>* cb);
+
+    /**
      * @brief Create a temporary physical network connection to the provided
      *     device MAC address using Wi-Fi Direct.
      *
@@ -196,7 +205,7 @@ class P2PConManImpl {
 
     void OnFoundAdvertisedName(qcc::String& name, qcc::String& namePrefix, qcc::String& guid, qcc::String& device) { }
     void OnLostAdvertisedName(qcc::String& name, qcc::String& namePrefix, qcc::String& guid, qcc::String& device) { }
-    void OnLinkEstablished(int32_t handle);
+    void OnLinkEstablished(int32_t handle, qcc::String& interface);
     void OnLinkError(int32_t handle, int32_t error);
     void OnLinkLost(int32_t handle);
     void HandleFindAdvertisedNameReply(int32_t result) { }
@@ -232,10 +241,10 @@ class P2PConManImpl {
             m_cmi->OnLostAdvertisedName(name, namePrefix, guid, device);
         }
 
-        virtual void OnLinkEstablished(int32_t handle)
+        virtual void OnLinkEstablished(int32_t handle, qcc::String& interface)
         {
             assert(m_cmi);
-            m_cmi->OnLinkEstablished(handle);
+            m_cmi->OnLinkEstablished(handle, interface);
         }
 
         virtual void OnLinkError(int32_t handle, int32_t error)
@@ -308,6 +317,7 @@ class P2PConManImpl {
 
     int32_t m_handle;         /**< The handle returned by the P2P Helper Service that identifies the network connection */
     qcc::String m_device;     /**< The device (which is really the remote MAC address) to which we are connected */
+    qcc::String m_interface;  /**< The interface name of the net device supporting our connection (e.g. "p2p0") */
     ConnState m_connState;    /**< The state of the one and only suported temporary network connection */
     qcc::Thread* m_l2thread;  /**< A single thread that is blocked waiting for a temporary network to form */
     qcc::Thread* m_l3thread;  /**< A single thread that is blocked waiting for address and port discovery */
@@ -327,6 +337,7 @@ class P2PConManImpl {
     void FoundAdvertisedName(const qcc::String& busAddr, const qcc::String& guid,
                              std::vector<qcc::String>& nameList, uint8_t timer);
 
+    Callback<void, P2PConMan::LinkState, const qcc::String&>* m_callback;
 };
 
 } // namespace ajn

@@ -29,6 +29,7 @@
 #include <vector>
 #include <qcc/String.h>
 #include <Status.h>
+#include <Callback.h>
 #include "P2PHelperInterface.h"
 
 namespace ajn {
@@ -90,6 +91,20 @@ class P2PConMan {
      * @return True if the singleton has been started, false otherwise.
      */
     bool Started();
+
+    enum LinkState {
+        ESTABLISHED,
+        LOST
+    };
+
+    /**
+     * @brief Set the callback function that is called to notify a transport about
+     *     the coming and going of a Wi-Fi Direct link.
+     *
+     * @param cb The callback method on the transport that will be called to notify
+     *     a transport about link state changes.
+     */
+    void SetCallback(Callback<void, LinkState, const qcc::String&>* cb);
 
     /**
      * @brief Create a temporary physical network connection to the provided
