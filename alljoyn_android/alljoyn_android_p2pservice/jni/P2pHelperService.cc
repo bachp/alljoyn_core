@@ -672,15 +672,11 @@ class P2pService : public BusObject {
         return static_cast<int>(status);
     }
 
-<<<<<<< HEAD:alljoyn_android/alljoyn_android_p2pservice/jni/P2pHelperService.cc
-    int sendOnLinkEstablished(int handle) {
-        MsgArg arg("i", handle);
-=======
-    void sendOnLinkEstablished(int handle, const char *interfaceName) {
+
+    int sendOnLinkEstablished(int handle, const char *interfaceName) {
         MsgArg args[2];
         args[0].Set("i", handle);
         args[1].Set("s", interfaceName);
->>>>>>> P2P: Add interface name to onEstablishLink() signal:alljoyn_android/alljoyn_android_p2pservice/jni/P2pHelperService.cpp
 
         LOGI("sendOnLinkEstablished(%d, %s)", handle, interfaceName);
         QStatus status = Signal(NULL, sessionId, *onLinkEstablishedMember, args, 2, 0);
