@@ -232,6 +232,9 @@ public:
         const char* sourcePath,
         Message& msg)
     {
+        const static int CX = (65536 / GetSystemMetrics(SM_CXSCREEN));
+        const static int CY = (65536 / GetSystemMetrics(SM_CYSCREEN));
+
         int32_t x, y;
         msg->GetArgs("ii", &x, &y);
 
@@ -245,8 +248,8 @@ public:
         INPUT input;
         input.type = INPUT_MOUSE;
         input.mi.mouseData = 0;
-        input.mi.dx = (p.x + x) * (65536 / GetSystemMetrics(SM_CXSCREEN));
-        input.mi.dy = (p.y + y) * (65536 / GetSystemMetrics(SM_CYSCREEN));
+        input.mi.dx = (p.x + x) * CX;
+        input.mi.dy = (p.y + y) * CY;
         input.mi.dwFlags = MOUSEEVENTF_ABSOLUTE | MOUSEEVENTF_MOVE;
         SendInput(1, &input, sizeof(input));
     }
