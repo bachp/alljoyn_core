@@ -2376,17 +2376,6 @@ QStatus AllJoynObj::ProcCancelAdvertise(const qcc::String& sender, const qcc::St
             }
         }
 
-        if (discoverMap.empty() && advertiseMap.empty()) {
-            std::multimap<qcc::String, NameMapEntry>::iterator nmit = nameMap.begin();
-            while (nmit != nameMap.end()) {
-                if ((*nmit).second.transport & (TRANSPORT_WLAN | TRANSPORT_WWAN | TRANSPORT_LAN)) {
-                    nameMap.erase(nmit++);
-                } else {
-                    ++nmit;
-                }
-            }
-        }
-
     } else if (!foundAdvert) {
         status = ER_FAIL;
     }
@@ -2573,17 +2562,6 @@ QStatus AllJoynObj::ProcCancelFindName(const qcc::String& sender, const qcc::Str
                 trans->DisableDiscovery(namePrefix.c_str());
             } else {
                 QCC_LogError(ER_BUS_TRANSPORT_NOT_AVAILABLE, ("NULL transport pointer found in transportList"));
-            }
-        }
-
-        if (discoverMap.empty() && advertiseMap.empty()) {
-            std::multimap<qcc::String, NameMapEntry>::iterator nmit = nameMap.begin();
-            while (nmit != nameMap.end()) {
-                if ((*nmit).second.transport & (TRANSPORT_WLAN | TRANSPORT_WWAN | TRANSPORT_LAN)) {
-                    nameMap.erase(nmit++);
-                } else {
-                    ++nmit;
-                }
             }
         }
 
