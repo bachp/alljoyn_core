@@ -48,7 +48,7 @@ class BusListener {
     virtual ~BusListener() { }
 
     /**
-     * Called by the bus when the listener is registered. This give the listener implementation the
+     * Called by the bus when the listener is registered. This gives the listener implementation the
      * opportunity to save a reference to the bus.
      *
      * @param bus  The bus the listener is registered with.
@@ -102,7 +102,7 @@ class BusListener {
     virtual void BusStopping() { }
 
     /**
-     * Called when a BusAttachment this listener is registered with is has become disconnected from
+     * Called when a BusAttachment this listener is registered with has become disconnected from
      * the bus.
      */
     virtual void BusDisconnected() { }
