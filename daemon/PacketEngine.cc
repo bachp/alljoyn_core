@@ -229,7 +229,7 @@ QStatus PacketEngine::RemovePacketStream(PacketStream& pktStream)
         rxPacketThreadReload = false;
         channelInfoLock.Unlock();
         rxPacketThread.Alert();
-        while (isRunning && !rxPacketThreadReload) {
+        while (isRunning && !rxPacketThreadReload && (Thread::GetThread() != &rxPacketThread)) {
             qcc::Sleep(20);
         }
     } else {
