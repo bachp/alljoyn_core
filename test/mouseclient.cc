@@ -246,6 +246,7 @@ public:
         y = GetYDelta(y);
 
         INPUT input;
+        memset(&input, 0, sizeof(input));
         input.type = INPUT_MOUSE;
         input.mi.mouseData = 0;
         input.mi.dx = (p.x + x) * CX;
