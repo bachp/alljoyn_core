@@ -635,7 +635,7 @@ void TestDriver::HashName(const BTBusAddress& addr,
                           const String& name,
                           String& hash)
 {
-	Crypto_SHA1 sha1;
+    Crypto_SHA1 sha1;
     uint8_t digest[Crypto_SHA1::DIGEST_SIZE];
     sha1.Init();
 
