@@ -52,7 +52,7 @@ static const size_t EXCHANGE_DATA_SMALL = 1;
 
 static const size_t CONNECT_MULTIPLE_MAX_CONNECTIONS = 19;
 
-static const size_t HASH_SIZE = Crypto_MD5::DIGEST_SIZE;
+static const size_t HASH_SIZE = Crypto_SHA1::DIGEST_SIZE;
 
 static const ajn::BTBusAddress redirectAddress(ajn::BDAddress("11:22:33:44:55:66"), 0x4321);
 static ajn::TransportFactoryContainer cntr;
@@ -635,15 +635,15 @@ void TestDriver::HashName(const BTBusAddress& addr,
                           const String& name,
                           String& hash)
 {
-    Crypto_MD5 md5;
-    uint8_t digest[Crypto_MD5::DIGEST_SIZE];
-    md5.Init();
+	Crypto_SHA1 sha1;
+    uint8_t digest[Crypto_SHA1::DIGEST_SIZE];
+    sha1.Init();
 
-    md5.Update(addr.ToString());
-    md5.Update(guid.ToString());
-    md5.Update(U32ToString(serial, 16, 8, '0'));
-    md5.Update(name);
-    md5.GetDigest(digest);
+    sha1.Update(addr.ToString());
+    sha1.Update(guid.ToString());
+    sha1.Update(U32ToString(serial, 16, 8, '0'));
+    sha1.Update(name);
+    sha1.GetDigest(digest);
 
     hash = BytesToHexString(digest, HASH_SIZE);
 }
