@@ -1254,7 +1254,9 @@ ThreadReturn STDCALL DaemonICETransport::AllocateICESessionThread::Run(void* arg
                                                                 transportObj->daemonICETransportTimer.AddAlarm(Alarm(zero, transportObj, ctx, zero));
                                                             }
                                                         } else {
+                                                            transportObj->pktStreamMapLock.Unlock(MUTEX_CONTEXT);
                                                             transportObj->ReleaseICEPacketStream(*pktStream);
+                                                            transportObj->pktStreamMapLock.Lock(MUTEX_CONTEXT);
                                                             QCC_LogError(status, ("ICEPacketStream.Start or AddPacketStream failed"));
                                                         }
 
@@ -1714,7 +1716,7 @@ QStatus DaemonICETransport::Connect(const char* connectSpec, const SessionOpts& 
 
     ICEPacketStream* pktStream = AcquireICEPacketStream(normSpec);
     if (!pktStream) {
-        pktStreamMapLock.Lock();
+        pktStreamMapLock.Lock(MUTEX_CONTEXT);
         /*
          * No pktStream exists. Put a dummy one on the pktStreamMap so other join attempts for the
          * same destination (normSpec) will wait for this join's ICE dance to complete.
@@ -1722,7 +1724,7 @@ QStatus DaemonICETransport::Connect(const char* connectSpec, const SessionOpts& 
         ICEPacketStream pks;
         PacketStreamMap::iterator ins = pktStreamMap.insert(std::make_pair(normSpec, std::make_pair(pks, 1)));
         pktStream = &(ins->second.first);
-        pktStreamMapLock.Unlock();
+        pktStreamMapLock.Unlock(MUTEX_CONTEXT);
 
         /*
          * Figure out the ICE Address Candidates
@@ -1881,7 +1883,7 @@ QStatus DaemonICETransport::Connect(const char* connectSpec, const SessionOpts& 
                                                         } else {
                                                             QCC_LogError(status, ("ICEPacketStream.Start or AddPacketStream failed"));
                                                         }
-                                                        pktStreamMapLock.Unlock();
+                                                        pktStreamMapLock.Unlock(MUTEX_CONTEXT);
                                                     } else {
                                                         status = ER_FAIL;
                                                         QCC_LogError(status, ("DaemonICETransport::Connect():No successful candidates gathered"));
@@ -2599,7 +2601,9 @@ void DaemonICETransport::ReleaseICEPacketStream(const ICEPacketStream& icePktStr
             --it->second.second;
             QCC_DbgPrintf(("%s: Releasing packet stream %p refCount=%d", __FUNCTION__, &icePktStream, it->second.second));
             if (it->second.second == 0) {
+                pktStreamMapLock.Unlock(MUTEX_CONTEXT);
                 QStatus status = m_packetEngine.RemovePacketStream(it->second.first);
+                pktStreamMapLock.Lock(MUTEX_CONTEXT);
                 if (status != ER_OK) {
                     QCC_LogError(status, ("RemovePacketStream failed"));
                 }
@@ -2705,16 +2709,18 @@ void DaemonICETransport::JoinAllEndpoints(void) {
 void DaemonICETransport::ClearPacketStreamMap(void) {
     QCC_DbgPrintf(("%s", __FUNCTION__));
     /* Deregister  packetStreams from packetEngine before packetStreams are destroyed */
-    pktStreamMapLock.Lock();
+    pktStreamMapLock.Lock(MUTEX_CONTEXT);
     multimap<String, pair<ICEPacketStream, uint32_t> >::iterator pit = pktStreamMap.begin();
     while (pit != pktStreamMap.end()) {
         if (pit->second.second > 0) {
             pit->second.second = 0;
+            pktStreamMapLock.Unlock(MUTEX_CONTEXT);
             m_packetEngine.RemovePacketStream(pit->second.first);
+            pktStreamMapLock.Lock(MUTEX_CONTEXT);
         }
         ++pit;
     }
-    pktStreamMapLock.Unlock();
+    pktStreamMapLock.Unlock(MUTEX_CONTEXT);
 }
 
 } // namespace ajn
