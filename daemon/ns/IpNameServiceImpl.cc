@@ -1586,10 +1586,16 @@ QStatus IpNameServiceImpl::SetCallback(TransportMask transportMask,
     uint32_t i = IndexFromBit(transportMask);
     assert(i < 16 && "IpNameServiceImpl::SetCallback(): Bad callback index");
 
+    // printf("%s: m_mutex.Lock()\n", __FUNCTION__);
+    m_mutex.Lock();
+
     Callback<void, const qcc::String&, const qcc::String&, vector<qcc::String>&, uint8_t>*  goner = m_callback[i];
     m_callback[i] = NULL;
     delete goner;
     m_callback[i] = cb;
+
+    // printf("%s: m_mutex.Unlock()\n", __FUNCTION__);
+    m_mutex.Unlock();
 
     return ER_OK;
 }
@@ -1597,6 +1603,9 @@ QStatus IpNameServiceImpl::SetCallback(TransportMask transportMask,
 void IpNameServiceImpl::ClearCallbacks(void)
 {
     QCC_DbgPrintf(("IpNameServiceImpl::ClearCallbacks()"));
+
+    // printf("%s: m_mutex.Lock()\n", __FUNCTION__);
+    m_mutex.Lock();
 
     //
     // Delete any callbacks that any users of this class may have set.
@@ -1606,6 +1615,9 @@ void IpNameServiceImpl::ClearCallbacks(void)
         m_callback[i] = NULL;
         delete goner;
     }
+
+    // printf("%s: m_mutex.Unlock()\n", __FUNCTION__);
+    m_mutex.Unlock();
 }
 
 size_t IpNameServiceImpl::NumAdvertisements(TransportMask transportMask)
@@ -3613,12 +3625,30 @@ void IpNameServiceImpl::HandleProtocolAnswer(IsAt isAt, uint32_t timer, qcc::IPA
     }
 
     //
+    // We need mutex protection since other threads can call in and change the
+    // callback out from under us if we do not use protection.  Taking a lock
+    // and holding it during the callback is a bit dangerous, but if we want to
+    // have a contract that says we won't ever send out a callback after it is
+    // cleared, we do have to hold that lock until all of our callbacks return
+    // back into this class.  We therefore do expect that callbacks won't do
+    // something silly like call back and cancel callbacks or make some other
+    // call back into this class from another direction.
+    //
+    // printf("%s: m_mutex.Lock()\n", __FUNCTION__);
+    m_mutex.Lock();
+
+    //
     // If there is no callback for the provided transport, we can't tell the
     // user anything about what is going on the net, so it's pointless to go any
     // further.
     //
+
     if (m_callback[transportIndex] == NULL) {
         QCC_DbgPrintf(("IpNameServiceImpl::HandleProtocolAnswer(): No callback for transport, so nothing to do"));
+
+        // printf("%s: m_mutex.Unlock()\n", __FUNCTION__);
+        m_mutex.Unlock();
+
         return;
     }
 
@@ -3634,6 +3664,10 @@ void IpNameServiceImpl::HandleProtocolAnswer(IsAt isAt, uint32_t timer, qcc::IPA
     if (nsVersion == 0 && msgVersion == 0) {
         if (isAt.GetUdpFlag()) {
             QCC_DbgPrintf(("IpNameServiceImpl::HandleProtocolAnswer(): Ignoring version zero message from version one peer"));
+
+            // printf("%s: m_mutex.Unlock()\n", __FUNCTION__);
+            m_mutex.Unlock();
+
             return;
         }
     }
@@ -3859,6 +3893,9 @@ void IpNameServiceImpl::HandleProtocolAnswer(IsAt isAt, uint32_t timer, qcc::IPA
             (*m_callback[transportIndex])(busAddress, guid, wkn, timer);
         }
     }
+
+    // printf("%s: m_mutex.Unlock()\n", __FUNCTION__);
+    m_mutex.Unlock();
 }
 
 void IpNameServiceImpl::HandleProtocolMessage(uint8_t const* buffer, uint32_t nbytes, qcc::IPAddress address)
