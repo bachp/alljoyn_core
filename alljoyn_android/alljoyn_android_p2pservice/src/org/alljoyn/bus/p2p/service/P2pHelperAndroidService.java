@@ -61,6 +61,7 @@ public class P2pHelperAndroidService extends Service {
                     Log.d(TAG, "Attempting to connect to daemon");
                     mP2pHelperService = new P2pHelperService(getApplicationContext(), "unix:abstract=alljoyn");
                 }
+                mP2pHelperService.startup();
                 if (!mP2pHelperService.isConnected()) {
                     Log.d(TAG, "Not connected to daemon");
                     mP2pHelperService = null;
