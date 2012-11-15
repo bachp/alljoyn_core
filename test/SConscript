@@ -50,6 +50,7 @@ if env['OS'] != 'win8':
 
     if env['OS'] == 'win7':
         progs.extend(env.Program('mouseclient', ['mouseclient.cc']))
+        progs.extend(env.Program('litegen',     ['litegen.cc']))
 
     Return('progs')
     
