@@ -1727,6 +1727,12 @@ void WFDTransport::DisableAdvertisementInstance(ListenRequest& listenRequest)
 
         m_isListening = false;
         m_listenPort = 0;
+
+        qcc::String localDevice("");
+        QStatus status = P2PConMan::Instance().DestroyTemporaryNetwork(localDevice, P2PConMan::DEVICE_MUST_BE_STA);
+        if (status != ER_OK) {
+            QCC_LogError(status, ("WFDTransport::DisableAdvertisementInstance(): Unable to destroy GO side network"));
+        }
     }
 
     if (isEmpty) {
@@ -2142,6 +2148,14 @@ QStatus WFDTransport::Connect(const char* connectSpec, const SessionOpts& opts, 
 
     QStatus status;
     bool isConnected = false;
+
+    /*
+     * Clear the new endpoint pointer so we don't have to do it over and over
+     * again in case of the various errors.
+     */
+    if (newep) {
+        *newep = NULL;
+    }
 
     /*
      * We only want to allow this call to proceed if we have a running server
