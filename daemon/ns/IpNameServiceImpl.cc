@@ -1033,22 +1033,25 @@ void IpNameServiceImpl::LazyUpdateInterfaces(void)
         //
         bool useEntry = false;
         for (uint32_t j = 0; j < N_TRANSPORTS; ++j) {
+            QCC_DbgPrintf(("IpNameServiceImpl::LazyUpdateInterfaces(): Check out interface cantidates for transport %d", j));
+
             if (m_any[j]) {
-                QCC_DbgPrintf(("IpNameServiceImpl::LazyUpdateInterfaces(): Use because wildcard set mode for transport %d", j));
+                QCC_DbgPrintf(("IpNameServiceImpl::LazyUpdateInterfaces(): Wildcard set mode for transport %d", j));
 
                 //
                 // All interfaces means all except for "special use" interfaces
-                // like Wi-Fi Direct interfaces on Android.  This should really
-                // be a call out to the P2P connection manager asking it this is
-                // an interface involved in WFD in case other interface names
-                // may be used.  It's just too tempting to just use the fact
-                // that we know the one possible interface for now is "p2p0".
+                // like Wi-Fi Direct interfaces on Android.  We don't know what
+                // interfaces are actually in use by the Wi-Fi Direct subsystem
+                // but it does seem that any P2P-based interface will begin with
+                // the string "p2p" as in "p2p0" or "p2p-p2p0-0".
                 //
                 // Note that this assumes that the Wi-Fi Direct transport will
                 // never try to open an interface with a wild-card.
                 //
 #if defined(QCC_OS_ANDROID)
-                if (entries[i].m_name != "p2p0") {
+                if (entries[i].m_name.find("p2p") == qcc::String::npos) {
+                    QCC_DbgPrintf(("IpNameServiceImpl::LazyUpdateInterfaces(): Use entry \"%s\" since not a P2P interface",
+                                   entries[i].m_name.c_str()));
                     useEntry = true;
                 }
 #else
@@ -1056,13 +1059,19 @@ void IpNameServiceImpl::LazyUpdateInterfaces(void)
                 // There is no such thing as a "special use" interface on any of
                 // our other platforms, so we always use them.
                 //
+                QCC_DbgPrintf(("IpNameServiceImpl::LazyUpdateInterfaces(): Use entry \"%s\" since P2P not supported",
+                               entries[i].m_name.c_str()));
                 useEntry = true;
 #endif
             } else {
                 // printf("%s: m_mutex.Lock()\n", __FUNCTION__);
                 m_mutex.Lock();
 
+                QCC_DbgPrintf(("IpNameServiceImpl::LazyUpdateInterfaces(): m_any not set, look for explicitly requested interfaces for transport %d (%d currently requested)", j, m_requestedInterfaces[j].size()));
                 for (uint32_t k = 0; k < m_requestedInterfaces[j].size(); ++k) {
+
+                    QCC_DbgPrintf(("IpNameServiceImpl::LazyUpdateInterfaces(): Check out requested interfaces \"%s\"",
+                                   m_requestedInterfaces[j][k].m_interfaceName.c_str()));
                     //
                     // If the current real interface name matches the name in the
                     // requestedInterface list, we will try to use it.
@@ -2540,13 +2549,14 @@ void IpNameServiceImpl::SendOutboundMessages(void)
                 // source of the message.
                 //
                 // For example, if the Wi-Fi Direct transport has only opened
-                // the p2p0 interface, we don't want to be sending the who-has
-                // or is-at messages that happen as a result of its
-                // FindAdvertisedName or AdvertiseName calls out the eth0
-                // interface.  Both of those interfaces may be live, if for
+                // the "p2p0" or "p2p-p2p0-0" interface, we don't want to be
+                // sending the who-has or is-at messages that happen as a result
+                // of WFD activity out the "eth0" interface.
+                //
+                // Both of those interfaces ("eth0" and "p2p0") may be live, if for
                 // example the TCP transport has opened the wildcard interface;
                 // but irrespective of what the TCP transport has done, messages
-                // from the WFD transport need to only go out p2p0.
+                // from the WFD transport need to only go out "p2p0".
                 //
                 bool interfaceApproved = false;
                 for (uint8_t j = 0; j < header.GetNumberQuestions(); ++j) {
@@ -2562,17 +2572,16 @@ void IpNameServiceImpl::SendOutboundMessages(void)
 
                     //
                     // We have to be careful about sending messages from
-                    // transports that open a wildcard interface.  All
-                    // interfaces means all except for "special use" interfaces
-                    // like Wi-Fi Direct interfaces on Android.  This should
-                    // really be a call out to the P2P connection manager asking
-                    // it this is an interface involved in WFD in case other
-                    // interface names may be used.  It's just too tempting to
-                    // just use the fact that we know the one possible interface
-                    // for now is "p2p0".
+                    // transports that open a wildcard interface.  Wildcard
+                    // means all interfaces, but all interfaces really means all
+                    // except for "special use" interfaces like Wi-Fi Direct
+                    // interfaces on Android.  We don't know what interfaces are
+                    // actually in use by the Wi-Fi Direct subsystem but it does
+                    // seem that any P2P-based interface will begin with the
+                    // string "p2p" as in "p2p0" or "p2p-p2p0-0".
                     //
 #if defined(QCC_OS_ANDROID)
-                    if (m_any[transportIndex] && m_liveInterfaces[i].m_interfaceName != "p2p0") {
+                    if (m_any[transportIndex] && m_liveInterfaces[i].m_interfaceName.find("p2p") == qcc::String::npos) {
                         interfaceApproved = true;
                     }
 #else
@@ -2625,17 +2634,16 @@ void IpNameServiceImpl::SendOutboundMessages(void)
 
                     //
                     // We have to be careful about sending messages from
-                    // transports that open a wildcard interface.  All
-                    // interfaces means all except for "special use" interfaces
-                    // like Wi-Fi Direct interfaces on Android.  This should
-                    // really be a call out to the P2P connection manager asking
-                    // it this is an interface involved in WFD in case other
-                    // interface names may be used.  It's just too tempting to
-                    // just use the fact that we know the one possible interface
-                    // for now is "p2p0".
+                    // transports that open a wildcard interface.  Wildcard
+                    // means all interfaces, but all interfaces really means all
+                    // except for "special use" interfaces like Wi-Fi Direct
+                    // interfaces on Android.  We don't know what interfaces are
+                    // actually in use by the Wi-Fi Direct subsystem but it does
+                    // seem that any P2P-based interface will begin with the
+                    // string "p2p" as in "p2p0" or "p2p-p2p0-0".
                     //
 #if defined(QCC_OS_ANDROID)
-                    if (m_any[transportIndex] && m_liveInterfaces[i].m_interfaceName != "p2p0") {
+                    if (m_any[transportIndex] && m_liveInterfaces[i].m_interfaceName.find("p2p") == qcc::String::npos) {
                         interfaceApproved = true;
                     }
 #else

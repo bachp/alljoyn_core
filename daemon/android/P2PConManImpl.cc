@@ -61,6 +61,12 @@ P2PConManImpl::~P2PConManImpl()
     m_myP2pHelperListener = NULL;
 
     //
+    // Get rid of any callback that might have been set.
+    //
+    delete m_callback;
+    m_callback = NULL;
+
+    //
     // All shut down and ready for bed.
     //
     m_state = IMPL_SHUTDOWN;
@@ -325,9 +331,11 @@ QStatus P2PConManImpl::CreateTemporaryNetwork(const qcc::String& device, int32_t
         // We set our state to CONN_CONNECTED, we expect that m_handle was set by
         // OnLinkEstablished(), and m_device was set above.  These three tidbits
         // identify that we are up and connected with a remote device of some
-        // flavor.  What is missing is the name of the network interface that
-        // the Wi-Fi Direct part of the Android Application Framework has used.
-        // It is probably "p2p0" but we make sure of that later.
+        // flavor.  The name of the network interface that the Wi-Fi Direct part
+        // of the Android Application Framework has used will have come in as a
+        // parameter in the OnLinkEstablished signal and we will have set our
+        // member variable m_interface to that value.  It is probably going to
+        // be "p2p0" or or "p2p-p2p0-0" or some variant thereof.
         //
         if (m_onLinkEstablishedFired) {
             m_connState = CONN_CONNECTED;
@@ -526,19 +534,12 @@ QStatus P2PConManImpl::CreateConnectSpec(const qcc::String& device, const qcc::S
                                               (this, &P2PConManImpl::FoundAdvertisedName));
 
     //
-    // Eventually, we are going to have to deal with the possibility of multiple
-    // interfaces, but we know now that only one interface is possible and it is
-    // going to be called "p2p0" on Android systems.  We also know that we are
-    // doing this work on behalf of the Wi-Fi Direct transport.  Rather than
-    // implement some more generic code now, we are going to make those
-    // assumptions.
+    // We are now going to rely on the IP name service to resolve the IP address
+    // and port of the GUID we know about.  For the IP name service to send and
+    // receive data over the net device that is responsible for the P2P connection
+    // that was formed in CreateTemporaryNetwork, the interface must be "opened"
+    // by a call to IpNameService::OpenInterface().
     //
-    // In order to convince the IP name service to send packets out a P2P
-    // interface, we must explicitly open that interface.
-    //
-    qcc::String interface("p2p0");
-    QStatus status = IpNameService::Instance().OpenInterface(TRANSPORT_WFD, interface);
-
     //
     // We know there is a daemon out there that has advertised a service our
     // client found interesting.  The client decided to do a JoinSession to that
@@ -558,7 +559,7 @@ QStatus P2PConManImpl::CreateConnectSpec(const qcc::String& device, const qcc::S
     //
     qcc::String star("*");
     QCC_DbgPrintf(("P2PConManImpl::CreateConnectSpec(): FindAdvertisedName()"));
-    status = IpNameService::Instance().FindAdvertisedName(TRANSPORT_WFD, star);
+    QStatus status = IpNameService::Instance().FindAdvertisedName(TRANSPORT_WFD, star);
     if (status != ER_OK) {
         m_discoverLock.Unlock(MUTEX_CONTEXT);
         QCC_LogError(status, ("P2PConManImpl::CreateConnectSpec(): FindAdvertisedName(): Failure"));
@@ -670,13 +671,6 @@ QStatus P2PConManImpl::CreateConnectSpec(const qcc::String& device, const qcc::S
     IpNameService::Instance().CancelFindAdvertisedName(TRANSPORT_WFD, star);
 
     //
-    // Don't leave the IP name service trying to transmit and receive over the
-    // P2P interface.  It's wasted energy now.  Since we are relying on Wi-Fi
-    // Direct, for our advertisements, we rely on it completely.
-    //
-    IpNameService::Instance().CloseInterface(TRANSPORT_WFD, interface);
-
-    //
     // Tell the IP name service to forget about calling us back.
     //
     IpNameService::Instance().SetCallback(TRANSPORT_WFD, NULL);
@@ -720,6 +714,21 @@ void P2PConManImpl::OnLinkEstablished(int32_t handle, qcc::String& interface)
         if (m_callback) {
             (*m_callback)(P2PConMan::ESTABLISHED, m_interface);
         }
+
+        //
+        // We need to tell the IP name service that it should listen for incoming
+        // messages over the provided interface (when that interface comes up)
+        // because a client side wanting to connect to us will use the IP name
+        // service to determine addressing information for its ultimately desired
+        // TCP/UDP connection.  If the interface is going down, we tell the name
+        // service to stop advertising over that interface.  Advertisements will
+        // fail, but we don't want to do the work unnecessarily.
+        //
+        QCC_DbgPrintf(("P2PConManImpl::OnLinkEstablished(): OpenInterface(\"%s\")", m_interface.c_str()));
+        QStatus status = IpNameService::Instance().OpenInterface(TRANSPORT_WFD, m_interface);
+        if (status != ER_OK) {
+            QCC_LogError(status, ("P2PConManInpl::OnLinkEstablished(): Failed to OpenInterface(\"%s\")", m_interface.c_str()));
+        }
         return;
     }
 
@@ -745,6 +754,21 @@ void P2PConManImpl::OnLinkEstablished(int32_t handle, qcc::String& interface)
         //
         if (m_callback) {
             (*m_callback)(P2PConMan::ESTABLISHED, m_interface);
+        }
+
+        //
+        // We need to tell the IP name service that it should listen for incoming
+        // messages over the provided interface (when that interface comes up)
+        // because a client side wanting to connect to us will use the IP name
+        // service to determine addressing information for its ultimately desired
+        // TCP/UDP connection.  If the interface is going down, we tell the name
+        // service to stop advertising over that interface.  Advertisements will
+        // fail, but we don't want to do the work unnecessarily.
+        //
+        QCC_DbgPrintf(("P2PConManImpl::OnLinkEstablished(): OpenInterface(\"%s\")", m_interface.c_str()));
+        QStatus status = IpNameService::Instance().OpenInterface(TRANSPORT_WFD, m_interface);
+        if (status != ER_OK) {
+            QCC_LogError(status, ("P2PConManInpl::OnLinkEstablished(): Failed to OpenInterface(\"%s\")", m_interface.c_str()));
         }
 
         m_threadLock.Lock();
@@ -804,6 +828,16 @@ void P2PConManImpl::OnLinkLost(int32_t handle)
         //
         if (m_callback) {
             (*m_callback)(P2PConMan::LOST, m_interface);
+        }
+
+        //
+        // We need to tell the IP name service that it should stop listening for
+        // incoming messages over the provided interface.
+        //
+        QCC_DbgPrintf(("P2PConManImpl::OnLinkLost(): CloseInterface(\"%s\")", m_interface.c_str()));
+        QStatus status = IpNameService::Instance().CloseInterface(TRANSPORT_WFD, m_interface);
+        if (status != ER_OK) {
+            QCC_LogError(status, ("P2PConManInpl::OnLinkLost(): Failed to CloseInterface(\"%s\")", m_interface.c_str()));
         }
 
         m_handle = -1;

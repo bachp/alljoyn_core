@@ -3354,29 +3354,7 @@ void WFDTransport::P2PConManCallback(P2PConMan::LinkState state, const qcc::Stri
     /*
      * Whenever the P2P connection manager notices a link coming up or going down
      * it calls us back here to let us know.
-     *
-     * We need to tell the IP name service that it should listen for incoming
-     * messages over the provided interface (when that interface comes up)
-     * because a client side wanting to connect to us will use the IP name
-     * service to determine addressing information for its ultimately desired
-     * TCP/UDP connection.  If the interface is going down, we tell the name
-     * service to stop advertising over that interface.  Advertisements will
-     * fail, but we don't want to do the work unnecessarily.
-     *
-     * We rely on these callbacks coming in pairs to correctly acquire and
-     * release associated resources.
      */
-    if (state == P2PConMan::ESTABLISHED) {
-        QStatus status = IpNameService::Instance().OpenInterface(TRANSPORT_WFD, interface);
-        if (status != ER_OK) {
-            QCC_LogError(status, ("WFDTransport::EnableAdvertisementInstance(): Failed to OpenInterface(\"%s\")", interface.c_str()));
-        }
-    } else {
-        QStatus status = IpNameService::Instance().CloseInterface(TRANSPORT_WFD, interface);
-        if (status != ER_OK) {
-            QCC_LogError(status, ("WFDTransport::EnableAdvertisementInstance(): Failed to CloseInterface(\"%s\")", interface.c_str()));
-        }
-    }
 }
 
 } // namespace ajn
