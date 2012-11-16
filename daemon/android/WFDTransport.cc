@@ -3394,7 +3394,7 @@ void WFDTransport::QueueDisableAdvertisement(const qcc::String& advertiseName)
 
 void WFDTransport::P2PNameServiceCallback(const qcc::String& guid, qcc::String& name, uint8_t timer)
 {
-    QCC_DbgPrintf(("WFDTransport::P2PNameServiceCallback(): guid = \"%s\"", guid.c_str()));
+    QCC_DbgPrintf(("WFDTransport::P2PNameServiceCallback(): guid = \"%s\", timer = %d", guid.c_str(), timer));
 
     /*
      * Whenever the P2P name service receives a message indicating that a
@@ -3409,7 +3409,7 @@ void WFDTransport::P2PNameServiceCallback(const qcc::String& guid, qcc::String& 
      * Let AllJoyn know that we've found a service.
      */
     if (m_listener) {
-        QCC_DbgPrintf(("WFDTransport::P2PNameServiceCallback(): Call listener with busAddr %s", connectSpec.c_str()));
+        QCC_DbgPrintf(("WFDTransport::P2PNameServiceCallback(): Call listener with busAddr \"%s\", timer %d.", connectSpec.c_str(), timer));
 
         std::vector<qcc::String> wkns;
         wkns.push_back(name);

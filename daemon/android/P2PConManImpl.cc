@@ -799,24 +799,38 @@ void P2PConManImpl::OnLinkEstablished(int32_t handle, qcc::String& interface)
 {
     QCC_DbgHLPrintf(("P2PConManImpl::OnLinkEstablished(): handle = %d, interface=\"%s\"", handle, interface.c_str()));
 
-    if (m_connState != CONN_CONNECTING && m_connState != CONN_READY) {
-        QCC_DbgPrintf(("P2PConManImpl::OnLinkEstablished(): Not CONN_CONNECTING or CONN_READY"));
-        return;
-    }
+    //
+    // OnLinkEstablished() is the no-error case that happens as the ulitmate
+    // result of a call to EstablishLink().  If an error happens, then the
+    // result is OnLinkError().
+    //
+    // Make a note to ourselves what state we were in when we were called.
+    //
+    ConnState prevState = m_connState;
 
     //
-    // If we are in the CONN_READY state, we are the service side of the
-    // equation.  We have told the framework that we are the service side, but
-    // we don't have a handle back from it since there was no connection -- we
-    // just advised the framework that we were there.  The
-    // CreateTemporaryNetwork call is long gone so we don't communicate back to
-    // it, we just need to make a note to ourselves that a connection is up, and
-    // remember the handle describing the connection, and the interface name of
-    // the net device that was just brought up.  Since we don't know anything
-    // about our own devices, we leave the address of the P2P Device empty.
+    // We get an OnLinkEstablished callback() every time a connection is formed.
+    // If we are a STA node, we only get an OnLinkEstablished when we join our
+    // group.  If we are a GO node, we get an OnLinkEstablished whenever a STA
+    // joins our group.  The link establishments past the first are redundant to
+    // us.
     //
-    if (m_connState == CONN_READY) {
-        QCC_DbgPrintf(("P2PConManImpl::OnLinkEstablished(): OnLinkEstablished for GO"));
+    switch (m_connState) {
+    case CONN_READY:
+        //
+        // If we are in the CONN_READY state, we are the service side of the
+        // equation.  We have told the framework that we are the service side,
+        // and that we can accept connections, but didn't have a connection so
+        // we didn't have any information about what interface is used or what
+        // handle corresponds to the group.
+        //
+        // We now have a (first) STA that has joined our group and so this is
+        // our time to jot down the information we need.  Interestingly, we
+        // never get information about our own device (MAC) address, so we just
+        // leave that empty.
+        //
+        QCC_DbgPrintf(("P2PConManImpl::OnLinkEstablished(): In CONN_READY state"));
+
         m_handle = handle;
         m_interface = interface;
         m_connState = CONN_CONNECTED;
@@ -828,45 +842,34 @@ void P2PConManImpl::OnLinkEstablished(int32_t handle, qcc::String& interface)
         // assume that it did.
         //
         m_connType = CONN_GO;
+        break;
 
+    case CONN_CONNECTING:
         //
-        // Call back any interested parties (transports) and tell them that a
-        // link has been established and let them know which network interface
-        // is handling the link.
+        // If we are in the CONN_CONNECTING state, we are the client side of the
+        // equation and we have actively gone out and tried to connect to a GO.
         //
-        if (m_callback) {
-            (*m_callback)(P2PConMan::ESTABLISHED, m_interface);
+        // It is conceivable that if we try a connect to one GO and we reset
+        // that call and try to go off and connect to another, we might get a
+        // callback indicating OnLinkEstablished() with the wrong device.  We
+        // use the handle to make sure callback we are getting is coherent with
+        // the link establish call we think we are working on.
+        //
+        QCC_DbgPrintf(("P2PConManImpl::OnLinkEstablished(): In CONN_CONNECTING state"));
+
+        if (m_handle != handle) {
+            QCC_DbgPrintf(("P2PConManImpl::OnLinkEstablished(): CONN_CONNECTING with incorrect handle"));
+            break;
+        } else {
+            QCC_DbgPrintf(("P2PConManImpl::OnLinkEstablished(): CONN_CONNECTING with correct handle"));
         }
 
-        //
-        // We need to tell the IP name service that it should listen for incoming
-        // messages over the provided interface (when that interface comes up)
-        // because a client side wanting to connect to us will use the IP name
-        // service to determine addressing information for its ultimately desired
-        // TCP/UDP connection.  If the interface is going down, we tell the name
-        // service to stop advertising over that interface.  Advertisements will
-        // fail, but we don't want to do the work unnecessarily.
-        //
-        QCC_DbgPrintf(("P2PConManImpl::OnLinkEstablished(): OpenInterface(\"%s\")", m_interface.c_str()));
-        QStatus status = IpNameService::Instance().OpenInterface(TRANSPORT_WFD, m_interface);
-        if (status != ER_OK) {
-            QCC_LogError(status, ("P2PConManInpl::OnLinkEstablished(): Failed to OpenInterface(\"%s\")", m_interface.c_str()));
-        }
-        return;
-    }
-
-    //
-    // We need to make sure that the OnLinkEstablished() callback we are getting
-    // is coherent with the EstablishLinkAsync() we think we are working on.  We
-    // do this via the handle.
-    //
-    if (m_handle == handle) {
-        QCC_DbgPrintf(("P2PConManImpl::OnLinkEstablished(): OnLinkEstablished with correct handle"));
         m_onLinkEstablishedFired = true;
 
         //
-        // Since we figured out if we were the GO above and returned, the only
-        // other possibility is that we must be the STA
+        // We don't know for certain that the underlying Wi-Fi Direct system
+        // negotiated us to be the STA, but since we provided MUST_BE_STA we
+        // assume that it did.
         //
         m_connType = CONN_STA;
 
@@ -877,22 +880,37 @@ void P2PConManImpl::OnLinkEstablished(int32_t handle, qcc::String& interface)
         m_interface = interface;
 
         //
-        // Call back any interested parties (transports) and tell them that a
-        // link has been established and let them know which network interface
-        // is handling the link.
+        // If we've done an active connection, we have a thread blocked waiting for
+        // that connection to succeed.  Alert the waitiing thread.
         //
-        if (m_callback) {
-            (*m_callback)(P2PConMan::ESTABLISHED, m_interface);
+        m_threadLock.Lock();
+        if (m_l2thread) {
+            QCC_DbgPrintf(("P2PConManImpl::OnLinkEstablished(): Alert() blocked thread"));
+            m_l2thread->Alert(PRIVATE_ALERT_CODE);
         }
+        m_threadLock.Unlock();
+        break;
 
+    default:
+    case CONN_INVALID:
+        assert(false && "P2PConManImpl::OnLinkEstablished(): Bogus ConnState");
+
+    case CONN_IDLE:
+        QCC_DbgPrintf(("P2PConManImpl::OnLinkEstablished(): Surprising callback in ConnState CONN_IDLE"));
+
+    case CONN_CONNECTED:
+        break;
+    }
+
+    if (prevState == CONN_CONNECTING || prevState == CONN_READY) {
         //
-        // We need to tell the IP name service that it should listen for incoming
-        // messages over the provided interface (when that interface comes up)
-        // because a client side wanting to connect to us will use the IP name
-        // service to determine addressing information for its ultimately desired
-        // TCP/UDP connection.  If the interface is going down, we tell the name
-        // service to stop advertising over that interface.  Advertisements will
-        // fail, but we don't want to do the work unnecessarily.
+        // If this is the first opportunity to get at the interface name then we
+        // need to tell the IP name service that it should listen for incoming
+        // messages over the provided interface because a client side wanting
+        // to connect to us will use the IP name service to determine addressing
+        // information for its ultimately desired TCP/UDP connection.  We also
+        // open the interface in the case of a service since it will need to
+        // advertise that information for the client.
         //
         QCC_DbgPrintf(("P2PConManImpl::OnLinkEstablished(): OpenInterface(\"%s\")", m_interface.c_str()));
         QStatus status = IpNameService::Instance().OpenInterface(TRANSPORT_WFD, m_interface);
@@ -900,12 +918,14 @@ void P2PConManImpl::OnLinkEstablished(int32_t handle, qcc::String& interface)
             QCC_LogError(status, ("P2PConManInpl::OnLinkEstablished(): Failed to OpenInterface(\"%s\")", m_interface.c_str()));
         }
 
-        m_threadLock.Lock();
-        if (m_l2thread) {
-            QCC_DbgPrintf(("P2PConManImpl::OnLinkEstablished(): Alert() blocked thread"));
-            m_l2thread->Alert(PRIVATE_ALERT_CODE);
+        //
+        // Call back any interested parties (transports) and tell them that a
+        // link has been established and let them know which network interface
+        // is handling the link.
+        //
+        if (m_callback) {
+            (*m_callback)(P2PConMan::ESTABLISHED, m_interface);
         }
-        m_threadLock.Unlock();
     }
 }
 
@@ -913,28 +933,53 @@ void P2PConManImpl::OnLinkError(int32_t handle, int32_t error)
 {
     QCC_DbgHLPrintf(("P2PConManImpl::OnLinkError(): handle = %d, error = %d", handle, error));
 
-    if (m_connState != CONN_CONNECTING) {
-        QCC_DbgPrintf(("P2PConManImpl::OnLinkError(): Not CONN_CONNECTING"));
-        return;
-    }
-
     //
-    // We need to make sure that the OnLinkError() callback we are getting is
-    // coherent with the EstablishLinkAsync() we think we are working on.  We do
-    // this via the handle.
+    // OnLinkError() is the error case that happens as the ulitmate result of a
+    // call to EstablishLink().  If no error happens, then the result is
+    // OnLinkEstablished().
     //
-    if (m_handle == handle) {
-        QCC_DbgPrintf(("P2PConManImpl::OnLinkError(): OnLinkError with correct handle"));
+    // How important this callback is will depend on the personality of our
+    // device (client/STA or service/GO) and what we think we are doing.
+    //
+    // The straightforward case is if we are a client/STA and we are trying to
+    // actively connect to a GO.  When we attempt the connection, we go into the
+    // CONN_CONNECTING state and expect either OnLinkEstablished() on success,
+    // or OnLinkError() if the attempt fails.
+    //
+    // To make sure that the instance of OnLinkError() we are seeing corresponds
+    // to the instance of EstablishLink() we think it is, we need to check for
+    // the same handle reported here as was returned in the original call to
+    // EstablishLink().  If we identify this callback as an important failure
+    // indication, we will have a thread blocked waiting for either success or
+    // failure.  Therefore we need to wake up the waiting thread (if it is still
+    // there waiting and hasn't timed out and left).
+    //
+    if (m_connState == CONN_CONNECTING && m_handle == handle) {
+        QCC_DbgPrintf(("P2PConManImpl::OnLinkError(): OnLinkError while CONN_CONNECTING with correct handle"));
         m_linkError = error;
         m_onLinkErrorFired = true;
 
         m_threadLock.Lock();
         if (m_l2thread) {
-            QCC_DbgPrintf(("P2PConManImpl::OnLinkEstablished(): Alert() blocked thread"));
+            QCC_DbgPrintf(("P2PConManImpl::OnLinkError(): Alert() blocked thread"));
             m_l2thread->Alert(PRIVATE_ALERT_CODE);
         }
         m_threadLock.Unlock();
+        return;
     }
+
+    //
+    // All of the other possible states are either unimportant or we could
+    // have a late or transient callback.  For example, if we are a service/GO
+    // and we receive an OnLinkError() as a result of the first STA to try and
+    // connect, there isn't really anything we can do.  If a STA fails to
+    // completely connect, we don't care.  We only care about the first STA that
+    // actually does connect, since we need the handle and interface name.
+    //
+    // In case it may be useful, we do print a debug message indicating that
+    // this supposedly uninteresting event did happen.
+    //
+    QCC_DbgPrintf(("P2PConManImpl::OnLinkError(): Unexpected or uninteresting event"));
 }
 
 void P2PConManImpl::OnLinkLost(int32_t handle)
@@ -942,45 +987,134 @@ void P2PConManImpl::OnLinkLost(int32_t handle)
     QCC_DbgHLPrintf(("P2PConManImpl::OnLinkLost(): handle = %d", handle));
 
     //
-    // If we get an OnLinkLost we need to make sure it is for a link we
-    // think is up.  If we get a stale OnLinkLost() for a link we may have
-    // just killed, we need to make sure we ignore it.
+    // If we are acting as a STA node, we get an OnLinkLost() callback if
+    // our connection is dropped for any reason.  If we are a GO node, we get
+    // an OnLinkLost() when the last STA of our group leaves.  We do not
+    // expect to get an OnLinkLost() every time every STA leaves.
     //
-    if (m_handle == handle) {
-        QCC_DbgPrintf(("P2PConManImpl::OnLinkLost(): OnLinkLost with correct handle.  Connection is dead."));
-
+    switch (m_connState) {
+    case CONN_CONNECTED:
         //
-        // Call back any interested parties (transports) and tell them that a
-        // link has been established and let them know which network interface
-        // is handling the link.  Make this call before we clear the interface
-        // name since the trasports probably want to use it for cleanup.
+        // If we are CONN_CONNECTED, we are either a STA that is connected to
+        // a remote GO, or we are a GO with at least one connected STA.
         //
-        if (m_callback) {
-            (*m_callback)(P2PConMan::LOST, m_interface);
+        // If we get an OnLinkLost() we need to make sure it corresponds to a
+        // link we think is up.  If we get a stale OnLinkLost() for a link we
+        // may have forgotten about, we need to make sure we ignore it.  The
+        // provided handle tells us which instance is now lost.
+        //
+        if (m_handle != handle) {
+            QCC_DbgPrintf(("P2PConManImpl::OnLinkLost(): OnLinkLost with incorrect handle.  Ignoring."));
+            break;
+        } else {
+            QCC_DbgPrintf(("P2PConManImpl::OnLinkLost(): OnLinkLost with correct handle."));
         }
 
         //
-        // We need to tell the IP name service that it should stop listening for
-        // incoming messages over the provided interface.
+        // If this node is providing a service, then losing the link means we
+        // have lost the last STA that was previosly connected to our GO.  This
+        // is an entirely normal situation and it just means that we need to be
+        // ready for another connection to come in.  We already have gone
+        // through the hoops to be ready, and we are already prepared; so for
+        // the GO side, the last link lost signal is not terribly important.
         //
-        QCC_DbgPrintf(("P2PConManImpl::OnLinkLost(): CloseInterface(\"%s\")", m_interface.c_str()));
-        QStatus status = IpNameService::Instance().CloseInterface(TRANSPORT_WFD, m_interface);
-        if (status != ER_OK) {
-            QCC_LogError(status, ("P2PConManInpl::OnLinkLost(): Failed to CloseInterface(\"%s\")", m_interface.c_str()));
-        }
+        // If we are a STA, however, the link lost signal means that we have lost
+        // our one and only connection to the outside world; and this is terribly
+        // important.
+        //
+        if (m_connType == CONN_STA) {
+            //
+            // Call back any interested parties (transports) and tell them that a
+            // link has been lost and let them know which network interface is
+            // handling the link.  Make this call before we clear the interface name.
+            // It is entirely possible that the interface is "down enough" that the
+            // interface name is useless, but we pass it back just in case.
+            //
+            if (m_callback) {
+                (*m_callback)(P2PConMan::LOST, m_interface);
+            }
 
-        m_handle = -1;
-        m_device = "";
-        m_interface = "";
-        m_connState = CONN_IDLE;
-        m_connType = CONN_NEITHER;
+            //
+            // We need to tell the IP name service that it should stop listening
+            // for incoming messages over the provided interface.  It may be the
+            // case that the the link is down to an extent that the calls that
+            // the system calls the IP name service does to clear out the
+            // multicast groups will cause errors, but we try and do the right
+            // thing.  The errors (for example, "ioctl(SIOCGIFADDR) failed: (99)
+            // Cannot assign requested address") are harmless since it is trying
+            // to get an address from an interface that is DOWN and has no
+            // address.  These errors can be safely ignored since the name
+            // service will end up looking at the down state and ignore the
+            // interface if it is even present.
+            //
+            QCC_DbgPrintf(("P2PConManImpl::OnLinkLost(): CloseInterface(\"%s\")", m_interface.c_str()));
+            QStatus status = IpNameService::Instance().CloseInterface(TRANSPORT_WFD, m_interface);
+            if (status != ER_OK) {
+                QCC_LogError(status, ("P2PConManInpl::OnLinkLost(): Failed to CloseInterface(\"%s\")", m_interface.c_str()));
+            }
 
-        m_threadLock.Lock();
-        if (m_l2thread) {
-            QCC_DbgPrintf(("P2PConManImpl::OnLinkLost(): Alert() blocked thread"));
-            m_l2thread->Alert(PRIVATE_ALERT_CODE);
+            //
+            // The connection is gone, so now we reset all of our state variables
+            // to indicate this fact.
+            //
+            m_handle = -1;
+            m_device = "";
+            m_interface = "";
+            m_connState = CONN_IDLE;
+            m_connType = CONN_NEITHER;
+
+            //
+            // If this link lost callback happened while a thread is blocked trying
+            // to connect, we need to wake that thread up so it can decide what to
+            // do.
+            //
+            m_threadLock.Lock();
+            if (m_l2thread) {
+                QCC_DbgPrintf(("P2PConManImpl::OnLinkLost(): Alert() blocked thread"));
+                m_l2thread->Alert(PRIVATE_ALERT_CODE);
+            }
+            m_threadLock.Unlock();
         }
-        m_threadLock.Unlock();
+        break;
+
+    case CONN_CONNECTING:
+        //
+        // CONN_CONNECTING indicates that we are a client in the process of
+        // establishing a connection to a GO.  Since we are CONN_CONNECTING, we
+        // haven't seen the link be established, so it would be surprising to
+        // see it reported as lost.  It doesn't sound like a fatal error, maybe
+        // the framework just missed reporting the connection.  Since the worst
+        // thing that can happen is we time out, we just print a debug message
+        // in case it's useful.
+        QCC_DbgPrintf(("P2PConManImpl::OnLinkLost(): Surprising callback in ConnState CONN_CONNECTING"));
+        break;
+
+    case CONN_READY:
+        //
+        // CONN_READY indicates that we are a service and therefore expect to be
+        // a GO.  Since we are CONN_READY, we haven't seen a link be
+        // established, so it would be surprising to see a link lost.  It
+        // doesn't sound like a fatal error, maybe the framework just missed it.
+        // We just print a debug message in case it's useful.
+        //
+        QCC_DbgPrintf(("P2PConManImpl::OnLinkLost(): Surprising callback in ConnState CONN_READY"));
+        break;
+
+    case CONN_IDLE:
+        //
+        // CONN_IDLE indicates that we don't think there should be an
+        // outstanding operation that could lead to a callback.  It doesn't
+        // sound like a fatal error if we get one though.  Maybe the framework
+        // just delayed one for an unexpected amount of time.  We just print a
+        // debug message in case it's useful.
+        //
+        QCC_DbgPrintf(("P2PConManImpl::OnLinkLost(): Surprising callback in ConnState CONN_IDLE"));
+        break;
+
+    case CONN_INVALID:
+    default:
+        assert(false && "P2PConManImpl::OnLinkLost(): Bogus ConnState");
+        break;
     }
 }
 
