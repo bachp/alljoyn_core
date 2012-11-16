@@ -1819,7 +1819,7 @@ QStatus ProximityTransport::Connect(const char* connSpec, const SessionOpts& opt
 {
     QCC_DbgHLPrintf(("ProximityTransport::Connect(): %s", connSpec));
 
-    QStatus status;
+    QStatus status = ER_OK;
     bool isConnected = false;
 
     /*
