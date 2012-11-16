@@ -119,20 +119,19 @@ class P2PConMan {
     QStatus CreateTemporaryNetwork(const qcc::String& device, int32_t intent);
 
     /**
-     * @brief Destroy a temporary physical network connection to the provided
-     *     device MAC address.
+     * @brief Destroy the current temporary physical network connection.
      *
-     * @param[in] device The MAC address of the remote device presented as a string.
-     * @param[in] intent The Wi-Fi Direct group owner intent value.
+     * Assumes that it is only possible to have one Wi-Fi Direct network running
+     * at a time.
      *
      * @return ER_OK if the network is successfully created, otherwise (hopefully)
      *     appropriate error code reflecting outcome.
      */
-    QStatus DestroyTemporaryNetwork(const qcc::String& device, uint32_t intent);
+    QStatus DestroyTemporaryNetwork(void);
 
     /**
-     * @brief Determine if the P2PConman knows about a connection to the device
-     *     with the given MAC address
+     * @brief Determine if the P2PConman is connected to the device with the
+     *     given MAC address
      *
      * @param[in] device The MAC address of the remote device presented as a string.
      *
@@ -140,6 +139,29 @@ class P2PConMan {
      *     access <device>.
      */
     bool IsConnected(const qcc::String& device);
+
+    /**
+     * @brief Determine if the P2PConman is in the connected state.
+     *
+     * @return True if a physical network has been created.
+     */
+    bool IsConnected(void);
+
+    /**
+     * @brief Determine if the P2PConman is in the connected state to any device
+     *     and we think it is acting as a Station (STA) node in the group.
+     *
+     * @return True if a physical network is created and we are a STA.
+     */
+    bool IsConnectedSTA(void);
+
+    /**
+     * @brief Determine if the P2PConman is in the connected state and we think
+     *     it is acting as the Group Owner (GO) of the group.
+     *
+     * @return True if a physical network is created and we are the GO.
+     */
+    bool IsConnectedGO(void);
 
     /**
      * @brief Return an appropriate connect spec <spec> for use in making a TCP

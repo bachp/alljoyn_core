@@ -273,7 +273,7 @@ QStatus P2PConMan::CreateTemporaryNetwork(const qcc::String& device, int32_t int
     return m_pimpl->CreateTemporaryNetwork(device, intent);
 }
 
-QStatus P2PConMan::DestroyTemporaryNetwork(const qcc::String& device, uint32_t intent)
+QStatus P2PConMan::DestroyTemporaryNetwork(void)
 {
     QCC_DbgPrintf(("P2PConMan::DestroyTemporaryNetwork()"));
 
@@ -289,7 +289,7 @@ QStatus P2PConMan::DestroyTemporaryNetwork(const qcc::String& device, uint32_t i
     }
 
     ASSERT_STATE("DestroyTemporaryNetwork");
-    return m_pimpl->DestroyTemporaryNetwork(device, intent);
+    return m_pimpl->DestroyTemporaryNetwork();
 }
 
 bool P2PConMan::IsConnected(const qcc::String& device)
@@ -304,11 +304,68 @@ bool P2PConMan::IsConnected(const qcc::String& device)
     // may be temporarily running is okay.
     //
     if (m_destroyed) {
-        return ER_OK;
+        return false;
     }
 
     ASSERT_STATE("IsConnected");
     return m_pimpl->IsConnected(device);
+}
+
+bool P2PConMan::IsConnected(void)
+{
+    QCC_DbgPrintf(("P2PConMan::IsConnected()"));
+
+    //
+    // If the entry gate has been closed, we do not allow an Init to actually
+    // init anything.  The singleton is going away and so we assume we are
+    // running __run_exit_handlers() so main() has returned.  We are definitely
+    // shutting down, and the process is going to exit, so tricking callers who
+    // may be temporarily running is okay.
+    //
+    if (m_destroyed) {
+        return false;
+    }
+
+    ASSERT_STATE("IsConnected");
+    return m_pimpl->IsConnected();
+}
+
+bool P2PConMan::IsConnectedSTA(void)
+{
+    QCC_DbgPrintf(("P2PConMan::IsConnectedSTA()"));
+
+    //
+    // If the entry gate has been closed, we do not allow an Init to actually
+    // init anything.  The singleton is going away and so we assume we are
+    // running __run_exit_handlers() so main() has returned.  We are definitely
+    // shutting down, and the process is going to exit, so tricking callers who
+    // may be temporarily running is okay.
+    //
+    if (m_destroyed) {
+        return false;
+    }
+
+    ASSERT_STATE("IsConnectedSTA");
+    return m_pimpl->IsConnectedSTA();
+}
+
+bool P2PConMan::IsConnectedGO(void)
+{
+    QCC_DbgPrintf(("P2PConMan::IsConnectedGO()"));
+
+    //
+    // If the entry gate has been closed, we do not allow an Init to actually
+    // init anything.  The singleton is going away and so we assume we are
+    // running __run_exit_handlers() so main() has returned.  We are definitely
+    // shutting down, and the process is going to exit, so tricking callers who
+    // may be temporarily running is okay.
+    //
+    if (m_destroyed) {
+        return false;
+    }
+
+    ASSERT_STATE("IsConnectedGO");
+    return m_pimpl->IsConnectedGO();
 }
 
 QStatus P2PConMan::CreateConnectSpec(const qcc::String& device, const qcc::String& guid, qcc::String& spec)
