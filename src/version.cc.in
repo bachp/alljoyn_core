@@ -22,8 +22,8 @@
 #include "alljoyn/version.h"
 
 static const char product[] = "Alljoyn Library";
-static const unsigned int architecture = 2;
-static const unsigned int apiLevel = 5;
+static const unsigned int architecture = 3;
+static const unsigned int apiLevel = 1;
 static const unsigned int release = 0;
 
 
