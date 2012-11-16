@@ -41,7 +41,7 @@ namespace ajn {
 
 P2PConManImpl::P2PConManImpl()
     : m_state(IMPL_SHUTDOWN), m_myP2pHelperListener(0), m_p2pHelperInterface(0), m_bus(0),
-    m_connState(CONN_IDLE), m_l2thread(0), m_l3thread(0), m_callback(0)
+    m_connState(CONN_IDLE), m_connType(CONN_NEITHER), m_l2thread(0), m_l3thread(0), m_callback(0)
 {
     QCC_DbgPrintf(("P2PConManImpl::P2PConManImpl()"));
 }
@@ -175,12 +175,88 @@ QStatus P2PConManImpl::CreateTemporaryNetwork(const qcc::String& device, int32_t
     assert(m_l2thread == NULL && "P2PConManImpl::CreateTemporaryNetwork(): m_l2thread was left set");
 
     //
-    // XXX BUGBUG FIXME
+    // We are being told to create a new temporary network.  What goes unsaid is
+    // what to do if there is an existing temporary network.
     //
-    // Apparently there is no way in the Android Application Framework to allow
-    // the device receiving a connection request to convey a Group Owner Intent.
-    // This means that in the case of a client/server relationship, the server
-    // cannot specify that it needs to be the GO.
+    // If we are being asked to form a new connection with a same device, and
+    // the connection is in a good state, we assume the connection is good to go
+    // and simply return.  Good state is different for the STA case and the GO
+    // case.  In the STA case good means CONN_CONNECTED since the connection is
+    // up and running.  In the GO case it means CONN_READY or CONN_CONNECTED
+    // since CONN_READY means ready to accept connections, and CONN_CONNECTED
+    // indicates that a connection has been accepted.  Either possibility is
+    // okay.
+    //
+    // If we are being asked to form a new connection with a different device,
+    // the story is more complicated.  If we take the approach that the last
+    // request wins, and we tear down an existing connection in favor of a new
+    // connection an application could end up ping-ponging between groups as it
+    // tries to connect to BOTH of them, which is impossible using any current
+    // implementation of the Wi-Fi Direct system.
+    //
+    // Because of this, a second connection request to the same device returns
+    // success, but only if the connection is in the connected state for STA or
+    // in either ready or connected state if GO.
+    //
+    if (device == m_device && ((goIntent == P2PConMan::DEVICE_MUST_BE_GO && m_connState == CONN_READY) || m_connState == CONN_CONNECTED)) {
+        QCC_DbgPrintf(("P2PConManImpl::CreateTemporaryNetwork(): Reconnection to same device okay"));
+        m_establishLock.Unlock(MUTEX_CONTEXT);
+        return ER_OK;
+    }
+
+    //
+    // The handle is supposed to allow us to support more than one Wi-Fi Direct
+    // links at the same time.  It is a useless appendage now since all current
+    // Wi-Fi Direct implementations only allow one interface, but we maintain it
+    // nonetheless for historical reasons and hope it will eventually be useful.
+    // In any case, the P2P Helper service will give us a handle when we actually
+    // make the call to establish a link.
+    //
+    m_handle = -1;
+
+    //
+    // The device corresponds to the MAC address of the device we are going to
+    // connect with.  In the case of an STA, we found this address using pre-
+    // association service discovery.  In the case of a GO it is simply the
+    // null string, since we have no clue what our own MAC address is.
+    //
+    m_device = device;
+
+    //
+    // The interface is going to be the network interface name of the Wi-Fi Direct
+    // net device.  We don't know what that is going to be until the link is
+    // actually brought up.  We'll get a string that looks something like "p2p0"
+    // from the OnLinkEstablished() callback when it happens.
+    //
+    m_interface = "";
+
+    //
+    // Since we assume there is no existing connection at this point, the
+    // connection state is idle until the Wi-Fi Direct subsystem, under the
+    // direction of the P2P Helper Service and the Android Application Framework
+    // does something on our behalf.  If some other process is actually doing
+    // something with Wi-Fi Direct, we have no way of knowing about it and when
+    // we do our thing we will simply delete the other connection out from under
+    // the other process.  Of course, another process can do the same thing to
+    // us, so we have to be prepared for that possibility.
+    //
+    m_connState = CONN_IDLE;
+
+    //
+    // We don't set the connection type until we get an OnLinkEstablished.
+    // Until then we are in a sort of superposition state where we could turn
+    // out to be either CONN_STA or CONN_GO.  We aren't really prepared to
+    // accept being what we don't want to, but we admit the possibility it might
+    // happen.  Right now we are CONN_NEITHER.
+    //
+    m_connType = CONN_NEITHER;
+
+    //
+    // There is no way in the Android Application Framework to allow the device
+    // receiving a connection request to convey a Group Owner Intent.  This
+    // means that in the case of a client/server relationship, the server cannot
+    // specify that it needs to be the GO.  The other side can only specify very
+    // vociferously that it wants to be the STA.
     //
     // We wanted to sue an establish link with no remote device and a GO intent
     // of fifteen as an advisory message to communicate this fact.  It can't
@@ -192,27 +268,16 @@ QStatus P2PConManImpl::CreateTemporaryNetwork(const qcc::String& device, int32_t
     // CONN_CONNECTED directly in the callback.
     //
     if (goIntent == P2PConMan::DEVICE_MUST_BE_GO) {
-        QCC_LogError(ER_FAIL, ("P2PConManImpl::CreateTemporaryNetwork(): FIXME: GO intent request ignored temporarily."));
         m_connState = CONN_READY;
         m_establishLock.Unlock(MUTEX_CONTEXT);
         return ER_OK;
     }
 
     //
-    // Ask the Wi-Fi P2P helper to join the P2P group owned by the device we
-    // found.  In order to make Wi-Fi P2P work remotely reasonably, we the
-    // device that advertises a service must act as the group owner (GO) and the
-    // device which uses the service must act as a station (STA) node.  It's not
-    // really our business, so we allow any arbitrary intent, but that should
-    // be the expectation.
-    //
-    // What we do believe and enforce is that we support only one connection
-    // (either GO or STA) and if a new request comes in, we just summarily
-    // blow away any existing connection irrespective of what state it may be
-    // in.
+    // Move into the CONN_CONNECTING state which means that we have chosen to
+    // be the STA side and we are connecting to a GO somewhere.
     //
     m_connState = CONN_CONNECTING;
-    m_device = device;
 
     //
     // We are about to make an asynchrounous call out to the P2P Helper Service
@@ -223,19 +288,22 @@ QStatus P2PConManImpl::CreateTemporaryNetwork(const qcc::String& device, int32_t
     // 1) The HandleEstablishLinkReply returns an error, in which case the
     //    CreateTemporaryNetwork process has failed.
     //
-    // 2) The HandleEstablishLinkReply returns "no error," in which case we need
-    //    to look at the outcome of the asynchronous operation which comes back
-    //    in either the OnLinkEstablished() or OnLinkError() callbacks.
+    // 2) The HandleEstablishLinkReply returns "no error."  This means that the
+    //    helper has acknowledged that we want to establish a link and will go
+    //    off and start doing so.  We then need to look at the outcome of this
+    //    asynchronous operation which will come back in as either one of the
+    //    OnLinkEstablished() or OnLinkError() callbacks.
     //
-    // 3) If OnLinkEstablished() returns us a handle, then we have established
-    //    a temporary netowrk.  If OnLinkError returns instead, then we were
-    //    unable to create the network for what may be a permanent or temporary
-    //    error.  We don't know which, but all we know is that the temporary
-    //    network creation failed.
+    // 3) If OnLinkEstablished() returns us a handle and interface name, then we
+    //    have successfully established a temporary network.  If OnLinkError
+    //    returns instead, then we were unable to create the network for what
+    //    may be a permanent or temporary error.  We don't know which, but we
+    //    do know that this try at temporary network creation failed.
     //
-    // 4) If neither OnLinkEstablished() or OnLinkError() returns, then the
-    //    P2P Helper service has most likely gone away.  In this case, there is
-    //    nothing we can do but fail and hope it comes back later.
+    // 4) If neither OnLinkEstablished() or OnLinkError() returns, then the P2P
+    //    Helper service has most likely gone away for some reason.  In this
+    //    case, there is nothing we can do but fail (timeout) and hope it comes
+    //    back later.
     //
     // 5) Even if all goes well, we may get an OnLinkList() callback at any time
     //    that indicates that our temporary network has disassociated and we've
@@ -267,6 +335,7 @@ QStatus P2PConManImpl::CreateTemporaryNetwork(const qcc::String& device, int32_t
         m_device = "";
         m_interface = "";
         m_connState = CONN_IDLE;
+        m_connType = CONN_NEITHER;
         m_threadLock.Unlock();
 
         m_establishLock.Unlock(MUTEX_CONTEXT);
@@ -409,6 +478,7 @@ QStatus P2PConManImpl::CreateTemporaryNetwork(const qcc::String& device, int32_t
         m_device = "";
         m_interface = "";
         m_connState = CONN_IDLE;
+        m_connType = CONN_NEITHER;
     }
 
     //
@@ -430,9 +500,9 @@ QStatus P2PConManImpl::CreateTemporaryNetwork(const qcc::String& device, int32_t
     return status;
 }
 
-QStatus P2PConManImpl::DestroyTemporaryNetwork(const qcc::String& device, uint32_t intent)
+QStatus P2PConManImpl::DestroyTemporaryNetwork(void)
 {
-    QCC_DbgHLPrintf(("P2PConManImpl::DestroyTemporaryNetwork(): \"%s\"", device.c_str()));
+    QCC_DbgHLPrintf(("P2PConManImpl::DestroyTemporaryNetwork()"));
 
     if (m_state != IMPL_RUNNING) {
         QCC_DbgPrintf(("P2PConManImpl::DestroyTemporaryNetwork(): Not IMPL_RUNNING"));
@@ -461,6 +531,8 @@ QStatus P2PConManImpl::DestroyTemporaryNetwork(const qcc::String& device, uint32
     m_device = "";
     m_interface = "";
     m_connState = CONN_IDLE;
+    m_connType = CONN_NEITHER;
+
 
     QCC_DbgPrintf(("P2PConManImpl::DestroyTemporaryNetwork(): ReleaseLinkAsync()"));
     QStatus status = m_p2pHelperInterface->ReleaseLinkAsync(handle);
@@ -476,16 +548,60 @@ bool P2PConManImpl::IsConnected(const qcc::String& device)
 {
     QCC_DbgHLPrintf(("P2PConManImpl::IsConnected(): \"%s\"", device.c_str()));
 
+    if (m_state != IMPL_RUNNING) {
+        QCC_DbgPrintf(("P2PConManImpl::IsConnected(): Not IMPL_RUNNING"));
+        return false;
+    }
+
+    return m_state == IMPL_RUNNING && m_connState == CONN_CONNECTED && m_device == device;
+}
+
+bool P2PConManImpl::IsConnected(void)
+{
+    QCC_DbgHLPrintf(("P2PConManImpl::IsConnected()"));
+
     //
     // We're actually being asked if we are connected to the given device, so
     // consider the device MAC address in the result.
     //
     if (m_state != IMPL_RUNNING) {
         QCC_DbgPrintf(("P2PConManImpl::IsConnected(): Not IMPL_RUNNING"));
-        return ER_FAIL;
+        return false;
     }
 
-    return m_state == IMPL_RUNNING && m_connState == CONN_CONNECTED && m_device == device;
+    return m_state == IMPL_RUNNING && m_connState == CONN_CONNECTED;
+}
+
+bool P2PConManImpl::IsConnectedSTA(void)
+{
+    QCC_DbgHLPrintf(("P2PConManImpl::IsConnectedSTA()"));
+
+    //
+    // We're actually being asked if we are connected to the given device, so
+    // consider the device MAC address in the result.
+    //
+    if (m_state != IMPL_RUNNING) {
+        QCC_DbgPrintf(("P2PConManImpl::IsConnectedSTA(): Not IMPL_RUNNING"));
+        return false;
+    }
+
+    return m_state == IMPL_RUNNING && m_connState == CONN_CONNECTED && m_connType == CONN_STA;
+}
+
+bool P2PConManImpl::IsConnectedGO(void)
+{
+    QCC_DbgHLPrintf(("P2PConManImpl::IsConnectedGO()"));
+
+    //
+    // We're actually being asked if we are connected to the given device, so
+    // consider the device MAC address in the result.
+    //
+    if (m_state != IMPL_RUNNING) {
+        QCC_DbgPrintf(("P2PConManImpl::IsConnectedGO(): Not IMPL_RUNNING"));
+        return false;
+    }
+
+    return m_state == IMPL_RUNNING && m_connState == CONN_CONNECTED && m_connType == CONN_GO;
 }
 
 QStatus P2PConManImpl::CreateConnectSpec(const qcc::String& device, const qcc::String& guid, qcc::String& spec)
@@ -707,6 +823,13 @@ void P2PConManImpl::OnLinkEstablished(int32_t handle, qcc::String& interface)
         m_device = "";
 
         //
+        // We don't know for certain that the underlying Wi-Fi Direct system
+        // negotiated us to be the GO, but since we provided MUST_BE_GO we
+        // assume that it did.
+        //
+        m_connType = CONN_GO;
+
+        //
         // Call back any interested parties (transports) and tell them that a
         // link has been established and let them know which network interface
         // is handling the link.
@@ -740,6 +863,12 @@ void P2PConManImpl::OnLinkEstablished(int32_t handle, qcc::String& interface)
     if (m_handle == handle) {
         QCC_DbgPrintf(("P2PConManImpl::OnLinkEstablished(): OnLinkEstablished with correct handle"));
         m_onLinkEstablishedFired = true;
+
+        //
+        // Since we figured out if we were the GO above and returned, the only
+        // other possibility is that we must be the STA
+        //
+        m_connType = CONN_STA;
 
         //
         // We don't know which net device (interface name) is going to be handling
@@ -844,6 +973,7 @@ void P2PConManImpl::OnLinkLost(int32_t handle)
         m_device = "";
         m_interface = "";
         m_connState = CONN_IDLE;
+        m_connType = CONN_NEITHER;
 
         m_threadLock.Lock();
         if (m_l2thread) {

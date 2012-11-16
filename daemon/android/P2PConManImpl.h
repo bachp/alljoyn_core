@@ -116,20 +116,19 @@ class P2PConManImpl {
     QStatus CreateTemporaryNetwork(const qcc::String& device, int32_t intent);
 
     /**
-     * @brief Destroy a temporary physical network connection to the provided
-     *     device MAC address.
+     * @brief Destroy the current temporary physical network connection.
      *
-     * @param[in] device The MAC address of the remote device presented as a string.
-     * @param[in] intent The Wi-Fi Direcct group owner intent value.
+     * Assumes that it is only possible to have one Wi-Fi Direct network running
+     * at a time.
      *
      * @return ER_OK if the network is successfully created, otherwise (hopefully)
      *     appropriate error code reflecting outcome.
      */
-    QStatus DestroyTemporaryNetwork(const qcc::String& device, uint32_t intent);
+    QStatus DestroyTemporaryNetwork(void);
 
     /**
-     * @brief Determine if the P2PConman knows about a connection to the device
-     *     with the given MAC address
+     * @brief Determine if the P2PConman is connected to a group led by the device
+     *     with the provided MAC address
      *
      * @param[in] device The MAC address of the remote device presented as a string.
      *
@@ -137,6 +136,29 @@ class P2PConManImpl {
      *     access <device>.
      */
     bool IsConnected(const qcc::String& device);
+
+    /**
+     * @brief Determine if the P2PConman is in the connected state to any device.
+     *
+     * @return True if a physical network is created.
+     */
+    bool IsConnected(void);
+
+    /**
+     * @brief Determine if the P2PConman is in the connected state to any device
+     *     and we think it is acting as a Station (STA) node in the group.
+     *
+     * @return True if a physical network is created and we are a STA.
+     */
+    bool IsConnectedSTA(void);
+
+    /**
+     * @brief Determine if the P2PConman is in the connected state and we think
+     *     it is acting as the Group Owner (GO) of the group.
+     *
+     * @return True if a physical network is created and we are the GO.
+     */
+    bool IsConnectedGO(void);
 
     /**
      * @brief Return an appropriate connect spec <spec> for use in making a TCP
@@ -189,6 +211,16 @@ class P2PConManImpl {
         CONN_READY,             /**< Ready to accept new connections (applies to GO side) */
         CONN_CONNECTING,        /**< A connection attempt is in progress (applies to STA side) */
         CONN_CONNECTED,         /**< We think we have a temporary network up and running */
+    };
+
+    /**
+     * @brief
+     * Private notion of what kind of underlying Wi-Fi Direct connection we are using.
+     */
+    enum ConnType {
+        CONN_NEITHER,  /**< Link not established, so neither GO or STA */
+        CONN_GO,       /**< Link established and we are the GO */
+        CONN_STA,      /**< Link established and we are the STA */
     };
 
     /**
@@ -319,6 +351,7 @@ class P2PConManImpl {
     qcc::String m_device;     /**< The device (which is really the remote MAC address) to which we are connected */
     qcc::String m_interface;  /**< The interface name of the net device supporting our connection (e.g. "p2p0") */
     ConnState m_connState;    /**< The state of the one and only suported temporary network connection */
+    ConnType m_connType;      /**< The type of the one and only suported temporary network connection (GO or STA) */
     qcc::Thread* m_l2thread;  /**< A single thread that is blocked waiting for a temporary network to form */
     qcc::Thread* m_l3thread;  /**< A single thread that is blocked waiting for address and port discovery */
 

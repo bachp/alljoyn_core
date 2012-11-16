@@ -844,6 +844,47 @@ void WFDTransport::ManageEndpoints(Timespec tTimeout)
     m_endpointListLock.Lock(MUTEX_CONTEXT);
 
     /*
+     * This is the one place where we deal with the management (deletion) of
+     * endpoints.  This is the place where we have to decide what to do when
+     * the last of the endpoints we are managing is destroyed.
+     *
+     * In the case of a client application, when a Connect() is performed, we
+     * arrange with the P2P Helper Service to bring up a Wi-Fi Direct STA
+     * connection to the service device.  You might think that when the last
+     * endpoint is freed, you would see a corresponding Disconnect() but you
+     * would be mistaken.  Disconnect() is defined for transports, but it turns
+     * out that it is never called.  When the daemon is done with a link to an
+     * external entity, it simply tears down the endpoint.  Therefore, we need
+     * to detect when to tear down the underlying Wi-Fi Direct connection here.
+     *
+     * In Connect() we need to be careful to only force the actual link
+     * establishment for the first connection attempt to a remote device since
+     * we can have more than one layer four-based (TCP) endpoint running a TCP
+     * connection over a layer two-based (MAC) Wi-Fi Direct link.  Here we need
+     * to be careful to only tear down the actual link when the last endpoint
+     * goes away.
+     *
+     * so, we need to make sure that the link is kept up 1) before any endpoints
+     * are actually created; 2) while endpoints exist; and  then take down the
+     * link when the last of the endpoints have exited and been cleaned up.
+     *
+     * Another way of saying this is that we only send a ReleaseLink to the
+     * P2P Helper Service if there are no endpoints left and we've cleaned up
+     * at least one here in ManageEndpoints.
+     *
+     * If we are representing a server application, we don't want to take down
+     * the group if we are still advertising since setting up the infrastrucure
+     * (in the low level system) required to be a group owner can be
+     * significant.  We therefore only tell the system to bring groups up or
+     * down when we start and stop advertising, respectively.  Mind you that the
+     * system doesn't have to act on our desires immediately, and it isn't
+     * actually required to listen to us about whether or not we are GO or STA,
+     * but we need to communicate our desires, and we'll act as if they were
+     * obeyed.
+     */
+    bool endpointCleaned = false;
+
+    /*
      * Run through the list of connections on the authList and cleanup
      * any that are no longer running or are taking too long to authenticate
      * (we assume a denial of service attack in this case).
@@ -862,6 +903,7 @@ void WFDTransport::ManageEndpoints(Timespec tTimeout)
              */
             QCC_DbgHLPrintf(("WFDTransport::ManageEndpoints(): Scavenging failed authenticator"));
             m_authList.erase(i);
+            endpointCleaned = true;
             m_endpointListLock.Unlock(MUTEX_CONTEXT);
             ep->AuthJoin();
             delete ep;
@@ -879,7 +921,7 @@ void WFDTransport::ManageEndpoints(Timespec tTimeout)
              * authentication process.  The auth thread is still running, so we
              * can't just delete the connection, we need to let it stop in its
              * own time.  What that thread will do is to set AUTH_FAILED and
-             * exit.  we will then clean it up the next time through this loop.
+             * exit.  We will then clean it up the next time through this loop.
              * In the hope that the thread can exit and we can catch its exit
              * here and now, we take our thread off the OS ready list (Sleep)
              * and let the other thread run before looping back.
@@ -942,6 +984,7 @@ void WFDTransport::ManageEndpoints(Timespec tTimeout)
          */
         if (endpointState == WFDEndpoint::EP_FAILED) {
             m_endpointList.erase(i);
+            endpointCleaned = true;
             m_endpointListLock.Unlock(MUTEX_CONTEXT);
             delete ep;
             m_endpointListLock.Lock(MUTEX_CONTEXT);
@@ -963,6 +1006,7 @@ void WFDTransport::ManageEndpoints(Timespec tTimeout)
          */
         if (endpointState == WFDEndpoint::EP_STOPPING) {
             m_endpointList.erase(i);
+            endpointCleaned = true;
             m_endpointListLock.Unlock(MUTEX_CONTEXT);
             ep->Join();
             delete ep;
@@ -972,6 +1016,20 @@ void WFDTransport::ManageEndpoints(Timespec tTimeout)
         }
         ++i;
     }
+
+    /*
+     * As mentioned in the lengthy comment above, if we've cleaned up an endpoint
+     * and there are no more left, then we need to release the Wi-Fi Direct link
+     * if we are connected and we think we are an STA node in the impled group.
+     */
+    if (endpointCleaned && P2PConMan::Instance().IsConnectedSTA()) {
+        QCC_DbgHLPrintf(("WFDTransport::ManageEndpoints(): DestroyTemporaryNetwork()"));
+        QStatus status = P2PConMan::Instance().DestroyTemporaryNetwork();
+        if (status != ER_OK) {
+            QCC_LogError(status, ("WFDTransport::ManageEndpoints(): Unable to destroy temporary network"));
+        }
+    }
+
     m_endpointListLock.Unlock(MUTEX_CONTEXT);
 }
 
@@ -1728,8 +1786,7 @@ void WFDTransport::DisableAdvertisementInstance(ListenRequest& listenRequest)
         m_isListening = false;
         m_listenPort = 0;
 
-        qcc::String localDevice("");
-        QStatus status = P2PConMan::Instance().DestroyTemporaryNetwork(localDevice, P2PConMan::DEVICE_MUST_BE_STA);
+        QStatus status = P2PConMan::Instance().DestroyTemporaryNetwork();
         if (status != ER_OK) {
             QCC_LogError(status, ("WFDTransport::DisableAdvertisementInstance(): Unable to destroy GO side network"));
         }
@@ -2710,9 +2767,9 @@ QStatus WFDTransport::Disconnect(const char* connectSpec)
     /*
      * Now, leave the P2P Group that our device is participating in.
      */
-    status = P2PConMan::Instance().DestroyTemporaryNetwork(device, P2PConMan::DEVICE_MUST_BE_STA);
+    status = P2PConMan::Instance().DestroyTemporaryNetwork();
     if (status != ER_OK) {
-        QCC_LogError(status, ("WFDTransport::Disconnect(): Unable to DestroyTemporaryNetwork with device \"%s\"", device.c_str()));
+        QCC_LogError(status, ("WFDTransport::Disconnect(): Unable to DestroyTemporaryNetwork"));
         return status;
     }
 
