@@ -77,6 +77,41 @@ class SessionOpts {
     /**
      * Construct a SessionOpts with specific parameters.
      *
+     * For Windows 8 see also these sample file(s):
+     * cpp\AllJoynStreaming\src\MediaSink.cc
+     * cpp\AllJoynStreaming\src\MediaSource.cc
+     * cpp\AllJoynStreaming\tests\csharp\MediaPlayerApp\MainPage.xaml.cs
+     * cpp\AllJoynStreaming\tests\csharp\MediaServerApp\MainPage.xaml.cs
+     * cpp\AllJoynStreaming\tests\javascript\PlayerApp\js\alljoyn.js
+     * cpp\AllJoynStreaming\tests\javascript\ServerApp\js\alljoyn.js
+     * cpp\Basic\Basic_Client\BasicClient\MainPage.xaml.cpp
+     * cpp\Basic\Basic_Service\BasicService\MainPage.xaml.cpp
+     * cpp\Basic\Name_Change_Client\NameChangeClient\MainPage.xaml.cpp
+     * cpp\Basic\Signal_Consumer_Client\SignalConsumerClient\MainPage.xaml.cpp
+     * cpp\Basic\Signal_Service\SignalService\MainPage.xaml.cpp
+     * cpp\Chat\Chat\MainPage.xaml.cpp
+     * cpp\Secure\Secure\MainPage.xaml.cpp
+     * csharp\Basic\Basic_Client\BasicClient\MainPage.xaml.cs
+     * csharp\Basic\Basic_Service\BasicService\MainPage.xaml.cs
+     * csharp\Basic\Name_Change_Client\NameChangeClient\MainPage.xaml.cs
+     * csharp\Basic\Signal_Consumer_Client\SignalConsumerClient\MainPage.xaml.cs
+     * csharp\Basic\Signal_Service\SignalService\MainPage.xaml.cs
+     * csharp\BusStress\BusStress\Common\StressOperation.cs
+     * csharp\chat\chat\MainPage.xaml.cs
+     * csharp\FileTransfer\Client\Common\FileTransferBusObject.cs
+     * csharp\Secure\Secure\Common\Client.cs
+     * csharp\Secure\Secure\Common\Service.cs
+     * csharp\Sessions\Sessions\MainPage.xaml.cs
+     * javascript\Basic\Basic_Client\BasicClient\js\BasicClient.js
+     * javascript\Basic\Basic_Service\BasicService\js\BasicService.js
+     * javascript\Basic\Name_Change_Client\NameChangeClient\js\NameChangeClient.js
+     * javascript\Basic\Signal_Consumer_Client\SignalConsumerClient\js\SignalConsumerClient.js
+     * javascript\Basic\Signal_Service\SignalService\js\SignalService.js
+     * javascript\chat\chat\js\alljoyn.js
+     * javascript\README.txt
+     * javascript\Secure\Secure\js\Client.js
+     * javascript\Secure\Secure\js\Service.js
+     *
      * @param traffic       Type of traffic.
      * @param isMultipoint  true iff session supports multipoint (greater than two endpoints).
      * @param proximity     Proximity constraint bitmask.
@@ -92,6 +127,10 @@ class SessionOpts {
 
     /**
      * Construct a default SessionOpts
+     *
+     * For Windows 8 see also these sample file(s):
+     * cpp\Chat\Chat\MainPage.xaml.cpp
+     * csharp\chat\chat\MainPage.xaml.cs
      */
     SessionOpts() : traffic(TRAFFIC_MESSAGES), isMultipoint(false), proximity(PROXIMITY_ANY), transports(TRANSPORT_ANY) { }
 

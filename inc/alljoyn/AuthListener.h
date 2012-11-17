@@ -100,6 +100,9 @@ class AuthListener {
         /**
          * Sets a requested password, pincode, or passphrase.
          *
+         * See also these sample file(s):
+         * secure\DeskTopSharedKSClient.cc
+         * secure\DeskTopSharedKSService.cc
          * @param pwd  The password to set.
          */
         void SetPassword(const qcc::String& pwd) { this->pwd = pwd; mask |= CRED_PASSWORD; }
@@ -190,6 +193,13 @@ class AuthListener {
 
         /**
          * Clear the credentials.
+         *
+         * See also these sample file(s):
+         * chat\android\jni\Chat_jni.cpp
+         * windows\chat\ChatDialog.cs
+         * windows\PhotoChat\PhotoChatForm.cs
+         * windows\PhotoChat\RichTextBuffer.cs
+         *
          */
         void Clear() {
             pwd.clear();
@@ -219,6 +229,14 @@ class AuthListener {
      * whether to allow or reject multiple authentication attempts to the same peer.
      *
      * An implementation must provide RequestCredentials or RequestCredentialsAsync but not both.
+     *
+     * See also these sample file(s):
+     * secure\DeskTopSharedKSClient.cc
+     * secure\DeskTopSharedKSService.cc
+     *
+     * For Windows 8 see also these sample file(s):
+     * cpp\Secure\Secure\AllJoynObjects.cpp
+     * cpp\Secure\Secure\AllJoynObjects.h
      *
      * @param authMechanism  The name of the authentication mechanism issuing the request.
      * @param peerName       The name of the remote peer being authenticated.  On the initiating
@@ -258,6 +276,12 @@ class AuthListener {
 
     /**
      * Respond to a call to RequestCredentialsAsync.
+     *
+     * For Windows 8 see also these sample file(s):
+     * cpp\Secure\Secure\AllJoynObjects.cpp
+     * cpp\Secure\Secure\MainPage.xaml.cpp
+     * csharp\Secure\Secure\Common\Client.cs
+     * csharp\Secure\Secure\Common\Service.cs
      *
      * @param authContext    Context that was passed in the call out to RequestCredentialsAsync.
      * @param accept         Returns true to accept the credentials request or false to reject it.
@@ -320,6 +344,14 @@ class AuthListener {
 
     /**
      * Reports successful or unsuccessful completion of authentication.
+     *
+     * See also these sample file(s):
+     * secure\DeskTopSharedKSClient.cc
+     * secure\DeskTopSharedKSService.cc
+     *
+     * For Windows 8 see also these sample file(s):
+     * cpp\Secure\Secure\AllJoynObjects.cpp
+     * cpp\Secure\Secure\AllJoynObjects.h
      *
      * @param authMechanism  The name of the authentication mechanism that was used or an empty
      *                       string if the authentication failed.

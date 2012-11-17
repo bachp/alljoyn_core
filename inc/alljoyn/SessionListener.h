@@ -44,12 +44,65 @@ class SessionListener {
     /**
      * Called by the bus when an existing session becomes disconnected.
      *
+     * See also these sample file(s):
+     * FileTransfer\FileTransferService.cc
+     * simple\android\client\jni\Client_jni.cpp
+     * simple\android\service\jni\Service_jni.cpp
+     *
+     * For Windows 8 see also these sample file(s):
+     * cpp\Basic\Basic_Client\BasicClient\AllJoynObjects.cpp
+     * cpp\Basic\Basic_Client\BasicClient\AllJoynObjects.h
+     * cpp\Basic\Basic_Service\BasicService\AllJoynObjects.cpp
+     * cpp\Basic\Basic_Service\BasicService\AllJoynObjects.h
+     * cpp\Basic\Name_Change_Client\NameChangeClient\AllJoynObjects.cpp
+     * cpp\Basic\Name_Change_Client\NameChangeClient\AllJoynObjects.h
+     * cpp\Basic\Signal_Consumer_Client\SignalConsumerClient\AllJoynObjects.cpp
+     * cpp\Basic\Signal_Consumer_Client\SignalConsumerClient\AllJoynObjects.h
+     * cpp\Basic\Signal_Service\SignalService\AllJoynObjects.cpp
+     * cpp\Basic\Signal_Service\SignalService\AllJoynObjects.h
+     * cpp\Chat\Chat\AllJoynObjects.cpp
+     * cpp\Chat\Chat\AllJoynObjects.h
+     * cpp\Secure\Secure\AllJoynObjects.cpp
+     * cpp\Secure\Secure\AllJoynObjects.h
+     * csharp\blank\blank\Common\Listeners.cs
+     * csharp\BusStress\BusStress\Common\ClientBusListener.cs
+     * csharp\BusStress\BusStress\Common\ServiceBusListener.cs
+     * csharp\chat\chat\Common\Listeners.cs
+     * csharp\chat\chat\MainPage.xaml.cs
+     * csharp\FileTransfer\Client\Common\Listeners.cs
+     * csharp\Secure\Secure\Common\Listeners.cs
+     * csharp\Sessions\Sessions\Common\MyBusListener.cs
+     * csharp\Sessions\Sessions\Common\SessionOperations.cs
+     *
      * @param sessionId     Id of session that was lost.
      */
     virtual void SessionLost(SessionId sessionId) { }
 
     /**
      * Called by the bus when a member of a multipoint session is added.
+     *
+     * See also these sample file(s):
+     * FileTransfer\FileTransferService.cc
+     *
+     * For Windows 8 see also these sample file(s):
+     * cpp\Basic\Basic_Client\BasicClient\AllJoynObjects.cpp
+     * cpp\Basic\Basic_Client\BasicClient\AllJoynObjects.h
+     * cpp\Basic\Basic_Service\BasicService\AllJoynObjects.cpp
+     * cpp\Basic\Basic_Service\BasicService\AllJoynObjects.h
+     * cpp\Basic\Name_Change_Client\NameChangeClient\AllJoynObjects.cpp
+     * cpp\Basic\Name_Change_Client\NameChangeClient\AllJoynObjects.h
+     * cpp\Basic\Signal_Consumer_Client\SignalConsumerClient\AllJoynObjects.cpp
+     * cpp\Basic\Signal_Consumer_Client\SignalConsumerClient\AllJoynObjects.h
+     * cpp\Basic\Signal_Service\SignalService\AllJoynObjects.cpp
+     * cpp\Basic\Signal_Service\SignalService\AllJoynObjects.h
+     * cpp\Chat\Chat\AllJoynObjects.cpp
+     * cpp\Chat\Chat\AllJoynObjects.h
+     * cpp\Secure\Secure\AllJoynObjects.cpp
+     * cpp\Secure\Secure\AllJoynObjects.h
+     * csharp\blank\blank\Common\Listeners.cs
+     * csharp\Secure\Secure\Common\Listeners.cs
+     * csharp\Sessions\Sessions\Common\MyBusListener.cs
+     * csharp\Sessions\Sessions\Common\SessionOperations.cs
      *
      * @param sessionId     Id of session whose member(s) changed.
      * @param uniqueName    Unique name of member who was added.
@@ -58,6 +111,30 @@ class SessionListener {
 
     /**
      * Called by the bus when a member of a multipoint session is removed.
+     *
+     * See also these sample file(s):
+     * FileTransfer\FileTransferService.cc
+     *
+     * For Windows 8 see also these sample file(s):
+     * cpp\Basic\Basic_Client\BasicClient\AllJoynObjects.cpp
+     * cpp\Basic\Basic_Client\BasicClient\AllJoynObjects.h
+     * cpp\Basic\Basic_Service\BasicService\AllJoynObjects.cpp
+     * cpp\Basic\Basic_Service\BasicService\AllJoynObjects.h
+     * cpp\Basic\Name_Change_Client\NameChangeClient\AllJoynObjects.cpp
+     * cpp\Basic\Name_Change_Client\NameChangeClient\AllJoynObjects.h
+     * cpp\Basic\Signal_Consumer_Client\SignalConsumerClient\AllJoynObjects.cpp
+     * cpp\Basic\Signal_Consumer_Client\SignalConsumerClient\AllJoynObjects.h
+     * cpp\Basic\Signal_Service\SignalService\AllJoynObjects.cpp
+     * cpp\Basic\Signal_Service\SignalService\AllJoynObjects.h
+     * cpp\Chat\Chat\AllJoynObjects.cpp
+     * cpp\Chat\Chat\AllJoynObjects.h
+     * cpp\Secure\Secure\AllJoynObjects.cpp
+     * cpp\Secure\Secure\AllJoynObjects.h
+     * csharp\chat\chat\Common\Listeners.cs
+     * csharp\FileTransfer\Client\Common\Listeners.cs
+     * csharp\Secure\Secure\Common\Listeners.cs
+     * csharp\Sessions\Sessions\Common\MyBusListener.cs
+     * csharp\Sessions\Sessions\Common\SessionOperations.cs
      *
      * @param sessionId     Id of session whose member(s) changed.
      * @param uniqueName    Unique name of member who was removed.

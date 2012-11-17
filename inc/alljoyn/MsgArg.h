@@ -367,6 +367,36 @@ class MsgArg {
      * default constructor and the #Set() method so the success of setting the value can be
      * explicitly checked.
      *
+     * For Windows 8 see also these sample file(s):
+     * cpp\AllJoynStreaming\src\MediaSink.cc
+     * cpp\AllJoynStreaming\src\MediaSource.cc
+     * cpp\Basic\Basic_Client\BasicClient\MainPage.xaml.cpp
+     * cpp\Basic\Basic_Service\BasicService\AllJoynObjects.cpp
+     * cpp\Basic\Name_Change_Client\NameChangeClient\MainPage.xaml.cpp
+     * cpp\Basic\Signal_Service\SignalService\AllJoynObjects.cpp
+     * cpp\Chat\Chat\AllJoynObjects.cpp
+     * cpp\Secure\Secure\AllJoynObjects.cpp
+     * cpp\Secure\Secure\MainPage.xaml.cpp
+     * csharp\Basic\Basic_Client\BasicClient\MainPage.xaml.cs
+     * csharp\Basic\Basic_Service\BasicService\Common\BasicServiceBusObject.cs
+     * csharp\Basic\Name_Change_Client\NameChangeClient\MainPage.xaml.cs
+     * csharp\Basic\Signal_Service\SignalService\Common\SignalServiceBusObject.cs
+     * csharp\BusStress\BusStress\Common\ServiceBusObject.cs
+     * csharp\BusStress\BusStress\Common\StressOperation.cs
+     * csharp\chat\chat\Common\ChatSessionObject.cs
+     * csharp\Secure\Secure\Common\Client.cs
+     * csharp\Secure\Secure\Common\SecureBusObject.cs
+     * csharp\Sessions\Sessions\Common\MyBusObject.cs
+     * javascript\Basic\Basic_Client\BasicClient\js\AlljoynObjects.js
+     * javascript\Basic\Basic_Service\BasicService\js\AlljoynObjects.js
+     * javascript\Basic\Basic_Service\BasicService\js\script1.js
+     * javascript\Basic\Name_Change_Client\NameChangeClient\js\AlljoynObjects.js
+     * javascript\Basic\Signal_Service\SignalService\js\AlljoynObjects.js
+     * javascript\chat\chat\js\alljoyn.js
+     * javascript\Secure\Secure\js\Client.js
+     * javascript\Secure\Secure\js\Service.js
+     * javascript\test\test\js\testMsgArg.js
+     *
      * @param signature   The signature for MsgArg value.
      * @param ...         One or more values to initialize the MsgArg.
      */
@@ -451,6 +481,23 @@ class MsgArg {
     /**
      * Set an array of MsgArgs by applying the Set() method to each MsgArg in turn.
      *
+     * See also these sample file(s):
+     * basic\basic_client.cc
+     * chat\android\jni\Chat_jni.cpp
+     * FileTransfer\FileTransferService.cc
+     * secure\DeskTopSharedKSClient.cc
+     * windows\Client\Client.cpp
+     * windows\PhotoChat\AllJoynBusLib\AllJoynBusLib.cpp
+     * windows\Service\Service.cpp
+     *
+     * For Windows 8 see also these sample file(s):
+     * csharp\Basic\Basic_Client\BasicClient\Common\BasicClientBusListener.cs
+     * csharp\Basic\Basic_Client\BasicClient\Common\Class1.cs
+     * csharp\Basic\Name_Change_Client\NameChangeClient\Common\NameChangeBusListener.cs
+     * csharp\Basic\Signal_Consumer_Client\SignalConsumerClient\Common\SignalConsumerBusListener.cs
+     * csharp\BusStress\BusStress\Common\ClientBusListener.cs
+     * csharp\Secure\Secure\MainPage.xaml.cs
+     *
      * @param args     An array of MsgArgs to set.
      * @param numArgs  [in,out] On input the size of the args array. On output the number of MsgArgs
      *                 that were set. There must be at least enough MsgArgs to completely
@@ -471,6 +518,9 @@ class MsgArg {
      * returned are references into the MsgArg itself so unless copied will become invalid if the MsgArg is freed or goes out of scope.
      * This function resolved through variants, so if the MsgArg is a variant that references a 32 bit integer is can be unpacked
      * directly into a 32 bit integer pointer.
+     *
+     * See also these sample file(s):
+     * FileTransfer\FileTransferClient.cc
      *
      *  - @c 'a'  A pointer to a length of type size_t that returns the number of elements in the array followed by:
      *            - If the element type is a scalar type a pointer to a pointer of the correct type for the values.

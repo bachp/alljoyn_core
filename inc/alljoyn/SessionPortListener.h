@@ -46,6 +46,37 @@ class SessionPortListener {
      * Accept or reject an incoming JoinSession request. The session does not exist until this
      * after this function returns.
      *
+     * See also these sample file(s):
+     * basic\basic_service.cc
+     * basic\signal_service.cc
+     * chat\android\jni\Chat_jni.cpp
+     * chat\linux\chat.cc
+     * FileTransfer\FileTransferService.cc
+     * secure\DeskTopSharedKSService.cc
+     * simple\android\service\jni\Service_jni.cpp
+     * windows\chat\ChatLib32\ChatClasses.cpp
+     * windows\chat\ChatLib32\ChatClasses.h
+     * windows\PhotoChat\AllJoynBusLib\AllJoynConnection.cpp
+     * windows\PhotoChat\AllJoynBusLib\AllJoynConnection.h
+     *
+     * For Windows 8 see also these sample file(s):
+     * cpp\AllJoynStreaming\src\MediaSource.cc
+     * cpp\Basic\Basic_Service\BasicService\AllJoynObjects.cpp
+     * cpp\Basic\Basic_Service\BasicService\AllJoynObjects.h
+     * cpp\Basic\Signal_Service\SignalService\AllJoynObjects.cpp
+     * cpp\Basic\Signal_Service\SignalService\AllJoynObjects.h
+     * cpp\Chat\Chat\AllJoynObjects.cpp
+     * cpp\Chat\Chat\AllJoynObjects.h
+     * cpp\Secure\Secure\AllJoynObjects.cpp
+     * cpp\Secure\Secure\AllJoynObjects.h
+     * csharp\blank\blank\Common\Listeners.cs
+     * csharp\chat\chat\Common\Listeners.cs
+     * csharp\FileTransfer\Client\Common\Listeners.cs
+     * csharp\Secure\Secure\Common\Listeners.cs
+     * csharp\Secure\Secure\Common\Service.cs
+     * csharp\Sessions\Sessions\Common\MyBusListener.cs
+     * csharp\Sessions\Sessions\Common\SessionOperations.cs
+     *
      * This callback is only used by session creators. Therefore it is only called on listeners
      * passed to BusAttachment::BindSessionPort.
      *
@@ -58,6 +89,32 @@ class SessionPortListener {
 
     /**
      * Called by the bus when a session has been successfully joined. The session is now fully up.
+     *
+     * See also these sample file(s):
+     * chat\android\jni\Chat_jni.cpp
+     * chat\linux\chat.cc
+     * FileTransfer\FileTransferService.cc
+     * simple\android\service\jni\Service_jni.cpp
+     * windows\chat\ChatLib32\ChatClasses.cpp
+     * windows\chat\ChatLib32\ChatClasses.h
+     * windows\PhotoChat\AllJoynBusLib\AllJoynConnection.cpp
+     * windows\PhotoChat\AllJoynBusLib\AllJoynConnection.h
+     *
+     * For Windows 8 see also these sample file(s):
+     * cpp\AllJoynStreaming\src\MediaSource.cc
+     * cpp\Basic\Basic_Service\BasicService\AllJoynObjects.cpp
+     * cpp\Basic\Basic_Service\BasicService\AllJoynObjects.h
+     * cpp\Basic\Signal_Service\SignalService\AllJoynObjects.cpp
+     * cpp\Basic\Signal_Service\SignalService\AllJoynObjects.h
+     * cpp\Chat\Chat\AllJoynObjects.cpp
+     * cpp\Chat\Chat\AllJoynObjects.h
+     * cpp\Secure\Secure\AllJoynObjects.cpp
+     * cpp\Secure\Secure\AllJoynObjects.h
+     * csharp\blank\blank\Common\Listeners.cs
+     * csharp\FileTransfer\Client\Common\Listeners.cs
+     * csharp\Secure\Secure\Common\Listeners.cs
+     * csharp\Sessions\Sessions\Common\MyBusListener.cs
+     * csharp\Sessions\Sessions\Common\SessionOperations.cs
      *
      * This callback is only used by session creators. Therefore it is only called on listeners
      * passed to BusAttachment::BindSessionPort.

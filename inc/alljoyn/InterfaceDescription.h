@@ -91,7 +91,47 @@ class InterfaceDescription {
         AnnotationsMap* annotations;           /**< Map of annotations */
         qcc::String accessPerms;              /**< Required permissions to invoke this call */
 
-        /** %Member constructor */
+        /** %Member constructor.
+         *
+         * See also these sample file(s):
+         * basic\basic_service.cc
+         * basic\signalConsumer_client.cc
+         * basic\signal_service.cc
+         * chat\android\jni\Chat_jni.cpp
+         * chat\linux\chat.cc
+         * FileTransfer\FileTransferClient.cc
+         * FileTransfer\FileTransferService.cc
+         * secure\DeskTopSharedKSService.cc
+         * simple\android\service\jni\Service_jni.cpp
+         * windows\chat\ChatLib32\ChatClasses.cpp
+         * windows\PhotoChat\AllJoynBusLib\AllJoynConnection.cpp
+         * windows\Service\Service.cpp
+         *
+         * For Windows 8 see also these sample file(s):
+         * cpp\AllJoynStreaming\src\MediaSink.cc
+         * cpp\AllJoynStreaming\src\MediaSource.cc
+         * cpp\Basic\Basic_Client\BasicClient\Generated
+         * cpp\Basic\Basic_Client\BasicClient\MainPage.xaml.cpp
+         * cpp\Basic\Basic_Service\BasicService\AllJoynObjects.cpp
+         * cpp\Basic\Basic_Service\BasicService\Generated
+         * cpp\Basic\Name_Change_Client\NameChangeClient\Generated
+         * cpp\Basic\Signal_Consumer_Client\SignalConsumerClient\Generated
+         * cpp\Basic\Signal_Service\SignalService\Generated
+         * cpp\Chat\Chat\AllJoynObjects.cpp
+         * cpp\Secure\Secure\AllJoynObjects.cpp
+         * cpp\Secure\Secure\MainPage.xaml.cpp
+         * csharp\Basic\Basic_Client\BasicClient\MainPage.xaml.cs
+         * csharp\Basic\Basic_Service\BasicService\Common\BasicServiceBusObject.cs
+         * csharp\chat\chat\Common\ChatSessionObject.cs
+         * csharp\Secure\Secure\Common\SecureBusObject.cs
+         * javascript\Basic\Basic_Client\BasicClient\js\AlljoynObjects.js
+         * javascript\Basic\Basic_Service\BasicService\js\AlljoynObjects.js
+         * javascript\Basic\Basic_Service\BasicService\js\script1.js
+         * javascript\Basic\Signal_Service\SignalService\js\AlljoynObjects.js
+         * javascript\chat\chat\js\alljoyn.js
+         * javascript\Secure\Secure\js\Client.js
+         * javascript\Secure\Secure\js\Service.js
+         */
         Member(const InterfaceDescription* iface, AllJoynMessageType type, const char* name,
                const char* signature, const char* returnSignature, const char* argNames, uint8_t annotation, const char* accessPerms);
 
@@ -148,7 +188,29 @@ class InterfaceDescription {
         uint8_t access;                /**< Access is #PROP_ACCESS_READ, #PROP_ACCESS_WRITE, or #PROP_ACCESS_RW */
         AnnotationsMap* annotations;    /**< Map of annotations */
 
-        /** %Property constructor */
+        /** %Property constructor.
+         * See also these sample file(s):
+         * basic\nameChange_client.cc
+         * basic\signalConsumer_client.cc
+         * basic\signal_service.cc
+         * windows\SetUserEnvironmentVariable.vbs
+         *
+         * For Windows 8 see also these sample file(s):
+         * cpp\AllJoynStreaming\src\MediaSink.cc
+         * cpp\Basic\Basic_Client\BasicClient\Generated
+         * cpp\Basic\Basic_Service\BasicService\Generated
+         * cpp\Basic\Name_Change_Client\NameChangeClient\Generated
+         * cpp\Basic\Signal_Consumer_Client\SignalConsumerClient\Generated
+         * cpp\Basic\Signal_Consumer_Client\SignalConsumerClient\MainPage.xaml.cpp
+         * cpp\Basic\Signal_Service\SignalService\Generated
+         * cpp\Basic\Signal_Service\SignalService\MainPage.xaml.cpp
+         * csharp\Basic\Signal_Consumer_Client\SignalConsumerClient\MainPage.xaml.cs
+         * csharp\Basic\Signal_Service\SignalService\Common\SignalServiceBusObject.cs
+         * javascript\Basic\Name_Change_Client\NameChangeClient\js\AlljoynObjects.js
+         * javascript\Basic\Name_Change_Client\NameChangeClient\js\NameChangeClient.js
+         * javascript\Basic\Signal_Consumer_Client\SignalConsumerClient\js\SignalConsumerClient.js
+         * javascript\Basic\Signal_Service\SignalService\js\AlljoynObjects.js
+        */
         Property(const char* name, const char* signature, uint8_t access);
         /**
          * %Property copy constructor
@@ -158,8 +220,6 @@ class InterfaceDescription {
 
         /**
          * %Property assignment operator
-         * @param other  The %Property being copied to this one.
-         *
          * @return
          * a reference to the %Property that was just copied
          */
@@ -210,6 +270,37 @@ class InterfaceDescription {
     /**
      * Lookup a member description by name
      *
+     * See also these sample file(s):
+     * basic\basic_service.cc
+     * basic\signalConsumer_client.cc
+     * basic\signal_service.cc
+     * chat\android\jni\Chat_jni.cpp
+     * chat\linux\chat.cc
+     * FileTransfer\FileTransferClient.cc
+     * FileTransfer\FileTransferService.cc
+     * secure\DeskTopSharedKSService.cc
+     * simple\android\service\jni\Service_jni.cpp
+     * windows\chat\ChatLib32\ChatClasses.cpp
+     * windows\PhotoChat\AllJoynBusLib\AllJoynConnection.cpp
+     * windows\Service\Service.cpp
+     *
+     * For Windows 8 see also these sample file(s):
+     * cpp\AllJoynStreaming\src\MediaSink.cc
+     * cpp\AllJoynStreaming\src\MediaSource.cc
+     * cpp\Basic\Basic_Client\BasicClient\Generated
+     * cpp\Basic\Basic_Client\BasicClient\MainPage.xaml.cpp
+     * cpp\Basic\Basic_Service\BasicService\AllJoynObjects.cpp
+     * cpp\Basic\Basic_Service\BasicService\Generated
+     * cpp\Basic\Name_Change_Client\NameChangeClient\Generated
+     * cpp\Basic\Signal_Consumer_Client\SignalConsumerClient\Generated
+     * cpp\Basic\Signal_Service\SignalService\Generated
+     * cpp\Secure\Secure\AllJoynObjects.cpp
+     * cpp\Secure\Secure\MainPage.xaml.cpp
+     * csharp\Basic\Basic_Client\BasicClient\MainPage.xaml.cs
+     * csharp\Basic\Basic_Service\BasicService\Common\BasicServiceBusObject.cs
+     * csharp\chat\chat\Common\ChatSessionObject.cs
+     * csharp\Secure\Secure\Common\SecureBusObject.cs    
+     *
      * @param name  Name of the member to lookup
      * @return
      *      - Pointer to member.
@@ -246,6 +337,25 @@ class InterfaceDescription {
 
     /**
      * Add a method call member to the interface.
+     *
+     * See also these sample file(s):
+     * basic\basic_client.cc
+     * basic\basic_service.cc
+     * secure\DeskTopSharedKSClient.cc
+     * secure\DeskTopSharedKSService.cc
+     * simple\android\client\jni\Client_jni.cpp
+     * simple\android\service\jni\Service_jni.cpp
+     * windows\Client\Client.cpp
+     * windows\PhotoChat\AllJoynBusLib\AllJoynConnection.cpp
+     * windows\Service\Service.cpp
+     *
+     * For Windows 8 see also these sample file(s):
+     * cpp\Basic\Basic_Service\BasicService\MainPage.xaml.cpp
+     * cpp\Secure\Secure\AllJoynObjects.cpp
+     * csharp\Basic\Basic_Service\BasicService\Common\BasicServiceBusObject.cs
+     * csharp\BusStress\BusStress\Common\ServiceBusObject.cs
+     * csharp\Secure\Secure\Common\Client.cs
+     * csharp\Secure\Secure\Common\Service.cs
      *
      * @param name        Name of method call member.
      * @param inputSig    Signature of input parameters or NULL for none.
@@ -292,6 +402,10 @@ class InterfaceDescription {
     /**
      * Lookup a member method description by name
      *
+     * For Windows 8 see also these sample file(s):
+     * csharp\BusStress\BusStress\Common\ServiceBusObject.cs
+     * csharp\BusStress\BusStress\Common\StressOperation.cs
+     *
      * @param name  Name of the method to lookup
      * @return
      *      - Pointer to member.
@@ -305,6 +419,26 @@ class InterfaceDescription {
 
     /**
      * Add a signal member to the interface.
+     *
+     * See also these sample file(s):
+     * basic\signalConsumer_client.cc
+     * basic\signal_service.cc
+     * chat\android\jni\Chat_jni.cpp
+     * chat\linux\chat.cc
+     * FileTransfer\FileTransferClient.cc
+     * FileTransfer\FileTransferService.cc
+     * windows\chat\ChatLib32\ChatClasses.cpp
+     * windows\PhotoChat\AllJoynBusLib\AllJoynConnection.cpp
+     *
+     * For Windows 8 see also these sample file(s):
+     * cpp\Basic\Signal_Consumer_Client\SignalConsumerClient\MainPage.xaml.cpp
+     * cpp\Basic\Signal_Service\SignalService\MainPage.xaml.cpp
+     * cpp\Chat\Chat\AllJoynObjects.cpp
+     * csharp\Basic\Signal_Consumer_Client\SignalConsumerClient\MainPage.xaml.cs
+     * csharp\Basic\Signal_Service\SignalService\Common\SignalServiceBusObject.cs
+     * csharp\chat\chat\Common\ChatSessionObject.cs
+     * csharp\FileTransfer\Client\Common\FileTransferBusObject.cs
+     * csharp\Sessions\Sessions\Common\MyBusObject.cs
      *
      * @param name        Name of method call member.
      * @param sig         Signature of parameters or NULL for none.
@@ -323,6 +457,15 @@ class InterfaceDescription {
 
     /**
      * Lookup a member signal description by name
+     *
+     * For Windows 8 see also these sample file(s):
+     * cpp\Basic\Signal_Consumer_Client\SignalConsumerClient\AllJoynObjects.cpp
+     * cpp\Basic\Signal_Service\SignalService\AllJoynObjects.cpp
+     * cpp\Chat\Chat\AllJoynObjects.cpp
+     * csharp\Basic\Signal_Consumer_Client\SignalConsumerClient\Common\SignalConsumerBusListener.cs
+     * csharp\Basic\Signal_Service\SignalService\Common\SignalServiceBusObject.cs
+     * csharp\FileTransfer\Client\Common\FileTransferBusObject.cs
+     * csharp\Sessions\Sessions\Common\MyBusObject.cs
      *
      * @param name  Name of the signal to lookup
      * @return
@@ -359,6 +502,16 @@ class InterfaceDescription {
 
     /**
      * Add a property to the interface.
+     *
+     * See also these sample file(s):
+     * basic\signalConsumer_client.cc
+     * basic\signal_service.cc
+     *
+     * For Windows 8 see also these sample file(s):
+     * cpp\Basic\Signal_Consumer_Client\SignalConsumerClient\MainPage.xaml.cpp
+     * cpp\Basic\Signal_Service\SignalService\MainPage.xaml.cpp
+     * csharp\Basic\Signal_Consumer_Client\SignalConsumerClient\MainPage.xaml.cs
+     * csharp\Basic\Signal_Service\SignalService\Common\SignalServiceBusObject.cs
      *
      * @param name       Name of property.
      * @param signature  Property type.
@@ -457,6 +610,60 @@ class InterfaceDescription {
     /**
      * Activate this interface. An interface must be activated before it can be used. Activating an
      * interface locks the interface so that is can no longer be modified.
+     *
+     * See also these sample file(s):
+     * basic\basic_client.cc
+     * basic\basic_service.cc
+     * basic\signalConsumer_client.cc
+     * basic\signal_service.cc
+     * chat\android\jni\Chat_jni.cpp
+     * chat\linux\chat.cc
+     * FileTransfer\FileTransferClient.cc
+     * FileTransfer\FileTransferService.cc
+     * secure\DeskTopSharedKSClient.cc
+     * secure\DeskTopSharedKSService.cc
+     * simple\android\client\jni\Client_jni.cpp
+     * simple\android\service\jni\Service_jni.cpp
+     * windows\chat\ChatLib32\ChatClasses.cpp
+     * windows\Client\Client.cpp
+     * windows\PhotoChat\AllJoynBusLib\AllJoynConnection.cpp
+     * windows\Service\Service.cpp
+     *
+     * For Windows 8 see also these sample file(s):
+     * cpp\AllJoynStreaming\tests\csharp\MediaPlayerApp\App.xaml.cs
+     * cpp\AllJoynStreaming\tests\csharp\MediaServerApp\App.xaml.cs
+     * cpp\Basic\Basic_Client\BasicClient\App.xaml.cpp
+     * cpp\Basic\Basic_Service\BasicService\App.xaml.cpp
+     * cpp\Basic\Basic_Service\BasicService\MainPage.xaml.cpp
+     * cpp\Basic\Name_Change_Client\NameChangeClient\App.xaml.cpp
+     * cpp\Basic\Signal_Consumer_Client\SignalConsumerClient\App.xaml.cpp
+     * cpp\Basic\Signal_Consumer_Client\SignalConsumerClient\MainPage.xaml.cpp
+     * cpp\Basic\Signal_Service\SignalService\App.xaml.cpp
+     * cpp\Basic\Signal_Service\SignalService\MainPage.xaml.cpp
+     * cpp\Chat\Chat\AllJoynObjects.cpp
+     * cpp\Chat\Chat\App.xaml.cpp
+     * cpp\Secure\Secure\AllJoynObjects.cpp
+     * cpp\Secure\Secure\App.xaml.cpp
+     * csharp\Basic\Basic_Client\BasicClient\App.xaml.cs
+     * csharp\Basic\Basic_Service\BasicService\App.xaml.cs
+     * csharp\Basic\Basic_Service\BasicService\Common\BasicServiceBusObject.cs
+     * csharp\Basic\Name_Change_Client\NameChangeClient\App.xaml.cs
+     * csharp\Basic\Signal_Consumer_Client\SignalConsumerClient\App.xaml.cs
+     * csharp\Basic\Signal_Consumer_Client\SignalConsumerClient\MainPage.xaml.cs
+     * csharp\Basic\Signal_Service\SignalService\App.xaml.cs
+     * csharp\Basic\Signal_Service\SignalService\Common\SignalServiceBusObject.cs
+     * csharp\blank\blank\App.xaml.cs
+     * csharp\BusStress\BusStress\App.xaml.cs
+     * csharp\BusStress\BusStress\Common\ServiceBusObject.cs
+     * csharp\chat\chat\App.xaml.cs
+     * csharp\chat\chat\Common\ChatSessionObject.cs
+     * csharp\FileTransfer\Client\App.xaml.cs
+     * csharp\FileTransfer\Client\Common\FileTransferBusObject.cs
+     * csharp\Secure\Secure\App.xaml.cs
+     * csharp\Secure\Secure\Common\Client.cs
+     * csharp\Secure\Secure\Common\Service.cs
+     * csharp\Sessions\Sessions\App.xaml.cs
+     * csharp\Sessions\Sessions\Common\MyBusObject.cs
      */
     void Activate() { isActivated = true; }
 

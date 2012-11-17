@@ -116,6 +116,7 @@ class ProxyBusObject : public MessageReceiver {
 
     /**
      * Create a default (unusable) %ProxyBusObject.
+     *
      * This constructor exist only to support assignment.
      */
     ProxyBusObject();
@@ -127,6 +128,23 @@ class ProxyBusObject : public MessageReceiver {
      * interface is special-cased (per the DBus spec) and can always be called on any object. Nor
      * does it contain information about the child objects that the actual remote object might
      * contain.
+     *
+     * See also these sample file(s):
+     * simple\android\client\jni\Client_jni.cpp
+     * windows\PhotoChat\AllJoynBusLib\AllJoynConnection.cpp
+     *
+     * For Windows 8 see also these sample file(s):
+     * cpp\AllJoynStreaming\src\MediaSink.cc
+     * cpp\Basic\Basic_Client\BasicClient\MainPage.xaml.cpp
+     * cpp\Basic\Name_Change_Client\NameChangeClient\MainPage.xaml.cpp
+     * cpp\Secure\Secure\MainPage.xaml.cpp
+     * csharp\Basic\Basic_Client\BasicClient\MainPage.xaml.cs
+     * csharp\Basic\Name_Change_Client\NameChangeClient\MainPage.xaml.cs
+     * csharp\BusStress\BusStress\Common\StressOperation.cs
+     * csharp\Secure\Secure\Common\Client.cs
+     * javascript\Basic\Basic_Client\BasicClient\js\AlljoynObjects.js
+     * javascript\Basic\Name_Change_Client\NameChangeClient\js\AlljoynObjects.js
+     * javascript\Secure\Secure\js\Client.js
      *
      * To fill in this object with the interfaces and child object names that the actual remote
      * object describes in its introspection data, call IntrospectRemoteObject() or
@@ -161,6 +179,10 @@ class ProxyBusObject : public MessageReceiver {
     /**
      * Return the session Id for this object.
      *
+     * For Windows 8 see also these sample file(s):
+     * csharp\Sessions\Sessions\Common\SessionOperations.cs
+     * csharp\Sessions\Sessions\MainPage.xaml.cs
+     *
      * @return Session Id
      */
     SessionId GetSessionId(void) const { return sessionId; }
@@ -169,6 +191,9 @@ class ProxyBusObject : public MessageReceiver {
      * Query the remote object on the bus to determine the interfaces and
      * children that exist. Use this information to populate this proxy's
      * interfaces and children.
+     *
+     * See also these sample file(s):
+     * basic\nameChange_client.cc
      *
      * @param timeout   Timeout specified in milliseconds to wait for a reply
      *
@@ -182,6 +207,15 @@ class ProxyBusObject : public MessageReceiver {
      * Query the remote object on the bus to determine the interfaces and
      * children that exist. Use this information to populate this object's
      * interfaces and children.
+     *
+     * For Windows 8 see also these sample file(s):
+     * cpp\AllJoynStreaming\src\MediaSink.cc
+     * cpp\Basic\Basic_Client\BasicClient\MainPage.xaml.cpp
+     * cpp\Basic\Name_Change_Client\NameChangeClient\MainPage.xaml.cpp
+     * cpp\Secure\Secure\MainPage.xaml.cpp
+     * csharp\Basic\Basic_Client\BasicClient\MainPage.xaml.cs
+     * csharp\Basic\Name_Change_Client\NameChangeClient\MainPage.xaml.cs
+     * csharp\BusStress\BusStress\Common\StressOperation.cs
      *
      * This call executes asynchronously. When the introspection response
      * is received from the actual remote object, this ProxyBusObject will
@@ -255,6 +289,9 @@ class ProxyBusObject : public MessageReceiver {
     /**
      * Make an asynchronous request to get all properties from an interface on the remote object.
      *
+     * For Windows 8 see also these sample file(s):
+     * cpp\AllJoynStreaming\src\MediaSink.cc
+     *
      * @param iface     Name of interface to retrieve property from.
      * @param listener  Pointer to the object that will receive the callback.
      * @param callback  Method on listener that will be called.
@@ -274,6 +311,9 @@ class ProxyBusObject : public MessageReceiver {
     /**
      * Set a property on an interface on the remote object.
      *
+     * See also these sample file(s):
+     * basic\nameChange_client.cc
+     *
      * @param iface     Remote object's interface on which the property is defined.
      * @param property  The name of the property to set
      * @param value     The value to set
@@ -289,6 +329,10 @@ class ProxyBusObject : public MessageReceiver {
     /**
      * Make an asynchronous request to set a property on an interface on the remote object.
      * A callback function reports the success or failure of ther operation.
+     *
+     * For Windows 8 see also these sample file(s):
+     * cpp\Basic\Name_Change_Client\NameChangeClient\MainPage.xaml.cpp
+     * csharp\Basic\Name_Change_Client\NameChangeClient\MainPage.xaml.cs
      *
      * @param iface     Remote object's interface on which the property is defined.
      * @param property  The name of the property to set.
@@ -347,6 +391,9 @@ class ProxyBusObject : public MessageReceiver {
     /**
      * Helper function to sychronously set string property on the remote object from a C string.
      *
+     * See also these sample file(s):
+     * basic\nameChange_client.cc
+     *
      * @param iface     Remote object's interface on which the property is defined.
      * @param property  The name of the property to set
      * @param s         The string value to set
@@ -383,6 +430,9 @@ class ProxyBusObject : public MessageReceiver {
      * automatically inherit the "org.freedesktop.DBus.Peer" which provides the built-in "ping"
      * method, so this method always returns at least that one interface.
      *
+     * For Windows 8 see also these sample file(s):
+     * cpp\AllJoynStreaming\src\MediaSink.cc
+     *
      * @param ifaces     A pointer to an InterfaceDescription array to receive the interfaces. Can be NULL in
      *                   which case no interfaces are returned and the return value gives the number
      *                   of interface available.
@@ -397,6 +447,34 @@ class ProxyBusObject : public MessageReceiver {
      * Returns a pointer to an interface description. Returns NULL if the object does not implement
      * the requested interface.
      *
+     * See also these sample file(s):
+     * basic\basic_client.cc
+     * basic\basic_service.cc
+     * chat\android\jni\Chat_jni.cpp
+     * chat\linux\chat.cc
+     * secure\DeskTopSharedKSClient.cc
+     * secure\DeskTopSharedKSService.cc
+     * simple\android\service\jni\Service_jni.cpp
+     * windows\chat\ChatLib32\ChatClasses.cpp
+     * windows\Client\Client.cpp
+     * windows\PhotoChat\AllJoynBusLib\AllJoynConnection.cpp
+     * windows\Service\Service.cpp
+     *
+     * For Windows 8 see also these sample file(s):
+     * cpp\AllJoynStreaming\src\MediaCommon.cc
+     * cpp\Basic\Basic_Client\BasicClient\MainPage.xaml.cpp
+     * cpp\Basic\Basic_Service\BasicService\AllJoynObjects.cpp
+     * cpp\Basic\Signal_Consumer_Client\SignalConsumerClient\AllJoynObjects.cpp
+     * cpp\Basic\Signal_Service\SignalService\AllJoynObjects.cpp
+     * cpp\Chat\Chat\AllJoynObjects.cpp
+     * cpp\Secure\Secure\MainPage.xaml.cpp
+     * csharp\Basic\Basic_Client\BasicClient\MainPage.xaml.cs
+     * csharp\Basic\Signal_Consumer_Client\SignalConsumerClient\Common\SignalConsumerBusListener.cs
+     * csharp\BusStress\BusStress\Common\StressOperation.cs
+     * csharp\chat\chat\Common\ChatSessionObject.cs
+     * csharp\FileTransfer\Client\Common\FileTransferBusObject.cs
+     * csharp\Secure\Secure\Common\Client.cs
+     *
      * @param iface  The name of interface to get.
      *
      * @return
@@ -407,6 +485,9 @@ class ProxyBusObject : public MessageReceiver {
 
     /**
      * Tests if this object implements the requested interface.
+     *
+     * For Windows 8 see also these sample file(s):
+     * cpp\AllJoynStreaming\src\MediaSink.cc
      *
      * @param iface  The interface to check
      *
@@ -425,6 +506,38 @@ class ProxyBusObject : public MessageReceiver {
      * The interface added via this call must have been previously registered with the
      * Bus. (i.e. it must have come from a call to Bus::GetInterface()).
      *
+     * See also these sample file(s):
+     * basic\basic_client.cc
+     * basic\basic_service.cc
+     * basic\signalConsumer_client.cc
+     * basic\signal_service.cc
+     * chat\android\jni\Chat_jni.cpp
+     * chat\linux\chat.cc
+     * FileTransfer\FileTransferClient.cc
+     * FileTransfer\FileTransferService.cc
+     * secure\DeskTopSharedKSClient.cc
+     * secure\DeskTopSharedKSService.cc
+     * simple\android\client\jni\Client_jni.cpp
+     * windows\chat\ChatLib32\ChatClasses.cpp
+     * windows\Client\Client.cpp
+     * windows\PhotoChat\AllJoynBusLib\AllJoynConnection.cpp
+     * windows\Service\Service.cpp
+     *
+     * For Windows 8 see also these sample file(s):
+     * cpp\AllJoynStreaming\src\MediaSource.cc
+     * cpp\Basic\Basic_Service\BasicService\AllJoynObjects.cpp
+     * cpp\Basic\Signal_Service\SignalService\AllJoynObjects.cpp
+     * cpp\Chat\Chat\AllJoynObjects.cpp
+     * cpp\Secure\Secure\AllJoynObjects.cpp
+     * csharp\Basic\Basic_Service\BasicService\Common\BasicServiceBusObject.cs
+     * csharp\Basic\Signal_Service\SignalService\Common\SignalServiceBusObject.cs
+     * csharp\BusStress\BusStress\Common\ServiceBusObject.cs
+     * csharp\chat\chat\Common\ChatSessionObject.cs
+     * csharp\FileTransfer\Client\Common\FileTransferBusObject.cs
+     * csharp\Secure\Secure\Common\Client.cs
+     * csharp\Secure\Secure\Common\SecureBusObject.cs
+     * csharp\Sessions\Sessions\Common\MyBusObject.cs
+     *
      * @param iface    The interface to add to this object. Must come from Bus::GetInterface().
      * @return
      *      - #ER_OK if successful.
@@ -435,6 +548,9 @@ class ProxyBusObject : public MessageReceiver {
     /**
      * Add an existing interface to this object using the interface's name.
      *
+     * See also these sample file(s):
+     * simple\android\client\jni\Client_jni.cpp
+     *
      * @param name   Name of existing interface to add to this object.
      * @return
      *      - #ER_OK if successful.
@@ -444,6 +560,9 @@ class ProxyBusObject : public MessageReceiver {
 
     /**
      * Returns an array of ProxyBusObjects for the children of this %ProxyBusObject.
+     *
+     * For Windows 8 see also these sample file(s):
+     * cpp\AllJoynStreaming\src\MediaSink.cc
      *
      * @param children     A pointer to an %ProxyBusObject array to receive the children. Can be NULL in
      *                     which case no children are returned and the return value gives the number
@@ -558,6 +677,14 @@ class ProxyBusObject : public MessageReceiver {
     /**
      * Make a synchronous method call from this object
      *
+     * See also these sample file(s):
+     * basic\basic_client.cc
+     * chat\android\jni\Chat_jni.cpp
+     * secure\DeskTopSharedKSClient.cc
+     * simple\android\client\jni\Client_jni.cpp
+     * windows\Client\Client.cpp
+     * windows\PhotoChat\AllJoynBusLib\AllJoynBusLib.cpp
+     *
      * @param ifaceName    Name of interface.
      * @param methodName   Name of method.
      * @param args         The arguments for the method call (can be NULL)
@@ -614,7 +741,6 @@ class ProxyBusObject : public MessageReceiver {
      * flags == ALLJOYN_FLAG_NO_REPLY_EXPECTED. Because this call doesn't block it can be made from
      * within a signal handler.
      *
-     *
      * @param method       Method being invoked.
      * @param args         The arguments for the method call (can be NULL)
      * @param numArgs      The number of arguments
@@ -636,6 +762,13 @@ class ProxyBusObject : public MessageReceiver {
 
     /**
      * Make an asynchronous method call from this object
+     *
+     * For Windows 8 see also these sample file(s):
+     * cpp\AllJoynStreaming\src\MediaSink.cc
+     * cpp\Basic\Basic_Client\BasicClient\MainPage.xaml.cpp
+     * cpp\Secure\Secure\MainPage.xaml.cpp
+     * csharp\Basic\Basic_Client\BasicClient\MainPage.xaml.cs
+     * csharp\BusStress\BusStress\Common\StressOperation.cs
      *
      * @param method       Method being invoked.
      * @param receiver     The object to be called when the asych method call completes.
@@ -664,6 +797,12 @@ class ProxyBusObject : public MessageReceiver {
 
     /**
      * Make an asynchronous method call from this object
+     *
+     * See also these sample file(s):
+     * windows\Service\Service.cpp
+     *
+     * For Windows 8 see also these sample file(s):
+     * csharp\Secure\Secure\Common\Client.cs
      *
      * @param ifaceName    Name of interface for method.
      * @param methodName   Name of method.
