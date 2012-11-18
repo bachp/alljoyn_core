@@ -185,7 +185,6 @@ class ClientTransport : public Transport, public RemoteEndpoint::EndpointListene
     bool m_stopping;                /**< True if Stop() has been called but endpoints still exist */
     TransportListener* m_listener;  /**< Registered TransportListener */
     RemoteEndpoint* m_endpoint;     /**< The active endpoint */
-    qcc::Mutex m_epLock;            /**< Lock to prevent the endpoint from being destroyed while it is being stopped */
 };
 
 } // namespace ajn
