@@ -245,9 +245,8 @@ QStatus RemoteEndpoint::Join(void)
      * for two threads that have never been spawned
      */
     if (started) {
-        while (exitCount < 2) {
-            qcc::Sleep(10);
-        }
+        txThread.Join();
+        rxThread.Join();
     }
 
     started = false;

@@ -51,6 +51,9 @@ ClientTransport::~ClientTransport()
 {
     Stop();
     Join();
+    delete m_endpoint;
+    m_endpoint = NULL;
+
 }
 
 QStatus ClientTransport::Start()
@@ -69,7 +72,6 @@ QStatus ClientTransport::Start()
 
 QStatus ClientTransport::Stop(void)
 {
-    m_epLock.Lock();
     m_running = false;
 
     if (!m_stopping) {
@@ -78,28 +80,29 @@ QStatus ClientTransport::Stop(void)
             m_endpoint->Stop();
         }
     }
-    m_epLock.Unlock();
     return ER_OK;
 }
 
 QStatus ClientTransport::Join(void)
 {
     assert(m_stopping);
+
+
     /*
      * A call to Stop() above will ask all of the endpoint to stop.  We still need to wait here
      * until the endpoint actually stops running.  When the underlying remote endpoint stops it will
      * call back into EndpointExit() and remove itself from the list.  We poll until the end point
      * is removed.
      */
-    while (m_endpoint) {
-        qcc::Sleep(50);
+    if (m_endpoint) {
+        m_endpoint->Join();
     }
     return ER_OK;
 }
 
 void ClientTransport::EndpointExit(RemoteEndpoint* ep)
 {
-    assert(ep == m_endpoint);
+
 
     /*
      * This is a callback driven from the remote endpoint thread exit function.
@@ -108,14 +111,7 @@ void ClientTransport::EndpointExit(RemoteEndpoint* ep)
      * reason, we get called back here.
      */
     QCC_DbgTrace(("ClientTransport::EndpointExit()"));
-
-    /*
-     * Grab the lock so we don't delete the endpoint while someone is calling Stop or Disconnect
-     */
-    m_epLock.Lock();
-    m_endpoint = NULL;
-    delete ep;
-    m_epLock.Unlock();
+    assert(ep == m_endpoint);
 }
 
 QStatus ClientTransport::Disconnect(const char* connectSpec)
@@ -140,12 +136,12 @@ QStatus ClientTransport::Disconnect(const char* connectSpec)
     /*
      * Stop the endpoint if it is not already being stopped
      */
-    m_epLock.Lock();
     if (!m_stopping && m_endpoint) {
         m_endpoint->Stop();
         m_endpoint->Join();
+        delete m_endpoint;
+        m_endpoint = NULL;
     }
-    m_epLock.Unlock();
     return status;
 }
 
