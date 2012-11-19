@@ -180,12 +180,7 @@ int main(int argc, char** argv)
 
     /* Get env vars */
     env = Environ::GetAppEnviron();
-#ifdef _WIN32
-    qcc::String connectArgs = env->Find("BUS_ADDRESS", "tcp:addr=127.0.0.1,port=9956");
-#else
-    // qcc::String connectArgs = env->Find("BUS_ADDRESS", "unix:path=/var/run/dbus/system_bus_socket");
-    qcc::String connectArgs = env->Find("BUS_ADDRESS", "unix:abstract=alljoyn");
-#endif
+    qcc::String connectArgs = env->Find("BUS_ADDRESS");
 
     /* Create message bus */
     g_msgBus = new BusAttachment("rawclient", true);
@@ -201,9 +196,13 @@ int main(int argc, char** argv)
 
     /* Connect to the bus */
     if (ER_OK == status) {
-        status = g_msgBus->Connect(connectArgs.c_str());
+        if (connectArgs.empty()) {
+            status = g_msgBus->Connect();
+        } else {
+            status = g_msgBus->Connect(connectArgs.c_str());
+        }
         if (ER_OK != status) {
-            QCC_LogError(status, ("BusAttachment::Connect(\"%s\") failed", connectArgs.c_str()));
+            QCC_LogError(status, ("BusAttachment::Connect(\"%s\") failed", g_msgBus->GetConnectSpec().c_str()));
         }
     }
 

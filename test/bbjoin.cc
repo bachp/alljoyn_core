@@ -269,11 +269,7 @@ int main(int argc, char** argv)
     qcc::String clientArgs = env->Find("DBUS_STARTER_ADDRESS");
 
     if (clientArgs.empty()) {
-#ifdef _WIN32
-        clientArgs = env->Find("BUS_ADDRESS", "tcp:addr=127.0.0.1,port=9956");
-#else
-        clientArgs = env->Find("BUS_ADDRESS", "unix:abstract=alljoyn");
-#endif
+        clientArgs = env->Find("BUS_ADDRESS");
     }
 
     /* Create message bus */
@@ -287,7 +283,11 @@ int main(int argc, char** argv)
     }
 
     /* Connect to the daemon */
-    status = g_msgBus->Connect(clientArgs.c_str());
+    if (clientArgs.empty()) {
+        status = g_msgBus->Connect();
+    } else {
+        status = g_msgBus->Connect(clientArgs.c_str());
+    }
 
     MyBusListener myBusListener;
     g_msgBus->RegisterBusListener(myBusListener);

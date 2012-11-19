@@ -265,6 +265,7 @@ static const char AgreeUnixFd[] = "AGREE_UNIX_FD";
 static const char NegotiateVersion[] = "EXTENSION_NEGOTIATE_VERSION";
 static const char AgreeVersion[] = "EXTENSION_AGREE_VERSION";
 
+static const char InformProtocolVersion[] = "INFORM_PROTO_VERSION";
 
 qcc::String EndpointAuth::SASLCallout(SASLEngine& sasl, const qcc::String& extCmd)
 {
@@ -292,7 +293,13 @@ qcc::String EndpointAuth::SASLCallout(SASLEngine& sasl, const qcc::String& extCm
             const uint32_t version = qcc::StringToU32(extCmd.substr(sizeof(AgreeVersion) - 1), 0, -1);
             endpoint.alljoynVersion = version;
 
-            // moving forward, any new steps in the SASL authentication process will go here
+            // step 8: Send the protocol version
+            // pre-3.1 clients will not send this message leaving endpoint.remoteProtocolVersion with default of 0
+            rsp = InformProtocolVersion;
+            rsp += " " + qcc::U32ToString(ALLJOYN_PROTOCOL_VERSION);
+        } else if (extCmd.find(InformProtocolVersion) == 0) {
+            // step 10: Store daemon's protocol version
+            remoteProtocolVersion = qcc::StringToU32(extCmd.substr(sizeof(InformProtocolVersion) - 1), 0, 0);
         }
     } else {
         // step 2: daemon receives "NEGOTIATE_UNIX_FD [<pid>]", sets options, and replies with "AGREE_UNIX_FD [<pid>]"
@@ -312,6 +319,11 @@ qcc::String EndpointAuth::SASLCallout(SASLEngine& sasl, const qcc::String& extCm
             const uint32_t negotiatedVersion = std::min(clientVersion, ajn::GetNumericVersion());
             endpoint.alljoynVersion = negotiatedVersion;
             rsp += " " + qcc::U32ToString(negotiatedVersion);
+        } else if (extCmd.find(InformProtocolVersion) == 0) {
+            // step 9: daemon stores client's ALLJOYN_PROTOCOL_VERSION and responds with its own ALLJOYN_PROTOCOL_VERSION
+            remoteProtocolVersion = qcc::StringToU32(extCmd.substr(sizeof(InformProtocolVersion) - 1), 0, 0);
+            rsp = InformProtocolVersion;
+            rsp += " " + qcc::U32ToString(ALLJOYN_PROTOCOL_VERSION);
         }
     }
     return rsp;

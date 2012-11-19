@@ -353,15 +353,41 @@ QStatus BusAttachment::TryConnect(const char* connectSpec, BusEndpoint** newep)
 {
     QCC_DbgTrace(("BusAttachment::TryConnect to %s", connectSpec));
     QStatus status = ER_OK;
+    BusEndpoint* tempEp;
+
     /* Get or create transport for connection */
     Transport* trans = busInternal->transportList.GetTransport(connectSpec);
     if (trans) {
         SessionOpts emptyOpts;
-        status = trans->Connect(connectSpec, emptyOpts, newep);
+        status = trans->Connect(connectSpec, emptyOpts, &tempEp);
+
+        /* Make sure the remote side (daemon) is at least as new as the client */
+        if ((status == ER_OK) && ((tempEp->GetEndpointType() == BusEndpoint::ENDPOINT_TYPE_REMOTE) ||
+                                  (tempEp->GetEndpointType() == BusEndpoint::ENDPOINT_TYPE_BUS2BUS))) {
+            RemoteEndpoint* rem = static_cast<RemoteEndpoint*>(tempEp);
+            if (rem->GetRemoteProtocolVersion() < ALLJOYN_PROTOCOL_VERSION) {
+                QCC_DbgPrintf(("Rejecting daemon at %s because its protocol version (%d) is less than ours (%d)", connectSpec, rem->GetRemoteProtocolVersion(), ALLJOYN_PROTOCOL_VERSION));
+                Disconnect(connectSpec);
+                status = ER_BUS_INCOMPATIBLE_DAEMON;
+            }
+        }
     } else {
         status = ER_BUS_TRANSPORT_NOT_AVAILABLE;
     }
+    if ((status == ER_OK) && newep) {
+        *newep = tempEp;
+    }
     return status;
+}
+
+QStatus BusAttachment::Connect()
+{
+#ifdef _WIN32
+    const char* connectArgs = "tcp:addr=127.0.0.1,port=9956";
+#else
+    const char* connectArgs = "unix:abstract=alljoyn";
+#endif
+    return Connect(connectArgs);
 }
 
 QStatus BusAttachment::Connect(const char* connectSpec, BusEndpoint** newep)

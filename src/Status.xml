@@ -234,4 +234,5 @@ Copyright 2010 - 2012, Qualcomm Innovation Center, Inc.
   <status name="ER_BUS_OBJECT_NOT_REGISTERED" value="0x90e3" comment="Operation not permitted on unregistered bus object"/>  
   <status name="ER_P2P_DISABLED" value="0x90e4" comment="Wi-Fi Direct is disabled on the device"/>
   <status name="ER_P2P_BUSY" value="0x90e5" comment="Wi-Fi Direct resources are in busy state"/>
+  <status name="ER_BUS_INCOMPATIBLE_DAEMON" value="0x90e6" comment="The daemon version is too old to be used by this client"/>
 </status_block>

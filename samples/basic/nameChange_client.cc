@@ -106,22 +106,12 @@ QStatus StartMessageBus(void)
 /** Handle the connection to the bus, report the result to stdout, and return the result status. */
 QStatus ConnectToBus(void)
 {
-    const char* connectArgs = getenv("BUS_ADDRESS");
-
-    if (connectArgs == NULL) {
-#ifdef _WIN32
-        connectArgs = "tcp:addr=127.0.0.1,port=9956";
-#else
-        connectArgs = "unix:abstract=alljoyn";
-#endif
-    }
-
-    QStatus status = s_msgBus->Connect(connectArgs);
+    QStatus status = s_msgBus->Connect();
 
     if (ER_OK == status) {
-        printf("BusAttachment connected to '%s'.\n", connectArgs);
+        printf("BusAttachment connected to '%s'.\n", s_msgBus->GetConnectSpec().c_str());
     } else {
-        printf("BusAttachment::Connect('%s') failed.\n", connectArgs);
+        printf("BusAttachment::Connect('%s') failed.\n", s_msgBus->GetConnectSpec().c_str());
     }
 
     return status;
