@@ -210,7 +210,7 @@ class InterfaceDescription {
          * javascript\Basic\Name_Change_Client\NameChangeClient\js\NameChangeClient.js
          * javascript\Basic\Signal_Consumer_Client\SignalConsumerClient\js\SignalConsumerClient.js
          * javascript\Basic\Signal_Service\SignalService\js\AlljoynObjects.js
-        */
+         */
         Property(const char* name, const char* signature, uint8_t access);
         /**
          * %Property copy constructor
@@ -299,7 +299,7 @@ class InterfaceDescription {
      * csharp\Basic\Basic_Client\BasicClient\MainPage.xaml.cs
      * csharp\Basic\Basic_Service\BasicService\Common\BasicServiceBusObject.cs
      * csharp\chat\chat\Common\ChatSessionObject.cs
-     * csharp\Secure\Secure\Common\SecureBusObject.cs    
+     * csharp\Secure\Secure\Common\SecureBusObject.cs
      *
      * @param name  Name of the member to lookup
      * @return
