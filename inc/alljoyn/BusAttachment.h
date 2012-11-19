@@ -571,7 +571,11 @@ class BusAttachment : public MessageReceiver {
     bool IsStopping() { return isStopping; }
 
     /**
-     * Connect to a remote bus address.
+     * Connect to an AllJoyn daemon at a specific connectSpec destination.
+     *
+     * If there is no daemon present at the given connectSpec or if the daemon
+     * at the connectSpec has an incompatible AllJoyn version, this method will
+     * attempt to use an "application bundled" form of the daemon if one exists.
      *
      * See also these sample file(s): @n
      * basic/basic_client.cc @n
@@ -621,6 +625,18 @@ class BusAttachment : public MessageReceiver {
      *      - An error status otherwise
      */
     QStatus Connect(const char* connectSpec, BusEndpoint** newep = NULL);
+
+    /**
+     * Connect to local a AllJoyn daemon.
+     *
+     * Locate a local AllJoyn daemon that is compatible with this
+     * AllJoyn client's version and connect to the daemon.
+     *
+     * @return
+     *      - #ER_OK if successful.
+     *      - An error status otherwise
+     */
+    QStatus Connect();
 
     /**
      * Disconnect a remote bus address connection.

@@ -663,19 +663,16 @@ int main(int argc, char** argv)
 
     /* Get env vars */
     const char* connectSpec = getenv("BUS_ADDRESS");
-    if (connectSpec == NULL) {
-#ifdef _WIN32
-        connectSpec = "tcp:addr=127.0.0.1,port=9956";
-#else
-        connectSpec = "unix:abstract=alljoyn";
-#endif
-    }
 
     /* Connect to the local daemon */
     if (ER_OK == status) {
-        status = s_bus->Connect(connectSpec);
+        if (connectSpec) {
+            status = s_bus->Connect(connectSpec);
+        } else {
+            status = s_bus->Connect();
+        }
         if (ER_OK != status) {
-            printf("BusAttachment::Connect(%s) failed (%s)\n", connectSpec, QCC_StatusText(status));
+            printf("BusAttachment::Connect(%s) failed (%s)\n", s_bus->GetConnectSpec().c_str(), QCC_StatusText(status));
         }
     }
 

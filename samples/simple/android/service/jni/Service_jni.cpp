@@ -217,8 +217,6 @@ JNIEXPORT jboolean JNICALL Java_org_alljoyn_bus_samples_simpleservice_Service_st
 
     SessionOpts opts(SessionOpts::TRAFFIC_MESSAGES, false, SessionOpts::PROXIMITY_ANY, TRANSPORT_ANY);
 
-    const char* daemonAddr = "unix:abstract=alljoyn";
-
     /* Initialize AllJoyn only once */
     if (!s_bus) {
 
@@ -246,9 +244,9 @@ JNIEXPORT jboolean JNICALL Java_org_alljoyn_bus_samples_simpleservice_Service_st
 
         /* Connect to the daemon */
         if (ER_OK == status) {
-            status = s_bus->Connect(daemonAddr);
+            status = s_bus->Connect();
             if (ER_OK != status) {
-                LOGE("Connect to %s failed (%s)", daemonAddr, QCC_StatusText(status));
+                LOGE("Connect to %s failed (%s)", s_bus->GetConnectSpec().c_str(), QCC_StatusText(status));
             }
         }
 

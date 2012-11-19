@@ -292,22 +292,12 @@ QStatus RegisterBusObject(void)
 /** Connect to the daemon, report the result to stdout, and return the status code. */
 QStatus ConnectToDaemon(void)
 {
-    const char* connectArgs = getenv("BUS_ADDRESS");
-
-    if (connectArgs == NULL) {
-#ifdef _WIN32
-        connectArgs = "tcp:addr=127.0.0.1,port=9956";
-#else
-        connectArgs = "unix:abstract=alljoyn";
-#endif
-    }
-
-    QStatus status = s_bus->Connect(connectArgs);
+    QStatus status = s_bus->Connect();
 
     if (ER_OK == status) {
-        printf("Connect to '%s' succeeded.\n", connectArgs);
+        printf("Connect to '%s' succeeded.\n", s_bus->GetConnectSpec().c_str());
     } else {
-        printf("Failed to connect to '%s' (%s).\n", connectArgs, QCC_StatusText(status));
+        printf("Failed to connect to '%s' (%s).\n", s_bus->GetConnectSpec().c_str(), QCC_StatusText(status));
     }
 
     return status;

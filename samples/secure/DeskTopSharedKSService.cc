@@ -255,22 +255,12 @@ QStatus EnableSecurity(void)
 /** Connect the bus, report the result to stdout, and return the status code. */
 QStatus Connect(void)
 {
-    const char* connectArgs = getenv("BUS_ADDRESS");
-
-    if (connectArgs == NULL) {
-#ifdef _WIN32
-        connectArgs = "tcp:addr=127.0.0.1,port=9956";
-#else
-        connectArgs = "unix:abstract=alljoyn";
-#endif
-    }
-
-    QStatus status = s_msgBus->Connect(connectArgs);
+    QStatus status = s_msgBus->Connect();
 
     if (ER_OK == status) {
-        printf("Connected to '%s'.\n", connectArgs);
+        printf("Connected to '%s'.\n", s_msgBus->GetConnectSpec().c_str());
     } else {
-        printf("Failed to connect to '%s'.\n", connectArgs);
+        printf("Failed to connect to '%s'.\n", s_msgBus->GetConnectSpec().c_str());
     }
 
     return status;

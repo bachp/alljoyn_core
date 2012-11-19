@@ -92,21 +92,13 @@ void ChatConnection::Connect()
     }
     NotifyUser(MSG_STATUS, "Registered BusListener");
 
-    /* Get env vars */
-    const char* connectSpec = getenv("BUS_ADDRESS");
-    if (connectSpec == NULL) {
-        connectSpec = "tcp:addr=127.0.0.1,port=9956";
-        NotifyUser(MSG_STATUS, "Connect spec defaulted to %s", connectSpec);
-    } else
-        NotifyUser(MSG_STATUS, "Got environment BUS_ADDRESS %s", connectSpec);
-
     /* Connect to the local daemon */
     NotifyUser(MSG_STATUS, "Connect to the local daemon.");
     if (ER_OK == status) {
-        status = this->busAttachment->Connect(connectSpec);
+        status = this->busAttachment->Connect();
     }
     if (ER_OK != status) {
-        NotifyUser(MSG_ERROR, "BusAttachment::Connect(%s) failed (%s)\n", connectSpec, QCC_StatusText(status));
+        NotifyUser(MSG_ERROR, "BusAttachment::Connect(%s) failed (%s)\n", this->busAttachment->GetConnectSpec().c_str(), QCC_StatusText(status));
     }
     if (!this->advertisedName.empty()) {
         NotifyUser(MSG_STATUS, "Request name");

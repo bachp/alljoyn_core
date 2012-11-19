@@ -161,7 +161,6 @@ JNIEXPORT jint JNICALL Java_org_alljoyn_bus_samples_simpleclient_Client_simpleOn
                                                                                        jstring packageNameStrObj)
 {
     QStatus status = ER_OK;
-    const char* daemonAddr = "unix:abstract=alljoyn";
 
     /* Set AllJoyn logging */
     // QCC_SetLogLevels("ALLJOYN=7;ALL=1");
@@ -206,9 +205,9 @@ JNIEXPORT jint JNICALL Java_org_alljoyn_bus_samples_simpleclient_Client_simpleOn
     LOGD("\n Connecting to Daemon \n");
     /* Connect to the daemon */
     if (ER_OK == status) {
-        status = s_bus->Connect(daemonAddr);
+        status = s_bus->Connect();
         if (ER_OK != status) {
-            LOGE("BusAttachment::Connect(\"%s\") failed (%s)", daemonAddr, QCC_StatusText(status));
+            LOGE("BusAttachment::Connect(\"%s\") failed (%s)", s_bus->GetConnectSpec().c_str(), QCC_StatusText(status));
         }
     }
     LOGD("\n Looking for ADVERTISED name \n");

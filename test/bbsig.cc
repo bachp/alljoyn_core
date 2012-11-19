@@ -602,12 +602,7 @@ int main(int argc, char** argv)
 
         /* Get env vars */
         Environ* env = Environ::GetAppEnviron();
-#ifdef _WIN32
-        qcc::String connectArgs = env->Find("BUS_ADDRESS", "tcp:addr=127.0.0.1,port=9956");
-#else
-        // qcc::String connectArgs = env->Find("BUS_ADDRESS", "unix:path=/var/run/dbus/system_bus_socket");
-        qcc::String connectArgs = env->Find("BUS_ADDRESS", "unix:abstract=alljoyn");
-#endif
+        qcc::String connectArgs = env->Find("BUS_ADDRESS");
 
         /* Start the msg bus */
         status = g_msgBus->Start();
@@ -633,7 +628,11 @@ int main(int argc, char** argv)
         g_msgBus->RegisterBusObject(*testObj);
 
         /* Connect to the bus */
-        status = g_msgBus->Connect(connectArgs.c_str());
+        if (connectArgs.empty()) {
+            status = g_msgBus->Connect();
+        } else {
+            status = g_msgBus->Connect(connectArgs.c_str());
+        }
         if (ER_OK != status) {
             QCC_LogError(status, ("Connect to \"%s\" failed", connectArgs.c_str()));
             break;
