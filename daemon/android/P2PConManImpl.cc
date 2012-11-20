@@ -1023,6 +1023,8 @@ void P2PConManImpl::OnLinkLost(int32_t handle)
         // important.
         //
         if (m_connType == CONN_STA) {
+            QCC_DbgPrintf(("P2PConManImpl::OnLinkLost(): OnLinkLost as STA."));
+
             //
             // Call back any interested parties (transports) and tell them that a
             // link has been lost and let them know which network interface is
@@ -1074,6 +1076,8 @@ void P2PConManImpl::OnLinkLost(int32_t handle)
                 m_l2thread->Alert(PRIVATE_ALERT_CODE);
             }
             m_threadLock.Unlock();
+        } else {
+            QCC_DbgPrintf(("P2PConManImpl::OnLinkLost(): OnLinkLost as GO.  Ignoring"));
         }
         break;
 
