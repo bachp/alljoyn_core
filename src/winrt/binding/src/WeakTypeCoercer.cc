@@ -354,7 +354,7 @@ template <class T> Platform::Array<T> ^ ToArray(IPropertyValue ^ prop, bool &suc
                 break;
             }
         }
-        if (converted) {
+        if (converted || (objArray->Length == 0)) {
             success = true;
             retObj = vals;
         }
@@ -380,11 +380,11 @@ Platform::Array<Platform::Boolean> ^ ToBooleanArray(IPropertyValue ^ prop, bool 
             IPropertyValue ^ element = dynamic_cast<IPropertyValue ^>(objArray[index]);
             converted = false;
             vals[index] = ToBoolean(element, converted);
-            if (!converted) {
+            if (!converted  || (objArray->Length == 0)) {
                 break;
             }
         }
-        if (converted) {
+        if (converted || (objArray->Length == 0)) {
             success = true;
             retObj = vals;
         }
@@ -413,7 +413,7 @@ Platform::Array<Platform::String ^> ^ ToWideCharStringArray(IPropertyValue ^ pro
             }
         }
 
-        if (converted) {
+        if (converted || (objArray->Length == 0)) {
             success = true;
             retObj = vals;
         }
