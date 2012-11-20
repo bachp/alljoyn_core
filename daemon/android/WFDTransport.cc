@@ -370,14 +370,16 @@ void* WFDEndpoint::AuthThread::Run(void* arg)
         return (void*)ER_FAIL;
     }
 
-    /* Initialized the features for this endpoint */
+    /* Initialize the features for this endpoint */
     conn->GetFeatures().isBusToBus = false;
     conn->GetFeatures().isBusToBus = false;
     conn->GetFeatures().handlePassing = false;
 
-    /* Run the actual connection authentication code. */
     qcc::String authName;
     qcc::String redirection;
+
+    /* Run the actual connection authentication code. */
+    QCC_DbgTrace(("WFDEndpoint::AuthThread::Run(): Establish()"));
     status = conn->Establish("ANONYMOUS", authName, redirection);
     if (status != ER_OK) {
         conn->m_stream.Close();
@@ -407,6 +409,7 @@ void* WFDEndpoint::AuthThread::Run(void* arg)
      * Tell the transport that the authentication has succeeded and that it can
      * now bring the connection up.
      */
+    QCC_DbgTrace(("WFDEndpoint::AuthThread::Run(): Authenticated()"));
     conn->m_transport->Authenticated(conn);
 
     QCC_DbgTrace(("WFDEndpoint::AuthThread::Run(): Returning"));
@@ -1018,11 +1021,16 @@ void WFDTransport::ManageEndpoints(Timespec tTimeout)
     }
 
     /*
-     * As mentioned in the lengthy comment above, if we've cleaned up an endpoint
-     * and there are no more left, then we need to release the Wi-Fi Direct link
-     * if we are connected and we think we are an STA node in the impled group.
+     * As mentioned in the lengthy comment above, if we've cleaned up an
+     * endpoint and there are no more left (in the list of currently active
+     * endpoints and the list of currently authenticating endpoitns), then we
+     * need to release the Wi-Fi Direct link if we think we are an STA node in
+     * the impled group.
      */
-    if (endpointCleaned && P2PConMan::Instance().IsConnectedSTA()) {
+    if (    endpointCleaned &&
+            P2PConMan::Instance().IsConnectedSTA() &&
+            m_endpointList.empty() &&
+            m_authList.empty()) {
         QCC_DbgHLPrintf(("WFDTransport::ManageEndpoints(): DestroyTemporaryNetwork()"));
         QStatus status = P2PConMan::Instance().DestroyTemporaryNetwork();
         if (status != ER_OK) {
@@ -2525,6 +2533,7 @@ QStatus WFDTransport::Connect(const char* connectSpec, const SessionOpts& opts, 
          * We got a socket, now tell WFD to connect to the remote address and
          * port.
          */
+        QCC_DbgHLPrintf(("WFDTransport::Connect(): Connect()"));
         status = qcc::Connect(sockFd, ipAddr, port);
         if (status == ER_OK) {
             /*
@@ -2537,6 +2546,7 @@ QStatus WFDTransport::Connect(const char* connectSpec, const SessionOpts& opts, 
             uint8_t nul = 0;
             size_t sent;
 
+            QCC_DbgHLPrintf(("WFDTransport::Connect(): Send() one byte"));
             status = Send(sockFd, &nul, 1, sent);
             if (status != ER_OK) {
                 QCC_LogError(status, ("WFDTransport::Connect(): Failed to send initial NUL byte"));
@@ -2556,6 +2566,7 @@ QStatus WFDTransport::Connect(const char* connectSpec, const SessionOpts& opts, 
          * a WFDEndpoint object that will orchestrate the movement of data
          * across the transport.
          */
+        QCC_DbgHLPrintf(("WFDTransport::Connect(): new WFDEndpoint()"));
         conn = new WFDEndpoint(this, m_bus, false, normSpec, sockFd, ipAddr, port, guid);
 
         /*
@@ -2606,6 +2617,7 @@ QStatus WFDTransport::Connect(const char* connectSpec, const SessionOpts& opts, 
          * we keep we keep the states consistent since the endpoint will eventually
          * to there.
          */
+        QCC_DbgHLPrintf(("WFDTransport::Connect(): Establish()"));
         status = conn->Establish("ANONYMOUS", authName, redirection);
         if (status == ER_OK) {
             conn->SetListener(this);
@@ -2624,6 +2636,7 @@ QStatus WFDTransport::Connect(const char* connectSpec, const SessionOpts& opts, 
          * server accept loop to manage.
          */
         if (status == ER_OK) {
+            QCC_DbgHLPrintf(("WFDTransport::Connect(): Success.  Pass connection."));
             m_endpointListLock.Lock(MUTEX_CONTEXT);
             m_endpointList.insert(conn);
             m_endpointListLock.Unlock(MUTEX_CONTEXT);
@@ -2661,6 +2674,8 @@ QStatus WFDTransport::Connect(const char* connectSpec, const SessionOpts& opts, 
      * clean it up since it is an active connection, so we can safely pass the
      * endoint back up to higher layers.
      */
+    QCC_DbgHLPrintf(("WFDTransport::Connect(): Cleanup."));
+
     if (status != ER_OK) {
         if (isConnected) {
             qcc::Shutdown(sockFd);
@@ -2678,6 +2693,7 @@ QStatus WFDTransport::Connect(const char* connectSpec, const SessionOpts& opts, 
         }
     }
 
+    QCC_DbgHLPrintf(("WFDTransport::Connect(): Done."));
     return status;
 }
 
