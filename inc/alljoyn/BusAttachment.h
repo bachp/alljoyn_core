@@ -91,56 +91,56 @@ class BusAttachment : public MessageReceiver {
      * Construct a BusAttachment.
      *
      * See also these sample file(s):
-     * basic\basic_client.cc
-     * basic\basic_service.cc
-     * basic\nameChange_client.cc
-     * basic\signalConsumer_client.cc
-     * basic\signal_service.cc
-     * chat\android\jni\Chat_jni.cpp
-     * chat\linux\chat.cc
-     * FileTransfer\FileTransferClient.cc
-     * FileTransfer\FileTransferService.cc
-     * secure\DeskTopSharedKSClient.cc
-     * secure\DeskTopSharedKSService.cc
-     * simple\android\client\jni\Client_jni.cpp
-     * simple\android\service\jni\Service_jni.cpp
-     * windows\chat\ChatLib32\ChatClasses.cpp
-     * windows\Client\Client.cpp
-     * windows\PhotoChat\AllJoynBusLib\AllJoynConnection.cpp
-     * windows\Service\Service.cpp
+     * basic/basic_client.cc @n
+     * basic/basic_service.cc @n
+     * basic/nameChange_client.cc @n
+     * basic/signalConsumer_client.cc @n
+     * basic/signal_service.cc @n
+     * chat/android/jni/Chat_jni.cpp @n
+     * chat/linux/chat.cc @n
+     * FileTransfer/FileTransferClient.cc @n
+     * FileTransfer/FileTransferService.cc @n
+     * secure/DeskTopSharedKSClient.cc @n
+     * secure/DeskTopSharedKSService.cc @n
+     * simple/android/client/jni/Client_jni.cpp @n
+     * simple/android/service/jni/Service_jni.cpp @n
+     * windows/chat/ChatLib32/ChatClasses.cpp @n
+     * windows/Client/Client.cpp @n
+     * windows/PhotoChat/AllJoynBusLib/AllJoynConnection.cpp @n
+     * windows/Service/Service.cpp @n
      *
-     * For Windows 8 see also these sample file(s):
-     * cpp\AllJoynStreaming\tests\csharp\MediaPlayerApp\MainPage.xaml.cs
-     * cpp\AllJoynStreaming\tests\csharp\MediaServerApp\MainPage.xaml.cs
-     * cpp\AllJoynStreaming\tests\javascript\PlayerApp\js\alljoyn.js
-     * cpp\AllJoynStreaming\tests\javascript\ServerApp\js\alljoyn.js
-     * cpp\Basic\Basic_Client\BasicClient\MainPage.xaml.cpp
-     * cpp\Basic\Basic_Service\BasicService\MainPage.xaml.cpp
-     * cpp\Basic\Name_Change_Client\NameChangeClient\MainPage.xaml.cpp
-     * cpp\Basic\Signal_Consumer_Client\SignalConsumerClient\MainPage.xaml.cpp
-     * cpp\Basic\Signal_Service\SignalService\MainPage.xaml.cpp
-     * cpp\Chat\Chat\MainPage.xaml.cpp
-     * cpp\Secure\Secure\MainPage.xaml.cpp
-     * csharp\Basic\Basic_Client\BasicClient\MainPage.xaml.cs
-     * csharp\Basic\Basic_Service\BasicService\MainPage.xaml.cs
-     * csharp\Basic\Name_Change_Client\NameChangeClient\MainPage.xaml.cs
-     * csharp\Basic\Signal_Consumer_Client\SignalConsumerClient\MainPage.xaml.cs
-     * csharp\Basic\Signal_Service\SignalService\MainPage.xaml.cs
-     * csharp\blank\blank\App.xaml.cs
-     * csharp\BusStress\BusStress\Common\StressOperation.cs
-     * csharp\chat\chat\MainPage.xaml.cs
-     * csharp\FileTransfer\Client\App.xaml.cs
-     * csharp\Secure\Secure\Common\Client.cs
-     * csharp\Secure\Secure\Common\Service.cs
-     * csharp\Sessions\Sessions\Common\SessionOperations.cs
-     * javascript\Basic\Basic_Client\BasicClient\js\BasicClient.js
-     * javascript\Basic\Basic_Service\BasicService\js\BasicService.js
-     * javascript\Basic\Name_Change_Client\NameChangeClient\js\NameChangeClient.js
-     * javascript\Basic\Signal_Consumer_Client\SignalConsumerClient\js\SignalConsumerClient.js
-     * javascript\Basic\Signal_Service\SignalService\js\SignalService.js
-     * javascript\chat\chat\js\alljoyn.js
-     * javascript\Secure\Secure\js\Client.js
-     * javascript\Secure\Secure\js\Service.js
+     * For Windows 8 see also these sample file(s): @n
+     * cpp/AllJoynStreaming/tests/csharp/MediaPlayerApp/MainPage.xaml.cs @n
+     * cpp/AllJoynStreaming/tests/csharp/MediaServerApp/MainPage.xaml.cs @n
+     * cpp/AllJoynStreaming/tests/javascript/PlayerApp/js/alljoyn.js @n
+     * cpp/AllJoynStreaming/tests/javascript/ServerApp/js/alljoyn.js @n
+     * cpp/Basic/Basic_Client/BasicClient/MainPage.xaml.cpp @n
+     * cpp/Basic/Basic_Service/BasicService/MainPage.xaml.cpp @n
+     * cpp/Basic/Name_Change_Client/NameChangeClient/MainPage.xaml.cpp @n
+     * cpp/Basic/Signal_Consumer_Client/SignalConsumerClient/MainPage.xaml.cpp @n
+     * cpp/Basic/Signal_Service/SignalService/MainPage.xaml.cpp @n
+     * cpp/Chat/Chat/MainPage.xaml.cpp @n
+     * cpp/Secure/Secure/MainPage.xaml.cpp @n
+     * csharp/Basic/Basic_Client/BasicClient/MainPage.xaml.cs @n
+     * csharp/Basic/Basic_Service/BasicService/MainPage.xaml.cs @n
+     * csharp/Basic/Name_Change_Client/NameChangeClient/MainPage.xaml.cs @n
+     * csharp/Basic/Signal_Consumer_Client/SignalConsumerClient/MainPage.xaml.cs @n
+     * csharp/Basic/Signal_Service/SignalService/MainPage.xaml.cs @n
+     * csharp/blank/blank/App.xaml.cs @n
+     * csharp/BusStress/BusStress/Common/StressOperation.cs @n
+     * csharp/chat/chat/MainPage.xaml.cs @n
+     * csharp/FileTransfer/Client/App.xaml.cs @n
+     * csharp/Secure/Secure/Common/Client.cs @n
+     * csharp/Secure/Secure/Common/Service.cs @n
+     * csharp/Sessions/Sessions/Common/SessionOperations.cs @n
+     * javascript/Basic/Basic_Client/BasicClient/js/BasicClient.js @n
+     * javascript/Basic/Basic_Service/BasicService/js/BasicService.js @n
+     * javascript/Basic/Name_Change_Client/NameChangeClient/js/NameChangeClient.js @n
+     * javascript/Basic/Signal_Consumer_Client/SignalConsumerClient/js/SignalConsumerClient.js @n
+     * javascript/Basic/Signal_Service/SignalService/js/SignalService.js @n
+     * javascript/chat/chat/js/alljoyn.js @n
+     * javascript/Secure/Secure/js/Client.js @n
+     * javascript/Secure/Secure/js/Service.js @n
      *
      * @param applicationName       Name of the application.
      * @param allowRemoteMessages   True if this attachment is allowed to receive messages from remote devices.
@@ -169,16 +169,16 @@ class BusAttachment : public MessageReceiver {
      * Allow the currently executing method/signal handler to enable concurrent callbacks
      * during the scope of the handler's execution.
      *
-     * See also these sample file(s):
-     * basic\basic_client.cc
-     * basic\nameChange_client.cc
-     * basic\signalConsumer_client.cc
-     * chat\linux\chat.cc
-     * FileTransfer\FileTransferClient.cc
-     * secure\DeskTopSharedKSClient.cc
+     * See also these sample file(s): @n
+     * basic/basic_client.cc @n
+     * basic/nameChange_client.cc @n
+     * basic/signalConsumer_client.cc @n
+     * chat/linux/chat.cc @n
+     * FileTransfer/FileTransferClient.cc @n
+     * secure/DeskTopSharedKSClient.cc @n
      *
-     * For Windows 8 see also these sample file(s):
-     * cpp\AllJoynStreaming\src\MediaSource.cc
+     * For Windows 8 see also these sample file(s): @n
+     * cpp/AllJoynStreaming/src/MediaSource.cc @n
      */
     void EnableConcurrentCallbacks();
 
@@ -200,39 +200,39 @@ class BusAttachment : public MessageReceiver {
      * be unaccessible (via BusAttachment::GetInterfaces() or BusAttachment::GetInterface()) until
      * it is activated.
      *
-     * See also these sample file(s):
-     * basic\basic_client.cc
-     * basic\basic_service.cc
-     * basic\signalConsumer_client.cc
-     * basic\signal_service.cc
-     * chat\android\jni\Chat_jni.cpp
-     * chat\linux\chat.cc
-     * FileTransfer\FileTransferClient.cc
-     * FileTransfer\FileTransferService.cc
-     * secure\DeskTopSharedKSClient.cc
-     * secure\DeskTopSharedKSService.cc
-     * simple\android\client\jni\Client_jni.cpp
-     * simple\android\service\jni\Service_jni.cpp
-     * windows\chat\ChatLib32\ChatClasses.cpp
-     * windows\Client\Client.cpp
-     * windows\PhotoChat\AllJoynBusLib\AllJoynConnection.cpp
-     * windows\Service\Service.cpp
+     * See also these sample file(s): @n
+     * basic/basic_client.cc @n
+     * basic/basic_service.cc @n
+     * basic/signalConsumer_client.cc @n
+     * basic/signal_service.cc @n
+     * chat/android/jni/Chat_jni.cpp @n
+     * chat/linux/chat.cc @n
+     * FileTransfer/FileTransferClient.cc @n
+     * FileTransfer/FileTransferService.cc @n
+     * secure/DeskTopSharedKSClient.cc @n
+     * secure/DeskTopSharedKSService.cc @n
+     * simple/android/client/jni/Client_jni.cpp @n
+     * simple/android/service/jni/Service_jni.cpp @n
+     * windows/chat/ChatLib32/ChatClasses.cpp @n
+     * windows/Client/Client.cpp @n
+     * windows/PhotoChat/AllJoynBusLib/AllJoynConnection.cpp @n
+     * windows/Service/Service.cpp @n
      *
-     * For Windows 8 see also these sample file(s):
-     * cpp\Basic\Basic_Service\BasicService\MainPage.xaml.cpp
-     * cpp\Basic\Signal_Consumer_Client\SignalConsumerClient\MainPage.xaml.cpp
-     * cpp\Basic\Signal_Service\SignalService\MainPage.xaml.cpp
-     * cpp\Chat\Chat\AllJoynObjects.cpp
-     * cpp\Secure\Secure\AllJoynObjects.cpp
-     * csharp\Basic\Basic_Service\BasicService\Common\BasicServiceBusObject.cs
-     * csharp\Basic\Signal_Consumer_Client\SignalConsumerClient\MainPage.xaml.cs
-     * csharp\Basic\Signal_Service\SignalService\Common\SignalServiceBusObject.cs
-     * csharp\BusStress\BusStress\Common\ServiceBusObject.cs
-     * csharp\chat\chat\Common\ChatSessionObject.cs
-     * csharp\FileTransfer\Client\Common\FileTransferBusObject.cs
-     * csharp\Secure\Secure\Common\Client.cs
-     * csharp\Secure\Secure\Common\Service.cs
-     * csharp\Sessions\Sessions\Common\MyBusObject.cs
+     * For Windows 8 see also these sample file(s): @n
+     * cpp/Basic/Basic_Service/BasicService/MainPage.xaml.cpp @n
+     * cpp/Basic/Signal_Consumer_Client/SignalConsumerClient/MainPage.xaml.cpp @n
+     * cpp/Basic/Signal_Service/SignalService/MainPage.xaml.cpp @n
+     * cpp/Chat/Chat/AllJoynObjects.cpp @n
+     * cpp/Secure/Secure/AllJoynObjects.cpp @n
+     * csharp/Basic/Basic_Service/BasicService/Common/BasicServiceBusObject.cs @n
+     * csharp/Basic/Signal_Consumer_Client/SignalConsumerClient/MainPage.xaml.cs @n
+     * csharp/Basic/Signal_Service/SignalService/Common/SignalServiceBusObject.cs @n
+     * csharp/BusStress/BusStress/Common/ServiceBusObject.cs @n
+     * csharp/chat/chat/Common/ChatSessionObject.cs @n
+     * csharp/FileTransfer/Client/Common/FileTransferBusObject.cs @n
+     * csharp/Secure/Secure/Common/Client.cs @n
+     * csharp/Secure/Secure/Common/Service.cs @n
+     * csharp/Sessions/Sessions/Common/MyBusObject.cs @n
      *
      * @param name   The requested interface name.
      * @param[out] iface
@@ -280,33 +280,33 @@ class BusAttachment : public MessageReceiver {
     /**
      * Retrieve an existing activated InterfaceDescription.
      *
-     * See also these sample file(s):
-     * basic\basic_client.cc
-     * basic\basic_service.cc
-     * chat\android\jni\Chat_jni.cpp
-     * chat\linux\chat.cc
-     * secure\DeskTopSharedKSClient.cc
-     * secure\DeskTopSharedKSService.cc
-     * simple\android\service\jni\Service_jni.cpp
-     * windows\chat\ChatLib32\ChatClasses.cpp
-     * windows\Client\Client.cpp
-     * windows\PhotoChat\AllJoynBusLib\AllJoynConnection.cpp
-     * windows\Service\Service.cpp
+     * See also these sample file(s): @n
+     * basic/basic_client.cc @n
+     * basic/basic_service.cc @n
+     * chat/android/jni/Chat_jni.cpp @n
+     * chat/linux/chat.cc @n
+     * secure/DeskTopSharedKSClient.cc @n
+     * secure/DeskTopSharedKSService.cc @n
+     * simple/android/service/jni/Service_jni.cpp @n
+     * windows/chat/ChatLib32/ChatClasses.cpp @n
+     * windows/Client/Client.cpp @n
+     * windows/PhotoChat/AllJoynBusLib/AllJoynConnection.cpp @n
+     * windows/Service/Service.cpp @n
      *
-     * For Windows 8 see also these sample file(s):
-     * cpp\AllJoynStreaming\src\MediaCommon.cc
-     * cpp\Basic\Basic_Client\BasicClient\MainPage.xaml.cpp
-     * cpp\Basic\Basic_Service\BasicService\AllJoynObjects.cpp
-     * cpp\Basic\Signal_Consumer_Client\SignalConsumerClient\AllJoynObjects.cpp
-     * cpp\Basic\Signal_Service\SignalService\AllJoynObjects.cpp
-     * cpp\Chat\Chat\AllJoynObjects.cpp
-     * cpp\Secure\Secure\MainPage.xaml.cpp
-     * csharp\Basic\Basic_Client\BasicClient\MainPage.xaml.cs
-     * csharp\Basic\Signal_Consumer_Client\SignalConsumerClient\Common\SignalConsumerBusListener.cs
-     * csharp\BusStress\BusStress\Common\StressOperation.cs
-     * csharp\chat\chat\Common\ChatSessionObject.cs
-     * csharp\FileTransfer\Client\Common\FileTransferBusObject.cs
-     * csharp\Secure\Secure\Common\Client.cs
+     * For Windows 8 see also these sample file(s): @n
+     * cpp/AllJoynStreaming/src/MediaCommon.cc @n
+     * cpp/Basic/Basic_Client/BasicClient/MainPage.xaml.cpp @n
+     * cpp/Basic/Basic_Service/BasicService/AllJoynObjects.cpp @n
+     * cpp/Basic/Signal_Consumer_Client/SignalConsumerClient/AllJoynObjects.cpp @n
+     * cpp/Basic/Signal_Service/SignalService/AllJoynObjects.cpp @n
+     * cpp/Chat/Chat/AllJoynObjects.cpp @n
+     * cpp/Secure/Secure/MainPage.xaml.cpp @n
+     * csharp/Basic/Basic_Client/BasicClient/MainPage.xaml.cs @n
+     * csharp/Basic/Signal_Consumer_Client/SignalConsumerClient/Common/SignalConsumerBusListener.cs @n
+     * csharp/BusStress/BusStress/Common/StressOperation.cs @n
+     * csharp/chat/chat/Common/ChatSessionObject.cs @n
+     * csharp/FileTransfer/Client/Common/FileTransferBusObject.cs @n
+     * csharp/Secure/Secure/Common/Client.cs @n
      *
      * @param name       Interface name
      *
@@ -412,59 +412,59 @@ class BusAttachment : public MessageReceiver {
      * @see Stop()
      * @see Join()
      *
-     * See also these sample file(s):
-     * basic\basic_client.cc
-     * basic\basic_service.cc
-     * basic\nameChange_client.cc
-     * basic\signalConsumer_client.cc
-     * basic\signal_service.cc
-     * chat\android\jni\Chat_jni.cpp
-     * chat\linux\chat.cc
-     * FileTransfer\FileTransferClient.cc
-     * FileTransfer\FileTransferService.cc
-     * secure\DeskTopSharedKSClient.cc
-     * secure\DeskTopSharedKSService.cc
-     * simple\android\client\jni\Client_jni.cpp
-     * simple\android\service\jni\Service_jni.cpp
-     * windows\chat\ChatDialog.cs
-     * windows\chat\ChatLib32\ChatClasses.cpp
-     * windows\Client\Client.cpp
-     * windows\PhotoChat\AllJoynBusLib\AllJoynConnection.cpp
-     * windows\PhotoChat\AllJoynNET\SimpleChatForm.cs
-     * windows\PhotoChat\PhotoChatForm.cs
-     * windows\Service\Service.cpp
+     * See also these sample file(s): @n
+     * basic/basic_client.cc @n
+     * basic/basic_service.cc @n
+     * basic/nameChange_client.cc @n
+     * basic/signalConsumer_client.cc @n
+     * basic/signal_service.cc @n
+     * chat/android/jni/Chat_jni.cpp @n
+     * chat/linux/chat.cc @n
+     * FileTransfer/FileTransferClient.cc @n
+     * FileTransfer/FileTransferService.cc @n
+     * secure/DeskTopSharedKSClient.cc @n
+     * secure/DeskTopSharedKSService.cc @n
+     * simple/android/client/jni/Client_jni.cpp @n
+     * simple/android/service/jni/Service_jni.cpp @n
+     * windows/chat/ChatDialog.cs @n
+     * windows/chat/ChatLib32/ChatClasses.cpp @n
+     * windows/Client/Client.cpp @n
+     * windows/PhotoChat/AllJoynBusLib/AllJoynConnection.cpp @n
+     * windows/PhotoChat/AllJoynNET/SimpleChatForm.cs @n
+     * windows/PhotoChat/PhotoChatForm.cs @n
+     * windows/Service/Service.cpp @n
      *
-     * For Windows 8 see also these sample file(s):
-     * cpp\AllJoynStreaming\inc\MediaHTTPStreamer.h
-     * cpp\AllJoynStreaming\inc\MediaPacer.h
-     * cpp\AllJoynStreaming\inc\MP3Pacer.h
-     * cpp\AllJoynStreaming\src\MediaHTTPStreamer.cc
-     * cpp\AllJoynStreaming\src\MediaPacer.cc
-     * cpp\AllJoynStreaming\src\MP3Pacer.cc
-     * cpp\AllJoynStreaming\src\MP3Stream.cc
-     * cpp\AllJoynStreaming\tests\csharp\MediaPlayerApp\MainPage.xaml.cs
-     * cpp\AllJoynStreaming\tests\csharp\MediaServerApp\MainPage.xaml.cs
-     * cpp\Basic\Basic_Client\BasicClient\MainPage.xaml.cpp
-     * cpp\Basic\Basic_Service\BasicService\MainPage.xaml.cpp
-     * cpp\Basic\Name_Change_Client\NameChangeClient\MainPage.xaml.cpp
-     * cpp\Basic\Signal_Consumer_Client\SignalConsumerClient\MainPage.xaml.cpp
-     * cpp\Basic\Signal_Service\SignalService\MainPage.xaml.cpp
-     * cpp\Chat\Chat\MainPage.xaml.cpp
-     * cpp\Secure\Secure\MainPage.xaml.cpp
-     * csharp\Basic\Basic_Client\BasicClient\MainPage.xaml.cs
-     * csharp\Basic\Basic_Service\BasicService\MainPage.xaml.cs
-     * csharp\Basic\Name_Change_Client\NameChangeClient\MainPage.xaml.cs
-     * csharp\Basic\Signal_Consumer_Client\SignalConsumerClient\MainPage.xaml.cs
-     * csharp\Basic\Signal_Service\SignalService\MainPage.xaml.cs
-     * csharp\blank\blank\App.xaml.cs
-     * csharp\BusStress\BusStress\Common\StressManager.cs
-     * csharp\BusStress\BusStress\Common\StressOperation.cs
-     * csharp\chat\chat\MainPage.xaml.cs
-     * csharp\FileTransfer\Client\App.xaml.cs
-     * csharp\FileTransfer\Client\Common\FileTransferBusObject.cs
-     * csharp\Secure\Secure\Common\Client.cs
-     * csharp\Secure\Secure\Common\Service.cs
-     * csharp\Sessions\Sessions\Common\SessionOperations.cs
+     * For Windows 8 see also these sample file(s): @n
+     * cpp/AllJoynStreaming/inc/MediaHTTPStreamer.h @n
+     * cpp/AllJoynStreaming/inc/MediaPacer.h @n
+     * cpp/AllJoynStreaming/inc/MP3Pacer.h @n
+     * cpp/AllJoynStreaming/src/MediaHTTPStreamer.cc @n
+     * cpp/AllJoynStreaming/src/MediaPacer.cc @n
+     * cpp/AllJoynStreaming/src/MP3Pacer.cc @n
+     * cpp/AllJoynStreaming/src/MP3Stream.cc @n
+     * cpp/AllJoynStreaming/tests/csharp/MediaPlayerApp/MainPage.xaml.cs @n
+     * cpp/AllJoynStreaming/tests/csharp/MediaServerApp/MainPage.xaml.cs @n
+     * cpp/Basic/Basic_Client/BasicClient/MainPage.xaml.cpp @n
+     * cpp/Basic/Basic_Service/BasicService/MainPage.xaml.cpp @n
+     * cpp/Basic/Name_Change_Client/NameChangeClient/MainPage.xaml.cpp @n
+     * cpp/Basic/Signal_Consumer_Client/SignalConsumerClient/MainPage.xaml.cpp @n
+     * cpp/Basic/Signal_Service/SignalService/MainPage.xaml.cpp @n
+     * cpp/Chat/Chat/MainPage.xaml.cpp @n
+     * cpp/Secure/Secure/MainPage.xaml.cpp @n
+     * csharp/Basic/Basic_Client/BasicClient/MainPage.xaml.cs @n
+     * csharp/Basic/Basic_Service/BasicService/MainPage.xaml.cs @n
+     * csharp/Basic/Name_Change_Client/NameChangeClient/MainPage.xaml.cs @n
+     * csharp/Basic/Signal_Consumer_Client/SignalConsumerClient/MainPage.xaml.cs @n
+     * csharp/Basic/Signal_Service/SignalService/MainPage.xaml.cs @n
+     * csharp/blank/blank/App.xaml.cs @n
+     * csharp/BusStress/BusStress/Common/StressManager.cs @n
+     * csharp/BusStress/BusStress/Common/StressOperation.cs @n
+     * csharp/chat/chat/MainPage.xaml.cs @n
+     * csharp/FileTransfer/Client/App.xaml.cs @n
+     * csharp/FileTransfer/Client/Common/FileTransferBusObject.cs @n
+     * csharp/Secure/Secure/Common/Client.cs @n
+     * csharp/Secure/Secure/Common/Service.cs @n
+     * csharp/Sessions/Sessions/Common/SessionOperations.cs @n
      *
      * @return
      *      - #ER_OK if successful.
@@ -492,23 +492,23 @@ class BusAttachment : public MessageReceiver {
      * @see Start()
      * @see Join()
      *
-     * See also these sample file(s):
-     * simple\android\client\src\org\alljoyn\bus\samples\simpleclient\Client.java
-     * simple\android\service\src\org\alljoyn\bus\samples\simpleservice\Service.java
+     * See also these sample file(s): @n
+     * simple/android/client/src/org/alljoyn/bus/samples/simpleclient/Client.java @n
+     * simple/android/service/src/org/alljoyn/bus/samples/simpleservice/Service.java @n
      *
-     * For Windows 8 see also these sample file(s):
-     * cpp\AllJoynStreaming\inc\MediaHTTPStreamer.h
-     * cpp\AllJoynStreaming\inc\MediaPacer.h
-     * cpp\AllJoynStreaming\inc\MP3Pacer.h
-     * cpp\AllJoynStreaming\src\MediaHTTPStreamer.cc
-     * cpp\AllJoynStreaming\src\MediaPacer.cc
-     * cpp\AllJoynStreaming\src\MP3Pacer.cc
-     * cpp\AllJoynStreaming\src\MP3Stream.cc
-     * cpp\AllJoynStreaming\tests\csharp\MediaPlayerApp\MainPage.xaml.cs
-     * cpp\AllJoynStreaming\tests\csharp\MediaServerApp\MainPage.xaml.cs
-     * csharp\Secure\Secure\Common\Client.cs
-     * csharp\Secure\Secure\Common\Service.cs
-     * csharp\Secure\Secure\MainPage.xaml.cs
+     * For Windows 8 see also these sample file(s): @n
+     * cpp/AllJoynStreaming/inc/MediaHTTPStreamer.h @n
+     * cpp/AllJoynStreaming/inc/MediaPacer.h @n
+     * cpp/AllJoynStreaming/inc/MP3Pacer.h @n
+     * cpp/AllJoynStreaming/src/MediaHTTPStreamer.cc @n
+     * cpp/AllJoynStreaming/src/MediaPacer.cc @n
+     * cpp/AllJoynStreaming/src/MP3Pacer.cc @n
+     * cpp/AllJoynStreaming/src/MP3Stream.cc @n
+     * cpp/AllJoynStreaming/tests/csharp/MediaPlayerApp/MainPage.xaml.cs @n
+     * cpp/AllJoynStreaming/tests/csharp/MediaServerApp/MainPage.xaml.cs @n
+     * csharp/Secure/Secure/Common/Client.cs @n
+     * csharp/Secure/Secure/Common/Service.cs @n
+     * csharp/Secure/Secure/MainPage.xaml.cs @n
      *
      * @return
      *     - #ER_OK if successful.
@@ -573,44 +573,44 @@ class BusAttachment : public MessageReceiver {
     /**
      * Connect to a remote bus address.
      *
-     * See also these sample file(s):
-     * basic\basic_client.cc
-     * basic\basic_service.cc
-     * basic\nameChange_client.cc
-     * basic\signalConsumer_client.cc
-     * basic\signal_service.cc
-     * chat\android\jni\Chat_jni.cpp
-     * chat\linux\chat.cc
-     * FileTransfer\FileTransferClient.cc
-     * FileTransfer\FileTransferService.cc
-     * secure\DeskTopSharedKSClient.cc
-     * secure\DeskTopSharedKSService.cc
-     * simple\android\client\jni\Client_jni.cpp
-     * simple\android\service\jni\Service_jni.cpp
-     * windows\chat\AlljoynSetup.cs
-     * windows\chat\ChatLib32\ChatClasses.cpp
-     * windows\chat\ChatLib32\ChatClasses.h
-     * windows\chat\ChatLib32\ChatLib32.cpp
-     * windows\chat\ChatLib32\ChatLib32.h
-     * windows\Client\Client.cpp
-     * windows\PhotoChat\AllJoynBusLib\AllJoynBusLib.cpp
-     * windows\PhotoChat\AllJoynBusLib\AllJoynConnection.cpp
-     * windows\PhotoChat\AllJoynBusLib\AllJoynConnection.h
-     * windows\PhotoChat\AllJoynNET\AJBus.cs
-     * windows\PhotoChat\AllJoynNET\AlljoynConnect.cs
-     * windows\PhotoChat\AllJoynNET\AlljoynConnectForm.cs
-     * windows\Service\Service.cpp
+     * See also these sample file(s): @n
+     * basic/basic_client.cc @n
+     * basic/basic_service.cc @n
+     * basic/nameChange_client.cc @n
+     * basic/signalConsumer_client.cc @n
+     * basic/signal_service.cc @n
+     * chat/android/jni/Chat_jni.cpp @n
+     * chat/linux/chat.cc @n
+     * FileTransfer/FileTransferClient.cc @n
+     * FileTransfer/FileTransferService.cc @n
+     * secure/DeskTopSharedKSClient.cc @n
+     * secure/DeskTopSharedKSService.cc @n
+     * simple/android/client/jni/Client_jni.cpp @n
+     * simple/android/service/jni/Service_jni.cpp @n
+     * windows/chat/AlljoynSetup.cs @n
+     * windows/chat/ChatLib32/ChatClasses.cpp @n
+     * windows/chat/ChatLib32/ChatClasses.h @n
+     * windows/chat/ChatLib32/ChatLib32.cpp @n
+     * windows/chat/ChatLib32/ChatLib32.h @n
+     * windows/Client/Client.cpp @n
+     * windows/PhotoChat/AllJoynBusLib/AllJoynBusLib.cpp @n
+     * windows/PhotoChat/AllJoynBusLib/AllJoynConnection.cpp @n
+     * windows/PhotoChat/AllJoynBusLib/AllJoynConnection.h @n
+     * windows/PhotoChat/AllJoynNET/AJBus.cs @n
+     * windows/PhotoChat/AllJoynNET/AlljoynConnect.cs @n
+     * windows/PhotoChat/AllJoynNET/AlljoynConnectForm.cs @n
+     * windows/Service/Service.cpp @n
      *
-     * For Windows 8 see also these sample file(s):
-     * cpp\Basic\Basic_Client\BasicClient\Generated
-     * cpp\Basic\Basic_Service\BasicService\Generated
-     * cpp\Basic\Name_Change_Client\NameChangeClient\Generated
-     * cpp\Basic\Signal_Consumer_Client\SignalConsumerClient\Generated
-     * cpp\Basic\Signal_Service\SignalService\Generated
-     * javascript\Basic\Basic_Client\BasicClient\js\BasicClient.js
-     * javascript\Basic\Name_Change_Client\NameChangeClient\js\NameChangeClient.js
-     * javascript\Basic\Signal_Consumer_Client\SignalConsumerClient\js\AlljoynObjects.js
-     * javascript\Secure\Secure\js\Client.js
+     * For Windows 8 see also these sample file(s): @n
+     * cpp/Basic/Basic_Client/BasicClient/Generated @n
+     * cpp/Basic/Basic_Service/BasicService/Generated @n
+     * cpp/Basic/Name_Change_Client/NameChangeClient/Generated @n
+     * cpp/Basic/Signal_Consumer_Client/SignalConsumerClient/Generated @n
+     * cpp/Basic/Signal_Service/SignalService/Generated @n
+     * javascript/Basic/Basic_Client/BasicClient/js/BasicClient.js @n
+     * javascript/Basic/Name_Change_Client/NameChangeClient/js/NameChangeClient.js @n
+     * javascript/Basic/Signal_Consumer_Client/SignalConsumerClient/js/AlljoynObjects.js @n
+     * javascript/Secure/Secure/js/Client.js @n
      *
      * @param connectSpec  A transport connection spec string of the form:
      *                     @c "<transport>:<param1>=<value1>,<param2>=<value2>...[;]"
@@ -625,9 +625,9 @@ class BusAttachment : public MessageReceiver {
     /**
      * Disconnect a remote bus address connection.
      *
-     * See also these sample file(s):
-     * windows\PhotoChat\AllJoynNET\AJBus.cs
-     * windows\PhotoChat\AllJoynNET\AlljoynConnectForm.cs
+     * See also these sample file(s): @n
+     * windows\PhotoChat\AllJoynNET\AJBus.cs @n
+     * windows\PhotoChat\AllJoynNET\AlljoynConnectForm.cs @n
      *
      * @param connectSpec  The transport connection spec used to connect.
      *
@@ -642,10 +642,10 @@ class BusAttachment : public MessageReceiver {
     /**
      * Indicate whether bus is currently connected.
      *
-     * See also these sample file(s):
-     * windows\PhotoChat\AllJoynBusLib\AllJoynBusLib.cpp
-     * windows\PhotoChat\AllJoynBusLib\AllJoynConnection.cpp
-     * windows\PhotoChat\AllJoynBusLib\AllJoynConnection.h
+     * See also these sample file(s): @n
+     * windows/PhotoChat/AllJoynBusLib/AllJoynBusLib.cpp @n
+     * windows/PhotoChat/AllJoynBusLib/AllJoynConnection.cpp @n
+     * windows/PhotoChat/AllJoynBusLib/AllJoynConnection.h @n
      *
      * Messages can only be sent or received when the bus is connected.
      *
@@ -658,35 +658,35 @@ class BusAttachment : public MessageReceiver {
      *
      * @param obj      BusObject to register.
      *
-     * See also these sample file(s):
-     * basic\basic_service.cc
-     * basic\signalConsumer_client.cc
-     * basic\signal_service.cc
-     * chat\android\jni\Chat_jni.cpp
-     * chat\linux\chat.cc
-     * FileTransfer\FileTransferClient.cc
-     * FileTransfer\FileTransferService.cc
-     * secure\DeskTopSharedKSService.cc
-     * simple\android\service\jni\Service_jni.cpp
-     * windows\chat\ChatLib32\ChatClasses.cpp
-     * windows\PhotoChat\AllJoynBusLib\AllJoynConnection.cpp
-     * windows\Service\Service.cpp
+     * See also these sample file(s): @n
+     * basic/basic_service.cc @n
+     * basic/signalConsumer_client.cc @n
+     * basic/signal_service.cc @n
+     * chat/android/jni/Chat_jni.cpp @n
+     * chat/linux/chat.cc @n
+     * FileTransfer/FileTransferClient.cc @n
+     * FileTransfer/FileTransferService.cc @n
+     * secure/DeskTopSharedKSService.cc @n
+     * simple/android/service/jni/Service_jni.cpp @n
+     * windows/chat/ChatLib32/ChatClasses.cpp @n
+     * windows/PhotoChat/AllJoynBusLib/AllJoynConnection.cpp @n
+     * windows/Service/Service.cpp @n
      *
-     * For Windows 8 see also these sample file(s):
-     * cpp\AllJoynStreaming\src\MediaSource.cc
-     * cpp\AllJoynStreaming\tests\csharp\MediaServerApp\MainPage.xaml.cs
-     * cpp\Basic\Basic_Service\BasicService\MainPage.xaml.cpp
-     * cpp\Basic\Signal_Service\SignalService\MainPage.xaml.cpp
-     * cpp\Chat\Chat\MainPage.xaml.cpp
-     * cpp\Secure\Secure\MainPage.xaml.cpp
-     * csharp\Basic\Basic_Service\BasicService\Common\BasicServiceBusObject.cs
-     * csharp\Basic\Signal_Service\SignalService\Common\SignalServiceBusObject.cs
-     * csharp\BusStress\BusStress\Common\ServiceBusObject.cs
-     * csharp\BusStress\BusStress\Common\StressOperation.cs
-     * csharp\chat\chat\MainPage.xaml.cs
-     * csharp\FileTransfer\Client\Common\FileTransferBusObject.cs
-     * csharp\Secure\Secure\Common\SecureBusObject.cs
-     * csharp\Sessions\Sessions\Common\MyBusObject.cs
+     * For Windows 8 see also these sample file(s): @n
+     * cpp/AllJoynStreaming/src/MediaSource.cc @n
+     * cpp/AllJoynStreaming/tests/csharp/MediaServerApp/MainPage.xaml.cs @n
+     * cpp/Basic/Basic_Service/BasicService/MainPage.xaml.cpp @n
+     * cpp/Basic/Signal_Service/SignalService/MainPage.xaml.cpp @n
+     * cpp/Chat/Chat/MainPage.xaml.cpp @n
+     * cpp/Secure/Secure/MainPage.xaml.cpp @n
+     * csharp/Basic/Basic_Service/BasicService/Common/BasicServiceBusObject.cs @n
+     * csharp/Basic/Signal_Service/SignalService/Common/SignalServiceBusObject.cs @n
+     * csharp/BusStress/BusStress/Common/ServiceBusObject.cs @n
+     * csharp/BusStress/BusStress/Common/StressOperation.cs @n
+     * csharp/chat/chat/MainPage.xaml.cs @n
+     * csharp/FileTransfer/Client/Common/FileTransferBusObject.cs @n
+     * csharp/Secure/Secure/Common/SecureBusObject.cs @n
+     * csharp/Sessions/Sessions/Common/MyBusObject.cs @n
      *
      * @return
      *      - #ER_OK if successful.
@@ -699,19 +699,19 @@ class BusAttachment : public MessageReceiver {
      *
      * @param object  Object to be unregistered.
      *
-     * For Windows 8 see also these sample file(s):
-     * cpp\AllJoynStreaming\src\MediaSource.cc
-     * csharp\BusStress\BusStress\Common\StressOperation.cs
-     * csharp\FileTransfer\Client\Common\FileTransferBusObject.cs
+     * For Windows 8 see also these sample file(s): @n
+     * cpp/AllJoynStreaming/src/MediaSource.cc @n
+     * csharp/BusStress/BusStress/Common/StressOperation.cs @n
+     * csharp/FileTransfer/Client/Common/FileTransferBusObject.cs @n
      */
     void UnregisterBusObject(BusObject& object);
 
     /**
      * Get the org.freedesktop.DBus proxy object.
      *
-     * See also these sample file(s):
-     * chat\android\jni\Chat_jni.cpp
-     * windows\Service\Service.cpp
+     * See also these sample file(s): @n
+     * chat/android/jni/Chat_jni.cpp @n
+     * windows/Service/Service.cpp @n
      *
      * @return org.freedesktop.DBus proxy object
      */
@@ -720,8 +720,8 @@ class BusAttachment : public MessageReceiver {
     /**
      * Get the org.alljoyn.Bus proxy object.
      *
-     * See also these sample file(s):
-     * windows\Service\Service.cpp
+     * See also these sample file(s): @n
+     * windows/Service/Service.cpp
      *
      * @return org.alljoyn.Bus proxy object
      */
@@ -771,22 +771,22 @@ class BusAttachment : public MessageReceiver {
     /**
      * Register a signal handler.
      *
-     * See also these sample file(s):
-     * basic\signalConsumer_client.cc
-     * chat\android\jni\Chat_jni.cpp
-     * chat\linux\chat.cc
-     * FileTransfer\FileTransferClient.cc
-     * windows\chat\ChatLib32\ChatClasses.cpp
-     * windows\PhotoChat\AllJoynBusLib\AllJoynConnection.cpp
+     * See also these sample file(s): @n
+     * basic/signalConsumer_client.cc @n
+     * chat/android/jni/Chat_jni.cpp @n
+     * chat/linux/chat.cc @n
+     * FileTransfer/FileTransferClient.cc @n
+     * windows/chat/ChatLib32/ChatClasses.cpp @n
+     * windows/PhotoChat/AllJoynBusLib/AllJoynConnection.cpp @n @n
      *
-     * For Windows 8 see also these sample file(s):
-     * cpp\AllJoynStreaming\src\MediaSink.cc
-     * cpp\Basic\Signal_Consumer_Client\SignalConsumerClient\AllJoynObjects.cpp
-     * cpp\Chat\Chat\AllJoynObjects.cpp
-     * csharp\Basic\Signal_Consumer_Client\SignalConsumerClient\Common\SignalConsumerBusListener.cs
-     * csharp\chat\chat\Common\ChatSessionObject.cs
-     * csharp\FileTransfer\Client\Common\FileTransferBusObject.cs
-     * csharp\Sessions\Sessions\Common\MyBusObject.cs
+     * For Windows 8 see also these sample file(s): @n
+     * cpp/AllJoynStreaming/src/MediaSink.cc @n
+     * cpp/Basic/Signal_Consumer_Client/SignalConsumerClient/AllJoynObjects.cpp @n
+     * cpp/Chat/Chat/AllJoynObjects.cpp @n
+     * csharp/Basic/Signal_Consumer_Client/SignalConsumerClient/Common/SignalConsumerBusListener.cs @n
+     * csharp/chat/chat/Common/ChatSessionObject.cs @n
+     * csharp/FileTransfer/Client/Common/FileTransferBusObject.cs @n
+     * csharp/Sessions/Sessions/Common/MyBusObject.cs @n
      *
      * Signals are forwarded to the signalHandler if sender, interface, member and path
      * qualifiers are ALL met.
@@ -807,8 +807,8 @@ class BusAttachment : public MessageReceiver {
      *
      * Remove the signal handler that was registered with the given parameters.
      *
-     * For Windows 8 see also these sample file(s):
-     * csharp\FileTransfer\Client\Common\FileTransferBusObject.cs
+     * For Windows 8 see also these sample file(s): @n
+     * csharp/FileTransfer/Client/Common/FileTransferBusObject.cs @n
      *
      * @param receiver       The object receiving the signal.
      * @param signalHandler  The signal handler method.
@@ -839,14 +839,14 @@ class BusAttachment : public MessageReceiver {
      * own key store implementation it must have already called RegisterKeyStoreListener() before
      * calling this function.
      *
-     * See also these sample file(s):
-     * secure\DeskTopSharedKSClient.cc
-     * secure\DeskTopSharedKSService.cc
+     * See also these sample file(s): @n
+     * secure/DeskTopSharedKSClient.cc @n
+     * secure/DeskTopSharedKSService.cc @n
      *
-     * For Windows 8 see also these sample file(s):
-     * cpp\Secure\Secure\MainPage.xaml.cpp
-     * csharp\Secure\Secure\Common\Client.cs
-     * csharp\Secure\Secure\Common\Service.cs
+     * For Windows 8 see also these sample file(s): @n
+     * cpp/Secure/Secure/MainPage.xaml.cpp @n
+     * csharp/Secure/Secure/Common/Client.cs @n
+     * csharp/Secure/Secure/Common/Service.cs @n
      *
      * @param authMechanisms   The authentication mechanism(s) to use for peer-to-peer authentication.
      *                         If this parameter is NULL peer-to-peer authentication is disabled.
@@ -882,49 +882,49 @@ class BusAttachment : public MessageReceiver {
     /**
      * Register an object that will receive bus event notifications.
      *
-     * See also these sample file(s):
-     * basic\basic_client.cc
-     * basic\basic_service.cc
-     * basic\nameChange_client.cc
-     * basic\signalConsumer_client.cc
-     * basic\signal_service.cc
-     * chat\android\jni\Chat_jni.cpp
-     * chat\linux\chat.cc
-     * FileTransfer\FileTransferClient.cc
-     * FileTransfer\FileTransferService.cc
-     * secure\DeskTopSharedKSClient.cc
-     * secure\DeskTopSharedKSService.cc
-     * simple\android\client\jni\Client_jni.cpp
-     * simple\android\service\jni\Service_jni.cpp
-     * windows\chat\ChatLib32\ChatClasses.cpp
-     * windows\Client\Client.cpp
-     * windows\PhotoChat\AllJoynBusLib\AllJoynConnection.cpp
+     * See also these sample file(s): @n
+     * basic/basic_client.cc @n
+     * basic/basic_service.cc @n
+     * basic/nameChange_client.cc @n
+     * basic/signalConsumer_client.cc @n
+     * basic/signal_service.cc @n
+     * chat/android/jni/Chat_jni.cpp @n
+     * chat/linux/chat.cc @n
+     * FileTransfer/FileTransferClient.cc @n
+     * FileTransfer/FileTransferService.cc @n
+     * secure/DeskTopSharedKSClient.cc @n
+     * secure/DeskTopSharedKSService.cc @n
+     * simple/android/client/jni/Client_jni.cpp @n
+     * simple/android/service/jni/Service_jni.cpp @n
+     * windows/chat/ChatLib32/ChatClasses.cpp @n
+     * windows/Client/Client.cpp @n
+     * windows/PhotoChat/AllJoynBusLib/AllJoynConnection.cpp @n
      *
-     * For Windows 8 see also these sample file(s):
-     * cpp\AllJoynStreaming\src\MediaSource.cc
-     * cpp\AllJoynStreaming\tests\csharp\MediaPlayerApp\MainPage.xaml.cs
-     * cpp\AllJoynStreaming\tests\csharp\MediaServerApp\MainPage.xaml.cs
-     * cpp\Basic\Basic_Client\BasicClient\MainPage.xaml.cpp
-     * cpp\Basic\Basic_Service\BasicService\MainPage.xaml.cpp
-     * cpp\Basic\Name_Change_Client\NameChangeClient\MainPage.xaml.cpp
-     * cpp\Basic\Signal_Consumer_Client\SignalConsumerClient\MainPage.xaml.cpp
-     * cpp\Basic\Signal_Service\SignalService\MainPage.xaml.cpp
-     * cpp\Chat\Chat\MainPage.xaml.cpp
-     * cpp\Secure\Secure\MainPage.xaml.cpp
-     * csharp\Basic\Basic_Client\BasicClient\MainPage.xaml.cs
-     * csharp\Basic\Basic_Service\BasicService\MainPage.xaml.cs
-     * csharp\Basic\Name_Change_Client\NameChangeClient\MainPage.xaml.cs
-     * csharp\Basic\Signal_Consumer_Client\SignalConsumerClient\MainPage.xaml.cs
-     * csharp\Basic\Signal_Service\SignalService\MainPage.xaml.cs
-     * csharp\blank\blank\App.xaml.cs
-     * csharp\BusStress\BusStress\Common\ClientBusListener.cs
-     * csharp\BusStress\BusStress\Common\ServiceBusListener.cs
-     * csharp\BusStress\BusStress\Common\StressOperation.cs
-     * csharp\chat\chat\MainPage.xaml.cs
-     * csharp\FileTransfer\Client\App.xaml.cs
-     * csharp\Secure\Secure\Common\Client.cs
-     * csharp\Secure\Secure\Common\Service.cs
-     * csharp\Sessions\Sessions\Common\MyBusListener.cs
+     * For Windows 8 see also these sample file(s): @n
+     * cpp/AllJoynStreaming/src/MediaSource.cc @n
+     * cpp/AllJoynStreaming/tests/csharp/MediaPlayerApp/MainPage.xaml.cs @n
+     * cpp/AllJoynStreaming/tests/csharp/MediaServerApp/MainPage.xaml.cs @n
+     * cpp/Basic/Basic_Client/BasicClient/MainPage.xaml.cpp @n
+     * cpp/Basic/Basic_Service/BasicService/MainPage.xaml.cpp @n
+     * cpp/Basic/Name_Change_Client/NameChangeClient/MainPage.xaml.cpp @n
+     * cpp/Basic/Signal_Consumer_Client/SignalConsumerClient/MainPage.xaml.cpp @n
+     * cpp/Basic/Signal_Service/SignalService/MainPage.xaml.cpp @n
+     * cpp/Chat/Chat/MainPage.xaml.cpp @n
+     * cpp/Secure/Secure/MainPage.xaml.cpp @n
+     * csharp/Basic/Basic_Client/BasicClient/MainPage.xaml.cs @n
+     * csharp/Basic/Basic_Service/BasicService/MainPage.xaml.cs @n
+     * csharp/Basic/Name_Change_Client/NameChangeClient/MainPage.xaml.cs @n
+     * csharp/Basic/Signal_Consumer_Client/SignalConsumerClient/MainPage.xaml.cs @n
+     * csharp/Basic/Signal_Service/SignalService/MainPage.xaml.cs @n
+     * csharp/blank/blank/App.xaml.cs @n
+     * csharp/BusStress/BusStress/Common/ClientBusListener.cs @n
+     * csharp/BusStress/BusStress/Common/ServiceBusListener.cs @n
+     * csharp/BusStress/BusStress/Common/StressOperation.cs @n
+     * csharp/chat/chat/MainPage.xaml.cs @n
+     * csharp/FileTransfer/Client/App.xaml.cs @n
+     * csharp/Secure/Secure/Common/Client.cs @n
+     * csharp/Secure/Secure/Common/Service.cs @n
+     * csharp/Sessions/Sessions/Common/MyBusListener.cs @n
      *
      * @param listener  Object instance that will receive bus event notifications.
      */
@@ -933,10 +933,10 @@ class BusAttachment : public MessageReceiver {
     /**
      * Unregister an object that was previously registered with RegisterBusListener.
      *
-     * For Windows 8 see also these sample file(s):
-     * csharp\BusStress\BusStress\Common\StressOperation.cs
-     * csharp\Secure\Secure\Common\Client.cs
-     * csharp\Secure\Secure\Common\Service.cs
+     * For Windows 8 see also these sample file(s): @n
+     * csharp/BusStress/BusStress/Common/StressOperation.cs @n
+     * csharp/Secure/Secure/Common/Client.cs @n
+     * csharp/Secure/Secure/Common/Service.cs @n
      *
      * @param listener  Object instance to un-register as a listener.
      */
@@ -980,8 +980,8 @@ class BusAttachment : public MessageReceiver {
      * deleted and cannot be recovered. Any passwords or other credentials will need to be reentered
      * when establishing secure peer connections.
      *
-     * For Windows 8 see also these sample file(s):
-     * cpp\Secure\Secure\MainPage.xaml.cpp
+     * For Windows 8 see also these sample file(s): @n
+     * cpp/Secure/Secure/MainPage.xaml.cpp @n
      */
     void ClearKeyStore();
 
@@ -1051,31 +1051,31 @@ class BusAttachment : public MessageReceiver {
      * This method is a shortcut/helper that issues an org.freedesktop.DBus.RequestName method call to the local daemon
      * and interprets the response.
      *
-     * See also these sample file(s):
-     * basic\basic_service.cc
-     * basic\README.windows.txt
-     * basic\signal_service.cc
-     * chat\android\jni\Chat_jni.cpp
-     * chat\linux\chat.cc
-     * FileTransfer\FileTransferService.cc
-     * secure\DeskTopSharedKSService.cc
-     * simple\android\service\jni\Service_jni.cpp
-     * windows\chat\ChatLib32\ChatClasses.cpp
-     * windows\PhotoChat\AllJoynBusLib\AllJoynConnection.cpp
+     * See also these sample file(s): @n
+     * basic/basic_service.cc @n
+     * basic/README.windows.txt @n
+     * basic/signal_service.cc @n
+     * chat/android/jni/Chat_jni.cpp @n
+     * chat/linux/chat.cc @n
+     * FileTransfer/FileTransferService.cc @n
+     * secure/DeskTopSharedKSService.cc @n
+     * simple/android/service/jni/Service_jni.cpp @n
+     * windows/chat/ChatLib32/ChatClasses.cpp @n
+     * windows/PhotoChat/AllJoynBusLib/AllJoynConnection.cpp @n
      *
-     * For Windows 8 see also these sample file(s):
-     * cpp\AllJoynStreaming\tests\csharp\MediaServerApp\MainPage.xaml.cs
-     * cpp\Basic\Basic_Service\BasicService\MainPage.xaml.cpp
-     * cpp\Basic\Signal_Service\SignalService\MainPage.xaml.cpp
-     * cpp\Chat\Chat\MainPage.xaml.cpp
-     * cpp\Secure\Secure\MainPage.xaml.cpp
-     * csharp\Basic\Basic_Service\BasicService\MainPage.xaml.cs
-     * csharp\Basic\Signal_Service\SignalService\MainPage.xaml.cs
-     * csharp\BusStress\BusStress\Common\StressOperation.cs
-     * csharp\chat\chat\MainPage.xaml.cs
-     * csharp\Secure\Secure\Common\Service.cs
-     * csharp\Sessions\Sessions\Common\SessionOperations.cs
-     * csharp\Sessions\Sessions\MainPage.xaml.cs
+     * For Windows 8 see also these sample file(s): @n
+     * cpp/AllJoynStreaming/tests/csharp/MediaServerApp/MainPage.xaml.cs @n
+     * cpp/Basic/Basic_Service/BasicService/MainPage.xaml.cpp @n
+     * cpp/Basic/Signal_Service/SignalService/MainPage.xaml.cpp @n
+     * cpp/Chat/Chat/MainPage.xaml.cpp @n
+     * cpp/Secure/Secure/MainPage.xaml.cpp @n
+     * csharp/Basic/Basic_Service/BasicService/MainPage.xaml.cs @n
+     * csharp/Basic/Signal_Service/SignalService/MainPage.xaml.cs @n
+     * csharp/BusStress/BusStress/Common/StressOperation.cs @n
+     * csharp/chat/chat/MainPage.xaml.cs @n
+     * csharp/Secure/Secure/Common/Service.cs @n
+     * csharp/Sessions/Sessions/Common/SessionOperations.cs @n
+     * csharp/Sessions/Sessions/MainPage.xaml.cs @n
      *
      * @param[in]  requestedName  Well-known name being requested.
      * @param[in]  flags          Bitmask of DBUS_NAME_FLAG_* defines (see DBusStd.h)
@@ -1090,17 +1090,18 @@ class BusAttachment : public MessageReceiver {
     /**
      * Release a previously requested well-known name.
      *
-     * See also these sample file(s):
-     * chat\android\jni\Chat_jni.cpp
-     * simple\android\service\jni\Service_jni.cpp
+     * See also these sample file(s): @n
+     * chat/android/jni/Chat_jni.cpp @n
+     * simple/android/service/jni/Service_jni.cpp @n @n
      *
-     * For Windows 8 see also these sample file(s):
-     * cpp\Chat\Chat\MainPage.xaml.cpp
-     * csharp\BusStress\BusStress\Common\StressOperation.cs
-     * csharp\chat\chat\MainPage.xaml.cs
-     * csharp\Secure\Secure\Common\Service.cs
-     * csharp\Sessions\Sessions\Common\SessionOperations.cs
-     * csharp\Sessions\Sessions\MainPage.xaml.cs
+     * For Windows 8 see also these sample file(s): @n
+     * cpp/Chat/Chat/MainPage.xaml.cpp @n
+     * csharp/BusStress/BusStress/Common/StressOperation.cs @n
+     * csharp/chat/chat/MainPage.xaml.cs @n
+     * csharp/Secure/Secure/Common/Service.cs @n
+     * csharp/Sessions/Sessions/Common/SessionOperations.cs @n
+     * csharp/Sessions/Sessions/MainPage.xaml.cs @n
+     *
      * This method is a shortcut/helper that issues an org.freedesktop.DBus.ReleaseName method call to the local daemon
      * and interprets the response.
      *
@@ -1116,13 +1117,13 @@ class BusAttachment : public MessageReceiver {
     /**
      * Add a DBus match rule.
      *
-     * See also these sample file(s):
-     * basic\signalConsumer_client.cc
+     * See also these sample file(s): @n
+     * basic/signalConsumer_client.cc @n
      *
-     * For Windows 8 see also these sample file(s):
-     * cpp\Basic\Signal_Consumer_Client\SignalConsumerClient\MainPage.xaml.cpp
-     * cpp\Chat\Chat\MainPage.xaml.cpp
-     * csharp\Basic\Signal_Consumer_Client\SignalConsumerClient\MainPage.xaml.cs
+     * For Windows 8 see also these sample file(s): @n
+     * cpp/Basic/Signal_Consumer_Client/SignalConsumerClient/MainPage.xaml.cpp @n
+     * cpp/Chat/Chat/MainPage.xaml.cpp @n
+     * csharp/Basic/Signal_Consumer_Client/SignalConsumerClient/MainPage.xaml.cs @n
      *
      * This method is a shortcut/helper that issues an org.freedesktop.DBus.AddMatch method call to the local daemon.
      *
@@ -1151,32 +1152,32 @@ class BusAttachment : public MessageReceiver {
     /**
      * Advertise the existence of a well-known name to other (possibly disconnected) AllJoyn daemons.
      *
-     * See also these sample file(s):
-     * basic\basic_service.cc
-     * basic\signal_service.cc
-     * chat\android\jni\Chat_jni.cpp
-     * chat\linux\chat.cc
-     * FileTransfer\FileTransferService.cc
-     * secure\DeskTopSharedKSService.cc
-     * simple\android\service\jni\Service_jni.cpp
-     * windows\chat\ChatLib32\ChatClasses.cpp
-     * windows\PhotoChat\AllJoynBusLib\AllJoynConnection.cpp
+     * See also these sample file(s): @n
+     * basic/basic_service.cc @n
+     * basic/signal_service.cc @n
+     * chat/android/jni/Chat_jni.cpp @n
+     * chat/linux/chat.cc @n
+     * FileTransfer/FileTransferService.cc @n
+     * secure/DeskTopSharedKSService.cc @n
+     * simple/android/service/jni/Service_jni.cpp @n
+     * windows/chat/ChatLib32/ChatClasses.cpp @n
+     * windows/PhotoChat/AllJoynBusLib/AllJoynConnection.cpp @n
      *
-     * For Windows 8 see also these sample file(s):
-     * cpp\AllJoynStreaming\src\MediaSource.cc
-     * cpp\AllJoynStreaming\tests\csharp\MediaServerApp\MainPage.xaml.cs
-     * cpp\Basic\Basic_Service\BasicService\MainPage.xaml.cpp
-     * cpp\Basic\Signal_Service\SignalService\MainPage.xaml.cpp
-     * cpp\Chat\Chat\MainPage.xaml.cpp
-     * cpp\Secure\Secure\MainPage.xaml.cpp
-     * csharp\Basic\Basic_Service\BasicService\MainPage.xaml.cs
-     * csharp\Basic\Signal_Service\SignalService\MainPage.xaml.cs
-     * csharp\BusStress\BusStress\Common\StressOperation.cs
-     * csharp\chat\chat\MainPage.xaml.cs
-     * csharp\FileTransfer\Client\App.xaml.cs
-     * csharp\Secure\Secure\Common\Service.cs
-     * csharp\Sessions\Sessions\Common\SessionOperations.cs
-     * javascript\chat\chat\js\alljoyn.js
+     * For Windows 8 see also these sample file(s): @n
+     * cpp/AllJoynStreaming/src/MediaSource.cc @n
+     * cpp/AllJoynStreaming/tests/csharp/MediaServerApp/MainPage.xaml.cs @n
+     * cpp/Basic/Basic_Service/BasicService/MainPage.xaml.cpp @n
+     * cpp/Basic/Signal_Service/SignalService/MainPage.xaml.cpp @n
+     * cpp/Chat/Chat/MainPage.xaml.cpp @n
+     * cpp/Secure/Secure/MainPage.xaml.cpp @n
+     * csharp/Basic/Basic_Service/BasicService/MainPage.xaml.cs @n
+     * csharp/Basic/Signal_Service/SignalService/MainPage.xaml.cs @n
+     * csharp/BusStress/BusStress/Common/StressOperation.cs @n
+     * csharp/chat/chat/MainPage.xaml.cs @n
+     * csharp/FileTransfer/Client/App.xaml.cs @n
+     * csharp/Secure/Secure/Common/Service.cs @n
+     * csharp/Sessions/Sessions/Common/SessionOperations.cs @n
+     * javascript/chat/chat/js/alljoyn.js @n
      *
      * This method is a shortcut/helper that issues an org.alljoyn.Bus.AdvertisedName method call to the local daemon
      * and interprets the response.
@@ -1197,16 +1198,16 @@ class BusAttachment : public MessageReceiver {
      * This method is a shortcut/helper that issues an org.alljoyn.Bus.CancelAdvertiseName method call to the local daemon
      * and interprets the response.
      *
-     * See also these sample file(s):
-     * chat\android\jni\Chat_jni.cpp
-     * simple\android\service\jni\Service_jni.cpp
+     * See also these sample file(s): @n
+     * chat/android/jni/Chat_jni.cpp @n
+     * simple/android/service/jni/Service_jni.cpp @n
      *
-     * For Windows 8 see also these sample file(s):
-     * cpp\AllJoynStreaming\src\MediaSource.cc
-     * cpp\Chat\Chat\MainPage.xaml.cpp
-     * csharp\BusStress\BusStress\Common\StressOperation.cs
-     * csharp\chat\chat\MainPage.xaml.cs
-     * csharp\Sessions\Sessions\Common\SessionOperations.cs
+     * For Windows 8 see also these sample file(s): @n
+     * cpp/AllJoynStreaming/src/MediaSource.cc @n
+     * cpp/Chat/Chat/MainPage.xaml.cpp @n
+     * csharp/BusStress/BusStress/Common/StressOperation.cs @n
+     * csharp/chat/chat/MainPage.xaml.cs @n
+     * csharp/Sessions/Sessions/Common/SessionOperations.cs @n
      *
      * @param[in]  name          A well-known name that was previously advertised via AdvertiseName.
      * @param[in]  transports    Set of transports whose name advertisement will be canceled.
@@ -1221,35 +1222,36 @@ class BusAttachment : public MessageReceiver {
     /**
      * Register interest in a well-known name prefix for the purpose of discovery.
      *
-     * See also these sample file(s):
-     * basic\basic_client.cc
-     * basic\nameChange_client.cc
-     * basic\signalConsumer_client.cc
-     * chat\android\jni\Chat_jni.cpp
-     * chat\linux\chat.cc
-     * FileTransfer\FileTransferClient.cc
-     * secure\DeskTopSharedKSClient.cc
-     * simple\android\client\jni\Client_jni.cpp
-     * windows\chat\ChatLib32\ChatClasses.cpp
-     * windows\Client\Client.cpp
-     * windows\PhotoChat\AllJoynBusLib\AllJoynConnection.cpp
+     * See also these sample file(s): @n
+     * basic/basic_client.cc @n
+     * basic/nameChange_client.cc @n
+     * basic/signalConsumer_client.cc @n
+     * chat/android/jni/Chat_jni.cpp @n
+     * chat/linux/chat.cc @n
+     * FileTransfer/FileTransferClient.cc @n
+     * secure/DeskTopSharedKSClient.cc @n
+     * simple/android/client/jni/Client_jni.cpp @n
+     * windows/chat/ChatLib32/ChatClasses.cpp @n
+     * windows/Client/Client.cpp @n
+     * windows/PhotoChat/AllJoynBusLib/AllJoynConnection.cpp @n
      *
-     * For Windows 8 see also these sample file(s):
-     * cpp\AllJoynStreaming\tests\csharp\MediaPlayerApp\MainPage.xaml.cs
-     * cpp\Basic\Basic_Client\BasicClient\MainPage.xaml.cpp
-     * cpp\Basic\Name_Change_Client\NameChangeClient\MainPage.xaml.cpp
-     * cpp\Basic\Signal_Consumer_Client\SignalConsumerClient\MainPage.xaml.cpp
-     * cpp\Chat\Chat\MainPage.xaml.cpp
-     * cpp\Secure\Secure\MainPage.xaml.cpp
-     * csharp\Basic\Basic_Client\BasicClient\MainPage.xaml.cs
-     * csharp\Basic\Name_Change_Client\NameChangeClient\MainPage.xaml.cs
-     * csharp\Basic\Signal_Consumer_Client\SignalConsumerClient\MainPage.xaml.cs
-     * csharp\blank\blank\MainPage.xaml.cs
-     * csharp\BusStress\BusStress\Common\StressOperation.cs
-     * csharp\chat\chat\MainPage.xaml.cs
-     * csharp\FileTransfer\Client\App.xaml.cs
-     * csharp\Secure\Secure\Common\Client.cs
-     * csharp\Sessions\Sessions\Common\SessionOperations.cs
+     * For Windows 8 see also these sample file(s): @n
+     * cpp/AllJoynStreaming/tests/csharp/MediaPlayerApp/MainPage.xaml.cs @n
+     * cpp/Basic/Basic_Client/BasicClient/MainPage.xaml.cpp @n
+     * cpp/Basic/Name_Change_Client/NameChangeClient/MainPage.xaml.cpp @n
+     * cpp/Basic/Signal_Consumer_Client/SignalConsumerClient/MainPage.xaml.cpp @n
+     * cpp/Chat/Chat/MainPage.xaml.cpp @n
+     * cpp/Secure/Secure/MainPage.xaml.cpp @n
+     * csharp/Basic/Basic_Client/BasicClient/MainPage.xaml.cs @n
+     * csharp/Basic/Name_Change_Client/NameChangeClient/MainPage.xaml.cs @n
+     * csharp/Basic/Signal_Consumer_Client/SignalConsumerClient/MainPage.xaml.cs @n
+     * csharp/blank/blank/MainPage.xaml.cs @n
+     * csharp/BusStress/BusStress/Common/StressOperation.cs @n
+     * csharp/chat/chat/MainPage.xaml.cs @n
+     * csharp/FileTransfer/Client/App.xaml.cs @n
+     * csharp/Secure/Secure/Common/Client.cs @n
+     * csharp/Sessions/Sessions/Common/SessionOperations.cs @n
+     *
      * This method is a shortcut/helper that issues an org.alljoyn.Bus.FindAdvertisedName method call to the local daemon
      * and interprets the response.
      *
@@ -1269,9 +1271,9 @@ class BusAttachment : public MessageReceiver {
      * that issues an org.alljoyn.Bus.CancelFindAdvertisedName method
      * call to the local daemon and interprets the response.
      *
-     * For Windows 8 see also these sample file(s):
-     * csharp\BusStress\BusStress\Common\StressOperation.cs
-     * csharp\Sessions\Sessions\Common\SessionOperations.cs
+     * For Windows 8 see also these sample file(s): @n
+     * csharp/BusStress/BusStress/Common/StressOperation.cs @n
+     * csharp/Sessions/Sessions/Common/SessionOperations.cs @n
      *
      * @param[in]  namePrefix    Well-known name prefix that application is no longer interested in receiving
      *                           BusListener::FoundAdvertisedName notifications about.
@@ -1301,30 +1303,30 @@ class BusAttachment : public MessageReceiver {
      * the original session. The joiner can then create additional sessions with the service by
      * calling JoinSession with these dynamic SessionPort ids.
      *
-     * See also these sample file(s):
-     * basic\basic_service.cc
-     * basic\signal_service.cc
-     * chat\android\jni\Chat_jni.cpp
-     * chat\linux\chat.cc
-     * FileTransfer\FileTransferService.cc
-     * secure\DeskTopSharedKSService.cc
-     * simple\android\service\jni\Service_jni.cpp
-     * windows\chat\ChatLib32\ChatClasses.cpp
-     * windows\PhotoChat\AllJoynBusLib\AllJoynConnection.cpp
+     * See also these sample file(s): @n
+     * basic/basic_service.cc @n
+     * basic/signal_service.cc @n
+     * chat/android/jni/Chat_jni.cpp @n
+     * chat/linux/chat.cc @n
+     * FileTransfer/FileTransferService.cc @n
+     * secure/DeskTopSharedKSService.cc @n
+     * simple/android/service/jni/Service_jni.cpp @n
+     * windows/chat/ChatLib32/ChatClasses.cpp @n
+     * windows/PhotoChat/AllJoynBusLib/AllJoynConnection.cpp @n
      *
-     * For Windows 8 see also these sample file(s):
-     * cpp\AllJoynStreaming\src\MediaSource.cc
-     * cpp\AllJoynStreaming\tests\csharp\MediaServerApp\MainPage.xaml.cs
-     * cpp\Basic\Basic_Service\BasicService\MainPage.xaml.cpp
-     * cpp\Basic\Signal_Service\SignalService\MainPage.xaml.cpp
-     * cpp\Chat\Chat\MainPage.xaml.cpp
-     * cpp\Secure\Secure\MainPage.xaml.cpp
-     * csharp\Basic\Basic_Service\BasicService\MainPage.xaml.cs
-     * csharp\Basic\Signal_Service\SignalService\MainPage.xaml.cs
-     * csharp\BusStress\BusStress\Common\StressOperation.cs
-     * csharp\chat\chat\MainPage.xaml.cs
-     * csharp\Secure\Secure\Common\Service.cs
-     * csharp\Sessions\Sessions\Common\SessionOperations.cs
+     * For Windows 8 see also these sample file(s): @n
+     * cpp/AllJoynStreaming/src/MediaSource.cc @n
+     * cpp/AllJoynStreaming/tests/csharp/MediaServerApp/MainPage.xaml.cs @n
+     * cpp/Basic/Basic_Service/BasicService/MainPage.xaml.cpp @n
+     * cpp/Basic/Signal_Service/SignalService/MainPage.xaml.cpp @n
+     * cpp/Chat/Chat/MainPage.xaml.cpp @n
+     * cpp/Secure/Secure/MainPage.xaml.cpp @n
+     * csharp/Basic/Basic_Service/BasicService/MainPage.xaml.cs @n
+     * csharp/Basic/Signal_Service/SignalService/MainPage.xaml.cs @n
+     * csharp/BusStress/BusStress/Common/StressOperation.cs @n
+     * csharp/chat/chat/MainPage.xaml.cs @n
+     * csharp/Secure/Secure/Common/Service.cs @n
+     * csharp/Sessions/Sessions/Common/SessionOperations.cs @n
      *
      * @param[in,out] sessionPort      SessionPort value to bind or SESSION_PORT_ANY to allow this method
      *                                 to choose an available port. On successful return, this value
@@ -1345,15 +1347,15 @@ class BusAttachment : public MessageReceiver {
     /**
      * Cancel an existing port binding.
      *
-     * See also these sample file(s):
-     * chat\android\jni\Chat_jni.cpp
+     * See also these sample file(s): @n
+     * chat/android/jni/Chat_jni.cpp @n
      *
-     * For Windows 8 see also these sample file(s):
-     * cpp\AllJoynStreaming\src\MediaSource.cc
-     * cpp\Chat\Chat\MainPage.xaml.cpp
-     * csharp\BusStress\BusStress\Common\StressOperation.cs
-     * csharp\chat\chat\MainPage.xaml.cs
-     * csharp\Sessions\Sessions\Common\SessionOperations.cs
+     * For Windows 8 see also these sample file(s): @n
+     * cpp/AllJoynStreaming/src/MediaSource.cc @n
+     * cpp/Chat/Chat/MainPage.xaml.cpp @n
+     * csharp/BusStress/BusStress/Common/StressOperation.cs @n
+     * csharp/chat/chat/MainPage.xaml.cs @n
+     * csharp/Sessions/Sessions/Common/SessionOperations.cs @n
      *
      * @param[in]   sessionPort    Existing session port to be un-bound.
      *
@@ -1369,18 +1371,18 @@ class BusAttachment : public MessageReceiver {
      * This method is a shortcut/helper that issues an org.alljoyn.Bus.JoinSession method call to the local daemon
      * and interprets the response.
      *
-     * See also these sample file(s):
-     * basic\basic_client.cc
-     * basic\nameChange_client.cc
-     * basic\signalConsumer_client.cc
-     * chat\android\jni\Chat_jni.cpp
-     * chat\linux\chat.cc
-     * FileTransfer\FileTransferClient.cc
-     * secure\DeskTopSharedKSClient.cc
-     * simple\android\client\jni\Client_jni.cpp
-     * windows\chat\ChatLib32\ChatClasses.cpp
-     * windows\Client\Client.cpp
-     * windows\PhotoChat\AllJoynBusLib\AllJoynConnection.cpp
+     * See also these sample file(s): @n
+     * basic/basic_client.cc @n
+     * basic/nameChange_client.cc @n
+     * basic/signalConsumer_client.cc @n
+     * chat/android/jni/Chat_jni.cpp @n
+     * chat/linux/chat.cc @n
+     * FileTransfer/FileTransferClient.cc @n
+     * secure/DeskTopSharedKSClient.cc @n
+     * simple/android/client/jni/Client_jni.cpp @n
+     * windows/chat/ChatLib32/ChatClasses.cpp @n
+     * windows/Client/Client.cpp @n
+     * windows/PhotoChat/AllJoynBusLib/AllJoynConnection.cpp @n
      *
      * @param[in]  sessionHost      Bus name of attachment that is hosting the session to be joined.
      * @param[in]  sessionPort      SessionPort of sessionHost to be joined.
@@ -1401,23 +1403,22 @@ class BusAttachment : public MessageReceiver {
      * This method is a shortcut/helper that issues an org.alljoyn.Bus.JoinSession method call to the local daemon
      * and interprets the response.
      *
-     * For Windows 8 see also these sample file(s):
-     * cpp\AllJoynStreaming\src\MediaSink.cc
-     * cpp\AllJoynStreaming\tests\csharp\MediaPlayerApp\MainPage.xaml.cs
-     * cpp\Basic\Basic_Client\BasicClient\MainPage.xaml.cpp
-     * cpp\Basic\Name_Change_Client\NameChangeClient\MainPage.xaml.cpp
-     * cpp\Basic\Signal_Consumer_Client\SignalConsumerClient\MainPage.xaml.cpp
-     * cpp\Chat\Chat\MainPage.xaml.cpp
-     * cpp\Secure\Secure\MainPage.xaml.cpp
-     * csharp\Basic\Basic_Client\BasicClient\MainPage.xaml.cs
-     * csharp\Basic\Name_Change_Client\NameChangeClient\MainPage.xaml.cs
-     * csharp\Basic\Signal_Consumer_Client\SignalConsumerClient\MainPage.xaml.cs
-     * csharp\BusStress\BusStress\Common\StressOperation.cs
-     * csharp\chat\chat\MainPage.xaml.cs
-     * csharp\FileTransfer\Client\Common\FileTransferBusObject.cs
-     * csharp\Secure\Secure\Common\Client.cs
-     * csharp\Sessions\README.txt
-     * csharp\Sessions\Sessions\Common\SessionOperations.cs
+     * For Windows 8 see also these sample file(s): @n
+     * cpp/AllJoynStreaming/src/MediaSink.cc @n
+     * cpp/AllJoynStreaming/tests/csharp/MediaPlayerApp/MainPage.xaml.cs @n
+     * cpp/Basic/Basic_Client/BasicClient/MainPage.xaml.cpp @n
+     * cpp/Basic/Name_Change_Client/NameChangeClient/MainPage.xaml.cpp @n
+     * cpp/Basic/Signal_Consumer_Client/SignalConsumerClient/MainPage.xaml.cpp @n
+     * cpp/Chat/Chat/MainPage.xaml.cpp @n
+     * cpp/Secure/Secure/MainPage.xaml.cpp @n
+     * csharp/Basic/Basic_Client/BasicClient/MainPage.xaml.cs @n
+     * csharp/Basic/Name_Change_Client/NameChangeClient/MainPage.xaml.cs @n
+     * csharp/Basic/Signal_Consumer_Client/SignalConsumerClient/MainPage.xaml.cs @n
+     * csharp/BusStress/BusStress/Common/StressOperation.cs @n
+     * csharp/chat/chat/MainPage.xaml.cs @n
+     * csharp/FileTransfer/Client/Common/FileTransferBusObject.cs @n
+     * csharp/Secure/Secure/Common/Client.cs @n
+     * csharp/Sessions/Sessions/Common/SessionOperations.cs @n
      *
      * This call executes asynchronously. When the JoinSession response is received, the callback will be called.
      *
@@ -1443,8 +1444,9 @@ class BusAttachment : public MessageReceiver {
     /**
      * Set the SessionListener for an existing sessionId.
      *
-     * For Windows 8 see also these sample file(s):
-     * csharp\Sessions\Sessions\Common\SessionOperations.cs
+     * For Windows 8 see also these sample file(s): @n
+     * csharp/Sessions/Sessions/Common/SessionOperations.cs @n
+     *
      * Calling this method will override the listener set by a previous call to SetSessionListener or any
      * listener specified in JoinSession.
      *
@@ -1459,19 +1461,19 @@ class BusAttachment : public MessageReceiver {
      * This method is a shortcut/helper that issues an org.alljoyn.Bus.LeaveSession method call to the local daemon
      * and interprets the response.
      *
-     * See also these sample file(s):
-     * simple\android\client\jni\Client_jni.cpp
-     * simple\android\service\jni\Service_jni.cpp
+     * See also these sample file(s): @n
+     * simple/android/client/jni/Client_jni.cpp @n
+     * simple/android/service/jni/Service_jni.cpp @n
      *
-     * For Windows 8 see also these sample file(s):
-     * cpp\AllJoynStreaming\tests\csharp\MediaPlayerApp\MainPage.xaml.cs
-     * cpp\Basic\Basic_Client\BasicClient\MainPage.xaml.cpp
-     * cpp\Basic\Name_Change_Client\NameChangeClient\MainPage.xaml.cpp
-     * cpp\Chat\Chat\MainPage.xaml.cpp
-     * cpp\Secure\Secure\MainPage.xaml.cpp
-     * csharp\chat\chat\MainPage.xaml.cs
-     * csharp\FileTransfer\Client\Common\FileTransferBusObject.cs
-     * csharp\Sessions\Sessions\Common\SessionOperations.cs
+     * For Windows 8 see also these sample file(s): @n
+     * cpp/AllJoynStreaming/tests/csharp/MediaPlayerApp/MainPage.xaml.cs @n
+     * cpp/Basic/Basic_Client/BasicClient/MainPage.xaml.cpp @n
+     * cpp/Basic/Name_Change_Client/NameChangeClient/MainPage.xaml.cpp @n
+     * cpp/Chat/Chat/MainPage.xaml.cpp @n
+     * cpp/Secure/Secure/MainPage.xaml.cpp @n
+     * csharp/chat/chat/MainPage.xaml.cs @n
+     * csharp/FileTransfer/Client/Common/FileTransferBusObject.cs @n
+     * csharp/Sessions/Sessions/Common/SessionOperations.cs @n
      *
      * @param[in]  sessionId     Session id.
      *
@@ -1502,8 +1504,8 @@ class BusAttachment : public MessageReceiver {
      * Each transport type defines a lower bound on link timeout to avoid defeating transport
      * specific power management algorithms.
      *
-     * See also these sample file(s):
-     * chat\linux\chat.cc
+     * See also these sample file(s): @n
+     * chat/linux/chat.cc @n
      *
      * @param sessionid     Id of session whose link timeout will be modified.
      * @param linkTimeout   [IN/OUT] Max number of seconds that a link can be unresponsive before being
@@ -1534,13 +1536,13 @@ class BusAttachment : public MessageReceiver {
      *
      * This call executes asynchronously. When the JoinSession response is received, the callback will be called.
      *
-     * For Windows 8 see also these sample file(s):
-     * cpp\Chat\Chat\AllJoynObjects.cpp
-     * cpp\Chat\Chat\MainPage.xaml.cpp
-     * cpp\Secure\Secure\AllJoynObjects.cpp
-     * cpp\Secure\Secure\MainPage.xaml.cpp
-     * csharp\Sessions\Sessions\Common\SessionOperations.cs
-     * csharp\Sessions\Sessions\MainPage.xaml.cs
+     * For Windows 8 see also these sample file(s): @n
+     * cpp/Chat/Chat/AllJoynObjects.cpp @n
+     * cpp/Chat/Chat/MainPage.xaml.cpp @n
+     * cpp/Secure/Secure/AllJoynObjects.cpp @n
+     * cpp/Secure/Secure/MainPage.xaml.cpp @n
+     * csharp/Sessions/Sessions/Common/SessionOperations.cs @n
+     * csharp/Sessions/Sessions/MainPage.xaml.cs @n
      *
      * @param[in] sessionid     Id of session whose link timeout will be modified.
      * @param[in] linkTimeout   Max number of seconds that a link can be unresponsive before being
@@ -1636,9 +1638,9 @@ class BusAttachment : public MessageReceiver {
      * compared with the timestamps on messages to calculate the time since a timestamped message
      * was sent.
      *
-     * For Windows 8 see also these sample file(s):
-     * cpp\AllJoynStreaming\common\time.cc
-     * cpp\AllJoynStreaming\src\MediaPacer.cc
+     * For Windows 8 see also these sample file(s): @n
+     * cpp/AllJoynStreaming/common/time.cc @n
+     * cpp/AllJoynStreaming/src/MediaPacer.cc @n
      *
      * @return  The current timestamp in milliseconds.
      */

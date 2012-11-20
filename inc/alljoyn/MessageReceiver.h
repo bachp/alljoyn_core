@@ -44,23 +44,23 @@ class MessageReceiver {
      * MethodHandlers are %MessageReceiver methods which are called by AllJoyn library
      * to forward AllJoyn method_calls to AllJoyn library users.
      *
-     * See also these sample file(s):
-     * basic\basic_service.cc
-     * secure\DeskTopSharedKSService.cc
-     * simple\android\service\jni\Service_jni.cpp
-     * windows\PhotoChat\AllJoynBusLib\AllJoynConnection.cpp
-     * windows\Service\Service.cpp
+     * See also these sample file(s): @n
+     * basic/basic_service.cc @n
+     * secure/DeskTopSharedKSService.cc @n
+     * simple/android/service/jni/Service_jni.cpp @n
+     * windows/PhotoChat/AllJoynBusLib/AllJoynConnection.cpp @n
+     * windows/Service/Service.cpp @n
      *
-     * For Windows 8 see also these sample file(s):
-     * cpp\AllJoynStreaming\src\MediaSource.cc
-     * cpp\Basic\Basic_Service\BasicService\AllJoynObjects.cpp
-     * cpp\Secure\Secure\AllJoynObjects.cpp
-     * csharp\Basic\Basic_Service\BasicService\Common\BasicServiceBusObject.cs
-     * csharp\BusStress\BusStress\Common\ServiceBusObject.cs
-     * csharp\Secure\Secure\Common\SecureBusObject.cs
-     * javascript\Basic\Basic_Service\BasicService\js\AlljoynObjects.js
-     * javascript\Basic\Basic_Service\BasicService\js\script1.js
-     * javascript\Secure\Secure\js\Service.js
+     * For Windows 8 see also these sample file(s): @n
+     * cpp/AllJoynStreaming/src/MediaSource.cc @n
+     * cpp/Basic/Basic_Service/BasicService/AllJoynObjects.cpp @n
+     * cpp/Secure/Secure/AllJoynObjects.cpp @n
+     * csharp/Basic/Basic_Service/BasicService/Common/BasicServiceBusObject.cs @n
+     * csharp/BusStress/BusStress/Common/ServiceBusObject.cs @n
+     * csharp/Secure/Secure/Common/SecureBusObject.cs @n
+     * javascript/Basic/Basic_Service/BasicService/js/AlljoynObjects.js @n
+     * javascript/Basic/Basic_Service/BasicService/js/script1.js @n
+     * javascript/Secure/Secure/js/Service.js @n
      *
      * @param member    Method interface member entry.
      * @param message   The received method call message.
@@ -83,28 +83,28 @@ class MessageReceiver {
      * SignalHandlers are %MessageReceiver methods which are called by AllJoyn library
      * to forward AllJoyn received signals to AllJoyn library users.
      *
-     * See also these sample file(s):
-     * basic\signalConsumer_client.cc
-     * chat\android\jni\Chat_jni.cpp
-     * chat\linux\chat.cc
-     * FileTransfer\FileTransferClient.cc
-     * windows\chat\ChatLib32\ChatClasses.cpp
-     * windows\chat\ChatLib32\ChatClasses.h
-     * windows\PhotoChat\AllJoynBusLib\AllJoynConnection.cpp
-     * windows\PhotoChat\AllJoynBusLib\AllJoynConnection.h
+     * See also these sample file(s): @n
+     * basic/signalConsumer_client.cc @n
+     * chat/android/jni/Chat_jni.cpp @n
+     * chat/linux/chat.cc @n
+     * FileTransfer/FileTransferClient.cc @n
+     * windows/chat/ChatLib32/ChatClasses.cpp @n
+     * windows/chat/ChatLib32/ChatClasses.h @n
+     * windows/PhotoChat/AllJoynBusLib/AllJoynConnection.cpp @n
+     * windows/PhotoChat/AllJoynBusLib/AllJoynConnection.h @n
      *
      * For Windows 8 see also these sample file(s):
-     * cpp\AllJoynStreaming\src\MediaSink.cc
-     * cpp\Basic\Signal_Consumer_Client\SignalConsumerClient\AllJoynObjects.cpp
-     * cpp\Basic\Signal_Consumer_Client\SignalConsumerClient\AllJoynObjects.h
-     * cpp\Chat\Chat\AllJoynObjects.cpp
-     * cpp\Chat\Chat\AllJoynObjects.h
-     * csharp\Basic\Signal_Consumer_Client\SignalConsumerClient\Common\SignalConsumerBusListener.cs
-     * csharp\chat\chat\Common\ChatSessionObject.cs
-     * csharp\FileTransfer\Client\Common\FileTransferBusObject.cs
-     * csharp\Sessions\Sessions\Common\MyBusObject.cs
-     * javascript\Basic\Signal_Consumer_Client\SignalConsumerClient\js\AlljoynObjects.js
-     * javascript\chat\chat\js\alljoyn.js
+     * cpp/AllJoynStreaming/src/MediaSink.cc @n
+     * cpp/Basic/Signal_Consumer_Client/SignalConsumerClient/AllJoynObjects.cpp @n
+     * cpp/Basic/Signal_Consumer_Client/SignalConsumerClient/AllJoynObjects.h @n
+     * cpp/Chat/Chat/AllJoynObjects.cpp @n
+     * cpp/Chat/Chat/AllJoynObjects.h @n
+     * csharp/Basic/Signal_Consumer_Client/SignalConsumerClient/Common/SignalConsumerBusListener.cs @n
+     * csharp/chat/chat/Common/ChatSessionObject.cs @n
+     * csharp/FileTransfer/Client/Common/FileTransferBusObject.cs @n
+     * csharp/Sessions/Sessions/Common/MyBusObject.cs @n
+     * javascript/Basic/Signal_Consumer_Client/SignalConsumerClient/js/AlljoynObjects.js @n
+     * javascript/chat/chat/js/alljoyn.js @n
      *
      * @param member    Method or signal interface member entry.
      * @param srcPath   Object path of signal emitter.
