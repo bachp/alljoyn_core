@@ -321,46 +321,68 @@ _MsgArg::~_MsgArg()
             }
             // Get number of elements in the array
             size_t numElements = objArray->Length;
-            // Check for invalid number of elements
-            if (numElements < 1) {
-                status = ER_BUS_BAD_VALUE;
-                QCC_LogError(status, ("Wildcard element signature cannot be used with an empty array"));
-                break;
-            }
-            // Allocate an array for the msgargs
-            ajn::MsgArg* nativeArgs = new ajn::MsgArg[numElements];
-            // Check for failed allocation
-            if (NULL == nativeArgs) {
-                status = ER_OUT_OF_MEMORY;
-                break;
-            }
-            // Hold on to msgarg scratch to release later
-            ADD_SCRATCH(nativeArgs);
-            for (int i = 0; i < numElements; i++) {
-                // Convert each object in array to alljoyn variant
-                Platform::Object ^ obj = typeCoercer->Coerce(objArray[i], ajn::ALLJOYN_VARIANT, true);
-                // Check for failed conversion
-                if (nullptr == obj) {
-                    status = (::QStatus)((int)ER_BAD_ARG_1 + argIndex - 1);
+            if (numElements > 0) {
+                // Allocate an array for the msgargs
+                ajn::MsgArg* nativeArgs = new ajn::MsgArg[numElements];
+                // Check for failed allocation
+                if (NULL == nativeArgs) {
+                    status = ER_OUT_OF_MEMORY;
                     break;
                 }
-                // Get the wrapped MsgArg from object
-                AllJoyn::MsgArg ^ msgarg = dynamic_cast<AllJoyn::MsgArg ^>(obj);
-                // Check for failed conversion
-                if (nullptr == msgarg) {
-                    status = ER_FAIL;
-                    break;
+                // Hold on to msgarg scratch to release later
+                ADD_SCRATCH(nativeArgs);
+                for (int i = 0; i < numElements; i++) {
+                    // Convert each object in array to alljoyn variant
+                    Platform::Object ^ obj = typeCoercer->Coerce(objArray[i], ajn::ALLJOYN_VARIANT, true);
+                    // Check for failed conversion
+                    if (nullptr == obj) {
+                        status = (::QStatus)((int)ER_BAD_ARG_1 + argIndex - 1);
+                        break;
+                    }
+                    // Get the wrapped MsgArg from object
+                    AllJoyn::MsgArg ^ msgarg = dynamic_cast<AllJoyn::MsgArg ^>(obj);
+                    // Check for failed conversion
+                    if (nullptr == msgarg) {
+                        status = ER_FAIL;
+                        break;
+                    }
+                    // Add a reference to the msgarg
+                    AddObjectReference(NULL, msgarg, &(this->_refMap));
+                    ajn::MsgArg* temp = msgarg->_msgArg;
+                    // Deep copy the msgarg
+                    nativeArgs[i] = *temp;
                 }
-                // Add a reference to the msgarg
-                AddObjectReference(NULL, msgarg, &(this->_refMap));
-                ajn::MsgArg* temp = msgarg->_msgArg;
-                // Deep copy the msgarg
-                nativeArgs[i] = *temp;
+                // Add a reference to this array
+                AddObjectReference(NULL, objArray, &(this->_refMap));
+                elements = nativeArgs;
             }
-            // Add a reference to this array
-            AddObjectReference(NULL, objArray, &(this->_refMap));
-            elements = nativeArgs;
-            const qcc::String sig = elements[0].Signature();
+            qcc::String sig = qcc::String::Empty;
+            if (numElements > 0) {
+                sig = elements[0].Signature();
+            } else {
+                switch (elemSig[0]) {
+                case '(':
+                    for (int i = 0; i < elemSig.size(); i++) {
+                        sig.append(elemSig[i]);
+                        if (elemSig[i] == ')') {
+                            break;
+                        }
+                    }
+                    break;
+
+                case '{':
+                    for (int i = 0; i < elemSig.size(); i++) {
+                        sig.append(elemSig[i]);
+                        if (elemSig[i] == '}') {
+                            break;
+                        }
+                    }
+                    break;
+
+                default:
+                    sig = elemSig[0];
+                }
+            }
             // Check elements all have same type as the first element.
             for (size_t i = 1; i < numElements; i++) {
                 if (!elements[i].HasSignature(sig.c_str())) {
@@ -406,51 +428,49 @@ _MsgArg::~_MsgArg()
             }
             // Get number of elements in array
             size_t numElements = sArray->Length;
-            if (numElements < 1) {
-                status = ER_BUS_BAD_VALUE;
-                break;
-            }
-            // Allocate an array for the msgargs
-            ajn::MsgArg* nativeArgs = new ajn::MsgArg[numElements];
-            // Check for allocation error
-            if (NULL == nativeArgs) {
-                status = ER_OUT_OF_MEMORY;
-                break;
-            }
-            // Hold on to msgarg scratch to release later
-            ADD_SCRATCH(nativeArgs);
-            for (int i = 0; i < numElements; i++) {
-                // Get object from uint64 value
-                Platform::Object ^ o = PropertyValue::CreateUInt64(sArray[i]);
+            if (numElements >  0) {
+                // Allocate an array for the msgargs
+                ajn::MsgArg* nativeArgs = new ajn::MsgArg[numElements];
                 // Check for allocation error
-                if (nullptr == o) {
+                if (NULL == nativeArgs) {
                     status = ER_OUT_OF_MEMORY;
                     break;
                 }
-                // Allocate object array
-                Platform::Array<Platform::Object ^> ^ objArr = ref new Platform::Array<Platform::Object ^>(1);
-                // Check for failed allocation
-                if (nullptr == objArr) {
-                    status = ER_OUT_OF_MEMORY;
-                    break;
+                // Hold on to msgarg scratch to release later
+                ADD_SCRATCH(nativeArgs);
+                for (int i = 0; i < numElements; i++) {
+                    // Get object from uint64 value
+                    Platform::Object ^ o = PropertyValue::CreateUInt64(sArray[i]);
+                    // Check for allocation error
+                    if (nullptr == o) {
+                        status = ER_OUT_OF_MEMORY;
+                        break;
+                    }
+                    // Allocate object array
+                    Platform::Array<Platform::Object ^> ^ objArr = ref new Platform::Array<Platform::Object ^>(1);
+                    // Check for failed allocation
+                    if (nullptr == objArr) {
+                        status = ER_OUT_OF_MEMORY;
+                        break;
+                    }
+                    // Pack object
+                    objArr[0] = o;
+                    // Create handle type MsgArg
+                    AllJoyn::MsgArg ^ msgarg = ref new AllJoyn::MsgArg("h", objArr);
+                    // Check for failed allocation
+                    if (nullptr == msgarg) {
+                        status = ER_OUT_OF_MEMORY;
+                        break;
+                    }
+                    // Add reference to new msgarg
+                    AddObjectReference(NULL, msgarg, &(this->_refMap));
+                    ajn::MsgArg* temp = msgarg->_msgArg;
+                    // Deep copy the msgarg
+                    nativeArgs[i] = *temp;
                 }
-                // Pack object
-                objArr[0] = o;
-                // Create handle type MsgArg
-                AllJoyn::MsgArg ^ msgarg = ref new AllJoyn::MsgArg("h", objArr);
-                // Check for failed allocation
-                if (nullptr == msgarg) {
-                    status = ER_OUT_OF_MEMORY;
-                    break;
-                }
-                // Add reference to new msgarg
-                AddObjectReference(NULL, msgarg, &(this->_refMap));
-                ajn::MsgArg* temp = msgarg->_msgArg;
-                // Deep copy the msgarg
-                nativeArgs[i] = *temp;
+                elements = nativeArgs;
             }
-            elements = nativeArgs;
-            const qcc::String sig = elements[0].Signature();
+            const qcc::String sig = elemSig[0];
             if (status == ER_OK) {
                 // Set the elements of the array
                 status = arry->v_array.SetElements(sig.c_str(), numElements, elements);
@@ -490,45 +510,42 @@ _MsgArg::~_MsgArg()
             }
             // Get number of elements in array
             size_t numElements = sArray->Length;
-            // Check for invalid number of elements
-            if (numElements < 1) {
-                status = ER_BUS_BAD_VALUE;
-                break;
-            }
-            // Allocate an array for the msgargs
-            ajn::MsgArg* nativeArgs = new ajn::MsgArg[numElements];
-            // Check for allocation error
-            if (NULL == nativeArgs) {
-                status = ER_OUT_OF_MEMORY;
-                break;
-            }
-            // Hold on to msgarg scratch to release later
-            ADD_SCRATCH(nativeArgs);
-            for (int i = 0; i < numElements; i++) {
-                // Allocate an object array
-                Platform::Array<Platform::Object ^> ^ objArr = ref new Platform::Array<Platform::Object ^>(1);
+            if (numElements > 0) {
+                // Allocate an array for the msgargs
+                ajn::MsgArg* nativeArgs = new ajn::MsgArg[numElements];
                 // Check for allocation error
-                if (nullptr == objArr) {
+                if (NULL == nativeArgs) {
                     status = ER_OUT_OF_MEMORY;
                     break;
                 }
-                // Pack the string
-                objArr[0] = sArray[i];
-                // Create message from signature type
-                AllJoyn::MsgArg ^ msgarg = ref new AllJoyn::MsgArg((elemSig[0] == 's') ? "s" : (elemSig[0] == 'o') ? "o" : "g", objArr);
-                // Check for allocation error
-                if (nullptr == msgarg) {
-                    status = ER_OUT_OF_MEMORY;
-                    break;
+                // Hold on to msgarg scratch to release later
+                ADD_SCRATCH(nativeArgs);
+                for (int i = 0; i < numElements; i++) {
+                    // Allocate an object array
+                    Platform::Array<Platform::Object ^> ^ objArr = ref new Platform::Array<Platform::Object ^>(1);
+                    // Check for allocation error
+                    if (nullptr == objArr) {
+                        status = ER_OUT_OF_MEMORY;
+                        break;
+                    }
+                    // Pack the string
+                    objArr[0] = sArray[i];
+                    // Create message from signature type
+                    AllJoyn::MsgArg ^ msgarg = ref new AllJoyn::MsgArg((elemSig[0] == 's') ? "s" : (elemSig[0] == 'o') ? "o" : "g", objArr);
+                    // Check for allocation error
+                    if (nullptr == msgarg) {
+                        status = ER_OUT_OF_MEMORY;
+                        break;
+                    }
+                    // Add object reference to msgarg
+                    AddObjectReference(NULL, msgarg, &(this->_refMap));
+                    ajn::MsgArg* temp = msgarg->_msgArg;
+                    // Deep copy the msgarg
+                    nativeArgs[i] = *temp;
                 }
-                // Add object reference to msgarg
-                AddObjectReference(NULL, msgarg, &(this->_refMap));
-                ajn::MsgArg* temp = msgarg->_msgArg;
-                // Deep copy the msgarg
-                nativeArgs[i] = *temp;
+                elements = nativeArgs;
             }
-            elements = nativeArgs;
-            const qcc::String sig = elements[0].Signature();
+            const qcc::String sig = elemSig[0];
             if (status == ER_OK) {
                 // Set the elements of the array
                 status = arry->v_array.SetElements(sig.c_str(), numElements, elements);
@@ -557,7 +574,7 @@ _MsgArg::~_MsgArg()
                 // Get the boolean array
                 Platform::Array<Platform::Boolean> ^ objArray = boxArray->Value;
                 // Check for invalid array length
-                if (nullptr == objArray || objArray->Length < 1) {
+                if (nullptr == objArray) {
                     status = ER_FAIL;
                     break;
                 }
@@ -596,7 +613,7 @@ _MsgArg::~_MsgArg()
                 // Get the double array
                 Platform::Array<float64> ^ objArray = boxArray->Value;
                 // Check for invalid array length
-                if (nullptr == objArray || objArray->Length < 1) {
+                if (nullptr == objArray) {
                     status = ER_FAIL;
                     break;
                 }
@@ -635,7 +652,7 @@ _MsgArg::~_MsgArg()
                 // Get the int32 array
                 Platform::Array<int32> ^ objArray = boxArray->Value;
                 // Check for invalid array length
-                if (nullptr == objArray || objArray->Length < 1) {
+                if (nullptr == objArray) {
                     status = ER_FAIL;
                     break;
                 }
@@ -674,7 +691,7 @@ _MsgArg::~_MsgArg()
                 // Get the int16 array
                 Platform::Array<int16> ^ objArray = boxArray->Value;
                 // Check for invalid array length
-                if (nullptr == objArray || objArray->Length < 1) {
+                if (nullptr == objArray) {
                     status = ER_FAIL;
                     break;
                 }
@@ -713,7 +730,7 @@ _MsgArg::~_MsgArg()
                 // Get the uint16 array
                 Platform::Array<uint16> ^ objArray = boxArray->Value;
                 // Check for invalid array length
-                if (nullptr == objArray || objArray->Length < 1) {
+                if (nullptr == objArray) {
                     status = ER_FAIL;
                     break;
                 }
@@ -752,7 +769,7 @@ _MsgArg::~_MsgArg()
                 // Get uint64 array
                 Platform::Array<uint64> ^ objArray = boxArray->Value;
                 // Check for invalid array length
-                if (nullptr == objArray || objArray->Length < 1) {
+                if (nullptr == objArray) {
                     status = ER_FAIL;
                     break;
                 }
@@ -791,7 +808,7 @@ _MsgArg::~_MsgArg()
                 // Get uint32 array
                 Platform::Array<uint32> ^ objArray = boxArray->Value;
                 // Check for invalid array length
-                if (nullptr == objArray || objArray->Length < 1) {
+                if (nullptr == objArray) {
                     status = ER_FAIL;
                     break;
                 }
@@ -830,7 +847,7 @@ _MsgArg::~_MsgArg()
                 // Get int64 array
                 Platform::Array<int64> ^ objArray = boxArray->Value;
                 // Check for invalid array length
-                if (nullptr == objArray || objArray->Length < 1) {
+                if (nullptr == objArray) {
                     status = ER_FAIL;
                     break;
                 }
@@ -869,7 +886,7 @@ _MsgArg::~_MsgArg()
                 // Get the byte array
                 Platform::Array<uint8> ^ objArray = boxArray->Value;
                 // Check for invalid array length
-                if (nullptr == objArray || objArray->Length < 1) {
+                if (nullptr == objArray) {
                     status = ER_FAIL;
                     break;
                 }
@@ -905,7 +922,7 @@ _MsgArg::~_MsgArg()
     size_t numArgs = 0;
 
     // Check for a balanced complete type
-    while (sigLen-- && argIndex < args->Length && maxCompleteTypes--) {
+    while (sigLen-- && (argIndex < args->Length) && maxCompleteTypes--) {
         switch (*signature++) {
         case '*':
         {
