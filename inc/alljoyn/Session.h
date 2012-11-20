@@ -77,40 +77,40 @@ class SessionOpts {
     /**
      * Construct a SessionOpts with specific parameters.
      *
-     * For Windows 8 see also these sample file(s):
-     * cpp\AllJoynStreaming\src\MediaSink.cc
-     * cpp\AllJoynStreaming\src\MediaSource.cc
-     * cpp\AllJoynStreaming\tests\csharp\MediaPlayerApp\MainPage.xaml.cs
-     * cpp\AllJoynStreaming\tests\csharp\MediaServerApp\MainPage.xaml.cs
-     * cpp\AllJoynStreaming\tests\javascript\PlayerApp\js\alljoyn.js
-     * cpp\AllJoynStreaming\tests\javascript\ServerApp\js\alljoyn.js
-     * cpp\Basic\Basic_Client\BasicClient\MainPage.xaml.cpp
-     * cpp\Basic\Basic_Service\BasicService\MainPage.xaml.cpp
-     * cpp\Basic\Name_Change_Client\NameChangeClient\MainPage.xaml.cpp
-     * cpp\Basic\Signal_Consumer_Client\SignalConsumerClient\MainPage.xaml.cpp
-     * cpp\Basic\Signal_Service\SignalService\MainPage.xaml.cpp
-     * cpp\Chat\Chat\MainPage.xaml.cpp
-     * cpp\Secure\Secure\MainPage.xaml.cpp
-     * csharp\Basic\Basic_Client\BasicClient\MainPage.xaml.cs
-     * csharp\Basic\Basic_Service\BasicService\MainPage.xaml.cs
-     * csharp\Basic\Name_Change_Client\NameChangeClient\MainPage.xaml.cs
-     * csharp\Basic\Signal_Consumer_Client\SignalConsumerClient\MainPage.xaml.cs
-     * csharp\Basic\Signal_Service\SignalService\MainPage.xaml.cs
-     * csharp\BusStress\BusStress\Common\StressOperation.cs
-     * csharp\chat\chat\MainPage.xaml.cs
-     * csharp\FileTransfer\Client\Common\FileTransferBusObject.cs
-     * csharp\Secure\Secure\Common\Client.cs
-     * csharp\Secure\Secure\Common\Service.cs
-     * csharp\Sessions\Sessions\MainPage.xaml.cs
-     * javascript\Basic\Basic_Client\BasicClient\js\BasicClient.js
-     * javascript\Basic\Basic_Service\BasicService\js\BasicService.js
-     * javascript\Basic\Name_Change_Client\NameChangeClient\js\NameChangeClient.js
-     * javascript\Basic\Signal_Consumer_Client\SignalConsumerClient\js\SignalConsumerClient.js
-     * javascript\Basic\Signal_Service\SignalService\js\SignalService.js
-     * javascript\chat\chat\js\alljoyn.js
-     * javascript\README.txt
-     * javascript\Secure\Secure\js\Client.js
-     * javascript\Secure\Secure\js\Service.js
+     * For Windows 8 see also these sample file(s): @n
+     * cpp/AllJoynStreaming/src/MediaSink.cc @n
+     * cpp/AllJoynStreaming/src/MediaSource.cc @n
+     * cpp/AllJoynStreaming/tests/csharp/MediaPlayerApp/MainPage.xaml.cs @n
+     * cpp/AllJoynStreaming/tests/csharp/MediaServerApp/MainPage.xaml.cs @n
+     * cpp/AllJoynStreaming/tests/javascript/PlayerApp/js/alljoyn.js @n
+     * cpp/AllJoynStreaming/tests/javascript/ServerApp/js/alljoyn.js @n
+     * cpp/Basic/Basic_Client/BasicClient/MainPage.xaml.cpp @n
+     * cpp/Basic/Basic_Service/BasicService/MainPage.xaml.cpp @n
+     * cpp/Basic/Name_Change_Client/NameChangeClient/MainPage.xaml.cpp @n
+     * cpp/Basic/Signal_Consumer_Client/SignalConsumerClient/MainPage.xaml.cpp @n
+     * cpp/Basic/Signal_Service/SignalService/MainPage.xaml.cpp @n
+     * cpp/Chat/Chat/MainPage.xaml.cpp @n
+     * cpp/Secure/Secure/MainPage.xaml.cpp @n
+     * csharp/Basic/Basic_Client/BasicClient/MainPage.xaml.cs @n
+     * csharp/Basic/Basic_Service/BasicService/MainPage.xaml.cs @n
+     * csharp/Basic/Name_Change_Client/NameChangeClient/MainPage.xaml.cs @n
+     * csharp/Basic/Signal_Consumer_Client/SignalConsumerClient/MainPage.xaml.cs @n
+     * csharp/Basic/Signal_Service/SignalService/MainPage.xaml.cs @n
+     * csharp/BusStress/BusStress/Common/StressOperation.cs @n
+     * csharp/chat/chat/MainPage.xaml.cs @n
+     * csharp/FileTransfer/Client/Common/FileTransferBusObject.cs @n
+     * csharp/Secure/Secure/Common/Client.cs @n
+     * csharp/Secure/Secure/Common/Service.cs @n
+     * csharp/Sessions/Sessions/MainPage.xaml.cs @n
+     * javascript/Basic/Basic_Client/BasicClient/js/BasicClient.js @n
+     * javascript/Basic/Basic_Service/BasicService/js/BasicService.js @n
+     * javascript/Basic/Name_Change_Client/NameChangeClient/js/NameChangeClient.js @n
+     * javascript/Basic/Signal_Consumer_Client/SignalConsumerClient/js/SignalConsumerClient.js @n
+     * javascript/Basic/Signal_Service/SignalService/js/SignalService.js @n
+     * javascript/chat/chat/js/alljoyn.js @n
+     * javascript/README.txt @n
+     * javascript/Secure/Secure/js/Client.js @n
+     * javascript/Secure/Secure/js/Service.js @n
      *
      * @param traffic       Type of traffic.
      * @param isMultipoint  true iff session supports multipoint (greater than two endpoints).

@@ -71,66 +71,66 @@ class BusObject : public MessageReceiver {
     /**
      * %BusObject constructor.
      *
-     * See also these sample file(s):
-     * basic\basic_service.cc
-     * basic\signalConsumer_client.cc
-     * basic\signal_service.cc
-     * chat\android\jni\Chat_jni.cpp
-     * chat\linux\chat.cc
-     * FileTransfer\FileTransferClient.cc
-     * FileTransfer\FileTransferService.cc
-     * secure\DeskTopSharedKSService.cc
-     * simple\android\client\jni\Client_jni.cpp
-     * simple\android\service\jni\Service_jni.cpp
-     * windows\chat\ChatLib32\ChatClasses.cpp
-     * windows\PhotoChat\AllJoynBusLib\AllJoynConnection.cpp
-     * windows\PhotoChat\AllJoynBusLib\AllJoynConnection.h
-     * windows\Service\Service.cpp
+     * See also these sample file(s): @n
+     * basic/basic_service.cc @n
+     * basic/signalConsumer_client.cc @n
+     * basic/signal_service.cc @n
+     * chat/android/jni/Chat_jni.cpp @n
+     * chat/linux/chat.cc @n
+     * FileTransfer/FileTransferClient.cc @n
+     * FileTransfer/FileTransferService.cc @n
+     * secure/DeskTopSharedKSService.cc @n
+     * simple/android/client/jni/Client_jni.cpp @n
+     * simple/android/service/jni/Service_jni.cpp @n
+     * windows/chat/ChatLib32/ChatClasses.cpp @n
+     * windows/PhotoChat/AllJoynBusLib/AllJoynConnection.cpp @n
+     * windows/PhotoChat/AllJoynBusLib/AllJoynConnection.h @n
+     * windows/Service/Service.cpp @n
      *
-     * For Windows 8 see also these sample file(s):
-     * cpp\AllJoynStreaming\src\MediaSink.cc
-     * cpp\AllJoynStreaming\src\MediaSource.cc
-     * cpp\AllJoynStreaming\tests\csharp\MediaServerApp\MainPage.xaml.cs
-     * cpp\AllJoynStreaming\tests\javascript\ServerApp\js\alljoyn.js
-     * cpp\Basic\Basic_Client\BasicClient\MainPage.xaml.cpp
-     * cpp\Basic\Basic_Service\BasicService\AllJoynObjects.cpp
-     * cpp\Basic\Basic_Service\BasicService\MainPage.xaml.cpp
-     * cpp\Basic\Name_Change_Client\NameChangeClient\MainPage.xaml.cpp
-     * cpp\Basic\Signal_Service\SignalService\AllJoynObjects.cpp
-     * cpp\Basic\Signal_Service\SignalService\MainPage.xaml.cpp
-     * cpp\Chat\Chat\AllJoynObjects.cpp
-     * cpp\Chat\Chat\MainPage.xaml.cpp
-     * cpp\Secure\Secure\AllJoynObjects.cpp
-     * cpp\Secure\Secure\MainPage.xaml.cpp
-     * csharp\Basic\Basic_Client\BasicClient\MainPage.xaml.cs
-     * csharp\Basic\Basic_Service\BasicService\Common\BasicServiceBusObject.cs
-     * csharp\Basic\Basic_Service\BasicService\MainPage.xaml.cs
-     * csharp\Basic\Name_Change_Client\NameChangeClient\MainPage.xaml.cs
-     * csharp\Basic\Signal_Service\SignalService\Common\SignalServiceBusObject.cs
-     * csharp\Basic\Signal_Service\SignalService\MainPage.xaml.cs
-     * csharp\BusStress\BusStress\Common\ServiceBusObject.cs
-     * csharp\BusStress\BusStress\Common\StressOperation.cs
-     * csharp\chat\chat\Common\ChatSessionObject.cs
-     * csharp\chat\chat\MainPage.xaml.cs
-     * csharp\FileTransfer\Client\Common\FileTransferBusObject.cs
-     * csharp\FileTransfer\Client\MainPage.xaml.cs
-     * csharp\Secure\Secure\Common\Client.cs
-     * csharp\Secure\Secure\Common\SecureBusObject.cs
-     * csharp\Secure\Secure\Common\Service.cs
-     * csharp\Sessions\Sessions\Common\MyBusObject.cs
-     * csharp\Sessions\Sessions\Common\SessionOperations.cs
-     * javascript\Basic\Basic_Client\BasicClient\js\AlljoynObjects.js
-     * javascript\Basic\Basic_Client\BasicClient\js\BasicClient.js
-     * javascript\Basic\Basic_Service\BasicService\js\AlljoynObjects.js
-     * javascript\Basic\Basic_Service\BasicService\js\BasicService.js
-     * javascript\Basic\Basic_Service\BasicService\js\script1.js
-     * javascript\Basic\Name_Change_Client\NameChangeClient\js\AlljoynObjects.js
-     * javascript\Basic\Name_Change_Client\NameChangeClient\js\NameChangeClient.js
-     * javascript\Basic\Signal_Service\SignalService\js\AlljoynObjects.js
-     * javascript\Basic\Signal_Service\SignalService\js\SignalService.js
-     * javascript\chat\chat\js\alljoyn.js
-     * javascript\Secure\Secure\js\Client.js
-     * javascript\Secure\Secure\js\Service.js
+     * For Windows 8 see also these sample file(s): @n
+     * cpp/AllJoynStreaming/src/MediaSink.cc @n
+     * cpp/AllJoynStreaming/src/MediaSource.cc @n
+     * cpp/AllJoynStreaming/tests/csharp/MediaServerApp/MainPage.xaml.cs @n
+     * cpp/AllJoynStreaming/tests/javascript/ServerApp/js/alljoyn.js @n
+     * cpp/Basic/Basic_Client/BasicClient/MainPage.xaml.cpp @n
+     * cpp/Basic/Basic_Service/BasicService/AllJoynObjects.cpp @n
+     * cpp/Basic/Basic_Service/BasicService/MainPage.xaml.cpp @n
+     * cpp/Basic/Name_Change_Client/NameChangeClient/MainPage.xaml.cpp @n
+     * cpp/Basic/Signal_Service/SignalService/AllJoynObjects.cpp @n
+     * cpp/Basic/Signal_Service/SignalService/MainPage.xaml.cpp @n
+     * cpp/Chat/Chat/AllJoynObjects.cpp @n
+     * cpp/Chat/Chat/MainPage.xaml.cpp @n
+     * cpp/Secure/Secure/AllJoynObjects.cpp @n
+     * cpp/Secure/Secure/MainPage.xaml.cpp @n
+     * csharp/Basic/Basic_Client/BasicClient/MainPage.xaml.cs @n
+     * csharp/Basic/Basic_Service/BasicService/Common/BasicServiceBusObject.cs @n
+     * csharp/Basic/Basic_Service/BasicService/MainPage.xaml.cs @n
+     * csharp/Basic/Name_Change_Client/NameChangeClient/MainPage.xaml.cs @n
+     * csharp/Basic/Signal_Service/SignalService/Common/SignalServiceBusObject.cs @n
+     * csharp/Basic/Signal_Service/SignalService/MainPage.xaml.cs @n
+     * csharp/BusStress/BusStress/Common/ServiceBusObject.cs @n
+     * csharp/BusStress/BusStress/Common/StressOperation.cs @n
+     * csharp/chat/chat/Common/ChatSessionObject.cs @n
+     * csharp/chat/chat/MainPage.xaml.cs @n
+     * csharp/FileTransfer/Client/Common/FileTransferBusObject.cs @n
+     * csharp/FileTransfer/Client/MainPage.xaml.cs @n
+     * csharp/Secure/Secure/Common/Client.cs @n
+     * csharp/Secure/Secure/Common/SecureBusObject.cs @n
+     * csharp/Secure/Secure/Common/Service.cs @n
+     * csharp/Sessions/Sessions/Common/MyBusObject.cs @n
+     * csharp/Sessions/Sessions/Common/SessionOperations.cs @n
+     * javascript/Basic/Basic_Client/BasicClient/js/AlljoynObjects.js @n
+     * javascript/Basic/Basic_Client/BasicClient/js/BasicClient.js @n
+     * javascript/Basic/Basic_Service/BasicService/js/AlljoynObjects.js @n
+     * javascript/Basic/Basic_Service/BasicService/js/BasicService.js @n
+     * javascript/Basic/Basic_Service/BasicService/js/script1.js @n
+     * javascript/Basic/Name_Change_Client/NameChangeClient/js/AlljoynObjects.js @n
+     * javascript/Basic/Name_Change_Client/NameChangeClient/js/NameChangeClient.js @n
+     * javascript/Basic/Signal_Service/SignalService/js/AlljoynObjects.js @n
+     * javascript/Basic/Signal_Service/SignalService/js/SignalService.js @n
+     * javascript/chat/chat/js/alljoyn.js @n
+     * javascript/Secure/Secure/js/Client.js @n
+     * javascript/Secure/Secure/js/Service.js @n
      *
      * @param path           Object path for object.
      * @param isPlaceholder  Place-holder objects are created by the bus itself and serve only
@@ -194,20 +194,20 @@ class BusObject : public MessageReceiver {
     /**
      * Reply to a method call.
      *
-     * See also these sample file(s):
-     * basic\basic_service.cc
-     * secure\DeskTopSharedKSService.cc
-     * simple\android\service\jni\Service_jni.cpp
-     * windows\PhotoChat\AllJoynBusLib\AllJoynConnection.cpp
-     * windows\Service\Service.cpp
+     * See also these sample file(s): @n
+     * basic/basic_service.cc @n
+     * secure/DeskTopSharedKSService.cc @n
+     * simple/android/service/jni/Service_jni.cpp @n
+     * windows/PhotoChat/AllJoynBusLib/AllJoynConnection.cpp @n
+     * windows/Service/Service.cpp
      *
-     * For Windows 8 see also these sample file(s):
-     * cpp\AllJoynStreaming\src\MediaSource.cc
-     * cpp\Basic\Basic_Service\BasicService\AllJoynObjects.cpp
-     * cpp\Secure\Secure\AllJoynObjects.cpp
-     * csharp\Basic\Basic_Service\BasicService\Common\BasicServiceBusObject.cs
-     * csharp\BusStress\BusStress\Common\ServiceBusObject.cs
-     * csharp\Secure\Secure\Common\SecureBusObject.cs
+     * For Windows 8 see also these sample file(s): @n
+     * cpp/AllJoynStreaming/src/MediaSource.cc @n
+     * cpp/Basic/Basic_Service/BasicService/AllJoynObjects.cpp @n
+     * cpp/Secure/Secure/AllJoynObjects.cpp @n
+     * csharp/Basic/Basic_Service/BasicService/Common/BasicServiceBusObject.cs @n
+     * csharp/BusStress/BusStress/Common/ServiceBusObject.cs @n
+     * csharp/Secure/Secure/Common/SecureBusObject.cs
      *
      * @param msg      The method call message
      * @param args     The reply arguments (can be NULL)
@@ -222,20 +222,20 @@ class BusObject : public MessageReceiver {
     /**
      * Reply to a method call with an error message.
      *
-     * See also these sample file(s):
-     * basic\basic_service.cc
-     * secure\DeskTopSharedKSService.cc
-     * simple\android\service\jni\Service_jni.cpp
-     * windows\PhotoChat\AllJoynBusLib\AllJoynConnection.cpp
-     * windows\Service\Service.cpp
+     * See also these sample file(s): @n
+     * basic/basic_service.cc @n
+     * secure/DeskTopSharedKSService.cc @n
+     * simple/android/service/jni/Service_jni.cpp @n
+     * windows/PhotoChat/AllJoynBusLib/AllJoynConnection.cpp @n
+     * windows/Service/Service.cpp @n
      *
-     * For Windows 8 see also these sample file(s):
-     * cpp\AllJoynStreaming\src\MediaSource.cc
-     * cpp\Basic\Basic_Service\BasicService\AllJoynObjects.cpp
-     * cpp\Secure\Secure\AllJoynObjects.cpp
-     * csharp\Basic\Basic_Service\BasicService\Common\BasicServiceBusObject.cs
-     * csharp\BusStress\BusStress\Common\ServiceBusObject.cs
-     * csharp\Secure\Secure\Common\SecureBusObject.cs
+     * For Windows 8 see also these sample file(s): @n
+     * cpp/AllJoynStreaming/src/MediaSource.cc @n
+     * cpp/Basic/Basic_Service/BasicService/AllJoynObjects.cpp @n
+     * cpp/Secure/Secure/AllJoynObjects.cpp @n
+     * csharp/Basic/Basic_Service/BasicService/Common/BasicServiceBusObject.cs @n
+     * csharp/BusStress/BusStress/Common/ServiceBusObject.cs @n
+     * csharp/Secure/Secure/Common/SecureBusObject.cs
      *
      * @param msg              The method call message
      * @param error            The name of the error
@@ -250,20 +250,20 @@ class BusObject : public MessageReceiver {
     /**
      * Reply to a method call with an error message.
      *
-     * See also these sample file(s):
-     * basic\basic_service.cc
-     * secure\DeskTopSharedKSService.cc
-     * simple\android\service\jni\Service_jni.cpp
-     * windows\PhotoChat\AllJoynBusLib\AllJoynConnection.cpp
-     * windows\Service\Service.cpp
+     * See also these sample file(s): @n
+     * basic/basic_service.cc @n
+     * secure/DeskTopSharedKSService.cc @n
+     * simple/android/service/jni/Service_jni.cpp @n
+     * windows/PhotoChat/AllJoynBusLib/AllJoynConnection.cpp @n
+     * windows/Service/Service.cpp @n
      *
-     * For Windows 8 see also these sample file(s):
-     * cpp\AllJoynStreaming\src\MediaSource.cc
-     * cpp\Basic\Basic_Service\BasicService\AllJoynObjects.cpp
-     * cpp\Secure\Secure\AllJoynObjects.cpp
-     * csharp\Basic\Basic_Service\BasicService\Common\BasicServiceBusObject.cs
-     * csharp\BusStress\BusStress\Common\ServiceBusObject.cs
-     * csharp\Secure\Secure\Common\SecureBusObject.cs
+     * For Windows 8 see also these sample file(s): @n
+     * cpp/AllJoynStreaming/src/MediaSource.cc @n
+     * cpp/Basic/Basic_Service/BasicService/AllJoynObjects.cpp @n
+     * cpp/Secure/Secure/AllJoynObjects.cpp @n
+     * csharp/Basic/Basic_Service/BasicService/Common/BasicServiceBusObject.cs @n
+     * csharp/BusStress/BusStress/Common/ServiceBusObject.cs @n
+     * csharp/Secure/Secure/Common/SecureBusObject.cs
      *
      * @param msg        The method call message
      * @param status     The status code for the error
@@ -277,41 +277,41 @@ class BusObject : public MessageReceiver {
     /**
      * Send a signal.
      *
-     * See also these sample file(s):
-     * basic\signalConsumer_client.cc
-     * basic\signal_service.cc
-     * chat\android\jni\Chat_jni.cpp
-     * chat\linux\chat.cc
-     * FileTransfer\FileTransferClient.cc
-     * FileTransfer\FileTransferService.cc
-     * windows\chat\ChatLib32\ChatClasses.cpp
-     * windows\chat\ChatLib32\ChatClasses.h
-     * windows\chat\ChatLib32\ChatLib32.cpp
-     * windows\PhotoChat\AllJoynBusLib\AllJoynBusLib.cpp
-     * windows\PhotoChat\AllJoynBusLib\AllJoynConnection.cpp
-     * windows\PhotoChat\AllJoynBusLib\AllJoynConnection.h
+     * See also these sample file(s): @n
+     * basic/signalConsumer_client.cc @n
+     * basic/signal_service.cc @n
+     * chat/android/jni/Chat_jni.cpp @n
+     * chat/linux/chat.cc @n
+     * FileTransfer/FileTransferClient.cc @n
+     * FileTransfer/FileTransferService.cc @n
+     * windows/chat/ChatLib32/ChatClasses.cpp @n
+     * windows/chat/ChatLib32/ChatClasses.h @n
+     * windows/chat/ChatLib32/ChatLib32.cpp @n
+     * windows/PhotoChat/AllJoynBusLib/AllJoynBusLib.cpp @n
+     * windows/PhotoChat/AllJoynBusLib/AllJoynConnection.cpp @n
+     * windows/PhotoChat/AllJoynBusLib/AllJoynConnection.h
      *
-     * For Windows 8 see also these sample file(s):
-     * cpp\AllJoynStreaming\src\MediaSource.cc
-     * cpp\Basic\Signal_Consumer_Client\SignalConsumerClient\AllJoynObjects.cpp
-     * cpp\Basic\Signal_Consumer_Client\SignalConsumerClient\MainPage.xaml.cpp
-     * cpp\Basic\Signal_Service\SignalService\AllJoynObjects.cpp
-     * cpp\Basic\Signal_Service\SignalService\MainPage.xaml.cpp
-     * cpp\Chat\Chat\AllJoynObjects.cpp
-     * cpp\Chat\Chat\AllJoynObjects.h
-     * csharp\Basic\Signal_Consumer_Client\SignalConsumerClient\Common\SignalConsumerBusListener.cs
-     * csharp\Basic\Signal_Consumer_Client\SignalConsumerClient\MainPage.xaml.cs
-     * csharp\Basic\Signal_Service\SignalService\Common\SignalServiceBusObject.cs
-     * csharp\chat\chat\Common\ChatSessionObject.cs
-     * csharp\chat\chat\MainPage.xaml.cs
-     * csharp\FileTransfer\Client\Common\FileTransferBusObject.cs
-     * csharp\Sessions\Sessions\Common\MyBusObject.cs
-     * csharp\Sessions\Sessions\Common\SessionOperations.cs
-     * csharp\Sessions\Sessions\MainPage.xaml.cs
-     * javascript\Basic\Signal_Consumer_Client\SignalConsumerClient\js\AlljoynObjects.js
-     * javascript\Basic\Signal_Consumer_Client\SignalConsumerClient\js\SignalConsumerClient.js
-     * javascript\Basic\Signal_Service\SignalService\js\AlljoynObjects.js
-     * javascript\chat\chat\js\alljoyn.js
+     * For Windows 8 see also these sample file(s): @n
+     * cpp/AllJoynStreaming/src/MediaSource.cc @n
+     * cpp/Basic/Signal_Consumer_Client/SignalConsumerClient/AllJoynObjects.cpp @n
+     * cpp/Basic/Signal_Consumer_Client/SignalConsumerClient/MainPage.xaml.cpp @n
+     * cpp/Basic/Signal_Service/SignalService/AllJoynObjects.cpp @n
+     * cpp/Basic/Signal_Service/SignalService/MainPage.xaml.cpp @n
+     * cpp/Chat/Chat/AllJoynObjects.cpp @n
+     * cpp/Chat/Chat/AllJoynObjects.h @n
+     * csharp/Basic/Signal_Consumer_Client/SignalConsumerClient/Common/SignalConsumerBusListener.cs @n
+     * csharp/Basic/Signal_Consumer_Client/SignalConsumerClient/MainPage.xaml.cs @n
+     * csharp/Basic/Signal_Service/SignalService/Common/SignalServiceBusObject.cs @n
+     * csharp/chat/chat/Common/ChatSessionObject.cs @n
+     * csharp/chat/chat/MainPage.xaml.cs @n
+     * csharp/FileTransfer/Client/Common/FileTransferBusObject.cs @n
+     * csharp/Sessions/Sessions/Common/MyBusObject.cs @n
+     * csharp/Sessions/Sessions/Common/SessionOperations.cs @n
+     * csharp/Sessions/Sessions/MainPage.xaml.cs @n
+     * javascript/Basic/Signal_Consumer_Client/SignalConsumerClient/js/AlljoynObjects.js @n
+     * javascript/Basic/Signal_Consumer_Client/SignalConsumerClient/js/SignalConsumerClient.js @n
+     * javascript/Basic/Signal_Service/SignalService/js/AlljoynObjects.js @n
+     * javascript/chat/chat/js/alljoyn.js
      *
      * @param destination      The unique or well-known bus name or the signal recipient (NULL for broadcast signals)
      * @param sessionId        A unique SessionId for this AllJoyn session instance
@@ -350,38 +350,38 @@ class BusObject : public MessageReceiver {
      * Once an object is registered, it should not add any additional interfaces. Doing so would
      * confuse remote objects that may have already introspected this object.
      *
-     * See also these sample file(s):
-     * basic\basic_client.cc
-     * basic\basic_service.cc
-     * basic\signalConsumer_client.cc
-     * basic\signal_service.cc
-     * chat\android\jni\Chat_jni.cpp
-     * chat\linux\chat.cc
-     * FileTransfer\FileTransferClient.cc
-     * FileTransfer\FileTransferService.cc
-     * secure\DeskTopSharedKSClient.cc
-     * secure\DeskTopSharedKSService.cc
-     * simple\android\client\jni\Client_jni.cpp
-     * simple\android\service\jni\Service_jni.cpp
-     * windows\chat\ChatLib32\ChatClasses.cpp
-     * windows\Client\Client.cpp
-     * windows\PhotoChat\AllJoynBusLib\AllJoynConnection.cpp
-     * windows\Service\Service.cpp
+     * See also these sample file(s): @n
+     * basic/basic_client.cc @n
+     * basic/basic_service.cc @n
+     * basic/signalConsumer_client.cc @n
+     * basic/signal_service.cc @n
+     * chat/android/jni/Chat_jni.cpp @n
+     * chat/linux/chat.cc @n
+     * FileTransfer/FileTransferClient.cc @n
+     * FileTransfer/FileTransferService.cc @n
+     * secure/DeskTopSharedKSClient.cc @n
+     * secure/DeskTopSharedKSService.cc @n
+     * simple/android/client/jni/Client_jni.cpp @n
+     * simple/android/service/jni/Service_jni.cpp @n
+     * windows/chat/ChatLib32/ChatClasses.cpp @n
+     * windows/Client/Client.cpp @n
+     * windows/PhotoChat/AllJoynBusLib/AllJoynConnection.cpp @n
+     * windows/Service/Service.cpp
      *
-     * For Windows 8 see also these sample file(s):
-     * cpp\AllJoynStreaming\src\MediaSource.cc
-     * cpp\Basic\Basic_Service\BasicService\AllJoynObjects.cpp
-     * cpp\Basic\Signal_Service\SignalService\AllJoynObjects.cpp
-     * cpp\Chat\Chat\AllJoynObjects.cpp
-     * cpp\Secure\Secure\AllJoynObjects.cpp
-     * csharp\Basic\Basic_Service\BasicService\Common\BasicServiceBusObject.cs
-     * csharp\Basic\Signal_Service\SignalService\Common\SignalServiceBusObject.cs
-     * csharp\BusStress\BusStress\Common\ServiceBusObject.cs
-     * csharp\chat\chat\Common\ChatSessionObject.cs
-     * csharp\FileTransfer\Client\Common\FileTransferBusObject.cs
-     * csharp\Secure\Secure\Common\Client.cs
-     * csharp\Secure\Secure\Common\SecureBusObject.cs
-     * csharp\Sessions\Sessions\Common\MyBusObject.cs
+     * For Windows 8 see also these sample file(s): @n
+     * cpp/AllJoynStreaming/src/MediaSource.cc @n
+     * cpp/Basic/Basic_Service/BasicService/AllJoynObjects.cpp @n
+     * cpp/Basic/Signal_Service/SignalService/AllJoynObjects.cpp @n
+     * cpp/Chat/Chat/AllJoynObjects.cpp @n
+     * cpp/Secure/Secure/AllJoynObjects.cpp @n
+     * csharp/Basic/Basic_Service/BasicService/Common/BasicServiceBusObject.cs @n
+     * csharp/Basic/Signal_Service/SignalService/Common/SignalServiceBusObject.cs @n
+     * csharp/BusStress/BusStress/Common/ServiceBusObject.cs @n
+     * csharp/chat/chat/Common/ChatSessionObject.cs @n
+     * csharp/FileTransfer/Client/Common/FileTransferBusObject.cs @n
+     * csharp/Secure/Secure/Common/Client.cs @n
+     * csharp/Secure/Secure/Common/SecureBusObject.cs @n
+     * csharp/Sessions/Sessions/Common/MyBusObject.cs
      *
      * @param iface  The interface to add
      *
@@ -396,13 +396,13 @@ class BusObject : public MessageReceiver {
      * Add a method handler to this object. The interface for the method handler must have already
      * been added by calling AddInterface().
      *
-     * For Windows 8 see also these sample file(s):
-     * cpp\AllJoynStreaming\src\MediaSource.cc
-     * cpp\Basic\Basic_Service\BasicService\AllJoynObjects.cpp
-     * cpp\Secure\Secure\AllJoynObjects.cpp
-     * csharp\Basic\Basic_Service\BasicService\Common\BasicServiceBusObject.cs
-     * csharp\BusStress\BusStress\Common\ServiceBusObject.cs
-     * csharp\Secure\Secure\Common\SecureBusObject.cs
+     * For Windows 8 see also these sample file(s): @n
+     * cpp/AllJoynStreaming/src/MediaSource.cc @n
+     * cpp/Basic/Basic_Service/BasicService/AllJoynObjects.cpp @n
+     * cpp/Secure/Secure/AllJoynObjects.cpp @n
+     * csharp/Basic/Basic_Service/BasicService/Common/BasicServiceBusObject.cs @n
+     * csharp/BusStress/BusStress/Common/ServiceBusObject.cs @n
+     * csharp/Secure/Secure/Common/SecureBusObject.cs
      *
      * @param member   Interface member implemented by handler.
      * @param handler  Method handler.
@@ -418,12 +418,12 @@ class BusObject : public MessageReceiver {
     /**
      * Convenience method used to add a set of method handers at once.
      *
-     * See also these sample file(s):
-     * basic\basic_service.cc
-     * secure\DeskTopSharedKSService.cc
-     * simple\android\service\jni\Service_jni.cpp
-     * windows\PhotoChat\AllJoynBusLib\AllJoynConnection.cpp
-     * windows\Service\Service.cpp
+     * See also these sample file(s): @n
+     * basic/basic_service.cc @n
+     * secure/DeskTopSharedKSService.cc @n
+     * simple/android/service/jni/Service_jni.cpp @n
+     * windows/PhotoChat/AllJoynBusLib/AllJoynConnection.cpp @n
+     * windows/Service/Service.cpp
      *
      * @param entries      Array of MehtodEntry
      * @param numEntries   Number of entries in array.
@@ -439,13 +439,13 @@ class BusObject : public MessageReceiver {
      * BusObjects that implement properties should override this method.
      * The default version simply returns ER_BUS_NO_SUCH_PROPERTY.
      *
-     * See also these sample file(s):
-     * basic\signal_service.cc
-     * FileTransfer\FileTransferClient.cc
+     * See also these sample file(s): @n
+     * basic/signal_service.cc @n
+     * FileTransfer/FileTransferClient.cc
      *
-     * For Windows 8 see also these sample file(s):
-     * cpp\AllJoynStreaming\inc\MediaSource.h
-     * cpp\AllJoynStreaming\src\MediaSource.cc
+     * For Windows 8 see also these sample file(s): @n
+     * cpp/AllJoynStreaming/inc/MediaSource.h @n
+     * cpp/AllJoynStreaming/src/MediaSource.cc
      *
      * @param ifcName    Identifies the interface that the property is defined on
      * @param propName  Identifies the the property to get
@@ -460,23 +460,23 @@ class BusObject : public MessageReceiver {
      * BusObjects that implement properties should override this method.
      * This default version just replies with ER_BUS_NO_SUCH_PROPERTY
      *
-     * See also these sample file(s):
-     * basic\basic_client.cc
-     * basic\signal_service.cc
-     * chat\android\jni\Chat_jni.cpp
-     * FileTransfer\FileTransferService.cc
-     * secure\DeskTopSharedKSClient.cc
-     * windows\Client\Client.cpp
-     * windows\PhotoChat\AllJoynBusLib\AllJoynBusLib.cpp
-     * windows\Service\Service.cpp
+     * See also these sample file(s): @n
+     * basic/basic_client.cc @n
+     * basic/signal_service.cc @n
+     * chat/android/jni/Chat_jni.cpp @n
+     * FileTransfer/FileTransferService.cc @n
+     * secure/DeskTopSharedKSClient.cc @n
+     * windows/Client/Client.cpp @n
+     * windows/PhotoChat/AllJoynBusLib/AllJoynBusLib.cpp @n
+     * windows/Service/Service.cpp
      *
-     * For Windows 8 see also these sample file(s):
-     * csharp\Basic\Basic_Client\BasicClient\Common\BasicClientBusListener.cs
-     * csharp\Basic\Basic_Client\BasicClient\Common\Class1.cs
-     * csharp\Basic\Name_Change_Client\NameChangeClient\Common\NameChangeBusListener.cs
-     * csharp\Basic\Signal_Consumer_Client\SignalConsumerClient\Common\SignalConsumerBusListener.cs
-     * csharp\BusStress\BusStress\Common\ClientBusListener.cs
-     * csharp\Secure\Secure\MainPage.xaml.cs
+     * For Windows 8 see also these sample file(s): @n
+     * csharp/Basic/Basic_Client/BasicClient/Common/BasicClientBusListener.cs @n
+     * csharp/Basic/Basic_Client/BasicClient/Common/Class1.cs @n
+     * csharp/Basic/Name_Change_Client/NameChangeClient/Common/NameChangeBusListener.cs @n
+     * csharp/Basic/Signal_Consumer_Client/SignalConsumerClient/Common/SignalConsumerBusListener.cs @n
+     * csharp/BusStress/BusStress/Common/ClientBusListener.cs @n
+     * csharp/Secure/Secure/MainPage.xaml.cs
      *
      * @param ifcName    Identifies the interface that the property is defined on
      * @param propName  Identifies the the property to set
@@ -502,12 +502,12 @@ class BusObject : public MessageReceiver {
      * Called by the message bus when the object has been successfully registered. The object can
      * perform any initialization such as adding match rules at this time.
      *
-     * See also these sample file(s):
-     * basic\basic_service.cc
-     * chat\android\jni\Chat_jni.cpp
-     * secure\DeskTopSharedKSService.cc
-     * simple\android\service\jni\Service_jni.cpp
-     * windows\Service\Service.cpp
+     * See also these sample file(s): @n
+     * basic/basic_service.cc @n
+     * chat/android/jni/Chat_jni.cpp @n
+     * secure/DeskTopSharedKSService.cc @n
+     * simple/android/service/jni/Service_jni.cpp @n
+     * windows/Service/Service.cpp @n
      */
     virtual void ObjectRegistered(void) { }
 
