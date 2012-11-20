@@ -2603,11 +2603,19 @@ void DaemonICETransport::ReleaseICEPacketStream(const ICEPacketStream& icePktStr
             if (it->second.second == 0) {
                 pktStreamMapLock.Unlock(MUTEX_CONTEXT);
                 QStatus status = m_packetEngine.RemovePacketStream(it->second.first);
-                pktStreamMapLock.Lock(MUTEX_CONTEXT);
                 if (status != ER_OK) {
                     QCC_LogError(status, ("RemovePacketStream failed"));
                 }
-                pktStreamMap.erase(it);
+                pktStreamMapLock.Lock(MUTEX_CONTEXT);
+                /* Check that the entry still exists in the pktStreamMap before erasing it*/
+                multimap<String, pair<ICEPacketStream, uint32_t> >::iterator eit = pktStreamMap.begin();
+                while (eit != pktStreamMap.end()) {
+                    if ((&icePktStream == &(eit->second.first)) && (eit->second.second == 0)) {
+                        pktStreamMap.erase(eit);
+                        break;
+                    }
+                    ++eit;
+                }
             }
             found = true;
             break;
