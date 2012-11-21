@@ -1011,65 +1011,76 @@ void P2PConManImpl::OnLinkLost(int32_t handle)
         }
 
         //
-        // If this node is providing a service, then losing the link means we
-        // have lost the last STA that was previosly connected to our GO.  This
-        // is an entirely normal situation and it just means that we need to be
-        // ready for another connection to come in.  We already have gone
-        // through the hoops to be ready, and we are already prepared; so for
-        // the GO side, the last link lost signal is not terribly important.
+        // Call back any interested parties (transports) and tell them that a
+        // link has been lost and let them know which network interface is
+        // handling the link.  Make this call before we clear the interface name.
+        // It is entirely possible that the interface is "down enough" that the
+        // interface name is useless, but we pass it back just in case.
         //
-        // If we are a STA, however, the link lost signal means that we have lost
-        // our one and only connection to the outside world; and this is terribly
-        // important.
+        if (m_callback) {
+            (*m_callback)(P2PConMan::LOST, m_interface);
+        }
+
+        //
+        // If we are a STA, the link lost signal means that we have lost our one
+        // and only connection to the outside world.  If this node is providing
+        // a service, however, then losing the link lost signal means we have
+        // lost the last STA that was previosly connected to our GO.
+        //
+        // It turns out that when the last STA of a group disconnects, the
+        // entire group and all of its resources are released.  In fact, when
+        // the next STA connects and goes through the group negotiation process,
+        // we may find an entirely new interface name hosting the group.  You
+        // might think that this is unnecessary work, but we get to live with
+        // what the Android Framework provides; so we also have to release all
+        // of our resources and be ready to start again even though it might
+        // seem that we are completely ready for a new link to come up.
+        //
+        // The "big" resource we have on the line is the IP name service which
+        // we used to discover IP address information.  So, we need to tell the
+        // IP name service that it should stop listening for incoming messages
+        // over the provided interface.
+        //
+        // It may be the case that the Android Framework and system have the
+        // link down to an extent that the system calls the IP name service
+        // makes to clear out the multicast groups, etc., will cause errors, but
+        // we try and do the right thing.
+        //
+        // The errors (for example, "ioctl(SIOCGIFADDR) failed: (99) Cannot
+        // assign requested address") may happen but are harmless.  These errors
+        // can be safely ignored since the name service will end up looking at
+        // the now DOWN state of the interface and ignore it even if it is
+        // present.
+        //
+        QCC_DbgPrintf(("P2PConManImpl::OnLinkLost(): CloseInterface(\"%s\")", m_interface.c_str()));
+        IpNameService::Instance().CloseInterface(TRANSPORT_WFD, m_interface);
+
+        //
+        // The connection is gone, so now we reset state variables to indicate
+        // this fact.  Some of the variables need to change no matter what
+        // flavor (STA or GO) we are.
+        //
+        m_handle = -1;
+        m_device = "";
+        m_interface = "";
+
+        //
+        // Some state variables need to go back to completely idle if we are
+        // a client (were just in STA mode), but if we are a service (were
+        // just in GO mode) we need to become ready to accept new connections.
         //
         if (m_connType == CONN_STA) {
-            QCC_DbgPrintf(("P2PConManImpl::OnLinkLost(): OnLinkLost as STA."));
+            QCC_DbgPrintf(("P2PConManImpl::OnLinkLost(): OnLinkLost as STA.  Back to CONN_IDLE."));
 
             //
-            // Call back any interested parties (transports) and tell them that a
-            // link has been lost and let them know which network interface is
-            // handling the link.  Make this call before we clear the interface name.
-            // It is entirely possible that the interface is "down enough" that the
-            // interface name is useless, but we pass it back just in case.
+            // If we were a STA, we need to revert back to the indeterminate
+            // state (neither client/STA nor service/GO) and go idle.  We might
+            // also have a thread blocked trying to connect, so we need to wake
+            // that thread up so it can decide what to do.
             //
-            if (m_callback) {
-                (*m_callback)(P2PConMan::LOST, m_interface);
-            }
-
-            //
-            // We need to tell the IP name service that it should stop listening
-            // for incoming messages over the provided interface.  It may be the
-            // case that the the link is down to an extent that the calls that
-            // the system calls the IP name service does to clear out the
-            // multicast groups will cause errors, but we try and do the right
-            // thing.  The errors (for example, "ioctl(SIOCGIFADDR) failed: (99)
-            // Cannot assign requested address") are harmless since it is trying
-            // to get an address from an interface that is DOWN and has no
-            // address.  These errors can be safely ignored since the name
-            // service will end up looking at the down state and ignore the
-            // interface if it is even present.
-            //
-            QCC_DbgPrintf(("P2PConManImpl::OnLinkLost(): CloseInterface(\"%s\")", m_interface.c_str()));
-            QStatus status = IpNameService::Instance().CloseInterface(TRANSPORT_WFD, m_interface);
-            if (status != ER_OK) {
-                QCC_LogError(status, ("P2PConManInpl::OnLinkLost(): Failed to CloseInterface(\"%s\")", m_interface.c_str()));
-            }
-
-            //
-            // The connection is gone, so now we reset all of our state variables
-            // to indicate this fact.
-            //
-            m_handle = -1;
-            m_device = "";
-            m_interface = "";
             m_connState = CONN_IDLE;
             m_connType = CONN_NEITHER;
 
-            //
-            // If this link lost callback happened while a thread is blocked trying
-            // to connect, we need to wake that thread up so it can decide what to
-            // do.
-            //
             m_threadLock.Lock();
             if (m_l2thread) {
                 QCC_DbgPrintf(("P2PConManImpl::OnLinkLost(): Alert() blocked thread"));
@@ -1077,7 +1088,17 @@ void P2PConManImpl::OnLinkLost(int32_t handle)
             }
             m_threadLock.Unlock();
         } else {
-            QCC_DbgPrintf(("P2PConManImpl::OnLinkLost(): OnLinkLost as GO.  Ignoring"));
+            QCC_DbgPrintf(("P2PConManImpl::OnLinkLost(): OnLinkLost as GO.  Back to CONN_READY."));
+
+            //
+            // If we were not a STA, we must be a GO.  In that case, we need to
+            // stay a GO and return to the CONN_READY state so we can be ready
+            // to accept new connections.  We have to go through this state
+            // change even, though it may seem silly, since the underlying
+            // system is going to go through that transition and we need to
+            // reallocate resources.
+            //
+            m_connState = CONN_READY;
         }
         break;
 
@@ -1096,10 +1117,11 @@ void P2PConManImpl::OnLinkLost(int32_t handle)
     case CONN_READY:
         //
         // CONN_READY indicates that we are a service and therefore expect to be
-        // a GO.  Since we are CONN_READY, we haven't seen a link be
-        // established, so it would be surprising to see a link lost.  It
-        // doesn't sound like a fatal error, maybe the framework just missed it.
-        // We just print a debug message in case it's useful.
+        // a GO.  Since we are CONN_READY, we either have not seen a link be
+        // established, or we have lost our last link so it would be surprising
+        // to see a link lost here.  It doesn't sound like a fatal error, maybe
+        // the framework just missed something.  We just print a debug message
+        // in case it's useful.
         //
         QCC_DbgPrintf(("P2PConManImpl::OnLinkLost(): Surprising callback in ConnState CONN_READY"));
         break;
