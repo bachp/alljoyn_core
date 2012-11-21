@@ -40,7 +40,9 @@ public enum class TransportMaskType : uint32_t {
     /// <summary>Wired local-area network transport</summary>
     TRANSPORT_LAN       = ajn::TRANSPORT_LAN,
     /// <summary>Transport using ICE protocol</summary>
-    TRANSPORT_ICE       = ajn::TRANSPORT_ICE
+    TRANSPORT_ICE       = ajn::TRANSPORT_ICE,
+    /// <summary>Transport using Wi-Fi Direct transport</summary>
+    TRANSPORT_WFD       = ajn::TRANSPORT_WFD
 };
 
 }

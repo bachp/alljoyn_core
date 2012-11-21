@@ -763,7 +763,7 @@ QStatus ProximityTransport::GetListenAddresses(const SessionOpts& opts, std::vec
      * but we do exist, so we respond if the caller is asking for any of
      * those: cogito ergo some.
      */
-    if (!(opts.transports & (TRANSPORT_WLAN | TRANSPORT_WWAN | TRANSPORT_LAN | TRANSPORT_PROXIMITY))) {
+    if (!(opts.transports & (TRANSPORT_WLAN | TRANSPORT_WWAN | TRANSPORT_LAN | TRANSPORT_WFD))) {
         QCC_DbgPrintf(("ProximityTransport::GetListenAddresses(): transport mismatch"));
         return ER_OK;
     }
@@ -2848,7 +2848,7 @@ void ProximityTransport::FoundCallback::Found(const qcc::String& busAddr, const 
      */
 
     if (m_listener) {
-        m_listener->FoundNames(busAddr, guid, TRANSPORT_PROXIMITY, &nameList, timer);
+        m_listener->FoundNames(busAddr, guid, TRANSPORT_WFD, &nameList, timer);
     }
 }
 
