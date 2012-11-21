@@ -474,7 +474,7 @@ QStatus AllJoynPeerObj::KeyGen(PeerState& peerState, String seed, qcc::String& v
 {
     assert(bus);
     QStatus status;
-    KeyStore& keyStore = bus.GetInternal().GetKeyStore();
+    KeyStore& keyStore = bus->GetInternal().GetKeyStore();
     KeyBlob masterSecret;
     uint8_t keyGenVersion = peerState->GetAuthVersion() & 0xFF;
 
