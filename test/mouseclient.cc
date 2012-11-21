@@ -169,17 +169,17 @@ class LocalTestObject : public BusObject {
 public:
 
     void ObjectRegistered() {
-        QStatus status = bus.AddMatch("type='signal',interface='org.alljoyn.ajlite_test',member='ADC_Update'");
+        QStatus status = bus->AddMatch("type='signal',interface='org.alljoyn.ajlite_test',member='ADC_Update'");
         if (status != ER_OK) {
             QCC_LogError(status, ("Failed to register Match rule for 'org.alljoyn.ajlite_test.ADC_Update'"));
         }
 
-        status = bus.AddMatch("type='signal',interface='org.alljoyn.ajlite_test',member='Gyro_Update'");
+        status = bus->AddMatch("type='signal',interface='org.alljoyn.ajlite_test',member='Gyro_Update'");
         if (status != ER_OK) {
             QCC_LogError(status, ("Failed to register Match rule for 'org.alljoyn.ajlite_test.Gyro_Update'"));
         }
 
-        status = bus.AddMatch("type='signal',interface='org.alljoyn.ajlite_test',member='Button_Down'");
+        status = bus->AddMatch("type='signal',interface='org.alljoyn.ajlite_test',member='Button_Down'");
         if (status != ER_OK) {
             QCC_LogError(status, ("Failed to register Match rule for 'org.alljoyn.ajlite_test.Button_Down'"));
         }
