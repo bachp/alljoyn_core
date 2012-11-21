@@ -133,101 +133,79 @@ class _MsgArg : protected ajn::MsgArg {
 };
 
 /// <summary>
-/// This class deals with the message bus types and the operations on them
+/// This class deals with bus message types and the operations on them
 /// </summary>
-/// <remarks>
-/// MsgArgs are designed to be light-weight. A MsgArg will normally hold references to the data
-/// (strings etc.) it wraps and will only copy that data if the MsgArg is assigned. For example no
-/// additional memory is allocated for an #ALLJOYN_STRING that references an existing const char*.
-/// If a MsgArg is assigned the destination receives a copy of the contents of the source. The
-/// Stabilize() methods can also be called to explicitly force contents of the MsgArg to be copied.
-/// </remarks>
 public ref class MsgArg sealed {
   public:
-    /// <summary>
-    /// Constructor to build a message arg.
-    /// </summary>
     MsgArg();
 
     /// <summary>
-    /// Constructor to build a message arg. If the constructor fails for any reason the type will be
-    /// set to #ALLJOYN_INVALID.
+    /// Constructor to build a message arg. If the constructor fails for any reason, it throws a COMException.
     /// </summary>
     /// <param name="signature">The signature for MsgArg value.</param>
-    /// <param name="args">One or more values to initialize the MsgArg.</param>
+    /// <param name="args">An array contains one or more values that correspond to the signature to initialize the MsgArg.</param>
     /// <remarks>
-    /// - <c>'a'</c>  The array length followed by:
-    ///         - If the element type is a basic type a pointer to an array of values of that type.
-    ///         - If the element type is string a pointer to array of const char*, if array length is
-    ///           non-zero, and the char* pointer is NULL, the NULL must be followed by a pointer to
-    ///           an array of const qcc::String.
-    ///         - If the element type is an @ref ALLJOYN_ARRAY "ARRAY", @ref ALLJOYN_STRUCT "STRUCT",
-    ///           @ref ALLJOYN_DICT_ENTRY "DICT_ENTRY" or @ref ALLJOYN_VARIANT "VARIANT" a pointer to an
-    ///           array of MsgArgs where each MsgArg has the signature specified by the element type.
-    ///         - If the element type is specified using the wildcard character '*', a pointer to
-    ///           an  array of MsgArgs. The array element type is determined from the type of the
-    ///           first MsgArg in the array, all the elements must have the same type.
-    /// - <c>'b'</c>  A bool value
-    /// - <c>'d'</c>  A double (64 bits)
-    /// - <c>'g'</c>  A pointer to a NUL terminated string (pointer must remain valid for lifetime of the MsgArg)
-    /// - <c>'h'</c>  A qcc::SocketFd
-    /// - <c>'i'</c>  An int (32 bits)
-    /// - <c>'n'</c>  An int (16 bits)
-    /// - <c>'o'</c>  A pointer to a NUL terminated string (pointer must remain valid for lifetime of the MsgArg)
-    /// - <c>'q'</c>  A uint (16 bits)
-    /// - <c>'s'</c>  A pointer to a NUL terminated string (pointer must remain valid for lifetime of the MsgArg)
-    /// - <c>'t'</c>  A uint (64 bits)
-    /// - <c>'u'</c>  A uint (32 bits)
-    /// - <c>'v'</c>  Not allowed, the actual type must be provided.
-    /// - <c>'x'</c>  An int (64 bits)
-    /// - <c>'y'</c>  A byte (8 bits)
-    ///
-    /// - <c>'('</c> and <c>')'</c>The list of values that appear between the parentheses using the notation above
-    /// - <c>'{'</c> and <c>'}'</c>A pair values using the notation above.
-    ///
-    /// - <c>'*'</c> A pointer to a MsgArg.
+    /// <para> - <c>'a'</c> : The array length followed by:</para>
+    /// <para>       - If the element type is a basic or string type, then an array of values of that type.</para>
+    /// <para>       - If the element type is an ARRAY, STRUCT, DICT_ENTRY, or VARIANT,
+    ///                then the element in args is an array of MsgArgs where each MsgArg has the signature specified by the element type.</para>
+    /// <para>       - If the element type is specified using the wildcard character '*', the element in args is an
+    ///                array of MsgArgs. The array element type is determined from the type of the
+    ///                first MsgArg in the array, all the elements must have the same type.</para>
+    /// <para> - <c>'b'</c> : A bool value </para>
+    /// <para> - <c>'d'</c> : A double (64 bits)</para>
+    /// <para> - <c>'g'</c> : A pointer to a NUL terminated string (pointer must remain valid for lifetime of the MsgArg)</para>
+    /// <para> - <c>'h'</c> : A qcc::SocketFd</para>
+    /// <para> - <c>'i'</c> : An int (32 bits)</para>
+    /// <para> - <c>'n'</c> : An int (16 bits)</para>
+    /// <para> - <c>'o'</c> : A pointer to a NUL terminated string (pointer must remain valid for lifetime of the MsgArg)</para>
+    /// <para> - <c>'q'</c> : A uint (16 bits)</para>
+    /// <para> - <c>'s'</c> : A pointer to a NUL terminated string (pointer must remain valid for lifetime of the MsgArg)</para>
+    /// <para> - <c>'t'</c> : A uint (64 bits)</para>
+    /// <para> - <c>'u'</c> : A uint (32 bits)</para>
+    /// <para> - <c>'v'</c> : Not allowed, the actual type must be provided.</para>
+    /// <para> - <c>'x'</c> : An int (64 bits)</para>
+    /// <para> - <c>'y'</c> : A byte (8 bits)</para>
+    /// <para> - <c>'('</c> and <c>')'</c> : The list of values that appear between the parentheses using the notation above</para>
+    /// <para> - <c>'{'</c> and <c>'}'</c> : A pair values using the notation above.</para>
+    /// <para> - <c>'*'</c> : A MsgArg object.</para>
     /// </remarks>
-    /// <example>
-    /// An array of strings
-    /// <code>
-    ///    char* fruits[3] =  { "apple", "banana", "orange" };
-    ///    MsgArg bowl;
-    ///    bowl.Set("as", 3, fruits);
-    /// </code>
-    /// A struct with a uint and two string elements.
-    ///
-    /// <code> arg.Set("(uss)", 1024, "hello", "world");</code>
-    /// An array of 3 dictionary entries where each entry has an integer key and string value.
-    /// <code>
-    ///    MsgArg dict[3];
-    ///    dict[0].Set("{is}", 1, "red");
-    ///    dict[1].Set("{is}", 2, "green");
-    ///    dict[2].Set("{is}", 3, "blue");
-    ///    arg.Set("a{is}", 3, dict);
-    /// </code>
-    /// An array of uint_16's
-    /// <code>
-    ///    uint16_t aq[] = { 1, 2, 3, 5, 6, 7 };
-    ///    arg.Set("aq", sizeof(aq) / sizeof(uint16_t), aq);
-    /// </code>
-    /// </example>
     /// <exception cref="Platform::COMException">
     /// HRESULT will contain the AllJoyn error status code for the error.
-    ///    - #ER_OK if the MsgArg was successfully set
-    ///    - An error status otherwise
+    /// <para>   - #ER_OK if the MsgArg was successfully set</para>
+    /// <para>   - An error status otherwise</para>
     /// </exception>
     MsgArg(Platform::String ^ signature, const Platform::Array<Platform::Object ^> ^ args);
 
+    /// <summary>
+    /// Get the value in the MsgArg object
+    /// </summary>
+    /// <remark>
+    ///
+    /// </remark>
     property Object ^ Value
     {
         Platform::Object ^ get();
     }
 
+    /// <summary>
+    /// Get the key in the MsgArg object
+    /// </summary>
+    /// <remarks>
+    /// Used for ALLJOYN_DICT_ENTRY type.
+    /// </remarks>
     property Object ^ Key
     {
         Platform::Object ^ get();
     }
 
+    /// <summary>
+    /// Set data type coercion mode when creating MsgArg objects.
+    /// <param name="mode"> The coercion mode. If the value is "strict", then AllJoyn will do strict data type checking;
+    /// if it is "weak", AllJoyn will map the weak data type to strict AllJoyn data type specified in the signature.
+    /// The "weak" coercion is required for weakly typed language such as JavaScript. The "strict" is suggested for
+    /// strong type languages such as C# and C++.</param>
+    /// </summary>
     static void SetTypeCoercionMode(Platform::String ^ mode);
 
   private:
