@@ -81,18 +81,21 @@ class P2PConManImpl {
     /**
      * @brief Stop any name service threads.
      *
-     * We don't have any threads here, but it may be the case that one of the objects we use
-     * does.  Currently does nothing.
+     * We don't have any threads here, but it may be the case that we have a
+     * thread wandering around in one of our methods, so we need to make sure
+     * that it is told to go away.
      */
-    QStatus Stop() { m_state = IMPL_STOPPING; return ER_OK; }
+    QStatus Stop();
 
     /**
      * @brief Join any name service threads.
      *
-     * We don't have any threads here, but it may be the case that one of the objects we use
-     * does.  Currently does nothing.
+     * We don't have any threads here, but it may be the case that we have a
+     * thread wandering around in one of our methods, so we need to make sure
+     * that it is gone.  In particular, we need to ensure that no thread holds
+     * our locks since that will cause an assert in our destructor.
      */
-    QStatus Join() { m_state = IMPL_SHUTDOWN; return ER_OK; }
+    QStatus Join();
 
     /**
      * @brief Set the callback function that is called to notify a transport about
