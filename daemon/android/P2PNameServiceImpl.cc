@@ -284,11 +284,9 @@ void P2PNameServiceImpl::OnLostAdvertisedName(qcc::String& name, qcc::String& na
 
     if (m_callback == 0) {
         QCC_DbgPrintf(("P2PNameServiceImpl::OnLostAdvertisedName(): No callback"));
-        return;
     } else {
         const int8_t TIMER_LOST = 0;
-        qcc::String busAddress = qcc::String("guid=") + guid;
-        (*m_callback)(busAddress, name, TIMER_LOST);
+        (*m_callback)(guid, name, TIMER_LOST);
     }
 }
 
