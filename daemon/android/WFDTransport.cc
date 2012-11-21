@@ -1027,10 +1027,10 @@ void WFDTransport::ManageEndpoints(Timespec tTimeout)
      * need to release the Wi-Fi Direct link if we think we are an STA node in
      * the impled group.
      */
-    if (    endpointCleaned &&
-            P2PConMan::Instance().IsConnectedSTA() &&
-            m_endpointList.empty() &&
-            m_authList.empty()) {
+    if (endpointCleaned &&
+        P2PConMan::Instance().IsConnectedSTA() &&
+        m_endpointList.empty() &&
+        m_authList.empty()) {
         QCC_DbgHLPrintf(("WFDTransport::ManageEndpoints(): DestroyTemporaryNetwork()"));
         QStatus status = P2PConMan::Instance().DestroyTemporaryNetwork();
         if (status != ER_OK) {
