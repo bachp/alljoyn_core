@@ -227,7 +227,7 @@ class ProximityTransport : public Transport, public RemoteEndpoint::EndpointList
      *
      * @return the TransportMask for this transport.
      */
-    TransportMask GetTransportMask() const { return TRANSPORT_PROXIMITY; }
+    TransportMask GetTransportMask() const { return TRANSPORT_WFD; }
 
     /**
      * Get a list of the possible listen specs of the current Transport for a
