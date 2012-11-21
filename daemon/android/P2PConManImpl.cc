@@ -101,6 +101,87 @@ QStatus P2PConManImpl::Init(BusAttachment* bus, const qcc::String& guid)
     return ER_OK;
 }
 
+QStatus P2PConManImpl::Stop()
+{
+    QCC_DbgHLPrintf(("P2PConManImpl::Stop()"));
+
+    //
+    // We are synchronizing as many as three threads, so be very, very careful.
+    //
+    m_threadLock.Lock();
+
+    //
+    // We don't have any threads intrinsic to the connection manager, but we may
+    // have threads wandering around iniside our CreateTemporaryNetwork() and
+    // CreateConnectSpec() methods.  Similar to the usual semantics of Stop()
+    // in the rest of the system, we want our Stop() to request that those
+    // threads get the heck out so we can wait for them to actually leave in
+    // Join().  We don't want to allow any new threads in after this call.
+    // By moving out of state IMPL_RUNNING, we prevent new threads from coming
+    // in.
+    //
+    m_state = IMPL_STOPPING;
+
+    //
+    // We can have a thread wandering around in CreateTemporaryNetwork().  This
+    // is an OSI layer two-related function, so whenever a thread is in that
+    // method we have a member variable called m_l2Thread set to refer to that
+    // thread.  In case the L2 thread is waiting for something, we Alert() it.
+    // The thread should notice that the state is no longer IMPL_RUNNING and
+    // exit.
+    //
+    if (m_l2thread) {
+        QCC_DbgPrintf(("P2PConManImpl::Stop(): Alert() blocked thread"));
+        m_l2thread->Alert(PRIVATE_ALERT_CODE);
+    }
+
+    //
+    // We can have a thread wandering around in CreateConnectSpec().  This is an
+    // OSI layer three-related function, so whenever a thread is in that method
+    // we have a member variable called m_l3Thread set to refer to that thread.
+    // In case the L3 thread is waiting for something, we Alert() it.  The
+    // thread should notice that the state is no longer IMPL_RUNNING and exit.
+    //
+    if (m_l3thread) {
+        QCC_DbgPrintf(("P2PConManImpl::Stop(): Alert() blocked thread"));
+        m_l3thread->Alert(PRIVATE_ALERT_CODE);
+    }
+
+    m_threadLock.Unlock();
+    return ER_OK;
+}
+
+QStatus P2PConManImpl::Join()
+{
+    QCC_DbgHLPrintf(("P2PConManImpl::Join()"));
+
+    //
+    // This may look funny, but it is a simple way to wait for a possible thread
+    // to get out of the CreateTemporaryNetwork() method.  Since we expect that
+    // Stop() will be called before Join(), we ensure in Stop() that no new
+    // thread can start executing in our method after that.  When a thread
+    // Starts executing in CreateTemporaryNetwork(), it takes the establish
+    // lock, and just before it leaves, it gives the lock.  So if there is no
+    // thread executing in our CreateTemporaryNetwork() method, we immediately
+    // get the lock and then give it back.  If there is a thread holding the
+    // lock, we wait until it leaves the method and then we get the lock and
+    // immediately give it back.  So, by taking and giving the lock here, we
+    // ensure that after that no thread is in our method and another will not
+    // enter.  Done.
+    //
+    m_establishLock.Lock(MUTEX_CONTEXT);
+    m_establishLock.Unlock(MUTEX_CONTEXT);
+
+    //
+    // Same story for m_discoverLock and CreateConnectSpec as for the establish
+    // lock and CreateTemporaryNetwork().
+    //
+    m_discoverLock.Lock(MUTEX_CONTEXT);
+    m_discoverLock.Unlock(MUTEX_CONTEXT);
+
+    return ER_OK;
+}
+
 QStatus P2PConManImpl::SetCallback(Callback<void, P2PConMan::LinkState, const qcc::String&>* cb)
 {
     QCC_DbgHLPrintf(("P2PConManImpl::SetCallback()"));
@@ -151,11 +232,6 @@ QStatus P2PConManImpl::CreateTemporaryNetwork(const qcc::String& device, int32_t
     //
     QCC_DbgHLPrintf(("P2PConManImpl::CreateTemporaryNetwork(): device = \"%s\", intent = %d.", device.c_str(), goIntent));
 
-    if (m_state != IMPL_RUNNING) {
-        QCC_DbgPrintf(("P2PConManImpl::CreateTemporaryNetwork(): Not IMPL_RUNNING"));
-        return ER_FAIL;
-    }
-
     //
     //
     // We only allow one thread at a time to be in here trying to make or
@@ -169,10 +245,24 @@ QStatus P2PConManImpl::CreateTemporaryNetwork(const qcc::String& device, int32_t
     m_establishLock.Lock(MUTEX_CONTEXT);
 
     //
+    // We need to interlock between threads in this message and a thread calling
+    // Stop().  That means a lock.
+    //
+    m_threadLock.Lock();
+
+    if (m_state != IMPL_RUNNING) {
+        m_threadLock.Unlock();
+        QCC_DbgPrintf(("P2PConManImpl::CreateTemporaryNetwork(): Not IMPL_RUNNING"));
+        return ER_FAIL;
+    }
+
+    //
     // Since we are now supposed to be the only thread dealing with layer two
     // connections, we expect that a previous thread has cleaned up after itself.
     //
     assert(m_l2thread == NULL && "P2PConManImpl::CreateTemporaryNetwork(): m_l2thread was left set");
+    m_l2thread = qcc::Thread::GetThread();
+    m_threadLock.Unlock();
 
     //
     // We are being told to create a new temporary network.  What goes unsaid is
@@ -200,6 +290,9 @@ QStatus P2PConManImpl::CreateTemporaryNetwork(const qcc::String& device, int32_t
     //
     if (device == m_device && ((goIntent == P2PConMan::DEVICE_MUST_BE_GO && m_connState == CONN_READY) || m_connState == CONN_CONNECTED)) {
         QCC_DbgPrintf(("P2PConManImpl::CreateTemporaryNetwork(): Reconnection to same device okay"));
+        m_threadLock.Lock();
+        m_l2thread = NULL;
+        m_threadLock.Unlock();
         m_establishLock.Unlock(MUTEX_CONTEXT);
         return ER_OK;
     }
@@ -269,6 +362,9 @@ QStatus P2PConManImpl::CreateTemporaryNetwork(const qcc::String& device, int32_t
     //
     if (goIntent == P2PConMan::DEVICE_MUST_BE_GO) {
         m_connState = CONN_READY;
+        m_threadLock.Lock();
+        m_l2thread = NULL;
+        m_threadLock.Unlock();
         m_establishLock.Unlock(MUTEX_CONTEXT);
         return ER_OK;
     }
@@ -314,10 +410,8 @@ QStatus P2PConManImpl::CreateTemporaryNetwork(const qcc::String& device, int32_t
     // happened.  As soon as we enter the method call below, they can start
     // happening since we are protecting ourselves from other high-level callers
     // with the mutex above.  So we need to reset all of these flags before we
-    // make the call.  Whenever one of the callbacks happens, it needs to alert
-    // our thread so we can wake up and process; so we save our thread ID.
+    // make the call.
     //
-    m_l2thread = qcc::Thread::GetThread();
     m_handleEstablishLinkReplyFired = false;
     m_onLinkErrorFired = false;
     m_onLinkEstablishedFired = false;
@@ -348,6 +442,16 @@ QStatus P2PConManImpl::CreateTemporaryNetwork(const qcc::String& device, int32_t
     qcc::GetTimeNow(&tStart);
 
     for (;;) {
+        //
+        // If our state changes out of running, it means we are stopping and we
+        // need to get out of Dodge.
+        //
+        if (m_state != IMPL_RUNNING) {
+            status = ER_BUS_STOPPING;
+            QCC_LogError(status, ("P2PConManImpl::CreateTemporaryNetwork(): Stopping."));
+            break;
+        }
+
         //
         // We always expect a reply to our asynchronous call.  We ignore it if
         // the reply indicates no error happened, but we need to fail/bail if
@@ -608,11 +712,6 @@ QStatus P2PConManImpl::CreateConnectSpec(const qcc::String& device, const qcc::S
 {
     QCC_DbgHLPrintf(("P2PConManImpl::CreateConnectSpec(): \"%s\"/\"%s\"", device.c_str(), guid.c_str()));
 
-    if (m_state != IMPL_RUNNING) {
-        QCC_DbgPrintf(("P2PConManImpl::CreateConnectSpec(): Not IMPL_RUNNING"));
-        return ER_FAIL;
-    }
-
     //
     // If we're going to use a network to run the IP name service over, we'd
     // better have one, at least to start.  Of course, this connection may
@@ -631,12 +730,25 @@ QStatus P2PConManImpl::CreateConnectSpec(const qcc::String& device, const qcc::S
     m_discoverLock.Lock(MUTEX_CONTEXT);
 
     //
+    // We need to interlock between threads in this message and a thread calling
+    // Stop().  That means a lock.
+    //
+    m_threadLock.Lock();
+
+    if (m_state != IMPL_RUNNING) {
+        m_threadLock.Unlock();
+        QCC_DbgPrintf(("P2PConManImpl::CreateConnectSpec(): Not IMPL_RUNNING"));
+        return ER_FAIL;
+    }
+
+    //
     // Since we are now supposed to be the only thread dealing with layer three
     // addresses, we expect that a previous thread has cleaned up after itself.
     //
     assert(m_l3thread == NULL && "P2PConManImpl::CreateConnectSpec(): m_l3thread was left set");
-
     m_l3thread = qcc::Thread::GetThread();
+    m_threadLock.Unlock();
+
     m_foundAdvertisedNameFired = false;
     m_busAddress = "";
     m_searchedGuid = guid;
@@ -687,6 +799,15 @@ QStatus P2PConManImpl::CreateConnectSpec(const qcc::String& device, const qcc::S
     qcc::GetTimeNow(&tStart);
 
     for (;;) {
+        //
+        // If our state changes out of running, it means we are stopping and we
+        // need to get out of Dodge.
+        //
+        if (m_state != IMPL_RUNNING) {
+            status = ER_BUS_STOPPING;
+            QCC_LogError(status, ("P2PConManImpl::CreateConnectSpec(): Stopping."));
+            break;
+        }
 
         //
         // If the FoundAdvertisedName() callback fires and its handler determines
