@@ -1671,6 +1671,7 @@ QStatus DaemonICETransport::Connect(const char* connectSpec, const SessionOpts& 
     QCC_DbgHLPrintf(("DaemonICETransport::Connect(): %s", connectSpec));
 
     QStatus status = ER_FAIL;
+    ICESessionListenerImpl iceListener;
     ICESession* iceSession = NULL;
     DaemonICEEndpoint* conn = NULL;
 

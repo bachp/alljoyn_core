@@ -490,9 +490,6 @@ class DaemonICETransport : public Transport, public RemoteEndpoint::EndpointList
      */
     list<String> IncomingICESessions;
 
-
-    ICESessionListenerImpl iceListener;
-
     /** AllocateICESessionThread handles a AllocateICESession request from a remote client on a separate thread */
     class AllocateICESessionThread : public Thread, public ThreadListener {
       public:
