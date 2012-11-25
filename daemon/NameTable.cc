@@ -88,15 +88,18 @@ void NameTable::RemoveUniqueName(const qcc::String& uniqueName)
                 if (lit->endpointName == endpoint->GetUniqueName()) {
                     if (lit == ait->second.begin()) {
                         uint32_t disposition;
-                        RemoveAlias(ait->first, endpoint->GetUniqueName(), disposition, NULL, NULL);
+                        String alias = ait->first;
+                        String epName = endpoint->GetUniqueName();
+                        /* Must unlock before calling RemoveAlias because it can call out (and cannot be locked at the time) */
+                        lock.Unlock(MUTEX_CONTEXT);
+                        RemoveAlias(alias, epName, disposition, NULL, NULL);
+                        lock.Lock(MUTEX_CONTEXT);
                         if (DBUS_RELEASE_NAME_REPLY_RELEASED == disposition) {
                             ait = aliasNames.begin();
                             startOver = true;
                             break;
                         } else {
-                            QCC_LogError(ER_FAIL, ("Failed to release %s from %s",
-                                                   ait->first.c_str(),
-                                                   endpoint->GetUniqueName().c_str()));
+                            QCC_LogError(ER_FAIL, ("Failed to release %s from %s", alias.c_str(), epName.c_str()));
                             break;
                         }
                     } else {
@@ -363,25 +366,29 @@ void NameTable::GetQueuedNames(const qcc::String& busName, std::vector<qcc::Stri
     }
 }
 
-void NameTable::RemoveVirtualAliases(VirtualEndpoint& ep)
+void NameTable::RemoveVirtualAliases(const qcc::String& epName)
 {
-    QCC_DbgTrace(("NameTable::RemoveVirtualAliases(%s)", ep.GetUniqueName().c_str()));
-
     lock.Lock(MUTEX_CONTEXT);
-    map<qcc::StringMapKey, VirtualEndpoint*>::iterator vit = virtualAliasNames.begin();
-    while (vit != virtualAliasNames.end()) {
-        if (vit->second == &ep) {
-            String alias = vit->first.c_str();
-            String epName = ep.GetUniqueName();
-            virtualAliasNames.erase(vit++);
-            if (aliasNames.find(alias) == aliasNames.end()) {
-                lock.Unlock(MUTEX_CONTEXT);
-                CallListeners(alias, &epName, NULL);
-                lock.Lock(MUTEX_CONTEXT);
-                vit = virtualAliasNames.upper_bound(alias);
+
+    VirtualEndpoint* ep = static_cast<VirtualEndpoint*>(FindEndpoint(epName));
+
+    QCC_DbgTrace(("NameTable::RemoveVirtualAliases(%s)", ep ? ep->GetUniqueName().c_str() : "<none>"));
+
+    if (ep) {
+        map<qcc::StringMapKey, VirtualEndpoint*>::iterator vit = virtualAliasNames.begin();
+        while (vit != virtualAliasNames.end()) {
+            if (vit->second == ep) {
+                String alias = vit->first.c_str();
+                virtualAliasNames.erase(vit++);
+                if (aliasNames.find(alias) == aliasNames.end()) {
+                    lock.Unlock(MUTEX_CONTEXT);
+                    CallListeners(alias, &epName, NULL);
+                    lock.Lock(MUTEX_CONTEXT);
+                    vit = virtualAliasNames.upper_bound(alias);
+                }
+            } else {
+                ++vit;
             }
-        } else {
-            ++vit;
         }
     }
     lock.Unlock(MUTEX_CONTEXT);

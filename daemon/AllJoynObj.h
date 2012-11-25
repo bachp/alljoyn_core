@@ -626,18 +626,17 @@ class AllJoynObj : public BusObject, public NameListener, public TransportListen
      * Add a virtual endpoint with a given unique name.
      *
      * @param uniqueName          The uniqueName of the virtual endpoint.
-     * @param busToBusEndpoint    The bus-to-bus endpoint that "owns" the virtual endpoint.
+     * @param b2bEpName           Unique name of bus-to-bus endpoint that "owns" the virtual endpoint.
      * @param changesMade         [OUT] Written to true of virtual endpoint was created (as opposed to already existing).
-     * @return The virtual endpoint.
      */
-    VirtualEndpoint& AddVirtualEndpoint(const qcc::String& uniqueName, RemoteEndpoint& busToBusEndpoint, bool* changesMade = NULL);
+    void AddVirtualEndpoint(const qcc::String& uniqueName, const qcc::String& b2bEpName, bool* changesMade = NULL);
 
     /**
      * Remove a virtual endpoint.
      *
-     * @param endpoint   The virtualEndpoint to be removed.
+     * @param uniqueName   The unique name of the virtualEndpoint to be removed.
      */
-    void RemoveVirtualEndpoint(VirtualEndpoint& endpoint);
+    void RemoveVirtualEndpoint(const qcc::String& uniqueName);
 
     /**
      * Find a virtual endpoint by its name.

@@ -87,12 +87,12 @@ QStatus ClientRouter::RegisterEndpoint(BusEndpoint& endpoint, bool isLocal)
     return ER_OK;
 }
 
-void ClientRouter::UnregisterEndpoint(BusEndpoint& endpoint)
+void ClientRouter::UnregisterEndpoint(const String& epName)
 {
     QCC_DbgHLPrintf(("ClientRouter::UnregisterEndpoint"));
 
     /* Unregister static endpoints */
-    if (&endpoint == nonLocalEndpoint) {
+    if (nonLocalEndpoint && (nonLocalEndpoint->GetUniqueName() == epName)) {
         /*
          * Let the bus know that the nonlocalEndpoint endpoint disconnected
          */

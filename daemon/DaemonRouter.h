@@ -200,9 +200,9 @@ class DaemonRouter : public Router {
      * Un-register an endpoint.
      * This method must be called by an endpoint before the endpoint is deallocted.
      *
-     * @param endpoint   Endpoint being registered.
+     * @param epName   Name of endpoint being unregistered.
      */
-    void UnregisterEndpoint(BusEndpoint& endpoint);
+    void UnregisterEndpoint(const qcc::String& epName);
 
     /**
      * Return true if this router is in contact with a bus (either locally or remotely)
@@ -269,11 +269,11 @@ class DaemonRouter : public Router {
     /**
      * Remove well-known names associated with a virtual endpoint.
      *
-     * @param vep    Virtual endpoint whose well-known names are to be removed.
+     * @param uniqueName   UniqueName of virtual endpoint whose well-known names are to be removed.
      */
-    void RemoveVirtualAliases(VirtualEndpoint& vep)
+    void RemoveVirtualAliases(const qcc::String& uniqueName)
     {
-        nameTable.RemoveVirtualAliases(vep);
+        nameTable.RemoveVirtualAliases(uniqueName);
     }
 
     /**

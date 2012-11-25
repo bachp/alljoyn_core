@@ -77,9 +77,9 @@ class ClientRouter : public Router {
      *
      * This method must be called by an endpoint before the endpoint is deallocted.
      *
-     * @param endpoint   Endpoint being un-registered.
+     * @param epName   Name of Endpoint being un-registered.
      */
-    void UnregisterEndpoint(BusEndpoint& endpoint);
+    void UnregisterEndpoint(const qcc::String& epName);
 
     /**
      * Find the endpoint that owns the given unique or well-known name.

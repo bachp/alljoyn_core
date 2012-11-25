@@ -24,8 +24,8 @@
 #include <qcc/platform.h>
 
 #include <qcc/GUID.h>
+#include <qcc/Mutex.h>
 #include <qcc/String.h>
-#include <qcc/atomic.h>
 
 #include <alljoyn/Message.h>
 #include <alljoyn/MessageSink.h>
@@ -136,12 +136,12 @@ class BusEndpoint : public MessageSink {
     /**
      * Increment push count for this endpoint.
      */
-    void IncrementPushCount() { qcc::IncrementAndFetch(&pushCount); }
+    void IncrementPushCount();
 
     /**
      * Decremeent push count for this endpoint.
      */
-    void DecrementPushCount() { qcc::DecrementAndFetch(&pushCount); }
+    void DecrementPushCount();
 
     /**
      * Block until the pushCount goes to zero.
@@ -155,6 +155,7 @@ class BusEndpoint : public MessageSink {
 
   private:
     int32_t pushCount;           /**< Number of threads currently running in PushMessage */
+    qcc::Mutex pushCountLock;    /**< Mutex that protects access to pushCount */
 };
 
 }
