@@ -66,9 +66,9 @@ class Router {
      * Un-register an endpoint.
      * This method must be called by an endpoint before the endpoint is deallocted.
      *
-     * @param endpoint   Endpoint being registered.
+     * @param epName   Name of endpoint being registered.
      */
-    virtual void UnregisterEndpoint(BusEndpoint& endpoint) = 0;
+    virtual void UnregisterEndpoint(const qcc::String& epName) = 0;
 
     /**
      * Find the endpoint that owns the given unique or well-known name.

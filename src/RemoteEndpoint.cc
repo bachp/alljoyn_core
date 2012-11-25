@@ -158,7 +158,7 @@ QStatus RemoteEndpoint::Start()
             rxThread.Stop();
             rxThread.Join();
         }
-        router.UnregisterEndpoint(*this);
+        router.UnregisterEndpoint(this->GetUniqueName());
         QCC_LogError(status, ("AllJoynRemoteEndoint::Start failed"));
     }
 
@@ -276,7 +276,7 @@ void RemoteEndpoint::ThreadExit(Thread* thread)
     /* Unregister endpoint when both rx and tx exit */
     if (2 == IncrementAndFetch(&exitCount)) {
         /* De-register this remote endpoint */
-        bus.GetInternal().GetRouter().UnregisterEndpoint(*this);
+        bus.GetInternal().GetRouter().UnregisterEndpoint(this->GetUniqueName());
         if (NULL != listener) {
             listener->EndpointExit(this);
         }

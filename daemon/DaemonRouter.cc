@@ -308,13 +308,23 @@ QStatus DaemonRouter::RegisterEndpoint(BusEndpoint& endpoint, bool isLocal)
     return status;
 }
 
-void DaemonRouter::UnregisterEndpoint(BusEndpoint& endpoint)
+void DaemonRouter::UnregisterEndpoint(const qcc::String& epName)
 {
-    QCC_DbgTrace(("UnregisterEndpoint: %s (type=%d)", endpoint.GetUniqueName().c_str(), endpoint.GetEndpointType()));
+    QCC_DbgTrace(("UnregisterEndpoint: %s", epName.c_str()));
 
-    if (BusEndpoint::ENDPOINT_TYPE_BUS2BUS == endpoint.GetEndpointType()) {
+    /* Attempt to get the endpoint */
+    nameTable.Lock();
+    BusEndpoint* endpoint = FindEndpoint(epName);
+    if (!endpoint) {
+        nameTable.Unlock();
+        return;
+    }
+    endpoint->IncrementPushCount();
+    nameTable.Unlock();
+
+    if (BusEndpoint::ENDPOINT_TYPE_BUS2BUS == endpoint->GetEndpointType()) {
         /* Inform bus controller of bus-to-bus endpoint removal */
-        RemoteEndpoint* busToBusEndpoint = static_cast<RemoteEndpoint*>(&endpoint);
+        RemoteEndpoint* busToBusEndpoint = static_cast<RemoteEndpoint*>(endpoint);
 
         busController->GetAllJoynObj().RemoveBusToBusEndpoint(*busToBusEndpoint);
 
@@ -336,34 +346,39 @@ void DaemonRouter::UnregisterEndpoint(BusEndpoint& endpoint)
         while (sit != sessionCastSet.end()) {
             set<SessionCastEntry>::iterator doomed = sit;
             ++sit;
-            if (doomed->b2bEp == &endpoint) {
+            if (doomed->b2bEp == endpoint) {
                 sessionCastSet.erase(doomed);
             }
         }
         sessionCastSetLock.Unlock(MUTEX_CONTEXT);
     } else {
         /* Remove any session routes */
-        qcc::String uniqueName = endpoint.GetUniqueName();
+        qcc::String uniqueName = endpoint->GetUniqueName();
         RemoveSessionRoutes(uniqueName.c_str(), 0);
 
         /* Remove endpoint from names and rules */
         nameTable.RemoveUniqueName(uniqueName);
-        RemoveAllRules(endpoint);
-        PermissionMgr::CleanPermissionCache(endpoint);
+        RemoveAllRules(*endpoint);
+        PermissionMgr::CleanPermissionCache(*endpoint);
     }
     /*
      * If the local endpoint is being deregistered this indicates the router is being shut down.
      */
-    if (&endpoint == localEndpoint) {
+    if (endpoint == localEndpoint) {
         closing = true;
         /*
          * Wait until there are no pushes in progress.
          */
+        nameTable.Lock();
         while (endpointRefs) {
+            nameTable.Unlock();
             qcc::Sleep(1);
+            nameTable.Lock();
         }
         localEndpoint = NULL;
+        nameTable.Unlock();
     }
+    endpoint->DecrementPushCount();
 }
 
 QStatus DaemonRouter::AddSessionRoute(SessionId id, BusEndpoint& srcEp, RemoteEndpoint* srcB2bEp, BusEndpoint& destEp, RemoteEndpoint*& destB2bEp, SessionOpts* optsHint)

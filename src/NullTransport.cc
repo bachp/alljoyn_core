@@ -273,8 +273,8 @@ QStatus NullTransport::Disconnect(const char* connectSpec)
         assert(daemonLauncher);
         endpoint = NULL;
         ep->closing = true;
-        ep->clientBus.GetInternal().GetRouter().UnregisterEndpoint(*ep);
-        ep->daemonBus.GetInternal().GetRouter().UnregisterEndpoint(*ep);
+        ep->clientBus.GetInternal().GetRouter().UnregisterEndpoint(ep->GetUniqueName());
+        ep->daemonBus.GetInternal().GetRouter().UnregisterEndpoint(ep->GetUniqueName());
         daemonLauncher->Stop(this);
         daemonLauncher->Join();
         delete ep;

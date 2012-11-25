@@ -34,6 +34,20 @@ BusEndpoint::~BusEndpoint()
     WaitForZeroPushCount();
 }
 
+void BusEndpoint::IncrementPushCount()
+{
+    pushCountLock.Lock();
+    ++pushCount;
+    pushCountLock.Unlock();
+}
+
+void BusEndpoint::DecrementPushCount()
+{
+    pushCountLock.Lock();
+    --pushCount;
+    pushCountLock.Unlock();
+}
+
 String BusEndpoint::GetControllerUniqueName() const {
 
     /* An endpoint with unique name :X.Y has a controller with a unique name :X.1 */
@@ -45,7 +59,11 @@ String BusEndpoint::GetControllerUniqueName() const {
 
 void BusEndpoint::WaitForZeroPushCount()
 {
+    pushCountLock.Lock();
     while (pushCount > 0) {
-        qcc::Sleep(3);
+        pushCountLock.Unlock();
+        qcc::Sleep(5);
+        pushCountLock.Lock();
     }
+    pushCountLock.Unlock();
 }

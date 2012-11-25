@@ -251,7 +251,7 @@ QStatus LocalEndpoint::Stop(void)
     QCC_DbgTrace(("LocalEndpoint::Stop"));
 
     if (running) {
-        bus.GetInternal().GetRouter().UnregisterEndpoint(*this);
+        bus.GetInternal().GetRouter().UnregisterEndpoint(this->GetUniqueName());
     }
     /* Local endpoint not longer running */
     running = false;

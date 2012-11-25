@@ -165,9 +165,9 @@ class NameTable {
     /**
      * Remove well-known names associated with a virtual endpoint.
      *
-     * @param vep    Virtual endpoint whose well-known names are to be removed.
+     * @param uniqueName  UniqueName of virtual endpoint whose well-known names are to be removed.
      */
-    void RemoveVirtualAliases(VirtualEndpoint& vep);
+    void RemoveVirtualAliases(const qcc::String& uniqueName);
 
     /**
      * Find an endpoint for a given unique or alias bus name.
