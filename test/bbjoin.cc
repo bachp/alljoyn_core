@@ -104,7 +104,7 @@ class MyBusListener : public BusListener, public SessionPortListener, public Ses
         QCC_SyncPrintf("FoundAdvertisedName(name=%s, transport=0x%x, prefix=%s)\n", name, transport, namePrefix);
         if (strcmp(name, g_wellKnownName.c_str()) != 0) {
             SessionOpts::TrafficType traffic = SessionOpts::TRAFFIC_MESSAGES;
-            SessionOpts opts(traffic, g_useMultipoint, SessionOpts::PROXIMITY_ANY, TRANSPORT_ANY);
+            SessionOpts opts(traffic, g_useMultipoint, SessionOpts::PROXIMITY_ANY, transport);
 
             QCC_SyncPrintf("Calling JoinSessionAsync(%s)\n", name);
             QStatus status = g_msgBus->JoinSessionAsync(name, 26, this, opts, this, ::strdup(name));
@@ -188,6 +188,7 @@ static void usage(void)
 {
     printf("Usage: bbjoin \n\n");
     printf("Options:\n");
+    printf("   -?           = Print this help message\n");
     printf("   -h           = Print this help message\n");
     printf("   -n <name>    = Well-known name to advertise\n");
     printf("   -r           = Reject incoming joinSession attempts\n");
@@ -195,6 +196,7 @@ static void usage(void)
     printf("   -f <prefix>  = FindAdvertisedName prefix\n");
     printf("   -b           = Advertise over Bluetooth (enables selective advertising)\n");
     printf("   -t           = Advertise over TCP (enables selective advertising)\n");
+    printf("   -w           = Advertise over Wi-Fi Direct (enables selective advertising)\n");
     printf("   -dj <ms>     = Number of ms to delay between leaving and re-joining\n");
     printf("   -dl <ms>     = Number of ms to delay before leaving the session\n");
     printf("   -p           = Use point-to-point sessions rather than multi-point\n");
@@ -215,7 +217,7 @@ int main(int argc, char** argv)
     signal(SIGINT, SigIntHandler);
 
     for (int i = 1; i < argc; ++i) {
-        if (0 == strcmp("-h", argv[i])) {
+        if (0 == strcmp("-h", argv[i]) || 0 == strcmp("-?", argv[i])) {
             usage();
             exit(0);
         } else if (0 == strcmp("-n", argv[i])) {
@@ -237,6 +239,8 @@ int main(int argc, char** argv)
             transportOpts |= TRANSPORT_BLUETOOTH;
         } else if (0 == strcmp("-t", argv[i])) {
             transportOpts |= TRANSPORT_WLAN;
+        } else if (0 == strcmp("-w", argv[i])) {
+            transportOpts |= TRANSPORT_WFD;
         } else if (0 == strcmp("-dj", argv[i])) {
             g_sleepBeforeRejoin = qcc::StringToU32(argv[++i], 0);
         } else if (0 == strcmp("-dl", argv[i])) {
