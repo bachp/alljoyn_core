@@ -147,6 +147,7 @@ class PacketEngine : public qcc::AlarmListener {
         Packet** txPackets;
         uint16_t txFill, txDrain;
         uint16_t remoteRxDrain;
+        uint16_t xOffSeqNum;
         std::deque<Packet*> txControlQueue;
         int32_t txRttMean;
         int32_t txRttMeanVar;
