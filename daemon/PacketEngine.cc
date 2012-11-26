@@ -466,7 +466,7 @@ void PacketEngine::AlarmTriggered(const Alarm& alarm, QStatus reason)
                 /* Rearm the timer and resend the XON */
                 cctx->xon[1] = htole32(ci->rxAck);
                 cctx->xon[2] = htole32(ci->rxDrain);
-                status = DeliverControlMsg(*ci, cctx->xon, sizeof(cctx->xon));
+                status = DeliverControlMsg(*ci, cctx->xon, sizeof(cctx->xon), ci->rxFlowSeqNum);
                 if (status != ER_OK) {
                     QCC_LogError(status, ("Failed to send XON"));
                 }
@@ -553,6 +553,7 @@ PacketEngine::ChannelInfo::ChannelInfo(PacketEngine& engine, uint32_t id, const 
     txFill(0),
     txDrain(0),
     remoteRxDrain(0),
+    xOffSeqNum(0),
     txControlQueue(),
     txRttMean(0),
     txRttMeanVar(0),
@@ -614,6 +615,7 @@ PacketEngine::ChannelInfo::ChannelInfo(const ChannelInfo& other) :
     txFill(other.txFill),
     txDrain(other.txDrain),
     remoteRxDrain(other.remoteRxDrain),
+    xOffSeqNum(other.xOffSeqNum),
     txControlQueue(),
     txRttMean(other.txRttMean),
     txRttMeanVar(other.txRttMeanVar),
@@ -854,7 +856,7 @@ void PacketEngine::SendXOn(ChannelInfo& ci)
         ci.xOnAlarm = Alarm(timeout, packetEngineListener, cctx, zero);
         QStatus status = timer.AddAlarm(ci.xOnAlarm);
         if (status == ER_OK) {
-            status = DeliverControlMsg(ci, cctx->xon, sizeof(cctx->xon));
+            status = DeliverControlMsg(ci, cctx->xon, sizeof(cctx->xon), ci.rxFlowSeqNum);
         } else {
             QCC_LogError(status, ("PacketEngine::SendXON failed"));
             delete cctx;
@@ -1429,35 +1431,43 @@ void PacketEngine::RxPacketThread::HandleXOn(Packet* controlPacket)
 {
     uint16_t remRxAck = letoh32(controlPacket->payload[1]);
     uint16_t remRxDrain = letoh32(controlPacket->payload[2]);
-    QCC_DbgTrace(("PacketEngine::HandleXOn(id=0x%x, remRxAck=0x%x, remRxDrain=0x%x)", controlPacket->chanId, remRxAck, remRxDrain));
+    QCC_DbgTrace(("PacketEngine::HandleXOn(id=0x%x, remRxAck=0x%x, remRxDrain=0x%x, seqNum=0x%x)", controlPacket->chanId, remRxAck, remRxDrain, controlPacket->seqNum));
     //printf("tx(%d): handlexon remRxAck=0x%x remRxDrain=0x%x\n", (GetTimestamp() / 100) % 100000, remRxAck, remRxDrain);
     ChannelInfo* ci = engine->AcquireChannelInfo(controlPacket->chanId);
     if (ci) {
-        /* Update txDrain */
         ci->txLock.Lock();
-        uint16_t cnt = 0;
-        if (IN_WINDOW(uint16_t, ci->txDrain, numeric_limits<uint16_t>::max() >> 1, remRxAck)) {
-            AdvanceTxDrain(*ci, remRxAck, cnt);
-        }
+        QCC_DbgTrace(("PacketEngine::HandleXOn(ci->xOffSeqNum=0x%x)", ci->xOffSeqNum));
+        /* Advance the drain values only if the received Xon packet is in response to the
+         * latest packet with Xoff. Otherwise just send an XonAck without advancing the
+         * drains. We also need to account for back compatibility with previous versions
+         * of PacketEngine. So we should still handle the case when controlPacket->seqNum==0
+         * the same way as before */
+        if ((controlPacket->seqNum == ci->xOffSeqNum) || (controlPacket->seqNum == 0)) {
+            /* Update txDrain */
+            uint16_t cnt = 0;
+            if (IN_WINDOW(uint16_t, ci->txDrain, numeric_limits<uint16_t>::max() >> 1, remRxAck)) {
+                AdvanceTxDrain(*ci, remRxAck, cnt);
+            }
 
-        /* Update remoteRxDrain */
-        bool sendXonAck = false;
-        if (IN_WINDOW(uint16_t, ci->remoteRxDrain, ci->windowSize, remRxDrain)) {
-            ci->remoteRxDrain = remRxDrain;
-            sendXonAck = true;
+            /* Update remoteRxDrain */
+            if (IN_WINDOW(uint16_t, ci->remoteRxDrain, ci->windowSize, remRxDrain)) {
+                ci->remoteRxDrain = remRxDrain;
+            }
+
+            ci->txLock.Unlock();
+            engine->txPacketThread.Alert();
+        } else {
+            ci->txLock.Unlock();
         }
-        ci->txLock.Unlock();
-        engine->txPacketThread.Alert();
 
         /* Send XON_ACK */
-        if (sendXonAck) {
-            uint32_t xOnAck[1];
-            xOnAck[0] = htole32(PACKET_COMMAND_XON_ACK);
-            QStatus status = engine->DeliverControlMsg(*ci, xOnAck, sizeof(xOnAck));
-            if (status != ER_OK) {
-                QCC_LogError(status, ("Failed to send XOnAck to %s", engine->ToString(ci->packetStream, ci->dest).c_str()));
-            }
+        uint32_t xOnAck[1];
+        xOnAck[0] = htole32(PACKET_COMMAND_XON_ACK);
+        QStatus status = engine->DeliverControlMsg(*ci, xOnAck, sizeof(xOnAck), controlPacket->seqNum);
+        if (status != ER_OK) {
+            QCC_LogError(status, ("Failed to send XOnAck to %s", engine->ToString(ci->packetStream, ci->dest).c_str()));
         }
+
         engine->ReleaseChannelInfo(*ci);
     }
 }
@@ -1468,11 +1478,18 @@ void PacketEngine::RxPacketThread::HandleXOnAck(Packet* controlPacket)
     ChannelInfo* ci = engine->AcquireChannelInfo(controlPacket->chanId);
     if (ci) {
         ci->rxLock.Lock();
-        XOnAlarmContext* cctx = static_cast<XOnAlarmContext*>(ci->xOnAlarm->GetContext());
-        if (cctx) {
-            engine->timer.RemoveAlarm(ci->xOnAlarm);
-            ci->xOnAlarm = Alarm();
-            delete cctx;
+        QCC_DbgTrace(("PacketEngine::HandleXOnAck(ci->rxFlowSeqNum=0x%x) (controlPacket->seqNum=0x%x)", ci->rxFlowSeqNum, controlPacket->seqNum));
+        /* Remove the Xon alarm only if the received XonAck is in response to the latest
+         * Xon packet for which the alarm was initialized. We also need to account for back
+         * compatibility with previous versions of PacketEngine. So we should still handle
+         * the case when controlPacket->seqNum==0 the same way as before */
+        if ((ci->rxFlowSeqNum == controlPacket->seqNum) || (controlPacket->seqNum == 0)) {
+            XOnAlarmContext* cctx = static_cast<XOnAlarmContext*>(ci->xOnAlarm->GetContext());
+            if (cctx) {
+                engine->timer.RemoveAlarm(ci->xOnAlarm);
+                ci->xOnAlarm = Alarm();
+                delete cctx;
+            }
         }
         ci->rxLock.Unlock();
         engine->ReleaseChannelInfo(*ci);
@@ -1559,6 +1576,10 @@ qcc::ThreadReturn STDCALL PacketEngine::TxPacketThread::Run(void* arg)
                                     }
                                     /* Indicate flow off if we have reached the receiver's drain limit */
                                     if ((p->seqNum == xOffSeqNum) && ((p->flags & PACKET_FLAG_FLOW_OFF) == 0)) {
+                                        /* Record the sequence number of the latest packet which has the
+                                         * Xoff bit set. This is required to appropriately process the
+                                         * received Xon packets*/
+                                        ci->xOffSeqNum = xOffSeqNum;
                                         p->flags |= PACKET_FLAG_FLOW_OFF;
                                         needMarshal = true;
                                     } else if ((p->seqNum != xOffSeqNum) && (p->flags & PACKET_FLAG_FLOW_OFF)) {
