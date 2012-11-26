@@ -142,6 +142,8 @@ class MyBusListener : public BusListener, public SessionPortListener, public Ses
                 qcc::Sleep(g_sleepBeforeLeave);
             }
 
+            g_msgBus->EnableConcurrentCallbacks();
+
             QCC_SyncPrintf("Calling LeaveSession(%u)\n", sessionId);
             QStatus status = g_msgBus->LeaveSession(sessionId);
             QCC_SyncPrintf("LeaveSession(%u) returned %s\n", sessionId, QCC_StatusText(status));
