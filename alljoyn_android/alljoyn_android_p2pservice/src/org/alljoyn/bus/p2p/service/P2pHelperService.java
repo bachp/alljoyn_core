@@ -25,7 +25,7 @@ class P2pHelperService implements P2pInterface {
 
     private native boolean jniOnCreate(String daemonAddr);
     private native boolean jniCheckStandalone();
-    private native void jniOnDestroy();
+    private native void jniOnDestroy(String daemonAddr);
     private native int jniOnFoundAdvertisedName(String name, String namePrefix, String guid, String device);
     private native int jniOnLostAdvertisedName(String name, String namePrefix, String guid, String device);
     private native int jniOnLinkEstablished(int handle, String interfaceName);
@@ -62,7 +62,7 @@ class P2pHelperService implements P2pInterface {
             mP2pManager = null;
         }
         jniConnected = false;
-        jniOnDestroy();
+        jniOnDestroy(mDaemonAddr);
     }
 
     protected void finalize() throws Throwable {
