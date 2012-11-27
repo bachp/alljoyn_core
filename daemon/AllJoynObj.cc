@@ -1483,7 +1483,11 @@ qcc::ThreadReturn STDCALL AllJoynObj::JoinSessionThread::RunAttach()
                 SessionMapEntry* smEntry = ajObj.SessionMapFind(creatorName, id);
                 if (smEntry) {
                     if (smEntry->streamingEp) {
+                        smEntry->streamingEp->IncrementPushCount();
+                        ajObj.ReleaseLocks();
                         status = ajObj.ShutdownEndpoint(*smEntry->streamingEp, smEntry->fd);
+                        ajObj.AcquireLocks();
+                        smEntry->streamingEp->DecrementPushCount();
                         if (status != ER_OK) {
                             QCC_LogError(status, ("Failed to shutdown raw endpoint"));
                         }
@@ -1500,8 +1504,14 @@ qcc::ThreadReturn STDCALL AllJoynObj::JoinSessionThread::RunAttach()
             if (b2bEp) {
                 QStatus tStatus;
                 SocketFd srcB2bFd, b2bFd;
+                srcB2BEp->IncrementPushCount();
+                b2bEp->IncrementPushCount();
+                ajObj.ReleaseLocks();
                 status = ajObj.ShutdownEndpoint(*srcB2BEp, srcB2bFd);
                 tStatus = ajObj.ShutdownEndpoint(*b2bEp, b2bFd);
+                ajObj.AcquireLocks();
+                srcB2BEp->DecrementPushCount();
+                b2bEp->DecrementPushCount();
                 status = (status == ER_OK) ? tStatus : status;
                 if (status == ER_OK) {
                     SocketStream* ss1 = new SocketStream(srcB2bFd);
