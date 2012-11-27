@@ -122,7 +122,7 @@ public ref class BusListener sealed {
     BusListener(BusAttachment ^ bus);
 
     /// <summary>
-    ///Called by the bus when the listener is registered.
+    /// Raised by the bus when the listener is registered.
     /// </summary>
     event BusListenerListenerRegisteredHandler ^ ListenerRegistered
     {
@@ -132,7 +132,7 @@ public ref class BusListener sealed {
     }
 
     /// <summary>
-    ///Called by the bus when the listener is unregistered.
+    /// Raised by the bus when the listener is unregistered.
     /// </summary>
     event BusListenerListenerUnregisteredHandler ^ ListenerUnregistered
     {
@@ -141,7 +141,7 @@ public ref class BusListener sealed {
         void raise();
     }
 
-    /// <summary>Called by the bus when an external bus is discovered that is advertising a well-known name
+    /// <summary> Raised by the bus when an external bus is discovered that is advertising a well-known name
     ///that this attachment has registered interest in via a DBus call to org.alljoyn.Bus.FindAdvertisedName
     /// </summary>
     event BusListenerFoundAdvertisedNameHandler ^ FoundAdvertisedName
@@ -152,7 +152,7 @@ public ref class BusListener sealed {
     }
 
     /// <summary>
-    ///Called by the bus when an advertisement previously reported through FoundName has become unavailable.
+    /// Raised by the bus when an advertisement previously reported through FoundName has become unavailable.
     /// </summary>
     event BusListenerLostAdvertisedNameHandler ^ LostAdvertisedName
     {
@@ -162,7 +162,7 @@ public ref class BusListener sealed {
     }
 
     /// <summary>
-    ///Called by the bus when the ownership of any well-known name changes.
+    /// Raised by the bus when the ownership of any well-known name changes.
     /// </summary>
     event BusListenerNameOwnerChangedHandler ^ NameOwnerChanged
     {
@@ -172,7 +172,7 @@ public ref class BusListener sealed {
     }
 
     /// <summary>
-    ///Called when a BusAttachment this listener is registered with is stopping.
+    /// Raised when a BusAttachment this listener is registered with is stopping.
     /// </summary>
     event BusListenerBusStoppingHandler ^ BusStopping
     {
@@ -182,7 +182,7 @@ public ref class BusListener sealed {
     }
 
     /// <summary>
-    ///Called when a BusAttachment this listener is registered with is has become disconnected from the bus.
+    /// Raised when a BusAttachment this listener is registered with is has become disconnected from the bus.
     /// </summary>
     event BusListenerBusDisconnectedHandler ^ BusDisconnected
     {

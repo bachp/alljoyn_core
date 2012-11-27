@@ -72,7 +72,7 @@ class TransportList : public TransportListener {
     /**
      * Get a Transport instance for a specified transport specification.
      * Transport specifications have the form:
-     *   @c \<transportName\>:\<param1\>=\<value1\>,\<param2\>=\<value2\>[;]
+     *   &lt;transportName&gt;:&lt;param1&gt;=&lt;value1&gt;,&lt;param2&gt;=&lt;value2&gt;[;]
      *
      * @param transportSpec  Either a connectSpec or a listenSpec. Must be a string that starts with one
      *                       of the known transport types: @c tcp, @c unix or @c bluetooth or @c ice.

@@ -270,7 +270,7 @@ public ref class BusObject sealed {
     void AddMethodHandler(InterfaceMember ^ member, MessageReceiver ^ receiver);
 
     /// <summary>
-    /// Called when a bus request to read a property from this object.
+    /// Raised when a bus request to read a property from this object.
     /// </summary>
     event BusObjectGetHandler ^ Get
     {
@@ -280,7 +280,7 @@ public ref class BusObject sealed {
     }
 
     /// <summary>
-    /// Called when a bus attempts to write a property value to this object.
+    /// Raised when a bus attempts to write a property value to this object.
     /// </summary>
     event BusObjectSetHandler ^ Set
     {
@@ -290,7 +290,7 @@ public ref class BusObject sealed {
     }
 
     /// <summary>
-    /// Called when a bus requests a description of the object in the D-Bus introspection XML format.
+    /// Raised when a bus requests a description of the object in the D-Bus introspection XML format.
     /// </summary>
     event BusObjectGenerateIntrospectionHandler ^ GenerateIntrospection
     {
@@ -300,7 +300,7 @@ public ref class BusObject sealed {
     }
 
     /// <summary>
-    /// Called when the object has been successfully registered.
+    /// Raised when the object has been successfully registered.
     /// </summary>
     event BusObjectObjectRegisteredHandler ^ ObjectRegistered
     {
@@ -310,7 +310,7 @@ public ref class BusObject sealed {
     }
 
     /// <summary>
-    /// Called when the object has been successfully unregistered
+    /// Raised when the object has been successfully unregistered
     /// </summary>
     event BusObjectObjectUnregisteredHandler ^ ObjectUnregistered
     {
@@ -320,7 +320,7 @@ public ref class BusObject sealed {
     }
 
     /// <summary>
-    /// Called when a bus attempts to read all properties on an interface.
+    /// Raised when a bus attempts to read all properties on an interface.
     /// </summary>
     event BusObjectGetAllPropsHandler ^ GetAllProps
     {
@@ -330,7 +330,7 @@ public ref class BusObject sealed {
     }
 
     /// <summary>
-    /// Fired when a bus attempts to read the object's introspection data.
+    /// Raised when a bus attempts to read the object's introspection data.
     /// </summary>
     event BusObjectIntrospectHandler ^ Introspect
     {
@@ -339,7 +339,7 @@ public ref class BusObject sealed {
         void raise(InterfaceMember ^ member, Message ^ msg);
     }
 
-    /// <summary>Return the BussAttachment for the object</summary>
+    /// <summary>Return the BusAttachment for the object</summary>
     property BusAttachment ^ Bus
     {
         BusAttachment ^ get();

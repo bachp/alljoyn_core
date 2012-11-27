@@ -25,14 +25,14 @@ namespace AllJoyn {
 /// <summary>
 ///When Debug version of AllJoyn runtime component is referenced, this class allows applications to configure the debug information logging output
 ///and the debug level of specific components.
-///</summary>
+/// </summary>
 public ref class Debug sealed {
   public:
     /// <summary>
     ///Indicate whether AllJoyn logging goes to Visual Studio debugger output or an external file
-    ///</summary>
+    /// </summary>
     /// <param name="useOSLog">
-    ///true if AllJoyn logging goes to Visual Studio debugger output, otherwise to an external file 'alljoyn.log' under directory 'Libraries\Documents'
+    ///true if AllJoyn logging goes to Visual Studio debugger output, otherwise to an external file 'alljoyn.log' under directory 'Libraries\\Documents'
     /// </param>
     static void UseOSLogging(bool useOSLog);
 

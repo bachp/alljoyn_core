@@ -384,7 +384,7 @@ public ref class BusAttachment sealed {
     /// multithreaded bus attachment.  These methods can be especially useful
     /// during shutdown, when the two separate threading systems need to be
     /// gracefully brought down together.
-    /// The BusAttachment methods Start(), Stop() and Join() all work together to
+    /// The BusAttachment methods Start(), StopAsync() and JoinSessionAsync() all work together to
     /// manage the autonomous activities that can happen in a BusAttachment.
     /// These activities are carried out by so-called hardware threads.  POSIX
     /// defines functions used to control hardware threads, which it calls
@@ -404,7 +404,7 @@ public ref class BusAttachment sealed {
     /// threads will still be *running* for some non-deterministic time.
     /// In order to wait until all of the threads have actually stopped, a
     /// blocking call is required.  In threading packages this is typically
-    /// called join, and our corresponding method is called Join().
+    /// called join, and our corresponding method is called JoinSessionAsync().
     /// A Start() method call should be thought of as mapping to a threading
     /// package start function.  it causes the activity threads in the
     /// BusAttachment to be spun up and gets the attachment ready to do its main
@@ -414,20 +414,20 @@ public ref class BusAttachment sealed {
     /// The Stop() method call should be thought of as mapping to a threading
     /// package stop function.  It asks the BusAttachment to begin shutting down
     /// its various threads of execution, but does not wait for any threads to exit.
-    /// A call to the Join() method should be thought of as mapping to a
+    /// A call to the JoinSessionAsync() method should be thought of as mapping to a
     /// threading package join function call.  It blocks and waits until all of
     /// the threads in the BusAttachment have in fact exited their Run functions,
     /// gone through the stopping state and have returned their status.  When
-    /// the Join() method returns, one may be assured that no threads are running
+    /// the JoinAsync() method returns, one may be assured that no threads are running
     /// in the bus attachment, and therefore there will be no callbacks in
     /// progress and no further callbacks will ever come out of a particular
     /// instance of a bus attachment.
-    /// It is important to understand that since Start(), Stop() and Join() map
+    /// It is important to understand that since Start(), StopAsync() and JoinSessionAsync() map
     /// to threads concepts and functions, one should not expect them to clean up
     /// any bus attachment state when they are called.  These functions are only
     /// present to help in orderly termination of complex threading systems.
-    /// <see cref="BusAttachment::Stop"/>
-    /// <see cref="BusAttachment::Join"/>
+    /// <see cref="BusAttachment::StopAsync"/>
+    /// <see cref="BusAttachment::JoinSessionAsync"/>
     /// </remarks>
     /// <exception cref="Platform::COMException">
     /// HRESULT will contain the AllJoyn error status code for the error.
@@ -458,20 +458,18 @@ public ref class BusAttachment sealed {
     /// <remarks>
     /// For more information see:
     /// <see cref="BusAttachment::Start"/>
-    /// <see cref="BusAttachment::Stop"/>
-    /// <see cref="BusAttachment::Join"/>
+    /// <see cref="BusAttachment::StopAsync"/>
     /// </remarks>
     /// <returns>True if the message bus has been started by a call to <see cref="Start"/>.</returns>
     bool IsStarted();
 
     /// <summary>
-    /// Determine if the bus attachment has been stopped by a call to <see cref="Stop"/>.
+    /// Determine if the bus attachment has been stopped by a call to <see cref="StopAsync"/>.
     /// </summary>
     /// <remarks>
     /// For more information see:
     /// <see cref="BusAttachment::Start"/>
-    /// <see cref="BusAttachment::Stop"/>
-    /// <see cref="BusAttachment::Join"/>
+    /// <see cref="BusAttachment::StopAsync"/>
     /// </remarks>
     /// <returns>True if the message bus has been started by a call to <see cref="Start"/>.</returns>
     bool IsStopping();
@@ -482,7 +480,7 @@ public ref class BusAttachment sealed {
     /// <param name="connectSpec">The transport connection spec used to connect.</param>
     /// <exception cref="Platform::COMException">
     /// Upon completion, Platform::COMException will be raised and a HRESULT will contain the AllJoyn
-    /// error status code if any error occured.
+    /// error status code if any error occurred.
     /// </exception>
     /// <returns>A handle to the async operation which can be used for synchronization.</returns>
     Windows::Foundation::IAsyncAction ^ ConnectAsync(Platform::String ^ connectSpec);
@@ -665,7 +663,7 @@ public ref class BusAttachment sealed {
     /// <remarks>
     /// The peer GUID associated with a bus name can be obtained by calling GetPeerGUID().
     /// </remarks>
-    /// <param name="guid">The guid of a remote authenticated peer.</param>
+    /// <param name="guid">The GUID of a remote authenticated peer.</param>
     /// <exception cref="Platform::COMException">
     /// HRESULT will contain the AllJoyn error status code for the error.
     /// #ER_BUS_KEY_UNAVAILABLE if there is no peer with the specified GUID.
@@ -926,7 +924,7 @@ public ref class BusAttachment sealed {
     /// </summary>
     /// <remarks>
     /// Calling this method will override the listener set by a previous call to SetSessionListener or any
-    /// listener specified in JoinSession.
+    /// listener specified in JoinSessionAsync.
     /// </remarks>
     /// <param name="sessionId">The session id of an existing session.</param>
     /// <param name="listener">The SessionListener to associate with the session. May be NULL to clear previous listener.</param>
@@ -1011,7 +1009,7 @@ public ref class BusAttachment sealed {
     /// GUID for a remote peer is only available if the remote peer has been authenticated.
     /// </remarks>
     /// <param name="name">Name of a remote peer or NULL to get the local (this application's) peer GUID.</param>
-    /// <param name="guid">Returns the guid for the local or remote peer depending on the value of name.</param>
+    /// <param name="guid">Returns the GUID for the local or remote peer depending on the value of name.</param>
     /// <exception cref="Platform::COMException">
     /// HRESULT will contain the AllJoyn error status code for the error.
     /// </exception>
@@ -1020,7 +1018,7 @@ public ref class BusAttachment sealed {
     /// <summary>
     /// Compares two BusAttachment references
     /// </summary>
-    /// <param name="other">The Busattachment reference to compare.</param>
+    /// <param name="other">The BusAttachment reference to compare.</param>
     /// <returns>Returns true if this bus and the other bus are the same object.</returns>
     bool IsSameBusAttachment(BusAttachment ^ other);
 
@@ -1069,10 +1067,10 @@ public ref class BusAttachment sealed {
     }
 
     /// <summary>
-    /// Returns the current non-absolute milisecond real-time clock used internally by AllJoyn.
+    /// Returns the current non-absolute millisecond real-time clock used internally by AllJoyn.
     /// </summary>
     /// <remarks>
-    /// This value can be compared with the timestamps on messages to calculate the time since a timestamped message was sent.
+    /// This value can be compared with the timestamps on messages to calculate the time since a time stamped message was sent.
     /// </remarks>
     property uint32_t Timestamp
     {
