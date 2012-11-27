@@ -40,7 +40,7 @@ namespace ajn {
 
 
 /**
- * %TransportListener is an abstract base class that provides aynchronous notifications about
+ * %TransportListener is an abstract base class that provides asynchronous notifications about
  * transport related events.
  */
 class TransportListener {
@@ -56,7 +56,7 @@ class TransportListener {
      * @param busAddr   The address of the bus formatted as a string that can be passed to
      *                  createEndpoint
      * @param guid      GUID associated with this advertisement.
-     * @param transport Transport that sent the advertisment.
+     * @param transport Transport that sent the advertisement.
      * @param names    The list of bus names that the bus has advertised or NULL if transport cannot determine list.
      * @param timer    Time to live for this set of names. (0 implies that the name is gone.)
      */
@@ -184,7 +184,7 @@ class Transport {
      * Connect to a specified remote AllJoyn/DBus address.
      *
      * @param connectSpec    Transport specific key/value args used to configure the client-side endpoint.
-     *                       The form of this string is @c "<transport>:<key1>=<val1>,<key2>=<val2>..."
+     *                       The form of this string is &lt;transport&gt;:&lt;key1&gt;=&lt;val1&gt;,&lt;key2&gt;=&lt;val2&gt;...[;]
      * @param opts           Requested sessions opts.
      * @param newep          [OUT] Endpoint created as a result of successful connect.
      * @return
@@ -208,17 +208,17 @@ class Transport {
      * Start listening for incoming connections on a specified bus address.
      *
      * @param listenSpec  Transport specific key/value args that specify the physical interface to listen on.
-     *                    The form of this string is "<transport>:<key1>=<val1>,<key2>=<val2>...[;]"
+     *                    The form of this string is &lt;transport&gt;:&lt;key1&gt;=&lt;val1&gt;,&lt;key2&gt;=&lt;val2&gt;...[;]
      *
      * @return ER_OK if successful.
      */
     virtual QStatus StartListen(const char* listenSpec) { return ER_FAIL; }
 
     /**
-     * Stop listening for incomming connections on a specified bus address.
+     * Stop listening for incoming connections on a specified bus address.
      *
      * @param listenSpec  Transport specific key/value args that specify the physical interface to listen on.
-     *                    The form of this string is @c "<transport>:<key1>=<val1>,<key2>=<val2>...[;]"
+     *                    The form of this string is &lt;transport&gt;:&lt;key1&gt;=&lt;val1&gt;,&lt;key2&gt;=&lt;val2&gt;...[;]
      *
      * @return
      *      - ER_OK if successful.
@@ -284,7 +284,7 @@ class Transport {
      * Helper used to parse client/server arg strings
      *
      * @param transportName  Name of transport to match in args.
-     * @param args      Transport argument string of form "<transport>:<key0>=<val0>,<key1>=<val1>[;]"
+     * @param args      Transport argument string of form &lt;transport&gt;:&lt;key0&gt;=&lt;val0&gt;,&lt;key1&gt;=&lt;val1&gt;[;]
      * @param argMap    [OUT] A maps or args matching the given transport name.
      * @return ER_OK if successful.
      */

@@ -28,7 +28,7 @@ namespace AllJoyn {
 public delegate void SocketStreamDataReceivedHandler();
 
 /// <summary>
-///<c>SocketStreamEvent</c> is for notifying a <c>SocketStream</c> object has received incoming data.
+/// <c>SocketStreamEvent</c> is for notifying a <c>SocketStream</c> object has received incoming data.
 /// </summary>
 public ref class SocketStreamEvent sealed {
   public:

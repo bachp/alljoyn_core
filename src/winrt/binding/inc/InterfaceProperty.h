@@ -59,8 +59,8 @@ public ref class InterfaceProperty sealed {
     /// <param name="access">Access flags for the property</param>
     InterfaceProperty(Platform::String ^ name, Platform::String ^ signature, uint8_t access);
 
-    /// <summary
-    ///>Name of the property
+    /// <summary>
+    /// Name of the property
     /// </summary>
     property Platform::String ^ Name
     {
