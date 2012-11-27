@@ -49,6 +49,49 @@ using namespace Windows::System::Threading;
 
 namespace ajn {
 
+/* Android-based Wi-Fi Direct provides Bonjour-style names. Bonjour is an extension of DNS (mDNS). DNS names are explicitly case-insensitive.
+ * Because DNS names are case-insensitive, Android downshifts (convert to lower-case) all names that go through its Android Application Framework.
+ * AllJoyn is an extension of D-Bus. D-Bus names are explicitly case-sensitive. When we compare endpoint names, we take into account case. Therein lies the rub.
+ * For the purpose of inter-operability between Android and Win8/WinRT, we use a simple encoding/decoding mechanism to preserve the case sensibility:
+ * each uppercase character is converted to lowercase preceded by '-'.
+ */
+
+static QStatus EncodeWFDBusName(const qcc::String& orig, qcc::String& encoded)
+{
+    QStatus status = ER_OK;
+    for (int i = 0; i < orig.size(); i++) {
+        if (isupper(orig[i]) || orig[i] == '-') {
+            encoded.append('-');
+            encoded.append(tolower(orig[i]));
+        } else {
+            encoded.append(orig[i]);
+        }
+    }
+    QCC_DbgPrintf(("EncodeWFDBusName: orig(%s), encoded(%s)", orig.c_str(), encoded.c_str()));
+    return status;
+}
+
+static QStatus DecodeWFDBusName(const qcc::String& orig, qcc::String& decoded)
+{
+    QStatus status = ER_OK;
+    int i = 0;
+    while (i < orig.size()) {
+        if (orig[i] == '-') {
+            i++;
+            if (i < orig.size()) {
+                decoded.append(toupper(orig[i]));
+            } else {
+                break;
+            }
+        } else {
+            decoded.append(orig[i]);
+        }
+        i++;
+    }
+    QCC_DbgPrintf(("DecodeWFDBusName: orig(%s), decoded(%s)", orig.c_str(), decoded.c_str()));
+    return status;
+}
+
 ProximityNameService::ProximityNameService(const qcc::String& guid) :
     m_timer(nullptr),
     m_peerFinderStarted(false),
@@ -196,8 +239,10 @@ void ProximityNameService::EnableAdvertisement(const qcc::String& name)
                     QCC_DbgPrintf(("Get name prefix (%s) from well-known name (%s)", m_namePrefix.c_str(), name.c_str()));
                     assert(m_namePrefix.size() <= MAX_PROXIMITY_ALT_ID_SIZE);
                     if (!PeerFinder::AlternateIdentities->HasKey(L"Browse")) {
-                        PeerFinder::AlternateIdentities->Insert(L"Browse", MultibyteToPlatformString(m_namePrefix.c_str()));
-                        QCC_DbgPrintf(("Set Alt Id (%s)", m_namePrefix.c_str()));
+                        qcc::String encoded;
+                        EncodeWFDBusName(m_namePrefix, encoded);
+                        PeerFinder::AlternateIdentities->Insert(L"Browse", MultibyteToPlatformString(encoded.c_str()));
+                        QCC_DbgPrintf(("Set Alt Id (%s)", encoded.c_str()));
                     }
                 }
             } else {
@@ -303,7 +348,9 @@ void ProximityNameService::EnableDiscovery(const qcc::String& namePrefix)
 
             assert(m_namePrefix.size() <= MAX_PROXIMITY_ALT_ID_SIZE);
             if (!PeerFinder::AlternateIdentities->HasKey(L"Browse")) {
-                PeerFinder::AlternateIdentities->Insert(L"Browse", MultibyteToPlatformString(m_namePrefix.c_str()));
+                qcc::String encoded;
+                EncodeWFDBusName(m_namePrefix, encoded);
+                PeerFinder::AlternateIdentities->Insert(L"Browse", MultibyteToPlatformString(encoded.c_str()));
                 QCC_DbgPrintf(("Set Alt Id (%s)", m_namePrefix.c_str()));
             }
 
@@ -390,14 +437,14 @@ void ProximityNameService::BrowsePeers()
                                               if (pos != qcc::String::npos) {
                                                   qcc::String wkn = m_namePrefix;
                                                   wkn += '.';
-                                                  wkn += mbStr.substr(startPos, (pos - startPos));
+                                                  DecodeWFDBusName(mbStr.substr(startPos, (pos - startPos)), wkn);
                                                   nameList.push_back(wkn);
                                               } else {
                                                   // the last one
                                                   if (startPos < mbStr.size()) {
                                                       qcc::String wkn = m_namePrefix;
                                                       wkn += '.';
-                                                      wkn += mbStr.substr(startPos);
+                                                      DecodeWFDBusName(mbStr.substr(startPos), wkn);
                                                       QCC_DbgPrintf(("name=(%s)", wkn.c_str()));
                                                       nameList.push_back(wkn);
                                                   }
@@ -572,8 +619,10 @@ Platform::String ^ ProximityNameService::EncodeWknAdvertisement()
     std::set<qcc::String>::iterator it = m_advertised.begin();
     while (encodedStr.size() < MAX_DISPLAYNAME_SIZE && it != m_advertised.end()) {
         encodedStr.append("|");
-        if ((encodedStr.size() + it->size()) <= MAX_DISPLAYNAME_SIZE) {
-            encodedStr.append(*it);
+        qcc::String encoded;
+        EncodeWFDBusName(*it, encoded);
+        if ((encodedStr.size() + encoded.size()) <= MAX_DISPLAYNAME_SIZE) {
+            encodedStr.append(encoded);
             it++;
         } else {
             break;
