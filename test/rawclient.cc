@@ -39,6 +39,7 @@
 #include <alljoyn/DBusStd.h>
 #include <alljoyn/AllJoynStd.h>
 #include <alljoyn/version.h>
+#include <alljoyn/TransportMask.h>
 
 #include <Status.h>
 
@@ -61,22 +62,27 @@ static String g_wellKnownName = "org.alljoyn.raw_test";
 class MyBusListener : public BusListener {
   public:
 
-    MyBusListener() : BusListener(), sessionId(0) { }
+    MyBusListener() : BusListener(), sessionId(0), transportMask(TRANSPORT_ANY) { }
+
+    void SetTransportMask(TransportMask transportMask)
+    {
+        this->transportMask = transportMask;
+    }
 
     void FoundAdvertisedName(const char* name, TransportMask transport, const char* namePrefix)
     {
         QCC_SyncPrintf("FoundAdvertisedName(name=%s, transport=0x%x, prefix=%s)\n", name, transport, namePrefix);
 
-        if (0 == strcmp(name, g_wellKnownName.c_str())) {
+        if (0 == strcmp(name, g_wellKnownName.c_str()) && ((transport & transportMask) != 0)) {
             /* We found a remote bus that is advertising bbservice's well-known name so connect to it */
-            SessionOpts opts(SessionOpts::TRAFFIC_RAW_RELIABLE, false, SessionOpts::PROXIMITY_ANY, TRANSPORT_ANY);
+            SessionOpts opts(SessionOpts::TRAFFIC_RAW_RELIABLE, false, SessionOpts::PROXIMITY_ANY, transport);
             g_msgBus->EnableConcurrentCallbacks();
             QStatus status = g_msgBus->JoinSession(name, SESSION_PORT, NULL, sessionId, opts);
             if (ER_OK != status) {
                 QCC_LogError(status, ("JoinSession(%s) failed", name));
             } else {
                 /* Release the main thread */
-                QCC_SyncPrintf("Session Joined with session id = %d\n", sessionId);
+                QCC_SyncPrintf("Session Joined with session id = %u\n", sessionId);
                 g_discoverEvent.SetEvent();
             }
         }
@@ -99,6 +105,7 @@ class MyBusListener : public BusListener {
 
   private:
     SessionId sessionId;
+    TransportMask transportMask;
 };
 
 /** Static bus listener */
@@ -113,10 +120,11 @@ static void SigIntHandler(int sig)
 
 static void usage(void)
 {
-    printf("Usage: rawclient [-h] [-n <well-known name>]\n\n");
+    printf("Usage: rawclient [-h] [-n <well-known name>] [-t <transport_mask>]\n\n");
     printf("Options:\n");
     printf("   -h                    = Print this help message\n");
     printf("   -n <well-known name>  = Well-known bus name advertised by bbservice\n");
+    printf("   -t <transport_mask>   = Set the transports that will attempt a joinSession\n");
     printf("\n");
 }
 
@@ -142,6 +150,22 @@ int main(int argc, char** argv)
                 exit(1);
             } else {
                 g_wellKnownName = argv[i];
+            }
+        } else if (0 == strcmp("-t", argv[i])) {
+            ++i;
+            if (i == argc) {
+                printf("option %s requires a paramter\n", argv[i - 1]);
+                usage();
+                exit(1);
+            } else {
+                TransportMask transportMask = (TransportMask) StringToU32(argv[i], 16, 0);
+                if (transportMask == 0) {
+                    printf("Invalid transport mask 0x%x\n", transportMask);
+                    usage();
+                    exit(1);
+                } else {
+                    g_busListener.SetTransportMask(transportMask);
+                }
             }
         } else if (0 == strcmp("-h", argv[i])) {
             usage();
@@ -265,7 +289,7 @@ int main(int argc, char** argv)
     /* Stop the bus */
     delete g_msgBus;
 
-    printf("rawclient exiting with status %d (%s)\n", status, QCC_StatusText(status));
+    printf("rawclient exiting with status 0x%x (%s)\n", status, QCC_StatusText(status));
 
     return (int) status;
 }

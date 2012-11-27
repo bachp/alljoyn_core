@@ -30,6 +30,7 @@
 #include <qcc/Environ.h>
 #include <qcc/Mutex.h>
 #include <qcc/String.h>
+#include <qcc/StringUtil.h>
 #include <qcc/Thread.h>
 #include <qcc/time.h>
 #include <qcc/Util.h>
@@ -76,13 +77,13 @@ class MySessionPortListener : public SessionPortListener {
         }
 
         /* Allow the join attempt */
-        printf("Accepting JoinSession request from %s\n", joiner);
+        printf("Accepting JoinSession request from %s on transport 0x%x\n", joiner, opts.transports);
         return true;
     }
 
     void SessionJoined(SessionPort sessionPort, SessionId sessionId, const char* joiner)
     {
-        printf("SessionJoined with %s (id=%d)\n", joiner, sessionId);
+        printf("SessionJoined with %s (id=%u)\n", joiner, sessionId);
         this->sessionId = sessionId;
     }
 
@@ -94,16 +95,18 @@ class MySessionPortListener : public SessionPortListener {
 
 static void usage(void)
 {
-    printf("Usage: rawservice [-h] [-n <name>]\n\n");
+    printf("Usage: rawservice [-h] [-n <name>] [-t <transport_mask>]\n\n");
     printf("Options:\n");
-    printf("   -h         = Print this help message\n");
-    printf("   -n <name>  = Well-known name to advertise\n");
+    printf("   -h                    = Print this help message\n");
+    printf("   -n <name>             = Well-known name to advertise\n");
+    printf("   -t <transport_mask>   = Set the transports that are used for advertising. (Defaults to TRANSPORT_ANY)\n");
 }
 
 /** Main entry point */
 int main(int argc, char** argv)
 {
     QStatus status = ER_OK;
+    TransportMask transportMask = TRANSPORT_ANY;
 
     printf("AllJoyn Library version: %s\n", ajn::GetVersion());
     printf("AllJoyn Library build info: %s\n", ajn::GetBuildInfo());
@@ -124,6 +127,20 @@ int main(int argc, char** argv)
                 exit(1);
             } else {
                 g_wellKnownName = argv[i];
+            }
+        } else if (0 == strcmp("-t", argv[i])) {
+            ++i;
+            if (i == argc) {
+                printf("option %s requires a paramter\n", argv[i - 1]);
+                usage();
+                exit(1);
+            } else {
+                transportMask = (TransportMask) StringToU32(argv[i], 16, 0);
+                if (transportMask == 0) {
+                    printf("Invalid transport mask 0x%x\n", transportMask);
+                    usage();
+                    exit(1);
+                }
             }
         } else {
             status = ER_FAIL;
@@ -173,7 +190,7 @@ int main(int argc, char** argv)
     }
 
     /* Bind the session port */
-    SessionOpts opts(SessionOpts::TRAFFIC_RAW_RELIABLE, false, SessionOpts::PROXIMITY_ANY, TRANSPORT_ANY);
+    SessionOpts opts(SessionOpts::TRAFFIC_RAW_RELIABLE, false, SessionOpts::PROXIMITY_ANY, transportMask);
     SessionPort sp = SESSION_PORT;
     status = g_msgBus->BindSessionPort(sp, opts, mySessionPortListener);
     if (status != ER_OK) {
@@ -235,7 +252,7 @@ int main(int argc, char** argv)
     /* Delete the bus */
     delete g_msgBus;
 
-    printf("%s exiting with status %d (%s)\n", argv[0], status, QCC_StatusText(status));
+    printf("%s exiting with status %x (%s)\n", argv[0], status, QCC_StatusText(status));
 
     return (int) status;
 }
