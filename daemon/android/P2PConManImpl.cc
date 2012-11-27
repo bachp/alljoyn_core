@@ -41,7 +41,7 @@ namespace ajn {
 
 P2PConManImpl::P2PConManImpl()
     : m_state(IMPL_SHUTDOWN), m_myP2pHelperListener(0), m_p2pHelperInterface(0), m_bus(0),
-    m_connState(CONN_IDLE), m_connType(CONN_NEITHER), m_l2thread(0), m_l3thread(0), m_callback(0)
+    m_connState(CONN_IDLE), m_connType(CONN_NEITHER), m_l2thread(0), m_l3thread(0), m_stateCallback(0), m_nameCallback(0)
 {
     QCC_DbgPrintf(("P2PConManImpl::P2PConManImpl()"));
 }
@@ -61,10 +61,13 @@ P2PConManImpl::~P2PConManImpl()
     m_myP2pHelperListener = NULL;
 
     //
-    // Get rid of any callback that might have been set.
+    // Get rid of any callbacks that might have been set.
     //
-    delete m_callback;
-    m_callback = NULL;
+    delete m_stateCallback;
+    m_stateCallback = NULL;
+
+    delete m_nameCallback;
+    m_nameCallback = NULL;
 
     //
     // All shut down and ready for bed.
@@ -106,7 +109,8 @@ QStatus P2PConManImpl::Stop()
     QCC_DbgHLPrintf(("P2PConManImpl::Stop()"));
 
     //
-    // We are synchronizing as many as three threads, so be very, very careful.
+    // We are synchronizing as many as three threads, so be very, very careful;
+    // as if hunting wabbits.
     //
     m_threadLock.Lock();
 
@@ -182,19 +186,36 @@ QStatus P2PConManImpl::Join()
     return ER_OK;
 }
 
-QStatus P2PConManImpl::SetCallback(Callback<void, P2PConMan::LinkState, const qcc::String&>* cb)
+QStatus P2PConManImpl::SetStateCallback(Callback<void, P2PConMan::LinkState, const qcc::String&>* cb)
 {
-    QCC_DbgHLPrintf(("P2PConManImpl::SetCallback()"));
+    QCC_DbgHLPrintf(("P2PConManImpl::SetStateCallback()"));
 
     if (m_state != IMPL_RUNNING) {
-        QCC_DbgPrintf(("P2PConManImpl::SetCallback(): Not IMPL_RUNNING"));
+        QCC_DbgPrintf(("P2PConManImpl::SetStateCallback(): Not IMPL_RUNNING"));
         return ER_FAIL;
     }
 
-    Callback<void, P2PConMan::LinkState, const qcc::String&>* goner = m_callback;
-    m_callback = NULL;
+    Callback<void, P2PConMan::LinkState, const qcc::String&>* goner = m_stateCallback;
+    m_stateCallback = NULL;
     delete goner;
-    m_callback = cb;
+    m_stateCallback = cb;
+
+    return ER_OK;
+}
+
+QStatus P2PConManImpl::SetNameCallback(Callback<void, const qcc::String&, const qcc::String&, std::vector<qcc::String>&, uint8_t>* cb)
+{
+    QCC_DbgHLPrintf(("P2PConManImpl::SetNameCallback()"));
+
+    if (m_state != IMPL_RUNNING) {
+        QCC_DbgPrintf(("P2PConManImpl::SetNameCallback(): Not IMPL_RUNNING"));
+        return ER_FAIL;
+    }
+
+    Callback<void, const qcc::String&, const qcc::String&, std::vector<qcc::String>&, uint8_t>* goner = m_nameCallback;
+    m_nameCallback = NULL;
+    delete goner;
+    m_nameCallback = cb;
 
     return ER_OK;
 }
@@ -351,16 +372,54 @@ QStatus P2PConManImpl::CreateTemporaryNetwork(const qcc::String& device, int32_t
     // specify that it needs to be the GO.  The other side can only specify very
     // vociferously that it wants to be the STA.
     //
-    // We wanted to sue an establish link with no remote device and a GO intent
-    // of fifteen as an advisory message to communicate this fact.  It can't
-    // work as it stands, so we don't bother telling the P2P Helper Service
-    // since down't know what to do with it.  So if we see DEVICE_MUST_BE_GO we
-    // just ignore the request.  We will get a callback from the Framework, via
-    // the P2P Helper Service when the link is finally established, at which
-    // pont we just remember the handle that is returned there and go to
-    // CONN_CONNECTED directly in the callback.
+    // We originally wanted to use an establish link with no remote device and a
+    // GO intent of fifteen as an advisory message to communicate this fact.  It
+    // can't work this way, so we don't bother telling the P2P Helper Service
+    // about our choice to be GO since ot won't know what to do with that
+    // information anyway.  So if we see DEVICE_MUST_BE_GO we just ignore the
+    // request.  We will get a callback from the Framework, via the P2P Helper
+    // Service when the link is finally established (when a client connects), at
+    // which point we remember the handle that is returned there and go to
+    // CONN_CONNECTED directly in the OnLinkEstablished() callback.
     //
     if (goIntent == P2PConMan::DEVICE_MUST_BE_GO) {
+        //
+        // This is a bit counter-intuitive, but it is critical to support a pure
+        // peer-to-peer use case which is vital to a useful WFD transport.
+        //
+        // At a low level in the P2P helper, in order to break endless discovery
+        // and reconnection loops, when a device becomes connected, it stops
+        // discovering.  In the case of a service, this means that as soon as it
+        // becomes connected, it essentially "goes deaf."  In a pure
+        // peer-to-peer scenario, we have, for example, a client/service pair on
+        // device A that wants to connect to a client/service pair on device B.
+        // Since the real world is seriallized, one of the clients will connect
+        // to one of the service to start the process -- say client A connects
+        // to service B.  The event that started the connect process was client
+        // A discovering service B, but as soon as client A connects to service
+        // B, service B is actively prevented from discovering service A in the
+        // future.  In order to enable this scenario, we rely on the IP name
+        // service running in service B to do the discovery of service A.
+        //
+        // In the scenario above, we are service B and so we need to do a
+        // FindAdvertisedName() in order to locate any services on the other
+        // side which would correspond to service A.
+        //
+        // If we can't do the FindAdvertisedName(), it's not the end of the
+        // world since the name service on the other side will do its periodic
+        // retransmission within about 40 seconds, so we just log an error but
+        // otherwise do nothing.
+        //
+        // The take away from this is taht it's not at all accidental that a
+        // service is doing a FindAdvertisedName() here.
+        //
+        qcc::String star("*");
+        QCC_DbgPrintf(("P2PConManImpl::CreateTemporaryNetwork(): FindAdvertisedName() for GO"));
+        QStatus status = IpNameService::Instance().FindAdvertisedName(TRANSPORT_WFD, star);
+        if (status != ER_OK) {
+            QCC_LogError(status, ("P2PConManImpl::CreateConnectSpec(): FindAdvertisedName(): Failure"));
+        }
+
         m_connState = CONN_READY;
         m_threadLock.Lock();
         m_l2thread = NULL;
@@ -621,6 +680,23 @@ QStatus P2PConManImpl::DestroyTemporaryNetwork(void)
     m_establishLock.Lock(MUTEX_CONTEXT);
 
     //
+    // Tell the IP name service that it can forget about passing us well-known
+    // names.  When we started the process in CreateConnectSpec(), we asked for
+    // "any" well-known name from the service to get its IP address and port, so
+    // to undo this operation we need to cancel the same "any" name.  There is
+    // no concept of DeleteConnectSpec(), so we undo it here, when we
+    // conceptually free the resources associated with the link.
+    //
+    qcc::String star("*");
+    IpNameService::Instance().CancelFindAdvertisedName(TRANSPORT_WFD, star);
+
+    //
+    // Tell the IP name service to forget about calling us back since we no
+    // longer care.
+    //
+    IpNameService::Instance().SetCallback(TRANSPORT_WFD, NULL);
+
+    //
     // We are really just doing a courtesy advisory to the P2P Helper Server since
     // Android allows anyone to walk over a temporary (Wi-Fi Direct) network and
     // delete it at any time.  We give up our references to it, so even if the
@@ -755,7 +831,7 @@ QStatus P2PConManImpl::CreateConnectSpec(const qcc::String& device, const qcc::S
 
     //
     // Tell the IP name service to call us back on our FoundAdvertisedName method when
-    // it hears a response.
+    // it hears from a remote daemon.
     //
     IpNameService::Instance().SetCallback(TRANSPORT_WFD,
                                           new CallbackImpl<P2PConManImpl, void, const qcc::String&, const qcc::String&, std::vector<qcc::String>&, uint8_t>
@@ -763,19 +839,30 @@ QStatus P2PConManImpl::CreateConnectSpec(const qcc::String& device, const qcc::S
 
     //
     // We are now going to rely on the IP name service to resolve the IP address
-    // and port of the GUID we know about.  For the IP name service to send and
-    // receive data over the net device that is responsible for the P2P connection
-    // that was formed in CreateTemporaryNetwork, the interface must be "opened"
-    // by a call to IpNameService::OpenInterface().
+    // and port of the GUID of the daemon to which we are being asked to connect.
     //
+    // For the IP name service to send and receive data over the net device that
+    // is responsible for the P2P connection that was previously formed by a
+    // required call to CreateTemporaryNetwork(), the interface must be "opened"
+    // by a call to IpNameService::OpenInterface().  We expect that this call
+    // was made in the OnLinkEstablished() callback where the interface name of
+    // the net device associated with the link was give to us by the P2P helper.
     //
     // We know there is a daemon out there that has advertised a service our
-    // client found interesting.  The client decided to do a JoinSession to that
-    // service which is what got us here.  We don't know the name of that
-    // service, so we ask all of the daemons on the network if they have any
-    // services.  All daemons (there will actually only be one) will respond
-    // with all of their (its) services, which is what it would normally do,
-    // so this request isn't actually unusual.
+    // client found interesting because the client decided to do a JoinSession
+    // to that service which is what got us here in the first place.  We don't
+    // know the name of that service because it is not plumbed all through the
+    // system, so we ask all of the daemons on the network if they have any
+    // services.  This actually turns out to be a good thing since we want the
+    // IP name service to "pick up the slack" because the P2P name service has
+    // some serious implementation-related limitations that prevent it from
+    // behaving like the generic name service we expect.
+    //
+    // As a result of the FindAdvertisedName("*"), all daemons will respond
+    // with all of their services.  Some of these advertisements may be new
+    // advertisements from other devices already associated with the daemon
+    // hosting the group, but one of those advertisements will be the list of
+    // services on the group owner.
     //
     // What this does is to convince the remote daemon to give up its GUID and
     // all of the methods we can use to connect to it (IPv4 and IPv6 addresses,
@@ -784,6 +871,16 @@ QStatus P2PConManImpl::CreateConnectSpec(const qcc::String& device, const qcc::S
     // case of the possibility of multiple network connections, which is
     // currently unsupported.  We only support one network, so the device is
     // redundant and not currently used.
+    //
+    // In addition to finding the IP address and port of our remote daemon, we
+    // also want to be able to discover any other services which might be
+    // lurking out on the temporary network we have just joined (as a result of
+    // the previous CreateTemporaryNetwork() call.  This allows the IP name
+    // service to "pick up the slack" for a very restricted P2P pre-association
+    // discovery feature as it is currently implemented.  Since as of the
+    // initial release, the P2P name service is limited to discovering one name
+    // at a time we use the IP name service to actually do as much discovery as
+    // possible after the initial connection is made.
     //
     qcc::String star("*");
     QCC_DbgPrintf(("P2PConManImpl::CreateConnectSpec(): FindAdvertisedName()"));
@@ -902,16 +999,18 @@ QStatus P2PConManImpl::CreateConnectSpec(const qcc::String& device, const qcc::S
     }
 
     //
-    // Not strictly required, but tell the IP name service that it can
-    // forget about the name in question.
+    // Note well that we are leaving the IP name service enabled to receive
+    // advertisements over TRANSPORT_WFD.  This is a critical bit of either
+    // elegance or hack depending on your viewpoint that enables pure peer to
+    // peer applications to work across a WFD transport.  This is because a pure
+    // peer-to-peer app wants to be both a service (and be GO) and also be a
+    // client (and be STA).  Leaving the name service enabled allows a client to
+    // discover and connect by "borrowing" an existing P2P link without having
+    // to instantiate a new one.
     //
-    IpNameService::Instance().CancelFindAdvertisedName(TRANSPORT_WFD, star);
-
+    // The IP name service is left enabled until the underlying P2P link goes
+    // down, at which time there is no link to borrow any more.
     //
-    // Tell the IP name service to forget about calling us back.
-    //
-    IpNameService::Instance().SetCallback(TRANSPORT_WFD, NULL);
-
     m_discoverLock.Unlock(MUTEX_CONTEXT);
     return status;
 }
@@ -1044,8 +1143,8 @@ void P2PConManImpl::OnLinkEstablished(int32_t handle, qcc::String& interface)
         // link has been established and let them know which network interface
         // is handling the link.
         //
-        if (m_callback) {
-            (*m_callback)(P2PConMan::ESTABLISHED, m_interface);
+        if (m_stateCallback) {
+            (*m_stateCallback)(P2PConMan::ESTABLISHED, m_interface);
         }
     }
 }
@@ -1138,8 +1237,8 @@ void P2PConManImpl::OnLinkLost(int32_t handle)
         // It is entirely possible that the interface is "down enough" that the
         // interface name is useless, but we pass it back just in case.
         //
-        if (m_callback) {
-            (*m_callback)(P2PConMan::LOST, m_interface);
+        if (m_stateCallback) {
+            (*m_stateCallback)(P2PConMan::LOST, m_interface);
         }
 
         //
@@ -1324,8 +1423,21 @@ void P2PConManImpl::FoundAdvertisedName(const qcc::String& busAddr, const qcc::S
     QCC_DbgPrintf(("P2PConManImpl::FoundAdvertisedName(): busAddr = \"%s\", guid = \"%s\"", busAddr.c_str(), guid.c_str()));
 
     //
-    // If the guid of the remote daemon matches the guid that we are searching for,
-    // we have our addressing information.  It is in the provided busAddr.
+    // This is the name found callback from the IP name service.  We use these
+    // IP level name found callbacks for two purposes: to find layer three
+    // addressing information for a remote daemon that has a service we are
+    // trying to connect to (all we have is the layer two MAC address from the
+    // pre-association discovery process); and also to find other services that
+    // may not be discoverable or advertiseable over the crippled pre-association
+    // service discovery process.
+    //
+    // In the first case, we search to find if the GUID of the remote daemon
+    // referred to in the callback instance matches the GUID that we are
+    // searching for.  If it does we have the addressing information for the
+    // remote daemon that we need -- it is in the provided busAddr.  If we find
+    // the remote daemon's information, and we have a thread waiting for the
+    // connect process to complete then we need to wake it up since its long
+    // wait is over.
     //
     if (m_searchedGuid == guid) {
         m_busAddress = busAddr;
@@ -1336,6 +1448,21 @@ void P2PConManImpl::FoundAdvertisedName(const qcc::String& busAddr, const qcc::S
         }
         m_threadLock.Unlock();
     }
+
+    //
+    // The second case mentioned above is that we also want to use names
+    // received over the IP name service to drive further service discovery
+    // that would not normally be possible without it.  See the comment in
+    // CreateTemporaryNetwork() regarding pure peer-to-peer applications.
+    //
+    // In this case, we want to chain the callback on back up into the WFD
+    // transport so it can pass it on to AllJoyn and further on to interested
+    // clients.
+    //
+    if (m_nameCallback) {
+        (*m_nameCallback)(busAddr, guid, nameList, timer);
+    }
+
 }
 
 } // namespace ajn

@@ -104,7 +104,17 @@ class P2PConMan {
      * @param cb The callback method on the transport that will be called to notify
      *     a transport about link state changes.
      */
-    void SetCallback(Callback<void, LinkState, const qcc::String&>* cb);
+    void SetStateCallback(Callback<void, LinkState, const qcc::String&>* cb);
+
+    /**
+     * @brief Set the callback function that is called to notify a transport about
+     *     the coming and going of well-known names found using the IP name service
+     *     (which is accessible from here).
+     *
+     * @param cb The callback method on the transport that will be called to notify
+     *     a transport about well-known names discovered over IP.
+     */
+    void SetNameCallback(Callback<void, const qcc::String&, const qcc::String&, std::vector<qcc::String>&, uint8_t>* cb);
 
     /**
      * @brief Create a temporary physical network connection to the provided

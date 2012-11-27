@@ -71,6 +71,8 @@ static String g_wellKnownName = ::org::alljoyn::alljoyn_test::DefaultWellKnownNa
 static String g_advertiseName = ::org::alljoyn::alljoyn_test::DefaultAdvertiseName;
 static Event g_discoverEvent;
 
+static TransportMask g_doWFD = 0;
+
 static bool compress = false;
 static bool encryption = false;
 static bool broacast = false;
@@ -270,7 +272,7 @@ class LocalTestObject : public BusObject {
             const ProxyBusObject& alljoynObj = bus->GetAllJoynProxyObj();
             MsgArg args[2];
             size_t numArgs = ArraySize(args);
-            MsgArg::Set(args, numArgs, "sq", g_advertiseName.c_str(), TRANSPORT_ANY);
+            MsgArg::Set(args, numArgs, "sq", g_advertiseName.c_str(), TRANSPORT_ANY + g_doWFD);
             QStatus status = alljoynObj.MethodCallAsync(ajn::org::alljoyn::Bus::InterfaceName,
                                                         "AdvertiseName",
                                                         this,
@@ -431,6 +433,7 @@ static void usage(void)
     printf("Usage: bbsig [-n <name> ] [-a <name> ] [-h] [-l] [-s] [-r #] [-i #] [-c #] [-t #] [-x] [-e[k] <mech>]\n\n");
     printf("Options:\n");
     printf("   -h              = Print this help message\n");
+    printf("   -?              = Print this help message\n");
     printf("   -a <name>       = Well-known name to advertise\n");
     printf("   -n <name>       = Well-known name to find\n");
     printf("   -s              = Enable stress mode (connect/disconnect w/ server between runs non-stop)\n");
@@ -440,6 +443,7 @@ static void usage(void)
     printf("   -i #            = Signal report interval (number of signals tx/rx per update; default = 1000)\n");
     printf("   -c #            = Max number of signals to send, default = 1000000)\n");
     printf("   -t #            = TTL for the signals\n");
+    printf("   -w              = Advertise over Wi-Fi Direct\n");
     printf("   -x              = Compress headers\n");
     printf("   -e[k] [RSA|SRP] = Encrypt the test interface using specified auth mechanism, -ek means clear keys\n");
     printf("   -d              = discover remote bus with test service\n");
@@ -473,11 +477,13 @@ int main(int argc, char** argv)
 
     /* Parse command line args */
     for (int i = 1; i < argc; ++i) {
-        if (0 == strcmp("-h", argv[i])) {
+        if (0 == strcmp("-h", argv[i]) || 0 == strcmp("-?", argv[i])) {
             usage();
             exit(0);
         } else if (0 == strcmp("-s", argv[i])) {
             doStress = true;
+        } else if (0 == strcmp("-w", argv[i])) {
+            g_doWFD = TRANSPORT_WFD;
         } else if (0 == strcmp("-n", argv[i])) {
             ++i;
             if (i == argc) {

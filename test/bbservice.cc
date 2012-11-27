@@ -665,6 +665,7 @@ static void usage(void)
     printf("Usage: bbservice [-h <name>] [-m] [-e] [-x] [-i #] [-n <name>] [-b] [-t] [-r] [-l]\n\n");
     printf("Options:\n");
     printf("   -h                    = Print this help message\n");
+    printf("   -?                    = Print this help message\n");
     printf("   -k <key store name>   = The key store file name\n");
     printf("   -kx #                 = Authentication key expiration (seconds)\n");
     printf("   -m                    = Session is a multi-point session\n");
@@ -700,7 +701,7 @@ int main(int argc, char** argv)
 
     /* Parse command line args */
     for (int i = 1; i < argc; ++i) {
-        if (0 == strcmp("-h", argv[i])) {
+        if (0 == strcmp("-h", argv[i]) || 0 == strcmp("-?", argv[i])) {
             usage();
             exit(0);
         } else if (0 == strcmp("-p", argv[i])) {
