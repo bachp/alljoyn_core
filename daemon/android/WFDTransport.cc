@@ -592,18 +592,21 @@ QStatus WFDTransport::Stop(void)
 
     /*
      * Tell the P2P name service to stop calling us back if it's there (we may
-     * get called more than once in the chain of destruction) so the pointer is
-     * not required to be non-NULL.
+     * get called more than once in the chain of destruction) so the pointer
+     * to the name service is not required to be valid -- i.e., it may be NULL
+     * from a previous call.
      */
     if (m_p2pNsAcquired) {
         P2PNameService::Instance().SetCallback(TRANSPORT_WFD, NULL);
     }
 
     /*
-     * Tell the P2P connection manager to stop calling us back as well.
+     * Tell the P2P connection manager to stop calling us back as well over its
+     * state-changed callback.
      */
     if (m_p2pCmAcquired) {
-        P2PConMan::Instance().SetCallback(NULL);
+        P2PConMan::Instance().SetStateCallback(NULL);
+        P2PConMan::Instance().SetNameCallback(NULL);
     }
 
     /*
@@ -1489,7 +1492,10 @@ void WFDTransport::RunListenMachine(void)
             }
             if (m_p2pCmAcquired == false) {
                 P2PConMan::Instance().Acquire(&m_bus, m_bus.GetInternal().GetGlobalGUID().ToString());
-                P2PConMan::Instance().SetCallback(new CallbackImpl<WFDTransport, void, P2PConMan::LinkState, const qcc::String&> (this, &WFDTransport::P2PConManCallback));
+                P2PConMan::Instance().SetStateCallback(new CallbackImpl<WFDTransport, void, P2PConMan::LinkState, const qcc::String&> (this, &WFDTransport::P2PConManStateCallback));
+                P2PConMan::Instance().SetNameCallback(new CallbackImpl<WFDTransport, void, const qcc::String&, const qcc::String&, std::vector<qcc::String>&, uint8_t>(this, &WFDTransport::P2PConManNameCallback));
+
+
                 m_p2pCmAcquired = true;
             }
             if (m_ipNsAcquired == false) {
@@ -2250,155 +2256,249 @@ QStatus WFDTransport::Connect(const char* connectSpec, const SessionOpts& opts, 
     assert(P2PNameService::Instance().Started() && "WFDTransport::Connect(): P2PNameService not started");
 
     /*
-     * Parse and normalize the connectArgs.  When connecting to the outside
-     * world in the WFD transport, there are no reasonable defaults and so the
-     * guid key MUST be present in the connect spec.  This GUID was provided
-     * from a P2P name service found callback and sent all the way up to an
-     * AllJoyn application, which responded with a JoinSession request.  The
-     * session implied a connect spec that included the GUID and so it has found
-     * its way back down here.  This guid MUST be present in the connect spec or
-     * something has gone badly wrong.
+     * There are two possibilities for the form of the connect spec we have just
+     * normalized.  The first is that it contains a key of "guid" (the connect
+     * spec looks something like "wfd:guid=2b1188267ee74bc9a910b69435779523")
+     * and the second is that it contains IP addressing information as
+     * exemplified by the keys "r4addr" and "r4port" (the connect spec would
+     * look something like "wfd:r4addr=192.168.1.100,r4port=9956")
+     *
+     * If the "guid" key is present it indicates that the underlying discovery
+     * event happened over Wi-Fi P2P pre-association service discovery.  Since
+     * this is a fundamentally layer two process, there is no IP addressing
+     * information present before this method is called.  The connection between
+     * the GUID and the layer two (MAC) device address is kept in the P2P name
+     * service and is available to us.
+     *
+     * If we found a guid, then we need to actually go and discover the IP
+     * address info using our layer three name service, AKA the IP name service.
+     * We expect that there will always be a precipitating layer two (P2P)
+     * discovery event that drives a JoinSession() which, in turn, causes the
+     * WFDTransport::Connect() that brings us here.  This first event will tell
+     * us to bring up an initial Wi-Fi connection.  After that initial
+     * connection is brought up, the IP name service is always run over the
+     * resulting link and we may therefore see layer three discovery events.
+     *
+     * If the "r4addr", "u4addr", "r6addr", or "u6addr" keys are present in the
+     * connect spec it indicates that the JoinSession() driving this Connect()
+     * happened due to a layer three (IP) discovery event.  In this case, we
+     * do not have to bring up an initial connection and we can proceed directly
+     * to the actual connect part of the method.
+     *
+     * We have two methods to parse the different kinds of connect specs.  The
+     * NormalizeTransportSpec() method determines whether the connect spec
+     * contains a GUID and if it does, puts it into a standard form and returns
+     * ER_OK.
+     *
+     * The variable preAssociationEvent tells us what kind of discovery event
+     * caused the Connect() we are running: either a Wi-Fi Direct pre-
+     * association service discovery event (true) or an IP name service event
+     * (false).
      */
+    bool preAssociationEvent = false;
+    qcc::String guid;
+    qcc::String device;
     qcc::String normSpec;
     map<qcc::String, qcc::String> argMap;
     status = NormalizeTransportSpec(connectSpec, normSpec, argMap);
-    if (ER_OK != status) {
-        QCC_LogError(status, ("WFDTransport::Connect(): Invalid WFD connect spec \"%s\"", connectSpec));
-        return status;
-    }
-
-    QCC_DbgPrintf(("WFDTransport::Connect(): Normalized connect spec is \"%s\"", normSpec.c_str()));
-
-    map<qcc::String, qcc::String>::iterator iter = argMap.find("guid");
-    assert(iter != argMap.end() && "WFDTransport::Connect(): Transport spec must provide \"guid\"");
-    qcc::String guid = iter->second;
-
-    /*
-     * Since we are going to use TCP as the actual transport mechanism (in the
-     * network stack sense) we are going to need an actual IP endpoint to connect
-     * to and an actual physical network to move the bits over.  Neither of these
-     * things may exist yet.
-     *
-     * We first need to check to see if a network is formed.  There is nothing
-     * inherently synchronous about the sequence of calls that follows.  There
-     * is no guarantee that the underlying network will remain in a consistent
-     * state while we work, so we have to admit the possibility of things going
-     * completely wrong at any point and the connect may fail, taking quite a
-     * long time to ultimately time out if a failure happens at precisely the
-     * wrong time.  For example, if we successfully get to the point where we
-     * try a TCP connect, it may take on the order of a minute for such a call
-     * to eventually fail.  This is okay, though, exactly the same thing would
-     * happen in the TCP transport.
-     *
-     * The first thing to do is to figure out which device (remote MAC address)
-     * corresponds to the daemon GUID we have.  If we've gotten to this point we
-     * assume that the P2P name service has received a pre-association
-     * advertisement that provided the mapping between the device MAC address
-     * and the GUID of the daemon doing the advertisement.  We ask the name
-     * service for what amounts to the MAC address of the remote daemon.
-     */
-    qcc::String device;
-    status = P2PNameService::Instance().GetDeviceForGuid(guid, device);
-    if (status != ER_OK) {
-        QCC_LogError(status, ("WFDTransport::Connect(): Device corresponding to GUID \"%s\" is gone", guid.c_str()));
-        return status;
-    }
-
-    QCC_DbgPrintf(("WFDTransport::Connect(): Device \"%s\" corresponds to GUID \"%s\"", device.c_str(), guid.c_str()));
-
-    /*
-     * Now that we know the device address, we can check to see if we have a
-     * physical network connection to the remote device.  Since we are doing a
-     * Connect() to a remote daemon, we can infer that we must be a STA on the
-     * network and the daemon doing the advertising will be the GO.
-     */
-    if (P2PConMan::Instance().IsConnected(device) == false) {
-
-        QCC_DbgPrintf(("WFDTransport::Connect(): Device \"%s\" is not connected", device.c_str()));
+    if (status == ER_OK) {
+        QCC_DbgPrintf(("WFDTransport::Connect(): Found GUID.  Normalized connect spec is \"%s\"", normSpec.c_str()));
 
         /*
-         * If we are not connected onto a common physical network with the
-         * device the first order of business is to make that happen.  Creating
-         * a temporary network means bringing up the entire infrastructure of
-         * the network, so this may also be a very time-consuming call during
-         * which time we will block.  Since human intervention may actually be
-         * required on the remote side for Wi-Fi authentication, we may be
-         * talking on the order of a couple of minutes here if things happen in
-         * the worst case.
+         * Since we found a GUID in the connect spec, we know we have no layer
+         * three addressing information, so we are going to have to discover it
+         * before we can do an actual TCP connect to the destination daemon.  We
+         * may also need an actual physical network to move the bits over.
+         * Neither of these things may exist yet.
          */
-        QCC_DbgPrintf(("WFDTransport::Connect(): CreateTemporaryNetwork() with device \"%s\"", device.c_str()));
-        status = P2PConMan::Instance().CreateTemporaryNetwork(device, P2PConMan::DEVICE_MUST_BE_STA);
+        preAssociationEvent = true;
+        map<qcc::String, qcc::String>::iterator iter = argMap.find("guid");
+        assert(iter != argMap.end() && "WFDTransport::Connect(): Transport spec must provide \"guid\"");
+        guid = iter->second;
+
+        /*
+         * Since we are doing a Connect() and not making an advertisement, we
+         * must be taking on the role of a P2P STA.  A STA can only be connected
+         * to one P2P group at a time.  A P2P group has an owner, which we
+         * assume to be a remote AllJoyn daemon hosting the service, the
+         * advertisement for which got us here in the first place.  When we got
+         * the advertisement, we mapped the discovered GUID to the MAC address
+         * of the device that did the advertisement.
+         *
+         * The first thing we need to do in this process is to find the MAC
+         * address of the device to which we want to be talking.  There is no
+         * guarantee that this device has not been lost during the time it took
+         * for the application to get around to asking us to connect, so we
+         * return an error if we can no longer find it.
+         */
+        status = P2PNameService::Instance().GetDeviceForGuid(guid, device);
         if (status != ER_OK) {
-            QCC_LogError(status, ("WFDTransport::Connect(): Unable to CreateTemporaryNetwork() with device \"%s\"", device.c_str()));
+            QCC_LogError(status, ("WFDTransport::Connect(): Device corresponding to GUID \"%s\" is gone", guid.c_str()));
             return status;
+        }
+
+        QCC_DbgPrintf(("WFDTransport::Connect(): Device \"%s\" corresponds to GUID \"%s\"", device.c_str(), guid.c_str()));
+
+        /*
+         * It is entirely possible that (once Android is fixed) a client can
+         * have discovered multiple services running on multiple remote daemons
+         * and decided to try and connect to all of them.  We want to allow
+         * multiple connections to the same remote daemon, but if an attempt is
+         * made to connect to a different daemon while an existing connection is
+         * up and running, we need to fail that connection to avoid ping-ponging
+         * between services.  Recall that since we can only have one STA,
+         * switching between daemons would necessarily mean dropping the
+         * existing connection in order to form a new one.
+         *
+         * We will allow connecting to different services in the same P2P group
+         * but this must happen through the IP name service discovery process
+         * which doesn't imply a temporary network connection must be made.
+         */
+        bool connected = P2PConMan::Instance().IsConnected();
+        bool ourGroupOwner = P2PConMan::Instance().IsConnected(device);
+
+        /*
+         * case 1: !connected && !ourGroupOwner:  completely disconnected.
+         * case 2: !connected &&  ourGroupOwner:  disconnected but connected to the desired group owner is impossible
+         * case 3:  connected && !ourGroupOwner:  already connected but to a different group owner
+         * case 4:  connected &&  ourGroupOwner:  already connected to the desired group owner
+         *
+         * First, handle case two, disconnected but connected to the desired group owner is impossible.
+         */
+        if (!connected && ourGroupOwner) {
+            assert(false && "WFDTransport::Connect(): Impossible condition.");
+        }
+
+        /*
+         * Handle case three, already connected but to a different group owner.
+         */
+        if (connected && !ourGroupOwner) {
+            QCC_LogError(status, ("WFDTransport::Connect(): Existing connection.  New connection requires explicit disconnect"));
+            return status;
+        }
+
+        if (connected && ourGroupOwner) {
+            /*
+             * Handle case four, already connected to the desired group owner.
+             */
+            QCC_DbgPrintf(("WFDTransport::Connect(): Already connected to device \"%s\"", device.c_str()));
+        } else {
+            /*
+             * Handle case one, completely disconnected.
+             */
+            assert(!connected && !ourGroupOwner && "WFDTransport::Connect(): Impossible condition.");
+            QCC_DbgPrintf(("WFDTransport::Connect(): Not connected to device \"%s\"", device.c_str()));
+
+            /*
+             * If we are not connected onto a common physical network with the
+             * device the first order of business is to make that happen.  Creating
+             * a temporary network means bringing up the entire infrastructure of
+             * the network, so this may also be a very time-consuming call during
+             * which time we will block.  Since human intervention may actually be
+             * required on the remote side for Wi-Fi authentication, we may be
+             * talking on the order of a couple of minutes here if things happen in
+             * the worst case.
+             */
+            QCC_DbgPrintf(("WFDTransport::Connect(): CreateTemporaryNetwork() with device \"%s\"", device.c_str()));
+            status = P2PConMan::Instance().CreateTemporaryNetwork(device, P2PConMan::DEVICE_MUST_BE_STA);
+            if (status != ER_OK) {
+                QCC_LogError(status, ("WFDTransport::Connect(): Unable to CreateTemporaryNetwork() with device \"%s\"", device.c_str()));
+                return status;
+            }
         }
     }
 
     /*
-     * At this point we are fairly certain that we have a physical network to
-     * use to talk to the remote daemon (remember it may go away at any time).
-     * what we don't have is an IP address and port to use in the TCP connect
-     * request.  Since the P2P name service is a layer two name service that is
-     * clueless about IP addresses, we need to rely on the layer three name
-     * service to get that information.  The GUID we got is permanent and
-     * globally unique for the lifetime of the daemon in question, but an IP
-     * address may change over time, so we can't cache it.  It may be unikely,
-     * but it is possible.  So we ultimately need to ask the IP name service for
-     * the IP address of the daemon having the GUID we were provided and block
-     * until we have it.
+     * At this point, we are coming from one of three directions.
      *
-     * The ultimate goal of this work is to essentially create the same
-     * connect spec that would have been passed to a TCPTransport::Connect() if
-     * the network formation had just happened magically.  We are essentially
-     * translating a spec like "wfd:guid=2b1188267ee74bc9a910b69435779523" into
-     * a spec that would look like "wfd:r4addr=192.168.1.100,r4port=9955".
+     * It could be the case that we have just formed a new connection based on a
+     * provided GUID in the correctly parsed and normalized transport spec.
+     * This case indicates that the discovery event that precipitated the
+     * Connect() is a Wi-Fi P2P pre-association service discovery event.  If we
+     * find ourselves in that state, we have no layer three (IP) addressing
+     * information, and we must discover it before we can proceed.
      *
-     * This call is going to result in IP name service exchanges and may also
-     * therefore take a long time to complete.  If the other side misses the
-     * original who-has requests, it could take some multiple of 40 seconds
-     * for the IP addresses to be found.
+     * It could be the case that we have a GUID in a correctly parsed and
+     * normalized transport spec that refers to a pre-existing connection.  In
+     * that case, we expect that we will have already found IP addressing
+     * information for the specified device.  We don't remember that address
+     * information so this case folds into the previous one.  XXX Should we?
+     *
+     * It could also be the case that the underlying discovery event was from
+     * the IP name service, In that case we expect to have a pre-existing
+     * temporary network and we do have layer three addressing information.
+     * The IP address may or may not refer to the group owner since the IP
+     * name service is a multicast protocol running on all of the nodes in the
+     * group.  This is how we can discover and connect to other services
+     * advertising as Wi-Fi Direct services even though basic WFD discovery
+     * is broken/crippled in Android as of Jellybean.
+     *
+     * The next goal is to get a connect spec (spec) with IP addressing in it.
+     * If the variable preAssociationEvent is true, it means one of the first
+     * two cases above, and if it is false, it means the third.
      */
-    qcc::String newSpec;
-    QCC_DbgPrintf(("WFDTransport::Connect(): CreateConnectSpec()"));
-    status = P2PConMan::Instance().CreateConnectSpec(device, guid, newSpec);
-    if (status != ER_OK) {
-        QCC_LogError(status, ("WFDTransport::Connect(): Unable to CreateConnectSpec() with device \"%s\"", device.c_str()));
-        return status;
+    qcc::String spec;
+    if (!preAssociationEvent) {
+        qcc::String spec = connectSpec;
+        QCC_DbgPrintf(("WFDTransport::Connect(): Provided connect spec is \"%s\"", spec.c_str()));
+    } else {
+        /*
+         * Since preAssociationEvent is true, we know we have a GUID from the
+         * original connect spec passed to us.  We also have looked up the
+         * device corresponding to that GUID.
+         *
+         * The ultimate goal now is to essentially create the same connect spec
+         * that would have been passed to a TCPTransport::Connect() if the
+         * network formation had just happened magically.  We are essentially
+         * translating a spec like "wfd:guid=2b1188267ee74bc9a910b69435779523"
+         * into a one like "wfd:r4addr=192.168.1.100,r4port=9956".  Note that
+         * this is exactly the same form as we would see in the third case
+         * above -- one that came directly from the IP name service.
+         *
+         * This is going to result in IP name service exchanges and may also
+         * therefore take a long time to complete.  If the other side misses the
+         * original who-has requests, it could take some multiple of 40 seconds
+         * for the IP addresses to be found.
+         */
+        qcc::String newSpec;
+        QCC_DbgPrintf(("WFDTransport::Connect(): CreateConnectSpec()"));
+        status = P2PConMan::Instance().CreateConnectSpec(device, guid, newSpec);
+        if (status != ER_OK) {
+            QCC_LogError(status, ("WFDTransport::Connect(): Unable to CreateConnectSpec() with device \"%s\"", device.c_str()));
+            return status;
+        }
+
+        /*
+         * The newSpec is coming almost directly from the IP name service.  The
+         * name service will not know to prepend the spec with "wfd:" since it
+         * is used across multiple transports, but we need it now.
+         */
+        spec = qcc::String("wfd:") + newSpec;
+
+        QCC_DbgPrintf(("WFDTransport::Connect(): CreateConnectSpec() says connect spec is \"%s\"", spec.c_str()));
     }
 
     /*
-     * The newSpec is coming almost directly from the IP name service.  The
-     * name service will not know to prepend the spec with "wfd:" since it
-     * is used across multiple transports, but we need it now.
-     */
-    qcc::String spec = qcc::String("wfd:") + newSpec;
-
-    QCC_DbgPrintf(("WFDTransport::Connect(): CreateTemporaryNetwork() says connect spec is \"%s\"", spec.c_str()));
-
-    /*
-     * Just like any other spec, we need to make sure it is normalized.  We
-     * hope that the connection manager gets it right, but we don't tempt
-     * fate.  Since the spec will include an address and port, and our
-     * transport spec can only include a GUID, we run the normalization
-     * process through as if it were a listen spec, which does include
-     * address and port information.  We're done with the GUID, so we
-     * just reuse the normSpec and argMap from above.
+     * We have now folded all of the different cases down into one.  We have a
+     * connect spec just like any other connect spec with layer three (IP)
+     * address information in it.  Just like any other spec, we need to make
+     * sure it is normalized since it is coming from the "outside world."
      */
     status = NormalizeListenSpec(spec.c_str(), normSpec, argMap);
     if (ER_OK != status) {
-        QCC_LogError(status, ("WFDTransport::Connect(): Invalid connect spec \"%s\" from connection manager", spec.c_str()));
+        QCC_LogError(status, ("WFDTransport::Connect(): Invalid connect spec \"%s\"", spec.c_str()));
         return status;
     }
 
-    QCC_DbgPrintf(("WFDTransport::Connect(): Normalized connect spec is \"%s\"", normSpec.c_str()));
+    QCC_DbgPrintf(("WFDTransport::Connect(): Final normalized connect spec is \"%s\"", normSpec.c_str()));
 
     /*
      * From this point on, the Wi-Fi Direct transport connect looks just like
      * the TCP transport connect.
      *
-     * The fields r4addr and r4port are guaranteed to be present now and an
-     * underlying physical network is assumed to be up and functioning.  Of
-     * course, this might not be true, but have to make that assumption.
+     * The fields r4addr and r4port are guaranteed to be present now (since we
+     * successfully ran the spec through NormalizeListenSpec() to check for
+     * just that).
      */
     IPAddress ipAddr(argMap.find("r4addr")->second);
     uint16_t port = StringToU32(argMap["r4port"]);
@@ -3418,6 +3518,25 @@ void WFDTransport::P2PNameServiceCallback(const qcc::String& guid, qcc::String& 
      * sends a message back to us via this callback that will conatin the GUID
      * of the remote daemon thad did the advertisement, the list of well-known
      * names being advertised and a validation timer.
+     *
+     * Although it may seem that this method and the P2PConManNameCallback() are
+     * redundant, they actually come from different places and serve different
+     * functions.  This method receives pre-association service discovery callbacks
+     * and contains no layer three addressing information.  The other callback
+     * receives IP name service-related information and does include layer three
+     * addressing information.
+     *
+     * Because they are fundamentally different (layer two versus layer three)
+     * the busAddr/connectSpec provided back to clients is different.  Here, we
+     * have no busAddr since there is no layer three information, so we provide
+     * our layer two mapping key (the GUID of the remote daemon that advertised
+     * the name we just found) back to the client.
+     *
+     * If the client decides to JoinSession as a result of the advertisement we
+     * are about to pass on, the daemon does a Connect() where we notice that
+     * the connectSpec provides a GUID.  This tells us that we are bringing up a
+     * new link and we need to discover the layer three addressing before
+     * continuing.
      */
     qcc::String connectSpec = qcc::String(GetTransportName()) + qcc::String(":guid=") + guid;
 
@@ -3434,9 +3553,50 @@ void WFDTransport::P2PNameServiceCallback(const qcc::String& guid, qcc::String& 
     }
 }
 
-void WFDTransport::P2PConManCallback(P2PConMan::LinkState state, const qcc::String& interface)
+void WFDTransport::P2PConManNameCallback(const qcc::String& busAddr, const qcc::String& guid, std::vector<qcc::String>& nameList, uint8_t timer)
 {
-    QCC_DbgPrintf(("WFDTransport::P2PConManCallback(): state = %d, interface = \"%s\"", state, interface.c_str()));
+    QCC_DbgPrintf(("WFDTransport::P2PNameServiceCallback(): guid = \"%s\", timer = %d", guid.c_str(), timer));
+
+    /*
+     * Whenever the P2P connection manager receives a message indicating that a
+     * bus-name is out on the network via the IP name service, it sends a
+     * message back to us via this callback that will conatin a bus address
+     * (with an IP address and port0 the GUID of the remote daemon thad did the
+     * advertisement, the list of well-known names being advertised and a
+     * validation timer.
+     *
+     * Although it may seem that this method and the P2PNameServiceCallback()
+     * are redundant, they actually come from different places and serve
+     * different functions.  This method receives IP name service-related
+     * information that includes layer three addressing information while the
+     * other method gets pre-association service discovery callbacks that no
+     * layer three addressing information.
+     *
+     * Because they are fundamentally different (layer three here versus layer
+     * two there) the busAddr/connectSpec provided back to clients is different.
+     * Here, we have a busAddr containing layer three information, so we pass it
+     * on back to the client.
+     *
+     * If the client decides to JoinSession as a result of the advertisement we
+     * are about to pass on, the daemon does a Connect() where we notice that
+     * the connectSpec provides IP addressing information.  This tells us that
+     * we are "borrowing" an existing link and we don't need to go through the
+     * gyrations of discovering the layer three addressing.
+     */
+    qcc::String connectSpec = qcc::String(GetTransportName()) + qcc::String(":") + busAddr;
+
+    /*
+     * Let AllJoyn know that we've found a service through our "alternate
+     * IP channel."
+     */
+    if (m_listener) {
+        m_listener->FoundNames(connectSpec, guid, TRANSPORT_WFD, &nameList, timer);
+    }
+}
+
+void WFDTransport::P2PConManStateCallback(P2PConMan::LinkState state, const qcc::String& interface)
+{
+    QCC_DbgPrintf(("WFDTransport::P2PConManStateCallback(): state = %d, interface = \"%s\"", state, interface.c_str()));
 
     /*
      * Whenever the P2P connection manager notices a link coming up or going down

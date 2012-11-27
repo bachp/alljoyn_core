@@ -104,7 +104,17 @@ class P2PConManImpl {
      * @param cb The callback method on the transport that will be called to notify
      *     a transport about link state changes.
      */
-    QStatus SetCallback(Callback<void, P2PConMan::LinkState, const qcc::String&>* cb);
+    QStatus SetStateCallback(Callback<void, P2PConMan::LinkState, const qcc::String&>* cb);
+
+    /**
+     * @brief Set the callback function that is called to notify a transport about
+     *     the coming and going of well-known names found using the IP name service
+     *     (which is accessible from here).
+     *
+     * @param cb The callback method on the transport that will be called to notify
+     *     a transport about well-known names discovered over IP.
+     */
+    QStatus SetNameCallback(Callback<void, const qcc::String&, const qcc::String&, std::vector<qcc::String>&, uint8_t>* cb);
 
     /**
      * @brief Create a temporary physical network connection to the provided
@@ -373,7 +383,8 @@ class P2PConManImpl {
     void FoundAdvertisedName(const qcc::String& busAddr, const qcc::String& guid,
                              std::vector<qcc::String>& nameList, uint8_t timer);
 
-    Callback<void, P2PConMan::LinkState, const qcc::String&>* m_callback;
+    Callback<void, P2PConMan::LinkState, const qcc::String&>* m_stateCallback;
+    Callback<void, const qcc::String&, const qcc::String&, std::vector<qcc::String>&, uint8_t>* m_nameCallback;
 };
 
 } // namespace ajn
