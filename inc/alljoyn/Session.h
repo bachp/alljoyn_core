@@ -128,9 +128,9 @@ class SessionOpts {
     /**
      * Construct a default SessionOpts
      *
-     * For Windows 8 see also these sample file(s):
-     * cpp\Chat\Chat\MainPage.xaml.cpp
-     * csharp\chat\chat\MainPage.xaml.cs
+     * For Windows 8 see also these sample file(s): @n
+     * cpp/Chat/Chat/MainPage.xaml.cpp @n
+     * csharp/chat/chat/MainPage.xaml.cs @n
      */
     SessionOpts() : traffic(TRAFFIC_MESSAGES), isMultipoint(false), proximity(PROXIMITY_ANY), transports(TRANSPORT_ANY) { }
 

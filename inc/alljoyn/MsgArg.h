@@ -519,8 +519,8 @@ class MsgArg {
      * This function resolved through variants, so if the MsgArg is a variant that references a 32 bit integer is can be unpacked
      * directly into a 32 bit integer pointer.
      *
-     * See also these sample file(s):
-     * FileTransfer/FileTransferClient.cc
+     * See also these sample file(s): @n
+     * FileTransfer/FileTransferClient.cc @n
      *
      *  - @c 'a'  A pointer to a length of type size_t that returns the number of elements in the array followed by:
      *            - If the element type is a scalar type a pointer to a pointer of the correct type for the values.

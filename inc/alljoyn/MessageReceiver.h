@@ -71,8 +71,8 @@ class MessageReceiver {
      * ReplyHandlers are %MessageReceiver methods which are called by AllJoyn library
      * to forward AllJoyn method_reply and error responses to AllJoyn library users.
      *
-     * See also these sample file(s):
-     * windows\Service\Service.cpp
+     * See also these sample file(s): @n
+     * windows/Service/Service.cpp @n
      *
      * @param message   The received message.
      * @param context   User-defined context passed to MethodCall and returned upon reply.
@@ -93,7 +93,7 @@ class MessageReceiver {
      * windows/PhotoChat/AllJoynBusLib/AllJoynConnection.cpp @n
      * windows/PhotoChat/AllJoynBusLib/AllJoynConnection.h @n
      *
-     * For Windows 8 see also these sample file(s):
+     * For Windows 8 see also these sample file(s): @n
      * cpp/AllJoynStreaming/src/MediaSink.cc @n
      * cpp/Basic/Signal_Consumer_Client/SignalConsumerClient/AllJoynObjects.cpp @n
      * cpp/Basic/Signal_Consumer_Client/SignalConsumerClient/AllJoynObjects.h @n
