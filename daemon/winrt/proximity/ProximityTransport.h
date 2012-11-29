@@ -621,6 +621,7 @@ class ProximityTransport : public Transport, public RemoteEndpoint::EndpointList
     bool m_isDiscovering;
     bool m_isListening;
     bool m_isNsEnabled;
+    int m_nsReleaseCount;
 
 };
 

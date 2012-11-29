@@ -412,7 +412,7 @@ void* ProximityEndpoint::AuthThread::Run(void* arg)
 
 ProximityTransport::ProximityTransport(BusAttachment& bus)
     : Thread("ProximityTransport"), m_bus(bus), m_pns(nullptr), m_stopping(false), m_listener(0), m_foundCallback(m_listener),
-    m_isAdvertising(false), m_isDiscovering(false), m_isListening(false)
+    m_isAdvertising(false), m_isDiscovering(false), m_isListening(false), m_nsReleaseCount(0)
 {
     QCC_DbgTrace(("ProximityTransport::ProximityTransport()"));
     /*
@@ -558,6 +558,7 @@ QStatus ProximityTransport::Start()
     qcc::String guidStr = m_bus.GetInternal().GetGlobalGUID().ToString();
     m_pns = ref new ProximityNameService(guidStr);
     assert(m_pns != nullptr);
+    m_nsReleaseCount = 0;
     m_pns->Start();
     m_pns->RegisterProximityListener(this);
     m_stopping = false;
@@ -647,11 +648,16 @@ QStatus ProximityTransport::Stop(void)
      * ProximityTransport::Join().  If someone just deletes the transport
      * there is an implied Stop() and Join() so it behaves correctly.
      */
-    if (m_pns != nullptr) {
-        m_pns->Stop();
-        m_pns->UnRegisterProximityListener(this);
-    }
 
+    int count = qcc::IncrementAndFetch(&m_nsReleaseCount);
+    if (count == 1) {
+        if (m_pns != nullptr) {
+            m_pns->Stop();
+            m_pns->UnRegisterProximityListener(this);
+            delete m_pns;
+            m_pns = nullptr;
+        }
+    }
     return ER_OK;
 }
 
@@ -725,8 +731,6 @@ QStatus ProximityTransport::Join(void)
      * and delete the name service here.  Since there is an implied Join() in
      * the destructor we just delete the name service to play by the rules.
      */
-    m_pns = nullptr;
-
     m_stopping = false;
 
     return ER_OK;
