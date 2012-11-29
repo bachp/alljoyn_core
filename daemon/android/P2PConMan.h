@@ -44,6 +44,33 @@ class BusAttachment;
 class P2PConMan {
   public:
 
+    /**
+     * @brief Timeout for temporary network creation.
+     *
+     * This is the timeout used to check to see if a Wi-Fi Direct link is
+     * established in a reasonable amount of time.  Although the Wi-Fi Direct
+     * spec indicates that it "shall take no more than fifteen seconds to
+     * complete Group Formation" there is a second part of this which is the
+     * Configuration Timeout.  This can take as long as two minutes to complete
+     * due to a wait for user input.  We add these two times to come up with 135
+     * seconds.
+     */
+    static const uint32_t TEMPORARY_NETWORK_ESTABLISH_TIMEOUT = 135000;
+
+    /**
+     * Timeout for IP address discovery.  We use inside knowledge of the IP name
+     * service to construct this timeout.  When we do a FindAdvertisedName("*")
+     * to try and discover a remote daemon, we know that this will result in
+     * three who-has requests retried every five seconds.  We expect the remote
+     * daemon to respond to each of these requests; so from one perspective it
+     * seems that a tad over fifteen seconds might be sufficient.  If, however,
+     * the remote side doesn't receive our multicasts for some reason, it will
+     * gratuitously multicast all of its well-known names every forty seconds.
+     * So to be very generous, we wait around for both of these kinds of events,
+     * for a grand total of fifty-five seconds.
+     */
+    static const uint32_t CREATE_CONNECT_SPEC_TIMEOUT = 55000;
+
     static const int DEVICE_SHOULD_BE_GO = P2PHelperInterface::DEVICE_SHOULD_BE_GO;
     static const int DEVICE_SHOULD_BE_STA = P2PHelperInterface::DEVICE_SHOULD_BE_STA;
 

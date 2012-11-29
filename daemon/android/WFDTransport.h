@@ -58,6 +58,17 @@ class WFDTransport : public Transport, public RemoteEndpoint::EndpointListener, 
     friend class WFDEndpoint;
 
   public:
+
+    /**
+     * Define a quantity to be added to the JoinSession timeout in a
+     * BusAttachment due to the added group creation, group configuration and IP
+     * name service distovery times that will happen due to the Wi-Fi Direct
+     * infrastructure requirements.  This is a clear layering violation, but we
+     * don't want to have a default timeout of around two and a half minutes up
+     * in BusAttachment unless we can absolutely avoid it.
+     */
+    static const uint32_t AddedCallTimeout = P2PConMan::TEMPORARY_NETWORK_ESTABLISH_TIMEOUT + P2PConMan::CREATE_CONNECT_SPEC_TIMEOUT;
+
     /**
      * Create a WFD based transport for use by daemons running on Android.
      *

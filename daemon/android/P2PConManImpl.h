@@ -188,9 +188,14 @@ class P2PConManImpl {
     QStatus CreateConnectSpec(const qcc::String& device, const qcc::String& guid, qcc::String& spec);
 
   private:
-    static const uint32_t PRIVATE_ALERT_CODE = 0xfeedbeef;               /**< An alert code to distinguish us waking threads */
-    static const uint32_t TEMPORARY_NETWORK_ESTABLISH_TIMEOUT = 120000;  /**< The timeout for temporary network creation */
-    static const uint32_t CREATE_CONNECT_SPEC_TIMEOUT = 15000;           /**< The timeout for IP address discovery */
+    /**
+     * @brief A private "alert code" to distinguish the connection manager as
+     * the source of the event when waking threads.
+     */
+    static const uint32_t PRIVATE_ALERT_CODE = 0xfeedbeef;
+
+    static const uint32_t TEMPORARY_NETWORK_ESTABLISH_TIMEOUT = P2PConMan::TEMPORARY_NETWORK_ESTABLISH_TIMEOUT;
+    static const uint32_t CREATE_CONNECT_SPEC_TIMEOUT = P2PConMan::CREATE_CONNECT_SPEC_TIMEOUT;
 
     /**
      * @brief Copying an IpConManImpl object is forbidden.
