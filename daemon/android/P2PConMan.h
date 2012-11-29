@@ -44,8 +44,8 @@ class BusAttachment;
 class P2PConMan {
   public:
 
-    static const int DEVICE_MUST_BE_GO = P2PHelperInterface::DEVICE_MUST_BE_GO;
-    static const int DEVICE_MUST_BE_STA = P2PHelperInterface::DEVICE_MUST_BE_STA;
+    static const int DEVICE_SHOULD_BE_GO = P2PHelperInterface::DEVICE_SHOULD_BE_GO;
+    static const int DEVICE_SHOULD_BE_STA = P2PHelperInterface::DEVICE_SHOULD_BE_STA;
 
     /**
      * @brief Return a reference to the P2PConMan singleton.

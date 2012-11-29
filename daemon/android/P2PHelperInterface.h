@@ -62,8 +62,8 @@ class P2PHelperInterface : public MessageReceiver {
     static const char* WELL_KNOWN_NAME;
     static const char* OBJECT_PATH;
 
-    static const int DEVICE_MUST_BE_GO = 15;
-    static const int DEVICE_MUST_BE_STA = 0;
+    static const int DEVICE_SHOULD_BE_GO = 14;
+    static const int DEVICE_SHOULD_BE_STA = 0;
 
     static const int P2P_OK = 0;
     static const int P2P_ERR = -1;
