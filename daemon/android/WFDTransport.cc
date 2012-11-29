@@ -2612,6 +2612,11 @@ QStatus WFDTransport::Connect(const char* connectSpec, const SessionOpts& opts, 
              * which will follow.  We've already done all of the tests to ensure
              * that this will be done with as few problems as possible, so we
              * just go for it.
+             *
+             * It will be the case that after we do this DestroyTemporaryNetwork()
+             * we will not be able to accept any new connections for the services
+             * we might have advertised.  So while we are off trying to connect to
+             * another link, anyone who might connect to us will fail.
              */
             QCC_DbgPrintf(("WFDTransport::Connect(): DestroyTemporaryNetwork()"));
             QStatus status = P2PConMan::Instance().DestroyTemporaryNetwork();
@@ -2634,7 +2639,22 @@ QStatus WFDTransport::Connect(const char* connectSpec, const SessionOpts& opts, 
             status = P2PConMan::Instance().CreateTemporaryNetwork(device, P2PConMan::DEVICE_SHOULD_BE_STA);
             if (status != ER_OK) {
                 QCC_LogError(status, ("WFDTransport::Connect(): Unable to CreateTemporaryNetwork() with device \"%s\"", device.c_str()));
-                return status;
+                /*
+                 * Okay, we've tried to connect as a STA and failed.  It could
+                 * be the case that we were a service and in the ready state
+                 * (ready to accept new inbound connections) but we are hosting
+                 * a pure peer-to-peer app that wants to be both a client and a
+                 * service.  If we still want to be a service, we need to return
+                 * to the ready state and not just forget about the whole service
+                 * thing.
+                 */
+                if (m_isAdvertising) {
+                    qcc::String localDevice("");
+                    QStatus status = P2PConMan::Instance().CreateTemporaryNetwork(localDevice, P2PConMan::DEVICE_SHOULD_BE_GO);
+                    if (status != ER_OK) {
+                        QCC_LogError(status, ("WFDTransport::Connect(): Unable to return to SHOULD_BE_GO"));
+                    }
+                }
             }
         }
     }
