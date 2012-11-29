@@ -59,6 +59,10 @@
 #include "ClientTransport.h"
 #include "NullTransport.h"
 
+#if defined(QCC_OS_ANDROID)
+#include "android/WFDTransport.h"
+#endif
+
 #define QCC_MODULE "ALLJOYN"
 
 
@@ -1442,22 +1446,24 @@ QStatus BusAttachment::JoinSession(const char* sessionHost, SessionPort sessionP
 
     const ProxyBusObject& alljoynObj = this->GetAllJoynProxyObj();
 
-    QStatus status = alljoynObj.MethodCall(org::alljoyn::Bus::InterfaceName, "JoinSession", args, ArraySize(args), reply
+    /*
+     * If we are running on Android, there is a possibility that we are using
+     * the Wi-Fi Direct transport.  In that case, timeouts must be long enough
+     * to admit the possibility of huge delays due to possible user intervention
+     * on the service side during authentication.  We don't really want to force
+     * normal people to wait over two minutes to wait for a doomed connection
+     * so we pay the price of a layering violation to ask the WFD Transport for
+     * a number if we are running on Android and using the WFD Transport.
+     */
+    uint32_t timeout = ProxyBusObject::DefaultCallTimeout;
 
-/*
- * If we are running on Android, there is a possibility that we are using the
- * Wi-Fi Direct transport.  In that case, timeouts must be long enough to
- * admit the possibility of required user intervention on the service side.
- *
- * We should really plumb down the transport mask and decide more intelligently
- * but this would mean an API change, which I'm not ready to contemplate right
- * now.
- */
 #if defined(QCC_OS_ANDROID)
-                                           , 120000);
-#else
-                                           );
+    if (opts.transports & TRANSPORT_WFD) {
+        timeout += WFDTransport::AddedCallTimeout;
+    }
 #endif
+
+    QStatus status = alljoynObj.MethodCall(org::alljoyn::Bus::InterfaceName, "JoinSession", args, ArraySize(args), reply, timeout);
     if (ER_OK == status) {
         status = GetJoinSessionResponse(reply, sessionId, opts);
     } else {

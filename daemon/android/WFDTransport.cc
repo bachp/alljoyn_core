@@ -874,7 +874,7 @@ void WFDTransport::ManageEndpoints(Timespec tTimeout)
      * to be careful to only tear down the actual link when the last endpoint
      * goes away.
      *
-     * so, we need to make sure that the link is kept up 1) before any endpoints
+     * So, we need to make sure that the link is kept up 1) before any endpoints
      * are actually created; 2) while endpoints exist; and  then take down the
      * link when the last of the endpoints have exited and been cleaned up.
      *
@@ -882,15 +882,15 @@ void WFDTransport::ManageEndpoints(Timespec tTimeout)
      * P2P Helper Service if there are no endpoints left and we've cleaned up
      * at least one here in ManageEndpoints.
      *
-     * If we are representing a server application, we don't want to take down
-     * the group if we are still advertising since setting up the infrastrucure
-     * (in the low level system) required to be a group owner can be
-     * significant.  We therefore only tell the system to bring groups up or
-     * down when we start and stop advertising, respectively.  Mind you that the
-     * system doesn't have to act on our desires immediately, and it isn't
-     * actually required to listen to us about whether or not we are GO or STA,
-     * but we need to communicate our desires, and we'll act as if they were
-     * obeyed.
+     * If we are representing a service application, we enter a ready state when
+     * we advertise the service and when a remote application/daemon connects,
+     * we enter the connected state on reception of an OnLinkEstablished().
+     *
+     * We can actually be running both as a client and a service if we are
+     * hosting a pure peer-to-peer application.  In this case, if all of the
+     * endpoints are torn down, we have to be careful to re-enter the ready
+     * state appropriate to a service and not the idle state appropriate to a
+     * client.
      */
     bool endpointCleaned = false;
 
@@ -1031,17 +1031,58 @@ void WFDTransport::ManageEndpoints(Timespec tTimeout)
      * As mentioned in the lengthy comment above, if we've cleaned up an
      * endpoint and there are no more left (in the list of currently active
      * endpoints and the list of currently authenticating endpoitns), then we
-     * need to release the Wi-Fi Direct link if we think we are an STA node in
-     * the impled group.
+     * need to release any resources we may have reserved as a result of the
+     * now unneeded (possibly already released) Wi-Fi Direct link.
+     *
+     * If we think were only a client (using the link in STA mode), we just go
+     * idle by calling DestroyTemporaryNetwork().
+     *
+     * However, if we think we are a service (if we are advertising) we need to
+     * free the Wi-Fi Group resource by calling DestroyTemporaryNetwork() but we
+     * also need to make sure to enter the ready state by calling
+     * CreateTemporaryNetwork() in order to be ready to accept new connections
+     * from possible clients in the future.
+     *
+     * Note that the m_isAdvertising test below is not a failsafe test for
+     * advertisement, since AdvertiseName() and CancelAdvertiseName() calls may
+     * be percolating through the main thread, but if we get it wrong here, when
+     * those percolating calls are actually executed, they will get it right.
+     *
+     * To further complicate things, we will also get an OnLinkLost() signal
+     * down in the P2PConMan when the last wireless link of our Wi-Fi interface
+     * is dropped.  This happens if the single STA connection drops or if the
+     * last STA disconnects from the interface if in GO mode.  The important
+     * thing to realize is that at this level we are dealing with endpoint
+     * (TCP/IP -- layers three and four) connections being lost not Wi-Fi
+     * (layers one and two) connections being lost, so if the link remains up
+     * we need to cause it to be torn down.  If the link dropping has caused
+     * the endpoint exits, these events can happen in unfortunate sequences.
+     *
+     * The bottom line is that our last endpoint has exited so we need to
+     * release our resources and get back into the appropriate state.  This may
+     * be the ready state if we are advertising a service or the idle state if
+     * we are not.
+     *
+     * This situation is full of possible race conditions since the low level
+     * (layer two) link lost messages are being routed out to the Android
+     * Application Framework and back over an AllJoyn service, but the high
+     * level (layer four) connection lost messages are routed up from the kernel
+     * through TCP directly here.  This means that the ordering of the events
+     * EndpointExit() and OnLinkLost() is not deterministic at all.
      */
-    if (endpointCleaned &&
-        P2PConMan::Instance().IsConnectedSTA() &&
-        m_endpointList.empty() &&
-        m_authList.empty()) {
+    if (endpointCleaned && m_endpointList.empty() && m_authList.empty()) {
         QCC_DbgPrintf(("WFDTransport::ManageEndpoints(): DestroyTemporaryNetwork()"));
         QStatus status = P2PConMan::Instance().DestroyTemporaryNetwork();
         if (status != ER_OK) {
             QCC_LogError(status, ("WFDTransport::ManageEndpoints(): Unable to destroy temporary network"));
+        }
+
+        if (m_isAdvertising) {
+            qcc::String localDevice("");
+            QStatus status = P2PConMan::Instance().CreateTemporaryNetwork(localDevice, P2PConMan::DEVICE_SHOULD_BE_GO);
+            if (status != ER_OK) {
+                QCC_LogError(status, ("WFDTransport::ManageEndpoints(): Unable to recreate temporary network (SHOULD_BE_GO)"));
+            }
         }
     }
 
