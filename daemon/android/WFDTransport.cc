@@ -521,6 +521,8 @@ void WFDTransport::Authenticated(WFDEndpoint* conn)
 
 QStatus WFDTransport::Start()
 {
+    QCC_DbgTrace(("WFDTransport::Start()"));
+
     /*
      * We rely on the status of the server accept thead as the primary
      * gatekeeper.
@@ -795,6 +797,8 @@ QStatus WFDTransport::GetListenAddresses(const SessionOpts& opts, std::vector<qc
 
 void WFDTransport::EndpointExit(RemoteEndpoint* ep)
 {
+    QCC_DbgTrace(("WFDTransport::EndpointExit()"));
+
     /*
      * This is a callback driven from the remote endpoint thread exit function.
      * Our WFDEndpoint inherits from class RemoteEndpoint and so when
@@ -807,8 +811,6 @@ void WFDTransport::EndpointExit(RemoteEndpoint* ep)
      * authentication error since authentication is done in the context of the
      * Connect()ing thread and may be reported through EndpointExit.
      */
-    QCC_DbgTrace(("WFDTransport::EndpointExit()"));
-
     WFDEndpoint* tep = static_cast<WFDEndpoint*>(ep);
     assert(tep);
 
@@ -847,6 +849,8 @@ void WFDTransport::EndpointExit(RemoteEndpoint* ep)
 
 void WFDTransport::ManageEndpoints(Timespec tTimeout)
 {
+    QCC_DbgTrace(("WFDTransport::ManageEndpoints()"));
+
     m_endpointListLock.Lock(MUTEX_CONTEXT);
 
     /*
@@ -907,7 +911,7 @@ void WFDTransport::ManageEndpoints(Timespec tTimeout)
              * endpoint is going to be started so we can get rid of it as soon
              * as we Join() the (failed) authentication thread.
              */
-            QCC_DbgHLPrintf(("WFDTransport::ManageEndpoints(): Scavenging failed authenticator"));
+            QCC_DbgPrintf(("WFDTransport::ManageEndpoints(): Scavenging failed authenticator"));
             m_authList.erase(i);
             endpointCleaned = true;
             m_endpointListLock.Unlock(MUTEX_CONTEXT);
@@ -932,7 +936,7 @@ void WFDTransport::ManageEndpoints(Timespec tTimeout)
              * here and now, we take our thread off the OS ready list (Sleep)
              * and let the other thread run before looping back.
              */
-            QCC_DbgHLPrintf(("WFDTransport::ManageEndpoints(): Scavenging slow authenticator"));
+            QCC_DbgPrintf(("WFDTransport::ManageEndpoints(): Scavenging slow authenticator"));
             ep->AuthStop();
             qcc::Sleep(1);
         }
@@ -971,7 +975,7 @@ void WFDTransport::ManageEndpoints(Timespec tTimeout)
              * to enable this single special case where we are allowed to set
              * the state.
              */
-            QCC_DbgHLPrintf(("WFDTransport::ManageEndpoints(): Scavenging failed authenticator"));
+            QCC_DbgPrintf(("WFDTransport::ManageEndpoints(): Scavenging failed authenticator"));
             m_endpointListLock.Unlock(MUTEX_CONTEXT);
             ep->AuthJoin();
             ep->SetAuthDone();
@@ -1034,7 +1038,7 @@ void WFDTransport::ManageEndpoints(Timespec tTimeout)
         P2PConMan::Instance().IsConnectedSTA() &&
         m_endpointList.empty() &&
         m_authList.empty()) {
-        QCC_DbgHLPrintf(("WFDTransport::ManageEndpoints(): DestroyTemporaryNetwork()"));
+        QCC_DbgPrintf(("WFDTransport::ManageEndpoints(): DestroyTemporaryNetwork()"));
         QStatus status = P2PConMan::Instance().DestroyTemporaryNetwork();
         if (status != ER_OK) {
             QCC_LogError(status, ("WFDTransport::ManageEndpoints(): Unable to destroy temporary network"));
@@ -1154,7 +1158,7 @@ void* WFDTransport::Run(void* arg)
                     break;
                 }
 
-                QCC_DbgHLPrintf(("WFDTransport::Run(): Accepting connection newSock=%d", newSock));
+                QCC_DbgPrintf(("WFDTransport::Run(): Accepting connection newSock=%d", newSock));
 
                 QCC_DbgPrintf(("WFDTransport::Run(): maxAuth == %d", maxAuth));
                 QCC_DbgPrintf(("WFDTransport::Run(): maxConn == %d", maxConn));
@@ -1396,7 +1400,7 @@ void* WFDTransport::Run(void* arg)
  */
 void WFDTransport::RunListenMachine(void)
 {
-    QCC_DbgPrintf(("WFDTransport::RunListenMachine()"));
+    QCC_DbgTrace(("WFDTransport::RunListenMachine()"));
 
     while (m_listenRequests.empty() == false) {
         QCC_DbgPrintf(("WFDTransport::RunListenMachine(): Do request."));
@@ -1542,7 +1546,7 @@ void WFDTransport::RunListenMachine(void)
 
 void WFDTransport::StartListenInstance(ListenRequest& listenRequest)
 {
-    QCC_DbgPrintf(("WFDTransport::StartListenInstance()"));
+    QCC_DbgTrace(("WFDTransport::StartListenInstance()"));
 
     /*
      * We have a new StartListen request, so save the listen spec so we
@@ -1566,7 +1570,7 @@ void WFDTransport::StartListenInstance(ListenRequest& listenRequest)
 
 void WFDTransport::StopListenInstance(ListenRequest& listenRequest)
 {
-    QCC_DbgPrintf(("WFDTransport::StopListenInstance()"));
+    QCC_DbgTrace(("WFDTransport::StopListenInstance()"));
 
     /*
      * We have a new StopListen request, so we need to remove this
@@ -1608,7 +1612,7 @@ void WFDTransport::StopListenInstance(ListenRequest& listenRequest)
 
 void WFDTransport::EnableAdvertisementInstance(ListenRequest& listenRequest)
 {
-    QCC_DbgPrintf(("WFDTransport::EnableAdvertisementInstance()"));
+    QCC_DbgTrace(("WFDTransport::EnableAdvertisementInstance()"));
 
     /*
      * We have a new advertisement request to deal with.  The first
@@ -1704,7 +1708,7 @@ void WFDTransport::EnableAdvertisementInstance(ListenRequest& listenRequest)
      * be there.
      */
     qcc::String localDevice("");
-    QStatus status = P2PConMan::Instance().CreateTemporaryNetwork(localDevice, P2PConMan::DEVICE_MUST_BE_GO);
+    QStatus status = P2PConMan::Instance().CreateTemporaryNetwork(localDevice, P2PConMan::DEVICE_SHOULD_BE_GO);
     if (status != ER_OK) {
         QCC_LogError(status, ("WFDTransport::EnableAdvertisementInstance(): Unable to create a GO side network"));
         return;
@@ -1752,7 +1756,7 @@ void WFDTransport::EnableAdvertisementInstance(ListenRequest& listenRequest)
 
 void WFDTransport::DisableAdvertisementInstance(ListenRequest& listenRequest)
 {
-    QCC_DbgPrintf(("WFDTransport::DisableAdvertisementInstance()"));
+    QCC_DbgTrace(("WFDTransport::DisableAdvertisementInstance()"));
 
     /*
      * We have a new disable advertisement request to deal with.  The first
@@ -1813,7 +1817,7 @@ void WFDTransport::DisableAdvertisementInstance(ListenRequest& listenRequest)
 
 void WFDTransport::EnableDiscoveryInstance(ListenRequest& listenRequest)
 {
-    QCC_DbgPrintf(("WFDTransport::EnableDiscoveryInstance()"));
+    QCC_DbgTrace(("WFDTransport::EnableDiscoveryInstance()"));
 
     /*
      * We have a new discovery request to deal with.  The first
@@ -1880,7 +1884,7 @@ void WFDTransport::EnableDiscoveryInstance(ListenRequest& listenRequest)
 
 void WFDTransport::DisableDiscoveryInstance(ListenRequest& listenRequest)
 {
-    QCC_DbgPrintf(("WFDTransport::DisableDiscoveryInstance()"));
+    QCC_DbgTrace(("WFDTransport::DisableDiscoveryInstance()"));
 
     /*
      * We have a new disable discovery request to deal with.  The first
@@ -1959,6 +1963,8 @@ static const uint16_t PORT_DEFAULT = 9956;
 
 QStatus WFDTransport::NormalizeListenSpec(const char* inSpec, qcc::String& outSpec, map<qcc::String, qcc::String>& argMap) const
 {
+    QCC_DbgTrace(("WFDTransport::NormalizeListenSpec()"));
+
     qcc::String family;
 
     /*
@@ -2180,7 +2186,7 @@ QStatus WFDTransport::NormalizeListenSpec(const char* inSpec, qcc::String& outSp
 
 QStatus WFDTransport::NormalizeTransportSpec(const char* inSpec, qcc::String& outSpec, map<qcc::String, qcc::String>& argMap) const
 {
-    QCC_DbgPrintf(("WFDTransport::NormalizeTransportSpec()"));
+    QCC_DbgTrace(("WFDTransport::NormalizeTransportSpec()"));
 
     /*
      * Wi-Fi Direct pre-association service discovery events are fundamentally
@@ -2215,7 +2221,7 @@ QStatus WFDTransport::NormalizeTransportSpec(const char* inSpec, qcc::String& ou
 
 QStatus WFDTransport::Connect(const char* connectSpec, const SessionOpts& opts, BusEndpoint** newep)
 {
-    QCC_DbgHLPrintf(("WFDTransport::Connect(): %s", connectSpec));
+    QCC_DbgTrace(("WFDTransport::Connect(): %s", connectSpec));
 
     QStatus status;
     bool isConnected = false;
@@ -2317,13 +2323,12 @@ QStatus WFDTransport::Connect(const char* connectSpec, const SessionOpts& opts, 
         guid = iter->second;
 
         /*
-         * Since we are doing a Connect() and not making an advertisement, we
-         * must be taking on the role of a P2P STA.  A STA can only be connected
-         * to one P2P group at a time.  A P2P group has an owner, which we
-         * assume to be a remote AllJoyn daemon hosting the service, the
-         * advertisement for which got us here in the first place.  When we got
-         * the advertisement, we mapped the discovered GUID to the MAC address
-         * of the device that did the advertisement.
+         * Since we are doing a Connect() we must want to take on the role of a
+         * P2P STA.  A STA can only be connected to one P2P group at a time.  A
+         * P2P group has an owner, which we assume to be a remote AllJoyn daemon
+         * hosting the service, the advertisement for which got us here in the
+         * first place.  When we got the advertisement, we mapped the discovered
+         * GUID to the MAC address of the device that did the advertisement.
          *
          * The first thing we need to do in this process is to find the MAC
          * address of the device to which we want to be talking.  There is no
@@ -2337,57 +2342,242 @@ QStatus WFDTransport::Connect(const char* connectSpec, const SessionOpts& opts, 
             return status;
         }
 
-        QCC_DbgPrintf(("WFDTransport::Connect(): Device \"%s\" corresponds to GUID \"%s\"", device.c_str(), guid.c_str()));
-
         /*
-         * It is entirely possible that (once Android is fixed) a client can
-         * have discovered multiple services running on multiple remote daemons
-         * and decided to try and connect to all of them.  We want to allow
-         * multiple connections to the same remote daemon, but if an attempt is
-         * made to connect to a different daemon while an existing connection is
-         * up and running, we need to fail that connection to avoid ping-ponging
-         * between services.  Recall that since we can only have one STA,
-         * switching between daemons would necessarily mean dropping the
-         * existing connection in order to form a new one.
+         * Unfortunately, this is all fiendishly complicated, so it will be
+         * worth your time to read this long comment before you shoot yourself
+         * in the foot by making an "obviously correct" change.
          *
-         * We will allow connecting to different services in the same P2P group
-         * but this must happen through the IP name service discovery process
-         * which doesn't imply a temporary network connection must be made.
+         * The major restriction when using the Wi-Fi Direct transport is that a
+         * device can be a GO (advertise a service) or a STA (connect to a
+         * service) it cannot be both.  There is a fundamental impedance
+         * mismatch between this requirement of the underlying implementation
+         * and the AllJoyn requirement that pure peer-to-peer applications be
+         * supported.  A pure peer-to-peer application is one that is equipotent
+         * with other peers and therefore has both a client (STA) and a service
+         * (GO) "personality."  In order to make the WFD Transport as useful as
+         * possible, we want to maximize the conditions under which we can do
+         * something despite this fundamental mismatch.
+         *
+         * Unfortunately, sorting out what happens and what we need to do means
+         * understanding the system down to the lowest levels.  Note that none
+         * of this will happen in the client-server (AKA hybrid peer-to-peer)
+         * case which is why I like that so much, but such are the vicissitudes
+         * of anthromorphic behavior.  The end result is something that is very
+         * constrained and not very abstract, but we are ordered to come up with
+         * something that will work at least a little in the pure peer-to-peer
+         * case.
+         *
+         * So, we want to appear to higher levels as if we are both client/STA
+         * and service/GO even though this is impossible.  As you might expect,
+         * this gets a little dicey.
+         *
+         * Starting with a pair for simplicity, what happens if we have two pure
+         * peer-to-peer apps starting up.  Typically, both applications will
+         * first start up and advertise their service personalities.  By
+         * advertising, they are saying that they want to be services which
+         * implies group owner (GO).  We will do a CreateTemporaryNetwork() and
+         * enter the CONN_READY state which means we are a service ready to
+         * accept inbound TCP connections and want to be the GO in a Wi-Fi
+         * Direct group.  This advetisement and readiness to accept connections
+         * will happen on both applications.
+         *
+         * Eventually one or both of the apps will receive an advertisement and
+         * try to connect to the other.  By attempting a connection, an app is
+         * announcing its intention to become a client.  In order to support the
+         * peer-to-peer scenario, we need to allow this; but we can only allow
+         * this if the service side is not currently connected, or the
+         * contemplated connection attempt will destroy the existing group in
+         * favor of a new STA connection to a different GO.  Consider the case
+         * where the local P2P device is currently not connected and imagine
+         * what happens when we try to connect to a remote device.  First, since
+         * we are taking on the role of a client/STA, our advertisements will be
+         * immediately silenced by the Android Framework/P2P Helper since a STA
+         * cannot accept inbound connections and therefore advertising a service
+         * over P2P makes no sense.  We are also a service, however, and we want
+         * the remote side to be able to discover us and connect to us even
+         * though we are a P2P STA.
+         *
+         * If the daemon to which we are connecting (the remote daemon from this
+         * perspective) is still in the CONN_READY server state (it has not
+         * discovered us yet) it will accept the connection and become the GO.
+         * It will be allowed to continue advertising since it is still a
+         * service/GO.  We will become the STA and our P2P advertisements will
+         * be silenced, however, since we have a Wi-Fi link to the daemon the IP
+         * name service can run irrespective of whether or not the underlying
+         * Wi-Fi device is STA or GO and so the remote client personality can
+         * discover our local service personality over IP multicast instead of
+         * P2P, which is now forbidden.
+         *
+         * Because of the magic of distributed systems, there may be a P2P
+         * advertisement making its way through the remote client even though
+         * our P2P.  So, the remote daemon client personality can discover our
+         * local service either due to an outstanding pre-association service
+         * discovery event or through the IP name service once the link is
+         * actually established.  If the discovery is through the IP name
+         * service, the connection will include IP addressing information and we
+         * will bypass the whole P2P system, so we don't have to worry about
+         * that right here, right now.
+         *
+         * If, however, the discovery event on the remote side was though P2P, a
+         * Connect() will be made on that remote side with a GUID which maps to
+         * the device/MAC address our local P2P device -- it will try to connect
+         * to us.  However, since the remote daemon is a group owner, it doesn't know the
+         * MAC address of every device connected to it and so it actually already
+         * be connected to the specified remote device implied by the GUID even
+         * though it doesn't know it.  We have to special case this event and
+         * try to let the IP name service resolve the GUID since we don't want to
+         * fail if we can possibly succeed.  This actually corresponds to case three
+         * below (connected && !ourGroupOwner).
+         *
+         * A degenerate case happens when the connections overlap, i.e., both
+         * devices in the pair discover and try to connect at the same time.  In
+         * this case, both sides will turn into clients from an AllJoyn
+         * perspective and try to form a Wi-Fi P2P group.  Both sides will
+         * select the GO intent of zero (want to be a client) and so Wi-Fi P2P
+         * will go to the GO negotiation tie-breaker process.  One of the
+         * "clients" will be selected as the GO and so network authentication
+         * will be performed on a randomly chosedn device.  In this case, one of
+         * the client personalities is actually selected to be a GO and it is
+         * not notified of this fact.  Even though one of the devices has been
+         * chosen to be GO by the underlying system, both have tried to
+         * Connect() and so both devices will have chosen to be a client.  This
+         * means that both discovery and advertisement will be disabled on both
+         * devices.  The devices will become an "island of discovery" which can
+         * never be expanded except in a further degeneracy.
+         *
+         * When a third device enters into the mix, what happens depends on
+         * how the first two devices actually ended up connecting.  If both of
+         * the original pair ended up doing a Connect() their advertisements
+         * were silenced.  If the thrid devices enters proximity after that
+         * time, it will not discover either of the previous two devices and
+         * the new device will never see the original devices.
+         *
+         * If the first two devices connected in such a way that one of them
+         * remained the service/GO (this requires that the second connect
+         * happened driven by an IP name service discovery event) The service/GO
+         * will still be advertising and the third device may discover the
+         * advertising service of the original pair over P2P.  However, neither
+         * of the original pair will be able to see the third device.
+         *
+         * If the third device sees the advertisement for the remaining
+         * service/GO it may connect.  Once connected, the IP name service will
+         * run and discover the remaining service, and as above, the two client
+         * personalities of the original pair will discover the service
+         * personality of the third device.  Thus there is a temporary
+         * non-reflexive advertisement sitution that is only resolved when the
+         * third device connects.  There may be transient advertisements
+         * floating around from the device that became the STA in the
+         * relationship between the two original devices.  If the third device
+         * receives one of those and tries to connect to the STA it will fail.
+         * The interesting fact here is that since the service on the device was
+         * discovered, it will not be re-discovered by the client since a
+         * subsequent discovery event over the IP name service will be masked
+         * since it will look to the daemon as if it is the same service over
+         * the same transport (the WFD transport).  In this case, the
+         * non-reflexive advertisement situation may remain indefinitely or
+         * until the third device cancels its find advertised name and restarts
+         * it.
+         *
+         * So, the following code may seem unusually complex for what it seems
+         * to be doing.  What it is actually doing is trying to make a square
+         * peg fit in a round hole, so beware of making changes without thinking
+         * them through.  It may cost you a toe or two.
          */
         bool connected = P2PConMan::Instance().IsConnected();
         bool ourGroupOwner = P2PConMan::Instance().IsConnected(device);
+
+        QCC_DbgPrintf(("WFDTransport::Connect(): Device \"%s\" corresponds to GUID \"%s\"", device.c_str(), guid.c_str()));
 
         /*
          * case 1: !connected && !ourGroupOwner:  completely disconnected.
          * case 2: !connected &&  ourGroupOwner:  disconnected but connected to the desired group owner is impossible
          * case 3:  connected && !ourGroupOwner:  already connected but to a different group owner
          * case 4:  connected &&  ourGroupOwner:  already connected to the desired group owner
-         *
-         * First, handle case two, disconnected but connected to the desired group owner is impossible.
          */
         if (!connected && ourGroupOwner) {
+            /*
+             * First, handle case two, disconnected but connected to the desired
+             * group owner is impossible.  This is impossible, so we assert that
+             * it did not happen.
+             */
+            QCC_DbgPrintf(("WFDTransport::Connect(): Connection case two"));
             assert(false && "WFDTransport::Connect(): Impossible condition.");
-        }
-
-        /*
-         * Handle case three, already connected but to a different group owner.
-         */
-        if (connected && !ourGroupOwner) {
-            QCC_LogError(status, ("WFDTransport::Connect(): Existing connection.  New connection requires explicit disconnect"));
-            return status;
-        }
-
-        if (connected && ourGroupOwner) {
+        } else if (connected && !ourGroupOwner) {
+            /*
+             * Handle case three, already connected but to a different group
+             * owner.
+             *
+             * There is an interesting degenerate case that we need to deal with
+             * in the pure peer-to-peer case -- that is, if we are both a client
+             * and a service and a remote daemon is both a client and a service.
+             * If we have advertised a service and some remote application's
+             * client personality has connected to us, we will be in the
+             * connected state but the device to which we are connected is the
+             * null string.  This is because we are the GO and are not connected
+             * to a remote device (MAC) address.  If we also have a client
+             * personality, we may have received a P2P pre-association service
+             * discovery notification prior to the remote daemon being silenced
+             * (see the long comment in case one below for details).  If this
+             * happens, we may actually have a connection to the advertising
+             * daemon, we just don't know it.  We don't want to arbitrarily fail
+             * the Connect() in this case, we want to try to see if we can
+             * resolve the GUID using the IP name service in case we can
+             * actually reach the daemon.
+             *
+             * So, as part of case three, we look to see if we are connected to
+             * a remote device with a null-string MAC address.  If we are, we
+             * are a service attempting a connection to a remote GUID we have
+             * heard about through a valid pre-association advertisement (recall
+             * that GetDeviceForGuid(guid, device) worked above or we wouldn't
+             * be here).  In this case, we just fall through to the IP name
+             * service resolution process.
+             *
+             * If we are connected to a remote daemon via a valid MAC/device
+             * address, we are trying to make a second STA connection and this
+             * is not supported.  We require an explicit disconnect before we
+             * allow this; and so this is an error.
+             */
+            QCC_DbgPrintf(("WFDTransport::Connect(): Connection case three"));
+            qcc::String localDevice("");
+            if (P2PConMan::Instance().IsConnected(localDevice) == false) {
+                QCC_LogError(ER_P2P_FORBIDDEN, ("WFDTransport::Connect(): Second STA connection forbidden"));
+                return ER_P2P_FORBIDDEN;
+            }
+        } else if (connected && ourGroupOwner) {
             /*
              * Handle case four, already connected to the desired group owner.
+             * This means we are done since we are already connected to the
+             * device we want to be connected to.
              */
-            QCC_DbgPrintf(("WFDTransport::Connect(): Already connected to device \"%s\"", device.c_str()));
+            QCC_DbgPrintf(("WFDTransport::Connect(): Connection case four. Already connected to device \"%s\"", device.c_str()));
         } else {
             /*
              * Handle case one, completely disconnected.
              */
-            assert(!connected && !ourGroupOwner && "WFDTransport::Connect(): Impossible condition.");
-            QCC_DbgPrintf(("WFDTransport::Connect(): Not connected to device \"%s\"", device.c_str()));
+            QCC_DbgPrintf(("WFDTransport::Connect(): Connection case one. Not connected to device \"%s\"", device.c_str()));
+            assert(!connected && !ourGroupOwner && "WFDTransport::Connect(): Impossible.");
+
+            /*
+             * As mentioned in the extended comment above, we may be completely
+             * disconnected, but we may have an outstanding advertisement.  If
+             * this is the case, we are trying to be both a service and a
+             * client.  When we advertised, we did a CreateTemporaryNetwork()
+             * which put the P2P connection manager into a state where it
+             * expected to be a GO.  If we are going to try and do a Connect()
+             * here, and rely on the IP name service to pick up the slack and
+             * advertise our service, we are going to have to undo that
+             * temporary network creation and put our connection manager into
+             * the idle state so it can deal the request to connect as a STA
+             * which will follow.  We've already done all of the tests to ensure
+             * that this will be done with as few problems as possible, so we
+             * just go for it.
+             */
+            QCC_DbgPrintf(("WFDTransport::Connect(): DestroyTemporaryNetwork()"));
+            QStatus status = P2PConMan::Instance().DestroyTemporaryNetwork();
+            if (status != ER_OK) {
+                QCC_LogError(status, ("WFDTransport::Connect(): Unable to destroy temporary network"));
+                return status;
+            }
 
             /*
              * If we are not connected onto a common physical network with the
@@ -2400,7 +2590,7 @@ QStatus WFDTransport::Connect(const char* connectSpec, const SessionOpts& opts, 
              * the worst case.
              */
             QCC_DbgPrintf(("WFDTransport::Connect(): CreateTemporaryNetwork() with device \"%s\"", device.c_str()));
-            status = P2PConMan::Instance().CreateTemporaryNetwork(device, P2PConMan::DEVICE_MUST_BE_STA);
+            status = P2PConMan::Instance().CreateTemporaryNetwork(device, P2PConMan::DEVICE_SHOULD_BE_STA);
             if (status != ER_OK) {
                 QCC_LogError(status, ("WFDTransport::Connect(): Unable to CreateTemporaryNetwork() with device \"%s\"", device.c_str()));
                 return status;
@@ -2549,11 +2739,11 @@ QStatus WFDTransport::Connect(const char* connectSpec, const SessionOpts& opts, 
      * Look to see if we are already listening on the provided connectSpec
      * either explicitly or via the INADDR_ANY address.
      */
-    QCC_DbgHLPrintf(("WFDTransport::Connect(): Checking for connection to self"));
+    QCC_DbgPrintf(("WFDTransport::Connect(): Checking for connection to self"));
     m_listenFdsLock.Lock(MUTEX_CONTEXT);
     bool anyEncountered = false;
     for (list<pair<qcc::String, SocketFd> >::iterator i = m_listenFds.begin(); i != m_listenFds.end(); ++i) {
-        QCC_DbgHLPrintf(("WFDTransport::Connect(): Checking listenSpec %s", i->first.c_str()));
+        QCC_DbgPrintf(("WFDTransport::Connect(): Checking listenSpec %s", i->first.c_str()));
 
         /*
          * If the provided connectSpec is already explicitly listened to, it is
@@ -2561,7 +2751,7 @@ QStatus WFDTransport::Connect(const char* connectSpec, const SessionOpts& opts, 
          */
         if (i->first == normSpec) {
             m_listenFdsLock.Unlock(MUTEX_CONTEXT);
-            QCC_DbgHLPrintf(("WFDTransport::Connect(): Explicit connection to self"));
+            QCC_DbgPrintf(("WFDTransport::Connect(): Explicit connection to self"));
             return ER_BUS_ALREADY_LISTENING;
         }
 
@@ -2571,7 +2761,7 @@ QStatus WFDTransport::Connect(const char* connectSpec, const SessionOpts& opts, 
          * or not.  Set a flag to remind us.
          */
         if (i->first == normAnySpec) {
-            QCC_DbgHLPrintf(("WFDTransport::Connect(): Possible implicit connection to self detected"));
+            QCC_DbgPrintf(("WFDTransport::Connect(): Possible implicit connection to self detected"));
             anyEncountered = true;
         }
     }
@@ -2583,7 +2773,7 @@ QStatus WFDTransport::Connect(const char* connectSpec, const SessionOpts& opts, 
      * addr.
      */
     if (anyEncountered) {
-        QCC_DbgHLPrintf(("WFDTransport::Connect(): Checking for implicit connection to self"));
+        QCC_DbgPrintf(("WFDTransport::Connect(): Checking for implicit connection to self"));
         std::vector<qcc::IfConfigEntry> entries;
         QStatus status = qcc::IfConfig(entries);
 
@@ -2604,12 +2794,12 @@ QStatus WFDTransport::Connect(const char* connectSpec, const SessionOpts& opts, 
              * is a hit.
              */
             for (uint32_t i = 0; i < entries.size(); ++i) {
-                QCC_DbgHLPrintf(("WFDTransport::Connect(): Checking interface %s", entries[i].m_name.c_str()));
+                QCC_DbgPrintf(("WFDTransport::Connect(): Checking interface %s", entries[i].m_name.c_str()));
                 if (entries[i].m_flags & qcc::IfConfigEntry::UP) {
-                    QCC_DbgHLPrintf(("WFDTransport::Connect(): Interface UP with addresss %s", entries[i].m_addr.c_str()));
+                    QCC_DbgPrintf(("WFDTransport::Connect(): Interface UP with addresss %s", entries[i].m_addr.c_str()));
                     IPAddress foundAddr(entries[i].m_addr);
                     if (foundAddr == ipAddr) {
-                        QCC_DbgHLPrintf(("WFDTransport::Connect(): Attempted connection to self; exiting"));
+                        QCC_DbgPrintf(("WFDTransport::Connect(): Attempted connection to self; exiting"));
                         return ER_BUS_ALREADY_LISTENING;
                     }
                 }
@@ -2633,7 +2823,7 @@ QStatus WFDTransport::Connect(const char* connectSpec, const SessionOpts& opts, 
          * We got a socket, now tell WFD to connect to the remote address and
          * port.
          */
-        QCC_DbgHLPrintf(("WFDTransport::Connect(): Connect()"));
+        QCC_DbgPrintf(("WFDTransport::Connect(): Connect()"));
         status = qcc::Connect(sockFd, ipAddr, port);
         if (status == ER_OK) {
             /*
@@ -2646,7 +2836,7 @@ QStatus WFDTransport::Connect(const char* connectSpec, const SessionOpts& opts, 
             uint8_t nul = 0;
             size_t sent;
 
-            QCC_DbgHLPrintf(("WFDTransport::Connect(): Send() one byte"));
+            QCC_DbgPrintf(("WFDTransport::Connect(): Send() one byte"));
             status = Send(sockFd, &nul, 1, sent);
             if (status != ER_OK) {
                 QCC_LogError(status, ("WFDTransport::Connect(): Failed to send initial NUL byte"));
@@ -2666,7 +2856,7 @@ QStatus WFDTransport::Connect(const char* connectSpec, const SessionOpts& opts, 
          * a WFDEndpoint object that will orchestrate the movement of data
          * across the transport.
          */
-        QCC_DbgHLPrintf(("WFDTransport::Connect(): new WFDEndpoint()"));
+        QCC_DbgPrintf(("WFDTransport::Connect(): new WFDEndpoint()"));
         conn = new WFDEndpoint(this, m_bus, false, normSpec, sockFd, ipAddr, port, guid);
 
         /*
@@ -2717,7 +2907,7 @@ QStatus WFDTransport::Connect(const char* connectSpec, const SessionOpts& opts, 
          * we keep we keep the states consistent since the endpoint will eventually
          * to there.
          */
-        QCC_DbgHLPrintf(("WFDTransport::Connect(): Establish()"));
+        QCC_DbgPrintf(("WFDTransport::Connect(): Establish()"));
         status = conn->Establish("ANONYMOUS", authName, redirection);
         if (status == ER_OK) {
             conn->SetListener(this);
@@ -2736,7 +2926,7 @@ QStatus WFDTransport::Connect(const char* connectSpec, const SessionOpts& opts, 
          * server accept loop to manage.
          */
         if (status == ER_OK) {
-            QCC_DbgHLPrintf(("WFDTransport::Connect(): Success.  Pass connection."));
+            QCC_DbgPrintf(("WFDTransport::Connect(): Success.  Pass connection."));
             m_endpointListLock.Lock(MUTEX_CONTEXT);
             m_endpointList.insert(conn);
             m_endpointListLock.Unlock(MUTEX_CONTEXT);
@@ -2774,7 +2964,7 @@ QStatus WFDTransport::Connect(const char* connectSpec, const SessionOpts& opts, 
      * clean it up since it is an active connection, so we can safely pass the
      * endoint back up to higher layers.
      */
-    QCC_DbgHLPrintf(("WFDTransport::Connect(): Cleanup."));
+    QCC_DbgPrintf(("WFDTransport::Connect(): Cleanup."));
 
     if (status != ER_OK) {
         if (isConnected) {
@@ -2793,13 +2983,13 @@ QStatus WFDTransport::Connect(const char* connectSpec, const SessionOpts& opts, 
         }
     }
 
-    QCC_DbgHLPrintf(("WFDTransport::Connect(): Done."));
+    QCC_DbgPrintf(("WFDTransport::Connect(): Done."));
     return status;
 }
 
 QStatus WFDTransport::Disconnect(const char* connectSpec)
 {
-    QCC_DbgHLPrintf(("WFDTransport::Disconnect(): %s", connectSpec));
+    QCC_DbgTrace(("WFDTransport::Disconnect(): %s", connectSpec));
 
     /*
      * We only want to allow this call to proceed if we have a running server
@@ -2894,7 +3084,7 @@ QStatus WFDTransport::Disconnect(const char* connectSpec)
 
 QStatus WFDTransport::StartListen(const char* listenSpec)
 {
-    QCC_DbgPrintf(("WFDTransport::StartListen()"));
+    QCC_DbgTrace(("WFDTransport::StartListen()"));
 
     /*
      * We only want to allow this call to proceed if we have a running server
@@ -2984,7 +3174,7 @@ QStatus WFDTransport::StartListen(const char* listenSpec)
 
 void WFDTransport::QueueStartListen(qcc::String& normSpec)
 {
-    QCC_DbgPrintf(("WFDTransport::QueueStartListen()"));
+    QCC_DbgTrace(("WFDTransport::QueueStartListen()"));
 
     /*
      * In order to start a listen, we send the server accept thread a message
@@ -3008,7 +3198,7 @@ void WFDTransport::QueueStartListen(qcc::String& normSpec)
 
 void WFDTransport::DoStartListen(qcc::String& normSpec)
 {
-    QCC_DbgPrintf(("WFDTransport::DoStartListen()"));
+    QCC_DbgTrace(("WFDTransport::DoStartListen()"));
 
     /*
      * Parse the normalized listen spec.  The easiest way to do this is to
@@ -3130,7 +3320,7 @@ void WFDTransport::DoStartListen(qcc::String& normSpec)
 
 QStatus WFDTransport::StopListen(const char* listenSpec)
 {
-    QCC_DbgPrintf(("WFDTransport::StopListen()"));
+    QCC_DbgTrace(("WFDTransport::StopListen()"));
 
     /*
      * We only want to allow this call to proceed if we have a running server
@@ -3199,7 +3389,7 @@ QStatus WFDTransport::StopListen(const char* listenSpec)
 
 void WFDTransport::QueueStopListen(qcc::String& normSpec)
 {
-    QCC_DbgPrintf(("WFDTransport::QueueStopListen()"));
+    QCC_DbgTrace(("WFDTransport::QueueStopListen()"));
 
     /*
      * In order to stop a listen, we send the server accept thread a message
@@ -3223,7 +3413,7 @@ void WFDTransport::QueueStopListen(qcc::String& normSpec)
 
 void WFDTransport::DoStopListen(qcc::String& normSpec)
 {
-    QCC_DbgPrintf(("WFDTransport::DoStopListen()"));
+    QCC_DbgTrace(("WFDTransport::DoStopListen()"));
 
     /*
      * Since the name service is started before the server accept thread is spun
@@ -3264,7 +3454,7 @@ void WFDTransport::DoStopListen(qcc::String& normSpec)
 
 bool WFDTransport::NewDiscoveryOp(DiscoveryOp op, qcc::String namePrefix, bool& isFirst)
 {
-    QCC_DbgPrintf(("WFDTransport::NewDiscoveryOp()"));
+    QCC_DbgTrace(("WFDTransport::NewDiscoveryOp()"));
 
     bool first = false;
 
@@ -3288,7 +3478,7 @@ bool WFDTransport::NewDiscoveryOp(DiscoveryOp op, qcc::String namePrefix, bool& 
 
 bool WFDTransport::NewAdvertiseOp(AdvertiseOp op, qcc::String name, bool& isFirst)
 {
-    QCC_DbgPrintf(("WFDTransport::NewAdvertiseOp()"));
+    QCC_DbgTrace(("WFDTransport::NewAdvertiseOp()"));
 
     bool first = false;
 
@@ -3312,7 +3502,7 @@ bool WFDTransport::NewAdvertiseOp(AdvertiseOp op, qcc::String name, bool& isFirs
 
 bool WFDTransport::NewListenOp(ListenOp op, qcc::String normSpec)
 {
-    QCC_DbgPrintf(("WFDTransport::NewListenOp()"));
+    QCC_DbgTrace(("WFDTransport::NewListenOp()"));
 
     if (op == START_LISTEN) {
         QCC_DbgPrintf(("WFDTransport::NewListenOp(): Registering listen of normSpec \"%s\"", normSpec.c_str()));
@@ -3333,7 +3523,7 @@ bool WFDTransport::NewListenOp(ListenOp op, qcc::String normSpec)
 
 void WFDTransport::EnableDiscovery(const char* namePrefix)
 {
-    QCC_DbgPrintf(("WFDTransport::EnableDiscovery()"));
+    QCC_DbgTrace(("WFDTransport::EnableDiscovery()"));
 
     /*
      * We only want to allow this call to proceed if we have a running server
@@ -3358,7 +3548,7 @@ void WFDTransport::EnableDiscovery(const char* namePrefix)
 
 void WFDTransport::QueueEnableDiscovery(const char* namePrefix)
 {
-    QCC_DbgPrintf(("WFDTransport::QueueEnableDiscovery()"));
+    QCC_DbgTrace(("WFDTransport::QueueEnableDiscovery()"));
 
     ListenRequest listenRequest;
     listenRequest.m_requestOp = ENABLE_DISCOVERY_INSTANCE;
@@ -3377,7 +3567,7 @@ void WFDTransport::QueueEnableDiscovery(const char* namePrefix)
 
 void WFDTransport::DisableDiscovery(const char* namePrefix)
 {
-    QCC_DbgPrintf(("WFDTransport::DisableDiscovery()"));
+    QCC_DbgTrace(("WFDTransport::DisableDiscovery()"));
 
     /*
      * We only want to allow this call to proceed if we have a running server
@@ -3402,7 +3592,7 @@ void WFDTransport::DisableDiscovery(const char* namePrefix)
 
 void WFDTransport::QueueDisableDiscovery(const char* namePrefix)
 {
-    QCC_DbgPrintf(("WFDTransport::QueueDisableDiscovery()"));
+    QCC_DbgTrace(("WFDTransport::QueueDisableDiscovery()"));
 
     ListenRequest listenRequest;
     listenRequest.m_requestOp = DISABLE_DISCOVERY_INSTANCE;
@@ -3421,7 +3611,7 @@ void WFDTransport::QueueDisableDiscovery(const char* namePrefix)
 
 QStatus WFDTransport::EnableAdvertisement(const qcc::String& advertiseName)
 {
-    QCC_DbgPrintf(("WFDTransport::EnableAdvertisement()"));
+    QCC_DbgTrace(("WFDTransport::EnableAdvertisement()"));
 
     /*
      * We only want to allow this call to proceed if we have a running server
@@ -3447,7 +3637,7 @@ QStatus WFDTransport::EnableAdvertisement(const qcc::String& advertiseName)
 
 void WFDTransport::QueueEnableAdvertisement(const qcc::String& advertiseName)
 {
-    QCC_DbgPrintf(("WFDTransport::QueueEnableAdvertisement()"));
+    QCC_DbgTrace(("WFDTransport::QueueEnableAdvertisement()"));
 
     ListenRequest listenRequest;
     listenRequest.m_requestOp = ENABLE_ADVERTISEMENT_INSTANCE;
@@ -3466,7 +3656,7 @@ void WFDTransport::QueueEnableAdvertisement(const qcc::String& advertiseName)
 
 void WFDTransport::DisableAdvertisement(const qcc::String& advertiseName, bool nameListEmpty)
 {
-    QCC_DbgPrintf(("WFDTransport::DisableAdvertisement()"));
+    QCC_DbgTrace(("WFDTransport::DisableAdvertisement()"));
 
     /*
      * We only want to allow this call to proceed if we have a running server
@@ -3491,7 +3681,7 @@ void WFDTransport::DisableAdvertisement(const qcc::String& advertiseName, bool n
 
 void WFDTransport::QueueDisableAdvertisement(const qcc::String& advertiseName)
 {
-    QCC_DbgPrintf(("WFDTransport::QueueDisableAdvertisement()"));
+    QCC_DbgTrace(("WFDTransport::QueueDisableAdvertisement()"));
 
     ListenRequest listenRequest;
     listenRequest.m_requestOp = DISABLE_ADVERTISEMENT_INSTANCE;
@@ -3510,7 +3700,7 @@ void WFDTransport::QueueDisableAdvertisement(const qcc::String& advertiseName)
 
 void WFDTransport::P2PNameServiceCallback(const qcc::String& guid, qcc::String& name, uint8_t timer)
 {
-    QCC_DbgPrintf(("WFDTransport::P2PNameServiceCallback(): guid = \"%s\", timer = %d", guid.c_str(), timer));
+    QCC_DbgTrace(("WFDTransport::P2PNameServiceCallback(): guid = \"%s\", timer = %d", guid.c_str(), timer));
 
     /*
      * Whenever the P2P name service receives a message indicating that a
@@ -3555,7 +3745,13 @@ void WFDTransport::P2PNameServiceCallback(const qcc::String& guid, qcc::String& 
 
 void WFDTransport::P2PConManNameCallback(const qcc::String& busAddr, const qcc::String& guid, std::vector<qcc::String>& nameList, uint8_t timer)
 {
-    QCC_DbgPrintf(("WFDTransport::P2PNameServiceCallback(): guid = \"%s\", timer = %d", guid.c_str(), timer));
+    QCC_DbgTrace(("WFDTransport::P2PConManNameCallback(): busAddr = \"%s\", guid = \"%s\", timer = %d", busAddr.c_str(), guid.c_str(), timer));
+
+    QCC_DEBUG_ONLY(
+        for (uint32_t i = 0; i < nameList.size(); ++i) {
+            QCC_DbgPrintf(("WFDTransport::P2PConManNameCallback(): nameList[%d] = \"%s\"", i, nameList[i].c_str()));
+        }
+        );
 
     /*
      * Whenever the P2P connection manager receives a message indicating that a
@@ -3596,7 +3792,7 @@ void WFDTransport::P2PConManNameCallback(const qcc::String& busAddr, const qcc::
 
 void WFDTransport::P2PConManStateCallback(P2PConMan::LinkState state, const qcc::String& interface)
 {
-    QCC_DbgPrintf(("WFDTransport::P2PConManStateCallback(): state = %d, interface = \"%s\"", state, interface.c_str()));
+    QCC_DbgTrace(("WFDTransport::P2PConManStateCallback(): state = %d, interface = \"%s\"", state, interface.c_str()));
 
     /*
      * Whenever the P2P connection manager notices a link coming up or going down

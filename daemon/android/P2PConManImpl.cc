@@ -228,10 +228,10 @@ QStatus P2PConManImpl::CreateTemporaryNetwork(const qcc::String& device, int32_t
     // Wi-Fi P2P GO Negotiation request with the following changes in
     // interpretation: Where the P2P spec indicates a relative value indicating
     // the desire of the P2P device to be a Group Owner, we define the value
-    // zero as indicating an absolute requirement that the device must be a STA
-    // (as seen in the constant P2PConMan::DEVICE_MUST_BE_STA = 0) and the value
-    // 15 indicates an absolute requirement that the device must be a GO (as
-    // seen in the constant P2PConMan::DEVICE_MUST_BE_GO = 15).
+    // zero as indicating that the device should naturally be a STA (as seen in
+    // the constant P2PConMan::DEVICE_SHOULD_BE_STA = 0) and the value 14
+    // indicates an absolute requirement that the device must be a GO (as seen
+    // in the constant P2PConMan::DEVICE_SHOULD_BE_GO = 14).
     //
     // When we actually make the RPC call to establish the link, which we do by
     // calling into our helper object's EstablishLinkAsync method, if we are
@@ -309,7 +309,7 @@ QStatus P2PConManImpl::CreateTemporaryNetwork(const qcc::String& device, int32_t
     // success, but only if the connection is in the connected state for STA or
     // in either ready or connected state if GO.
     //
-    if (device == m_device && ((goIntent == P2PConMan::DEVICE_MUST_BE_GO && m_connState == CONN_READY) || m_connState == CONN_CONNECTED)) {
+    if (device == m_device && ((goIntent == P2PConMan::DEVICE_SHOULD_BE_GO && m_connState == CONN_READY) || m_connState == CONN_CONNECTED)) {
         QCC_DbgPrintf(("P2PConManImpl::CreateTemporaryNetwork(): Reconnection to same device okay"));
         m_threadLock.Lock();
         m_l2thread = NULL;
@@ -376,13 +376,13 @@ QStatus P2PConManImpl::CreateTemporaryNetwork(const qcc::String& device, int32_t
     // GO intent of fifteen as an advisory message to communicate this fact.  It
     // can't work this way, so we don't bother telling the P2P Helper Service
     // about our choice to be GO since ot won't know what to do with that
-    // information anyway.  So if we see DEVICE_MUST_BE_GO we just ignore the
+    // information anyway.  So if we see DEVICE_SHOULD_BE_GO we just ignore the
     // request.  We will get a callback from the Framework, via the P2P Helper
     // Service when the link is finally established (when a client connects), at
     // which point we remember the handle that is returned there and go to
     // CONN_CONNECTED directly in the OnLinkEstablished() callback.
     //
-    if (goIntent == P2PConMan::DEVICE_MUST_BE_GO) {
+    if (goIntent == P2PConMan::DEVICE_SHOULD_BE_GO) {
         //
         // This is a bit counter-intuitive, but it is critical to support a pure
         // peer-to-peer use case which is vital to a useful WFD transport.
@@ -535,7 +535,7 @@ QStatus P2PConManImpl::CreateTemporaryNetwork(const qcc::String& device, int32_t
                 break;
             } else {
                 QCC_DbgPrintf(("P2PConManImpl::CreateTemporaryNetwork(): EstablishLinkAsync(): Reply success"));
-                if (goIntent == P2PConMan::DEVICE_MUST_BE_GO) {
+                if (goIntent == P2PConMan::DEVICE_SHOULD_BE_GO) {
                     QCC_DbgPrintf(("P2PConManImpl::CreateTemporaryNetwork(): GO intent acknowledged"));
                     break;
                 }
@@ -1058,7 +1058,7 @@ void P2PConManImpl::OnLinkEstablished(int32_t handle, qcc::String& interface)
 
         //
         // We don't know for certain that the underlying Wi-Fi Direct system
-        // negotiated us to be the GO, but since we provided MUST_BE_GO we
+        // negotiated us to be the GO, but since we provided SHOULD_BE_GO we
         // assume that it did.
         //
         m_connType = CONN_GO;
@@ -1088,7 +1088,7 @@ void P2PConManImpl::OnLinkEstablished(int32_t handle, qcc::String& interface)
 
         //
         // We don't know for certain that the underlying Wi-Fi Direct system
-        // negotiated us to be the STA, but since we provided MUST_BE_STA we
+        // negotiated us to be the STA, but since we provided SHOULD_BE_STA we
         // assume that it did.
         //
         m_connType = CONN_STA;
