@@ -530,7 +530,7 @@ QStatus P2PConManImpl::CreateTemporaryNetwork(const qcc::String& device, int32_t
         //
         if (m_handleEstablishLinkReplyFired) {
             if (m_establishLinkResult != ER_OK) {
-                status = ER_P2P;
+                status = static_cast<QStatus>(m_establishLinkResult);
                 QCC_LogError(status, ("P2PConManImpl::CreateTemporaryNetwork(): EstablishLinkAsync(): Reply failure"));
                 break;
             } else {
@@ -1154,6 +1154,13 @@ void P2PConManImpl::OnLinkError(int32_t handle, int32_t error)
     QCC_DbgHLPrintf(("P2PConManImpl::OnLinkError(): handle = %d, error = %d", handle, error));
 
     //
+    // The error that is returned from the P2P Helper is the unary negative of
+    // one of the ER_P2P_* errors found in Status.xml (from alljoyn_core/src).
+    // Because this may be interesting information we always log the error.
+    //
+    QCC_LogError(static_cast<QStatus>(-error), ("P2PConManInpl::OnLinkError(): Error on handle %d", handle));
+
+    //
     // OnLinkError() is the error case that happens as the ulitmate result of a
     // call to EstablishLink().  If no error happens, then the result is
     // OnLinkEstablished().
@@ -1378,12 +1385,15 @@ void P2PConManImpl::HandleEstablishLinkReply(int32_t handle)
     // us the handle that we will be using to identify all further responses.  A
     // negative handle means an error.
     //
-    // XXX We have some more possibilites for error returns now than simple
-    // failure.
-    //
     m_handle = handle;
     if (m_handle < 0) {
-        m_establishLinkResult = P2PHelperInterface::P2P_ERR;
+        //
+        // An error that is returned from the P2P Helper is the unary negative of
+        // one of the ER_P2P_* errors found in Status.xml (from alljoyn_core/src).
+        // Because this may be interesting information we always log the error.
+        //
+        QCC_LogError(static_cast<QStatus>(-handle), ("P2PConManInpl::HandleEstablishLinkReply(): Failure."));
+        m_establishLinkResult = -handle;
     } else {
         m_establishLinkResult = P2PHelperInterface::P2P_OK;
     }
@@ -1407,6 +1417,15 @@ void P2PConManImpl::HandleReleaseLinkReply(int32_t result)
     // care.
     //
     QCC_DbgHLPrintf(("P2PConManImpl::HandleReleaseLinkReply(): result = %d", result));
+
+    //
+    // An error that is returned from the P2P Helper is the unary negative of
+    // one of the ER_P2P_* errors found in Status.xml (from alljoyn_core/src).
+    // Because this may be interesting information we always log the error.
+    //
+    if (result != P2PHelperInterface::P2P_OK) {
+        QCC_LogError(static_cast<QStatus>(-result), ("P2PConManInpl::HandleRelaseLinkReply(): Failure."));
+    }
 }
 
 void P2PConManImpl::HandleGetInterfaceNameFromHandleReply(qcc::String& interface)

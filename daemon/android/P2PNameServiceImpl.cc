@@ -295,7 +295,7 @@ void P2PNameServiceImpl::HandleFindAdvertisedNameReply(int32_t result)
     QCC_DbgPrintf(("P2PNameServiceImpl::HandleFindAdvertisedNameReply(%d.)", result));
 
     if (result != P2PHelperInterface::P2P_OK) {
-        QCC_LogError(ER_P2P, ("P2PHelperInterface::HandleFindAdvertisedNameReply(): Reply is %d", result));
+        QCC_LogError(static_cast<QStatus>(-result), ("P2PHelperInterface::HandleFindAdvertisedNameReply(): Reply is %d", result));
     }
 }
 
@@ -304,7 +304,7 @@ void P2PNameServiceImpl::HandleCancelFindAdvertisedNameReply(int32_t result)
     QCC_DbgPrintf(("P2PNameServiceImpl::HandleCancelFindAdvertisedNameReply(%d.)", result));
 
     if (result != P2PHelperInterface::P2P_OK) {
-        QCC_LogError(ER_P2P, ("P2PHelperInterface::HandleCancelFindAdvertisedNameReply(): Reply is %d", result));
+        QCC_LogError(static_cast<QStatus>(-result), ("P2PHelperInterface::HandleCancelFindAdvertisedNameReply(): Reply is %d", result));
     }
 }
 
@@ -313,7 +313,7 @@ void P2PNameServiceImpl::HandleAdvertiseNameReply(int32_t result)
     QCC_DbgPrintf(("P2PNameServiceImpl::HandleAdvertiseNameReply(%d.)", result));
 
     if (result != P2PHelperInterface::P2P_OK) {
-        QCC_LogError(ER_P2P, ("P2PHelperInterface::HandleAdvertiseNameReply(): Reply is %d", result));
+        QCC_LogError(static_cast<QStatus>(-result), ("P2PHelperInterface::HandleAdvertiseNameReply(): Reply is %d", result));
     }
 }
 
@@ -322,7 +322,7 @@ void P2PNameServiceImpl::HandleCancelAdvertiseNameReply(int32_t result)
     QCC_DbgPrintf(("P2PNameServiceImpl::HandleCancelAdvertiseNameReply(%d.)", result));
 
     if (result != P2PHelperInterface::P2P_OK) {
-        QCC_LogError(ER_P2P, ("P2PHelperInterface::HandleCancelAdvertiseNameReply(): Reply is %d", result));
+        QCC_LogError(static_cast<QStatus>(-result), ("P2PHelperInterface::HandleCancelAdvertiseNameReply(): Reply is %d", result));
     }
 }
 
