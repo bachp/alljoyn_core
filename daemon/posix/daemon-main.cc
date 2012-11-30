@@ -256,7 +256,7 @@ void OptParse::PrintUsage() {
 #endif
         "]\n"
         "%*s [--print-address[=DESCRIPTOR]] [--print-pid[=DESCRIPTOR]]\n"
-        "%*s [--fork | --nofork] [--no-bt] [--no-tcp] [--no-ice] [--no-launchd]\n"
+        "%*s [--fork | --nofork] [--no-bt] [--no-tcp] [--no-ice] [--no-wfd] [--no-launchd]\n"
         "%*s  [--no-switch-user] [--verbosity=LEVEL] [--version]\n\n"
         "    --session\n"
         "        Use the standard configuration for the per-login-session message bus.\n\n"
@@ -285,6 +285,8 @@ void OptParse::PrintUsage() {
         "        Disable the TCP transport (override config file setting).\n\n"
         "    --no-ice\n"
         "        Disable the ICE transport (override config file setting).\n\n"
+        "    --no-wfd\n"
+        "        Disable the Wifi-Direct transport (override config file setting).\n\n"
         "    --no-launchd\n"
         "        Disable the Launchd transport (override config file setting).\n\n"
         "    --no-switch-user\n"

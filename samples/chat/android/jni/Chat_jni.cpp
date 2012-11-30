@@ -71,8 +71,10 @@ class MyBusListener : public BusListener, public SessionPortListener, public Ses
         const char* convName = name + strlen(NAME_PREFIX);
         LOGD("Discovered chat conversation: %s \n", name);
 
-        /* Join the conversation */
+        /* Enable Concurrency since JoinSession can block */
+        s_bus->EnableConcurrentCallbacks();
 
+        /* Join the conversation */
         SessionOpts opts(SessionOpts::TRAFFIC_MESSAGES, true, SessionOpts::PROXIMITY_ANY, TRANSPORT_ANY);
         QStatus status = s_bus->JoinSession(name, CHAT_PORT, NULL, s_sessionId, opts);
         if (ER_OK == status) {
