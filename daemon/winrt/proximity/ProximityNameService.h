@@ -39,18 +39,20 @@
 
 namespace ajn {
 
+#define DO_P2P_NAME_ADVERTISE 0
+
 ref class ProximityNameService sealed {
   public:
 
     void ConnectionRequestedEventHandler(Platform::Object ^ sender, Windows::Networking::Proximity::ConnectionRequestedEventArgs ^ TriggeredConnectionStateChangedEventArgs);
     /**
-     * Increase the number of overlay TCP connections that depends on the current proximity connection
+     * Increase the number of overlay connections that depends on the current proximity connection
      */
-    int32_t IncreaseOverlayTCPConnection();
+    int32_t IncreaseP2PConnectionRef();
     /**
-     * Decrease the number of overlay TCP connections that depends on the current proximity connection
+     * Decrease the number of overlay connections that depends on the current proximity connection
      */
-    int32_t DecreaseOverlayTCPConnection();
+    int32_t DecreaseP2PConnectionRef();
 
   private:
     friend class ProximityTransport;
@@ -58,7 +60,7 @@ ref class ProximityNameService sealed {
     static const uint32_t MAX_DISPLAYNAME_SIZE = 49;         /**< The maximum number of unicode charaters that DisplayName property of PeerFinder allows */
     static const uint32_t TRANSMIT_INTERVAL = 16 * 1000;     /**< The default interval of transmitting well-known name advertisement */
     static const uint32_t DEFAULT_DURATION = (20);           /**< The default lifetime of a found well-known name */
-    static const uint32_t DEFAULT_PREASSOCIATION_TTL = 254;      /**< The default ttl used for the well-known names found during service pre-association */
+    static const uint32_t DEFAULT_PREASSOCIATION_TTL = 40;   /**< The default ttl used for the well-known names found during service pre-association. */
 
     enum ProximState {
         PROXIM_DISCONNECTED,                                 /**< Not connected to a peer */
@@ -95,11 +97,30 @@ ref class ProximityNameService sealed {
     void EnableAdvertisement(const qcc::String& name);
     void DisableAdvertisement(std::vector<qcc::String>& wkns);
 
+#if DO_P2P_NAME_ADVERTISE
+    /**
+     * Start a timer that triggers periodically to transmit well-known names to peers
+     */
+    void StartMaintainanceTimer();
+
+    void TimerCallback(Windows::System::Threading::ThreadPoolTimer ^ timer);
+
+    /**
+     * Transmit well-known names to peers
+     */
+    void TransmitMyWKNs();
+
+    /**
+     * Inquire a connected peer to discover service
+     */
+    void Locate(const qcc::String& namePrefix);
+
     /**
      * @internal
      * @brief Send the protocol message over the proximity connection.
      */
     void SendProtocolMessage(Header& header);
+
     /**
      * @internal
      * @brief Do something with a received protocol message.
@@ -117,6 +138,7 @@ ref class ProximityNameService sealed {
      * @brief Do something with a received protocol answer.
      */
     void HandleProtocolAnswer(IsAt isAt, uint32_t timer, qcc::IPAddress address);
+#endif
 
     /**
      * Start Proximity name service
@@ -168,21 +190,6 @@ ref class ProximityNameService sealed {
      */
     void NotifyDisconnected();
 
-    /**
-     * Start a timer that triggers periodically to transmit well-known names to peers
-     */
-    void StartMaintainanceTimer();
-
-    void TimerCallback(Windows::System::Threading::ThreadPoolTimer ^ timer);
-
-    /**
-     * Transmit well-known names to peers
-     */
-    void TransmitMyWKNs();
-    /**
-     * Inquire a connected peer to discover service
-     */
-    void Locate(const qcc::String& namePrefix);
 
     /** Does this device support triggered mode (NFC) */
     bool IsTriggeredConnectSupported();
@@ -210,7 +217,7 @@ ref class ProximityNameService sealed {
     std::set<qcc::String> m_advertised;                           /**< The well-known names the daemon advertised */
     qcc::String m_sguid;                                          /**< The daemon GUID short string, 8-byte */
 
-    std::map<qcc::String, Windows::Networking::Proximity::PeerInformation ^> m_peersMap;     /**< Mapping guid to PeerInformation, used for establishing P2P connection to a remote peer*/
+    std::map<qcc::String, std::pair <Windows::Networking::Proximity::PeerInformation ^, std::vector<qcc::String> > > m_peersMap;      /**< Mapping guid to PeerInformation, used for establishing P2P connection to a remote peer*/
     bool m_doDiscovery;                                           /**< Whether PeerFinder should browse peers to discover well-known name */
     qcc::Mutex m_mutex;
     uint16_t m_port;                                              /**< The port associated with the name service */
