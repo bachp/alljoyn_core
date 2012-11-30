@@ -369,7 +369,16 @@ QStatus BusAttachment::TryConnect(const char* connectSpec, BusEndpoint** newep)
         if ((status == ER_OK) && ((tempEp->GetEndpointType() == BusEndpoint::ENDPOINT_TYPE_REMOTE) ||
                                   (tempEp->GetEndpointType() == BusEndpoint::ENDPOINT_TYPE_BUS2BUS))) {
             RemoteEndpoint* rem = static_cast<RemoteEndpoint*>(tempEp);
-            if (rem->GetRemoteProtocolVersion() < ALLJOYN_PROTOCOL_VERSION) {
+            /*
+             * Reject a daemon whose ALLJOYN_PROTOCOL_VERSION is less than that of this
+             * client. This check is complicated by the requirement to successfully connect to a
+             * standard (non-AllJoyn) DBUs daemon regardless of version.
+             *
+             * If we are connected to an older ALLJOYN daemon, then reject the connection. If it
+             * is a standard DBUS daemon (that doesn't report an alljoyn version) then ignore
+             * the ALLJOYN_PROTOCOL_VERSION check.
+             */
+            if ((rem->GetRemoteAllJoynVersion() != 0) && (rem->GetRemoteProtocolVersion() < ALLJOYN_PROTOCOL_VERSION)) {
                 QCC_DbgPrintf(("Rejecting daemon at %s because its protocol version (%d) is less than ours (%d)", connectSpec, rem->GetRemoteProtocolVersion(), ALLJOYN_PROTOCOL_VERSION));
                 Disconnect(connectSpec);
                 status = ER_BUS_INCOMPATIBLE_DAEMON;
