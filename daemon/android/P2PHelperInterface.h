@@ -115,110 +115,135 @@ class P2PHelperInterface : public MessageReceiver {
         void OnFoundAdvertisedName(const InterfaceDescription::Member* member, const char* sourcePath, Message& message)
         {
             QCC_DbgPrintf(("P2PHelperListenerInternal::OnFoundAdvertisedName()"));
-            if (m_parent->m_listener) {
+            if (message->GetType() == MESSAGE_SIGNAL && m_parent && m_parent->m_listener) {
                 qcc::String name(message->GetArg(0)->v_string.str);
                 qcc::String namePrefix(message->GetArg(1)->v_string.str);
                 qcc::String guid(message->GetArg(2)->v_string.str);
                 qcc::String device(message->GetArg(3)->v_string.str);
 
                 m_parent->m_listener->OnFoundAdvertisedName(name, namePrefix, guid, device);
+            } else {
+                QCC_DbgPrintf(("P2PHelperListenerInternal::OnFoundAdvertisedName(): Discard."));
             }
         }
 
         void OnLostAdvertisedName(const InterfaceDescription::Member* member, const char* sourcePath, Message& message)
         {
             QCC_DbgPrintf(("P2PHelperListenerInternal::OnLostAdvertisedName()"));
-            if (m_parent->m_listener) {
+            if (message->GetType() == MESSAGE_SIGNAL && m_parent && m_parent->m_listener) {
                 qcc::String name(message->GetArg(0)->v_string.str);
                 qcc::String namePrefix(message->GetArg(1)->v_string.str);
                 qcc::String guid(message->GetArg(2)->v_string.str);
                 qcc::String device(message->GetArg(3)->v_string.str);
 
                 m_parent->m_listener->OnLostAdvertisedName(name, namePrefix, guid, device);
+            } else {
+                QCC_DbgPrintf(("P2PHelperListenerInternal::OnLostAdvertisedName(): Discard."));
             }
+
         }
 
         void OnLinkEstablished(const InterfaceDescription::Member* member, const char* sourcePath, Message& message)
         {
             QCC_DbgPrintf(("P2PHelperListenerInternal::OnLinkEstablished()"));
-            if (m_parent->m_listener) {
+            if (message->GetType() == MESSAGE_SIGNAL && m_parent && m_parent->m_listener) {
                 uint32_t handle(message->GetArg(0)->v_int32);
                 qcc::String interface(message->GetArg(1)->v_string.str);
 
                 m_parent->m_listener->OnLinkEstablished(handle, interface);
+            } else {
+                QCC_DbgPrintf(("P2PHelperListenerInternal::OnLinkEstablished(): Discard."));
             }
         }
 
         void OnLinkError(const InterfaceDescription::Member* member, const char* sourcePath, Message& message)
         {
             QCC_DbgPrintf(("P2PHelperListenerInternal::OnLinkError()"));
-            if (m_parent->m_listener) {
+            if (message->GetType() == MESSAGE_SIGNAL && m_parent && m_parent->m_listener) {
                 m_parent->m_listener->OnLinkError(message->GetArg(0)->v_int32, message->GetArg(1)->v_int32);
+            } else {
+                QCC_DbgPrintf(("P2PHelperListenerInternal::OnLinkError(): Discard."));
             }
         }
 
         void OnLinkLost(const InterfaceDescription::Member* member, const char* sourcePath, Message& message)
         {
             QCC_DbgPrintf(("P2PHelperListenerInternal::OnLinkLost()"));
-            if (m_parent->m_listener) {
+            if (message->GetType() == MESSAGE_SIGNAL && m_parent && m_parent->m_listener) {
                 m_parent->m_listener->OnLinkLost(message->GetArg(0)->v_int32);
+            } else {
+                QCC_DbgPrintf(("P2PHelperListenerInternal::OnLinkLost(): Discard."));
             }
         }
 
         void HandleFindAdvertisedNameReply(Message& message, void* context)
         {
             QCC_DbgPrintf(("P2PHelperListenerInternal::HandleFindAdvertisedNameReply()"));
-            if (m_parent->m_listener) {
+            if (message->GetType() == MESSAGE_METHOD_RET && m_parent && m_parent->m_listener) {
                 m_parent->m_listener->HandleFindAdvertisedNameReply(message->GetArg(0)->v_int32);
+            } else {
+                QCC_DbgPrintf(("P2PHelperListenerInternal::HandleFindAdvertisedNameReply(): Discard"));
             }
         }
 
         void HandleCancelFindAdvertisedNameReply(Message& message, void* context)
         {
             QCC_DbgPrintf(("P2PHelperListenerInternal::HandleCancelFindAdvertisedNameReply()"));
-            if (m_parent->m_listener) {
+            if (message->GetType() == MESSAGE_METHOD_RET && m_parent && m_parent->m_listener) {
                 m_parent->m_listener->HandleCancelFindAdvertisedNameReply(message->GetArg(0)->v_int32);
+            } else {
+                QCC_DbgPrintf(("P2PHelperListenerInternal::HandleCancelFindAdvertisedNameReply(): Discard."));
             }
         }
 
         void HandleAdvertiseNameReply(Message& message, void* context)
         {
             QCC_DbgPrintf(("P2PHelperListenerInternal::HandleAdvertiseNameReply()"));
-            if (m_parent->m_listener) {
+            if (message->GetType() == MESSAGE_METHOD_RET && m_parent && m_parent->m_listener) {
                 m_parent->m_listener->HandleAdvertiseNameReply(message->GetArg(0)->v_int32);
+            } else {
+                QCC_DbgPrintf(("P2PHelperListenerInternal::HandleAdvertiseNameReply(): Discard."));
             }
         }
 
         void HandleCancelAdvertiseNameReply(Message& message, void* context)
         {
             QCC_DbgPrintf(("P2PHelperListenerInternal::HandleCancelAdvertiseNameReply()"));
-            if (m_parent->m_listener) {
+            if (message->GetType() == MESSAGE_METHOD_RET && m_parent && m_parent->m_listener) {
                 m_parent->m_listener->HandleCancelAdvertiseNameReply(message->GetArg(0)->v_int32);
+            } else {
+                QCC_DbgPrintf(("P2PHelperListenerInternal::HandleCancelAdvertiseNameReply(): Discard."));
             }
         }
 
         void HandleEstablishLinkReply(Message& message, void* context)
         {
             QCC_DbgPrintf(("P2PHelperListenerInternal::HandleEstablishLinkReply()"));
-            if (m_parent->m_listener) {
+            if (message->GetType() == MESSAGE_METHOD_RET && m_parent && m_parent->m_listener) {
                 m_parent->m_listener->HandleEstablishLinkReply(message->GetArg(0)->v_int32);
+            } else {
+                QCC_DbgPrintf(("P2PHelperListenerInternal::HandleEstablishLinkReply(): Discard."));
             }
         }
 
         void HandleReleaseLinkReply(Message& message, void* context)
         {
             QCC_DbgPrintf(("P2PHelperListenerInternal::HandleReleaseLinkReply()"));
-            if (m_parent->m_listener) {
+            if (message->GetType() == MESSAGE_METHOD_RET && m_parent && m_parent->m_listener) {
                 m_parent->m_listener->HandleReleaseLinkReply(message->GetArg(0)->v_int32);
+            } else {
+                QCC_DbgPrintf(("P2PHelperListenerInternal::HandleReleaseLinkReply(): Discard."));
             }
         }
 
         void HandleGetInterfaceNameFromHandleReply(Message& message, void* context)
         {
             QCC_DbgPrintf(("P2PHelperListenerInternal::HandleGetInterfaceNameFromHandleReply()"));
-            if (m_parent->m_listener) {
+            if (message->GetType() == MESSAGE_METHOD_RET && m_parent && m_parent->m_listener) {
                 qcc::String interface(message->GetArg(0)->v_string.str);
                 m_parent->m_listener->HandleGetInterfaceNameFromHandleReply(interface);
+            } else {
+                QCC_DbgPrintf(("P2PHelperListenerInternal::HandleGetInterfaceNameFromHandleReply(): Discard."));
             }
         }
 
