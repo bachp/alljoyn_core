@@ -405,7 +405,7 @@ void* ProximityEndpoint::AuthThread::Run(void* arg)
      */
     conn->m_authState = AUTH_SUCCEEDED;
     if (conn->m_transport->m_pns != nullptr) {
-        conn->m_transport->m_pns->IncreaseOverlayTCPConnection();
+        conn->m_transport->m_pns->IncreaseP2PConnectionRef();
     }
     return (void*)status;
 }
@@ -854,7 +854,7 @@ void ProximityTransport::EndpointExit(RemoteEndpoint* ep)
      */
     Alert();
     if (m_pns != nullptr) {
-        m_pns->DecreaseOverlayTCPConnection();
+        m_pns->DecreaseP2PConnectionRef();
     }
 }
 
@@ -1349,9 +1349,18 @@ void ProximityTransport::RunListenMachine(void)
     QCC_DbgPrintf(("ProximityTransport::RunListenMachine()"));
 
     while (m_listenRequests.empty() == false) {
-        QCC_DbgPrintf(("ProximityTransport::RunListenMachine(): Do request."));
+        QCC_DbgPrintf(("TCPTransport::RunListenMachine(): Do request."));
+
+        /*
+         * Pull a request to do a listen request off of the queue of requests.
+         * These requests relate to starting and stopping discovery and
+         * advertisements; and also whether or not to listen for inbound
+         * connections.
+         */
+        m_listenRequestsLock.Lock(MUTEX_CONTEXT);
         ListenRequest listenRequest = m_listenRequests.front();
         m_listenRequests.pop();
+        m_listenRequestsLock.Unlock(MUTEX_CONTEXT);
 
         /*
          * Do some consistency checks to make sure we're not confused about what
@@ -1725,7 +1734,7 @@ QStatus ProximityTransport::NormalizeListenSpec(const char* inSpec, qcc::String&
      * looking for comma-separated "key=value" pairs and initialize the
      * argMap with those pairs.
      */
-    QStatus status = ParseArguments("proximity", inSpec, argMap);
+    QStatus status = ParseArguments(GetTransportName(), inSpec, argMap);
     if (status != ER_OK) {
         return status;
     }
@@ -2084,7 +2093,7 @@ QStatus ProximityTransport::Connect(const char* connSpec, const SessionOpts& opt
             status = conn->Start();
             if (status == ER_OK) {
                 if (m_pns != nullptr) {
-                    m_pns->IncreaseOverlayTCPConnection();
+                    m_pns->IncreaseP2PConnectionRef();
                 }
                 conn->SetEpStarted();
                 conn->SetAuthDone();

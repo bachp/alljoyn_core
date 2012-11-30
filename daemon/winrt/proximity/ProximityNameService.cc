@@ -202,13 +202,18 @@ void ProximityNameService::ConnectionRequestedEventHandler(Platform::Object ^ se
                              if (m_advertised.size() > 0) {
                                  IpNameService::Instance().AdvertiseName(TRANSPORT_WFD, *(m_advertised.begin()));
                              }
+#if DO_P2P_NAME_ADVERTISE
                              TransmitMyWKNs();
                              StartMaintainanceTimer();
+#endif
                          } catch (Exception ^ e) {
                              m_currentP2PLink.state = PROXIM_DISCONNECTED;
                              qcc::String err = PlatformToMultibyteString(e->Message);
                              QCC_LogError(ER_OS_ERROR, ("ConnectionRequestedEventHandler ConnectAsync() Error (%s)", err.c_str()));
                              RestartPeerFinder();
+                             if (m_doDiscovery) {
+                                 BrowsePeers();
+                             }
                          }
                      });
 }
@@ -255,14 +260,14 @@ void ProximityNameService::EnableAdvertisement(const qcc::String& name)
             }
             m_advertised.insert(name.substr(m_namePrefix.size() + 1));
             m_doDiscovery = ShouldDoDiscovery();
-
             if (IsConnected()) {
+#if DO_P2P_NAME_ADVERTISE
                 QCC_DbgPrintf(("EnableAdvertisement() already connected, TransmitMyWKNs Immidiately"));
                 TransmitMyWKNs();
+#endif
                 m_mutex.Unlock(MUTEX_CONTEXT);
                 return;
             }
-
             PeerFinder::Stop();
             PeerFinder::DisplayName = EncodeWknAdvertisement();
             Windows::Networking::Proximity::PeerFinder::Start();
@@ -304,8 +309,10 @@ void ProximityNameService::DisableAdvertisement(vector<qcc::String>& wkns)
             m_doDiscovery = ShouldDoDiscovery();
             if (IsConnected()) {
                 IpNameService::Instance().CancelAdvertiseName(TRANSPORT_WFD, *(wkns.begin()));
+#if DO_P2P_NAME_ADVERTISE
                 QCC_DbgPrintf(("DisableAdvertisement() already connected, Transm)itMyWKNs Immidiately"));
                 TransmitMyWKNs();
+#endif
                 m_mutex.Unlock(MUTEX_CONTEXT);
                 return;
             }
@@ -395,7 +402,7 @@ void ProximityNameService::BrowsePeers()
         m_currentP2PLink.state = PROXIM_DISCONNECTED;
         return;
     }
-    if (!m_doDiscovery) {
+    if (!m_peerFinderStarted || !m_doDiscovery) {
         return;
     }
     m_currentP2PLink.state = PROXIM_BROWSING;
@@ -456,7 +463,7 @@ void ProximityNameService::BrowsePeers()
                                               qcc::String busAddress = "proximity:guid=";
                                               busAddress += guidStr;
                                               (*m_callback)(busAddress, guidStr, nameList, DEFAULT_PREASSOCIATION_TTL);
-                                              m_peersMap[guidStr] = peerInfoList->GetAt(i);
+                                              m_peersMap[guidStr] = std::make_pair(peerInfoList->GetAt(i), nameList);
                                               foundValidPeer = true;
                                           }
                                       }
@@ -490,32 +497,31 @@ QStatus ProximityNameService::EstasblishProximityConnection(qcc::String guidStr)
         }
         return status;
     }
-    std::map<qcc::String, PeerInformation ^>::iterator it = m_peersMap.find(guidStr);
+    std::map<qcc::String, std::pair<PeerInformation ^, std::vector<qcc::String> > >::iterator it = m_peersMap.find(guidStr);
     if (it != m_peersMap.end()) {
-        PeerInformation ^ peerInfo = it->second;
+        PeerInformation ^ peerInfo = (it->second).first;
         assert(peerInfo != nullptr);
         QCC_DbgPrintf(("Connecting to Peer ... %d", m_peersMap.size()));
 
         m_currentP2PLink.state = PROXIM_CONNECTING;
 
-        static uint32_t MAX_CONNECT_RETRY = 3;
-        for (int i = 0; i < MAX_CONNECT_RETRY; i++) {
-            try {
-                status = ER_OK;
-                auto op = PeerFinder::ConnectAsync(peerInfo);
-                Concurrency::task<StreamSocket ^> connectTask(op);
-                connectTask.wait();
-                m_currentP2PLink.socket = connectTask.get();
-                m_currentP2PLink.peerGuid = guidStr;
-                break;
-            } catch (Exception ^ e) {
-                status = ER_PROXIMITY_CONNECTION_ESTABLISH_FAIL;
-                qcc::String err = PlatformToMultibyteString(e->Message);
-                QCC_LogError(status, ("ProximityNameService::Connect Error (%s) %x", err.c_str(), e->HResult));
-                RestartPeerFinder();
-                if (i != MAX_CONNECT_RETRY) {
-                    qcc::Sleep(500);
-                }
+        try {
+            auto op = PeerFinder::ConnectAsync(peerInfo);
+            Concurrency::task<StreamSocket ^> connectTask(op);
+            connectTask.wait();
+            m_currentP2PLink.socket = connectTask.get();
+            m_currentP2PLink.peerGuid = guidStr;
+            qcc::String busAddress = "proximity:guid=" + it->first;
+            if (m_callback) {
+                (*m_callback)(busAddress, it->first, (it->second).second, 0xFF);
+            }
+        } catch (Exception ^ e) {
+            status = ER_PROXIMITY_CONNECTION_ESTABLISH_FAIL;
+            qcc::String err = PlatformToMultibyteString(e->Message);
+            QCC_LogError(status, ("ProximityNameService::Connect Error (%s) %x", err.c_str(), e->HResult));
+            RestartPeerFinder();
+            if (m_doDiscovery) {
+                BrowsePeers();
             }
         }
 
@@ -556,8 +562,10 @@ QStatus ProximityNameService::EstasblishProximityConnection(qcc::String guidStr)
             }
             QCC_DbgPrintf(("P2P keep-live connection is established"));
             StartReader();
+#if DO_P2P_NAME_ADVERTISE
             TransmitMyWKNs();
             StartMaintainanceTimer();
+#endif
         }
     } else {
         status = ER_PROXIMITY_NO_PEERS_FOUND;
@@ -597,6 +605,16 @@ void ProximityNameService::ResetConnection()
             IpNameService::Instance().DeleteVirtualInterface("win-wfd");
         }
     }
+
+    if (m_callback && m_peersMap.size() > 0) {
+        auto it = m_peersMap.begin();
+        for (; it != m_peersMap.end(); it++) {
+            qcc::String busAddress = "proximity:guid=";
+            qcc::String guidStr = it->first;
+            busAddress += guidStr;
+            (*m_callback)(busAddress, guidStr, (it->second).second, 0);
+        }
+    }
     m_peersMap.clear();
 
     if (m_timer != nullptr) {
@@ -632,22 +650,6 @@ Platform::String ^ ProximityNameService::EncodeWknAdvertisement()
     return platformStr;
 }
 
-void ProximityNameService::StartMaintainanceTimer()
-{
-    QCC_DbgPrintf(("ProximityNameService::StartMaintainanceTimer(interval = %d)", TRANSMIT_INTERVAL));
-    #define HUNDRED_NANOSECONDS_PER_MILLISECOND 10000
-    Windows::Foundation::TimeSpan ts = { TRANSMIT_INTERVAL* HUNDRED_NANOSECONDS_PER_MILLISECOND };
-    m_timer = ThreadPoolTimer::CreatePeriodicTimer(ref new TimerElapsedHandler([&] (ThreadPoolTimer ^ timer) {
-                                                                                   TimerCallback(timer);
-                                                                               }), ts);
-    assert(m_timer != nullptr);
-}
-
-void ProximityNameService::TimerCallback(Windows::System::Threading::ThreadPoolTimer ^ timer)
-{
-    TransmitMyWKNs();
-}
-
 void ProximityNameService::StartReader()
 {
     QCC_DbgPrintf(("ProximityNameService::StartReader()"));
@@ -671,7 +673,9 @@ void ProximityNameService::StartReader()
                                                                   addrStr = addrStr.substr(0, pos);
                                                               }
                                                               qcc::IPAddress address(addrStr);
+#if DO_P2P_NAME_ADVERTISE
                                                               HandleProtocolMessage(buffer->Data, nbytes, address);
+#endif
                                                               StartReader();
                                                           } else {
                                                               qcc::String err = "The remote side closed the socket";
@@ -735,15 +739,15 @@ void ProximityNameService::SetEndpoints(const qcc::String& ipv6address, const ui
     m_port = port;
 }
 
-int32_t ProximityNameService::IncreaseOverlayTCPConnection()
+int32_t ProximityNameService::IncreaseP2PConnectionRef()
 {
     IncrementAndFetch(&m_connRefCount);
-    QCC_DbgPrintf(("ProximityNameService::IncreaseOverlayTCPConnection(%d)", m_connRefCount));
+    QCC_DbgPrintf(("ProximityNameService::IncreaseP2PConnectionRef(%d)", m_connRefCount));
     return m_connRefCount;
 }
 
-int32_t ProximityNameService::DecreaseOverlayTCPConnection() {
-    QCC_DbgPrintf(("ProximityNameService::DecreaseOverlayTCPConnection(%d)", m_connRefCount));
+int32_t ProximityNameService::DecreaseP2PConnectionRef() {
+    QCC_DbgPrintf(("ProximityNameService::DecreaseP2PConnectionRef(%d)", m_connRefCount));
     if (DecrementAndFetch(&m_connRefCount) == 0) {
         // tear down the P2P connection
         ResetConnection();
@@ -788,6 +792,23 @@ bool ProximityNameService::GetPeerConnectSpec(const qcc::String guid, qcc::Strin
 }
 
 extern bool IpNameServiceImplWildcardMatch(qcc::String str, qcc::String pat);
+
+#if DO_P2P_NAME_ADVERTISE
+void ProximityNameService::StartMaintainanceTimer()
+{
+    QCC_DbgPrintf(("ProximityNameService::StartMaintainanceTimer(interval = %d)", TRANSMIT_INTERVAL));
+    #define HUNDRED_NANOSECONDS_PER_MILLISECOND 10000
+    Windows::Foundation::TimeSpan ts = { TRANSMIT_INTERVAL* HUNDRED_NANOSECONDS_PER_MILLISECOND };
+    m_timer = ThreadPoolTimer::CreatePeriodicTimer(ref new TimerElapsedHandler([&] (ThreadPoolTimer ^ timer) {
+                                                                                   TimerCallback(timer);
+                                                                               }), ts);
+    assert(m_timer != nullptr);
+}
+
+void ProximityNameService::TimerCallback(Windows::System::Threading::ThreadPoolTimer ^ timer)
+{
+    TransmitMyWKNs();
+}
 
 void ProximityNameService::Locate(const qcc::String& namePrefix)
 {
@@ -999,97 +1020,13 @@ void ProximityNameService::HandleProtocolAnswer(IsAt isAt, uint32_t timer, qcc::
         wkn.push_back(isAt.GetName(i));
     }
 
-    //
-    // Life is easier if we keep these things sorted.  Don't rely on the source
-    // (even though it is really us) to do so.
-    //
     sort(wkn.begin(), wkn.end());
 
     qcc::String guid = isAt.GetGuid();
-    QCC_DbgHLPrintf(("ProximityNameService::HandleProtocolAnswer(): Got GUID %s", guid.c_str()));
-
-    //
-    // We always get an address since we got the message over a call to
-    // recvfrom().  This will either be an IPv4 or an IPv6 address.  We can
-    // also get an IPv4 and/or an IPv6 address in the answer message itself.
-    // We have from one to three addresses of different flavors that we need
-    // to communicate back to the daemon.  It is convenient for the daemon
-    // to get these addresses in the form of a "listen-spec".  These look like,
-    // "tcp:addr=x, port=y".  The daemon is going to keep track of unique
-    // combinations of these and must be able to handle multiple identical
-    // reports since we will be getting keepalives.  What we need to do then
-    // is to send a callback with a listen-spec for every address we find.
-    // If we get all three addresses, we'll do three callbacks with different
-    // listen-specs.
-    //
-    qcc::String recvfromAddress, ipv4address, ipv6address;
-
-    recvfromAddress = address.ToString();
-    QCC_DbgHLPrintf(("ProximityNameService::HandleProtocolAnswer(): Got IP %s from protocol", recvfromAddress.c_str()));
-
-    if (isAt.GetIPv4Flag()) {
-        ipv4address = isAt.GetIPv4();
-        QCC_DbgHLPrintf(("ProximityNameService::HandleProtocolAnswer(): Got IPv4 %s from message", ipv4address.c_str()));
-    }
-
-    if (isAt.GetIPv6Flag()) {
-        ipv6address = isAt.GetIPv6();
-        QCC_DbgHLPrintf(("ProximityNameService::HandleProtocolAnswer(): Got IPv6 %s from message", ipv6address.c_str()));
-    }
-
-    uint16_t port = isAt.GetPort();
-    QCC_DbgHLPrintf(("ProximityNameService::HandleProtocolAnswer(): Got port %d from message", port));
-
-    //
-    // The longest bus address we can generate is going to be the larger
-    // of an IPv4 or IPv6 address:
-    //
-    // "tcp:addr=255.255.255.255,port=65535"
-    // "tcp:addr=ffff:ffff:ffff:ffff:ffff:ffff:ffff:ffff,port=65535"
-    //
-    // or 60 characters long including the trailing '\0'
-    //
-    char addrbuf[70];
-
-    //
-    // Call back with the address we got via recvfrom unless it is overridden by the address in the
-    // message. An ipv4 address in the message overrides an ipv4 recvfrom address, an ipv6 address in
-    // the message overrides an ipv6 recvfrom address.
-    //
-    if ((address.IsIPv4() && !ipv4address.size()) || (address.IsIPv6() && !ipv6address.size())) {
-        snprintf(addrbuf, sizeof(addrbuf), "proximity:addr=%s,port=%d", recvfromAddress.c_str(), port);
-        QCC_DbgHLPrintf(("ProximityNameService::HandleProtocolAnswer(): Calling back with %s", addrbuf));
-        qcc::String busAddress(addrbuf);
-
-        if (m_callback) {
-            (*m_callback)(busAddress, guid, wkn, timer);
-        }
-    }
-
-    //
-    // If we received an IPv4 address in the message, call back with that one.
-    //
-    if (ipv4address.size()) {
-        snprintf(addrbuf, sizeof(addrbuf), "proximity:addr=%s,port=%d", ipv4address.c_str(), port);
-        QCC_DbgHLPrintf(("ProximityNameService::HandleProtocolAnswer(): Calling back with %s", addrbuf));
-        qcc::String busAddress(addrbuf);
-
-        if (m_callback) {
-            (*m_callback)(busAddress, guid, wkn, timer);
-        }
-    }
-
-    //
-    // If we received an IPv6 address in the message, call back with that one.
-    //
-    if (ipv6address.size()) {
-        snprintf(addrbuf, sizeof(addrbuf), "proximity:addr=%s,port=%d", ipv6address.c_str(), port);
-        QCC_DbgHLPrintf(("ProximityNameService::HandleProtocolAnswer(): Calling back with %s", addrbuf));
-        qcc::String busAddress(addrbuf);
-
-        if (m_callback) {
-            (*m_callback)(busAddress, guid, wkn, timer);
-        }
+    qcc::String busAddress = "proximity:guid=" + guid;
+    QCC_DbgHLPrintf(("ProximityNameService::HandleProtocolAnswer(): Calling back with %s", busAddress.c_str()));
+    if (m_callback) {
+        (*m_callback)(busAddress, guid, wkn, timer);
     }
 }
 
@@ -1135,5 +1072,8 @@ void ProximityNameService::HandleProtocolMessage(uint8_t const* buffer, uint32_t
         HandleProtocolAnswer(isAt, header.GetTimer(), address);
     }
 }
+
+#endif
+
 } // namespace ajn
 
