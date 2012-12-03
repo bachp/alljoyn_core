@@ -2555,13 +2555,6 @@ void ProximityTransport::DoStopListen(qcc::String& normSpec)
     QCC_DbgPrintf(("ProximityTransport::DoStopListen()"));
 
     /*
-     * Since the name service is created before the server accept thread is spun
-     * up, and deleted after it is joined, we must have a valid name service or
-     * someone isn't playing by the rules; so an assert is appropriate here.
-     */
-    assert(m_pns != nullptr);
-
-    /*
      * Find the (single) listen spec and remove it from the list of active FDs
      * used by the server accept loop (run thread).  This is okay to do since
      * we are assuming that, since we should only be called in the context of
