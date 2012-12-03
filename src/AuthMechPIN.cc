@@ -79,16 +79,13 @@ void AuthMechPIN::ComputeMS(const qcc::String& otherNonce, const qcc::String& pi
 {
     uint8_t keymatter[24];
     KeyBlob secret((uint8_t*)pincode.data(), pincode.size(), KeyBlob::GENERIC);
+    qcc::String nonceCat = nonce + otherNonce;
 
-    assert(nonce.size() == otherNonce.size());
-    for (size_t i = 0; i < otherNonce.size(); ++i) {
-        nonce[i] ^= otherNonce[i];
-    }
-    QCC_DbgHLPrintf(("Nonce:  %s", BytesToHexString((uint8_t*)nonce.data(), nonce.size()).c_str()));
+    QCC_DbgHLPrintf(("Nonce:  %s", BytesToHexString((uint8_t*)nonceCat.data(), nonceCat.size()).c_str()));
     /*
      * Use the PRF function to compute the master secret and verifier string.
      */
-    Crypto_PseudorandomFunctionCCM(secret, msLabel, nonce, keymatter, sizeof(keymatter));
+    Crypto_PseudorandomFunctionCCM(secret, msLabel, nonceCat, keymatter, sizeof(keymatter));
     masterSecret.Set(keymatter, sizeof(keymatter), KeyBlob::GENERIC);
     QCC_DbgHLPrintf(("MasterSecret:  %s", BytesToHexString(masterSecret.GetData(), masterSecret.GetSize()).c_str()));
     masterSecret.SetExpiration(expiration);
