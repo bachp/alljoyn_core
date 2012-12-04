@@ -53,7 +53,7 @@
 #include "DaemonICETransport.h"
 
 #if defined(QCC_OS_ANDROID)
-#include "android/WFDTransport.h"
+//#include "android/WFDTransport.h"
 #endif
 
 #if defined(QCC_OS_DARWIN)
@@ -111,7 +111,7 @@ static const char
     "  <listen>bluetooth:</listen>"
     "  <listen>tcp:r4addr=0.0.0.0,r4port=9955</listen>"
 #if defined(QCC_OS_ANDROID)
-    "  <listen>wfd:r4addr=0.0.0.0,r4port=9956</listen>"
+//    "  <listen>wfd:r4addr=0.0.0.0,r4port=9956</listen>"
 #endif
     "  <listen>ice:</listen>"
     "  <limit auth_timeout=\"5000\"/>"
@@ -564,7 +564,7 @@ int daemon(OptParse& opts) {
 #warning ICE transport factory is not operational yet for Windows and Darwin
 #endif
 #if defined(QCC_OS_ANDROID)
-    cntr.Add(new TransportFactory<WFDTransport>(WFDTransport::TransportName, false));
+//    cntr.Add(new TransportFactory<WFDTransport>(WFDTransport::TransportName, false));
 #endif
 
 
