@@ -52,7 +52,7 @@
 #endif
 
 #if defined(QCC_OS_ANDROID)
-#include "android/WFDTransport.h"
+//#include "android/WFDTransport.h"
 #endif
 
 #define QCC_MODULE "ALLJOYN_DAEMON"
@@ -66,7 +66,7 @@ static const char bundledConfig[] =
     "  <type>alljoyn_bundled</type>"
     "  <listen>tcp:r4addr=0.0.0.0,r4port=0</listen>"
 #if defined(QCC_OS_ANDROID)
-    "  <listen>wfd:r4addr=0.0.0.0,r4port=9956</listen>"
+//    "  <listen>wfd:r4addr=0.0.0.0,r4port=9956</listen>"
 #endif
     "  <limit auth_timeout=\"5000\"/>"
     "  <limit max_incomplete_connections=\"4\"/>"
@@ -288,8 +288,8 @@ QStatus BundledDaemon::Start(NullTransport* nullTransport)
             Add(new TransportFactory<ProximityTransport>(ProximityTransport::TransportName, false));
 #endif
 #if defined(QCC_OS_ANDROID)
-            QCC_DbgPrintf(("adding WFD transport"));
-            Add(new TransportFactory<WFDTransport>(WFDTransport::TransportName, false));
+//            QCC_DbgPrintf(("adding WFD transport"));
+//            Add(new TransportFactory<WFDTransport>(WFDTransport::TransportName, false));
 #endif
             transportsInitialized = true;
         }
