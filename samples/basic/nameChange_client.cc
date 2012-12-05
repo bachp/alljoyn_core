@@ -42,6 +42,7 @@ using namespace ajn;
 /** Static top level message bus object */
 static BusAttachment* s_msgBus = NULL;
 
+static const char* INTERFACE_NAME = "org.alljoyn.Bus.signal_sample";
 static const char* SERVICE_NAME = "org.alljoyn.Bus.signal_sample";
 static const char* SERVICE_PATH = "/";
 static const SessionPort SERVICE_PORT = 25;
@@ -174,7 +175,7 @@ QStatus DoNameChange(char* newName)
 
     if (ER_OK == status) {
         if (newName) {
-            status = remoteObj.SetProperty(SERVICE_NAME, "name", newName);
+            status = remoteObj.SetProperty(INTERFACE_NAME, "name", newName);
 
             if (ER_OK == status) {
                 printf("SetProperty to change the 'name' property to '%s' was successful.\n", newName);
