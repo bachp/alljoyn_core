@@ -194,9 +194,9 @@ class InterfaceDescription {
         AnnotationsMap* annotations;    /**< Map of annotations */
 
         /** %Property constructor.
-         * @param name      The name of the property
-         * @param signature The type of the property
-         * @param access    The type of access: #PROP_ACCESS_READ, #PROP_ACCESS_WRITE, or #PROP_ACCESS_RW
+         * @param name      The name of the property.
+         * @param signature The signature of the property. May be NULL.
+         * @param access    The access type, may be #PROP_ACCESS_READ, #PROP_ACCESS_WRITE, or #PROP_ACCESS_RW.
          */
         Property(const char* name, const char* signature, uint8_t access);
 
