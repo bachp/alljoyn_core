@@ -99,7 +99,8 @@ struct DisconnectRspAlarmContext : public AlarmContext {
 struct XOnAlarmContext : public AlarmContext {
     uint32_t retries;
     uint32_t xon[3];
-    XOnAlarmContext(uint32_t chanId) : AlarmContext(AlarmContext::CONTEXT_XON, chanId), retries(0) { }
+    uint16_t xoffSeqNum;
+    XOnAlarmContext(uint32_t chanId, uint16_t seqNum) : AlarmContext(AlarmContext::CONTEXT_XON, chanId), retries(0), xoffSeqNum(seqNum) { }
 };
 
 struct DelayAckAlarmContext : public AlarmContext {
@@ -462,21 +463,37 @@ void PacketEngine::AlarmTriggered(const Alarm& alarm, QStatus reason)
         QStatus status = ER_FAIL;
         if (ci) {
             ci->rxLock.Lock();
-            if (++cctx->retries < XON_RETRIES) {
-                /* Rearm the timer and resend the XON */
-                cctx->xon[1] = htole32(ci->rxAck);
-                cctx->xon[2] = htole32(ci->rxDrain);
-                status = DeliverControlMsg(*ci, cctx->xon, sizeof(cctx->xon), ci->rxFlowSeqNum);
-                if (status != ER_OK) {
-                    QCC_LogError(status, ("Failed to send XON"));
+            /* Retry the Xon and reload the alarm only if this alarm is the
+             * latest Xon alarm that has been setup. */
+            if (cctx->xoffSeqNum == ci->rxFlowSeqNum) {
+                if (++cctx->retries < XON_RETRIES) {
+                    /* Rearm the timer and resend the XON */
+                    cctx->xon[1] = htole32(ci->rxAck);
+                    cctx->xon[2] = htole32(ci->rxDrain);
+                    status = DeliverControlMsg(*ci, cctx->xon, sizeof(cctx->xon), ci->rxFlowSeqNum);
+                    if (status != ER_OK) {
+                        QCC_LogError(status, ("Failed to send XON"));
+                    }
+
+                    uint32_t nextTime = GetRetryMs(*ci, cctx->retries);
+                    uint32_t zero = 0;
+                    qcc::AlarmListener* packetEngineListener = this;
+                    ci->xOnAlarm = Alarm(nextTime, packetEngineListener, ctx, zero);
+                    status = timer.AddAlarm(ci->xOnAlarm);
+                    //printf("rx(%d): xon retry=%d rxD=0x%x, next=%d\n", (GetTimestamp() / 100) % 100000, cctx->retries + 1, ci->rxDrain, nextTime);
                 }
-                uint32_t nextTime = GetRetryMs(*ci, cctx->retries);
-                uint32_t zero = 0;
-                qcc::AlarmListener* packetEngineListener = this;
-                ci->xOnAlarm = Alarm(nextTime, packetEngineListener, ctx, zero);
-                status = timer.AddAlarm(ci->xOnAlarm);
-                //printf("rx(%d): xon retry=%d rxD=0x%x, next=%d\n", (GetTimestamp() / 100) % 100000, cctx->retries + 1, ci->rxDrain, nextTime);
+            } else {
+                QCC_DbgPrintf(("PacketEngine: cid=0x%x Not retrying stale XON", ci->id));
+
+                /* Delete the context associated with the stale Xon alarm */
+                if (cctx) {
+                    delete cctx;
+                    cctx = NULL;
+                }
+
+                status = ER_OK;
             }
+
             ci->rxLock.Unlock();
             if (status != ER_OK) {
                 /* Retries exhauseted. */
@@ -844,25 +861,24 @@ void PacketEngine::SendXOn(ChannelInfo& ci)
     /* Create the XON context and message */
     //printf("rx(%d): xon rF=0x%x, rD=0x%x, rA=0x%x, flowSeq=0x%x\n", (GetTimestamp() / 100) % 100000, ci.rxFill, ci.rxDrain, ci.rxAck, ci.rxFlowSeqNum);
     ci.rxLock.Lock();
-    XOnAlarmContext* cctx = static_cast<XOnAlarmContext*>(ci.xOnAlarm->GetContext());
-    if (!cctx) {
-        XOnAlarmContext* cctx = new XOnAlarmContext(ci.id);
-        cctx->xon[0] = htole32(PACKET_COMMAND_XON);
-        cctx->xon[1] = htole32(ci.rxAck);
-        cctx->xon[2] = htole32(ci.rxDrain);
-        uint32_t zero = 0;
-        uint32_t timeout = GetRetryMs(ci, ++cctx->retries);
-        qcc::AlarmListener* packetEngineListener = this;
-        ci.xOnAlarm = Alarm(timeout, packetEngineListener, cctx, zero);
-        QStatus status = timer.AddAlarm(ci.xOnAlarm);
-        if (status == ER_OK) {
-            status = DeliverControlMsg(ci, cctx->xon, sizeof(cctx->xon), ci.rxFlowSeqNum);
-        } else {
-            QCC_LogError(status, ("PacketEngine::SendXON failed"));
-            delete cctx;
-            ci.xOnAlarm = Alarm();
-        }
+
+    XOnAlarmContext* cctx = new XOnAlarmContext(ci.id, ci.rxFlowSeqNum);
+    cctx->xon[0] = htole32(PACKET_COMMAND_XON);
+    cctx->xon[1] = htole32(ci.rxAck);
+    cctx->xon[2] = htole32(ci.rxDrain);
+    uint32_t zero = 0;
+    uint32_t timeout = GetRetryMs(ci, ++cctx->retries);
+    qcc::AlarmListener* packetEngineListener = this;
+    ci.xOnAlarm = Alarm(timeout, packetEngineListener, cctx, zero);
+    QStatus status = timer.AddAlarm(ci.xOnAlarm);
+    if (status == ER_OK) {
+        status = DeliverControlMsg(ci, cctx->xon, sizeof(cctx->xon), ci.rxFlowSeqNum);
+    } else {
+        QCC_LogError(status, ("PacketEngine::SendXON failed"));
+        delete cctx;
+        ci.xOnAlarm = Alarm();
     }
+
     ci.rxLock.Unlock();
 }
 
