@@ -65,6 +65,11 @@ const uint32_t ICE_ALLOCATE_SESSION_WAIT_TIMEOUT = 15000;
 // PPN - Need to review this time
 const uint32_t ICE_REFRESH_TOKENS_WAIT_TIMEOUT = 15000;
 
+// Maximum time in milli seconds that the DaemonICETransport will wait before removing an ICEPacketStream from the
+// PacketEngine after the last PacketEngineStream associated with it has been disconnected
+// PPN - Need to review this time
+const uint64_t ICE_PACKET_STREAM_REMOVE_INTERVAL = 3000;
+
 namespace ajn {
 
 class DaemonICEEndpoint;
@@ -578,10 +583,6 @@ class DaemonICETransport : public Transport, public RemoteEndpoint::EndpointList
      */
     void SendSTUNKeepAliveAndTURNRefreshRequest(ICEPacketStream& icePacketStream);
 
-    ICEPacketStream* AcquireICEPacketStream(const qcc::String& connectSpec);
-
-    QStatus AcquireICEPacketStreamByPointer(ICEPacketStream* icePacketStream);
-
     void ReleaseICEPacketStream(const ICEPacketStream& icePktStream);
 
     void StopAllEndpoints(bool isSuddenDisconnect = false);
@@ -658,8 +659,82 @@ class DaemonICETransport : public Transport, public RemoteEndpoint::EndpointList
     /* Timer used to handle the alarms */
     Timer daemonICETransportTimer;
 
+    /* Connection state of the ICEPacketStream */
+    enum ICEPacketStreamConnectionState {
+
+        /* Disconnected */
+        ICE_PACKET_STREAM_DISCONNECTED = 0,
+
+        /* Connecting */
+        ICE_PACKET_STREAM_CONNECTING,
+
+        /* Connected */
+        ICE_PACKET_STREAM_CONNECTED,
+
+        /* Disconnecting */
+        ICE_PACKET_STREAM_DISCONNECTING
+
+    };
+
+    /* Structure holding information about an ICEPacketStream */
+    typedef struct _ICEPacketStreamInfo {
+
+        /* Reference count on the ICEPacketStream */
+        uint32_t refCount;
+
+        /* Connection state of the ICEPacketStream */
+        ICEPacketStreamConnectionState connState;
+
+        /* Timestamp recorded at the start of a disconnect procedure on the ICEPacketStream */
+        uint64_t disconnectingTimestamp;
+
+        /* Default constructor */
+        _ICEPacketStreamInfo() : refCount(0), connState(ICE_PACKET_STREAM_DISCONNECTED), disconnectingTimestamp(0) { }
+
+        /* Destructor */
+        ~_ICEPacketStreamInfo() { }
+
+        /* Parameterized constructor */
+        _ICEPacketStreamInfo(uint32_t count, ICEPacketStreamConnectionState state) : refCount(count), connState(state), disconnectingTimestamp(0) { }
+
+        /* Returns true if the ICEPacketStream connection status is connected */
+        bool IsConnected(void) { return(connState == ICE_PACKET_STREAM_CONNECTED); }
+
+        /* Returns true if the ICEPacketStream connection status is disconnected */
+        bool IsDisconnected(void) { return(connState == ICE_PACKET_STREAM_DISCONNECTED); }
+
+        /* Returns true if the ICEPacketStream connection status is connecting */
+        bool IsConnecting(void) { return (connState == ICE_PACKET_STREAM_CONNECTING); };
+
+        /* Returns true if the ICEPacketStream connection status is disconnecting */
+        bool IsDisconnecting(void) { return(connState == ICE_PACKET_STREAM_DISCONNECTING); }
+
+        /* Set the ICEPacketStream connection status to connected */
+        void SetConnected(void) {
+            connState = ICE_PACKET_STREAM_CONNECTED;
+            disconnectingTimestamp = 0;
+        }
+
+        /* Set the ICEPacketStream connection status to disconnected */
+        void SetDisconnected(void) {
+            connState = ICE_PACKET_STREAM_DISCONNECTED;
+            disconnectingTimestamp = 0;
+        }
+
+        /* Set the ICEPacketStream connection status to disconnecting and record the current time stamp as the disconnectTimestamp*/
+        void SetDisconnecting(void) {
+            connState = ICE_PACKET_STREAM_DISCONNECTING;
+            disconnectingTimestamp = GetTimestamp64();
+        }
+
+    } ICEPacketStreamInfo;
+
+    ICEPacketStream* AcquireICEPacketStream(const qcc::String& connectSpec, ICEPacketStreamInfo** pktStreamInfoPtr);
+
+    QStatus AcquireICEPacketStreamByPointer(ICEPacketStream* icePacketStream, ICEPacketStreamInfo** pktStreamInfoPtr);
+
     qcc::Mutex pktStreamMapLock;
-    typedef std::multimap<qcc::String, std::pair<ICEPacketStream, uint32_t> > PacketStreamMap;
+    typedef std::multimap<qcc::String, std::pair<ICEPacketStream, ICEPacketStreamInfo> > PacketStreamMap;
     PacketStreamMap pktStreamMap;
 };
 
