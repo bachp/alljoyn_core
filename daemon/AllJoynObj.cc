@@ -2699,7 +2699,7 @@ void AllJoynObj::RemoveBusToBusEndpoint(RemoteEndpoint& endpoint)
                         if ((it2 != b2bEndpoints.end()) && (it2->first == key2)) {
                             ++it2;
                         }
-                        it = virtualEndpoints.lower_bound(key);
+                        it = virtualEndpoints.find(key);
                     } else {
                         ++it2;;
                     }
@@ -2710,10 +2710,11 @@ void AllJoynObj::RemoveBusToBusEndpoint(RemoteEndpoint& endpoint)
 
             /* Remove virtual endpoint with no more b2b eps */
             if (it != virtualEndpoints.end()) {
-                String vepName = it++->second->GetUniqueName();
+                String vepName = it->first;
                 ReleaseLocks();
                 RemoveVirtualEndpoint(vepName);
                 AcquireLocks();
+                it = virtualEndpoints.upper_bound(vepName);
             }
 
         } else {
