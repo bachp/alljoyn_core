@@ -301,7 +301,7 @@ class TokenRefreshResponse : public InterfaceResponse {
     /**
      * It represents the time-stamp when the response is received.
      */
-    uint32_t recvTime;
+    uint64_t recvTime;
 
     TokenRefreshResponse() : expiryTime(0), recvTime(0) { }
 
@@ -726,7 +726,7 @@ typedef struct _STUNServerInfo {
     /**
      * Time-stamp when the token was received.
      */
-    uint32_t recvTime;
+    uint64_t recvTime;
 
     /**
      * If true, valid relay server information is

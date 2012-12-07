@@ -145,7 +145,7 @@ class TokenRefreshListenerImpl : public TokenRefreshListener {
 
     TokenRefreshListenerImpl() : waitEvent(), acct(), pwd(), expiryTime(0), recvTime(0) { }
 
-    void SetTokens(String newAcct, String newPwd, uint32_t recvtime, uint32_t expTime)
+    void SetTokens(String newAcct, String newPwd, uint64_t recvtime, uint32_t expTime)
     {
         acct = newAcct;
         pwd = newPwd;
@@ -154,7 +154,7 @@ class TokenRefreshListenerImpl : public TokenRefreshListener {
         waitEvent.SetEvent();
     }
 
-    void GetTokens(String& newAcct, String& newPwd, uint32_t& recvtime, uint32_t& expTime)
+    void GetTokens(String& newAcct, String& newPwd, uint64_t& recvtime, uint32_t& expTime)
     {
         newAcct = acct;
         newPwd = pwd;
@@ -176,7 +176,7 @@ class TokenRefreshListenerImpl : public TokenRefreshListener {
     String acct;
     String pwd;
     uint32_t expiryTime;
-    uint32_t recvTime;
+    uint64_t recvTime;
 };
 
 /**

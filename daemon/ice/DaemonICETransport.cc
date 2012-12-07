@@ -2548,7 +2548,7 @@ bool DaemonICETransport::CheckTURNTokenExpiry(STUNServerInfo stunInfo)
 {
     QCC_DbgPrintf(("DaemonICETransport::CheckTURNTokenExpiry()"));
 
-    uint32_t tNow = GetTimestamp();
+    uint64_t tNow = GetTimestamp64();
 
     if ((tNow - stunInfo.recvTime) >= stunInfo.expiryTime) {
         QCC_DbgPrintf(("DaemonICETransport::CheckTURNTokenExpiry(): Tokens expired"));
@@ -2579,12 +2579,12 @@ QStatus DaemonICETransport::GetNewTokensFromServer(bool client, STUNServerInfo& 
     } else {
         QCC_DbgPrintf(("DaemonICETransport::GetNewTokensFromServer(): Returned from tokenRefreshListener wait"));
 
-        QCC_DbgPrintf(("DaemonICETransport::GetNewTokensFromServer(): Before: acct=%s, pwd=%s, recvTime=%d, expiryTime=%d",
+        QCC_DbgPrintf(("DaemonICETransport::GetNewTokensFromServer(): Before: acct=%s, pwd=%s, recvTime=%llu, expiryTime=%d",
                        stunInfo.acct.c_str(), stunInfo.pwd.c_str(), stunInfo.recvTime, stunInfo.expiryTime));
 
         tokenRefreshListener.GetTokens(stunInfo.acct, stunInfo.pwd, stunInfo.recvTime, stunInfo.expiryTime);
 
-        QCC_DbgPrintf(("DaemonICETransport::GetNewTokensFromServer(): After: acct=%s, pwd=%s, recvTime=%d, expiryTime=%d",
+        QCC_DbgPrintf(("DaemonICETransport::GetNewTokensFromServer(): After: acct=%s, pwd=%s, recvTime=%llu, expiryTime=%d",
                        stunInfo.acct.c_str(), stunInfo.pwd.c_str(), stunInfo.recvTime, stunInfo.expiryTime));
     }
 

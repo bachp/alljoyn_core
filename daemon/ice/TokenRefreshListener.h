@@ -42,7 +42,7 @@ class TokenRefreshListener {
      * Notify listener that new tokens are available
      */
 
-    virtual void SetTokens(String newAcct, String newPwd, uint32_t recvtime, uint32_t expTime) = 0;
+    virtual void SetTokens(String newAcct, String newPwd, uint64_t recvtime, uint32_t expTime) = 0;
 };
 
 } //namespace ajn

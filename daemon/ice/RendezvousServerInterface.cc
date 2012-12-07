@@ -435,7 +435,7 @@ QStatus ParseTokenRefreshResponse(Json::Value receivedResponse, TokenRefreshResp
                 parsedResponse.expiryTime = ((receivedResponse[expiryTime].asInt()) - TURN_TOKEN_EXPIRY_TIME_BUFFER_IN_SECONDS) * 1000;
                 QCC_DbgPrintf(("ParseTokenRefreshResponse(): expiryTime = %d", parsedResponse.expiryTime));
 
-                parsedResponse.recvTime = GetTimestamp();
+                parsedResponse.recvTime = GetTimestamp64();
             } else {
                 status = ER_FAIL;
                 QCC_LogError(status, ("ParseTokenRefreshResponse(): Message does not seem to have a expiryTime token"));
@@ -470,7 +470,7 @@ void PrintMessageResponse(Response msg)
         QCC_DbgPrintf(("match[STUNInfo][acct] = %s", Search.STUNInfo.acct.c_str()));
         QCC_DbgPrintf(("match[STUNInfo][pwd] = %s", Search.STUNInfo.pwd.c_str()));
         QCC_DbgPrintf(("match[STUNInfo][expiryTime] = %d", Search.STUNInfo.expiryTime));
-        QCC_DbgPrintf(("match[STUNInfo][recvTime] = %d", Search.STUNInfo.recvTime));
+        QCC_DbgPrintf(("match[STUNInfo][recvTime] = %llu", Search.STUNInfo.recvTime));
 
         if (Search.STUNInfo.relayInfoPresent) {
             QCC_DbgPrintf(("match[STUNInfo][relay][address] = %s", Search.STUNInfo.relay.address.ToString().c_str()));
@@ -523,7 +523,7 @@ void PrintMessageResponse(Response msg)
             QCC_DbgPrintf(("addressCandidates[STUNInfo][acct] = %s", Candidates.STUNInfo.acct.c_str()));
             QCC_DbgPrintf(("addressCandidates[STUNInfo][pwd] = %s", Candidates.STUNInfo.pwd.c_str()));
             QCC_DbgPrintf(("addressCandidates[STUNInfo][expiryTime] = %d", Candidates.STUNInfo.expiryTime));
-            QCC_DbgPrintf(("addressCandidates[STUNInfo][recvTime] = %d", Candidates.STUNInfo.recvTime));
+            QCC_DbgPrintf(("addressCandidates[STUNInfo][recvTime] = %llu", Candidates.STUNInfo.recvTime));
 
             if (Candidates.STUNInfo.relayInfoPresent) {
                 QCC_DbgPrintf(("addressCandidates[STUNInfo][relay][address] = %s", Candidates.STUNInfo.relay.address.ToString().c_str()));
@@ -636,7 +636,7 @@ QStatus ParseMessagesResponse(Json::Value receivedResponse, ResponseMessage& par
                                                             }
                                                             SearchMatch->STUNInfo.pwd = String(STUNInfoObj[pwd].asCString());
                                                             SearchMatch->STUNInfo.expiryTime = ((STUNInfoObj[expiryTime].asInt()) - TURN_TOKEN_EXPIRY_TIME_BUFFER_IN_SECONDS) * 1000;
-                                                            SearchMatch->STUNInfo.recvTime = GetTimestamp();
+                                                            SearchMatch->STUNInfo.recvTime = GetTimestamp64();
 
                                                             if (STUNInfoObj.isMember(relay)) {
                                                                 Json::Value relayObj = STUNInfoObj[relay];
@@ -831,7 +831,7 @@ QStatus ParseMessagesResponse(Json::Value receivedResponse, ResponseMessage& par
                                                                             }
                                                                             AddressCandidates->STUNInfo.pwd = String(STUNInfoObj[pwd].asCString());
                                                                             AddressCandidates->STUNInfo.expiryTime = ((STUNInfoObj[expiryTime].asInt()) - TURN_TOKEN_EXPIRY_TIME_BUFFER_IN_SECONDS) * 1000;
-                                                                            AddressCandidates->STUNInfo.recvTime = GetTimestamp();
+                                                                            AddressCandidates->STUNInfo.recvTime = GetTimestamp64();
 
                                                                             if (STUNInfoObj.isMember(relay)) {
 
