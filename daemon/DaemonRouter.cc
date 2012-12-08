@@ -196,10 +196,14 @@ QStatus DaemonRouter::PushMessage(Message& msg, BusEndpoint& origSender)
         }
         ruleTable.Unlock();
         nameTable.Unlock();
-        /*
-         * Route global broadcast to all bus-to-bus endpoints that aren't the sender of the message
-         */
-        if (msg->IsGlobalBroadcast()) {
+
+        if (msg->IsSessionless()) {
+            /* Give "locally generated" sessionless message to SessionlessObj */
+            if (sender->GetEndpointType() != BusEndpoint::ENDPOINT_TYPE_VIRTUAL) {
+                status = busController->PushSessionlessMessage(msg);
+            }
+        } else if (msg->IsGlobalBroadcast()) {
+            /* Route global broadcast to all bus-to-bus endpoints that aren't the sender of the message */
             m_b2bEndpointsLock.Lock(MUTEX_CONTEXT);
             set<RemoteEndpoint*>::const_iterator it = m_b2bEndpoints.begin();
             while (it != m_b2bEndpoints.end()) {
@@ -219,6 +223,7 @@ QStatus DaemonRouter::PushMessage(Message& msg, BusEndpoint& origSender)
             }
             m_b2bEndpointsLock.Unlock(MUTEX_CONTEXT);
         }
+
     } else {
         /*
          * The message has an empty destination field and a session id was specified so this is a
@@ -277,6 +282,28 @@ BusEndpoint* DaemonRouter::FindEndpoint(const qcc::String& busName)
         m_b2bEndpointsLock.Unlock(MUTEX_CONTEXT);
     }
     return ep;
+}
+
+QStatus DaemonRouter::AddRule(BusEndpoint& endpoint, Rule& rule)
+{
+    QStatus status = ruleTable.AddRule(endpoint, rule);
+
+    /* Allow busController to examine this rule */
+    if (status == ER_OK) {
+        busController->AddRule(endpoint.GetUniqueName(), rule);
+    }
+
+    return status;
+}
+
+QStatus DaemonRouter::RemoveRule(BusEndpoint& endpoint, Rule& rule)
+{
+    QStatus status = ruleTable.RemoveRule(endpoint, rule);
+
+    /* Allow busController to examine rule being removed */
+    busController->RemoveRule(endpoint.GetUniqueName(), rule);
+
+    return status;
 }
 
 QStatus DaemonRouter::RegisterEndpoint(BusEndpoint& endpoint, bool isLocal)

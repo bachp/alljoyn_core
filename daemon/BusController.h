@@ -34,6 +34,7 @@
 #include "DBusObj.h"
 #include "AllJoynObj.h"
 #include "AllJoynDebugObj.h"
+#include "SessionlessObj.h"
 
 namespace ajn {
 
@@ -110,6 +111,36 @@ class BusController {
         return ER_NOT_IMPLEMENTED;
     }
 
+    /**
+     * Send a sessionless message to the SessionlessObj.
+     *
+     * @param msg  Sessionless message to be pushed.
+     * @return     ER_OK if successful
+     */
+    QStatus PushSessionlessMessage(Message& msg) {
+        return sessionlessObj.PushMessage(msg);
+    }
+
+    /**
+     * Add a rule for an endpoint.
+     *
+     * @param epName   The name of the endpoint that this rule applies to.
+     * @param rule     Rule for endpoint
+     */
+    void AddRule(const qcc::String& epName, Rule& rule) {
+        sessionlessObj.AddRule(epName, rule);
+    }
+
+    /**
+     * Remove a rule for an endpoint.
+     *
+     * @param epName      The name of the endpoint that rule applies to.
+     * @param rule        Rule to remove.
+     */
+    void RemoveRule(const qcc::String& epName, Rule& rule) {
+        sessionlessObj.RemoveRule(epName, rule);
+    }
+
   private:
 
     Bus& bus;
@@ -119,6 +150,9 @@ class BusController {
 
     /** Bus object responsible for org.alljoyn.Bus */
     AllJoynObj alljoynObj;
+
+    /** Bus object responsible for org.alljoyn.Sessionless */
+    SessionlessObj sessionlessObj;
 
 #ifndef NDEBUG
     /** Bus object responsible for org.alljoyn.Debug */

@@ -36,7 +36,7 @@ using namespace qcc;
 
 namespace ajn {
 
-Rule::Rule(const char* ruleSpec, QStatus* outStatus) : type(MESSAGE_INVALID)
+Rule::Rule(const char* ruleSpec, QStatus* outStatus) : type(MESSAGE_INVALID), sessionless(SESSIONLESS_NOT_SPECIFIED)
 {
     QStatus status = ER_OK;
     const char* pos = ruleSpec;
@@ -88,6 +88,8 @@ Rule::Rule(const char* ruleSpec, QStatus* outStatus) : type(MESSAGE_INVALID)
             path = qcc::String(begQuotePos, endQuotePos - begQuotePos);
         } else if (0 == strncmp("destination", pos, 11)) {
             destination = qcc::String(begQuotePos, endQuotePos - begQuotePos);
+        } else if (0 == strncmp("sessionless", pos, 11)) {
+            sessionless = ((begQuotePos[0] == 't') || (begQuotePos[0] == 'T')) ? SESSIONLESS_TRUE : SESSIONLESS_FALSE;
         } else if (0 == strncmp("arg", pos, 3)) {
             status = ER_NOT_IMPLEMENTED;
             QCC_LogError(status, ("arg keys are not supported in ruleSpec \"%s\"", ruleSpec));
@@ -125,6 +127,11 @@ bool Rule::IsMatch(const Message& msg)
     if (!destination.empty() && (0 != strcmp(destination.c_str(), msg->GetDestination()))) {
         return false;
     }
+    if (((sessionless == SESSIONLESS_TRUE) && !msg->IsSessionless()) ||
+        ((sessionless == SESSIONLESS_FALSE) && msg->IsSessionless())) {
+        return false;
+    }
+
     // @@ TODO Arg matches are not handled
     return true;
 }

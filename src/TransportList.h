@@ -147,13 +147,6 @@ class TransportList : public TransportListener {
      */
     void BusConnectionLost(const qcc::String& busAddr);
 
-    /**
-     * Get a list of the currently advertised names for all transports
-     *
-     * @param names  A vector containing the advertised names.
-     */
-    void GetAdvertisedNames(std::vector<qcc::String>& names);
-
   private:
 
     /**

@@ -62,6 +62,9 @@ struct Rule {
     /** Destination bus name or empty for all destinations */
     qcc::String destination;
 
+    /** true iff Rule specifies a filter for sessionless signals */
+    enum {SESSIONLESS_NOT_SPECIFIED, SESSIONLESS_FALSE, SESSIONLESS_TRUE} sessionless;
+
     /** Map of argument matches */
     // @@ TODO
 
@@ -78,6 +81,10 @@ struct Rule {
      * Construct a rule from a rule string.
      *
      * @param ruleStr   String describing the rule.
+     *                  This format of this string is specified in the DBUS spec.
+     *                  AllJoyn has added the following additional parameters:
+     *                     sessionless  - Valid values are "true" and "false"
+     *
      * @param status    ER_OK if ruleStr was successfully parsed.
      */
     Rule(const char* ruleStr, QStatus* status = NULL);

@@ -56,6 +56,8 @@ static const uint8_t ALLJOYN_FLAG_NO_REPLY_EXPECTED  = 0x01;
 static const uint8_t ALLJOYN_FLAG_AUTO_START         = 0x02;
 /** Allow messages from remote hosts (valid only in Hello message) */
 static const uint8_t ALLJOYN_FLAG_ALLOW_REMOTE_MSG   = 0x04;
+/** Sessionless message  */
+static const uint8_t ALLJOYN_FLAG_SESSIONLESS        = 0x10;
 /** Global (bus-to-bus) broadcast */
 static const uint8_t ALLJOYN_FLAG_GLOBAL_BROADCAST   = 0x20;
 /** Header is compressed */
@@ -199,6 +201,13 @@ class _Message {
      * @return  Return true if this is a global broadcast message.
      */
     bool IsGlobalBroadcast() const { return IsBroadcastSignal() && (msgHeader.flags & ALLJOYN_FLAG_GLOBAL_BROADCAST); }
+
+    /**
+     * Determin if message is sessionless.
+     *
+     * @return   Return true if this message was sent sessionless
+     */
+    bool IsSessionless() const { return msgHeader.flags & ALLJOYN_FLAG_SESSIONLESS; }
 
     /**
      * Returns the flags for the message.

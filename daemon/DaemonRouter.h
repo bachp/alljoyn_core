@@ -159,7 +159,7 @@ class DaemonRouter : public Router {
      * @param rule       Rule for endpoint
      * @return ER_OK if successful;
      */
-    QStatus AddRule(BusEndpoint& endpoint, Rule& rule) { return ruleTable.AddRule(endpoint, rule); }
+    QStatus AddRule(BusEndpoint& endpoint, Rule& rule);
 
     /**
      * Remove a rule for an endpoint.
@@ -168,7 +168,7 @@ class DaemonRouter : public Router {
      * @param rule        Rule to remove.
      * @return ER_OK if   successful;
      */
-    QStatus RemoveRule(BusEndpoint& endpoint, Rule& rule) { return ruleTable.RemoveRule(endpoint, rule); }
+    QStatus RemoveRule(BusEndpoint& endpoint, Rule& rule);
 
     /**
      * Remove all rules for a given endpoint.

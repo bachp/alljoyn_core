@@ -595,17 +595,17 @@ class AllJoynObj : public BusObject, public NameListener, public TransportListen
                               bool& isAccepted);
 
     /**
-     * Utility method used to invoke JoinSession on device local endpoint.
+     * Utility method used to send SessionJoined.
      *
      * @param sessionPort      SessionPort that received the join request.
      * @param sessionId        Id for new session (if accepted).
      * @param creatorName      Session creator unique name.
      * @param joinerName       Session joiner unique name.
      */
-    QStatus SendJoinSession(SessionPort sessionPort,
-                            SessionId sessionId,
-                            const char* joinerName,
-                            const char* creatorName);
+    QStatus SendSessionJoined(SessionPort sessionPort,
+                              SessionId sessionId,
+                              const char* joinerName,
+                              const char* creatorName);
 
     /**
      * Utility method used to send SessionLost signal to locally attached endpoint.
@@ -725,13 +725,6 @@ class AllJoynObj : public BusObject, public NameListener, public TransportListen
      * @return   ER_OK if successful.
      */
     QStatus ShutdownEndpoint(RemoteEndpoint& b2bEp, qcc::SocketFd& sockFd);
-
-    /**
-     * Get a list of the currently advertised names
-     *
-     * @param names  A vector containing the advertised names.
-     */
-    void GetAdvertisedNames(std::vector<qcc::String>& names);
 
     /**
      * Utility function used to clean up the session map when a session participant.

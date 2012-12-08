@@ -125,7 +125,7 @@ char* get_line(char*str, size_t num, FILE*fp)
 class SessionTestObject : public BusObject {
   public:
 
-    SessionTestObject(BusAttachment& bus, const char* path) : BusObject(path), chatSignalMember(NULL)
+    SessionTestObject(BusAttachment& bus, const char* path) : BusObject(path), chatSignalMember(NULL), ttl(0)
     {
         QStatus status;
 
@@ -153,7 +153,7 @@ class SessionTestObject : public BusObject {
     QStatus SendChatSignal(SessionId id, const char* msg, uint8_t flags)
     {
         MsgArg chatArg("s", msg);
-        return Signal(NULL, id, *chatSignalMember, &chatArg, 1, 0, flags);
+        return Signal(NULL, id, *chatSignalMember, &chatArg, 1, ttl, flags);
     }
 
     /** Receive a signal from another Chat client */
@@ -164,8 +164,14 @@ class SessionTestObject : public BusObject {
         }
     }
 
+    /** Set ttl for all outgoing chat messages */
+    void SetTtl(uint32_t ttl) {
+        this->ttl = ttl;
+    }
+
   private:
     const InterfaceDescription::Member* chatSignalMember;
+    uint32_t ttl;
 };
 
 class MyBusListener : public BusListener, public SessionPortListener, public SessionListener {
@@ -584,6 +590,22 @@ static void DoSetLinkTimeout(SessionId id, uint32_t timeout)
     }
 }
 
+static void DoAddMatch(const String& rule)
+{
+    QStatus status = s_bus->AddMatch(rule.c_str());
+    if (status != ER_OK) {
+        printf("AddMatch(%s) failed with %s\n", rule.c_str(), QCC_StatusText(status));
+    }
+}
+
+static void DoRemoveMatch(const String& rule)
+{
+    QStatus status = s_bus->RemoveMatch(rule.c_str());
+    if (status != ER_OK) {
+        printf("RemoveMatch(%s) failed with %s\n", rule.c_str(), QCC_StatusText(status));
+    }
+}
+
 struct AsyncTimeoutHandler : public BusAttachment::SetLinkTimeoutAsyncCB {
 
     const SessionId id;
@@ -842,6 +864,35 @@ int main(int argc, char** argv)
             } else {
                 printf("Usage: chatecho [on|off]\n");
             }
+        } else if (cmd == "schat") {
+            uint8_t flags = ALLJOYN_FLAG_SESSIONLESS;
+            String chatMsg = Trim(line);
+            if (chatMsg.empty()) {
+                printf("Usage: schat <msg>\n");
+                continue;
+            }
+            sessionTestObj.SendChatSignal(0, chatMsg.c_str(), flags);
+        } else if (cmd == "addmatch") {
+            String rule = Trim(line);
+            if (rule.empty()) {
+                printf("Usage: addmatch <rule>\n");
+                continue;
+            }
+            DoAddMatch(rule);
+        } else if (cmd == "removematch") {
+            String rule = Trim(line);
+            if (rule.empty()) {
+                printf("Usage: removerule <rule>\n");
+                continue;
+            }
+            DoRemoveMatch(rule);
+        } else if (cmd == "sendttl") {
+            uint32_t ttl = StringToU32(NextTok(line), 0, numeric_limits<uint32_t>::max());
+            if (ttl == numeric_limits<uint32_t>::max()) {
+                printf("Usage: sendttl <ttl>\n");
+                continue;
+            }
+            sessionTestObj.SetTtl(ttl);
         } else if (cmd == "exit") {
             break;
         } else if (cmd == "help") {
@@ -859,9 +910,13 @@ int main(int argc, char** argv)
             printf("leave <sessionId>                                             - Leave a session\n");
             printf("chat <sessionId> <msg>                                        - Send a message over a given session\n");
             printf("cchat <sessionId> <msg>                                       - Send a message over a given session with compression\n");
+            printf("schat <msg>                                                   - Send a sessionless message\n");
             printf("autochat <sessionId> [count] [delay] [minSize] [maxSize]      - Send periodic messages of various sizes\n");
             printf("timeout <sessionId> <linkTimeout>                             - Set link timeout for a session\n");
             printf("chatecho [on|off]                                             - Turn on/off chat messages\n");
+            printf("addmatch <rule>                                               - Add a DBUS rule\n");
+            printf("removematch <rule>                                            - Remove a DBUS rule\n");
+            printf("sendttl <ttl>                                                 - Set ttl (in ms) for all chat messages (0 = infinite)\n");
             printf("exit                                                          - Exit this program\n");
             printf("\n");
             printf("SessionIds can be specified by value or by #<idx> where <idx> is the session index printed with \"list\" command\n");

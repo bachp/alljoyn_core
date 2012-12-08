@@ -72,14 +72,6 @@ class TransportListener {
      * @param busAddr       The address of the bus formatted as a string.
      */
     virtual void BusConnectionLost(const qcc::String& busAddr) = 0;
-
-    /**
-     * Get a list of the currently advertised names for this transport listener
-     *
-     * @param names  A vector containing the advertised names.
-     */
-    virtual void GetAdvertisedNames(std::vector<qcc::String>& names) = 0;
-
 };
 
 

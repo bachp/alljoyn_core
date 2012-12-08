@@ -327,6 +327,7 @@ void DBusObj::AddMatch(const InterfaceDescription::Member* member, Message& msg)
     assert(nameArg && (nameArg->typeId == ALLJOYN_STRING));
 
     Rule rule(nameArg->v_string.str, &status);
+    router.LockNameTable();
     if (ER_OK == status) {
         ep = router.FindEndpoint(msg->GetSender());
         if (!ep) {
@@ -337,6 +338,7 @@ void DBusObj::AddMatch(const InterfaceDescription::Member* member, Message& msg)
     if (ER_OK == status) {
         status = router.AddRule(*ep, rule);
     }
+    router.UnlockNameTable();
 
     if (ER_OK == status) {
         status = MethodReply(msg, (const MsgArg*) NULL, 0);

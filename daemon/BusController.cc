@@ -39,6 +39,7 @@ BusController::BusController(Bus& alljoynBus) :
     bus(alljoynBus),
     dbusObj(bus, this),
     alljoynObj(bus, this),
+    sessionlessObj(bus, this),
 #ifndef NDEBUG
     alljoynDebugObj(bus, this),
 #endif
@@ -101,6 +102,12 @@ QStatus BusController::Stop()
     }
     status = (status == ER_OK) ? tStatus : status;
 
+    tStatus = sessionlessObj.Stop();
+    if (tStatus != ER_OK) {
+        QCC_LogError(tStatus, ("sessionlessObj::Stop failed"));
+    }
+    status = (status == ER_OK) ? tStatus : status;
+
 #ifndef NDEBUG
     tStatus = alljoynDebugObj.Stop();
     if (tStatus != ER_OK) {
@@ -128,6 +135,12 @@ QStatus BusController::Join()
     QStatus tStatus = alljoynObj.Join();
     if (tStatus != ER_OK) {
         QCC_LogError(tStatus, ("alljoynObj::Join failed"));
+    }
+    status = (status == ER_OK) ? tStatus : status;
+
+    tStatus = sessionlessObj.Join();
+    if (tStatus != ER_OK) {
+        QCC_LogError(tStatus, ("sessionlessObj::Join failed"));
     }
     status = (status == ER_OK) ? tStatus : status;
 
@@ -160,24 +173,40 @@ QStatus BusController::Join()
 void BusController::ObjectRegistered(BusObject* obj)
 {
     QStatus status;
+    bool isDone = false;
 
     if (obj == &dbusObj) {
         status = alljoynObj.Init();
-        if (status == ER_OK) {
-            return;
+        if (status != ER_OK) {
+            isDone = true;
+            QCC_LogError(status, ("alljoynObj::Init failed"));
         }
-        QCC_LogError(status, ("alljoynObj::Init failed"));
+    }
+    if (obj == &alljoynObj) {
+        status = sessionlessObj.Init();
+        if (status != ER_OK) {
+            isDone = true;
+            QCC_LogError(status, ("sessionlessObj::Init failed"));
+        }
     }
 #ifndef NDEBUG
-    if (obj == &alljoynObj) {
+    if (obj == &sessionlessObj) {
         status = alljoynDebugObj.Init();
-        if (status == ER_OK) {
-            return;
+        if (status != ER_OK) {
+            isDone = true;
+            QCC_LogError(status, ("alljoynDebugObj::Init failed"));
         }
-        QCC_LogError(status, ("alljoynDebugObj::Init failed"));
+    }
+    if (obj == &alljoynDebugObj) {
+        isDone = true;
+    }
+#else
+    if (obj == &sessionlessObj) {
+        isDone = true;
     }
 #endif
-    if (initComplete) {
+
+    if (initComplete && isDone) {
         initComplete->SetEvent();
     }
 }

@@ -232,14 +232,4 @@ void TransportList::BusConnectionLost(const qcc::String& busAddr)
     }
 }
 
-void TransportList::GetAdvertisedNames(std::vector<qcc::String>& names)
-{
-    names.clear();
-    if (isStarted) {
-        for (size_t i = 0; i < listeners.size(); ++i) {
-            listeners[i]->GetAdvertisedNames(names);
-        }
-    }
-}
-
 }

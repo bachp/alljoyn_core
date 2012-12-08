@@ -1012,7 +1012,7 @@ QStatus _Message::CallMsg(const qcc::String& signature,
     /*
      * Validate flags
      */
-    if (flags & ~(ALLJOYN_FLAG_NO_REPLY_EXPECTED | ALLJOYN_FLAG_AUTO_START | ALLJOYN_FLAG_ENCRYPTED | ALLJOYN_FLAG_COMPRESSED)) {
+    if (flags & ~(ALLJOYN_FLAG_NO_REPLY_EXPECTED | ALLJOYN_FLAG_AUTO_START | ALLJOYN_FLAG_ENCRYPTED | ALLJOYN_FLAG_COMPRESSED | ALLJOYN_FLAG_SESSIONLESS)) {
         return ER_BUS_BAD_HDR_FLAGS;
     }
     /*
@@ -1078,9 +1078,9 @@ QStatus _Message::SignalMsg(const qcc::String& signature,
     QStatus status;
 
     /*
-     * Validate flags - ENCRYPTED, COMPRESSED, and ALLJOYN_FLAG_GLOBAL_BROADCAST are the flags applicable to signals
+     * Validate flags - ENCRYPTED, COMPRESSED, ALLJOYN_FLAG_GLOBAL_BROADCAST and ALLJOYN_FLAG_SESSIONLESS are the flags applicable to signals
      */
-    if (flags & ~(ALLJOYN_FLAG_ENCRYPTED | ALLJOYN_FLAG_COMPRESSED | ALLJOYN_FLAG_GLOBAL_BROADCAST)) {
+    if (flags & ~(ALLJOYN_FLAG_ENCRYPTED | ALLJOYN_FLAG_COMPRESSED | ALLJOYN_FLAG_GLOBAL_BROADCAST | ALLJOYN_FLAG_SESSIONLESS)) {
         return ER_BUS_BAD_HDR_FLAGS;
     }
     /*

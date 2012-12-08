@@ -79,7 +79,6 @@ void AllJoynObj::ReleaseLocks()
     router.UnlockNameTable();
 }
 
-// JPDEBUG
 AllJoynObj::AllJoynObj(Bus& bus, BusController* busController) :
     BusObject(org::alljoyn::Bus::ObjectPath, false),
     bus(bus),
@@ -477,7 +476,7 @@ ThreadReturn STDCALL AllJoynObj::JoinSessionThread::RunJoin()
 
     ajObj.AcquireLocks();
 
-    // do not let a session creator join itself
+    /* Do not let a session creator join itself */
     SessionMapType::iterator it = ajObj.SessionMapLowerBound(sender, 0);
     BusEndpoint* hostEp = ajObj.router.FindEndpoint(sessionHost);
     if (hostEp != NULL) {
@@ -615,12 +614,7 @@ ThreadReturn STDCALL AllJoynObj::JoinSessionThread::RunJoin()
                             ajObj.SessionMapInsert(joinerSme);
                             id = joinerSme.id;
                             optsOut = sme.opts;
-
-                            if (status == ER_OK) {
-                                ajObj.ReleaseLocks();
-                                ajObj.SendJoinSession(sme.sessionPort, newSessionId, sender.c_str(), sme.endpointName.c_str());
-                                ajObj.AcquireLocks();
-                            }
+                            sme.id = newSessionId;
 
                             /* Send session changed notification */
                             if (sme.opts.isMultipoint && (status == ER_OK)) {
@@ -648,11 +642,6 @@ ThreadReturn STDCALL AllJoynObj::JoinSessionThread::RunJoin()
                                 ajObj.SessionMapInsert(sme2);
                                 id = sme2.id;
                                 optsOut = sme.opts;
-
-                                // send joined signal
-                                ajObj.ReleaseLocks();
-                                ajObj.SendJoinSession(sme2.sessionPort, id, sender.c_str(), sme.endpointName.c_str());
-                                ajObj.AcquireLocks();
                             } else {
                                 qcc::Close(fds[0]);
                                 qcc::Close(fds[1]);
@@ -1010,6 +999,11 @@ ThreadReturn STDCALL AllJoynObj::JoinSessionThread::RunJoin()
         QCC_LogError(status, ("Failed to respond to org.alljoyn.Bus.JoinSession"));
     }
 
+    /* Send SessionJoined to creator */
+    if ((status == ER_OK) && (replyCode == ALLJOYN_JOINSESSION_REPLY_SUCCESS)) {
+        ajObj.SendSessionJoined(sme.sessionPort, sme.id, sessionHost, sme.endpointName.c_str());
+    }
+
     /* Send a series of MPSessionChanged to "catch up" the new joiner */
     if ((replyCode == ALLJOYN_JOINSESSION_REPLY_SUCCESS) && optsOut.isMultipoint) {
         ajObj.AcquireLocks();
@@ -1344,10 +1338,10 @@ qcc::ThreadReturn STDCALL AllJoynObj::JoinSessionThread::RunAttach()
                                 }
                             }
 
-                            // only send to creator!
+                            /* Send SessionJoined to creator */
                             if (ER_OK == status && creatorEp && (destEp == creatorEp)) {
                                 ajObj.ReleaseLocks();
-                                ajObj.SendJoinSession(sme.sessionPort, sme.id, src, sme.endpointName.c_str());
+                                ajObj.SendSessionJoined(sme.sessionPort, sme.id, src, sme.endpointName.c_str());
                                 ajObj.AcquireLocks();
                             }
                         }
@@ -1895,10 +1889,10 @@ QStatus AllJoynObj::SendAttachSession(SessionPort sessionPort,
     return status;
 }
 
-QStatus AllJoynObj::SendJoinSession(SessionPort sessionPort,
-                                    SessionId sessionId,
-                                    const char* joinerName,
-                                    const char* creatorName)
+QStatus AllJoynObj::SendSessionJoined(SessionPort sessionPort,
+                                      SessionId sessionId,
+                                      const char* joinerName,
+                                      const char* creatorName)
 {
     MsgArg args[3];
     args[0].Set("q", sessionPort);
@@ -2432,20 +2426,6 @@ QStatus AllJoynObj::ProcCancelAdvertise(const qcc::String& sender, const qcc::St
         status = ER_FAIL;
     }
     return status;
-}
-
-void AllJoynObj::GetAdvertisedNames(std::vector<qcc::String>& names)
-{
-    AcquireLocks();
-    multimap<qcc::String, pair<TransportMask, qcc::String> >::const_iterator it(advertiseMap.begin());
-    while (it != advertiseMap.end()) {
-        const qcc::String& name(it->first);
-        QCC_DbgPrintf(("AllJoynObj::GetAdvertisedNames - Name[%u] = %s", names.size(), name.c_str()));
-        names.push_back(name);
-        // skip to next name
-        it = advertiseMap.upper_bound(name);
-    }
-    ReleaseLocks();
 }
 
 void AllJoynObj::FindAdvertisedName(const InterfaceDescription::Member* member, Message& msg)
@@ -3397,7 +3377,7 @@ void AllJoynObj::FoundNames(const qcc::String& busAddr,
                                                                                                          transport,
                                                                                                          (ttl == numeric_limits<uint8_t>::max()) ? numeric_limits<uint64_t>::max() : (1000LL * ttl),
                                                                                                          this)));
-                    // Don't schedule an alarm which will never expire or multiple timers for the same set
+                    /* Don't schedule an alarm which will never expire or multiple timers for the same set */
                     if (notimers && (ttl != numeric_limits<uint8_t>::max())) {
                         NameMapEntry& nme = it->second;
                         QStatus status = timer.AddAlarm(nme.alarm);
@@ -3443,7 +3423,7 @@ void AllJoynObj::FoundNames(const qcc::String& busAddr,
                         NameMapEntry& nme = it->second;
                         nme.timestamp = GetTimestamp64();
 
-                        // need to move the alarm ttl seconds into the future.
+                        /* need to move the alarm ttl seconds into the future. */
                         const uint32_t timeout = ttl * 1000;
                         AllJoynObj* pObj = this;
                         Alarm newAlarm(timeout, pObj, NameMapEntry::truthiness);
@@ -3451,7 +3431,7 @@ void AllJoynObj::FoundNames(const qcc::String& busAddr,
                         nme.alarm = newAlarm;
 
                         if (ER_OK != status) {
-                            // This is expected if a prior name set changed in any way (order, removed entry, etc)
+                            /* This is expected if a prior name set changed in any way (order, removed entry, etc) */
                             status = timer.AddAlarm(nme.alarm);
                             if (ER_OK != status && ER_TIMER_EXITING != status) {
                                 QCC_LogError(status, ("Failed to update alarm"));
@@ -3463,7 +3443,7 @@ void AllJoynObj::FoundNames(const qcc::String& busAddr,
                         }
                     } else if (!notimers) {
                         NameMapEntry& nme = it->second;
-                        // Just in case ordering changed, remove any spurious timer
+                        /* Just in case ordering changed, remove any spurious timer */
                         timer.RemoveAlarm(nme.alarm, false);
                     }
                 }
