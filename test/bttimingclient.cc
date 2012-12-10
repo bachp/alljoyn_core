@@ -43,7 +43,7 @@
 #include <alljoyn/AllJoynStd.h>
 #include <alljoyn/version.h>
 
-#include <Status.h>
+#include <alljoyn/Status.h>
 
 #define QCC_MODULE "ALLJOYN"
 

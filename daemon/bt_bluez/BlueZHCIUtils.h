@@ -29,7 +29,7 @@
 #include "BDAddress.h"
 #include "BTTransportConsts.h"
 
-#include <Status.h>
+#include <alljoyn/Status.h>
 
 namespace ajn {
 namespace bluez {

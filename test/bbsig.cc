@@ -38,7 +38,7 @@
 #include <alljoyn/AllJoynStd.h>
 #include <alljoyn/version.h>
 
-#include <Status.h>
+#include <alljoyn/Status.h>
 
 #ifdef _WIN32
 #include <process.h>

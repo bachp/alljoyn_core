@@ -30,7 +30,7 @@
 
 #include <string>
 #include <qcc/platform.h>
-#include "Status.h"
+#include <alljoyn/Status.h>
 
 using namespace std;
 using namespace qcc;

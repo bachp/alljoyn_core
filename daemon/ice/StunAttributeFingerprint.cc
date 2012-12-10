@@ -24,7 +24,7 @@
 #include "ScatterGatherList.h"
 #include <StunAttributeFingerprint.h>
 #include <StunMessage.h>
-#include "Status.h"
+#include <alljoyn/Status.h>
 
 using namespace qcc;
 

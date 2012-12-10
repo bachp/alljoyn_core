@@ -30,7 +30,7 @@
 #include <qcc/platform.h>
 #include <StunAttributeXorMappedAddress.h>
 #include <types.h>
-#include "Status.h"
+#include <alljoyn/Status.h>
 
 using namespace qcc;
 

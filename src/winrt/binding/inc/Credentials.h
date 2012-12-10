@@ -21,7 +21,7 @@
 #include <alljoyn/AuthListener.h>
 #include <qcc/ManagedObj.h>
 #include <Status_CPP0x.h>
-#include <Status.h>
+#include <alljoyn/Status.h>
 
 namespace AllJoyn {
 

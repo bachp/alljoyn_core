@@ -24,7 +24,7 @@
 #include <qcc/platform.h>
 #include <qcc/String.h>
 #include <qcc/IPAddress.h>
-#include "Status.h"
+#include <alljoyn/Status.h>
 
 namespace ajn {
 

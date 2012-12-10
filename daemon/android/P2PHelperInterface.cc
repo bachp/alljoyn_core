@@ -26,7 +26,7 @@
 #include <string.h>
 #include <time.h>
 
-#include <Status.h>
+#include <alljoyn/Status.h>
 
 #include <qcc/platform.h>
 #include <qcc/Util.h>

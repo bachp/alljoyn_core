@@ -33,7 +33,7 @@
 #include <qcc/platform.h>
 #include <qcc/Socket.h>
 #include "ScatterGatherList.h"
-#include "Status.h"
+#include <alljoyn/Status.h>
 
 using namespace qcc;
 

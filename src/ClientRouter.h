@@ -30,7 +30,7 @@
 #include "Router.h"
 #include "LocalTransport.h"
 
-#include <Status.h>
+#include <alljoyn/Status.h>
 
 namespace ajn {
 

@@ -32,7 +32,7 @@
 
 #include <alljoyn/Message.h>
 
-#include <Status.h>
+#include <alljoyn/Status.h>
 
 #include <qcc/STLContainer.h>
 #include <map>

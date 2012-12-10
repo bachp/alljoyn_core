@@ -24,7 +24,7 @@
 #include <qcc/Util.h>
 #include <qcc/Mutex.h>
 #include <qcc/Debug.h>
-#include <Status.h>
+#include <alljoyn/Status.h>
 
 #include <alljoyn/BusAttachment.h>
 #include <alljoyn/Message.h>

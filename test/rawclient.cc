@@ -41,7 +41,7 @@
 #include <alljoyn/version.h>
 #include <alljoyn/TransportMask.h>
 
-#include <Status.h>
+#include <alljoyn/Status.h>
 
 #define QCC_MODULE "ALLJOYN"
 

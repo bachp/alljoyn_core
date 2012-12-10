@@ -35,7 +35,7 @@
 #include "AuthMechanism.h"
 #include "KeyStore.h"
 
-#include <Status.h>
+#include <alljoyn/Status.h>
 
 #define QCC_MODULE "ALLJOYN_AUTH"
 

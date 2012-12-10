@@ -34,7 +34,7 @@
 #include <alljoyn/BusAttachment.h>
 #include <alljoyn/AuthListener.h>
 
-#include <Status.h>
+#include <alljoyn/Status.h>
 
 /* Private files included for unit testing */
 #include <SASLEngine.h>

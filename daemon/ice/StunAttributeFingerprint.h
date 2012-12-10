@@ -29,7 +29,7 @@
 #include <string>
 #include <qcc/platform.h>
 #include <StunAttributeBase.h>
-#include "Status.h"
+#include <alljoyn/Status.h>
 
 using namespace qcc;
 

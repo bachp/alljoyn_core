@@ -30,7 +30,7 @@
 #include <qcc/platform.h>
 #include <StunAttributeBase.h>
 #include <types.h>
-#include "Status.h"
+#include <alljoyn/Status.h>
 
 /** @internal */
 #define QCC_MODULE "STUN_ATTRIBUTE"

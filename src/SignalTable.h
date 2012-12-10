@@ -37,7 +37,7 @@
 #include <alljoyn/InterfaceDescription.h>
 #include <alljoyn/MessageReceiver.h>
 
-#include <Status.h>
+#include <alljoyn/Status.h>
 
 #include <qcc/STLContainer.h>
 

@@ -39,7 +39,7 @@
 #include <qcc/Logger.h>
 #include <qcc/String.h>
 #include <qcc/Util.h>
-#include <Status.h>
+#include <alljoyn/Status.h>
 
 #include "../BusController.h"
 #include "../ConfigDB.h"

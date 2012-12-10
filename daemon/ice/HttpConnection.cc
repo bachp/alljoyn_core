@@ -32,7 +32,7 @@
 #include <qcc/Stream.h>
 #include <qcc/StringUtil.h>
 #include <JSON/json.h>
-#include "Status.h"
+#include <alljoyn/Status.h>
 #include "HttpConnection.h"
 
 using namespace std;

@@ -35,7 +35,7 @@
 #include "BusEndpoint.h"
 #include "EndpointAuth.h"
 
-#include <Status.h>
+#include <alljoyn/Status.h>
 
 namespace ajn {
 

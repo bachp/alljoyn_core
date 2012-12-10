@@ -41,7 +41,7 @@
 #include <qcc/Timer.h>
 #include <alljoyn/BusAttachment.h>
 
-#include "Status.h"
+#include <alljoyn/Status.h>
 #include "Callback.h"
 #include "HttpConnection.h"
 #include "RendezvousServerInterface.h"

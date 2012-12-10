@@ -25,7 +25,7 @@
 #include <qcc/String.h>
 #include <alljoyn/DBusStd.h>
 #include <alljoyn/Message.h>
-#include <Status.h>
+#include <alljoyn/Status.h>
 /// @cond ALLJOYN_DEV
 /*!
    \def QCC_MODULE

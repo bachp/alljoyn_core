@@ -34,7 +34,7 @@
 #include <alljoyn/TransportMask.h>
 #include <alljoyn/Session.h>
 #include "BusEndpoint.h"
-#include <Status.h>
+#include <alljoyn/Status.h>
 
 namespace ajn {
 

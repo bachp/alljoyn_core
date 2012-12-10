@@ -21,7 +21,6 @@ all:
 	cd test; make;
 	cd samples; make;
 	cp inc/alljoyn $(INSTALLDIR)/dist/inc -rf
-	cp inc/Status.h $(INSTALLDIR)/dist/inc
 
 clean:
 	cd src; make clean;

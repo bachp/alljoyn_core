@@ -32,7 +32,7 @@
 
 #include <alljoyn/KeyStoreListener.h>
 
-#include <Status.h>
+#include <alljoyn/Status.h>
 
 namespace ajn {
 

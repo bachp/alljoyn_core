@@ -37,7 +37,7 @@
 
 #include <alljoyn/TransportMask.h>
 
-#include <Status.h>
+#include <alljoyn/Status.h>
 #include <Callback.h>
 
 #include "IpNsProtocol.h"

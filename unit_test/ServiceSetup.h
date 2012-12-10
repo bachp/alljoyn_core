@@ -32,7 +32,7 @@
 #include <qcc/Util.h>
 #include <qcc/Debug.h>
 #include <qcc/String.h>
-#include <Status.h>
+#include <alljoyn/Status.h>
 
 #define QCC_MODULE "ALLJOYN"
 

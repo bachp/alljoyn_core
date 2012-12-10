@@ -22,7 +22,7 @@
 
 #include <qcc/platform.h>
 
-#include "Status.h"
+#include <alljoyn/Status.h>
 #include <StunMessage.h>
 #include <StunAttributeXorMappedAddress.h>
 

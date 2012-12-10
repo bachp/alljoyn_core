@@ -26,7 +26,7 @@
 #include <vector>
 #include <set>
 #include <list>
-#include <Status.h>
+#include <alljoyn/Status.h>
 #include <Callback.h>
 #include <qcc/platform.h>
 #include <qcc/String.h>

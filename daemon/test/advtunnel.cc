@@ -43,7 +43,7 @@
 #include <ns/IpNameServiceImpl.h>
 #include <Transport.h>
 
-#include <Status.h>
+#include <alljoyn/Status.h>
 
 #define QCC_MODULE "ALLJOYN"
 

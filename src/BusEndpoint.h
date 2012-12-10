@@ -31,7 +31,7 @@
 #include <alljoyn/Message.h>
 #include <alljoyn/MessageSink.h>
 
-#include <Status.h>
+#include <alljoyn/Status.h>
 
 namespace ajn {
 

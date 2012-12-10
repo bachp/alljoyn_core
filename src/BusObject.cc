@@ -36,7 +36,7 @@
 #include <alljoyn/AllJoynStd.h>
 #include <alljoyn/BusObject.h>
 
-#include <Status.h>
+#include <alljoyn/Status.h>
 #include "Router.h"
 #include "LocalTransport.h"
 #include "AllJoynPeerObj.h"

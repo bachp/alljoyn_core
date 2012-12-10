@@ -31,7 +31,7 @@
 #include <qcc/IfConfig.h>
 #include <alljoyn/TransportMask.h>
 
-#include <Status.h>
+#include <alljoyn/Status.h>
 #include <Callback.h>
 
 namespace ajn {

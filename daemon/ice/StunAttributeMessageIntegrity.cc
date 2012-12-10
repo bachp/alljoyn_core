@@ -26,7 +26,7 @@
 #include <StunAttributeMessageIntegrity.h>
 #include <StunMessage.h>
 #include <StunTransactionID.h>
-#include "Status.h"
+#include <alljoyn/Status.h>
 
 using namespace qcc;
 

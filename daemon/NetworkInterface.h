@@ -35,7 +35,7 @@
 #include <qcc/IfConfig.h>
 #include <qcc/IPAddress.h>
 
-#include "Status.h"
+#include <alljoyn/Status.h>
 
 using namespace std;
 using namespace qcc;

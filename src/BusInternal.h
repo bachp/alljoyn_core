@@ -43,7 +43,7 @@
 #include "TransportList.h"
 #include "CompressionRules.h"
 
-#include <Status.h>
+#include <alljoyn/Status.h>
 
 namespace ajn {
 

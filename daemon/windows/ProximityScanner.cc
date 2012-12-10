@@ -26,7 +26,7 @@
 #include <stdio.h>
 #include <qcc/String.h>
 #include <qcc/StringUtil.h>
-#include <Status.h>
+#include <alljoyn/Status.h>
 #include <alljoyn/Message.h>
 #include <alljoyn/MsgArg.h>
 #include <utility>

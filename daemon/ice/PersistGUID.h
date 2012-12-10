@@ -29,7 +29,7 @@
 #include <qcc/FileStream.h>
 #include <qcc/GUID.h>
 
-#include "Status.h"
+#include <alljoyn/Status.h>
 
 namespace ajn {
 

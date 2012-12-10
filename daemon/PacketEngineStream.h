@@ -23,7 +23,7 @@
 
 #include <qcc/platform.h>
 #include <qcc/Stream.h>
-#include <Status.h>
+#include <alljoyn/Status.h>
 
 namespace ajn {
 

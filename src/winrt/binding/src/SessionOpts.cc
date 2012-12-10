@@ -21,7 +21,7 @@
 #include <qcc/String.h>
 #include <qcc/winrt/utility.h>
 #include <alljoyn/Session.h>
-#include <Status.h>
+#include <alljoyn/Status.h>
 #include <ObjectReference.h>
 #include <AllJoynException.h>
 

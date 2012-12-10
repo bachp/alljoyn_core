@@ -32,7 +32,7 @@
 #include <qcc/String.h>
 #include <StunAttributeBase.h>
 #include <types.h>
-#include "Status.h"
+#include <alljoyn/Status.h>
 
 using namespace qcc;
 

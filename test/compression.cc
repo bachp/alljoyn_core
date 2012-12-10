@@ -32,7 +32,7 @@
 #include <alljoyn/Message.h>
 #include <alljoyn/version.h>
 
-#include <Status.h>
+#include <alljoyn/Status.h>
 
 /* Private files included for unit testing */
 #include <RemoteEndpoint.h>

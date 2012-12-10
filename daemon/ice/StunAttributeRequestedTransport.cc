@@ -25,7 +25,7 @@
 #include <qcc/StringUtil.h>
 #include <qcc/String.h>
 #include <StunAttributeRequestedTransport.h>
-#include "Status.h"
+#include <alljoyn/Status.h>
 
 using namespace qcc;
 

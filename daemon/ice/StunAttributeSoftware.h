@@ -31,7 +31,7 @@
 #include <qcc/unicode.h>
 #include <StunAttributeStringBase.h>
 #include <types.h>
-#include "Status.h"
+#include <alljoyn/Status.h>
 
 using namespace qcc;
 

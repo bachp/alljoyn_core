@@ -32,7 +32,7 @@
 #include <alljoyn/BusAttachment.h>
 #include <alljoyn/version.h>
 #include <alljoyn/AllJoynStd.h>
-#include <Status.h>
+#include <alljoyn/Status.h>
 
 using namespace std;
 using namespace qcc;

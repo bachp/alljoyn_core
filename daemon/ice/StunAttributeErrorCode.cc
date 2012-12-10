@@ -25,7 +25,7 @@
 #include <qcc/String.h>
 #include <qcc/StringUtil.h>
 #include <StunAttributeErrorCode.h>
-#include "Status.h"
+#include <alljoyn/Status.h>
 
 using namespace qcc;
 

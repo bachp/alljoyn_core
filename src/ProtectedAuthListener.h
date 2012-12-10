@@ -33,7 +33,7 @@
 
 #include <alljoyn/AuthListener.h>
 
-#include <Status.h>
+#include <alljoyn/Status.h>
 
 
 namespace ajn {

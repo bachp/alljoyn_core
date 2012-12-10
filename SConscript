@@ -37,40 +37,45 @@ if env['VARIANT'] == 'debug':
             env.PrependENVPath('COVFILE', os.environ['COVFILE'])
 
 # manually add dependencies for xml to h, and for files included in the xml
-env.Depends('inc/Status.h', 'src/Status.xml')
-env.Depends('inc/Status.h', '../common/src/Status.xml')
+env.Depends('$OBJDIR/Status.h', 'src/Status.xml')
+env.Depends('$OBJDIR/Status.h', '../common/src/Status.xml')
+env.Append(STATUS_FLAGS=['--base=%s' % os.getcwd()])
+
 
 if env['OS_GROUP'] == 'winrt':
-    env.Depends('inc/Status_CPP0x.h', 'src/Status.xml')
-    env.Depends('inc/Status_CPP0x.h', '../common/src/Status.xml')
+    env.Depends('$OBJDIR/Status_CPP0x.h', 'src/Status.xml')
+    env.Depends('$OBJDIR/Status_CPP0x.h', '../common/src/Status.xml')
     env.AppendUnique(CFLAGS=['/D_WINRT_DLL'])
     env.AppendUnique(CXXFLAGS=['/D_WINRT_DLL'])
+    env.Append(STATUS_FLAGS=['--cpp0xnamespace=AllJoyn'])
 
 # Add support for multiple build targets in the same workset
 env.VariantDir('$OBJDIR', 'src', duplicate = 0)
 env.VariantDir('$OBJDIR/test', 'test', duplicate = 0)
-env.VariantDir('$OBJDIR/daemon', 'daemon', duplicate=0)
+env.VariantDir('$OBJDIR/daemon', 'daemon', duplicate = 0)
 env.VariantDir('$OBJDIR/samples', 'samples', duplicate = 0)
 env.VariantDir('$OBJDIR/alljoyn_android', 'alljoyn_android', duplicate = 0)
 
 # AllJoyn Install
 env.Install('$OBJDIR', env.File('src/Status.xml'))
 env.Status('$OBJDIR/Status')
-env.Install('$DISTDIR/inc', env.File('inc/Status.h'))
-env.Install('$DISTDIR/inc/alljoyn', env.Glob('inc/alljoyn/*.h'))
+env.Install('$DISTDIR/inc/alljoyn', '$OBJDIR/Status.h')
 if env['OS_GROUP'] == 'winrt':
-    env.Install('$DISTDIR/inc', env.File('inc/Status_CPP0x.h'))
+    env.Install('$DISTDIR/inc/alljoyn', '$OBJDIR/Status_CPP0x.h')
+
+env.Install('$DISTDIR/inc/alljoyn', env.Glob('inc/alljoyn/*.h'))
+
 for d,h in common_hdrs.items():
     env.Install('$DISTDIR/inc/%s' % d, h)
 
 # Header file includes
-env.Append(CPPPATH = [env.Dir('inc')])
+env.Append(CPPPATH = [env.Dir('$DISTDIR/inc'), env.Dir('$DISTDIR/inc/alljoyn')])
 
 # Make private headers available
 env.Append(CPPPATH = [env.Dir('src')])
 
 # AllJoyn Libraries
-(libs,alljoyn_core_objs) = env.SConscript('$OBJDIR/SConscript', exports = ['common_objs'])
+(libs, alljoyn_core_objs) = env.SConscript('$OBJDIR/SConscript', exports = ['common_objs'])
 
 ajlib = env.Install('$DISTDIR/lib', libs)
 env.Append(LIBPATH = [env.Dir('$DISTDIR/lib')])

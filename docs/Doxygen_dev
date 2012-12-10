@@ -568,7 +568,7 @@ WARN_LOGFILE           =
 # directories like "/usr/src/myproject". Separate the files or directories
 # with spaces.
 
-INPUT                  = ../inc/ \
+INPUT                  = $(DISTDIR)/inc/alljoyn \
                          allJoynDocumentation \
                          ../src/Adler32.h \
                          ../src/AllJoynCrypto.h \

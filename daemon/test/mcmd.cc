@@ -50,7 +50,7 @@
 #include "Bus.h"
 #include "SignatureUtils.h"
 
-#include <Status.h>
+#include <alljoyn/Status.h>
 
 #define QCC_MODULE "ALLJOYN"
 

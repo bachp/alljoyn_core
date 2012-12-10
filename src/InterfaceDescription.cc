@@ -25,7 +25,7 @@
 #include <qcc/StringMapKey.h>
 #include <map>
 #include <alljoyn/AllJoynStd.h>
-#include <Status.h>
+#include <alljoyn/Status.h>
 
 #include "SignatureUtils.h"
 

@@ -21,7 +21,7 @@
 #include <alljoyn/MsgArg.h>
 #include <qcc/String.h>
 #include <qcc/winrt/utility.h>
-#include <Status.h>
+#include <alljoyn/Status.h>
 #include <MsgArg.h>
 #include <AllJoynException.h>
 

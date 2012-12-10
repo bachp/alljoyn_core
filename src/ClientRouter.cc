@@ -26,7 +26,7 @@
 #include <qcc/Util.h>
 #include <qcc/String.h>
 
-#include <Status.h>
+#include <alljoyn/Status.h>
 
 #include "Transport.h"
 #include "BusEndpoint.h"

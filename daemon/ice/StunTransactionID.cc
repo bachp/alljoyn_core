@@ -23,7 +23,7 @@
 #include <string>
 #include <qcc/platform.h>
 #include <qcc/Socket.h>
-#include "Status.h"
+#include <alljoyn/Status.h>
 #include <StunTransactionID.h>
 
 using namespace qcc;

@@ -37,7 +37,7 @@
 #include <StunAttributeXorMappedAddress.h>
 #include <StunIOInterface.h>
 #include <StunTransactionID.h>
-#include "Status.h"
+#include <alljoyn/Status.h>
 
 using namespace qcc;
 

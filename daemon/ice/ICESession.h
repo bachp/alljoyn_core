@@ -34,7 +34,7 @@
 #include <vector>
 #include <qcc/Thread.h>
 #include <qcc/Mutex.h>
-#include "Status.h"
+#include <alljoyn/Status.h>
 #include "ICECandidate.h"
 #include "ICECandidatePair.h"
 #include "ICESessionListener.h"

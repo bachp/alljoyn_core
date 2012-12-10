@@ -30,7 +30,7 @@
 #include <qcc/Thread.h>
 #include <qcc/Mutex.h>
 #include "ICECandidatePair.h"
-#include "Status.h"
+#include <alljoyn/Status.h>
 #include "RendezvousServerInterface.h"
 
 using namespace qcc;

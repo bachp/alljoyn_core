@@ -34,7 +34,7 @@
 #include <alljoyn/MessageReceiver.h>
 #include <alljoyn/ProxyBusObject.h>
 
-#include <Status.h>
+#include <alljoyn/Status.h>
 
 #include "BDAddress.h"
 #include "BTController.h"

@@ -30,7 +30,7 @@
 #include <alljoyn/MsgArg.h>
 #include <alljoyn/version.h>
 
-#include <Status.h>
+#include <alljoyn/Status.h>
 
 /* Header files included for Google Test Framework */
 #include <gtest/gtest.h>

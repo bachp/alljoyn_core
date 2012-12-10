@@ -35,7 +35,7 @@
 #include "ProtectedAuthListener.h"
 #include "KeyStore.h"
 
-#include <Status.h>
+#include <alljoyn/Status.h>
 
 namespace ajn {
 

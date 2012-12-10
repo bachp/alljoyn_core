@@ -41,7 +41,7 @@
 
 #include "../daemon/BDAddress.h"
 
-#include <Status.h>
+#include <alljoyn/Status.h>
 
 #define QCC_MODULE "ALLJOYN"
 

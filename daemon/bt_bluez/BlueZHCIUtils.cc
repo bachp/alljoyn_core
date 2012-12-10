@@ -32,7 +32,7 @@
 #include "BlueZHCIUtils.h"
 #include "BTTransportConsts.h"
 
-#include <Status.h>
+#include <alljoyn/Status.h>
 
 
 #define QCC_MODULE "ALLJOYN_BT"

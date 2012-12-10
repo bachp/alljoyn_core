@@ -26,7 +26,7 @@
 #include <StunTransactionID.h>
 #include <qcc/Thread.h>
 #include <qcc/Mutex.h>
-#include "Status.h"
+#include <alljoyn/Status.h>
 
 using namespace std;
 using namespace qcc;

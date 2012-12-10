@@ -23,7 +23,7 @@
 #include <ObjectReference.h>
 #include <AllJoynException.h>
 #include <BusAttachment.h>
-#include <Status.h>
+#include <alljoyn/Status.h>
 
 namespace AllJoyn {
 

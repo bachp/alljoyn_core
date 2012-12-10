@@ -28,7 +28,7 @@
 
 #include "Transport.h"
 
-#include <Status.h>
+#include <alljoyn/Status.h>
 
 #include "LocalTransport.h"
 #include "Router.h"

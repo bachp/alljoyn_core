@@ -26,7 +26,7 @@
 #include <qcc/Mutex.h>
 #include "ICESession.h"
 #include "ICESessionListener.h"
-#include "Status.h"
+#include <alljoyn/Status.h>
 #include "RendezvousServerInterface.h"
 
 using namespace qcc;

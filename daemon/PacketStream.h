@@ -23,7 +23,7 @@
 
 #include <qcc/platform.h>
 #include <qcc/Event.h>
-#include <Status.h>
+#include <alljoyn/Status.h>
 #include "Packet.h"
 
 namespace ajn {

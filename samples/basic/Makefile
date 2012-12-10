@@ -19,13 +19,13 @@ ALLJOYN_DIST := ../..
 # for use by AllJoyn developers. Code built from alljoyn_core
 #ALLJOYN_DIST := ../../build/linux/x86/debug/dist
 #ALLJOYN_DIST := ../../build/linux/x86/release/dist
-#ALLJOYN_DIST := ../../build/linux/x86-64/debug/dist
-#ALLJOYN_DIST := ../../build/linux/x86-64/release/dist
+#ALLJOYN_DIST := ../../build/linux/x86_64/debug/dist
+#ALLJOYN_DIST := ../../build/linux/x86_64/release/dist
 # for use by AllJoyn developers. Code built from master
 #ALLJOYN_DIST := ../../../build/linux/x86/debug/dist
 #ALLJOYN_DIST := ../../../build/linux/x86/release/dist
-#ALLJOYN_DIST := ../../../build/linux/x86-64/debug/dist
-#ALLJOYN_DIST := ../../../build/linux/x86-64/release/dist
+#ALLJOYN_DIST := ../../../build/linux/x86_64/debug/dist
+#ALLJOYN_DIST := ../../../build/linux/x86_64/release/dist
 
 OBJ_DIR := obj
 

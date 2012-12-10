@@ -33,7 +33,7 @@
 #include <qcc/Mutex.h>
 #include <qcc/Socket.h>
 #include <qcc/SocketTypes.h>
-#include "Status.h"
+#include <alljoyn/Status.h>
 #include <qcc/IPAddress.h>
 #include <qcc/Thread.h>
 #include <StunMessage.h>

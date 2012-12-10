@@ -40,7 +40,7 @@
 
 #include "Transport.h"
 #include "RemoteEndpoint.h"
-#include "Status.h"
+#include <alljoyn/Status.h>
 #include "DiscoveryManager.h"
 #include "ICESessionListener.h"
 #include "PeerCandidateListener.h"

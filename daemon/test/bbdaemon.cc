@@ -34,7 +34,7 @@
 #include <alljoyn/DBusStd.h>
 #include <alljoyn/version.h>
 
-#include <Status.h>
+#include <alljoyn/Status.h>
 
 #include "TCPTransport.h"
 #include "DaemonTransport.h"

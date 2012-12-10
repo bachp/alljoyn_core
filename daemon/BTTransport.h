@@ -42,7 +42,7 @@
 #include "RemoteEndpoint.h"
 #include "Transport.h"
 
-#include <Status.h>
+#include <alljoyn/Status.h>
 
 namespace ajn {
 

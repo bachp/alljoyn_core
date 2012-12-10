@@ -24,7 +24,7 @@
 #include "qcc/platform.h"
 #include "qcc/Util.h"
 #include "qcc/Debug.h"
-#include "Status.h"
+#include <alljoyn/Status.h>
 #include "qcc/string.h"
 #include "qcc/Thread.h"
 #include "qcc/Environ.h"

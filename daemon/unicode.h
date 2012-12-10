@@ -30,7 +30,7 @@
 #include <qcc/unicode.h>
 #include <qcc/String.h>
 #include "ConvertUTF.h"
-#include "Status.h"
+#include <alljoyn/Status.h>
 
 /*
  * wstring is defined in the android NDK 8 but not defined in NDK7

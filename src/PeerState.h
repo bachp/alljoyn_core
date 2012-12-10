@@ -41,7 +41,7 @@
 #include <qcc/Event.h>
 #include <qcc/time.h>
 
-#include <Status.h>
+#include <alljoyn/Status.h>
 
 namespace ajn {
 

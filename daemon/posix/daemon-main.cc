@@ -45,7 +45,7 @@
 
 #include <alljoyn/version.h>
 
-#include <Status.h>
+#include <alljoyn/Status.h>
 
 #include "Transport.h"
 #include "TCPTransport.h"

@@ -35,7 +35,7 @@
 #include <alljoyn/ProxyBusObject.h>
 #include <alljoyn/InterfaceDescription.h>
 
-#include <Status.h>
+#include <alljoyn/Status.h>
 
 namespace ajn {
 

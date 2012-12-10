@@ -33,7 +33,7 @@
 #include <qcc/Thread.h>
 #include <qcc/time.h>
 
-#include <Status.h>
+#include <alljoyn/Status.h>
 
 #include "P2PHelperInterface.h"
 

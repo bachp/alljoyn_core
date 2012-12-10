@@ -28,7 +28,7 @@
 #include <qcc/platform.h>
 #include <qcc/String.h>
 #include <stdarg.h>
-#include <Status.h>
+#include <alljoyn/Status.h>
 
 namespace ajn {
 

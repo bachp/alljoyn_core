@@ -23,7 +23,7 @@
 #include <string>
 #include <qcc/platform.h>
 #include <StunAttributeEvenPort.h>
-#include "Status.h"
+#include <alljoyn/Status.h>
 
 using namespace qcc;
 

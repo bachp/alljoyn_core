@@ -32,7 +32,7 @@
 #include <qcc/Timer.h>
 #include <qcc/Util.h>
 
-#include <Status.h>
+#include <alljoyn/Status.h>
 
 #include "Bus.h"
 #include "NameTable.h"

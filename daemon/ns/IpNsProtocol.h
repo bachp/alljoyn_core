@@ -30,7 +30,7 @@
 #include <vector>
 #include <qcc/String.h>
 #include <alljoyn/TransportMask.h>
-#include <Status.h>
+#include <alljoyn/Status.h>
 
 namespace ajn {
 

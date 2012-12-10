@@ -35,7 +35,7 @@
 #include <alljoyn/version.h>
 #include "../src/BusUtil.h"
 
-#include <Status.h>
+#include <alljoyn/Status.h>
 
 using namespace qcc;
 using namespace std;

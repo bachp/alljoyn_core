@@ -27,7 +27,7 @@
 #include <qcc/StringSource.h>
 #include <qcc/StringUtil.h>
 
-#include <Status.h>
+#include <alljoyn/Status.h>
 
 #include "DaemonConfig.h"
 

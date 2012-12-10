@@ -34,7 +34,7 @@
 #include <alljoyn/BusAttachment.h>
 #include <alljoyn/BusListener.h>
 
-#include <Status.h>
+#include <alljoyn/Status.h>
 
 #include "TransportList.h"
 #include "DaemonRouter.h"

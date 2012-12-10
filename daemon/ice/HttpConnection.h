@@ -31,7 +31,7 @@
 #include <qcc/SocketStream.h>
 #include <qcc/Event.h>
 #include <JSON/json.h>
-#include "Status.h"
+#include <alljoyn/Status.h>
 
 using namespace qcc;
 

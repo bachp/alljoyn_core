@@ -30,7 +30,7 @@
 #include <qcc/Util.h>
 #include <qcc/atomic.h>
 
-#include <Status.h>
+#include <alljoyn/Status.h>
 
 #include "BusController.h"
 #include "BusEndpoint.h"

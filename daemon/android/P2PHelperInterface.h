@@ -26,7 +26,7 @@
 #error Only include P2PHelperInterface.h in C++ code.
 #endif
 
-#include <Status.h>
+#include <alljoyn/Status.h>
 
 #include <qcc/String.h>
 

@@ -37,7 +37,7 @@
 #include <alljoyn/Session.h>
 #include <alljoyn/SessionListener.h>
 #include <alljoyn/SessionPortListener.h>
-#include <Status.h>
+#include <alljoyn/Status.h>
 
 namespace ajn {
 

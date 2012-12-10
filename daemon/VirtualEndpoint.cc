@@ -31,7 +31,7 @@
 #include "VirtualEndpoint.h"
 #include "EndpointHelper.h"
 
-#include <Status.h>
+#include <alljoyn/Status.h>
 
 #define QCC_MODULE "ALLJOYN_OBJ"
 

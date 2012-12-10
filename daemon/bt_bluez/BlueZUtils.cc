@@ -37,7 +37,7 @@
 #include "BlueZIfc.h"
 #include "BlueZUtils.h"
 
-#include <Status.h>
+#include <alljoyn/Status.h>
 
 #define QCC_MODULE "ALLJOYN_BT"
 

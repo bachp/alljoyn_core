@@ -33,7 +33,7 @@
 #include <qcc/GUID.h>
 #include <qcc/Thread.h>  // For qcc::Sleep()
 
-#include <Status.h>
+#include <alljoyn/Status.h>
 #include <ns/IpNameService.h>
 #include <ns/IpNameServiceImpl.h>
 #include <DaemonConfig.h>

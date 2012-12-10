@@ -31,7 +31,7 @@
 #include <alljoyn/Message.h>
 #include <alljoyn/Session.h>
 
-#include <Status.h>
+#include <alljoyn/Status.h>
 
 namespace qcc {
 /** @internal Forward references */

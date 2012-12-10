@@ -34,7 +34,7 @@
 
 #include <alljoyn/BusAttachment.h>
 
-#include <Status.h>
+#include <alljoyn/Status.h>
 
 #include "Bus.h"
 #include "BusController.h"

@@ -33,7 +33,7 @@
 #include <alljoyn/MsgArg.h>
 #include <alljoyn/MessageReceiver.h>
 #include <alljoyn/Session.h>
-#include <Status.h>
+#include <alljoyn/Status.h>
 
 namespace ajn {
 

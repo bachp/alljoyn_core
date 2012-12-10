@@ -26,7 +26,7 @@
 #error Only include ClientTransport.h in C++ code.
 #endif
 
-#include <Status.h>
+#include <alljoyn/Status.h>
 
 #include <qcc/platform.h>
 #include <qcc/String.h>

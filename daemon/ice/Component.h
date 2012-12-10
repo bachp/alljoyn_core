@@ -39,7 +39,7 @@
 #include <StunRetry.h>
 #include <Stun.h>
 #include <StunActivity.h>
-#include "Status.h"
+#include <alljoyn/Status.h>
 #include "RendezvousServerInterface.h"
 
 using namespace std;

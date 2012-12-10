@@ -26,7 +26,7 @@
 #include <qcc/IPAddress.h>
 #include <qcc/StringUtil.h>
 #include <StunAttributeMappedAddress.h>
-#include "Status.h"
+#include <alljoyn/Status.h>
 
 using namespace qcc;
 

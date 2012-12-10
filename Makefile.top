@@ -28,8 +28,8 @@ AR=ar
 ifeq "$(CPU)" "x86"
     CPU	= x86
 else
-ifeq "$(CPU)" "x86-64"
-    CPU	= x86-64
+ifeq "$(CPU)" "x86_64"
+    CPU	= x86_64
 else
     $(error CPU=$(CPU) is not supported.)
 endif
@@ -100,7 +100,7 @@ else
 endif
 
 # Header/lib path include
-INCLUDE = -I$(PWD)/common/inc -I$(PWD)/alljoyn_core/inc -I$(PWD)/alljoyn_core/src -I$(PWD)/alljoyn_core/daemon
+INCLUDE = -I$(PWD)/common/inc -I$(PWD)/alljoyn_core/inc -I$(PWD)/alljoyn_core/src -I$(PWD)/alljoyn_core/daemon -I$(PWD)/alljoyn_core/inc/alljoyn
 
 LIBS = -lalljoyn
 # Platform specifics system libs

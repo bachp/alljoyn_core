@@ -28,7 +28,7 @@
 
 #include <vector>
 #include <qcc/String.h>
-#include <Status.h>
+#include <alljoyn/Status.h>
 #include <Callback.h>
 #include "P2PHelperInterface.h"
 

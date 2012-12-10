@@ -38,7 +38,7 @@
 #include <alljoyn/version.h>
 #include "KeyStore.h"
 
-#include <Status.h>
+#include <alljoyn/Status.h>
 
 #include <gtest/gtest.h>
 

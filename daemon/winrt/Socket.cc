@@ -31,7 +31,7 @@
 #include <qcc/windows/utility.h>
 #include "ScatterGatherList.h"
 
-#include <Status.h>
+#include <alljoyn/Status.h>
 
 #define QCC_MODULE "NETWORK"
 

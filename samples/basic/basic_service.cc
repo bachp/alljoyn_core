@@ -40,7 +40,7 @@
 #include <alljoyn/MsgArg.h>
 #include <alljoyn/version.h>
 
-#include <Status.h>
+#include <alljoyn/Status.h>
 
 using namespace std;
 using namespace qcc;

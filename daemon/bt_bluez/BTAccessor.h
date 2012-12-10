@@ -43,7 +43,7 @@
 #include "BTTransport.h"
 #include "RemoteEndpoint.h"
 
-#include <Status.h>
+#include <alljoyn/Status.h>
 
 
 namespace ajn {

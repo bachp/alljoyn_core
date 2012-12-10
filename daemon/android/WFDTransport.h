@@ -29,7 +29,7 @@
 
 #include <list>
 #include <queue>
-#include <Status.h>
+#include <alljoyn/Status.h>
 
 #include <qcc/platform.h>
 #include <qcc/String.h>
