@@ -27,6 +27,7 @@
 #endif
 
 #include <qcc/platform.h>
+#include <qcc/unicode.h>
 #include <qcc/String.h>
 #include "ConvertUTF.h"
 #include "Status.h"
