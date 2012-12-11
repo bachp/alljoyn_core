@@ -1087,6 +1087,24 @@ ThreadReturn STDCALL DaemonICETransport::AllocateICESessionThread::Run(void* arg
 
     assert(transportObj->m_dm);
 
+    /*
+     * We only want to allow this call to proceed if we have a running
+     * DaemonICETransport thread that isn't in the process of shutting down.
+     * We use the thread response from IsRunning to give us an idea of what our
+     * Run thread is doing.  See the comment in Start() for details
+     * about what IsRunning actually means, which might be subtly different from
+     * your intuition.
+     *
+     * If we see IsRunning(), the thread might actually have gotten a Stop(),
+     * but has not yet exited its Run routine and become STOPPING.  To plug this
+     * hole, we need to check IsRunning() and also m_stopping, which is set in
+     * our Stop() method.
+     */
+    if (transportObj->IsRunning() == false || transportObj->m_stopping == true) {
+        QCC_LogError(ER_BUS_TRANSPORT_NOT_STARTED, ("DaemonICETransport::AllocateICESessionThread::Run(): DaemonICETransport not running or stopping; exiting"));
+        return 0;
+    }
+
     STUNServerInfo stunInfo;
 
     DiscoveryManager::SessionEntry entry;
@@ -2857,7 +2875,8 @@ void DaemonICETransport::ClearPacketStreamMap(void) {
     PacketStreamMap::iterator pit = pktStreamMap.begin();
     while (pit != pktStreamMap.end()) {
         if (!pit->second.second.IsDisconnected()) {
-            pit->second.second.SetDisconnected();
+            /* We need not set the state to disconnected here as we are already in the DaemonICETransport::Stop()
+             * when we get called here */
             pktStreamMapLock.Unlock(MUTEX_CONTEXT);
             m_packetEngine.RemovePacketStream(pit->second.first);
             pktStreamMapLock.Lock(MUTEX_CONTEXT);
