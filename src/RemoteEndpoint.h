@@ -386,14 +386,15 @@ class RemoteEndpoint : public BusEndpoint, public qcc::ThreadListener {
         RxThread(BusAttachment& bus,
                  const char* name,
                  bool validateSender)
-            : qcc::Thread(name), bus(bus), validateSender(validateSender) { }
+            : qcc::Thread(name), bus(bus), validateSender(validateSender), hasRxSessionMsg(false) { }
 
       protected:
         qcc::ThreadReturn STDCALL Run(void* arg);
 
       private:
-        BusAttachment& bus;       /**< Bus associated with transport */
-        bool validateSender;      /**< If true, the sender field on incomming messages will be overwritten with actual endpoint name */
+        BusAttachment& bus;         /**< Bus associated with transport */
+        bool validateSender;        /**< If true, the sender field on incomming messages will be overwritten with actual endpoint name */
+        bool hasRxSessionMsg;       /**< true iff this endpoint has previously processed a non-control message */
     };
 
     /**

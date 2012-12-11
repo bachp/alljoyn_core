@@ -285,13 +285,12 @@ void RemoteEndpoint::ThreadExit(Thread* thread)
 
 static inline bool IsControlMessage(Message& msg)
 {
-    if (strcmp("org.freedesktop.DBus", msg->GetInterface()) == 0) {
-        return true;
+    const char* sender = msg->GetSender();
+    size_t offset = ::strlen(sender);
+    if (offset >= 2) {
+        offset -= 2;
     }
-    if (strcmp("org.alljoyn.Daemon", msg->GetInterface()) == 0) {
-        return true;
-    }
-    return false;
+    return (::strcmp(sender + offset, ".1") == 0) ? true : false;
 }
 
 void* RemoteEndpoint::RxThread::Run(void* arg)
@@ -328,18 +327,29 @@ void* RemoteEndpoint::RxThread::Run(void* arg)
                     status = router.PushMessage(msg, *ep);
                     if (status != ER_OK) {
                         /*
-                         * There are four cases where a failure to push a message to the router is ok:
+                         * There are five cases where a failure to push a message to the router is ok:
                          *
                          * 1) The message received did not match the expected signature.
                          * 2) The message was a method reply that did not match up to a method call.
                          * 3) A daemon is pushing the message to a connected client or service.
                          * 4) Pushing a message to an endpoint that has closed.
+                         * 5) Pushing the first non-control message of a new session (must wait for route to be fully setup)
                          *
                          */
-                        if ((router.IsDaemon() && !bus2bus) || (status == ER_BUS_SIGNATURE_MISMATCH) || (status == ER_BUS_UNMATCHED_REPLY_SERIAL) || (status == ER_BUS_ENDPOINT_CLOSING)) {
+                        if (status == ER_BUS_NO_ROUTE) {
+                            int retries = 20;
+                            while (!IsStopping() && (status == ER_BUS_NO_ROUTE) && !hasRxSessionMsg && retries--) {
+                                qcc::Sleep(10);
+                                status = router.PushMessage(msg, *ep);
+                            }
+                        } else if ((router.IsDaemon() && !bus2bus) || (status == ER_BUS_SIGNATURE_MISMATCH) || (status == ER_BUS_UNMATCHED_REPLY_SERIAL) || (status == ER_BUS_ENDPOINT_CLOSING)) {
                             QCC_DbgHLPrintf(("Discarding %s: %s", msg->Description().c_str(), QCC_StatusText(status)));
                             status = ER_OK;
                         }
+                    }
+                    /* Update haxRxSessionMessage */
+                    if ((status == ER_OK) && !hasRxSessionMsg && !IsControlMessage(msg)) {
+                        hasRxSessionMsg = true;
                     }
                 }
                 break;
@@ -408,6 +418,7 @@ void* RemoteEndpoint::RxThread::Run(void* arg)
             status = ER_OK;
         }
     }
+
     if ((status != ER_OK) && (status != ER_STOPPING_THREAD) && (status != ER_SOCK_OTHER_END_CLOSED) && (status != ER_BUS_STOPPING)) {
         QCC_LogError(status, ("Endpoint Rx thread (%s) exiting", GetName()));
     }

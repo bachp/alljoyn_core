@@ -228,8 +228,10 @@ QStatus DaemonRouter::PushMessage(Message& msg, BusEndpoint& origSender)
         RemoteEndpoint* lastB2b = NULL;
         SessionCastEntry sce(sessionId, msg->GetSender(), NULL, NULL);
         set<SessionCastEntry>::iterator sit = sessionCastSet.lower_bound(sce);
+        bool foundDest = false;
         while ((sit != sessionCastSet.end()) && (sit->id == sce.id) && (sit->src == sce.src)) {
             if (!sit->b2bEp || (sit->b2bEp != lastB2b)) {
+                foundDest = true;
                 lastB2b = sit->b2bEp;
                 SessionCastEntry entry = *sit;
                 BusEndpoint*ep = sit->destEp;
@@ -244,6 +246,9 @@ QStatus DaemonRouter::PushMessage(Message& msg, BusEndpoint& origSender)
             if (sit != sessionCastSet.end()) {
                 ++sit;
             }
+        }
+        if (!foundDest) {
+            status = ER_BUS_NO_ROUTE;
         }
         sessionCastSetLock.Unlock(MUTEX_CONTEXT);
     }
