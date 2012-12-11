@@ -2873,6 +2873,11 @@ void AllJoynObj::ExchangeNamesSignalHandler(const InterfaceDescription::Member* 
                     /* Relock and reacquire */
                     AcquireLocks();
                     VirtualEndpoint* vep = static_cast<VirtualEndpoint*>(router.FindEndpoint(uniqueName));
+                    bit = b2bEndpoints.find(key);
+                    if (bit == b2bEndpoints.end()) {
+                        QCC_DbgPrintf(("b2bEp %s disappeared during ExchangeNamesSignalHandler", key.c_str()));
+                        break;
+                    }
 
                     if (madeChange) {
                         madeChanges = true;
