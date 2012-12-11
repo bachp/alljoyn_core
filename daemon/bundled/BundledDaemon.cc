@@ -333,8 +333,9 @@ void BundledDaemon::Join()
 {
     QCC_DbgPrintf(("BundledDaemon::Join"));
     lock.Lock(MUTEX_CONTEXT);
-    if (transports.empty() && ajBus) {
+    if (transports.empty() && ajBus && ajBusController) {
         QCC_DbgPrintf(("Joining bundled daemon bus attachment"));
+        ajBusController->Join();
         delete ajBusController;
         ajBusController = NULL;
         delete ajBus;
@@ -359,8 +360,8 @@ QStatus BundledDaemon::Stop(NullTransport* nullTransport)
          * after Join() has been called.
          */
         stopping = true;
-        if (ajBus) {
-            status = ajBus->Stop();
+        if (ajBusController) {
+            status = ajBusController->Stop();
         }
     }
     lock.Unlock(MUTEX_CONTEXT);

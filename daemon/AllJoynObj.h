@@ -78,6 +78,20 @@ class AllJoynObj : public BusObject, public NameListener, public TransportListen
     QStatus Init();
 
     /**
+     * Stop AlljoynObj.
+     *
+     * @return ER_OK if successful.
+     */
+    QStatus Stop();
+
+    /**
+     * Join AlljoynObj.
+     *
+     * @return ER_OK if successful.
+     */
+    QStatus Join();
+
+    /**
      * Called when object is successfully registered.
      */
     void ObjectRegistered(void);

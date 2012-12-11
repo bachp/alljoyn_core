@@ -66,6 +66,20 @@ class BusController {
     QStatus Init(const qcc::String& listenSpecs);
 
     /**
+     * Stop the bus controller.
+     *
+     * @return ER_OK if successful.
+     */
+    QStatus Stop();
+
+    /**
+     * Join the bus controller.
+     *
+     * @return ER_OK if successful.
+     */
+    QStatus Join();
+
+    /**
      * Return the daemon bus object responsible for org.alljoyn.Bus.
      *
      * @return The AllJoynObj.

@@ -66,6 +66,20 @@ class DBusObj : public BusObject, public NameListener {
     QStatus Init();
 
     /**
+     * Stop DBusObj.
+     *
+     * @return ER_OK if successful.
+     */
+    QStatus Stop() { return ER_OK; }
+
+    /**
+     * Join DBusObj.
+     *
+     * @return ER_OK if successful.
+     */
+    QStatus Join() { return ER_OK; }
+
+    /**
      * Called when object is successfully registered.
      */
     void ObjectRegistered(void);

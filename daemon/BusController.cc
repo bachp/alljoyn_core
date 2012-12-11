@@ -51,8 +51,8 @@ BusController::BusController(Bus& alljoynBus) :
 
 BusController::~BusController()
 {
-    bus.Stop();
-    bus.Join();
+    Stop();
+    Join();
 }
 
 QStatus BusController::Init(const qcc::String& listenSpecs)
@@ -85,6 +85,62 @@ QStatus BusController::Init(const qcc::String& listenSpecs)
     }
 
     initComplete = NULL;
+    return status;
+}
+
+QStatus BusController::Stop()
+{
+    QStatus status = dbusObj.Stop();
+    if (status != ER_OK) {
+        QCC_LogError(status, ("dbusObj::Stop failed"));
+    }
+
+    QStatus tStatus = alljoynObj.Stop();
+    if (tStatus != ER_OK) {
+        QCC_LogError(tStatus, ("alljoynObj::Stop failed"));
+    }
+    status = (status == ER_OK) ? tStatus : status;
+
+    tStatus = alljoynDebugObj.Stop();
+    if (tStatus != ER_OK) {
+        QCC_LogError(tStatus, ("alljoynDebugObj::Stop failed"));
+    }
+    status = (status == ER_OK) ? tStatus : status;
+
+    tStatus = bus.Stop();
+    if (tStatus != ER_OK) {
+        QCC_LogError(tStatus, ("bus::Stop failed"));
+    }
+    status = (status == ER_OK) ? tStatus : status;
+
+    return status;
+}
+
+QStatus BusController::Join()
+{
+    QStatus status = dbusObj.Join();
+    if (status != ER_OK) {
+        QCC_LogError(status, ("dbusObj::Join failed"));
+    }
+
+    QStatus tStatus = alljoynObj.Join();
+    if (tStatus != ER_OK) {
+        QCC_LogError(tStatus, ("alljoynObj::Join failed"));
+    }
+    status = (status == ER_OK) ? tStatus : status;
+
+    tStatus = alljoynDebugObj.Join();
+    if (tStatus != ER_OK) {
+        QCC_LogError(tStatus, ("alljoynDebugObj::Join failed"));
+    }
+    status = (status == ER_OK) ? tStatus : status;
+
+    tStatus = bus.Join();
+    if (tStatus != ER_OK) {
+        QCC_LogError(tStatus, ("bus::Join failed"));
+    }
+    status = (status == ER_OK) ? tStatus : status;
+
     return status;
 }
 

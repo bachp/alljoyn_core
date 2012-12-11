@@ -103,20 +103,8 @@ AllJoynObj::~AllJoynObj()
     bus.UnregisterBusObject(*this);
     router.RemoveBusNameListener(this);
 
-    /* Wait for any outstanding JoinSessionThreads */
-    joinSessionThreadsLock.Lock(MUTEX_CONTEXT);
-    isStopping = true;
-    vector<JoinSessionThread*>::iterator it = joinSessionThreads.begin();
-    while (it != joinSessionThreads.end()) {
-        (*it)->Stop();
-        ++it;
-    }
-    while (!joinSessionThreads.empty()) {
-        joinSessionThreadsLock.Unlock(MUTEX_CONTEXT);
-        qcc::Sleep(50);
-        joinSessionThreadsLock.Lock(MUTEX_CONTEXT);
-    }
-    joinSessionThreadsLock.Unlock(MUTEX_CONTEXT);
+    Stop();
+    Join();
 }
 
 QStatus AllJoynObj::Init()
@@ -243,6 +231,33 @@ QStatus AllJoynObj::Init()
     }
 
     return status;
+}
+
+QStatus AllJoynObj::Stop()
+{
+    /* Stop any outstanding JoinSessionThreads */
+    joinSessionThreadsLock.Lock(MUTEX_CONTEXT);
+    isStopping = true;
+    vector<JoinSessionThread*>::iterator it = joinSessionThreads.begin();
+    while (it != joinSessionThreads.end()) {
+        (*it)->Stop();
+        ++it;
+    }
+    joinSessionThreadsLock.Unlock(MUTEX_CONTEXT);
+    return ER_OK;
+}
+
+QStatus AllJoynObj::Join()
+{
+    /* Wait for any outstanding JoinSessionThreads */
+    joinSessionThreadsLock.Lock(MUTEX_CONTEXT);
+    while (!joinSessionThreads.empty()) {
+        joinSessionThreadsLock.Unlock(MUTEX_CONTEXT);
+        qcc::Sleep(50);
+        joinSessionThreadsLock.Lock(MUTEX_CONTEXT);
+    }
+    joinSessionThreadsLock.Unlock(MUTEX_CONTEXT);
+    return ER_OK;
 }
 
 void AllJoynObj::ObjectRegistered(void)
@@ -1031,6 +1046,7 @@ void AllJoynObj::JoinSessionThread::ThreadExit(Thread* thread)
     }
     ajObj.joinSessionThreadsLock.Unlock(MUTEX_CONTEXT);
     if (deleteMe) {
+        deleteMe->Join();
         delete deleteMe;
     } else {
         QCC_LogError(ER_FAIL, ("Internal error: JoinSessionThread not found on list"));

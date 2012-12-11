@@ -107,6 +107,20 @@ class AllJoynDebugObj : public BusObject {
      */
     QStatus Init();
 
+    /**
+     * Stop AlljoynDebugObj.
+     *
+     * @return ER_OK if successful.
+     */
+    QStatus Stop() { return ER_OK; }
+
+    /**
+     * Join AlljoynDebugObj.
+     *
+     * @return ER_OK if successful.
+     */
+    QStatus Join() { return ER_OK; }
+
     QStatus AddDebugInterface(AllJoynDebugObjAddon* addon,
                               const char* ifaceName,
                               const MethodInfo* methodInfo,
