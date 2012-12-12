@@ -430,13 +430,15 @@ class AllJoynObj : public BusObject, public NameListener, public TransportListen
         RemoteEndpoint* streamingEp;
         std::vector<qcc::String> memberNames;
         bool isInitializing;
+        bool isRawReady;
         SessionMapEntry() :
             id(0),
             sessionPort(0),
             opts(),
             fd(-1),
             streamingEp(NULL),
-            isInitializing(false) { }
+            isInitializing(false),
+            isRawReady(false) { }
     };
 
     typedef std::multimap<std::pair<qcc::String, SessionId>, SessionMapEntry> SessionMapType;

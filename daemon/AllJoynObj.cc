@@ -861,10 +861,6 @@ ThreadReturn STDCALL AllJoynObj::JoinSessionThread::RunJoin()
 
             /* If a raw sesssion was requested, then teardown the new b2bEp to use it for a raw stream */
             if ((replyCode == ALLJOYN_JOINSESSION_REPLY_SUCCESS) && (optsOut.traffic != SessionOpts::TRAFFIC_MESSAGES)) {
-                /*
-                 * TODO - it looks to like sme is already the session map entry we are looking for
-                 * so the find is redundant.
-                 */
                 SessionMapEntry* smEntry = ajObj.SessionMapFind(sender, id);
                 if (smEntry) {
                     /* IncrementRefs and Release locks before shutting down endpoint and reacquire after.
@@ -877,6 +873,13 @@ ThreadReturn STDCALL AllJoynObj::JoinSessionThread::RunJoin()
                     b2bEp->DecrementPushCount();
                     ajObj.AcquireLocks();
                     b2bEp = static_cast<RemoteEndpoint*>(ajObj.router.FindEndpoint(b2bEpName));
+                    smEntry = ajObj.SessionMapFind(sender, id);
+                    if (smEntry) {
+                        smEntry->isRawReady = true;
+                    } else {
+                        status = ER_FAIL;
+                        QCC_LogError(status, ("Failed to find SessionMapEntry"));
+                    }
 
                     if (status != ER_OK) {
                         QCC_LogError(status, ("Failed to shutdown remote endpoint for raw usage"));
@@ -1521,13 +1524,18 @@ qcc::ThreadReturn STDCALL AllJoynObj::JoinSessionThread::RunAttach()
                         ajObj.ReleaseLocks();
                         status = ajObj.ShutdownEndpoint(*smEntry->streamingEp, smEntry->fd);
                         ajObj.AcquireLocks();
-                        smEntry->streamingEp->DecrementPushCount();
-                        if (status != ER_OK) {
-                            QCC_LogError(status, ("Failed to shutdown raw endpoint"));
+                        smEntry = ajObj.SessionMapFind(creatorName, id);
+                        if (smEntry) {
+                            smEntry->streamingEp->DecrementPushCount();
+                            if (status != ER_OK) {
+                                QCC_LogError(status, ("Failed to shutdown raw endpoint"));
+                            }
+                            smEntry->streamingEp = NULL;
+                            smEntry->isRawReady = true;
                         }
-                        smEntry->streamingEp = NULL;
                     }
-                } else {
+                }
+                if (!smEntry) {
                     QCC_LogError(ER_FAIL, ("Failed to find SessionMapEntry \"%s\",%08x", creatorName.c_str(), id));
                 }
             }
@@ -2098,15 +2106,15 @@ void AllJoynObj::GetSessionFd(const InterfaceDescription::Member* member, Messag
     SessionMapEntry* smEntry = SessionMapFind(msg->GetSender(), id);
     if (smEntry && (smEntry->opts.traffic != SessionOpts::TRAFFIC_MESSAGES)) {
         uint64_t ts = GetTimestamp64();
-        while (smEntry && ((sockFd = smEntry->fd) == -1) && ((ts + 5000LL) > GetTimestamp64())) {
+        while (smEntry && !smEntry->isRawReady && ((ts + 5000LL) > GetTimestamp64())) {
             ReleaseLocks();
             qcc::Sleep(5);
             AcquireLocks();
             smEntry = SessionMapFind(msg->GetSender(), id);
         }
         /* sessionMap entry removal was delayed waiting for sockFd to become available. Delete it now. */
-        if (sockFd != -1) {
-            assert(smEntry);
+        if (smEntry) {
+            sockFd = smEntry->fd;
             SessionMapErase(*smEntry);
         }
     }
