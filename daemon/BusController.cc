@@ -101,11 +101,13 @@ QStatus BusController::Stop()
     }
     status = (status == ER_OK) ? tStatus : status;
 
+#ifndef NDEBUG
     tStatus = alljoynDebugObj.Stop();
     if (tStatus != ER_OK) {
         QCC_LogError(tStatus, ("alljoynDebugObj::Stop failed"));
     }
     status = (status == ER_OK) ? tStatus : status;
+#endif
 
     tStatus = bus.Stop();
     if (tStatus != ER_OK) {
@@ -129,11 +131,13 @@ QStatus BusController::Join()
     }
     status = (status == ER_OK) ? tStatus : status;
 
+#ifndef NDEBUG
     tStatus = alljoynDebugObj.Join();
     if (tStatus != ER_OK) {
         QCC_LogError(tStatus, ("alljoynDebugObj::Join failed"));
     }
     status = (status == ER_OK) ? tStatus : status;
+#endif
 
     tStatus = bus.Join();
     if (tStatus != ER_OK) {
