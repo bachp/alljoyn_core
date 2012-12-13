@@ -143,7 +143,6 @@ class SignalListeningObject : public BusObject {
         } else {
             printf("Registered signal handler for %s.nameChanged.\n", SERVICE_NAME);
         }
-        /* Empty constructor */
     }
 
     QStatus SubscribeNameChangedSignal(void) {
@@ -157,7 +156,6 @@ class SignalListeningObject : public BusObject {
     {
         printf("--==## signalConsumer: Name Changed signal Received ##==--\n");
         printf("\tNew name: '%s'.\n", msg->GetArg(0)->v_string.str);
-
     }
 
   private:
