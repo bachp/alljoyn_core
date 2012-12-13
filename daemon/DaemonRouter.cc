@@ -199,7 +199,7 @@ QStatus DaemonRouter::PushMessage(Message& msg, BusEndpoint& origSender)
 
         if (msg->IsSessionless()) {
             /* Give "locally generated" sessionless message to SessionlessObj */
-            if (sender->GetEndpointType() != BusEndpoint::ENDPOINT_TYPE_VIRTUAL) {
+            if (sender->GetEndpointType() != BusEndpoint::ENDPOINT_TYPE_BUS2BUS) {
                 status = busController->PushSessionlessMessage(msg);
             }
         } else if (msg->IsGlobalBroadcast()) {
