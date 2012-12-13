@@ -342,7 +342,8 @@ void* RemoteEndpoint::RxThread::Run(void* arg)
                                 qcc::Sleep(10);
                                 status = router.PushMessage(msg, *ep);
                             }
-                        } else if ((router.IsDaemon() && !bus2bus) || (status == ER_BUS_SIGNATURE_MISMATCH) || (status == ER_BUS_UNMATCHED_REPLY_SERIAL) || (status == ER_BUS_ENDPOINT_CLOSING)) {
+                        }
+                        if ((router.IsDaemon() && !bus2bus) || (status == ER_BUS_SIGNATURE_MISMATCH) || (status == ER_BUS_UNMATCHED_REPLY_SERIAL) || (status == ER_BUS_ENDPOINT_CLOSING)) {
                             QCC_DbgHLPrintf(("Discarding %s: %s", msg->Description().c_str(), QCC_StatusText(status)));
                             status = ER_OK;
                         }
