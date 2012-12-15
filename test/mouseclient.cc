@@ -80,7 +80,7 @@ static uint32_t joinEndTime = 0;
 
 /** AllJoynListener receives discovery events from AllJoyn */
 class MyBusListener : public BusListener, public SessionListener {
-public:
+  public:
 
     MyBusListener() : BusListener(), sessionId(0) { }
 
@@ -128,9 +128,9 @@ public:
     void NameOwnerChanged(const char* name, const char* previousOwner, const char* newOwner)
     {
         QCC_SyncPrintf("NameOwnerChanged(%s, %s, %s)\n",
-            name,
-            previousOwner ? previousOwner : "null",
-                newOwner ? newOwner : "null");
+                       name,
+                       previousOwner ? previousOwner : "null",
+                       newOwner ? newOwner : "null");
     }
 
     void SessionLost(SessionId sessionId) {
@@ -140,7 +140,7 @@ public:
 
     SessionId GetSessionId() const { return sessionId; }
 
-private:
+  private:
     SessionId sessionId;
 };
 
@@ -166,7 +166,7 @@ static void usage(void)
 
 
 class LocalTestObject : public BusObject {
-public:
+  public:
 
     void ObjectRegistered() {
         QStatus status = bus->AddMatch("type='signal',interface='org.alljoyn.ajlite_test',member='ADC_Update'");
@@ -197,23 +197,23 @@ public:
         const InterfaceDescription::Member* member = regTestIntf->GetMember("ADC_Update");
         assert(member);
         bus.RegisterSignalHandler(this,
-            static_cast<MessageReceiver::SignalHandler>(&LocalTestObject::ADC_Update),
-            member,
-            NULL);
+                                  static_cast<MessageReceiver::SignalHandler>(&LocalTestObject::ADC_Update),
+                                  member,
+                                  NULL);
 
         member = regTestIntf->GetMember("Gyro_Update");
         assert(member);
         bus.RegisterSignalHandler(this,
-            static_cast<MessageReceiver::SignalHandler>(&LocalTestObject::Gyro_Update),
-            member,
-            NULL);
+                                  static_cast<MessageReceiver::SignalHandler>(&LocalTestObject::Gyro_Update),
+                                  member,
+                                  NULL);
 
         member = regTestIntf->GetMember("Button_Down");
         assert(member);
         bus.RegisterSignalHandler(this,
-            static_cast<MessageReceiver::SignalHandler>(&LocalTestObject::Button_Down),
-            member,
-            NULL);
+                                  static_cast<MessageReceiver::SignalHandler>(&LocalTestObject::Button_Down),
+                                  member,
+                                  NULL);
     }
 
 
@@ -229,8 +229,8 @@ public:
     }
 
     void Gyro_Update(const InterfaceDescription::Member* member,
-        const char* sourcePath,
-        Message& msg)
+                     const char* sourcePath,
+                     Message& msg)
     {
         const static int CX = (65536 / GetSystemMetrics(SM_CXSCREEN));
         const static int CY = (65536 / GetSystemMetrics(SM_CYSCREEN));
@@ -277,8 +277,8 @@ public:
     }
 
     void ADC_Update(const InterfaceDescription::Member* member,
-        const char* sourcePath,
-        Message& msg)
+                    const char* sourcePath,
+                    Message& msg)
     {
         int32_t i;
         msg->GetArgs("i", &i);

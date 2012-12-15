@@ -393,7 +393,7 @@ void AllJoynPeerObj::ExchangeGroupKeys(const InterfaceDescription::Member* membe
             status = key.Load(src);
         } else {
             assert(keyGenVersion == 1);
-            status = key.Set(msg->GetArg(0)->v_scalarArray.v_byte, msg->GetArg(0)->v_scalarArray.numElements, KeyBlob::AES); 
+            status = key.Set(msg->GetArg(0)->v_scalarArray.v_byte, msg->GetArg(0)->v_scalarArray.numElements, KeyBlob::AES);
         }
         if (status == ER_OK) {
             /*
@@ -949,7 +949,7 @@ QStatus AllJoynPeerObj::AuthenticatePeer(AllJoynMessageType msgType, const qcc::
                 StringSource src(replyMsg->GetArg(0)->v_scalarArray.v_byte, replyMsg->GetArg(0)->v_scalarArray.numElements);
                 status = key.Load(src);
             } else {
-                status = key.Set(replyMsg->GetArg(0)->v_scalarArray.v_byte, replyMsg->GetArg(0)->v_scalarArray.numElements, KeyBlob::AES); 
+                status = key.Set(replyMsg->GetArg(0)->v_scalarArray.v_byte, replyMsg->GetArg(0)->v_scalarArray.numElements, KeyBlob::AES);
             }
             if (status == ER_OK) {
                 /*

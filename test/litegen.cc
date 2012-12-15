@@ -1,6 +1,6 @@
 /**
  * @file
- * 
+ *
  */
 
 /******************************************************************************
@@ -42,7 +42,7 @@ void ParseFile(const qcc::String& path, qcc::String& xml)
 
     if (t.is_open()) {
         std::string str((std::istreambuf_iterator<char>(t)),
-                         std::istreambuf_iterator<char>());
+                        std::istreambuf_iterator<char>());
         xml = str.c_str();
     } else {
         printf("ERROR!\n");
@@ -84,16 +84,14 @@ int main(int argc, char** argv)
     const ChildVector children = root->GetChildren("interface");
     const qcc::String objectPath = root->GetAttribute("name");
 
-    struct Member
-    {
+    struct Member {
         qcc::String name;
         int obj;
         int iface;
         int idx;
     };
 
-    struct Property
-    {
+    struct Property {
         qcc::String name;
         int obj;
         int iface;
@@ -241,7 +239,7 @@ int main(int argc, char** argv)
         Property prop = *it;
         printf("#define PRX_%s_PROP AJ_PRX_PROPERTY_ID(%d, %d, %d)\n", prop.name.c_str(), prop.obj, prop.iface - props_offset, prop.idx);
     }
-*/
+ */
 
     return 0;
 }
