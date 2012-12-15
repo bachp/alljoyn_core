@@ -104,7 +104,6 @@ qcc::String AuthMechPIN::InitialResponse(AuthResult& result)
 
 qcc::String AuthMechPIN::Response(const qcc::String& challenge, AuthResult& result)
 {
-    QStatus status = ER_OK;
     AuthListener::Credentials creds;
     qcc::String response;
 
@@ -142,7 +141,6 @@ qcc::String AuthMechPIN::Response(const qcc::String& challenge, AuthResult& resu
 
 qcc::String AuthMechPIN::Challenge(const qcc::String& response, AuthResult& result)
 {
-    QStatus status = ER_OK;
     qcc::String challenge;
 
     if (nonce.empty()) {
