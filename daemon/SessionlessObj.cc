@@ -544,7 +544,7 @@ void SessionlessObj::AlarmTriggered(const Alarm& alarm, QStatus reason)
 
         /* Rearm alarm */
         if (tilExpire != ::numeric_limits<uint32_t>::max()) {
-        	SessionlessObj* slObj = this;
+            SessionlessObj* slObj = this;
             timer.AddAlarm(Alarm(tilExpire, slObj));
         }
     }
