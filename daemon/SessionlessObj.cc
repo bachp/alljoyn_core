@@ -297,7 +297,8 @@ QStatus SessionlessObj::PushMessage(Message& msg)
     }
     lock.Unlock();
     uint32_t zero = 0;
-    QStatus status = timer.AddAlarm(Alarm(zero, this));
+    SessionlessObj* slObj = this;
+    QStatus status = timer.AddAlarm(Alarm(zero, slObj));
 
     return status;
 }
@@ -543,7 +544,8 @@ void SessionlessObj::AlarmTriggered(const Alarm& alarm, QStatus reason)
 
         /* Rearm alarm */
         if (tilExpire != ::numeric_limits<uint32_t>::max()) {
-            timer.AddAlarm(Alarm(tilExpire, this));
+        	SessionlessObj* slObj = this;
+            timer.AddAlarm(Alarm(tilExpire, slObj));
         }
     }
 }
