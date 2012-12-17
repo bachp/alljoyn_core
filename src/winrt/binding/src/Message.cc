@@ -81,6 +81,12 @@ bool Message::IsGlobalBroadcast()
     return ((ajn::_Message*)*_message)->IsGlobalBroadcast();
 }
 
+bool Message::IsSessionless()
+{
+    // Call the real API
+    return ((ajn::_Message*)*_message)->IsSessionless();
+}
+
 bool Message::IsExpired(Platform::WriteOnlyArray<uint32_t> ^ tillExpireMS)
 {
     ::QStatus status = ER_OK;

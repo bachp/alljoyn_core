@@ -48,6 +48,8 @@ public enum class AllJoynFlagType : uint32_t {
     ALLJOYN_FLAG_AUTO_START         = ajn::ALLJOYN_FLAG_AUTO_START,
     /// <summary>Allow messages from remote hosts (valid only in Hello message)</summary>
     ALLJOYN_FLAG_ALLOW_REMOTE_MSG   = ajn::ALLJOYN_FLAG_ALLOW_REMOTE_MSG,
+    /// <summary>Sessionless message</summary>
+    ALLJOYN_FLAG_SESSIONLESS        = ajn::ALLJOYN_FLAG_SESSIONLESS,
     /// <summary>Global (bus-to-bus) broadcast</summary>
     ALLJOYN_FLAG_GLOBAL_BROADCAST   = ajn::ALLJOYN_FLAG_GLOBAL_BROADCAST,
     /// <summary>Header is compressed</summary>
@@ -101,7 +103,7 @@ class _Message {
 };
 
 /// <summary>
-///This class implements an AllJoyn meesage
+///This class implements an AllJoyn message
 /// </summary>
 public ref class Message sealed {
   public:
@@ -119,6 +121,13 @@ public ref class Message sealed {
     ///   Return true if this is a global broadcast message.
     /// </returns>
     bool IsGlobalBroadcast();
+    /// <summary>
+    ///Determine if message is a sessionless signal.
+    /// </summary>
+    /// <returns>
+    ///Return true if this is a sessionless signal.
+    /// </returns>
+    bool IsSessionless();
 
     /// <summary>
     ///Return true if message's TTL header indicates that it is expired
