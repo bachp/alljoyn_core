@@ -53,7 +53,7 @@ class BusController;
  * for messages directed to the bus.
  */
 class AllJoynObj : public BusObject, public NameListener, public TransportListener, public qcc::AlarmListener {
-    friend class RemoteEndpoint;
+    friend class _RemoteEndpoint;
 
   public:
     /**
@@ -427,7 +427,7 @@ class AllJoynObj : public BusObject, public NameListener, public TransportListen
         SessionPort sessionPort;
         SessionOpts opts;
         qcc::SocketFd fd;
-        RemoteEndpoint* streamingEp;
+        RemoteEndpoint streamingEp;
         std::vector<qcc::String> memberNames;
         bool isInitializing;
         bool isRawReady;
@@ -436,7 +436,6 @@ class AllJoynObj : public BusObject, public NameListener, public TransportListen
             sessionPort(0),
             opts(),
             fd(-1),
-            streamingEp(NULL),
             isInitializing(false),
             isRawReady(false) { }
     };
@@ -465,14 +464,14 @@ class AllJoynObj : public BusObject, public NameListener, public TransportListen
      */
     void SessionMapErase(SessionMapEntry& sme);
 
-    const qcc::GUID128& guid;                               /**< Global GUID of this daemon */
+    const qcc::GUID128& guid;                                  /**< Global GUID of this daemon */
 
     const InterfaceDescription::Member* exchangeNamesSignal;   /**< org.alljoyn.Daemon.ExchangeNames signal member */
     const InterfaceDescription::Member* detachSessionSignal;   /**< org.alljoyn.Daemon.DetachSession signal member */
 
-    std::map<qcc::String, VirtualEndpoint*> virtualEndpoints;  /**< Map of endpoints that reside behind a connected AllJoyn daemon */
+    std::map<qcc::String, VirtualEndpoint> virtualEndpoints;   /**< Map of endpoints that reside behind a connected AllJoyn daemon */
 
-    std::map<qcc::StringMapKey, RemoteEndpoint*> b2bEndpoints;    /**< Map of bus-to-bus endpoints that are connected to external daemons */
+    std::map<qcc::StringMapKey, RemoteEndpoint> b2bEndpoints;  /**< Map of bus-to-bus endpoints that are connected to external daemons */
 
     qcc::Timer timer;           /**< Timer object for reaping expired names */
 
@@ -552,7 +551,7 @@ class AllJoynObj : public BusObject, public NameListener, public TransportListen
      * @param src              Unique name of session joiner.
      * @param sessionHost      Unique name of sessionHost.
      * @param dest             Unique name of session creator.
-     * @param remoteB2BName    Unique name of directly connected (next hop) B2B endpoint.
+     * @param b2bEp            Directly connected (next hop) B2B endpoint.
      * @param remoteControllerName  Unique name of bus controller at next hop.
      * @param outgoingSessionId     SessionId to use for outgoing AttachSession message. Should
      *                              be 0 for newly created (non-multipoint) sessions.
@@ -567,7 +566,7 @@ class AllJoynObj : public BusObject, public NameListener, public TransportListen
                               const char* src,
                               const char* sessionHost,
                               const char* dest,
-                              const char* remoteB2BName,
+                              RemoteEndpoint& b2bEp,
                               const char* remoteControllerName,
                               SessionId outgoingSessionId,
                               const char* busAddr,
@@ -660,7 +659,7 @@ class AllJoynObj : public BusObject, public NameListener, public TransportListen
      * @param uniqueName    The name of the endpoint to find.
      * @return The requested virtual endpoint or NULL if not found.
      */
-    VirtualEndpoint* FindVirtualEndpoint(const qcc::String& uniqueName);
+    VirtualEndpoint FindVirtualEndpoint(const qcc::String& uniqueName);
 
     /**
      * Internal bus-to-bus remote endpoint listener.
@@ -668,7 +667,7 @@ class AllJoynObj : public BusObject, public NameListener, public TransportListen
      *
      * @param ep   RemoteEndpoint that is exiting.
      */
-    void EndpointExit(RemoteEndpoint* ep);
+    void EndpointExit(RemoteEndpoint& ep);
 
     /**
      * Send signal that informs remote bus of names available on local daemon.

@@ -157,8 +157,8 @@ class BluetoothDeviceInterface {
                                   BTNodeDB& adInfo) = 0;
 
     virtual QStatus Disconnect(const qcc::String& busName) = 0;
-    virtual void ReturnEndpoint(RemoteEndpoint* ep) = 0;
-    virtual RemoteEndpoint* LookupEndpoint(const qcc::String& busName) = 0;
+    virtual void ReturnEndpoint(RemoteEndpoint& ep) = 0;
+    virtual RemoteEndpoint LookupEndpoint(const qcc::String& busName) = 0;
 
     virtual QStatus IsMaster(const BDAddress& addr, bool& master) const = 0;
     virtual void RequestBTRole(const BDAddress& addr, bt::BluetoothRole role) = 0;

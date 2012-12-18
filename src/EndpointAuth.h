@@ -130,7 +130,7 @@ class EndpointAuth : public SASLEngine::ExtensionHandler {
     qcc::String SASLCallout(SASLEngine& sasl, const qcc::String& extCmd);
 
     BusAttachment& bus;
-    RemoteEndpoint& endpoint;
+    RemoteEndpoint endpoint;
     qcc::String uniqueName;          ///< Unique bus name for endpoint
     qcc::String remoteName;          ///< Bus name for the peer at other end of this endpoint
 

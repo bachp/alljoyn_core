@@ -88,7 +88,7 @@ class AllJoynPeerObj : public BusObject, public BusListener, public qcc::AlarmLi
      *      - ER_OK if successful
      *      - An error status otherwise
      */
-    QStatus RequestHeaderExpansion(Message& msg, RemoteEndpoint* sender);
+    QStatus RequestHeaderExpansion(Message& msg, RemoteEndpoint& sender);
 
     /**
      * This function is called when an encrypted message requires authentication.

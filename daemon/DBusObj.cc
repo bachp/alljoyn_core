@@ -126,7 +126,7 @@ void DBusObj::ObjectRegistered()
     /* Acquire org.freedesktop.DBus name (locally) */
     uint32_t disposition = DBUS_REQUEST_NAME_REPLY_EXISTS;
     QStatus status = router.AddAlias(org::freedesktop::DBus::WellKnownName,
-                                     bus.GetInternal().GetLocalEndpoint().GetUniqueName(),
+                                     bus.GetInternal().GetLocalEndpoint()->GetUniqueName(),
                                      DBUS_NAME_FLAG_DO_NOT_QUEUE,
                                      disposition,
                                      NULL,
@@ -191,7 +191,7 @@ void DBusObj::NameHasOwner(const InterfaceDescription::Member* member, Message& 
     assert(nameArg && (ALLJOYN_STRING == nameArg->typeId));
 
     /* Find name */
-    boolArg.v_bool = (NULL != router.FindEndpoint(nameArg->v_string.str));
+    boolArg.v_bool = router.FindEndpoint(nameArg->v_string.str)->IsValid();
 
     /* Send the response */
     status = MethodReply(msg, &boolArg, 1);
@@ -255,8 +255,8 @@ void DBusObj::GetNameOwner(const InterfaceDescription::Member* member, Message& 
     QStatus status;
     const MsgArg* nameArg = msg->GetArg(0);
 
-    BusEndpoint* ep = router.FindEndpoint(nameArg->v_string.str);
-    if (NULL == ep) {
+    BusEndpoint ep = router.FindEndpoint(nameArg->v_string.str);
+    if (!ep->IsValid()) {
         status = MethodReply(msg, "org.freedesktop.DBus.Error.NameHasNoOwner");
     } else {
         MsgArg replyArg(ALLJOYN_STRING);
@@ -277,8 +277,8 @@ void DBusObj::GetConnectionUnixUser(const InterfaceDescription::Member* member, 
     QStatus status;
     const MsgArg* nameArg = msg->GetArg(0);
 
-    BusEndpoint* ep = router.FindEndpoint(nameArg->v_string.str);
-    if (NULL == ep) {
+    BusEndpoint ep = router.FindEndpoint(nameArg->v_string.str);
+    if (!ep->IsValid()) {
         status = MethodReply(msg, "org.freedesktop.DBus.Error.NameHasNoOwner");
     } else {
         if (ep->SupportsUnixIDs()) {
@@ -300,8 +300,8 @@ void DBusObj::GetConnectionUnixProcessID(const InterfaceDescription::Member* mem
     QStatus status;
     const MsgArg* nameArg = msg->GetArg(0);
 
-    BusEndpoint* ep = router.FindEndpoint(nameArg->v_string.str);
-    if (NULL == ep) {
+    BusEndpoint ep = router.FindEndpoint(nameArg->v_string.str);
+    if (!ep->IsValid()) {
         status = MethodReply(msg, "org.freedesktop.DBus.Error.NameHasNoOwner");
     } else {
         if (ep->SupportsUnixIDs()) {
@@ -322,24 +322,20 @@ void DBusObj::AddMatch(const InterfaceDescription::Member* member, Message& msg)
 {
     QStatus status;
     const MsgArg* nameArg = msg->GetArg(0);
-    BusEndpoint* ep = NULL;
 
     assert(nameArg && (nameArg->typeId == ALLJOYN_STRING));
 
     Rule rule(nameArg->v_string.str, &status);
     router.LockNameTable();
     if (ER_OK == status) {
-        ep = router.FindEndpoint(msg->GetSender());
-        if (!ep) {
+        BusEndpoint ep = router.FindEndpoint(msg->GetSender());
+        if (ep->IsValid()) {
+            status = router.AddRule(ep, rule);
+        } else {
             status = ER_BUS_NO_ENDPOINT;
         }
     }
-
-    if (ER_OK == status) {
-        status = router.AddRule(*ep, rule);
-    }
     router.UnlockNameTable();
-
     if (ER_OK == status) {
         status = MethodReply(msg, (const MsgArg*) NULL, 0);
     } else {
@@ -352,22 +348,18 @@ void DBusObj::RemoveMatch(const InterfaceDescription::Member* member, Message& m
 {
     QStatus status;
     const MsgArg* nameArg = msg->GetArg(0);
-    BusEndpoint* ep = NULL;
 
     assert(nameArg && (nameArg->typeId == ALLJOYN_STRING));
 
     Rule rule(nameArg->v_string.str, &status);
     if (ER_OK == status) {
-        ep = router.FindEndpoint(msg->GetSender());
-        if (!ep) {
+        BusEndpoint ep = router.FindEndpoint(msg->GetSender());
+        if (ep->IsValid()) {
+            status = router.RemoveRule(ep, rule);
+        } else {
             status = ER_BUS_NO_ENDPOINT;
         }
     }
-
-    if (ER_OK == status) {
-        status = router.RemoveRule(*ep, rule);
-    }
-
     if (ER_OK == status) {
         status = MethodReply(msg, (const MsgArg*)NULL, 0);
     } else {

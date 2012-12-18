@@ -43,7 +43,7 @@ Message::Message(const ajn::Message* message)
             break;
         }
         // Attach m to _Message managed object
-        _mMessage = new qcc::ManagedObj<_Message>(m);
+        _mMessage = new qcc::ManagedObj<_Message>(qcc::ManagedObj<_Message>::wrap(m));
         if (NULL == _mMessage) {
             status = ER_OUT_OF_MEMORY;
             break;

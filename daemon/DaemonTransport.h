@@ -44,7 +44,7 @@ namespace ajn {
  *
  * The DaemonTransport class has different incarnations depending on the platform.
  */
-class DaemonTransport : public Transport, public RemoteEndpoint::EndpointListener, public qcc::Thread {
+class DaemonTransport : public Transport, public _RemoteEndpoint::EndpointListener, public qcc::Thread {
 
   public:
     /**
@@ -153,12 +153,12 @@ class DaemonTransport : public Transport, public RemoteEndpoint::EndpointListene
      *
      * @param endpoint   Daemon RemoteEndpoint instance that has exited.
      */
-    void EndpointExit(RemoteEndpoint* endpoint);
+    void EndpointExit(RemoteEndpoint& endpoint);
 
   private:
     BusAttachment& bus;                       /**< The message bus for this transport */
     bool stopping;                            /**< True if Stop() has been called but endpoints still exist */
-    std::list<RemoteEndpoint*> endpointList;  /**< List of active endpoints */
+    std::list<RemoteEndpoint> endpointList;   /**< List of active endpoints */
     qcc::Mutex endpointListLock;              /**< Mutex that protects the endpoint list */
 
     /**

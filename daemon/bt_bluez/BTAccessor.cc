@@ -785,10 +785,10 @@ exit:
 }
 
 
-RemoteEndpoint* BTTransport::BTAccessor::Accept(BusAttachment& alljoyn,
-                                                Event* connectEvent)
+RemoteEndpoint BTTransport::BTAccessor::Accept(BusAttachment& alljoyn,
+                                               Event* connectEvent)
 {
-    BlueZBTEndpoint* conn(NULL);
+    RemoteEndpoint conn;
     SocketFd sockFd;
     BT_SOCKADDR remoteAddr;
     socklen_t ralen = sizeof(remoteAddr);
@@ -848,26 +848,28 @@ exit:
                        remAddr.ToString().c_str(),
                        redirectAddr.IsValid() ? " to " : "",
                        redirectAddr.IsValid() ? redirectAddr.ToString().c_str() : ""));
-
-        conn = new BlueZBTEndpoint(alljoyn, true, sockFd, dummyNode, redirectAddr);
+        bool truthiness = true;
+        BlueZBTEndpoint conn1(alljoyn, truthiness, sockFd, dummyNode, redirectAddr);
+        conn = RemoteEndpoint::cast(conn1);
     }
-
     return conn;
+
 }
 
 
-RemoteEndpoint* BTTransport::BTAccessor::Connect(BusAttachment& alljoyn,
-                                                 const BTNodeInfo& node)
+RemoteEndpoint BTTransport::BTAccessor::Connect(BusAttachment& alljoyn,
+                                                const BTNodeInfo& node)
 {
 
     QCC_DbgTrace(("BTTransport::BTAccessor::Connect(node = %s)",
                   node->ToString().c_str()));
+    RemoteEndpoint conn;
 
     if (!node->IsValid()) {
-        return NULL;
+        return conn;
     }
 
-    BlueZBTEndpoint* conn(NULL);
+
     int ret;
     int flags;
     int sockFd(-1);
@@ -969,7 +971,9 @@ exit:
 
     if (status == ER_OK) {
         BTBusAddress noRedirect;
-        conn = new BlueZBTEndpoint(alljoyn, false, sockFd, node, noRedirect);
+        bool falsiness = false;
+        BlueZBTEndpoint temp(alljoyn, falsiness, sockFd, node, noRedirect);
+        conn = RemoteEndpoint::cast(temp);
     } else {
         if (sockFd > 0) {
             QCC_DbgPrintf(("Closing sockFd: %d", sockFd));

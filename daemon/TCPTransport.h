@@ -48,7 +48,9 @@
 
 namespace ajn {
 
-class TCPEndpoint;
+class _TCPEndpoint;
+
+typedef qcc::ManagedObj<_TCPEndpoint> TCPEndpoint;
 
 /**
  * @brief A class for TCP Transports used in daemons.
@@ -59,8 +61,8 @@ class TCPEndpoint;
  * versions revolves around routing and discovery. This class provides a
  * specialization of class Transport for use by daemons.
  */
-class TCPTransport : public Transport, public RemoteEndpoint::EndpointListener, public qcc::Thread {
-    friend class TCPEndpoint;
+class TCPTransport : public Transport, public _RemoteEndpoint::EndpointListener, public qcc::Thread {
+    friend class _TCPEndpoint;
 
   public:
     /**
@@ -135,7 +137,7 @@ class TCPTransport : public Transport, public RemoteEndpoint::EndpointListener, 
      *      - ER_OK if successful.
      *      - an error status otherwise.
      */
-    QStatus Connect(const char* connectSpec, const SessionOpts& opts, BusEndpoint** newep);
+    QStatus Connect(const char* connectSpec, const SessionOpts& opts, BusEndpoint& newep);
 
     /**
      * Disconnect from a specified AllJoyn/DBus address.
@@ -274,7 +276,7 @@ class TCPTransport : public Transport, public RemoteEndpoint::EndpointListener, 
      *
      * @param endpoint   TCPEndpoint instance that has exited.
      */
-    void EndpointExit(RemoteEndpoint* endpoint);
+    void EndpointExit(RemoteEndpoint& endpoint);
 
     /**
      * Name of transport used in transport specs.
@@ -288,8 +290,8 @@ class TCPTransport : public Transport, public RemoteEndpoint::EndpointListener, 
     BusAttachment& m_bus;                                          /**< The message bus for this transport */
     bool m_stopping;                                               /**< True if Stop() has been called but endpoints still exist */
     TransportListener* m_listener;                                 /**< Registered TransportListener */
-    std::set<TCPEndpoint*> m_authList;                             /**< List of authenticating endpoints */
-    std::set<TCPEndpoint*> m_endpointList;                         /**< List of active endpoints */
+    std::set<TCPEndpoint> m_authList;                              /**< List of authenticating endpoints */
+    std::set<TCPEndpoint> m_endpointList;                          /**< List of active endpoints */
     std::set<Thread*> m_activeEndpointsThreadList;                 /**< List of threads starting up active endpoints */
     qcc::Mutex m_endpointListLock;                                 /**< Mutex that protects the endpoint and auth lists */
 
@@ -440,9 +442,9 @@ class TCPTransport : public Transport, public RemoteEndpoint::EndpointListener, 
      * @internal
      * @brief Authentication complete notificiation.
      *
-     * @param conn Pointer to the TCPEndpoint that completed authentication.
+     * @param conn Reference to the TCPEndpoint that completed authentication.
      */
-    void Authenticated(TCPEndpoint* conn);
+    void Authenticated(TCPEndpoint& conn);
 
     /**
      * @internal

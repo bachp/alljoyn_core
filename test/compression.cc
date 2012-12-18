@@ -89,8 +89,9 @@ int main(int argc, char** argv)
     uint32_t tok2;
     BusAttachment bus("compression");
     MyMessage msg(bus);
-    Pipe stream;
-    RemoteEndpoint ep(bus, false, "", &stream, "dummy", false);
+    Pipe* stream = new Pipe();
+    static const bool falsiness = false;
+    RemoteEndpoint ep(bus, falsiness, String::Empty, stream);
 
     printf("AllJoyn Library version: %s\n", ajn::GetVersion());
     printf("AllJoyn Library build info: %s\n", ajn::GetBuildInfo());

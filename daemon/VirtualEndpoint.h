@@ -5,7 +5,7 @@
  */
 
 /******************************************************************************
- * Copyright 2009-2011, Qualcomm Innovation Center, Inc.
+ * Copyright 2009-2012, Qualcomm Innovation Center, Inc.
  *
  *    Licensed under the Apache License, Version 2.0 (the "License");
  *    you may not use this file except in compliance with the License.
@@ -23,37 +23,47 @@
 #define _ALLJOYN_VIRTUALENDPOINT_H
 
 #include <qcc/platform.h>
+#include <qcc/ManagedObj.h>
+#include <qcc/String.h>
 
-#include <map>
-#include <vector>
-
+#include "BusEndpoint.h"
 #include "RemoteEndpoint.h"
 
-#include <qcc/String.h>
 #include <alljoyn/Message.h>
 
 #include <Status.h>
 
 namespace ajn {
 
+class _VirtualEndpoint;
+
 /**
  * %VirtualEndpoint is an alias for a remote bus connection that exists
  * behind a remote AllJoyn daemon.
  */
-class VirtualEndpoint : public BusEndpoint {
+typedef qcc::ManagedObj<_VirtualEndpoint> VirtualEndpoint;
+
+
+/**
+ * %_VirtualEndpoint is managed class that implements the virtual endpoint functionality.
+ */
+class _VirtualEndpoint : public _BusEndpoint {
   public:
+
+    /**
+     * Default constructor initializes an invalid endpoint. This allows for the declaration of uninitialized VirtualEndpoint variables.
+     */
+    _VirtualEndpoint() { }
+
     /**
      * Constructor
      *
      * @param uniqueName      Unique name for this endpoint.
      * @param b2bEp           Initial Bus-to-bus endpoint for this virtual endpoint.
      */
-    VirtualEndpoint(const char* uniqueName, RemoteEndpoint& b2bEp);
+    _VirtualEndpoint(const qcc::String& uniqueName, RemoteEndpoint& b2bEp);
 
-    ~VirtualEndpoint() {
-        /* Don't finalize the destructor while there are threads pushing to this endpoint. */
-        WaitForZeroPushCount();
-    }
+    ~_VirtualEndpoint() { }
     /**
      * Send an outgoing message.
      *
@@ -117,9 +127,10 @@ class VirtualEndpoint : public BusEndpoint {
      *
      * @param sessionId   Id of session between src and dest.
      * @param b2bCount    [OUT] Number of b2bEps that can route for given session. May be NULL.
-     * @return The current (top of queue) bus-to-bus endpoint.
+     * @return The current (top of queue) bus-to-bus endpoint or an invalid endpoint
+     *         (endpoint->IsValid() == false) if there is no such endpoint.
      */
-    RemoteEndpoint* GetBusToBusEndpoint(SessionId sessionId = 0, int* b2bCount = NULL) const;
+    RemoteEndpoint GetBusToBusEndpoint(SessionId sessionId = 0, int* b2bCount = NULL) const;
 
     /**
      * Add an alternate bus-to-bus endpoint that can route for this endpoint.
@@ -154,7 +165,7 @@ class VirtualEndpoint : public BusEndpoint {
      * @param b2bEp      [OUT] Written with B2B chosen for session.
      * @return  ER_OK if successful.
      */
-    QStatus AddSessionRef(SessionId sessionId, SessionOpts* opts, RemoteEndpoint*& b2bEp);
+    QStatus AddSessionRef(SessionId sessionId, SessionOpts* opts, RemoteEndpoint& b2bEp);
 
     /**
      * Remove (counted) mapping of sessionId to B2B endpoint.
@@ -209,7 +220,7 @@ class VirtualEndpoint : public BusEndpoint {
   private:
 
     const qcc::String m_uniqueName;                             /**< The unique name for this endpoint */
-    std::multimap<SessionId, RemoteEndpoint*> m_b2bEndpoints;   /**< Set of b2bs that can route for this virtual ep */
+    std::multimap<SessionId, RemoteEndpoint> m_b2bEndpoints;    /**< Set of b2bs that can route for this virtual ep */
 
     /** B2BInfo is a data container that holds B2B endpoint selection criteria */
     struct B2BInfo {

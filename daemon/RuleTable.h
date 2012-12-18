@@ -7,7 +7,7 @@
 /******************************************************************************
  *
  *
- * Copyright 2009-2011, Qualcomm Innovation Center, Inc.
+ * Copyright 2009-2012, Qualcomm Innovation Center, Inc.
  *
  *    Licensed under the Apache License, Version 2.0 (the "License");
  *    you may not use this file except in compliance with the License.
@@ -96,11 +96,17 @@ struct Rule {
      * @return  true if this rule matches the message.
      */
     bool IsMatch(const Message& msg);
+
+    /**
+     * String representation of a rule
+     */
+    qcc::String ToString() const;
+
 };
 
 
 /** Rule iterator */
-typedef std::multimap<BusEndpoint*, Rule>::iterator RuleIterator;
+typedef std::multimap<BusEndpoint, Rule>::iterator RuleIterator;
 
 /**
  * RuleTable is a thread-safe store used for storing
@@ -116,13 +122,7 @@ class RuleTable {
      * @param rule       Rule for endpoint
      * @return ER_OK if successful;
      */
-    QStatus AddRule(BusEndpoint& endpoint, const Rule& rule)
-    {
-        Lock();
-        rules.insert(std::pair<BusEndpoint*, Rule>(&endpoint, rule));
-        Unlock();
-        return ER_OK;
-    }
+    QStatus AddRule(BusEndpoint& endpoint, const Rule& rule);
 
     /**
      * Remove a rule for an endpoint.
@@ -131,20 +131,7 @@ class RuleTable {
      * @param rule       Rule to remove.
      * @return ER_OK if successful;
      */
-    QStatus RemoveRule(BusEndpoint& endpoint, Rule& rule)
-    {
-        Lock();
-        std::pair<RuleIterator, RuleIterator> range = rules.equal_range(&endpoint);
-        while (range.first != range.second) {
-            if (range.first->second == rule) {
-                rules.erase(range.first);
-                break;
-            }
-            range.first++;
-        }
-        Unlock();
-        return ER_OK;
-    }
+    QStatus RemoveRule(BusEndpoint& endpoint, Rule& rule);
 
     /**
      * Remove all rules for a given endpoint.
@@ -152,16 +139,7 @@ class RuleTable {
      * @param endpoint    Endpoint whose rules will be removed.
      * @return ER_OK if successful;
      */
-    QStatus RemoveAllRules(BusEndpoint& endpoint)
-    {
-        Lock();
-        std::pair<RuleIterator, RuleIterator> range = rules.equal_range(&endpoint);
-        if (range.first != rules.end()) {
-            rules.erase(range.first, range.second);
-        }
-        Unlock();
-        return ER_OK;
-    }
+    QStatus RemoveAllRules(BusEndpoint& endpoint);
 
     /**
      * Obtain exclusive access to rule table.
@@ -200,7 +178,7 @@ class RuleTable {
      * @return  Iterator to first rule for given endpoint.
      */
     RuleIterator FindRulesForEndpoint(BusEndpoint& endpoint) {
-        return rules.find(&endpoint);
+        return rules.find(endpoint);
     }
 
     /**
@@ -210,7 +188,7 @@ class RuleTable {
      * @param rule   Rule
      * @return       lower_bound itertor for ep, rule.
      */
-    RuleIterator LowerBound(BusEndpoint* endpoint, const Rule& rule);
+    RuleIterator LowerBound(BusEndpoint endpoint, const Rule& rule);
 
     /**
      * Advance iterator to next endpoint.
@@ -219,14 +197,14 @@ class RuleTable {
      * @return   Iterator to next endpoint in ruleTable or end.
      *
      */
-    RuleIterator AdvanceToNextEndpoint(BusEndpoint* endpoint) {
-        std::multimap<BusEndpoint*, Rule>::iterator ret = rules.upper_bound(endpoint);
+    RuleIterator AdvanceToNextEndpoint(BusEndpoint endpoint) {
+        std::multimap<BusEndpoint, Rule>::iterator ret = rules.upper_bound(endpoint);
         return ret;
     }
 
   private:
     qcc::Mutex lock;                            /**< Lock protecting rule table */
-    std::multimap<BusEndpoint*, Rule> rules;    /**< Rule table */
+    std::multimap<BusEndpoint, Rule> rules;    /**< Rule table */
 };
 
 }

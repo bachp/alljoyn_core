@@ -55,35 +55,44 @@ namespace ajn {
 class BusAttachment;
 class AllJoynPeerObj;
 
+class _LocalEndpoint;
+
+/**
+ * Managed object type that wraps a local endpoint
+ */
+typedef qcc::ManagedObj<_LocalEndpoint> LocalEndpoint;
 
 /**
  * %LocalEndpoint represents an endpoint connection to DBus/AllJoyn server
  */
-class LocalEndpoint : public BusEndpoint, public qcc::AlarmListener, public MessageReceiver {
+class _LocalEndpoint : public _BusEndpoint, public qcc::AlarmListener, public MessageReceiver {
 
-    friend class TCPTransport;
     friend class LocalTransport;
-    friend class UnixTransport;
     friend class BusObject;
 
   public:
+
+    /**
+     * Default constructor initializes an invalid endpoint. This allows for the declaration of uninitialized LocalEndpoint variables.
+     */
+    _LocalEndpoint() : dispatcher(NULL), deferredCallbacks(NULL), bus(NULL), replyTimer("replyTimer", true) { }
 
     /**
      * Constructor
      *
      * @param bus          Bus associated with endpoint.
      */
-    LocalEndpoint(BusAttachment& bus);
+    _LocalEndpoint(BusAttachment& bus);
 
     /**
      * Destructor.
      */
-    ~LocalEndpoint();
+    ~_LocalEndpoint();
 
     /**
      * Get the bus attachment for this endpoint
      */
-    BusAttachment& GetBus() { return bus; }
+    BusAttachment& GetBus() { return *bus; }
 
     /**
      * Start endpoint.
@@ -344,9 +353,14 @@ class LocalEndpoint : public BusEndpoint, public qcc::AlarmListener, public Mess
     bool AllowRemoteMessages() { return true; }
 
     /**
-     * Get the method dispatcher
+     * Set reentrancy on the dispatcher
      */
-    qcc::Timer& GetDispatcher() { return dispatcher; }
+    void EnableReentrancy();
+
+    /**
+     * Check the calling thread is making an illegal reentrant call.
+     */
+    bool IsReentrantCall();
 
     /** Internal utility method needed (only) by PermissionMsg */
     void SendErrMessage(Message& message, qcc::String errStr, qcc::String description);
@@ -359,36 +373,18 @@ class LocalEndpoint : public BusEndpoint, public qcc::AlarmListener, public Mess
 
   private:
 
-    /** Signal/Method dispatcher */
-    class Dispatcher : public qcc::Timer, public qcc::AlarmListener {
-      public:
-        Dispatcher(LocalEndpoint* ep);
-
-        QStatus DispatchMessage(Message& msg);
-
-        void AlarmTriggered(const qcc::Alarm& alarm, QStatus reason);
-
-      private:
-        LocalEndpoint* endpoint;
-    };
-
-    Dispatcher dispatcher;
+    /**
+     * Signal/Method dispatcher
+     */
+    class Dispatcher;
+    Dispatcher* dispatcher;
 
     /**
      * Performs operations that were deferred until the bus is connected such
      * as object registration callbacks
      */
-    class DeferredCallbacks : public qcc::AlarmListener {
-      public:
-        DeferredCallbacks(LocalEndpoint* ep) : endpoint(ep) { }
-
-        void AlarmTriggered(const qcc::Alarm& alarm, QStatus reason);
-
-      private:
-        LocalEndpoint* endpoint;
-    };
-
-    DeferredCallbacks deferredCallbacks;
+    class DeferredCallbacks;
+    DeferredCallbacks* deferredCallbacks;
 
     /**
      * PushMessage worker.
@@ -398,12 +394,12 @@ class LocalEndpoint : public BusEndpoint, public qcc::AlarmListener, public Mess
     /**
      * Assignment operator is private - LocalEndpoints cannot be assigned.
      */
-    LocalEndpoint& operator=(const LocalEndpoint& other);
+    _LocalEndpoint& operator=(const _LocalEndpoint& other);
 
     /**
      * Copy constructor is private - LocalEndpoints cannot be copied.
      */
-    LocalEndpoint(const LocalEndpoint& other);
+    _LocalEndpoint(const _LocalEndpoint& other);
 
     /**
      * Type definition for a method call reply context
@@ -446,7 +442,7 @@ class LocalEndpoint : public BusEndpoint, public qcc::AlarmListener, public Mess
     bool running;                      /**< Is the local endpoint up and running */
     MethodTable methodTable;           /**< Hash table of BusObject methods */
     SignalTable signalTable;           /**< Hash table of BusObject signal handlers */
-    BusAttachment& bus;                /**< Message bus */
+    BusAttachment* bus;                /**< Message bus */
     qcc::Mutex objectsLock;            /**< Mutex protecting Objects hash table */
     qcc::Mutex replyMapLock;           /**< Mutex protecting reply contexts */
     qcc::GUID128 guid;                 /**< GUID to uniquely identify a local endpoint */
@@ -586,7 +582,7 @@ class LocalTransport : public Transport {
      * @param newep           [OUT] Endpoint created as a result of successful connect.
      * @return  ER_NOT_IMPLEMENTED.
      */
-    QStatus Connect(const char* connectSpec, const SessionOpts& opts, BusEndpoint** newep) { return ER_NOT_IMPLEMENTED; }
+    QStatus Connect(const char* connectSpec, const SessionOpts& opts, BusEndpoint& newep) { return ER_NOT_IMPLEMENTED; }
 
     /**
      * Disconnect a local endpoint. (Not used for local transports)
@@ -622,7 +618,7 @@ class LocalTransport : public Transport {
      */
     QStatus RegisterBusObject(BusObject& obj)
     {
-        return localEndpoint.RegisterBusObject(obj);
+        return localEndpoint->RegisterBusObject(obj);
     }
 
     /**
@@ -632,7 +628,7 @@ class LocalTransport : public Transport {
      */
     void UnregisterBusObject(BusObject& object)
     {
-        return localEndpoint.UnregisterBusObject(object);
+        return localEndpoint->UnregisterBusObject(object);
     }
 
     /**
@@ -640,7 +636,7 @@ class LocalTransport : public Transport {
      *
      * @return  Local endpoint
      */
-    LocalEndpoint& GetLocalEndpoint() { return localEndpoint; }
+    LocalEndpoint GetLocalEndpoint() { return localEndpoint; }
 
     /**
      * Set a listener for transport related events.

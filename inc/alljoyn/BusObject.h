@@ -49,7 +49,7 @@ class MethodTable;
 class BusObject : public MessageReceiver {
 
     friend class MethodTable;
-    friend class LocalEndpoint;
+    friend class _LocalEndpoint;
 
   public:
 

@@ -53,6 +53,31 @@ using namespace qcc;
 
 namespace ajn {
 
+
+static const uint32_t LOCAL_ENDPOINT_CONCURRENCY = 4;
+
+
+class _LocalEndpoint::Dispatcher : public qcc::Timer, public qcc::AlarmListener {
+  public:
+    Dispatcher(_LocalEndpoint* endpoint) : Timer("lepDisp", true, LOCAL_ENDPOINT_CONCURRENCY, 10), AlarmListener(), endpoint(endpoint) { }
+    QStatus DispatchMessage(Message& msg);
+
+    void AlarmTriggered(const qcc::Alarm& alarm, QStatus reason);
+
+  private:
+    _LocalEndpoint* endpoint;
+};
+
+class _LocalEndpoint::DeferredCallbacks : public qcc::AlarmListener {
+  public:
+    DeferredCallbacks(_LocalEndpoint* ep) : endpoint(ep) { }
+
+    void AlarmTriggered(const qcc::Alarm& alarm, QStatus reason);
+
+  private:
+    _LocalEndpoint* endpoint;
+};
+
 LocalTransport::~LocalTransport()
 {
     Stop();
@@ -62,19 +87,19 @@ LocalTransport::~LocalTransport()
 QStatus LocalTransport::Start()
 {
     isStoppedEvent.ResetEvent();
-    return localEndpoint.Start();
+    return localEndpoint->Start();
 }
 
 QStatus LocalTransport::Stop()
 {
-    QStatus status = localEndpoint.Stop();
+    QStatus status = localEndpoint->Stop();
     isStoppedEvent.SetEvent();
     return status;
 }
 
 QStatus LocalTransport::Join()
 {
-    QStatus status = localEndpoint.Join();
+    QStatus status = localEndpoint->Join();
     /* Pend caller until transport is stopped */
     Event::Wait(isStoppedEvent);
     return status;
@@ -85,9 +110,9 @@ bool LocalTransport::IsRunning()
     return !isStoppedEvent.IsSet();
 }
 
-class LocalEndpoint::ReplyContext {
+class _LocalEndpoint::ReplyContext {
   public:
-    ReplyContext(LocalEndpoint* ep,
+    ReplyContext(LocalEndpoint ep,
                  MessageReceiver* receiver,
                  MessageReceiver::ReplyHandler handler,
                  const InterfaceDescription::Member* method,
@@ -104,14 +129,15 @@ class LocalEndpoint::ReplyContext {
     {
         uint32_t zero = 0;
         void* tempContext = (void*)this;
-        alarm = Alarm(timeout, ep, tempContext, zero);
+        AlarmListener* listener = ep.unwrap();
+        alarm = Alarm(timeout, listener, tempContext, zero);
     }
 
     ~ReplyContext() {
         ep->replyTimer.RemoveAlarm(alarm, false /* don't block if alarm in progress */);
     }
 
-    LocalEndpoint* ep;                           /* The endpoint this reply context is associated with */
+    LocalEndpoint ep;                            /* The endpoint this reply context is associated with */
     MessageReceiver* receiver;                   /* The object to receive the reply */
     MessageReceiver::ReplyHandler handler;       /* The receiving object's handler function */
     const InterfaceDescription::Member* method;  /* The method that was called */
@@ -125,12 +151,12 @@ class LocalEndpoint::ReplyContext {
     ReplyContext operator=(const ReplyContext& other);
 };
 
-LocalEndpoint::LocalEndpoint(BusAttachment& bus) :
-    BusEndpoint(BusEndpoint::ENDPOINT_TYPE_LOCAL),
-    dispatcher(this),
-    deferredCallbacks(this),
+_LocalEndpoint::_LocalEndpoint(BusAttachment& bus) :
+    _BusEndpoint(ENDPOINT_TYPE_LOCAL),
+    dispatcher(new Dispatcher(this)),
+    deferredCallbacks(new DeferredCallbacks(this)),
     running(false),
-    bus(bus),
+    bus(&bus),
     objectsLock(),
     replyMapLock(),
     replyTimer("replyTimer", true),
@@ -141,61 +167,79 @@ LocalEndpoint::LocalEndpoint(BusAttachment& bus) :
 {
 }
 
-LocalEndpoint::~LocalEndpoint()
+_LocalEndpoint::~_LocalEndpoint()
 {
     QCC_DbgHLPrintf(("LocalEndpoint~LocalEndpoint"));
-
-    running = false;
-
     /*
-     * Delete any stale reply contexts
+     * If bus is NULL the default constructor was used so this is just a placeholder endpoint
      */
-    replyMapLock.Lock(MUTEX_CONTEXT);
-    for (map<uint32_t, ReplyContext*>::iterator iter = replyMap.begin(); iter != replyMap.end(); ++iter) {
-        QCC_DbgHLPrintf(("LocalEndpoint~LocalEndpoint deleting reply handler for serial %u", iter->second->serial));
-        delete iter->second;
-    }
-    replyMap.clear();
-    replyMapLock.Unlock(MUTEX_CONTEXT);
-    /*
-     * Unregister all application registered bus objects
-     */
-    unordered_map<const char*, BusObject*, Hash, PathEq>::iterator it = localObjects.begin();
-    while (it != localObjects.end()) {
-        BusObject* obj = it->second;
-        UnregisterBusObject(*obj);
-        it = localObjects.begin();
-    }
-    /*
-     * Unregister AllJoyn registered bus objects
-     */
-    if (dbusObj) {
-        delete dbusObj;
-        dbusObj = NULL;
-    }
-    if (alljoynObj) {
-        delete alljoynObj;
-        alljoynObj = NULL;
-    }
-    if (alljoynDebugObj) {
-        delete alljoynDebugObj;
-        alljoynDebugObj = NULL;
-    }
-    if (peerObj) {
-        delete peerObj;
-        peerObj = NULL;
-    }
+    if (bus) {
+        running = false;
 
-    /* Don't finalize the destructor while there are threads pushing to this endpoint. */
-    WaitForZeroPushCount();
+        /*
+         * Delete any stale reply contexts
+         */
+        replyMapLock.Lock(MUTEX_CONTEXT);
+        for (map<uint32_t, ReplyContext*>::iterator iter = replyMap.begin(); iter != replyMap.end(); ++iter) {
+            QCC_DbgHLPrintf(("LocalEndpoint~LocalEndpoint deleting reply handler for serial %u", iter->second->serial));
+            delete iter->second;
+        }
+        replyMap.clear();
+        replyMapLock.Unlock(MUTEX_CONTEXT);
+        /*
+         * Unregister all application registered bus objects
+         */
+        unordered_map<const char*, BusObject*, Hash, PathEq>::iterator it = localObjects.begin();
+        while (it != localObjects.end()) {
+            BusObject* obj = it->second;
+            UnregisterBusObject(*obj);
+            it = localObjects.begin();
+        }
+
+        /*
+         * Shutdown the dispatcher and deferredCallbacks
+         */
+        if (dispatcher) {
+            delete dispatcher;
+            dispatcher = NULL;
+        }
+
+        if (deferredCallbacks) {
+            delete deferredCallbacks;
+            deferredCallbacks = NULL;
+        }
+
+        /*
+         * Unregister AllJoyn registered bus objects
+         */
+        if (dbusObj) {
+            delete dbusObj;
+            dbusObj = NULL;
+        }
+        if (alljoynObj) {
+            delete alljoynObj;
+            alljoynObj = NULL;
+        }
+        if (alljoynDebugObj) {
+            delete alljoynDebugObj;
+            alljoynDebugObj = NULL;
+        }
+        if (peerObj) {
+            delete peerObj;
+            peerObj = NULL;
+        }
+    }
 }
 
-QStatus LocalEndpoint::Start()
+QStatus _LocalEndpoint::Start()
 {
     QStatus status = ER_OK;
 
     /* Start the dispatcher */
-    status = dispatcher.Start();
+    if (!dispatcher) {
+        return ER_BUS_NO_ENDPOINT;
+    }
+    status = dispatcher->Start();
 
     /* Start the replyTimer */
     if (status == ER_OK) {
@@ -203,13 +247,13 @@ QStatus LocalEndpoint::Start()
     }
 
     /* Set the local endpoint's unique name */
-    SetUniqueName(bus.GetInternal().GetRouter().GenerateUniqueName());
+    SetUniqueName(bus->GetInternal().GetRouter().GenerateUniqueName());
 
     if (!dbusObj) {
         /* Register well known org.freedesktop.DBus remote object */
-        const InterfaceDescription* intf = bus.GetInterface(org::freedesktop::DBus::InterfaceName);
+        const InterfaceDescription* intf = bus->GetInterface(org::freedesktop::DBus::InterfaceName);
         if (intf) {
-            dbusObj = new ProxyBusObject(bus, org::freedesktop::DBus::WellKnownName, org::freedesktop::DBus::ObjectPath, 0);
+            dbusObj = new ProxyBusObject(*bus, org::freedesktop::DBus::WellKnownName, org::freedesktop::DBus::ObjectPath, 0);
             dbusObj->AddInterface(*intf);
         } else {
             status = ER_BUS_NO_SUCH_INTERFACE;
@@ -218,9 +262,9 @@ QStatus LocalEndpoint::Start()
 
     if (!alljoynObj && (ER_OK == status)) {
         /* Register well known org.alljoyn.Bus remote object */
-        const InterfaceDescription* mintf = bus.GetInterface(org::alljoyn::Bus::InterfaceName);
+        const InterfaceDescription* mintf = bus->GetInterface(org::alljoyn::Bus::InterfaceName);
         if (mintf) {
-            alljoynObj = new ProxyBusObject(bus, org::alljoyn::Bus::WellKnownName, org::alljoyn::Bus::ObjectPath, 0);
+            alljoynObj = new ProxyBusObject(*bus, org::alljoyn::Bus::WellKnownName, org::alljoyn::Bus::ObjectPath, 0);
             alljoynObj->AddInterface(*mintf);
         } else {
             status = ER_BUS_NO_SUCH_INTERFACE;
@@ -229,7 +273,7 @@ QStatus LocalEndpoint::Start()
 
     /* Initialize the peer object */
     if (!peerObj && (ER_OK == status)) {
-        peerObj = new AllJoynPeerObj(bus);
+        peerObj = new AllJoynPeerObj(*bus);
         status = peerObj->Init();
     }
 
@@ -241,17 +285,18 @@ QStatus LocalEndpoint::Start()
     /* Local endpoint is up and running, register with router */
     if (ER_OK == status) {
         running = true;
-        bus.GetInternal().GetRouter().RegisterEndpoint(*this, true);
+        BusEndpoint busEndpoint = BusEndpoint::wrap(this);
+        bus->GetInternal().GetRouter().RegisterEndpoint(busEndpoint);
     }
     return status;
 }
 
-QStatus LocalEndpoint::Stop(void)
+QStatus _LocalEndpoint::Stop(void)
 {
     QCC_DbgTrace(("LocalEndpoint::Stop"));
 
     if (running) {
-        bus.GetInternal().GetRouter().UnregisterEndpoint(this->GetUniqueName());
+        bus->GetInternal().GetRouter().UnregisterEndpoint(this->GetUniqueName(), this->GetEndpointType());
     }
     /* Local endpoint not longer running */
     running = false;
@@ -259,8 +304,11 @@ QStatus LocalEndpoint::Stop(void)
     if (peerObj) {
         peerObj->Stop();
     }
+
     /* Stop the dispatcher */
-    dispatcher.Stop();
+    if (dispatcher) {
+        dispatcher->Stop();
+    }
 
     /* Stop the replyTimer */
     replyTimer.Stop();
@@ -268,18 +316,24 @@ QStatus LocalEndpoint::Stop(void)
     return ER_OK;
 }
 
-QStatus LocalEndpoint::Join(void)
+QStatus _LocalEndpoint::Join(void)
 {
     if (peerObj) {
         peerObj->Join();
     }
-    dispatcher.Join();
+
+    /* Join the dispatcher */
+    if (dispatcher) {
+        dispatcher->Join();
+    }
+
+    /* Join the replyTimer */
     replyTimer.Join();
 
     return ER_OK;
 }
 
-QStatus LocalEndpoint::Diagnose(Message& message)
+QStatus _LocalEndpoint::Diagnose(Message& message)
 {
     QStatus status;
     BusObject* obj = FindLocalObject(message->GetObjectPath());
@@ -300,7 +354,7 @@ QStatus LocalEndpoint::Diagnose(Message& message)
     return status;
 }
 
-QStatus LocalEndpoint::PeerInterface(Message& message)
+QStatus _LocalEndpoint::PeerInterface(Message& message)
 {
     if (strcmp(message->GetMemberName(), "Ping") == 0) {
         QStatus status = message->UnmarshalArgs("", "");
@@ -308,7 +362,8 @@ QStatus LocalEndpoint::PeerInterface(Message& message)
             return status;
         }
         message->ReplyMsg(message, NULL, 0);
-        return bus.GetInternal().GetRouter().PushMessage(message, *this);
+        BusEndpoint busEndpoint = BusEndpoint::wrap(this);
+        return bus->GetInternal().GetRouter().PushMessage(message, busEndpoint);
     }
     if (strcmp(message->GetMemberName(), "GetMachineId") == 0) {
         QStatus status = message->UnmarshalArgs("", "s");
@@ -317,23 +372,18 @@ QStatus LocalEndpoint::PeerInterface(Message& message)
         }
         MsgArg replyArg(ALLJOYN_STRING);
         // @@TODO Need OS specific support for returning a machine id GUID use the bus id for now
-        qcc::String guidStr = bus.GetInternal().GetGlobalGUID().ToString();
+        qcc::String guidStr = bus->GetInternal().GetGlobalGUID().ToString();
         replyArg.v_string.str = guidStr.c_str();
         replyArg.v_string.len = guidStr.size();
         message->ReplyMsg(message, &replyArg, 1);
-        return bus.GetInternal().GetRouter().PushMessage(message, *this);
+        BusEndpoint busEndpoint = BusEndpoint::wrap(this);
+        return bus->GetInternal().GetRouter().PushMessage(message, busEndpoint);
     }
     return ER_BUS_OBJECT_NO_SUCH_MEMBER;
 }
 
-LocalEndpoint::Dispatcher::Dispatcher(LocalEndpoint* endpoint) :
-    Timer("lepDisp", true, 4, true, 10),
-    AlarmListener(),
-    endpoint(endpoint)
-{
-}
 
-QStatus LocalEndpoint::Dispatcher::DispatchMessage(Message& msg)
+QStatus _LocalEndpoint::Dispatcher::DispatchMessage(Message& msg)
 {
     uint32_t zero = 0;
     void* context = new Message(msg);
@@ -342,7 +392,23 @@ QStatus LocalEndpoint::Dispatcher::DispatchMessage(Message& msg)
     return AddAlarm(alarm);
 }
 
-void LocalEndpoint::Dispatcher::AlarmTriggered(const Alarm& alarm, QStatus reason)
+void _LocalEndpoint::EnableReentrancy()
+{
+    if (dispatcher) {
+        dispatcher->EnableReentrancy();
+    }
+}
+
+bool _LocalEndpoint::IsReentrantCall()
+{
+    if (!dispatcher) {
+        return false;
+    }
+    return dispatcher->ThreadHoldsLock();
+
+}
+
+void _LocalEndpoint::Dispatcher::AlarmTriggered(const Alarm& alarm, QStatus reason)
 {
     Message* msg = static_cast<Message*>(alarm->GetContext());
     if (msg) {
@@ -356,22 +422,25 @@ void LocalEndpoint::Dispatcher::AlarmTriggered(const Alarm& alarm, QStatus reaso
     }
 }
 
-QStatus LocalEndpoint::PushMessage(Message& message)
+QStatus _LocalEndpoint::PushMessage(Message& message)
 {
+    QStatus ret;
+
     if (running) {
+        BusEndpoint ep = bus->GetInternal().GetRouter().FindEndpoint(message->GetSender());
         /* Determine if the source of this message is local to the process */
-        bool isLocalSender = bus.GetInternal().GetRouter().FindEndpoint(message->GetSender()) == this;
-        if (isLocalSender) {
-            return DoPushMessage(message);
+        if (ep->GetEndpointType() == ENDPOINT_TYPE_LOCAL) {
+            ret = DoPushMessage(message);
         } else {
-            return dispatcher.DispatchMessage(message);
+            ret = dispatcher->DispatchMessage(message);
         }
     } else {
-        return ER_BUS_STOPPING;
+        ret = ER_BUS_STOPPING;
     }
+    return ret;
 }
 
-QStatus LocalEndpoint::DoPushMessage(Message& message)
+QStatus _LocalEndpoint::DoPushMessage(Message& message)
 {
     QStatus status = ER_OK;
 
@@ -403,7 +472,7 @@ QStatus LocalEndpoint::DoPushMessage(Message& message)
     return status;
 }
 
-QStatus LocalEndpoint::RegisterBusObject(BusObject& object)
+QStatus _LocalEndpoint::RegisterBusObject(BusObject& object)
 {
     QStatus status = ER_OK;
 
@@ -452,7 +521,7 @@ QStatus LocalEndpoint::RegisterBusObject(BusObject& object)
     return status;
 }
 
-QStatus LocalEndpoint::DoRegisterBusObject(BusObject& object, BusObject* parent, bool isPlaceholder)
+QStatus _LocalEndpoint::DoRegisterBusObject(BusObject& object, BusObject* parent, bool isPlaceholder)
 {
     QCC_DbgPrintf(("RegisterBusObject %s", object.GetPath()));
     const char* objPath = object.GetPath();
@@ -467,7 +536,7 @@ QStatus LocalEndpoint::DoRegisterBusObject(BusObject& object, BusObject* parent,
     }
 
     /* Register object. */
-    QStatus status = object.DoRegistration(bus);
+    QStatus status = object.DoRegistration(*bus);
     if (ER_OK == status) {
         /* Link new object to its parent */
         if (parent) {
@@ -485,7 +554,7 @@ QStatus LocalEndpoint::DoRegisterBusObject(BusObject& object, BusObject* parent,
          * the callbacks will be made later when the client router calls
          * OnBusConnected().
          */
-        if (bus.GetInternal().GetRouter().IsBusRunning()) {
+        if (bus->GetInternal().GetRouter().IsBusRunning()) {
             OnBusConnected();
         }
     }
@@ -493,7 +562,7 @@ QStatus LocalEndpoint::DoRegisterBusObject(BusObject& object, BusObject* parent,
     return status;
 }
 
-void LocalEndpoint::UnregisterBusObject(BusObject& object)
+void _LocalEndpoint::UnregisterBusObject(BusObject& object)
 {
     QCC_DbgPrintf(("UnregisterBusObject %s", object.GetPath()));
 
@@ -536,7 +605,7 @@ void LocalEndpoint::UnregisterBusObject(BusObject& object)
     objectsLock.Unlock(MUTEX_CONTEXT);
 }
 
-BusObject* LocalEndpoint::FindLocalObject(const char* objectPath) {
+BusObject* _LocalEndpoint::FindLocalObject(const char* objectPath) {
     objectsLock.Lock(MUTEX_CONTEXT);
     unordered_map<const char*, BusObject*, Hash, PathEq>::iterator iter = localObjects.find(objectPath);
     BusObject* ret = (iter == localObjects.end()) ? NULL : iter->second;
@@ -544,13 +613,13 @@ BusObject* LocalEndpoint::FindLocalObject(const char* objectPath) {
     return ret;
 }
 
-void LocalEndpoint::UpdateSerialNumber(Message& msg)
+void _LocalEndpoint::UpdateSerialNumber(Message& msg)
 {
     uint32_t serial = msg->msgHeader.serialNum;
     /*
      * If the previous serial number is not the latest we replace it.
      */
-    if (serial != bus.GetInternal().PrevSerial()) {
+    if (serial != bus->GetInternal().PrevSerial()) {
         msg->SetSerialNumber();
         /*
          * If the message is a method call me must update the reply map
@@ -568,19 +637,19 @@ void LocalEndpoint::UpdateSerialNumber(Message& msg)
     }
 }
 
-QStatus LocalEndpoint::RegisterReplyHandler(MessageReceiver* receiver,
-                                            MessageReceiver::ReplyHandler replyHandler,
-                                            const InterfaceDescription::Member& method,
-                                            Message& methodCallMsg,
-                                            void* context,
-                                            uint32_t timeout)
+QStatus _LocalEndpoint::RegisterReplyHandler(MessageReceiver* receiver,
+                                             MessageReceiver::ReplyHandler replyHandler,
+                                             const InterfaceDescription::Member& method,
+                                             Message& methodCallMsg,
+                                             void* context,
+                                             uint32_t timeout)
 {
     QStatus status = ER_OK;
     if (!running) {
         status = ER_BUS_STOPPING;
         QCC_LogError(status, ("Local transport not running"));
     } else {
-        ReplyContext* rc =  new ReplyContext(this, receiver, replyHandler, &method, methodCallMsg, context, timeout);
+        ReplyContext* rc =  new ReplyContext(LocalEndpoint::wrap(this), receiver, replyHandler, &method, methodCallMsg, context, timeout);
         QCC_DbgPrintf(("LocalEndpoint::RegisterReplyHandler"));
         /*
          * Add reply context.
@@ -599,7 +668,7 @@ QStatus LocalEndpoint::RegisterReplyHandler(MessageReceiver* receiver,
     return status;
 }
 
-bool LocalEndpoint::UnregisterReplyHandler(Message& methodCall)
+bool _LocalEndpoint::UnregisterReplyHandler(Message& methodCall)
 {
     replyMapLock.Lock(MUTEX_CONTEXT);
     ReplyContext* rc = RemoveReplyHandler(methodCall->msgHeader.serialNum);
@@ -615,7 +684,7 @@ bool LocalEndpoint::UnregisterReplyHandler(Message& methodCall)
 /*
  * NOTE: Must be called holding replyMapLock
  */
-LocalEndpoint::ReplyContext* LocalEndpoint::RemoveReplyHandler(uint32_t serial)
+_LocalEndpoint::ReplyContext* _LocalEndpoint::RemoveReplyHandler(uint32_t serial)
 {
     QCC_DbgPrintf(("LocalEndpoint::RemoveReplyHandler for serial=%u", serial));
     ReplyContext* rc = NULL;
@@ -628,7 +697,7 @@ LocalEndpoint::ReplyContext* LocalEndpoint::RemoveReplyHandler(uint32_t serial)
     return rc;
 }
 
-bool LocalEndpoint::PauseReplyHandlerTimeout(Message& methodCallMsg)
+bool _LocalEndpoint::PauseReplyHandlerTimeout(Message& methodCallMsg)
 {
     bool paused = false;
     if (methodCallMsg->GetType() == MESSAGE_METHOD_CALL) {
@@ -643,7 +712,7 @@ bool LocalEndpoint::PauseReplyHandlerTimeout(Message& methodCallMsg)
     return paused;
 }
 
-bool LocalEndpoint::ResumeReplyHandlerTimeout(Message& methodCallMsg)
+bool _LocalEndpoint::ResumeReplyHandlerTimeout(Message& methodCallMsg)
 {
     bool resumed = false;
     if (methodCallMsg->GetType() == MESSAGE_METHOD_CALL) {
@@ -663,10 +732,10 @@ bool LocalEndpoint::ResumeReplyHandlerTimeout(Message& methodCallMsg)
     return resumed;
 }
 
-QStatus LocalEndpoint::RegisterSignalHandler(MessageReceiver* receiver,
-                                             MessageReceiver::SignalHandler signalHandler,
-                                             const InterfaceDescription::Member* member,
-                                             const char* srcPath)
+QStatus _LocalEndpoint::RegisterSignalHandler(MessageReceiver* receiver,
+                                              MessageReceiver::SignalHandler signalHandler,
+                                              const InterfaceDescription::Member* member,
+                                              const char* srcPath)
 {
     if (!receiver) {
         return ER_BAD_ARG_1;
@@ -681,10 +750,10 @@ QStatus LocalEndpoint::RegisterSignalHandler(MessageReceiver* receiver,
     return ER_OK;
 }
 
-QStatus LocalEndpoint::UnregisterSignalHandler(MessageReceiver* receiver,
-                                               MessageReceiver::SignalHandler signalHandler,
-                                               const InterfaceDescription::Member* member,
-                                               const char* srcPath)
+QStatus _LocalEndpoint::UnregisterSignalHandler(MessageReceiver* receiver,
+                                                MessageReceiver::SignalHandler signalHandler,
+                                                const InterfaceDescription::Member* member,
+                                                const char* srcPath)
 {
     if (!receiver) {
         return ER_BAD_ARG_1;
@@ -699,7 +768,7 @@ QStatus LocalEndpoint::UnregisterSignalHandler(MessageReceiver* receiver,
     return ER_OK;
 }
 
-QStatus LocalEndpoint::UnregisterAllHandlers(MessageReceiver* receiver)
+QStatus _LocalEndpoint::UnregisterAllHandlers(MessageReceiver* receiver)
 {
     /*
      * Remove all the signal handlers for this receiver.
@@ -726,11 +795,11 @@ QStatus LocalEndpoint::UnregisterAllHandlers(MessageReceiver* receiver)
 /*
  * Alarm handler for method calls that have not received a response within the timeout period.
  */
-void LocalEndpoint::AlarmTriggered(const Alarm& alarm, QStatus reason)
+void _LocalEndpoint::AlarmTriggered(const Alarm& alarm, QStatus reason)
 {
     ReplyContext* rc = reinterpret_cast<ReplyContext*>(alarm->GetContext());
     uint32_t serial = rc->serial;
-    Message msg(bus);
+    Message msg(*bus);
     QStatus status = ER_OK;
 
     /*
@@ -748,7 +817,8 @@ void LocalEndpoint::AlarmTriggered(const Alarm& alarm, QStatus reason)
         /*
          * Forward the message via the dispatcher so we conform to our concurrency model.
          */
-        status = dispatcher.DispatchMessage(msg);
+        status = dispatcher->DispatchMessage(msg);
+
     } else {
         msg->ErrorMsg("org.alljoyn.Bus.Exiting", serial);
         HandleMethodReply(msg);
@@ -760,9 +830,10 @@ void LocalEndpoint::AlarmTriggered(const Alarm& alarm, QStatus reason)
         msg->ErrorMsg("org.alljoyn.Bus.Exiting", serial);
         HandleMethodReply(msg);
     }
+
 }
 
-QStatus LocalEndpoint::HandleMethodCall(Message& message)
+QStatus _LocalEndpoint::HandleMethodCall(Message& message)
 {
     QStatus status = ER_OK;
 
@@ -805,7 +876,7 @@ QStatus LocalEndpoint::HandleMethodCall(Message& message)
                         errStr += QCC_StatusText(ER_ALLJOYN_ACCESS_PERMISSION_ERROR);
                         errMsg = message->Description();
                         message->ErrorMsg(message, errStr.c_str(), errMsg.c_str());
-                        status = bus.GetInternal().GetRouter().PushMessage(message, *this);
+                        status = bus->GetInternal().GetRouter().PushMessage(message, *this);
                     }
                     return status;
                 } else if (pps == PeerPermission::PP_PENDING) {
@@ -854,7 +925,8 @@ QStatus LocalEndpoint::HandleMethodCall(Message& message)
             break;
         }
         message->ErrorMsg(message, errStr.c_str(), errMsg.c_str());
-        status = bus.GetInternal().GetRouter().PushMessage(message, *this);
+        BusEndpoint busEndpoint = BusEndpoint::wrap(this);
+        status = bus->GetInternal().GetRouter().PushMessage(message, busEndpoint);
     } else {
         QCC_LogError(status, ("Ignoring message %s", message->Description().c_str()));
         status = ER_OK;
@@ -865,7 +937,7 @@ QStatus LocalEndpoint::HandleMethodCall(Message& message)
     return status;
 }
 
-QStatus LocalEndpoint::HandleSignal(Message& message)
+QStatus _LocalEndpoint::HandleSignal(Message& message)
 {
     QStatus status = ER_OK;
 
@@ -930,7 +1002,7 @@ QStatus LocalEndpoint::HandleSignal(Message& message)
     return status;
 }
 
-QStatus LocalEndpoint::HandleMethodReply(Message& message)
+QStatus _LocalEndpoint::HandleMethodReply(Message& message)
 {
     QStatus status = ER_OK;
 
@@ -944,7 +1016,7 @@ QStatus LocalEndpoint::HandleMethodReply(Message& message)
              * Otherwise if reply was not encrypted so return an error to the caller. Internally
              * generated messages can be identified by their sender field.
              */
-            if ((message->GetType() == MESSAGE_METHOD_RET) || (bus.GetInternal().GetLocalEndpoint().GetUniqueName() != message->GetSender())) {
+            if ((message->GetType() == MESSAGE_METHOD_RET) || (GetUniqueName() != message->GetSender())) {
                 status = ER_BUS_MESSAGE_NOT_ENCRYPTED;
             }
         } else {
@@ -980,13 +1052,13 @@ QStatus LocalEndpoint::HandleMethodReply(Message& message)
     return status;
 }
 
-void LocalEndpoint::DeferredCallbacks::AlarmTriggered(const qcc::Alarm& alarm, QStatus reason)
+void _LocalEndpoint::DeferredCallbacks::AlarmTriggered(const qcc::Alarm& alarm, QStatus reason)
 {
     if (reason == ER_OK) {
         /*
          * Allow synchronous method calls from within the object registration callbacks
          */
-        endpoint->bus.EnableConcurrentCallbacks();
+        endpoint->bus->EnableConcurrentCallbacks();
         /*
          * Call ObjectRegistered for any unregistered bus objects
          */
@@ -1010,26 +1082,28 @@ void LocalEndpoint::DeferredCallbacks::AlarmTriggered(const qcc::Alarm& alarm, Q
     }
 }
 
-void LocalEndpoint::OnBusConnected()
+void _LocalEndpoint::OnBusConnected()
 {
     /*
      * Use the local endpoint's dispatcher to call back to report the object registrations.
      */
     uint32_t zero = 0;
-    qcc::AlarmListener* localEndpointListener = &deferredCallbacks;
-    dispatcher.AddAlarm(Alarm(zero, localEndpointListener));
+    if (dispatcher) {
+        dispatcher->AddAlarm(Alarm(zero, deferredCallbacks));
+    }
 }
 
-const ProxyBusObject& LocalEndpoint::GetAllJoynDebugObj() {
+const ProxyBusObject& _LocalEndpoint::GetAllJoynDebugObj()
+{
     if (!alljoynDebugObj) {
-        /* Register well known org.alljoyn.Bus.Debug remote object */
-        alljoynDebugObj = new ProxyBusObject(bus, org::alljoyn::Daemon::WellKnownName, org::alljoyn::Daemon::Debug::ObjectPath, 0);
+        /* Register well known org.alljoyn.bus.Debug remote object */
+        alljoynDebugObj = new ProxyBusObject(*bus, org::alljoyn::Daemon::WellKnownName, org::alljoyn::Daemon::Debug::ObjectPath, 0);
         const InterfaceDescription* intf;
-        intf = bus.GetInterface(org::alljoyn::Daemon::Debug::InterfaceName);
+        intf = bus->GetInterface(org::alljoyn::Daemon::Debug::InterfaceName);
         if (intf) {
             alljoynDebugObj->AddInterface(*intf);
         }
-        intf = bus.GetInterface(org::freedesktop::DBus::Properties::InterfaceName);
+        intf = bus->GetInterface(org::freedesktop::DBus::Properties::InterfaceName);
         if (intf) {
             alljoynDebugObj->AddInterface(*intf);
         }
@@ -1038,10 +1112,11 @@ const ProxyBusObject& LocalEndpoint::GetAllJoynDebugObj() {
     return *alljoynDebugObj;
 }
 
-void LocalEndpoint::SendErrMessage(Message& message, qcc::String errStr, qcc::String description)
+void _LocalEndpoint::SendErrMessage(Message& message, qcc::String errStr, qcc::String description)
 {
     message->ErrorMsg(message, errStr.c_str(), description.c_str());
-    bus.GetInternal().GetRouter().PushMessage(message, *this);
+    BusEndpoint busEndpoint = BusEndpoint::wrap(this);
+    bus->GetInternal().GetRouter().PushMessage(message, busEndpoint);
 }
 
 }

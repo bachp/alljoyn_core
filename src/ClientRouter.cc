@@ -45,10 +45,10 @@ QStatus ClientRouter::PushMessage(Message& msg, BusEndpoint& sender)
 {
     QStatus status = ER_OK;
 
-    if (!localEndpoint || !nonLocalEndpoint) {
+    if (!localEndpoint->IsValid() || !nonLocalEndpoint->IsValid() || !sender->IsValid()) {
         status = ER_BUS_NO_ENDPOINT;
     } else {
-        if (&sender == localEndpoint) {
+        if (sender == BusEndpoint::cast(localEndpoint)) {
             localEndpoint->UpdateSerialNumber(msg);
             status = nonLocalEndpoint->PushMessage(msg);
         } else {
@@ -62,48 +62,50 @@ QStatus ClientRouter::PushMessage(Message& msg, BusEndpoint& sender)
     return status;
 }
 
-QStatus ClientRouter::RegisterEndpoint(BusEndpoint& endpoint, bool isLocal)
+QStatus ClientRouter::RegisterEndpoint(BusEndpoint& endpoint)
 {
-    bool hadNonLocal = (NULL != nonLocalEndpoint);
+    bool isLocal = endpoint->GetEndpointType() == ENDPOINT_TYPE_LOCAL;
+    bool hadNonLocal = nonLocalEndpoint->IsValid();
 
     QCC_DbgHLPrintf(("ClientRouter::RegisterEndpoint"));
 
     /* Keep track of local and (at least one) non-local endpoint */
     if (isLocal) {
-        localEndpoint = static_cast<LocalEndpoint*>(&endpoint);
+        localEndpoint = LocalEndpoint::cast(endpoint);
     } else {
-        nonLocalEndpoint = &endpoint;
+        nonLocalEndpoint = endpoint;
     }
 
     /* Local and non-local endpoints must have the same unique name */
-    if ((isLocal && nonLocalEndpoint) || (!isLocal && localEndpoint && !hadNonLocal)) {
+    if ((isLocal && nonLocalEndpoint->IsValid()) || (!isLocal && localEndpoint->IsValid() && !hadNonLocal)) {
         localEndpoint->SetUniqueName(nonLocalEndpoint->GetUniqueName());
     }
 
     /* Notify local endpoint we have both a local and at least one non-local endpoint */
-    if (localEndpoint && nonLocalEndpoint && (isLocal || !hadNonLocal)) {
+    if (localEndpoint->IsValid() && nonLocalEndpoint->IsValid() && (isLocal || !hadNonLocal)) {
         localEndpoint->OnBusConnected();
     }
     return ER_OK;
 }
 
-void ClientRouter::UnregisterEndpoint(const String& epName)
+void ClientRouter::UnregisterEndpoint(const String& epName, EndpointType epType)
 {
     QCC_DbgHLPrintf(("ClientRouter::UnregisterEndpoint"));
 
     /* Unregister static endpoints */
-    if (nonLocalEndpoint && (nonLocalEndpoint->GetUniqueName() == epName)) {
+    if ((nonLocalEndpoint->GetUniqueName() == epName) && (nonLocalEndpoint->GetEndpointType() == epType)) {
         /*
          * Let the bus know that the nonlocalEndpoint endpoint disconnected
          */
         localEndpoint->GetBus().GetInternal().NonLocalEndpointDisconnected();
-        nonLocalEndpoint = NULL;
+        nonLocalEndpoint->Invalidate();
     }
+
 }
 
-BusEndpoint* ClientRouter::FindEndpoint(const qcc::String& busName)
+BusEndpoint ClientRouter::FindEndpoint(const qcc::String& busname)
 {
-    return nonLocalEndpoint ? nonLocalEndpoint : NULL;
+    return nonLocalEndpoint;
 }
 
 ClientRouter::~ClientRouter()

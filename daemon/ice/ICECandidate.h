@@ -184,7 +184,7 @@ class _ICECandidate {
 
     FoundationAttrs* GetFoundationAttrs(void)
     {
-        ICECandidate candidate(this);
+        ICECandidate candidate = ICECandidate::wrap(this);
         return new FoundationAttrs(candidate, (uint16_t)GetType(), GetBase().addr, GetServer(), GetTransportProtocol());
     }
 

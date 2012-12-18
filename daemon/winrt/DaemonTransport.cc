@@ -42,26 +42,24 @@ using namespace qcc;
 namespace ajn {
 
 const char* DaemonTransport::TransportName = "localhost";
+class _DaemonEndpoint;
+typedef qcc::ManagedObj<_DaemonEndpoint> DaemonEndpoint;
 
 /*
  * An endpoint class to handle the details of authenticating a connection in
  * the Unix Domain Sockets way.
  */
-class DaemonEndpoint : public RemoteEndpoint {
+class _DaemonEndpoint : public _RemoteEndpoint {
 
   public:
 
-    DaemonEndpoint(BusAttachment& bus, bool incoming, const qcc::String connectSpec, SocketFd sock) :
-        RemoteEndpoint(bus, incoming, connectSpec, &stream, DaemonTransport::TransportName),
+    _DaemonEndpoint(BusAttachment& bus, bool incoming, const qcc::String connectSpec, SocketFd sock) :
+        _RemoteEndpoint(bus, incoming, connectSpec, &stream, DaemonTransport::TransportName),
         stream(sock)
     {
     }
 
-    ~DaemonEndpoint() {
-
-        /* Don't finalize the destructor while there are threads pushing to this endpoint. */
-        WaitForZeroPushCount();
-    }
+    ~_DaemonEndpoint() { }
 
     /**
      * TCP endpoint does not support UNIX style user, group, and process IDs.
@@ -96,9 +94,9 @@ void* DaemonTransport::Run(void* arg)
             }
             qcc::String authName;
             qcc::String redirection;
-            DaemonEndpoint* conn;
-
-            conn = new DaemonEndpoint(bus, true, "", newSock);
+            bool truthiness = true;
+            String str = "";
+            DaemonEndpoint conn = DaemonEndpoint(bus, truthiness, str, newSock);
 
             QCC_DbgHLPrintf(("DaemonTransport::Run(): Accepting connection newSock=%d", newSock));
 
@@ -108,7 +106,7 @@ void* DaemonTransport::Run(void* arg)
             conn->GetFeatures().handlePassing = true;
 
             endpointListLock.Lock(MUTEX_CONTEXT);
-            endpointList.push_back(conn);
+            endpointList.push_back(RemoteEndpoint::cast(conn));
             endpointListLock.Unlock(MUTEX_CONTEXT);
 
             uint8_t byte;
@@ -129,13 +127,12 @@ void* DaemonTransport::Run(void* arg)
             if (status != ER_OK) {
                 QCC_LogError(status, ("Error starting RemoteEndpoint"));
                 endpointListLock.Lock(MUTEX_CONTEXT);
-                list<RemoteEndpoint*>::iterator ei = find(endpointList.begin(), endpointList.end(), conn);
+                list<RemoteEndpoint>::iterator ei = find(endpointList.begin(), endpointList.end(), RemoteEndpoint::cast(conn));
                 if (ei != endpointList.end()) {
                     endpointList.erase(ei);
                 }
                 endpointListLock.Unlock(MUTEX_CONTEXT);
-                delete conn;
-                conn = NULL;
+                conn->Invalidate();
             }
         }
         if (ER_WOULDBLOCK == status || ER_READ_ERROR == status) {

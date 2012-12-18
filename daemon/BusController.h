@@ -107,7 +107,7 @@ class BusController {
      * @param msg       The message received.
      * @param sendingEP The endpoint the message was received on
      */
-    QStatus StartService(Message& msg, BusEndpoint* sendingEP) {
+    QStatus StartService(Message& msg, BusEndpoint sendingEP) {
         return ER_NOT_IMPLEMENTED;
     }
 

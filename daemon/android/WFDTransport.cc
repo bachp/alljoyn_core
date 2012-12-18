@@ -49,6 +49,7 @@ const uint32_t WFD_LINK_TIMEOUT_PROBE_RESPONSE_DELAY = 10;
 const uint32_t WFD_LINK_TIMEOUT_MIN_LINK_TIMEOUT     = 40;
 
 namespace ajn {
+class _WFDEndpoint;
 
 /**
  * Name of transport used in transport specs.
@@ -59,7 +60,7 @@ const char* WFDTransport::TransportName = "wfd";
  * An endpoint class to handle the details of authenticating a connection in a
  * way that avoids denial of service attacks.
  */
-class WFDEndpoint : public RemoteEndpoint {
+class _WFDEndpoint : public _RemoteEndpoint {
   public:
     /**
      * There are three threads that can be running around in this data
@@ -112,28 +113,28 @@ class WFDEndpoint : public RemoteEndpoint {
         SIDE_PASSIVE         /**< This endpoint is the passive side of a connection */
     };
 
-    WFDEndpoint(WFDTransport* transport,
-                BusAttachment& bus,
-                bool incoming,
-                const qcc::String connectSpec,
-                qcc::SocketFd sock,
-                const qcc::IPAddress& ipAddr,
-                uint16_t port,
-                qcc::String guid)
-        : RemoteEndpoint(bus, incoming, connectSpec, &m_stream, "wfd"),
+    _WFDEndpoint(WFDTransport* transport,
+                 BusAttachment& bus,
+                 bool incoming,
+                 const qcc::String connectSpec,
+                 qcc::SocketFd sock,
+                 const qcc::IPAddress& ipAddr,
+                 uint16_t port,
+                 qcc::String guid)
+        : _RemoteEndpoint(bus, incoming, connectSpec, &m_stream, "wfd"),
         m_transport(transport),
         m_sideState(SIDE_INITIALIZED),
         m_authState(AUTH_INITIALIZED),
         m_epState(EP_INITIALIZED),
         m_tStart(qcc::Timespec(0)),
-        m_authThread(this, transport),
+        m_authThread(this),
         m_stream(sock),
         m_ipAddr(ipAddr),
         m_port(port),
         m_guid(guid),
         m_wasSuddenDisconnect(!incoming) { }
 
-    virtual ~WFDEndpoint() { }
+    virtual ~_WFDEndpoint() { }
 
     void SetStartTime(qcc::Timespec tStart) { m_tStart = tStart; }
     qcc::Timespec GetStartTime(void) { return m_tStart; }
@@ -202,13 +203,13 @@ class WFDEndpoint : public RemoteEndpoint {
         if (linkTimeout > 0) {
             uint32_t to = max(linkTimeout, WFD_LINK_TIMEOUT_MIN_LINK_TIMEOUT);
             to -= WFD_LINK_TIMEOUT_PROBE_RESPONSE_DELAY * WFD_LINK_TIMEOUT_PROBE_ATTEMPTS;
-            status = RemoteEndpoint::SetLinkTimeout(to, WFD_LINK_TIMEOUT_PROBE_RESPONSE_DELAY, WFD_LINK_TIMEOUT_PROBE_ATTEMPTS);
+            status = _RemoteEndpoint::SetLinkTimeout(to, WFD_LINK_TIMEOUT_PROBE_RESPONSE_DELAY, WFD_LINK_TIMEOUT_PROBE_ATTEMPTS);
             if ((status == ER_OK) && (to > 0)) {
                 linkTimeout = to + WFD_LINK_TIMEOUT_PROBE_RESPONSE_DELAY * WFD_LINK_TIMEOUT_PROBE_ATTEMPTS;
             }
 
         } else {
-            RemoteEndpoint::SetLinkTimeout(0, 0, 0);
+            _RemoteEndpoint::SetLinkTimeout(0, 0, 0);
         }
         return status;
     }
@@ -228,11 +229,11 @@ class WFDEndpoint : public RemoteEndpoint {
   private:
     class AuthThread : public qcc::Thread {
       public:
-        AuthThread(WFDEndpoint* conn, WFDTransport* trans) : Thread("auth"), m_transport(trans) { }
+        AuthThread(_WFDEndpoint* conn) : Thread("auth"), ep(conn) { }
       private:
         virtual qcc::ThreadReturn STDCALL Run(void* arg);
+        _WFDEndpoint* ep;
 
-        WFDTransport* m_transport;
     };
 
     WFDTransport* m_transport;  /**< The server holding the connection */
@@ -248,7 +249,7 @@ class WFDEndpoint : public RemoteEndpoint {
     bool m_wasSuddenDisconnect;       /**< If true, assumption is that any disconnect is unexpected due to lower level error */
 };
 
-QStatus WFDEndpoint::Authenticate(void)
+QStatus _WFDEndpoint::Authenticate(void)
 {
     QCC_DbgTrace(("WFDEndpoint::Authenticate()"));
     /*
@@ -261,7 +262,7 @@ QStatus WFDEndpoint::Authenticate(void)
     return status;
 }
 
-void WFDEndpoint::AuthStop(void)
+void _WFDEndpoint::AuthStop(void)
 {
     QCC_DbgTrace(("WFDEndpoint::AuthStop()"));
 
@@ -278,7 +279,7 @@ void WFDEndpoint::AuthStop(void)
     m_authThread.Stop();
 }
 
-void WFDEndpoint::AuthJoin(void)
+void _WFDEndpoint::AuthJoin(void)
 {
     QCC_DbgTrace(("WFDEndpoint::AuthJoin()"));
 
@@ -291,13 +292,13 @@ void WFDEndpoint::AuthJoin(void)
     m_authThread.Join();
 }
 
-void* WFDEndpoint::AuthThread::Run(void* arg)
+void* _WFDEndpoint::AuthThread::Run(void* arg)
 {
     QCC_DbgTrace(("WFDEndpoint::AuthThread::Run()"));
 
-    WFDEndpoint* conn = reinterpret_cast<WFDEndpoint*>(arg);
 
-    conn->m_authState = AUTH_AUTHENTICATING;
+
+    ep->m_authState = AUTH_AUTHENTICATING;
 
     /*
      * We're running an authentication process here and we are cooperating with
@@ -345,9 +346,9 @@ void* WFDEndpoint::AuthThread::Run(void* arg)
      * out-of-band capabilities, but is discarded here.  We do this here since
      * it involves a read that can block.
      */
-    QStatus status = conn->m_stream.PullBytes(&byte, 1, nbytes);
+    QStatus status = ep->m_stream.PullBytes(&byte, 1, nbytes);
     if ((status != ER_OK) || (nbytes != 1) || (byte != 0)) {
-        conn->m_stream.Close();
+        ep->m_stream.Close();
         QCC_LogError(status, ("Failed to read first byte from stream"));
 
         /*
@@ -366,23 +367,23 @@ void* WFDEndpoint::AuthThread::Run(void* arg)
          * authentication thread) without being worried about blocking since the
          * next thing we do is exit.
          */
-        conn->m_authState = AUTH_FAILED;
+        ep->m_authState = AUTH_FAILED;
         return (void*)ER_FAIL;
     }
 
     /* Initialize the features for this endpoint */
-    conn->GetFeatures().isBusToBus = false;
-    conn->GetFeatures().isBusToBus = false;
-    conn->GetFeatures().handlePassing = false;
+    ep->GetFeatures().isBusToBus = false;
+    ep->GetFeatures().isBusToBus = false;
+    ep->GetFeatures().handlePassing = false;
 
     qcc::String authName;
     qcc::String redirection;
 
     /* Run the actual connection authentication code. */
     QCC_DbgTrace(("WFDEndpoint::AuthThread::Run(): Establish()"));
-    status = conn->Establish("ANONYMOUS", authName, redirection);
+    status = ep->Establish("ANONYMOUS", authName, redirection);
     if (status != ER_OK) {
-        conn->m_stream.Close();
+        ep->m_stream.Close();
         QCC_LogError(status, ("Failed to establish WFD endpoint"));
 
         /*
@@ -401,7 +402,7 @@ void* WFDEndpoint::AuthThread::Run(void* arg)
          * authentication thread) without being worried about blocking since the
          * next thing we do is exit.
          */
-        conn->m_authState = AUTH_FAILED;
+        ep->m_authState = AUTH_FAILED;
         return (void*)status;
     }
 
@@ -410,7 +411,8 @@ void* WFDEndpoint::AuthThread::Run(void* arg)
      * now bring the connection up.
      */
     QCC_DbgTrace(("WFDEndpoint::AuthThread::Run(): Authenticated()"));
-    conn->m_transport->Authenticated(conn);
+    WFDEndpoint wfdEp = WFDEndpoint::wrap(ep);
+    ep->m_transport->Authenticated(wfdEp);
 
     QCC_DbgTrace(("WFDEndpoint::AuthThread::Run(): Returning"));
 
@@ -430,7 +432,7 @@ void* WFDEndpoint::AuthThread::Run(void* arg)
      * that we are exiting now and so it can Join() the authentication thread
      * without being worried about blocking since the next thing we do is exit.
      */
-    conn->m_authState = AUTH_SUCCEEDED;
+    ep->m_authState = AUTH_SUCCEEDED;
     return (void*)status;
 }
 
@@ -454,7 +456,7 @@ WFDTransport::~WFDTransport()
     Join();
 }
 
-void WFDTransport::Authenticated(WFDEndpoint* conn)
+void WFDTransport::Authenticated(WFDEndpoint& conn)
 {
     QCC_DbgTrace(("WFDTransport::Authenticated()"));
 
@@ -478,7 +480,7 @@ void WFDTransport::Authenticated(WFDEndpoint* conn)
      */
     m_endpointListLock.Lock(MUTEX_CONTEXT);
 
-    set<WFDEndpoint*>::iterator i = find(m_authList.begin(), m_authList.end(), conn);
+    set<WFDEndpoint>::iterator i = find(m_authList.begin(), m_authList.end(), conn);
     assert(i != m_authList.end() && "WFDTransport::Authenticated(): Conn not on m_authList");
 
     /*
@@ -642,8 +644,9 @@ QStatus WFDTransport::Stop(void)
      * data structure.  We call Stop() to stop that thread from running.  The
      * endpoint Rx and Tx threads will not be running yet.
      */
-    for (set<WFDEndpoint*>::iterator i = m_authList.begin(); i != m_authList.end(); ++i) {
-        (*i)->AuthStop();
+    for (set<WFDEndpoint>::iterator i = m_authList.begin(); i != m_authList.end(); ++i) {
+        WFDEndpoint ep = *i;
+        ep->AuthStop();
     }
 
     /*
@@ -654,8 +657,9 @@ QStatus WFDTransport::Stop(void)
      * the connnection is on the m_endpointList, we know that the authentication
      * thread has handed off responsibility.
      */
-    for (set<WFDEndpoint*>::iterator i = m_endpointList.begin(); i != m_endpointList.end(); ++i) {
-        (*i)->Stop();
+    for (set<WFDEndpoint>::iterator i = m_endpointList.begin(); i != m_endpointList.end(); ++i) {
+        WFDEndpoint ep = *i;
+        ep->Stop();
     }
 
     m_endpointListLock.Unlock(MUTEX_CONTEXT);
@@ -720,13 +724,12 @@ QStatus WFDTransport::Join(void)
      * authentication threads in a previously required Stop().  We need to
      * Join() all of these auth threads here.
      */
-    set<WFDEndpoint*>::iterator it = m_authList.begin();
+    set<WFDEndpoint>::iterator it = m_authList.begin();
     while (it != m_authList.end()) {
-        WFDEndpoint* ep = *it;
+        WFDEndpoint ep = *it;
         m_authList.erase(it);
         m_endpointListLock.Unlock(MUTEX_CONTEXT);
         ep->AuthJoin();
-        delete ep;
         m_endpointListLock.Lock(MUTEX_CONTEXT);
         it = m_authList.upper_bound(ep);
     }
@@ -740,11 +743,10 @@ QStatus WFDTransport::Join(void)
      */
     it = m_endpointList.begin();
     while (it != m_endpointList.end()) {
-        WFDEndpoint* ep = *it;
+        WFDEndpoint ep = *it;
         m_endpointList.erase(it);
         m_endpointListLock.Unlock(MUTEX_CONTEXT);
         ep->Join();
-        delete ep;
         m_endpointListLock.Lock(MUTEX_CONTEXT);
         it = m_endpointList.upper_bound(ep);
     }
@@ -795,7 +797,7 @@ QStatus WFDTransport::GetListenAddresses(const SessionOpts& opts, std::vector<qc
     return ER_OK;
 }
 
-void WFDTransport::EndpointExit(RemoteEndpoint* ep)
+void WFDTransport::EndpointExit(RemoteEndpoint& ep)
 {
     QCC_DbgTrace(("WFDTransport::EndpointExit()"));
 
@@ -811,8 +813,7 @@ void WFDTransport::EndpointExit(RemoteEndpoint* ep)
      * authentication error since authentication is done in the context of the
      * Connect()ing thread and may be reported through EndpointExit.
      */
-    WFDEndpoint* tep = static_cast<WFDEndpoint*>(ep);
-    assert(tep);
+    WFDEndpoint tep = WFDEndpoint::cast(ep);
 
     /*
      * The endpoint can exit if it was asked to by us in response to a
@@ -899,12 +900,12 @@ void WFDTransport::ManageEndpoints(Timespec tTimeout)
      * any that are no longer running or are taking too long to authenticate
      * (we assume a denial of service attack in this case).
      */
-    set<WFDEndpoint*>::iterator i = m_authList.begin();
+    set<WFDEndpoint>::iterator i = m_authList.begin();
     while (i != m_authList.end()) {
-        WFDEndpoint* ep = *i;
-        WFDEndpoint::AuthState authState = ep->GetAuthState();
+        WFDEndpoint ep = *i;
+        _WFDEndpoint::AuthState authState = ep->GetAuthState();
 
-        if (authState == WFDEndpoint::AUTH_FAILED) {
+        if (authState == _WFDEndpoint::AUTH_FAILED) {
             /*
              * The endpoint has failed authentication and the auth thread is
              * gone or is going away.  Since it has failed there is no way this
@@ -916,7 +917,6 @@ void WFDTransport::ManageEndpoints(Timespec tTimeout)
             endpointCleaned = true;
             m_endpointListLock.Unlock(MUTEX_CONTEXT);
             ep->AuthJoin();
-            delete ep;
             m_endpointListLock.Lock(MUTEX_CONTEXT);
             i = m_authList.upper_bound(ep);
             continue;
@@ -950,22 +950,22 @@ void WFDTransport::ManageEndpoints(Timespec tTimeout)
      */
     i = m_endpointList.begin();
     while (i != m_endpointList.end()) {
-        WFDEndpoint* ep = *i;
+        WFDEndpoint ep = *i;
 
         /*
          * We are only managing passive connections here, or active connections
          * that are done and are explicitly ready to be cleaned up.
          */
-        WFDEndpoint::SideState sideState = ep->GetSideState();
-        if (sideState == WFDEndpoint::SIDE_ACTIVE) {
+        _WFDEndpoint::SideState sideState = ep->GetSideState();
+        if (sideState == _WFDEndpoint::SIDE_ACTIVE) {
             ++i;
             continue;
         }
 
-        WFDEndpoint::AuthState authState = ep->GetAuthState();
-        WFDEndpoint::EndpointState endpointState = ep->GetEpState();
+        _WFDEndpoint::AuthState authState = ep->GetAuthState();
+        _WFDEndpoint::EndpointState endpointState = ep->GetEpState();
 
-        if (authState == WFDEndpoint::AUTH_SUCCEEDED) {
+        if (authState == _WFDEndpoint::AUTH_SUCCEEDED) {
             /*
              * The endpoint has succeeded authentication and the auth thread is
              * gone or is going away.  Take this opportunity to join the auth
@@ -992,11 +992,10 @@ void WFDTransport::ManageEndpoints(Timespec tTimeout)
          * it.  Since the threads were never started, they must not be
          * joined.
          */
-        if (endpointState == WFDEndpoint::EP_FAILED) {
+        if (endpointState == _WFDEndpoint::EP_FAILED) {
             m_endpointList.erase(i);
             endpointCleaned = true;
             m_endpointListLock.Unlock(MUTEX_CONTEXT);
-            delete ep;
             m_endpointListLock.Lock(MUTEX_CONTEXT);
             i = m_endpointList.upper_bound(ep);
             continue;
@@ -1014,12 +1013,11 @@ void WFDTransport::ManageEndpoints(Timespec tTimeout)
          * the endpoint Join() to join the TX and RX threads and not
          * the endpoint AuthJoin() to join the auth thread.
          */
-        if (endpointState == WFDEndpoint::EP_STOPPING) {
+        if (endpointState == _WFDEndpoint::EP_STOPPING) {
             m_endpointList.erase(i);
             endpointCleaned = true;
             m_endpointListLock.Unlock(MUTEX_CONTEXT);
             ep->Join();
-            delete ep;
             m_endpointListLock.Lock(MUTEX_CONTEXT);
             i = m_endpointList.upper_bound(ep);
             continue;
@@ -1213,8 +1211,9 @@ void* WFDTransport::Run(void* arg)
                  */
                 m_endpointListLock.Lock(MUTEX_CONTEXT);
                 if ((m_authList.size() < maxAuth) && (m_authList.size() + m_endpointList.size() < maxConn)) {
-                    WFDEndpoint* conn = new WFDEndpoint(this, m_bus, true, "", newSock, remoteAddr, remotePort,
-                                                        m_bus.GetInternal().GetGlobalGUID().ToString());
+                    static const bool truthiness = true;
+                    WFDEndpoint conn(this, m_bus, truthiness, "", newSock, remoteAddr, remotePort,
+                                     m_bus.GetInternal().GetGlobalGUID().ToString());
                     conn->SetPassive();
                     Timespec tNow;
                     GetTimeNow(&tNow);
@@ -1228,13 +1227,13 @@ void* WFDTransport::Run(void* arg)
                      * here.  Since there are no threads running we can just
                      * pitch the connection.
                      */
-                    std::pair<std::set<WFDEndpoint*>::iterator, bool> ins = m_authList.insert(conn);
+                    std::pair<std::set<WFDEndpoint>::iterator, bool> ins = m_authList.insert(conn);
                     status = conn->Authenticate();
                     if (status != ER_OK) {
                         m_authList.erase(ins.first);
-                        delete conn;
+                        conn->Invalidate();
                     }
-                    conn = NULL;
+
                     m_endpointListLock.Unlock(MUTEX_CONTEXT);
                 } else {
                     m_endpointListLock.Unlock(MUTEX_CONTEXT);
@@ -2260,7 +2259,7 @@ QStatus WFDTransport::NormalizeTransportSpec(const char* inSpec, qcc::String& ou
     return ER_BUS_BAD_TRANSPORT_ARGS;
 }
 
-QStatus WFDTransport::Connect(const char* connectSpec, const SessionOpts& opts, BusEndpoint** newep)
+QStatus WFDTransport::Connect(const char* connectSpec, const SessionOpts& opts, BusEndpoint& newep)
 {
     QCC_DbgTrace(("WFDTransport::Connect(): %s", connectSpec));
 
@@ -2271,8 +2270,8 @@ QStatus WFDTransport::Connect(const char* connectSpec, const SessionOpts& opts, 
      * Clear the new endpoint pointer so we don't have to do it over and over
      * again in case of the various errors.
      */
-    if (newep) {
-        *newep = NULL;
+    if (newep->IsValid()) {
+        newep->Invalidate();
     }
 
     /*
@@ -2910,7 +2909,7 @@ QStatus WFDTransport::Connect(const char* connectSpec, const SessionOpts& opts, 
         QCC_LogError(status, ("WFDTransport::Connect(): qcc::Socket() failed"));
     }
 
-    WFDEndpoint* conn = NULL;
+
     if (status == ER_OK) {
         /*
          * The underlying transport mechanism is started, but we need to create
@@ -2918,7 +2917,8 @@ QStatus WFDTransport::Connect(const char* connectSpec, const SessionOpts& opts, 
          * across the transport.
          */
         QCC_DbgPrintf(("WFDTransport::Connect(): new WFDEndpoint()"));
-        conn = new WFDEndpoint(this, m_bus, false, normSpec, sockFd, ipAddr, port, guid);
+        bool falsiness = false;
+        WFDEndpoint conn(this, m_bus, falsiness, normSpec, sockFd, ipAddr, port, guid);
 
         /*
          * On the active side of a connection, we don't need an authentication
@@ -2991,6 +2991,7 @@ QStatus WFDTransport::Connect(const char* connectSpec, const SessionOpts& opts, 
             m_endpointListLock.Lock(MUTEX_CONTEXT);
             m_endpointList.insert(conn);
             m_endpointListLock.Unlock(MUTEX_CONTEXT);
+            newep = BusEndpoint::cast(conn);
         } else {
             QCC_LogError(status, ("WFDTransport::Connect(): Starting the WFDEndpoint failed"));
 
@@ -2998,8 +2999,7 @@ QStatus WFDTransport::Connect(const char* connectSpec, const SessionOpts& opts, 
              * Although the destructor of a remote endpoint includes a Stop and Join
              * call, there are no running threads since Start() failed.
              */
-            delete conn;
-            conn = NULL;
+            conn->Invalidate();
         }
 
         /*
@@ -3034,16 +3034,10 @@ QStatus WFDTransport::Connect(const char* connectSpec, const SessionOpts& opts, 
         if (sockFd >= 0) {
             qcc::Close(sockFd);
         }
-        if (newep) {
-            *newep = NULL;
-        }
+        newep->Invalidate();
     } else {
-        if (newep) {
-            assert(conn && "WFDTransport::Connect(): If the conn is up, the conn pointer should be non-NULL");
-            *newep = conn;
-        }
+        assert(newep->IsValid() && "WFDTransport::Connect(): If the conn is up, the conn should be valid");
     }
-
     QCC_DbgPrintf(("WFDTransport::Connect(): Done."));
     return status;
 }
@@ -3108,9 +3102,9 @@ QStatus WFDTransport::Disconnect(const char* connectSpec)
      */
     status = ER_BUS_BAD_TRANSPORT_ARGS;
     m_endpointListLock.Lock(MUTEX_CONTEXT);
-    for (set<WFDEndpoint*>::iterator i = m_endpointList.begin(); i != m_endpointList.end(); ++i) {
-        if ((*i)->GetGuid() == guid) {
-            WFDEndpoint* ep = *i;
+    for (set<WFDEndpoint>::iterator i = m_endpointList.begin(); i != m_endpointList.end(); ++i) {
+        WFDEndpoint ep = *i;
+        if (ep->GetGuid() == guid) {
             ep->SetSuddenDisconnect(false);
             ep->Stop();
             i = m_endpointList.begin();

@@ -30,11 +30,6 @@
 
 #include <qcc/platform.h>
 #include <qcc/String.h>
-#include <qcc/Mutex.h>
-#include <qcc/Socket.h>
-#include <qcc/Thread.h>
-#include <qcc/SocketStream.h>
-#include <qcc/time.h>
 
 #include "Transport.h"
 #include "RemoteEndpoint.h"
@@ -46,7 +41,7 @@ namespace ajn {
  *
  * The ClientTransport class has different incarnations depending on the platform.
  */
-class ClientTransport : public Transport, public RemoteEndpoint::EndpointListener {
+class ClientTransport : public Transport, public _RemoteEndpoint::EndpointListener {
 
   public:
     /**
@@ -126,7 +121,7 @@ class ClientTransport : public Transport, public RemoteEndpoint::EndpointListene
      *      - ER_OK if successful.
      *      - an error status otherwise.
      */
-    QStatus Connect(const char* connectSpec, const SessionOpts& opts, BusEndpoint** newep);
+    QStatus Connect(const char* connectSpec, const SessionOpts& opts, BusEndpoint& newep);
 
     /**
      * Disconnect from a specified AllJoyn/DBus address.
@@ -177,14 +172,13 @@ class ClientTransport : public Transport, public RemoteEndpoint::EndpointListene
      *
      * @param endpoint   ClientEndpoint instance that has exited.
      */
-    void EndpointExit(RemoteEndpoint* endpoint);
+    void EndpointExit(RemoteEndpoint& endpoint);
 
   private:
     BusAttachment& m_bus;           /**< The message bus for this transport */
     bool m_running;                 /**< True after Start() has been called, before Stop() */
-    bool m_stopping;                /**< True if Stop() has been called but endpoints still exist */
     TransportListener* m_listener;  /**< Registered TransportListener */
-    RemoteEndpoint* m_endpoint;     /**< The active endpoint */
+    RemoteEndpoint m_endpoint;      /**< The active endpoint */
 };
 
 } // namespace ajn

@@ -23,9 +23,7 @@
 
 #include <qcc/platform.h>
 #include <qcc/String.h>
-#include "Transport.h"
 #include "BusEndpoint.h"
-
 
 namespace ajn {
 
@@ -57,10 +55,9 @@ class Router {
      * This method must be called by an endpoint before attempting to use the router.
      *
      * @param endpoint   Endpoint being registered.
-     * @param isLocal    true if endpoint is local.
      * @return ER_OK if successful.
      */
-    virtual QStatus RegisterEndpoint(BusEndpoint& endpoint, bool isLocal) = 0;
+    virtual QStatus RegisterEndpoint(BusEndpoint& endpoint) = 0;
 
     /**
      * Un-register an endpoint.
@@ -68,17 +65,17 @@ class Router {
      *
      * @param epName   Name of endpoint being registered.
      */
-    virtual void UnregisterEndpoint(const qcc::String& epName) = 0;
+    virtual void UnregisterEndpoint(const qcc::String& epName, EndpointType epType) = 0;
 
     /**
      * Find the endpoint that owns the given unique or well-known name.
      *
      * @param busname    Unique or well-known bus name
-     * @return
-     *      - The matching endpoint
-     *      - NULL if none exists.
+     *
+     * @return  Returns the requested endpoint or an invalid endpoint if the
+     *          endpoint was not found.
      */
-    virtual BusEndpoint* FindEndpoint(const qcc::String& busname) = 0;
+    virtual BusEndpoint FindEndpoint(const qcc::String& busname) = 0;
 
     /**
      * Generate a unique endpoint name.

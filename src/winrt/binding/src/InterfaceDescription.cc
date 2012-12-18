@@ -47,7 +47,7 @@ InterfaceDescription::InterfaceDescription(const ajn::InterfaceDescription* inte
             break;
         }
         // Attach _InterfaceDescription to a managed object
-        _mInterfaceDescr = new qcc::ManagedObj<_InterfaceDescription>(intdescr);
+        _mInterfaceDescr = new qcc::ManagedObj<_InterfaceDescription>(qcc::ManagedObj<_InterfaceDescription>::wrap(intdescr));
         // Check for allocation error
         if (NULL == _mInterfaceDescr) {
             status = ER_OUT_OF_MEMORY;

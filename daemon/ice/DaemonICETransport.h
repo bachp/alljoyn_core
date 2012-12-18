@@ -72,7 +72,8 @@ const uint64_t ICE_PACKET_STREAM_REMOVE_INTERVAL = 3000;
 
 namespace ajn {
 
-class DaemonICEEndpoint;
+class _DaemonICEEndpoint;
+typedef qcc::ManagedObj<_DaemonICEEndpoint> DaemonICEEndpoint;
 
 /* Class providing a callback mechanism used by the ICESession to notify updates to the DaemonICETransport */
 class ICESessionListenerImpl : public ICESessionListener {
@@ -188,8 +189,8 @@ class TokenRefreshListenerImpl : public TokenRefreshListener {
  * versions revolves around routing and discovery. This class provides a
  * specialization of class Transport for use by daemons.
  */
-class DaemonICETransport : public Transport, public RemoteEndpoint::EndpointListener, public Thread, public AlarmListener, public PacketEngineListener {
-    friend class DaemonICEEndpoint;
+class DaemonICETransport : public Transport, public _RemoteEndpoint::EndpointListener, public Thread, public AlarmListener, public PacketEngineListener {
+    friend class _DaemonICEEndpoint;
 
   public:
 
@@ -265,7 +266,7 @@ class DaemonICETransport : public Transport, public RemoteEndpoint::EndpointList
      *      - ER_OK if successful.
      *      - an error status otherwise.
      */
-    QStatus Connect(const char* connectSpec, const SessionOpts& opts, BusEndpoint** newep);
+    QStatus Connect(const char* connectSpec, const SessionOpts& opts, BusEndpoint& newep);
 
     /**
      * Disconnect from a specified AllJoyn/DBus address.
@@ -404,7 +405,7 @@ class DaemonICETransport : public Transport, public RemoteEndpoint::EndpointList
      *
      * @param endpoint   DaemonICEEndpoint instance that has exited.
      */
-    void EndpointExit(RemoteEndpoint* endpoint);
+    void EndpointExit(RemoteEndpoint& endpoint);
 
     struct AlarmContext {
 
@@ -478,8 +479,8 @@ class DaemonICETransport : public Transport, public RemoteEndpoint::EndpointList
     ICEManager m_iceManager;                                       /**< The ICE Manager used for managing ICE operations */
     bool m_stopping;                                               /**< True if Stop() has been called but endpoints still exist */
     TransportListener* m_listener;                                 /**< Registered TransportListener */
-    std::set<DaemonICEEndpoint*> m_authList;                       /**< Set of authenticating endpoints */
-    std::set<DaemonICEEndpoint*> m_endpointList;                   /**< Set of active endpoints */
+    std::set<DaemonICEEndpoint> m_authList;                       /**< Set of authenticating endpoints */
+    std::set<DaemonICEEndpoint> m_endpointList;                   /**< Set of active endpoints */
     Mutex m_endpointListLock;                                      /**< Mutex that protects the endpoint and auth lists */
 
     ///< Event that indicates that a new AllocateICESession request has been received.
@@ -539,7 +540,7 @@ class DaemonICETransport : public Transport, public RemoteEndpoint::EndpointList
      *
      * @param conn Pointer to the DaemonICEEndpoint that completed authentication.
      */
-    void Authenticated(DaemonICEEndpoint* conn);
+    void Authenticated(DaemonICEEndpoint& conn);
 
     /**
      * @internal

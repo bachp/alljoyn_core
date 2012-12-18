@@ -395,7 +395,7 @@ class _BTNodeInfo {
      */
     BTNodeInfo GetConnectNode() const
     {
-        BTNodeInfo next = BTNodeInfo(const_cast<_BTNodeInfo*>(this));
+        BTNodeInfo next = BTNodeInfo::wrap((_BTNodeInfo*)this);
         while (next->connectProxyNode) {
             next = *(next->connectProxyNode);
         }

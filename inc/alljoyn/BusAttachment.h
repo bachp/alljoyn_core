@@ -41,8 +41,6 @@
 
 namespace ajn {
 
-class BusEndpoint;
-
 /**
  * %BusAttachment is the top-level object responsible for connecting to and optionally managing a message bus.
  */
@@ -618,13 +616,12 @@ class BusAttachment : public MessageReceiver {
      *
      * @param connectSpec  A transport connection spec string of the form:
      *                     @c "<transport>:<param1>=<value1>,<param2>=<value2>...[;]"
-     * @param newep        FOR INTERNAL USE ONLY - External users must set to NULL (the default)
      *
      * @return
      *      - #ER_OK if successful.
      *      - An error status otherwise
      */
-    QStatus Connect(const char* connectSpec, BusEndpoint** newep = NULL);
+    QStatus Connect(const char* connectSpec);
 
     /**
      * Connect to local a AllJoyn daemon.
@@ -1720,7 +1717,7 @@ class BusAttachment : public MessageReceiver {
     /**
      * Try connect to the daemon with the spec.
      */
-    QStatus TryConnect(const char* connectSpec, BusEndpoint** newep);
+    QStatus TryConnect(const char* connectSpec);
 
     /**
      * Validate the response to SetLinkTimeout

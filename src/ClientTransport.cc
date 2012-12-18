@@ -43,7 +43,7 @@ using namespace qcc;
 
 namespace ajn {
 
-ClientTransport::ClientTransport(BusAttachment& bus) : m_bus(bus), m_running(false), m_stopping(false), m_listener(0), m_endpoint(NULL)
+ClientTransport::ClientTransport(BusAttachment& bus) : m_bus(bus), m_listener(0)
 {
 }
 
@@ -51,74 +51,41 @@ ClientTransport::~ClientTransport()
 {
     Stop();
     Join();
-    delete m_endpoint;
-    m_endpoint = NULL;
-
 }
 
 QStatus ClientTransport::Start()
 {
-    /*
-     * Start() is defined in the underlying class Transport as a placeholder
-     * for a method used to crank up a server accept loop.  We have no need
-     * for such a loop, so we don't need to do anything but make a couple of
-     * notes to ourselves that this method has been called.
-     */
     m_running = true;
-    m_stopping = false;
-
     return ER_OK;
 }
 
 QStatus ClientTransport::Stop(void)
 {
     m_running = false;
-
-    if (!m_stopping) {
-        m_stopping = true;
-        if (m_endpoint) {
-            m_endpoint->Stop();
-        }
-    }
+    /* Stop the endpoint */
+    m_endpoint->Stop();
     return ER_OK;
 }
 
 QStatus ClientTransport::Join(void)
 {
-    assert(m_stopping);
-
-
-    /*
-     * A call to Stop() above will ask all of the endpoint to stop.  We still need to wait here
-     * until the endpoint actually stops running.  When the underlying remote endpoint stops it will
-     * call back into EndpointExit() and remove itself from the list.  We poll until the end point
-     * is removed.
-     */
-    if (m_endpoint) {
-        m_endpoint->Join();
-    }
+    /* Join the endpoint i.e. wait for the EndpointExit callback to complete */
+    m_endpoint->Join();
     return ER_OK;
 }
 
-void ClientTransport::EndpointExit(RemoteEndpoint* ep)
+void ClientTransport::EndpointExit(RemoteEndpoint& ep)
 {
-
-
-    /*
-     * This is a callback driven from the remote endpoint thread exit function.
-     * Our ClientEndpoint inherits from class RemoteEndpoint and so when either of
-     * the threads (transmit or receive) of one of our endpoints exits for some
-     * reason, we get called back here.
-     */
-    QCC_DbgTrace(("ClientTransport::EndpointExit()"));
     assert(ep == m_endpoint);
+    QCC_DbgTrace(("ClientTransport::EndpointExit()"));
+    m_endpoint->Invalidate();
 }
 
 QStatus ClientTransport::Disconnect(const char* connectSpec)
 {
     QCC_DbgHLPrintf(("ClientTransport::Disconnect(): %s", connectSpec));
 
-    if (!m_endpoint) {
+    if (!m_endpoint->IsValid()) {
         return ER_BUS_NOT_CONNECTED;
     }
     /*
@@ -131,16 +98,9 @@ QStatus ClientTransport::Disconnect(const char* connectSpec)
     QStatus status = ClientTransport::NormalizeTransportSpec(connectSpec, normSpec, argMap);
     if (ER_OK != status) {
         QCC_LogError(status, ("ClientTransport::Disconnect(): Invalid connect spec \"%s\"", connectSpec));
-        return status;
-    }
-    /*
-     * Stop the endpoint if it is not already being stopped
-     */
-    if (!m_stopping && m_endpoint) {
+    } else {
         m_endpoint->Stop();
         m_endpoint->Join();
-        delete m_endpoint;
-        m_endpoint = NULL;
     }
     return status;
 }

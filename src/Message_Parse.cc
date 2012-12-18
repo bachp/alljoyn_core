@@ -889,15 +889,15 @@ QStatus _Message::Unmarshal(RemoteEndpoint& endpoint, bool checkSender, bool ped
     size_t pktSize;
     uint8_t* endOfHdr;
     qcc::SocketFd fdList[qcc::SOCKET_MAX_FILE_DESCRIPTORS];
-    size_t maxFds = endpoint.GetFeatures().handlePassing ? ArraySize(fdList) : 0;
+    size_t maxFds = endpoint->GetFeatures().handlePassing ? ArraySize(fdList) : 0;
     MsgArg* senderField = &hdrFields.field[ALLJOYN_HDR_FIELD_SENDER];
-    Source& source = endpoint.GetSource();
+    Source& source = endpoint->GetSource();
 
     if (!bus->IsStarted()) {
         return ER_BUS_BUS_NOT_STARTED;
     }
 
-    rcvEndpointName = endpoint.GetUniqueName();
+    rcvEndpointName = endpoint->GetUniqueName();
 
     /*
      * Clear out any stale message state
@@ -1096,7 +1096,7 @@ QStatus _Message::Unmarshal(RemoteEndpoint& endpoint, bool checkSender, bool ped
      */
     if (status == ER_OK) {
         const uint32_t expectFds = (hdrFields.field[ALLJOYN_HDR_FIELD_HANDLES].typeId == ALLJOYN_INVALID) ? 0 : hdrFields.field[ALLJOYN_HDR_FIELD_HANDLES].v_uint32;
-        if (!endpoint.GetFeatures().handlePassing) {
+        if (!endpoint->GetFeatures().handlePassing) {
             /*
              * Handles are not allowed if handle passing is not enabled.
              */
@@ -1213,7 +1213,7 @@ ExitUnmarshal:
         /*
          * The rx thread was alerted before any data was read - just return this status code.
          */
-        QCC_LogError(status, ("Message::Unmarshal rx thread was alerted for endpoint %s", endpoint.GetUniqueName().c_str()));
+        QCC_LogError(status, ("Message::Unmarshal rx thread was alerted for endpoint %s", endpoint->GetUniqueName().c_str()));
         break;
 
     default:
@@ -1225,7 +1225,7 @@ ExitUnmarshal:
         _msgBuf = NULL;
         ClearHeader();
         if ((status != ER_SOCK_OTHER_END_CLOSED) && (status != ER_STOPPING_THREAD)) {
-            QCC_LogError(status, ("Failed to unmarshal message received on %s", endpoint.GetUniqueName().c_str()));
+            QCC_LogError(status, ("Failed to unmarshal message received on %s", endpoint->GetUniqueName().c_str()));
         }
     }
     return status;

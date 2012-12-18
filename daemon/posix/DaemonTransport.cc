@@ -45,16 +45,19 @@ namespace ajn {
 
 const char* DaemonTransport::TransportName = "unix";
 
+class _DaemonEndpoint;
+typedef qcc::ManagedObj<_DaemonEndpoint> DaemonEndpoint;
+
 /*
  * An endpoint class to handle the details of authenticating a connection in
  * the Unix Domain Sockets way.
  */
-class DaemonEndpoint : public RemoteEndpoint {
+class _DaemonEndpoint : public _RemoteEndpoint {
 
   public:
 
-    DaemonEndpoint(BusAttachment& bus, bool incoming, const qcc::String connectSpec, SocketFd sock) :
-        RemoteEndpoint(bus, incoming, connectSpec, &stream, DaemonTransport::TransportName),
+    _DaemonEndpoint(BusAttachment& bus, bool incoming, const qcc::String connectSpec, SocketFd sock) :
+        _RemoteEndpoint(bus, incoming, connectSpec, &stream, DaemonTransport::TransportName),
         userId(-1),
         groupId(-1),
         processId(-1),
@@ -62,10 +65,7 @@ class DaemonEndpoint : public RemoteEndpoint {
     {
     }
 
-    ~DaemonEndpoint() {
-        /* Don't finalize the destructor while there are threads pushing to this endpoint. */
-        WaitForZeroPushCount();
-    }
+    ~_DaemonEndpoint() { }
 
     /**
      * Set the user id of the endpoint.
@@ -229,9 +229,8 @@ void* DaemonTransport::Run(void* arg)
         if (status == ER_OK) {
             qcc::String authName;
             qcc::String redirection;
-            DaemonEndpoint* conn;
-
-            conn = new DaemonEndpoint(bus, true, "", newSock);
+            static const bool truthiness = true;
+            DaemonEndpoint conn = DaemonEndpoint(bus, truthiness, "", newSock);
             conn->SetUserId(uid);
             conn->SetGroupId(gid);
             conn->SetProcessId(pid);
@@ -242,7 +241,7 @@ void* DaemonTransport::Run(void* arg)
             conn->GetFeatures().handlePassing = true;
 
             endpointListLock.Lock(MUTEX_CONTEXT);
-            endpointList.push_back(conn);
+            endpointList.push_back(RemoteEndpoint::cast(conn));
             endpointListLock.Unlock(MUTEX_CONTEXT);
             status = conn->Establish("EXTERNAL", authName, redirection);
             if (status == ER_OK) {
@@ -252,13 +251,11 @@ void* DaemonTransport::Run(void* arg)
             if (status != ER_OK) {
                 QCC_LogError(status, ("Error starting RemoteEndpoint"));
                 endpointListLock.Lock(MUTEX_CONTEXT);
-                list<RemoteEndpoint*>::iterator ei = find(endpointList.begin(), endpointList.end(), conn);
+                list<RemoteEndpoint>::iterator ei = find(endpointList.begin(), endpointList.end(), RemoteEndpoint::cast(conn));
                 if (ei != endpointList.end()) {
                     endpointList.erase(ei);
                 }
                 endpointListLock.Unlock(MUTEX_CONTEXT);
-                delete conn;
-                conn = NULL;
             }
         } else if (ER_WOULDBLOCK == status || ER_READ_ERROR == status) {
             status = ER_OK;

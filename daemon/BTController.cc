@@ -949,18 +949,18 @@ bool BTController::AcceptSessionJoiner(SessionPort sessionPort,
     QCC_DbgPrintf(("SJK: accept = %d", accept));
 
     if (accept) {
-        RemoteEndpoint* ep = static_cast<RemoteEndpoint*>(bt.LookupEndpoint(uniqueName));
+        RemoteEndpoint ep = bt.LookupEndpoint(uniqueName);
 
         /* We only accept sessions from joiners who meet the following criteria:
          * - The endpoint is a Bluetooth endpoint (endpoint lookup succeeds).
          * - Is not already connected to us (sessionID is 0).
          */
-        accept = (ep &&
+        accept = (ep->IsValid() &&
                   (!node->IsValid() || (node->GetSessionID() == 0)));
 
-        QCC_DbgPrintf(("SJK: accept = %d  (ep=%p  node->IsValid()=%d  node->GetSessionID()=%08x)", accept, ep, node->IsValid(), node->GetSessionID()));
+        QCC_DbgPrintf(("SJK: accept = %d  (ep=%p  node->IsValid()=%d  node->GetSessionID()=%08x)", accept, &(*ep), node->IsValid(), node->GetSessionID()));
 
-        if (ep) {
+        if (ep->IsValid()) {
             bt.ReturnEndpoint(ep);
         }
     }
@@ -1226,11 +1226,11 @@ void BTController::HandleSetState(const InterfaceDescription::Member* member, Me
 {
     QCC_DbgTrace(("BTController::HandleSetState(member = \"%s\", msg = <>)", member->name.c_str()));
     qcc::String sender = msg->GetSender();
-    RemoteEndpoint* ep = bt.LookupEndpoint(sender);
+    RemoteEndpoint ep = bt.LookupEndpoint(sender);
 
     bus.EnableConcurrentCallbacks();
 
-    if ((ep == NULL) ||
+    if ((!ep->IsValid()) ||
         nodeDB.FindNode(ep->GetRemoteName())->IsValid()) {
         /* We don't acknowledge anyone calling the SetState method call who
          * fits into one of these categories:
@@ -1241,11 +1241,11 @@ void BTController::HandleSetState(const InterfaceDescription::Member* member, Me
          *
          * Don't send a response as punishment >:)
          */
-        if (ep) {
+        if (ep->IsValid()) {
             bt.ReturnEndpoint(ep);
         }
         QCC_LogError(ER_FAIL, ("Received a SetState method call from %s.",
-                               (ep == NULL) ? "an invalid sender" : "a node we're already connected to"));
+                               (!ep->IsValid()) ? "an invalid sender" : "a node we're already connected to"));
         return;
     }
 

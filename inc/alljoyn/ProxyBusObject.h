@@ -28,6 +28,7 @@
 #include <alljoyn/InterfaceDescription.h>
 #include <alljoyn/MessageReceiver.h>
 #include <alljoyn/MsgArg.h>
+#include <alljoyn/Message.h>
 #include <alljoyn/Session.h>
 
 #include <Status.h>
@@ -959,7 +960,7 @@ class ProxyBusObject : public MessageReceiver {
      * Set the B2B endpoint to use for all communication with remote object.
      * This method is for internal use only.
      */
-    void SetB2BEndpoint(RemoteEndpoint* b2bEp);
+    void SetB2BEndpoint(RemoteEndpoint& b2bEp);
 
     /**
      * @internal
@@ -1009,7 +1010,7 @@ class ProxyBusObject : public MessageReceiver {
     qcc::String serviceName;    /**< Remote destination */
     SessionId sessionId;        /**< Session to use for communicating with remote object */
     bool hasProperties;         /**< True if proxy object implements properties */
-    RemoteEndpoint* b2bEp;      /**< B2B endpoint to use or NULL to indicates normal sessionId based routing */
+    mutable RemoteEndpoint b2bEp;      /**< B2B endpoint to use or NULL to indicates normal sessionId based routing */
     mutable qcc::Mutex* lock;   /**< Lock that protects access to components member */
     bool isExiting;             /**< true iff ProxyBusObject is in the process of begin destroyed */
 };

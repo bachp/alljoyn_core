@@ -32,27 +32,26 @@
 
 
 namespace ajn {
+class _BTEndpoint;
+typedef qcc::ManagedObj<_BTEndpoint> BTEndpoint;
 
-class BTEndpoint : public RemoteEndpoint {
+class _BTEndpoint : public _RemoteEndpoint {
   public:
 
     /**
      * Bluetooth endpoint constructor
      */
-    BTEndpoint(BusAttachment& bus,
-               bool incoming,
-               qcc::Stream& stream,
-               const BTNodeInfo& node,
-               const BTBusAddress& redirect) :
-        RemoteEndpoint(bus, incoming, node->GetBusAddress().ToSpec(), &stream, "bluetooth"),
+    _BTEndpoint(BusAttachment& bus,
+                bool incoming,
+                qcc::Stream& stream,
+                const BTNodeInfo& node,
+                const BTBusAddress& redirect) :
+        _RemoteEndpoint(bus, incoming, node->GetBusAddress().ToSpec(), &stream, "bluetooth"),
         node(node),
         redirect(redirect)
     { }
 
-    virtual ~BTEndpoint() {
-        /* Don't finalize the destructor while there are threads pushing to this endpoint. */
-        WaitForZeroPushCount();
-    }
+    virtual ~_BTEndpoint() { }
 
 
     BTNodeInfo& GetNode() { return node; }

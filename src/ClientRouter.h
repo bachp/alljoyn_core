@@ -5,7 +5,7 @@
  */
 
 /******************************************************************************
- * Copyright 2009-2011, Qualcomm Innovation Center, Inc.
+ * Copyright 2009-2012, Qualcomm Innovation Center, Inc.
  *
  *    Licensed under the Apache License, Version 2.0 (the "License");
  *    you may not use this file except in compliance with the License.
@@ -39,15 +39,9 @@ namespace ajn {
  * endpoint and a single local endpoint
  */
 class ClientRouter : public Router {
-    friend class TCPEndpoint;
-    friend class UnixEndpoint;
-    friend class LocalEndpoint;
+    friend class _LocalEndpoint;
 
   public:
-    /**
-     * Constructor
-     */
-    ClientRouter() : localEndpoint(NULL), nonLocalEndpoint(NULL) { }
 
     /**
      * Route an incoming Message Bus Message from an endpoint.
@@ -67,10 +61,9 @@ class ClientRouter : public Router {
      * This method must be called by an endpoint before attempting to use the router.
      *
      * @param endpoint   Endpoint being registered.
-     * @param isLocal    true if endpoint is local.
      * @return ER_OK if successful.
      */
-    QStatus RegisterEndpoint(BusEndpoint& endpoint, bool isLocal);
+    QStatus RegisterEndpoint(BusEndpoint& endpoint);
 
     /**
      * Un-register an endpoint.
@@ -79,17 +72,17 @@ class ClientRouter : public Router {
      *
      * @param epName   Name of Endpoint being un-registered.
      */
-    void UnregisterEndpoint(const qcc::String& epName);
+    void UnregisterEndpoint(const qcc::String& epName, EndpointType epType);
 
     /**
      * Find the endpoint that owns the given unique or well-known name.
      *
      * @param busname    Unique or well-known bus name
-     * @return
-     *      - Matching endpoint
-     *      - NULL if none exists.
+     *
+     * @return  Returns the requested endpoint or an invalid endpoint if the
+     *          endpoint was not found.
      */
-    BusEndpoint* FindEndpoint(const qcc::String& busname);
+    BusEndpoint FindEndpoint(const qcc::String& busname);
 
     /**
      * Generate a unique endpoint name.
@@ -114,7 +107,7 @@ class ClientRouter : public Router {
      *
      * @return true iff the messages can be routed currently.
      */
-    bool IsBusRunning(void) const { return localEndpoint && nonLocalEndpoint; }
+    bool IsBusRunning(void) const { return localEndpoint->IsValid() && nonLocalEndpoint->IsValid(); }
 
     /**
      * Set the global GUID of the bus.
@@ -130,8 +123,8 @@ class ClientRouter : public Router {
     ~ClientRouter();
 
   private:
-    LocalEndpoint* localEndpoint;   /**< Local endpoint */
-    BusEndpoint* nonLocalEndpoint;  /**< Last non-local enpoint to register */
+    LocalEndpoint localEndpoint;   /**< Local endpoint */
+    BusEndpoint nonLocalEndpoint;  /**< Last non-local enpoint to register */
 
 };
 

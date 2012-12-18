@@ -30,6 +30,7 @@
 #include <qcc/Pipe.h>
 #include <qcc/String.h>
 #include <qcc/StringUtil.h>
+#include <qcc/ManagedObj.h>
 
 #include <alljoyn/BusAttachment.h>
 #include <alljoyn/Message.h>
@@ -54,6 +55,7 @@ static bool fuzzing = false;
 static bool nobig = false;
 static bool quiet = false;
 
+static const bool falsiness = false;
 
 class TestPipe : public qcc::Pipe {
   public:
@@ -114,11 +116,11 @@ void Randfuzzing(void* buf, size_t len, uint8_t percent)
     }
 }
 
-class MyMessage : public _Message {
+class _MyMessage : public _Message {
   public:
 
 
-    MyMessage() : _Message(*gBus) { };
+    _MyMessage() : _Message(*gBus) { };
 
     QStatus MethodCall(const char* destination,
                        const char* objPath,
@@ -158,6 +160,7 @@ class MyMessage : public _Message {
     }
 };
 
+typedef qcc::ManagedObj<_MyMessage> MyMessage;
 
 static qcc::String StripWS(const qcc::String& str)
 {
@@ -290,8 +293,9 @@ static QStatus TestMarshal(const MsgArg* argList, size_t numArgs, const char* ex
     QStatus status;
     TestPipe stream;
     MyMessage msg;
-    RemoteEndpoint ep(*gBus, false, "", &stream, "dummy", false);
-    ep.GetFeatures().handlePassing = true;
+    TestPipe* pStream = &stream;
+    RemoteEndpoint ep(*gBus, falsiness, String::Empty, pStream);
+    ep->GetFeatures().handlePassing = true;
 
     if (numArgs == 0) {
         if (!quiet) printf("Empty arg.v_struct.Elements, arg.v_struct.numElements\n");
@@ -303,12 +307,12 @@ static QStatus TestMarshal(const MsgArg* argList, size_t numArgs, const char* ex
     qcc::String inSig = MsgArg::Signature(argList, numArgs);
     if (!quiet) printf("ArgList:\n%s", inargList.c_str());
 
-    status = msg.MethodCall("desti.nation", "/foo/bar", "foo.bar", "test", argList, numArgs);
+    status = msg->MethodCall("desti.nation", "/foo/bar", "foo.bar", "test", argList, numArgs);
     if (!quiet) printf("MethodCall status:%s\n", QCC_StatusText(status));
     if (status != ER_OK) {
         return status;
     }
-    status = msg.Deliver(ep);
+    status = msg->Deliver(ep);
     if (status != ER_OK) {
         return status;
     }
@@ -317,17 +321,17 @@ static QStatus TestMarshal(const MsgArg* argList, size_t numArgs, const char* ex
         Fuzz(stream);
     }
 
-    status = msg.Unmarshal(ep, ":88.88");
+    status = msg->Unmarshal(ep, ":88.88");
     if (status != ER_OK) {
         if (!quiet) printf("Message::Unmarshal status:%s\n", QCC_StatusText(status));
         return status;
     }
-    status = msg.UnmarshalBody();
+    status = msg->UnmarshalBody();
     if (status != ER_OK) {
         if (!quiet) printf("Message::UnmarshalArgs status:%s\n", QCC_StatusText(status));
         return status;
     }
-    msg.GetArgs(numArgs, argList);
+    msg->GetArgs(numArgs, argList);
     qcc::String outargList = MsgArg::ToString(argList, numArgs);
     qcc::String outSig = MsgArg::Signature(argList, numArgs);
     if (!quiet) printf("--------------------------------------------\n");
@@ -975,30 +979,31 @@ QStatus TestMsgUnpack()
     MsgArg args[4];
     size_t numArgs = ArraySize(args);
     double d = 0.9;
-    RemoteEndpoint ep(*gBus, false, "", &stream, "dummy", false);
-    ep.GetFeatures().handlePassing = true;
+    TestPipe* pStream = &stream;
+    RemoteEndpoint ep(*gBus, falsiness, String::Empty, pStream);
+    ep->GetFeatures().handlePassing = true;
 
     MsgArg::Set(args, numArgs, "usyd", 4, "hello", 8, d);
-    status = msg.MethodCall("a.b.c", "/foo/bar", "foo.bar", "test", args, numArgs);
+    status = msg->MethodCall("a.b.c", "/foo/bar", "foo.bar", "test", args, numArgs);
     if (status != ER_OK) {
         return status;
     }
-    status = msg.Deliver(ep);
+    status = msg->Deliver(ep);
     if (status != ER_OK) {
         return status;
     }
-    status = msg.Unmarshal(ep, ":88.88");
+    status = msg->Unmarshal(ep, ":88.88");
     if (status != ER_OK) {
         return status;
     }
-    status = msg.UnmarshalBody();
+    status = msg->UnmarshalBody();
     if (status != ER_OK) {
         return status;
     }
     uint32_t i;
     const char* s;
     uint8_t y;
-    status = msg.GetArgs("usyd", &i, &s, &y, &d);
+    status = msg->GetArgs("usyd", &i, &s, &y, &d);
     if (status != ER_OK) {
         return status;
     }

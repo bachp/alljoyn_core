@@ -64,7 +64,7 @@ BusObject::BusObject(BusAttachment ^ bus, Platform::String ^ path, bool isPlaceh
             break;
         }
         // Create the managed version of _BusObject
-        _mBusObject = new qcc::ManagedObj<_BusObject>(bo);
+        _mBusObject = new qcc::ManagedObj<_BusObject>(qcc::ManagedObj<_BusObject>::wrap(bo));
         // Check for allocation failure
         if (NULL == _mBusObject) {
             status = ER_OUT_OF_MEMORY;

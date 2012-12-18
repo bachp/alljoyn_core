@@ -136,4 +136,44 @@ bool Rule::IsMatch(const Message& msg)
     return true;
 }
 
+qcc::String Rule::ToString() const
+{
+    return "s:" + sender + " i:" + iface + " m:" + member + " p:" + path + " d:" + destination;
+}
+
+QStatus RuleTable::AddRule(BusEndpoint& endpoint, const Rule& rule)
+{
+    QCC_DbgPrintf(("AddRule for endpoint %s\n  %s", endpoint->GetUniqueName().c_str(), rule.ToString().c_str()));
+    Lock();
+    rules.insert(std::pair<BusEndpoint, Rule>(endpoint, rule));
+    Unlock();
+    return ER_OK;
+}
+
+QStatus RuleTable::RemoveRule(BusEndpoint& endpoint, Rule& rule)
+{
+    Lock();
+    std::pair<RuleIterator, RuleIterator> range = rules.equal_range(endpoint);
+    while (range.first != range.second) {
+        if (range.first->second == rule) {
+            rules.erase(range.first);
+            break;
+        }
+        range.first++;
+    }
+    Unlock();
+    return ER_OK;
+}
+
+QStatus RuleTable::RemoveAllRules(BusEndpoint& endpoint)
+{
+    Lock();
+    std::pair<RuleIterator, RuleIterator> range = rules.equal_range(endpoint);
+    if (range.first != rules.end()) {
+        rules.erase(range.first, range.second);
+    }
+    Unlock();
+    return ER_OK;
+}
+
 }

@@ -21,34 +21,17 @@
 
 #include <qcc/platform.h>
 #include <qcc/GUID.h>
+#include <qcc/Debug.h>
 #include <qcc/Thread.h>
 
 #include <BusEndpoint.h>
 
+#define QCC_MODULE "ALLJOYN"
+
 using namespace qcc;
 using namespace ajn;
 
-BusEndpoint::~BusEndpoint()
-{
-    /* Wait for any threads running in PushMessage to exit */
-    WaitForZeroPushCount();
-}
-
-void BusEndpoint::IncrementPushCount()
-{
-    pushCountLock.Lock();
-    ++pushCount;
-    pushCountLock.Unlock();
-}
-
-void BusEndpoint::DecrementPushCount()
-{
-    pushCountLock.Lock();
-    --pushCount;
-    pushCountLock.Unlock();
-}
-
-String BusEndpoint::GetControllerUniqueName() const {
+String _BusEndpoint::GetControllerUniqueName() const {
 
     /* An endpoint with unique name :X.Y has a controller with a unique name :X.1 */
     String ret = GetUniqueName();
@@ -57,13 +40,9 @@ String BusEndpoint::GetControllerUniqueName() const {
     return ret;
 }
 
-void BusEndpoint::WaitForZeroPushCount()
+void _BusEndpoint::Invalidate()
 {
-    pushCountLock.Lock();
-    while (pushCount > 0) {
-        pushCountLock.Unlock();
-        qcc::Sleep(5);
-        pushCountLock.Lock();
-    }
-    pushCountLock.Unlock();
+    QCC_DbgPrintf(("Invalidating endpoint type=%d %s", endpointType, GetUniqueName().c_str()));
+    isValid = false;
 }
+

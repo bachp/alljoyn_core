@@ -499,7 +499,8 @@ QStatus BusObject::Signal(const char* destination,
                             flags,
                             timeToLive);
     if (status == ER_OK) {
-        status = bus->GetInternal().GetRouter().PushMessage(msg, bus->GetInternal().GetLocalEndpoint());
+        BusEndpoint bep = BusEndpoint::cast(bus->GetInternal().GetLocalEndpoint());
+        status = bus->GetInternal().GetRouter().PushMessage(msg, bep);
     }
     return status;
 }
@@ -519,7 +520,8 @@ QStatus BusObject::MethodReply(const Message& msg, const MsgArg* args, size_t nu
         Message reply(*bus);
         status = reply->ReplyMsg(msg, args, numArgs);
         if (status == ER_OK) {
-            status = bus->GetInternal().GetRouter().PushMessage(reply, bus->GetInternal().GetLocalEndpoint());
+            BusEndpoint bep = BusEndpoint::cast(bus->GetInternal().GetLocalEndpoint());
+            status = bus->GetInternal().GetRouter().PushMessage(reply, bep);
         }
     }
     return status;
@@ -541,7 +543,8 @@ QStatus BusObject::MethodReply(const Message& msg, const char* errorName, const 
         Message error(*bus);
         status = error->ErrorMsg(msg, errorName, errorMessage ? errorMessage : "");
         if (status == ER_OK) {
-            status = bus->GetInternal().GetRouter().PushMessage(error, bus->GetInternal().GetLocalEndpoint());
+            BusEndpoint bep = BusEndpoint::cast(bus->GetInternal().GetLocalEndpoint());
+            status = bus->GetInternal().GetRouter().PushMessage(error, bep);
         }
     }
     return status;
@@ -562,7 +565,8 @@ QStatus BusObject::MethodReply(const Message& msg, QStatus status)
         } else {
             Message error(*bus);
             error->ErrorMsg(msg, status);
-            return bus->GetInternal().GetRouter().PushMessage(error, bus->GetInternal().GetLocalEndpoint());
+            BusEndpoint bep = BusEndpoint::cast(bus->GetInternal().GetLocalEndpoint());
+            return bus->GetInternal().GetRouter().PushMessage(error, bep);
         }
     }
 }
@@ -676,7 +680,7 @@ BusObject::~BusObject()
      * If this object has a parent it has not been unregistered so do so now.
      */
     if (bus && parent) {
-        bus->GetInternal().GetLocalEndpoint().UnregisterBusObject(*this);
+        bus->GetInternal().GetLocalEndpoint()->UnregisterBusObject(*this);
     }
     delete components;
 }

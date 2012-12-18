@@ -108,7 +108,9 @@ static QStatus TestRemarshal(const MsgArg* argList, size_t numArgs, const char* 
 {
     QStatus status;
     Pipe stream;
-    RemoteEndpoint ep(*gBus, false, "", &stream, "dummy");
+    Pipe* pStream = &stream;
+    static const bool falsiness = false;
+    RemoteEndpoint ep(*gBus, falsiness, String::Empty, pStream);
     MyMessage msg;
 
     if (numArgs == 0) {

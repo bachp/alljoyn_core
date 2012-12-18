@@ -45,8 +45,8 @@
 
 namespace ajn {
 
-class ProximityEndpoint;
-
+class _ProximityEndpoint;
+typedef qcc::ManagedObj<_ProximityEndpoint> ProximityEndpoint;
 /**
  * @brief A class for TCP Transports used in daemons.
  *
@@ -56,8 +56,8 @@ class ProximityEndpoint;
  * versions revolves around routing and discovery. This class provides a
  * specialization of class Transport for use by daemons.
  */
-class ProximityTransport : public Transport, public RemoteEndpoint::EndpointListener, public qcc::Thread, public ProximityListener {
-    friend class ProximityEndpoint;
+class ProximityTransport : public Transport, public _RemoteEndpoint::EndpointListener, public qcc::Thread, public ProximityListener {
+    friend class _ProximityEndpoint;
 
   public:
     /**
@@ -132,7 +132,7 @@ class ProximityTransport : public Transport, public RemoteEndpoint::EndpointList
      *      - ER_OK if successful.
      *      - an error status otherwise.
      */
-    QStatus Connect(const char* connectSpec, const SessionOpts& opts, BusEndpoint** newep);
+    QStatus Connect(const char* connectSpec, const SessionOpts& opts, BusEndpoint& newep);
 
     /**
      * Disconnect from a specified AllJoyn/DBus address.
@@ -271,7 +271,7 @@ class ProximityTransport : public Transport, public RemoteEndpoint::EndpointList
      *
      * @param endpoint   ProximityEndpoint instance that has exited.
      */
-    void EndpointExit(RemoteEndpoint* endpoint);
+    void EndpointExit(RemoteEndpoint& endpoint);
 
     /**
      * Name of transport used in transport specs.
@@ -287,8 +287,8 @@ class ProximityTransport : public Transport, public RemoteEndpoint::EndpointList
     ProximityNameService ^ m_pns;                                  /**< The name service used for bus name discovery */
     bool m_stopping;                                               /**< True if Stop() has been called but endpoints still exist */
     TransportListener* m_listener;                                 /**< Registered TransportListener */
-    std::list<ProximityEndpoint*> m_authList;                            /**< List of authenticating endpoints */
-    std::list<ProximityEndpoint*> m_endpointList;                        /**< List of active endpoints */
+    std::list<ProximityEndpoint> m_authList;                            /**< List of authenticating endpoints */
+    std::list<ProximityEndpoint> m_endpointList;                        /**< List of active endpoints */
     qcc::Mutex m_endpointListLock;                                 /**< Mutex that protects the endpoint and auth lists */
 
     std::list<std::pair<qcc::String, qcc::SocketFd> > m_listenFds; /**< File descriptors the transport is listening on */
@@ -440,7 +440,7 @@ class ProximityTransport : public Transport, public RemoteEndpoint::EndpointList
      *
      * @param conn Pointer to the ProximityEndpoint that completed authentication.
      */
-    void Authenticated(ProximityEndpoint* conn);
+    void Authenticated(ProximityEndpoint& conn);
 
     /**
      * @internal

@@ -90,7 +90,9 @@ TEST(CompressionTest, Compression) {
     BusAttachment bus("compression");
     MyMessage msg(bus);
     Pipe stream;
-    RemoteEndpoint ep(bus, false, "", &stream, "dummy", false);
+    Pipe* pStream = &stream;
+    static const bool falsiness = false;
+    RemoteEndpoint ep(bus, falsiness, String::Empty, pStream);
 
     bus.Start();
 

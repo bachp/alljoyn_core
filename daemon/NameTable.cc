@@ -32,6 +32,7 @@
 
 #include "NameTable.h"
 #include "VirtualEndpoint.h"
+#include "EndpointHelper.h"
 
 #include <alljoyn/DBusStd.h>
 
@@ -57,12 +58,12 @@ void NameTable::SetGUID(const qcc::GUID128& guid)
 
 void NameTable::AddUniqueName(BusEndpoint& endpoint)
 {
-    QCC_DbgTrace(("NameTable::AddUniqueName(%s)", endpoint.GetUniqueName().c_str()));
+    QCC_DbgTrace(("NameTable::AddUniqueName(%s)", endpoint->GetUniqueName().c_str()));
 
-    const qcc::String& uniqueName = endpoint.GetUniqueName();
+    const qcc::String& uniqueName = endpoint->GetUniqueName();
     QCC_DbgPrintf(("Add unique name %s", uniqueName.c_str()));
     lock.Lock(MUTEX_CONTEXT);
-    uniqueNames[uniqueName] = &endpoint;
+    uniqueNames[uniqueName] = endpoint;
     lock.Unlock(MUTEX_CONTEXT);
 
     /* Notify listeners */
@@ -75,9 +76,9 @@ void NameTable::RemoveUniqueName(const qcc::String& uniqueName)
 
     /* Erase the unique bus name and any well-known names that use the same endpoint */
     lock.Lock(MUTEX_CONTEXT);
-    unordered_map<qcc::String, BusEndpoint*, Hash, Equal>::iterator it = uniqueNames.find(uniqueName);
+    unordered_map<qcc::String, BusEndpoint, Hash, Equal>::iterator it = uniqueNames.find(uniqueName);
     if (it != uniqueNames.end()) {
-        BusEndpoint* endpoint = it->second;
+        BusEndpoint endpoint = it->second;
 
         /* Remove well-known names asssociated with uniqueName */
         unordered_map<qcc::String, deque<NameQueueEntry>, Hash, Equal>::iterator ait = aliasNames.begin();
@@ -138,7 +139,7 @@ QStatus NameTable::AddAlias(const qcc::String& aliasName,
     QCC_DbgTrace(("NameTable: AddAlias(%s, %s)", aliasName.c_str(), uniqueName.c_str()));
 
     lock.Lock(MUTEX_CONTEXT);
-    unordered_map<qcc::String, BusEndpoint*, Hash, Equal>::const_iterator it = uniqueNames.find(uniqueName);
+    unordered_map<qcc::String, BusEndpoint, Hash, Equal>::const_iterator it = uniqueNames.find(uniqueName);
     if (it != uniqueNames.end()) {
         unordered_map<qcc::String, deque<NameQueueEntry>, Hash, Equal>::iterator wasIt = aliasNames.find(aliasName);
         NameQueueEntry entry = { uniqueName, flags };
@@ -174,7 +175,7 @@ QStatus NameTable::AddAlias(const qcc::String& aliasName,
             newOwner = &uniqueName;
 
             /* Check to see if we are overriding a virtual (remote) name */
-            map<qcc::StringMapKey, VirtualEndpoint*>::const_iterator vit = virtualAliasNames.find(aliasName);
+            map<qcc::StringMapKey, VirtualEndpoint>::const_iterator vit = virtualAliasNames.find(aliasName);
             if (vit != virtualAliasNames.end()) {
                 origOwner = &vit->second->GetUniqueName();
             }
@@ -219,12 +220,14 @@ void NameTable::RemoveAlias(const qcc::String& aliasName,
             /* Remove primary */
             if (queue.size() > 1) {
                 queue.pop_front();
-                BusEndpoint* ep = FindEndpoint(queue[0].endpointName);
-                newOwner = ep ? &queue[0].endpointName : NULL;
+                BusEndpoint ep = FindEndpoint(queue[0].endpointName);
+                if (ep->IsValid()) {
+                    newOwner = &queue[0].endpointName;
+                }
             }
             if (!newOwner) {
                 /* Check to see if there is a (now unmasked) remote owner for the alias */
-                map<qcc::StringMapKey, VirtualEndpoint*>::const_iterator vit = virtualAliasNames.find(aliasName);
+                map<qcc::StringMapKey, VirtualEndpoint>::const_iterator vit = virtualAliasNames.find(aliasName);
                 if (vit != virtualAliasNames.end()) {
                     newOwner = &vit->second->GetUniqueName();
                 }
@@ -250,33 +253,33 @@ void NameTable::RemoveAlias(const qcc::String& aliasName,
     }
 }
 
-BusEndpoint* NameTable::FindEndpoint(const qcc::String& busName) const
+BusEndpoint NameTable::FindEndpoint(const qcc::String& busName) const
 {
-    BusEndpoint* ret = NULL;
+    BusEndpoint ep;
 
     lock.Lock(MUTEX_CONTEXT);
     if (busName[0] == ':') {
-        unordered_map<qcc::String, BusEndpoint*, Hash, Equal>::const_iterator it = uniqueNames.find(busName);
+        unordered_map<qcc::String, BusEndpoint, Hash, Equal>::const_iterator it = uniqueNames.find(busName);
         if (it != uniqueNames.end()) {
-            ret = it->second;
+            ep = it->second;
         }
-
     } else {
         unordered_map<qcc::String, deque<NameQueueEntry>, Hash, Equal>::const_iterator it = aliasNames.find(busName);
         if (it != aliasNames.end()) {
             assert(!it->second.empty());
-            ret = FindEndpoint(it->second[0].endpointName);
+            ep = FindEndpoint(it->second[0].endpointName);
         }
         /* Fallback to virtual (remote) aliases if a suitable local one cannot be found */
-        if (NULL == ret) {
-            map<qcc::StringMapKey, VirtualEndpoint*>::const_iterator vit = virtualAliasNames.find(busName);
+        if (!ep->IsValid()) {
+            map<qcc::StringMapKey, VirtualEndpoint>::const_iterator vit = virtualAliasNames.find(busName);
             if (vit != virtualAliasNames.end()) {
-                ret = vit->second;
+                VirtualEndpoint vep = vit->second;
+                ep = BusEndpoint::cast(vep);
             }
         }
     }
     lock.Unlock(MUTEX_CONTEXT);
-    return ret;
+    return ep;
 }
 
 void NameTable::GetBusNames(vector<qcc::String>& names) const
@@ -288,7 +291,7 @@ void NameTable::GetBusNames(vector<qcc::String>& names) const
         names.push_back(it->first);
         ++it;
     }
-    unordered_map<qcc::String, BusEndpoint*, Hash, Equal>::const_iterator uit = uniqueNames.begin();
+    unordered_map<qcc::String, BusEndpoint, Hash, Equal>::const_iterator uit = uniqueNames.begin();
     while (uit != uniqueNames.end()) {
         names.push_back(uit->first);
         ++uit;
@@ -300,26 +303,27 @@ void NameTable::GetUniqueNamesAndAliases(vector<pair<qcc::String, vector<qcc::St
 {
 
     /* Create a intermediate map to avoid N^2 perf */
-    multimap<const BusEndpoint*, qcc::String> epMap;
+    multimap<BusEndpoint, qcc::String> epMap;
     lock.Lock(MUTEX_CONTEXT);
-    unordered_map<qcc::String, BusEndpoint*, Hash, Equal>::const_iterator uit = uniqueNames.begin();
+    unordered_map<qcc::String, BusEndpoint, Hash, Equal>::const_iterator uit = uniqueNames.begin();
     while (uit != uniqueNames.end()) {
-        epMap.insert(pair<const BusEndpoint*, qcc::String>(uit->second, uit->first));
+        epMap.insert(pair<const BusEndpoint, qcc::String>(uit->second, uit->first));
         ++uit;
     }
     unordered_map<qcc::String, deque<NameQueueEntry>, Hash, Equal>::const_iterator ait = aliasNames.begin();
     while (ait != aliasNames.end()) {
         if (!ait->second.empty()) {
-            BusEndpoint* ep = FindEndpoint(ait->second.front().endpointName);
-            if (ep) {
-                epMap.insert(pair<const BusEndpoint*, qcc::String>(ep, ait->first));
+            BusEndpoint ep = FindEndpoint(ait->second.front().endpointName);
+            if (ep->IsValid()) {
+                epMap.insert(pair<BusEndpoint, qcc::String>(ep, ait->first));
             }
         }
         ++ait;
     }
-    map<StringMapKey, VirtualEndpoint*>::const_iterator vit = virtualAliasNames.begin();
+    map<StringMapKey, VirtualEndpoint>::const_iterator vit = virtualAliasNames.begin();
     while (vit != virtualAliasNames.end()) {
-        epMap.insert(pair<const BusEndpoint*, qcc::String>(vit->second, vit->first.c_str()));
+        VirtualEndpoint vep = vit->second;
+        epMap.insert(pair<BusEndpoint, qcc::String>(BusEndpoint::cast(vep), vit->first.c_str()));
         ++vit;
     }
     lock.Unlock(MUTEX_CONTEXT);
@@ -327,8 +331,8 @@ void NameTable::GetUniqueNamesAndAliases(vector<pair<qcc::String, vector<qcc::St
     /* Fill in the caller's vector */
     qcc::String uniqueName;
     vector<qcc::String> aliasVec;
-    const BusEndpoint* lastEp = NULL;
-    multimap<const BusEndpoint*, qcc::String>::iterator it = epMap.begin();
+    BusEndpoint lastEp;
+    multimap<BusEndpoint, qcc::String>::iterator it = epMap.begin();
     names.reserve(uniqueNames.size());  // prevent dynamic resizing in loop
     while (true) {
         if ((it == epMap.end()) || (lastEp != it->first)) {
@@ -369,13 +373,13 @@ void NameTable::GetQueuedNames(const qcc::String& busName, std::vector<qcc::Stri
 void NameTable::RemoveVirtualAliases(const qcc::String& epName)
 {
     lock.Lock(MUTEX_CONTEXT);
+    BusEndpoint tempEp = FindEndpoint(epName);
+    VirtualEndpoint ep = VirtualEndpoint::cast(tempEp);
 
-    VirtualEndpoint* ep = static_cast<VirtualEndpoint*>(FindEndpoint(epName));
+    QCC_DbgTrace(("NameTable::RemoveVirtualAliases(%s)", ep->IsValid() ? ep->GetUniqueName().c_str() : "<none>"));
 
-    QCC_DbgTrace(("NameTable::RemoveVirtualAliases(%s)", ep ? ep->GetUniqueName().c_str() : "<none>"));
-
-    if (ep) {
-        map<qcc::StringMapKey, VirtualEndpoint*>::iterator vit = virtualAliasNames.begin();
+    if (ep->IsValid()) {
+        map<qcc::StringMapKey, VirtualEndpoint>::iterator vit = virtualAliasNames.begin();
         while (vit != virtualAliasNames.end()) {
             if (vit->second == ep) {
                 String alias = vit->first.c_str();
@@ -398,12 +402,16 @@ bool NameTable::SetVirtualAlias(const qcc::String& alias,
                                 VirtualEndpoint* newOwner,
                                 VirtualEndpoint& requestingEndpoint)
 {
-    QCC_DbgTrace(("NameTable::SetVirtualAlias(%s, %s, %s)", alias.c_str(), newOwner ? newOwner->GetUniqueName().c_str() : "<none>", requestingEndpoint.GetUniqueName().c_str()));
+    QCC_DbgTrace(("NameTable::SetVirtualAlias(%s, %s, %s)", alias.c_str(), newOwner ? (*newOwner)->GetUniqueName().c_str() : "<none>", requestingEndpoint->GetUniqueName().c_str()));
 
     lock.Lock(MUTEX_CONTEXT);
 
-    map<qcc::StringMapKey, VirtualEndpoint*>::iterator vit = virtualAliasNames.find(alias);
-    BusEndpoint* oldOwner = (vit == virtualAliasNames.end()) ? NULL : vit->second;
+    map<qcc::StringMapKey, VirtualEndpoint>::iterator vit = virtualAliasNames.find(alias);
+    VirtualEndpoint oldOwner;
+
+    if (vit != virtualAliasNames.end()) {
+        oldOwner = vit->second;
+    }
 
     /*
      * Virtual aliases cannot directly change ownership from one remote daemon to another.
@@ -411,9 +419,9 @@ bool NameTable::SetVirtualAlias(const qcc::String& alias,
      * Name changes are allowed within the same remote daemon or when the name is not already
      * owned.
      */
-    if (oldOwner) {
+    if (oldOwner->IsValid()) {
         const String& oldOwnerName = oldOwner->GetUniqueName();
-        const String& reqOwnerName = requestingEndpoint.GetUniqueName();
+        const String& reqOwnerName = requestingEndpoint->GetUniqueName();
         size_t oldPeriodOff = oldOwnerName.find_first_of('.');
         size_t reqPeriodOff = reqOwnerName.find_first_of('.');
         if ((oldPeriodOff == String::npos) || (0 != oldOwnerName.compare(0, oldPeriodOff, reqOwnerName, 0, reqPeriodOff))) {
@@ -422,17 +430,19 @@ bool NameTable::SetVirtualAlias(const qcc::String& alias,
         }
     }
 
-    bool madeChange = (oldOwner != newOwner);
     bool maskingLocalName = (aliasNames.find(alias) != aliasNames.end());
 
+    bool madeChange;
     if (newOwner) {
-        virtualAliasNames[alias] = newOwner;
+        madeChange = !newOwner->iden(oldOwner);
+        virtualAliasNames[alias] = *newOwner;
     } else {
+        madeChange = true;
         virtualAliasNames.erase(StringMapKey(alias));
     }
 
-    String oldName = oldOwner ? oldOwner->GetUniqueName() : "";
-    String newName = newOwner ? newOwner->GetUniqueName() : "";
+    String oldName = oldOwner->IsValid() ? oldOwner->GetUniqueName() : "";
+    String newName = newOwner ? (*newOwner)->GetUniqueName() : "";
 
     lock.Unlock(MUTEX_CONTEXT);
 

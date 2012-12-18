@@ -53,7 +53,7 @@ typedef struct PermCheckedEntry {
 std::map<PermCheckedEntry, bool> permCheckedCallMap;     /**< Map of a permission-checked method/signal call to the verification result */
 qcc::Mutex chkedCallMapLock;                             /**< Mutex protecting the map of verification result */
 
-PeerPermission::PeerPermStatus DoPeerPermissionInquiry(LocalEndpoint* localEp, Message& message, qcc::String& permsStr)
+PeerPermission::PeerPermStatus DoPeerPermissionInquiry(LocalEndpoint& localEp, Message& message, qcc::String& permsStr)
 {
     QStatus status = ER_OK;
     /* Split permissions that are concated by ";". The permission string is in form of "PERM0;PERM1;..." */
@@ -124,7 +124,7 @@ PeerPermission::PeerPermStatus PeerPermission::CanPeerDoCall(Message& message, c
 
 class MethodCallRunnableAuth : public Runnable {
   public:
-    MethodCallRunnableAuth(LocalEndpoint* localEp, const MethodTable::Entry* entry, Message& message, qcc::String& permStr)
+    MethodCallRunnableAuth(LocalEndpoint& localEp, const MethodTable::Entry* entry, Message& message, qcc::String& permStr)
         : localEp(localEp), entry(entry), message(message), permStr(permStr)
     {
         QCC_DbgHLPrintf(("MethodCallRunnableAuth::MethodCallRunnable(): New closure for method call"));
@@ -151,7 +151,7 @@ class MethodCallRunnableAuth : public Runnable {
     }
 
   private:
-    LocalEndpoint* localEp;
+    LocalEndpoint localEp;
     const MethodTable::Entry* entry;
     Message message;
     qcc::String permStr;
@@ -162,7 +162,7 @@ class SignalCallRunnableAuth : public Runnable {
     SignalCallRunnableAuth(MessageReceiver* object,
                            MessageReceiver::SignalHandler handler,
                            const InterfaceDescription::Member* member,
-                           LocalEndpoint* localEp,
+                           LocalEndpoint& localEp,
                            Message message,
                            qcc::String& permStr)
         : object(object), handler(handler), member(member), message(message), localEp(localEp), permStr(permStr)
@@ -187,12 +187,12 @@ class SignalCallRunnableAuth : public Runnable {
     MessageReceiver::SignalHandler handler;
     const InterfaceDescription::Member* member;
     Message message;
-    LocalEndpoint* localEp;
+    LocalEndpoint localEp;
     qcc::String permStr;
 
 };
 
-QStatus PeerPermission::PeerAuthAndHandleMethodCall(Message& message, LocalEndpoint* localEp, const MethodTable::Entry* entry, ThreadPool* threadPool, const qcc::String& permStr)
+QStatus PeerPermission::PeerAuthAndHandleMethodCall(Message& message, LocalEndpoint& localEp, const MethodTable::Entry* entry, ThreadPool* threadPool, const qcc::String& permStr)
 {
     QCC_DbgHLPrintf(("PeerPermission::PeerAuthAndHandleMethodCall(permStr=%s)", permStr.c_str()));
     QStatus status = ER_OK;
@@ -213,7 +213,7 @@ QStatus PeerPermission::PeerAuthAndHandleMethodCall(Message& message, LocalEndpo
     return status;
 }
 
-QStatus PeerPermission::PeerAuthAndHandleSignalCall(Message& message, LocalEndpoint* localEp, std::list<SignalTable::Entry>& callList, ThreadPool* threadPool, const qcc::String& permStr)
+QStatus PeerPermission::PeerAuthAndHandleSignalCall(Message& message, LocalEndpoint& localEp, std::list<SignalTable::Entry>& callList, ThreadPool* threadPool, const qcc::String& permStr)
 {
     QCC_DbgHLPrintf(("PeerPermission::PeerAuthAndHandleSignalCall(permStr=%s)", permStr.c_str()));
     QStatus status = ER_OK;
@@ -243,11 +243,11 @@ QStatus PeerPermission::PeerAuthAndHandleSignalCall(Message& message, LocalEndpo
     return status;
 }
 
-QStatus TransportPermission::FilterTransports(BusEndpoint* srcEp, const qcc::String& sender, TransportMask& transports, const char* callerName)
+QStatus TransportPermission::FilterTransports(BusEndpoint& srcEp, const qcc::String& sender, TransportMask& transports, const char* callerName)
 {
     QCC_DbgPrintf(("TransportPermission::FilterTransports() callerName(%s)", callerName));
     QStatus status = ER_OK;
-    if (srcEp != NULL) {
+    if (srcEp->IsValid()) {
         if (transports & TRANSPORT_BLUETOOTH) {
             bool allowed = PermissionDB::GetDB().IsBluetoothAllowed(srcEp->GetUserId());
             if (!allowed) {
@@ -299,12 +299,12 @@ void TransportPermission::GetForbiddenTransports(uint32_t uid, TransportList& tr
     }
 }
 
-uint32_t PermissionMgr::AddAliasUnixUser(BusEndpoint* srcEp, qcc::String& sender, uint32_t origUID, uint32_t aliasUID)
+uint32_t PermissionMgr::AddAliasUnixUser(BusEndpoint& srcEp, qcc::String& sender, uint32_t origUID, uint32_t aliasUID)
 {
     QCC_DbgHLPrintf(("PermissionMgr::AddAliasUnixUser() origUID(%d), aliasUID(%d)", origUID, aliasUID));
     QStatus status = ER_OK;
     uint32_t replyCode = ALLJOYN_ALIASUNIXUSER_REPLY_SUCCESS;
-    if (!srcEp) {
+    if (!(srcEp->IsValid())) {
         status = ER_BUS_NO_ENDPOINT;
         QCC_LogError(status, ("AliasUnixUser Failed to find endpoint for sender=%s", sender.c_str()));
         replyCode = ALLJOYN_ALIASUNIXUSER_REPLY_FAILED;

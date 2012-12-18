@@ -63,7 +63,7 @@ InterfaceProperty::InterfaceProperty(Platform::String ^ name, Platform::String ^
             break;
         }
         // Create managed _InterfaceProperty from p
-        _mProperty = new qcc::ManagedObj<_InterfaceProperty>(p);
+        _mProperty = new qcc::ManagedObj<_InterfaceProperty>(qcc::ManagedObj<_InterfaceProperty>::wrap(p));
         // Check for allocation error
         if (NULL == _mProperty) {
             status = ER_OUT_OF_MEMORY;
@@ -97,7 +97,7 @@ InterfaceProperty::InterfaceProperty(const ajn::InterfaceDescription::Property* 
             break;
         }
         // Attach _InterfaceProperty to managed obj
-        _mProperty = new qcc::ManagedObj<_InterfaceProperty>(p);
+        _mProperty = new qcc::ManagedObj<_InterfaceProperty>(qcc::ManagedObj<_InterfaceProperty>::wrap(p));
         // Check for allocation error
         if (NULL == _mProperty) {
             status = ER_OUT_OF_MEMORY;

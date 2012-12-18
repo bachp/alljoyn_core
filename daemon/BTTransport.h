@@ -63,7 +63,7 @@ namespace ajn {
  */
 class BTTransport :
     public Transport,
-    public RemoteEndpoint::EndpointListener,
+    public _RemoteEndpoint::EndpointListener,
     public qcc::Thread,
     public BluetoothDeviceInterface {
 
@@ -196,7 +196,7 @@ class BTTransport :
      *      - ER_BUS_BAD_TRANSPORT_ARGS if unable to parse the @c connectSpec param
      *      - An error status otherwise
      */
-    QStatus Connect(const char* connectSpec, const SessionOpts& opts, BusEndpoint** newep);
+    QStatus Connect(const char* connectSpec, const SessionOpts& opts, BusEndpoint& newep);
 
     /**
      * Disconnect a bluetooth endpoint
@@ -269,7 +269,7 @@ class BTTransport :
      *
      * @param endpoint   BTEndpoint instance that has exited.
      */
-    void EndpointExit(RemoteEndpoint* endpoint);
+    void EndpointExit(RemoteEndpoint& endpoint);
 
     /**
      * Name of transport used in transport specs.
@@ -349,9 +349,12 @@ class BTTransport :
      * @param newep Pointer to newly created endpoint (if non-NULL).
      *
      */
-    QStatus Connect(const BTBusAddress& addr, RemoteEndpoint** newep);
+    QStatus Connect(const BTBusAddress& addr, RemoteEndpoint& newep);
 
-    QStatus Connect(const BTBusAddress& addr) { return Connect(addr, NULL); }
+    QStatus Connect(const BTBusAddress& addr) {
+        RemoteEndpoint ret;
+        return Connect(addr, ret);
+    }
 
     /**
      * Internal disconnect method to remove a bus connection from a given BD Address.
@@ -471,8 +474,8 @@ class BTTransport :
                                   BTNodeDB& adInfo);
 
 
-    RemoteEndpoint* LookupEndpoint(const qcc::String& busName);
-    void ReturnEndpoint(RemoteEndpoint* ep);
+    RemoteEndpoint LookupEndpoint(const qcc::String& busName);
+    void ReturnEndpoint(RemoteEndpoint& ep);
 
     QStatus IsMaster(const BDAddress& addr, bool& master) const;
     void RequestBTRole(const BDAddress& addr, bt::BluetoothRole role);
@@ -482,7 +485,7 @@ class BTTransport :
     BusAttachment& bus;                            /**< The message bus for this transport */
     BTAccessor* btAccessor;                        /**< Object for accessing the Bluetooth device */
     BTController* btController;                    /**< Bus Object that manages the BT topology */
-    std::set<RemoteEndpoint*> threadList;          /**< List of active BT endpoints */
+    std::set<RemoteEndpoint> threadList;          /**< List of active BT endpoints */
     qcc::Mutex threadListLock;                     /**< Mutex that protects threadList */
     BTNodeDB connNodeDB;
     TransportListener* listener;

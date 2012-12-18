@@ -45,7 +45,7 @@ BusListener::BusListener(BusAttachment ^ bus)
             break;
         }
         // Store the managed reference to _BusListener
-        _mListener = new qcc::ManagedObj<_BusListener>(bl);
+        _mListener = new qcc::ManagedObj<_BusListener>(qcc::ManagedObj<_BusListener>::wrap(bl));
         if (NULL == _mListener) {
             status = ER_OUT_OF_MEMORY;
             break;

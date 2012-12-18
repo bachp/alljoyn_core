@@ -84,7 +84,7 @@ QStatus DaemonTransport::Stop(void)
     /*
      * Ask any running endpoints to shut down and exit their threads.
      */
-    for (list<RemoteEndpoint*>::iterator i = endpointList.begin(); i != endpointList.end(); ++i) {
+    for (list<RemoteEndpoint>::iterator i = endpointList.begin(); i != endpointList.end(); ++i) {
         (*i)->Stop();
     }
 
@@ -125,8 +125,9 @@ QStatus DaemonTransport::Join(void)
     return ER_OK;
 }
 
-void DaemonTransport::EndpointExit(RemoteEndpoint* ep)
+void DaemonTransport::EndpointExit(RemoteEndpoint& ep)
 {
+    assert(!ep->IsValid());
     /*
      * This is a callback driven from the remote endpoint thread exit function.
      * Our DaemonEndpoint inherits from class RemoteEndpoint and so when
@@ -137,15 +138,14 @@ void DaemonTransport::EndpointExit(RemoteEndpoint* ep)
 
     /* Remove the dead endpoint from the live endpoint list */
     endpointListLock.Lock(MUTEX_CONTEXT);
-    list<RemoteEndpoint*>::iterator i = find(endpointList.begin(), endpointList.end(), ep);
+    list<RemoteEndpoint>::iterator i = find(endpointList.begin(), endpointList.end(), ep);
     if (i != endpointList.end()) {
         endpointList.erase(i);
     } else {
         QCC_LogError(ER_FAIL, ("DaemonTransport::EndpointExit() endpoint missing from endpointList"));
     }
     endpointListLock.Unlock(MUTEX_CONTEXT);
-
-    delete ep;
+    ep->Invalidate();
 }
 
 } // namespace ajn

@@ -40,7 +40,7 @@ SessionOpts::SessionOpts()
             break;
         }
         // Attach so to managed _SessionOpts
-        _mSessionOpts = new qcc::ManagedObj<_SessionOpts>(so);
+        _mSessionOpts = new qcc::ManagedObj<_SessionOpts>(qcc::ManagedObj<_SessionOpts>::wrap(so));
         // Check for allocation error
         if (NULL == _mSessionOpts) {
             status = ER_OUT_OF_MEMORY;
@@ -70,7 +70,7 @@ SessionOpts::SessionOpts(TrafficType traffic, bool isMultipoint, ProximityType p
             break;
         }
         // Attach so to managed _SessionOpts
-        _mSessionOpts = new qcc::ManagedObj<_SessionOpts>(so);
+        _mSessionOpts = new qcc::ManagedObj<_SessionOpts>(qcc::ManagedObj<_SessionOpts>::wrap(so));
         // Check for allocation error
         if (NULL == _mSessionOpts) {
             status = ER_OUT_OF_MEMORY;
@@ -108,7 +108,7 @@ SessionOpts::SessionOpts(const ajn::SessionOpts* sessionOpts)
             break;
         }
         // Attach so to managed _SessionOpts
-        _mSessionOpts = new qcc::ManagedObj<_SessionOpts>(so);
+        _mSessionOpts = new qcc::ManagedObj<_SessionOpts>(qcc::ManagedObj<_SessionOpts>::wrap(so));
         // Check for allocation error
         if (NULL == _mSessionOpts) {
             status = ER_OUT_OF_MEMORY;

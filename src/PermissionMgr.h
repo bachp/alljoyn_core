@@ -55,7 +55,7 @@ class PeerPermission {
      * @param   threadpool     The thread pool
      * @param   permStr        The permissions required to invoke the call
      */
-    static QStatus PeerAuthAndHandleMethodCall(Message& message, LocalEndpoint* localEp, const MethodTable::Entry* entry, qcc::ThreadPool* threadpool, const qcc::String& permStr);
+    static QStatus PeerAuthAndHandleMethodCall(Message& message, LocalEndpoint& localEp, const MethodTable::Entry* entry, qcc::ThreadPool* threadpool, const qcc::String& permStr);
 
     /**
      * Inquire daemon for the peer permission and handle the signal call accordingly.
@@ -65,7 +65,7 @@ class PeerPermission {
      * @param   threadpool     The thread pool
      * @param   permStr        The permissions required to invoke the call
      */
-    static QStatus PeerAuthAndHandleSignalCall(Message& message, LocalEndpoint* localEp, std::list<SignalTable::Entry>& callList, qcc::ThreadPool* threadpool, const qcc::String& permStr);
+    static QStatus PeerAuthAndHandleSignalCall(Message& message, LocalEndpoint& localEp, std::list<SignalTable::Entry>& callList, qcc::ThreadPool* threadpool, const qcc::String& permStr);
 };
 
 class TransportPermission {
@@ -77,7 +77,7 @@ class TransportPermission {
      * @param   transports    The transport mask
      * @param   callerName    The caller that invokes this method
      */
-    static QStatus FilterTransports(BusEndpoint* srcEp, const qcc::String& sender, TransportMask& transports, const char* callerName);
+    static QStatus FilterTransports(BusEndpoint& srcEp, const qcc::String& sender, TransportMask& transports, const char* callerName);
 
     /**
      * Get transports that the endpoint has no permission to use
@@ -97,7 +97,7 @@ class PermissionMgr {
      * @param origUID   The unique User ID
      * @param aliasUID  The alias User ID
      */
-    static uint32_t AddAliasUnixUser(BusEndpoint* srcEp, qcc::String& sender, uint32_t origUID, uint32_t aliasUID);
+    static uint32_t AddAliasUnixUser(BusEndpoint& srcEp, qcc::String& sender, uint32_t origUID, uint32_t aliasUID);
 
     /**
      * Cleanup the permission information cache of an enpoint before it exits.

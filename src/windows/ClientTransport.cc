@@ -46,22 +46,22 @@ namespace ajn {
 
 const char* ClientTransport::TransportName = "tcp";
 
-class ClientEndpoint : public RemoteEndpoint {
+class _ClientEndpoint;
+
+typedef ManagedObj<_ClientEndpoint> ClientEndpoint;
+
+class _ClientEndpoint : public _RemoteEndpoint {
   public:
-    ClientEndpoint(ClientTransport* transport, BusAttachment& bus, const qcc::String connectSpec,
-                   qcc::SocketFd sock, const qcc::IPAddress& ipAddr, uint16_t port)
-        :
-        RemoteEndpoint(bus, false, connectSpec, &m_stream, ClientTransport::TransportName),
+    _ClientEndpoint(ClientTransport* transport, BusAttachment& bus, const qcc::String connectSpec,
+                    qcc::SocketFd sock, const qcc::IPAddress& ipAddr, uint16_t port) :
+        _RemoteEndpoint(bus, false, connectSpec, &m_stream, ClientTransport::TransportName),
         m_transport(transport),
         m_stream(sock),
         m_ipAddr(ipAddr),
         m_port(port)
     { }
 
-    ~ClientEndpoint() {
-        /* Don't finalize the destructor while there are threads pushing to this endpoint. */
-        WaitForZeroPushCount();
-    }
+    ~_ClientEndpoint() { }
 
     const qcc::IPAddress& GetIPAddress() { return m_ipAddr; }
     uint16_t GetPort() { return m_port; }
@@ -131,20 +131,16 @@ QStatus ClientTransport::NormalizeTransportSpec(const char* inSpec, qcc::String&
     return ER_OK;
 }
 
-QStatus ClientTransport::Connect(const char* connectSpec, const SessionOpts& opts, BusEndpoint** newep)
+QStatus ClientTransport::Connect(const char* connectSpec, const SessionOpts& opts, BusEndpoint& newep)
 {
     QCC_DbgHLPrintf(("ClientTransport::Connect(): %s", connectSpec));
 
-    /*
-     * Don't bother trying to create a new endpoint if the state precludes them.
-     */
-    if (m_running == false || m_stopping == true) {
+    if (!m_running) {
         return ER_BUS_TRANSPORT_NOT_STARTED;
     }
-    if (m_endpoint) {
+    if (m_endpoint->IsValid()) {
         return ER_BUS_ALREADY_CONNECTED;
     }
-
     /*
      * Parse and normalize the connectArgs.  For a client or service, there are
      * no reasonable defaults and so the addr and port keys MUST be present or
@@ -199,25 +195,21 @@ QStatus ClientTransport::Connect(const char* connectSpec, const SessionOpts& opt
      * ClientEndpoint object that will orchestrate the movement of data across the
      * transport.
      */
-    if (m_stopping) {
-        status = ER_BUS_TRANSPORT_NOT_STARTED;
-    } else {
-        m_endpoint = new ClientEndpoint(this, m_bus, normSpec, sockFd, ipAddr, port);
+    ClientEndpoint ep(this, m_bus, normSpec, sockFd, ipAddr, port);
 
-        /* Initialized the features for this endpoint */
-        m_endpoint->GetFeatures().isBusToBus = false;
-        m_endpoint->GetFeatures().allowRemote = m_bus.GetInternal().AllowRemoteMessages();
-        m_endpoint->GetFeatures().handlePassing = true;
+    /* Initialized the features for this endpoint */
+    ep->GetFeatures().isBusToBus = false;
+    ep->GetFeatures().allowRemote = m_bus.GetInternal().AllowRemoteMessages();
+    ep->GetFeatures().handlePassing = true;
 
-        qcc::String authName;
-        qcc::String redirection;
-        status = m_endpoint->Establish("ANONYMOUS", authName, redirection);
-        if (status == ER_OK) {
-            m_endpoint->SetListener(this);
-            status = m_endpoint->Start();
-            if (status != ER_OK) {
-                QCC_LogError(status, ("ClientTransport::Connect(): Start ClientEndpoint failed"));
-            }
+    qcc::String authName;
+    qcc::String redirection;
+    status = ep->Establish("ANONYMOUS", authName, redirection);
+    if (status == ER_OK) {
+        ep->SetListener(this);
+        status = ep->Start();
+        if (status != ER_OK) {
+            QCC_LogError(status, ("ClientTransport::Connect(): Start ClientEndpoint failed"));
         }
     }
     /*
@@ -226,16 +218,12 @@ QStatus ClientTransport::Connect(const char* connectSpec, const SessionOpts& opt
      * a pointer to the new endpoint.
      */
     if (status != ER_OK) {
-        m_stopping = true;
-        if (m_endpoint) {
-            delete m_endpoint;
-            m_endpoint = NULL;
-        }
+        ep->Invalidate();
         qcc::Shutdown(sockFd);
         qcc::Close(sockFd);
-    }
-    if (newep) {
-        *newep = m_endpoint;
+    } else {
+        newep = BusEndpoint::cast(ep);
+        m_endpoint = RemoteEndpoint::cast(ep);
     }
     return status;
 }

@@ -53,7 +53,7 @@ const char* ProximityTransport::TransportName = "proximity";
  * An endpoint class to handle the details of authenticating a connection in a
  * way that avoids denial of service attacks.
  */
-class ProximityEndpoint : public RemoteEndpoint {
+class _ProximityEndpoint : public _RemoteEndpoint {
   public:
     /**
      * There are three threads that can be running around in this data
@@ -106,29 +106,26 @@ class ProximityEndpoint : public RemoteEndpoint {
         SIDE_PASSIVE         /**< This endpoint is the passive side of a connection */
     };
 
-    ProximityEndpoint(ProximityTransport* transport,
-                      BusAttachment& bus,
-                      bool incoming,
-                      const qcc::String connectSpec,
-                      qcc::SocketFd sock,
-                      const qcc::IPAddress& ipAddr,
-                      uint16_t port)
-        : RemoteEndpoint(bus, incoming, connectSpec, &m_stream, "proximity"),
+    _ProximityEndpoint(ProximityTransport* transport,
+                       BusAttachment& bus,
+                       bool incoming,
+                       const qcc::String connectSpec,
+                       qcc::SocketFd sock,
+                       const qcc::IPAddress& ipAddr,
+                       uint16_t port)
+        : _RemoteEndpoint(bus, incoming, connectSpec, &m_stream, "proximity"),
         m_transport(transport),
         m_sideState(SIDE_INITIALIZED),
         m_authState(AUTH_INITIALIZED),
         m_epState(EP_INITIALIZED),
         m_tStart(qcc::Timespec(0)),
-        m_authThread(this, transport),
+        m_authThread(this),
         m_stream(sock),
         m_ipAddr(ipAddr),
         m_port(port),
         m_wasSuddenDisconnect(!incoming) { }
 
-    virtual ~ProximityEndpoint() {
-        /* Don't finalize the destructor while there are threads pushing to this endpoint. */
-        WaitForZeroPushCount();
-    }
+    virtual ~_ProximityEndpoint() { }
 
     void SetStartTime(qcc::Timespec tStart) { m_tStart = tStart; }
     qcc::Timespec GetStartTime(void) { return m_tStart; }
@@ -205,11 +202,11 @@ class ProximityEndpoint : public RemoteEndpoint {
   private:
     class AuthThread : public qcc::Thread {
       public:
-        AuthThread(ProximityEndpoint* conn, ProximityTransport* trans) : Thread("auth"), m_transport(trans) { }
+        AuthThread(_ProximityEndpoint* conn) : Thread("auth"), m_endpoint(conn) { }
       private:
         virtual qcc::ThreadReturn STDCALL Run(void* arg);
 
-        ProximityTransport* m_transport;
+        _ProximityEndpoint* m_endpoint;
     };
 
     ProximityTransport* m_transport;  /**< The server holding the connection */
@@ -224,7 +221,7 @@ class ProximityEndpoint : public RemoteEndpoint {
     bool m_wasSuddenDisconnect;       /**< If true, assumption is that any disconnect is unexpected due to lower level error */
 };
 
-QStatus ProximityEndpoint::Authenticate(void)
+QStatus _ProximityEndpoint::Authenticate(void)
 {
     QCC_DbgTrace(("ProximityEndpoint::Authenticate()"));
     /*
@@ -237,7 +234,7 @@ QStatus ProximityEndpoint::Authenticate(void)
     return status;
 }
 
-void ProximityEndpoint::AuthStop(void)
+void _ProximityEndpoint::AuthStop(void)
 {
     QCC_DbgTrace(("ProximityEndpoint::AuthStop()"));
 
@@ -254,7 +251,7 @@ void ProximityEndpoint::AuthStop(void)
     m_authThread.Stop();
 }
 
-void ProximityEndpoint::AuthJoin(void)
+void _ProximityEndpoint::AuthJoin(void)
 {
     QCC_DbgTrace(("ProximityEndpoint::AuthJoin()"));
 
@@ -267,13 +264,11 @@ void ProximityEndpoint::AuthJoin(void)
     m_authThread.Join();
 }
 
-void* ProximityEndpoint::AuthThread::Run(void* arg)
+void* _ProximityEndpoint::AuthThread::Run(void* arg)
 {
     QCC_DbgTrace(("ProximityEndpoint::AuthThread::Run()"));
 
-    ProximityEndpoint* conn = reinterpret_cast<ProximityEndpoint*>(arg);
-
-    conn->m_authState = AUTH_AUTHENTICATING;
+    m_endpoint->m_authState = AUTH_AUTHENTICATING;
 
     /*
      * We're running an authentication process here and we are cooperating with
@@ -321,9 +316,9 @@ void* ProximityEndpoint::AuthThread::Run(void* arg)
      * out-of-band capabilities, but is discarded here.  We do this here since
      * it involves a read that can block.
      */
-    QStatus status = conn->m_stream.PullBytes(&byte, 1, nbytes);
+    QStatus status = m_endpoint->m_stream.PullBytes(&byte, 1, nbytes);
     if ((status != ER_OK) || (nbytes != 1) || (byte != 0)) {
-        conn->m_stream.Close();
+        m_endpoint->m_stream.Close();
         QCC_LogError(status, ("Failed to read first byte from stream"));
 
         /*
@@ -342,21 +337,21 @@ void* ProximityEndpoint::AuthThread::Run(void* arg)
          * authentication thread) without being worried about blocking since the
          * next thing we do is exit.
          */
-        conn->m_authState = AUTH_FAILED;
+        m_endpoint->m_authState = AUTH_FAILED;
         return (void*)ER_FAIL;
     }
 
     /* Initialized the features for this endpoint */
-    conn->GetFeatures().isBusToBus = false;
-    conn->GetFeatures().isBusToBus = false;
-    conn->GetFeatures().handlePassing = false;
+    m_endpoint->GetFeatures().isBusToBus = false;
+    m_endpoint->GetFeatures().isBusToBus = false;
+    m_endpoint->GetFeatures().handlePassing = false;
 
     /* Run the actual connection authentication code. */
     qcc::String authName;
     qcc::String redirection;
-    status = conn->Establish("ANONYMOUS", authName, redirection);
+    status = m_endpoint->Establish("ANONYMOUS", authName, redirection);
     if (status != ER_OK) {
-        conn->m_stream.Close();
+        m_endpoint->m_stream.Close();
         QCC_LogError(status, ("Failed to establish proximity endpoint"));
 
         /*
@@ -375,7 +370,7 @@ void* ProximityEndpoint::AuthThread::Run(void* arg)
          * authentication thread) without being worried about blocking since the
          * next thing we do is exit.
          */
-        conn->m_authState = AUTH_FAILED;
+        m_endpoint->m_authState = AUTH_FAILED;
         return (void*)status;
     }
 
@@ -383,7 +378,8 @@ void* ProximityEndpoint::AuthThread::Run(void* arg)
      * Tell the transport that the authentication has succeeded and that it can
      * now bring the connection up.
      */
-    conn->m_transport->Authenticated(conn);
+    ProximityEndpoint proxEp = ProximityEndpoint::wrap(m_endpoint);
+    m_endpoint->m_transport->Authenticated(proxEp);
 
     QCC_DbgTrace(("ProximityEndpoint::AuthThread::Run(): Returning"));
 
@@ -403,9 +399,9 @@ void* ProximityEndpoint::AuthThread::Run(void* arg)
      * that we are exiting now and so it can Join() the authentication thread
      * without being worried about blocking since the next thing we do is exit.
      */
-    conn->m_authState = AUTH_SUCCEEDED;
-    if (conn->m_transport->m_pns != nullptr) {
-        conn->m_transport->m_pns->IncreaseP2PConnectionRef();
+    m_endpoint->m_authState = AUTH_SUCCEEDED;
+    if (m_endpoint->m_transport->m_pns != nullptr) {
+        m_endpoint->m_transport->m_pns->IncreaseP2PConnectionRef();
     }
     return (void*)status;
 }
@@ -430,7 +426,7 @@ ProximityTransport::~ProximityTransport()
     m_pns = nullptr;
 }
 
-void ProximityTransport::Authenticated(ProximityEndpoint* conn)
+void ProximityTransport::Authenticated(ProximityEndpoint& conn)
 {
     QCC_DbgTrace(("ProximityTransport::Authenticated()"));
 
@@ -454,7 +450,7 @@ void ProximityTransport::Authenticated(ProximityEndpoint* conn)
      */
     m_endpointListLock.Lock(MUTEX_CONTEXT);
 
-    list<ProximityEndpoint*>::iterator i = find(m_authList.begin(), m_authList.end(), conn);
+    list<ProximityEndpoint>::iterator i = find(m_authList.begin(), m_authList.end(), conn);
     assert(i != m_authList.end() && "ProximityTransport::Authenticated(): Conn not on m_authList");
 
     /*
@@ -617,7 +613,7 @@ QStatus ProximityTransport::Stop(void)
      * data structure.  We call Stop() to stop that thread from running.  The
      * endpoint Rx and Tx threads will not be running yet.
      */
-    for (list<ProximityEndpoint*>::iterator i = m_authList.begin(); i != m_authList.end(); ++i) {
+    for (list<ProximityEndpoint>::iterator i = m_authList.begin(); i != m_authList.end(); ++i) {
         (*i)->AuthStop();
     }
 
@@ -629,7 +625,7 @@ QStatus ProximityTransport::Stop(void)
      * the connnection is on the m_endpointList, we know that the authentication
      * thread has handed off responsibility.
      */
-    for (list<ProximityEndpoint*>::iterator i = m_endpointList.begin(); i != m_endpointList.end(); ++i) {
+    for (list<ProximityEndpoint>::iterator i = m_endpointList.begin(); i != m_endpointList.end(); ++i) {
         (*i)->Stop();
     }
 
@@ -699,9 +695,9 @@ QStatus ProximityTransport::Join(void)
      * authentication threads in a previously required Stop().  We need to
      * Join() all of these auth threads here.
      */
-    for (list<ProximityEndpoint*>::iterator i = m_authList.begin(); i != m_authList.end(); ++i) {
+    for (list<ProximityEndpoint>::iterator i = m_authList.begin(); i != m_authList.end(); ++i) {
         (*i)->AuthJoin();
-        delete *i;
+        (*i)->Invalidate();
     }
     m_authList.clear();
 
@@ -711,9 +707,9 @@ QStatus ProximityTransport::Join(void)
      * Join() will wait on the endpoint rx and tx threads to exit as opposed to
      * the joining of the auth thread we did above.
      */
-    for (list<ProximityEndpoint*>::iterator i = m_endpointList.begin(); i != m_endpointList.end(); ++i) {
+    for (list<ProximityEndpoint>::iterator i = m_endpointList.begin(); i != m_endpointList.end(); ++i) {
         (*i)->Join();
-        delete *i;
+        (*i)->Invalidate();
     }
     m_endpointList.clear();
 
@@ -803,7 +799,7 @@ QStatus ProximityTransport::GetListenAddresses(const SessionOpts& opts, std::vec
     return ER_OK;
 }
 
-void ProximityTransport::EndpointExit(RemoteEndpoint* ep)
+void ProximityTransport::EndpointExit(RemoteEndpoint& ep)
 {
     /*
      * This is a callback driven from the remote endpoint thread exit function.
@@ -819,8 +815,7 @@ void ProximityTransport::EndpointExit(RemoteEndpoint* ep)
      */
     QCC_DbgTrace(("ProximityTransport::EndpointExit()"));
 
-    ProximityEndpoint* tep = static_cast<ProximityEndpoint*>(ep);
-    assert(tep);
+    ProximityEndpoint tep = ProximityEndpoint::cast(ep);
 
     /*
      * The endpoint can exit if it was asked to by us in response to a
@@ -867,12 +862,12 @@ void ProximityTransport::ManageEndpoints(Timespec tTimeout)
      * any that are no longer running or are taking too long to authenticate
      * (we assume a denial of service attack in this case).
      */
-    list<ProximityEndpoint*>::iterator i = m_authList.begin();
+    list<ProximityEndpoint>::iterator i = m_authList.begin();
     while (i != m_authList.end()) {
-        ProximityEndpoint* ep = *i;
-        ProximityEndpoint::AuthState authState = ep->GetAuthState();
+        ProximityEndpoint ep = *i;
+        _ProximityEndpoint::AuthState authState = ep->GetAuthState();
 
-        if (authState == ProximityEndpoint::AUTH_FAILED) {
+        if (authState == _ProximityEndpoint::AUTH_FAILED) {
             /*
              * The endpoint has failed authentication and the auth thread is
              * gone or is going away.  Since it has failed there is no way this
@@ -882,7 +877,7 @@ void ProximityTransport::ManageEndpoints(Timespec tTimeout)
             QCC_DbgHLPrintf(("ProximityTransport::ManageEndpoints(): Scavenging failed authenticator"));
             ep->AuthJoin();
             i = m_authList.erase(i);
-            delete ep;
+            ep->Invalidate();
             continue;
         }
 
@@ -914,22 +909,22 @@ void ProximityTransport::ManageEndpoints(Timespec tTimeout)
      */
     i = m_endpointList.begin();
     while (i != m_endpointList.end()) {
-        ProximityEndpoint* ep = *i;
+        ProximityEndpoint ep = *i;
 
         /*
          * We are only managing passive connections here, or active connections
          * that are done and are explicitly ready to be cleaned up.
          */
-        ProximityEndpoint::SideState sideState = ep->GetSideState();
-        if (sideState == ProximityEndpoint::SIDE_ACTIVE) {
+        _ProximityEndpoint::SideState sideState = ep->GetSideState();
+        if (sideState == _ProximityEndpoint::SIDE_ACTIVE) {
             ++i;
             continue;
         }
 
-        ProximityEndpoint::AuthState authState = ep->GetAuthState();
-        ProximityEndpoint::EndpointState endpointState = ep->GetEpState();
+        _ProximityEndpoint::AuthState authState = ep->GetAuthState();
+        _ProximityEndpoint::EndpointState endpointState = ep->GetEpState();
 
-        if (authState == ProximityEndpoint::AUTH_SUCCEEDED) {
+        if (authState == _ProximityEndpoint::AUTH_SUCCEEDED) {
             /*
              * The endpoint has succeeded authentication and the auth thread is
              * gone or is going away.  Take this opportunity to join the auth
@@ -953,9 +948,9 @@ void ProximityTransport::ManageEndpoints(Timespec tTimeout)
          * it.  Since the threads were never started, they must not be
          * joined.
          */
-        if (endpointState == ProximityEndpoint::EP_FAILED) {
+        if (endpointState == _ProximityEndpoint::EP_FAILED) {
             i = m_endpointList.erase(i);
-            delete ep;
+            ep->Invalidate();
             continue;
         }
 
@@ -971,10 +966,10 @@ void ProximityTransport::ManageEndpoints(Timespec tTimeout)
          * the endpoint Join() to join the TX and RX threads and not
          * the endpoint AuthJoin() to join the auth thread.
          */
-        if (endpointState == ProximityEndpoint::EP_STOPPING) {
+        if (endpointState == _ProximityEndpoint::EP_STOPPING) {
             ep->Join();
             i = m_endpointList.erase(i);
-            delete ep;
+            ep->Invalidate();
             continue;
         }
         ++i;
@@ -1119,7 +1114,8 @@ void* ProximityTransport::Run(void* arg)
                  */
                 m_endpointListLock.Lock(MUTEX_CONTEXT);
                 if ((m_authList.size() < maxAuth) && (m_authList.size() + m_endpointList.size() < maxConn)) {
-                    ProximityEndpoint* conn = new ProximityEndpoint(this, m_bus, true, "", newSock, remoteAddr, remotePort);
+                    bool truthiness = true;
+                    ProximityEndpoint conn(this, m_bus, truthiness, "", newSock, remoteAddr, remotePort);
                     conn->SetPassive();
                     Timespec tNow;
                     GetTimeNow(&tNow);
@@ -1137,9 +1133,8 @@ void* ProximityTransport::Run(void* arg)
                     status = conn->Authenticate();
                     if (status != ER_OK) {
                         m_authList.pop_front();
-                        delete conn;
+                        conn->Invalidate();
                     }
-                    conn = NULL;
                     m_endpointListLock.Unlock(MUTEX_CONTEXT);
                 } else {
                     m_endpointListLock.Unlock(MUTEX_CONTEXT);
@@ -1828,7 +1823,7 @@ QStatus ProximityTransport::NormalizeTransportSpec(const char* inSpec, qcc::Stri
     return ER_OK;
 }
 
-QStatus ProximityTransport::Connect(const char* connSpec, const SessionOpts& opts, BusEndpoint** newep)
+QStatus ProximityTransport::Connect(const char* connSpec, const SessionOpts& opts, BusEndpoint& newEp)
 {
     QCC_DbgHLPrintf(("ProximityTransport::Connect(): %s", connSpec));
 
@@ -2057,9 +2052,10 @@ QStatus ProximityTransport::Connect(const char* connSpec, const SessionOpts& opt
      * ProximityEndpoint object that will orchestrate the movement of data across the
      * transport.
      */
-    ProximityEndpoint* conn = NULL;
+
     if (status == ER_OK) {
-        conn = new ProximityEndpoint(this, m_bus, false, normSpec, sockFd, ipAddr, port);
+        bool falsiness = false;
+        ProximityEndpoint conn(this, m_bus, falsiness, normSpec, sockFd, ipAddr, port);
         /*
          * On the active side of a connection, we don't need an authentication
          * thread to run since we have the caller thread.  We do have to put the
@@ -2102,7 +2098,6 @@ QStatus ProximityTransport::Connect(const char* connSpec, const SessionOpts& opt
                 conn->SetAuthDone();
             }
         }
-
         /*
          * We put the endpoint into our list of active endpoints to make life
          * easier reporting problems up the chain of command behind the scenes
@@ -2110,17 +2105,18 @@ QStatus ProximityTransport::Connect(const char* connSpec, const SessionOpts& opt
          * startup.  If we did get an error, we need to remove the endpoint since
          * we've asked to keep responsibility by doing a SetActive().
          */
-        if (status != ER_OK && conn) {
+        if (status != ER_OK) {
             QCC_LogError(status, ("ProximityTransport::Connect(): Start ProximityEndpoint failed"));
 
             m_endpointListLock.Lock(MUTEX_CONTEXT);
-            list<ProximityEndpoint*>::iterator i = find(m_endpointList.begin(), m_endpointList.end(), conn);
+            list<ProximityEndpoint>::iterator i = find(m_endpointList.begin(), m_endpointList.end(), conn);
             if (i != m_endpointList.end()) {
                 m_endpointList.erase(i);
             }
             m_endpointListLock.Unlock(MUTEX_CONTEXT);
-            delete conn;
-            conn = NULL;
+            conn->Invalidate();
+        }       else {
+            newEp = BusEndpoint::cast(conn);
         }
     }
 
@@ -2138,13 +2134,7 @@ QStatus ProximityTransport::Connect(const char* connSpec, const SessionOpts& opt
         if (sockFd >= 0) {
             qcc::Close(sockFd);
         }
-        if (newep) {
-            *newep = NULL;
-        }
-    } else {
-        if (newep) {
-            *newep = conn;
-        }
+        newEp->Invalidate();
     }
 
     return status;
@@ -2208,9 +2198,9 @@ QStatus ProximityTransport::Disconnect(const char* connectSpec)
      */
     status = ER_BUS_BAD_TRANSPORT_ARGS;
     m_endpointListLock.Lock(MUTEX_CONTEXT);
-    for (list<ProximityEndpoint*>::iterator i = m_endpointList.begin(); i != m_endpointList.end(); ++i) {
+    for (list<ProximityEndpoint>::iterator i = m_endpointList.begin(); i != m_endpointList.end(); ++i) {
         if ((*i)->GetPort() == port && (*i)->GetIPAddress() == ipAddr) {
-            ProximityEndpoint* ep = *i;
+            ProximityEndpoint ep = *i;
             ep->SetSuddenDisconnect(false);
             m_endpointListLock.Unlock(MUTEX_CONTEXT);
             return ep->Stop();
@@ -2224,8 +2214,8 @@ void ProximityTransport::OnProximityDisconnected()
 {
     QCC_DbgPrintf(("ProximityTransport::OnProximityDisconnected()"));
     m_endpointListLock.Lock(MUTEX_CONTEXT);
-    for (list<ProximityEndpoint*>::iterator i = m_endpointList.begin(); i != m_endpointList.end(); ++i) {
-        ProximityEndpoint* ep = *i;
+    for (list<ProximityEndpoint>::iterator i = m_endpointList.begin(); i != m_endpointList.end(); ++i) {
+        ProximityEndpoint ep = *i;
         ep->SetSuddenDisconnect(false);
         ep->Stop();
     }

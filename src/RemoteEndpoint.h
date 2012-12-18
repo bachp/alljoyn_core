@@ -4,7 +4,7 @@
  */
 
 /******************************************************************************
- * Copyright 2009-2011, Qualcomm Innovation Center, Inc.
+ * Copyright 2009-2012, Qualcomm Innovation Center, Inc.
  *
  *    Licensed under the Apache License, Version 2.0 (the "License");
  *    you may not use this file except in compliance with the License.
@@ -39,24 +39,30 @@
 
 namespace ajn {
 
+class _RemoteEndpoint;
+
+/**
+ * Managed object type that wraps a remote endpoint
+ */
+typedef qcc::ManagedObj<_RemoteEndpoint> RemoteEndpoint;
+
 /**
  * %RemoteEndpoint handles incoming and outgoing messages
  * over a stream interface
  */
-class RemoteEndpoint : public BusEndpoint, public qcc::ThreadListener {
-
-    friend class EndpointAuth;
+class _RemoteEndpoint : public _BusEndpoint, public qcc::ThreadListener {
 
   public:
 
     /**
-     * RemoteEndpoint::Features type.
+     * RemoteEndpoint::Features type. Features are values that are negotiated during session
+     * establishment.
      */
     class Features {
 
       public:
 
-        Features() : isBusToBus(false), allowRemote(false), handlePassing(false)
+        Features() : isBusToBus(false), allowRemote(false), handlePassing(false), ajVersion(0), protocolVersion(0), processId(0)
         { }
 
         bool isBusToBus;       /**< When initiating connection this is an input value indicating if this is a bus-to-bus connection.
@@ -68,6 +74,12 @@ class RemoteEndpoint : public BusEndpoint, public qcc::ThreadListener {
 
         bool handlePassing;    /**< Indicates if support for handle passing is enabled for this the endpoint. This is only
                                     enabled for endpoints that connect applications on the same device. */
+
+        uint32_t ajVersion;        /**< The AllJoyn version negotiated with the remote peer */
+
+        uint32_t protocolVersion;  /**< The AllJoyn version negotiated with the remote peer */
+
+        uint32_t processId;        /**< Process id optionally obtained from the remote peer */
 
     };
 
@@ -86,8 +98,13 @@ class RemoteEndpoint : public BusEndpoint, public qcc::ThreadListener {
          *
          * @param ep   Endpoint that is exiting.
          */
-        virtual void EndpointExit(RemoteEndpoint* ep) = 0;
+        virtual void EndpointExit(RemoteEndpoint& ep) = 0;
     };
+
+    /**
+     * Default constructor initializes an invalid endpoint. This allows for the declaration of uninitialized RemoteEndpoint variables.
+     */
+    _RemoteEndpoint() : internal(NULL) { }
 
     /**
      * Constructor
@@ -99,17 +116,17 @@ class RemoteEndpoint : public BusEndpoint, public qcc::ThreadListener {
      * @param type           Base name for thread.
      * @param isSocket       true iff stream is actually a socketStream.
      */
-    RemoteEndpoint(BusAttachment& bus,
-                   bool incoming,
-                   const qcc::String& connectSpec,
-                   qcc::Stream* stream,
-                   const char* type = "endpoint",
-                   bool isSocket = true);
+    _RemoteEndpoint(BusAttachment& bus,
+                    bool incoming,
+                    const qcc::String& connectSpec,
+                    qcc::Stream* stream,
+                    const char* type = "endpoint",
+                    bool isSocket = true);
 
     /**
      * Destructor
      */
-    virtual ~RemoteEndpoint();
+    virtual ~_RemoteEndpoint();
 
     /**
      * Send an outgoing message.
@@ -161,7 +178,7 @@ class RemoteEndpoint : public BusEndpoint, public qcc::ThreadListener {
      * Set the underlying stream for this RemoteEndpoint.
      * This call can be used to override the Stream set in RemoteEndpoint's constructor
      */
-    void SetStream(qcc::Stream* s) { stream = s; }
+    void SetStream(qcc::Stream* s);
 
     /**
      * Join the endpoint.
@@ -185,7 +202,7 @@ class RemoteEndpoint : public BusEndpoint, public qcc::ThreadListener {
      *      - The unique bus name for this endpoint
      *      - An empty string if called before the endpoint has been established.
      */
-    const qcc::String& GetUniqueName() const { return auth.GetUniqueName(); }
+    const qcc::String& GetUniqueName() const;
 
     /**
      * Get the bus name for the peer at the remote end of this endpoint.
@@ -193,7 +210,7 @@ class RemoteEndpoint : public BusEndpoint, public qcc::ThreadListener {
      * @return  - The bus name of the remote side.
      *          - An empty string if called before the endpoint has been established.
      */
-    const qcc::String& GetRemoteName() const { return auth.GetRemoteName(); }
+    const qcc::String& GetRemoteName() const;
 
     /**
      * Get the protocol version used by the remote end of this endpoint.
@@ -201,7 +218,7 @@ class RemoteEndpoint : public BusEndpoint, public qcc::ThreadListener {
      * @return  - The protocol version use by the remote side
      *          - 0 if called before the endpoint has been established
      */
-    uint32_t GetRemoteProtocolVersion() const { return auth.GetRemoteProtocolVersion(); }
+    uint32_t GetRemoteProtocolVersion() const { return GetFeatures().protocolVersion; }
 
     /**
      * Get the AllJoyn version of the remote end of this endpoint
@@ -209,7 +226,7 @@ class RemoteEndpoint : public BusEndpoint, public qcc::ThreadListener {
      * @return  - The AllJoyn version use by the remote side, as returned by the function ajn::GetNumericVersion
      *          - 0 if the remote EP predates release 2.5
      */
-    uint32_t GetRemoteAllJoynVersion() const { return alljoynVersion; }
+    uint32_t GetRemoteAllJoynVersion() const { return GetFeatures().ajVersion; }
 
     /**
      * Establish a connection.
@@ -224,86 +241,56 @@ class RemoteEndpoint : public BusEndpoint, public qcc::ThreadListener {
      *      = ER_BUS_ENDPOINT_REDIRECT if the endpoint is being redirected.
      *      - An error status otherwise
      */
-    QStatus Establish(const qcc::String& authMechanisms, qcc::String& authUsed, qcc::String& redirection) {
-        return auth.Establish(authMechanisms, authUsed, redirection);
-    }
+    QStatus Establish(const qcc::String& authMechanisms, qcc::String& authUsed, qcc::String& redirection);
 
     /**
      * Get the GUID of the remote side of a bus-to-bus endpoint.
      *
      * @return GUID of the remote side of a bus-to-bus endpoint.
      */
-    const qcc::GUID128& GetRemoteGUID() const { return auth.GetRemoteGUID(); }
+    const qcc::GUID128& GetRemoteGUID() const;
 
     /**
      * Get the connect spec for this endpoint.
      *
      * @return The connect spec string (may be empty).
      */
-    const qcc::String& GetConnectSpec() const { return connSpec; }
-
-    /**
-     * Return the user id of the endpoint.
-     *
-     * @return  User ID number.
-     */
-    uint32_t GetUserId() const { return -1; }
-
-    /**
-     * Return the group id of the endpoint.
-     *
-     * @return  Group ID number.
-     */
-    uint32_t GetGroupId() const { return -1; }
-
-    /**
-     * Return the process id of the remote end of this endpoint.
-     *
-     * @return  Process ID number or -1 if the process id is unknown.
-     */
-    uint32_t GetProcessId() const { return processId; }
-
-    /**
-     * Indicates if the endpoint supports reporting UNIX style user, group, and process IDs.
-     *
-     * @return  'true' if UNIX IDs supported, 'false' if not supported.
-     */
-    bool SupportsUnixIDs() const { return false; }
+    const qcc::String& GetConnectSpec() const;
 
     /**
      * Indicate whether this endpoint can receive messages from other devices.
      *
      * @return true iff this endpoint can receive messages from other devices.
      */
-    bool AllowRemoteMessages() { return features.allowRemote; }
+    bool AllowRemoteMessages() { return GetFeatures().allowRemote; }
 
     /**
      * Indicate if this endpoint is for an incoming connection or an outgoing connection.
      *
      * @return 'true' if incoming, 'false' if outgoing.
      */
-    bool IsIncomingConnection() const { return incoming; }
+    bool IsIncomingConnection() const;
 
     /**
      * Get the data source for this endpoint
      *
      * @return  The data source for this endpoint.
      */
-    qcc::Source& GetSource() { return *stream; }
+    qcc::Source& GetSource() { return GetStream(); }
 
     /**
      * Get the data sink for this endpoint
      *
      * @return  The data sink for this endpoint.
      */
-    qcc::Sink& GetSink() { return *stream; }
+    qcc::Sink& GetSink() { return GetStream(); }
 
     /**
      * Get the Stream from this endpoint
      *
      * @return The stream for this endpoint.
      */
-    qcc::Stream& GetStream() { return *stream; }
+    qcc::Stream& GetStream();
 
     /**
      * Set link timeout
@@ -312,14 +299,21 @@ class RemoteEndpoint : public BusEndpoint, public qcc::ThreadListener {
      *                       specific idle probes and retries) before link will be shutdown.
      * @return ER_OK if successful.
      */
-    virtual QStatus SetLinkTimeout(uint32_t& idleTimeout) { idleTimeout = 0; return ER_OK; }
+    virtual QStatus SetLinkTimeout(uint32_t& idleTimeout);
 
     /**
      * Return the features for this BusEndpoint
      *
      * @return   Returns the features for this BusEndpoint.
      */
-    Features& GetFeatures() { return features; }
+    Features& GetFeatures();
+
+    /**
+     * Return the features for this BusEndpoint
+     *
+     * @return   Returns the features for this BusEndpoint.
+     */
+    const Features& GetFeatures() const;
 
     /**
      * Increment the reference count for this remote endpoint.
@@ -332,6 +326,14 @@ class RemoteEndpoint : public BusEndpoint, public qcc::ThreadListener {
      * RemoteEndpoints are stopped when the number of refereneces reaches zero.
      */
     void DecrementRef();
+
+    /**
+     * Called during endpoint establishment to to check if connections are being accepted or
+     * redirected to a different address.
+     *
+     * @return  An empty string or a connect spec for the address to redirect the connection to.
+     */
+    virtual qcc::String RedirectionAddress() { return ""; }
 
   protected:
 
@@ -347,10 +349,13 @@ class RemoteEndpoint : public BusEndpoint, public qcc::ThreadListener {
 
   private:
 
+    class Internal;
+    Internal* internal; /* All the internal state for a remote endpoint */
+
     /**
-     * Assignment operator is undefined - RemoteEndpoints cannot be assigned.
+     * Assignment operator is undefined - _RemoteEndpoints cannot be assigned.
      */
-    RemoteEndpoint& operator=(const RemoteEndpoint& other);
+    _RemoteEndpoint& operator=(const _RemoteEndpoint& other);
 
     /**
      * Utility function used to generate an idle probe (req or ack)
@@ -371,55 +376,6 @@ class RemoteEndpoint : public BusEndpoint, public qcc::ThreadListener {
     bool IsProbeMsg(const Message& msg, bool& isAck);
 
     /**
-     * Called during endpoint establishment to to check if connections are being accepted or
-     * redirected to a different address.
-     *
-     * @return  An empty string or a connect spec for the address to redirect the connection to.
-     */
-    virtual qcc::String RedirectionAddress() { return ""; }
-
-    /**
-     * Thread used to receive endpoint data.
-     */
-    class RxThread : public qcc::Thread {
-      public:
-        RxThread(BusAttachment& bus,
-                 const char* name,
-                 bool validateSender)
-            : qcc::Thread(name), bus(bus), validateSender(validateSender), hasRxSessionMsg(false) { }
-
-      protected:
-        qcc::ThreadReturn STDCALL Run(void* arg);
-
-      private:
-        BusAttachment& bus;         /**< Bus associated with transport */
-        bool validateSender;        /**< If true, the sender field on incomming messages will be overwritten with actual endpoint name */
-        bool hasRxSessionMsg;       /**< true iff this endpoint has previously processed a non-control message */
-    };
-
-    /**
-     * Thread used to send endpoint data.
-     */
-    class TxThread : public qcc::Thread {
-      public:
-        TxThread(BusAttachment& bus,
-                 const char* name,
-                 std::deque<Message>& queue,
-                 std::deque<Thread*>& waitQueue,
-                 qcc::Mutex& queueLock)
-            : qcc::Thread(name), bus(bus), queue(queue), waitQueue(waitQueue), queueLock(queueLock) { }
-
-      protected:
-        qcc::ThreadReturn STDCALL Run(void* arg);
-
-      private:
-        BusAttachment& bus;
-        std::deque<Message>& queue;
-        std::deque<Thread*>& waitQueue;
-        qcc::Mutex& queueLock;
-    };
-
-    /**
      * Internal callback used to indicate that one of the internal threads (rx or tx) has exited.
      * RemoteEndpoint users should not call this method.
      *
@@ -427,35 +383,8 @@ class RemoteEndpoint : public BusEndpoint, public qcc::ThreadListener {
      */
     void ThreadExit(qcc::Thread* thread);
 
-    BusAttachment& bus;                      /**< Message bus associated with this endpoint */
-    qcc::Stream* stream;                     /**< Stream for this endpoint or NULL if uninitialized */
-    EndpointAuth auth;                       /**< Endpoint AllJoynAuthentication */
-
-    std::deque<Message> txQueue;             /**< Transmit message queue */
-    std::deque<qcc::Thread*> txWaitQueue;    /**< Threads waiting for txQueue to become not-full */
-    qcc::Mutex txQueueLock;                  /**< Transmit message queue mutex */
-    int32_t exitCount;                       /**< Number of sub-threads (rx and tx) that have exited (atomically incremented) */
-
-    RxThread rxThread;                       /**< Thread used to receive messages from the media */
-    TxThread txThread;                       /**< Thread used to send messages to the media */
-
-    EndpointListener* listener;              /**< Listener for thread exit notifications */
-
-    qcc::String connSpec;                    /**< Connection specification for out-going connections */
-    bool incoming;                           /**< Indicates if connection is incoming (true) or outgoing (false) */
-
-    Features features;                       /**< Requested and negotiated features of this endpoint */
-    uint32_t processId;                      /**< Process id of the process at the remote end of this endpoint */
-    uint32_t alljoynVersion;                 /**< AllJoyn version of the process at the remote end of this endpoint */
-    int32_t refCount;                        /**< Number of active users of this remote endpoint */
-    bool isSocket;                           /**< True iff this endpoint contains a SockStream as its 'stream' member */
-    bool armRxPause;                         /**< Pause Rx after receiving next METHOD_REPLY message */
-
-    uint32_t idleTimeoutCount;               /**< Number of consecutive idle timeouts */
-    uint32_t maxIdleProbes;                  /**< Maximum number of missed idle probes before shutdown */
-    uint32_t idleTimeout;                    /**< RX idle seconds before sending probe */
-    uint32_t probeTimeout;                   /**< Probe timeout in seconds */
-    bool started;                            /**< Is this EP started? */
+    class RxThread;
+    class TxThread;
 };
 
 }

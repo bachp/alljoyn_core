@@ -255,8 +255,11 @@ TEST(MarshalTest, TestMsgUnpack) {
     MsgArg args[4];
     size_t numArgs = ArraySize(args);
     double d = 0.9;
-    RemoteEndpoint ep(*bus, false, "", &stream, "dummy", false);
-    ep.GetFeatures().handlePassing = true;
+
+    TestPipe* pStream = &stream;
+    static const bool falsiness = false;
+    RemoteEndpoint ep(*bus, falsiness, String::Empty, pStream);
+    ep->GetFeatures().handlePassing = true;
 
     MsgArg::Set(args, numArgs, "usyd", 4, "hello", 8, d);
     status = msg.MethodCall("a.b.c", "/foo/bar", "foo.bar", "test", args, numArgs);
@@ -502,8 +505,10 @@ static QStatus TestMarshal(const MsgArg* argList, size_t numArgs, const char* ex
     MyMessage msg(*fuzzingBus);
     errString.clear();
 
-    RemoteEndpoint ep(*fuzzingBus, false, "", &stream, "dummy", false);
-    ep.GetFeatures().handlePassing = true;
+    TestPipe* pStream = &stream;
+    static const bool falsiness = false;
+    RemoteEndpoint ep(*fuzzingBus, falsiness, String::Empty, pStream);
+    ep->GetFeatures().handlePassing = true;
 
     if (numArgs == 0) {
         if (!quiet) printf("Empty arg.v_struct.Elements, arg.v_struct.numElements\n");
@@ -1378,6 +1383,7 @@ TEST(MarshalTest, noFuzzing) {
     EXPECT_EQ(ER_OK, status) << "  Actual Status: " << QCC_StatusText(status) << errString.c_str();
     fuzzingBus->Stop();
     fuzzingBus->Join();
+    delete fuzzingBus;
     fuzzingBus = NULL;
 }
 TEST(MarshalTest, fuzzing) {
@@ -1395,6 +1401,7 @@ TEST(MarshalTest, fuzzing) {
     EXPECT_TRUE(foundExpectedFuzzingStatus(status)) << "Actual Status: " << QCC_StatusText(status) << errString.c_str();
     fuzzingBus->Stop();
     fuzzingBus->Join();
+    delete fuzzingBus;
     fuzzingBus = NULL;
 
 }

@@ -44,7 +44,7 @@ KeyStoreListener::KeyStoreListener(BusAttachment ^ bus)
             break;
         }
         // Attach ksl as a managed object
-        _mListener = new qcc::ManagedObj<_KeyStoreListener>(ksl);
+        _mListener = new qcc::ManagedObj<_KeyStoreListener>(qcc::ManagedObj<_KeyStoreListener>::wrap(ksl));
         // Check for allocation error
         if (NULL == _mListener) {
             status = ER_OUT_OF_MEMORY;

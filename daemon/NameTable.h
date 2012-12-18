@@ -148,14 +148,15 @@ class NameTable {
                      void* context = NULL);
 
     /**
-     * Set (or clear) a virtual alias.
+     * Set a virtual alias.
      * A virtual alias is a well-known bus name for a virtual endpoint.
      * Virtual aliases differ from regular aliases in that the local bus controller
      * does not handle name queueing. It is up to the remote endpoint to manange
      * the queueing for such aliases.
      *
-     * @param alias       The virtual alias being modified.
-     * @param newownerEp  The VirtualEndpoint that is the new owner of alias or NULL if none.
+     * @param alias               The virtual alias being modified.
+     * @param newownerEp          The VirtualEndpoint that is the new owner of alias or NULL if none.
+     * @param requestingEndpoint  The VirtualEndpoint that is requesting the change
      * @return  true if this request caused changes to the name table.
      */
     bool SetVirtualAlias(const qcc::String& alias,
@@ -173,9 +174,9 @@ class NameTable {
      * Find an endpoint for a given unique or alias bus name.
      *
      * @param busName   Name of bus.
-     * @return  Pointer to transport for busName or NULL if none is found.
+     * @return  Returns the endpoint if it was found or an invalid endpoint if not found
      */
-    BusEndpoint* FindEndpoint(const qcc::String& busName) const;
+    BusEndpoint FindEndpoint(const qcc::String& busName) const;
 
     /**
      * Get all bus names from name table.
@@ -231,14 +232,14 @@ class NameTable {
     };
 
     mutable qcc::Mutex lock;                                             /**< Lock protecting name tables */
-    std::unordered_map<qcc::String, BusEndpoint*, Hash, Equal> uniqueNames;   /**< Unique name table */
+    std::unordered_map<qcc::String, BusEndpoint, Hash, Equal> uniqueNames;   /**< Unique name table */
     std::unordered_map<qcc::String, std::deque<NameQueueEntry>, Hash, Equal> aliasNames;  /**< Alias name table */
     uint32_t uniqueId;
     qcc::String uniquePrefix;
 
     typedef qcc::ManagedObj<NameListener*> ProtectedNameListener;
     std::set<ProtectedNameListener> listeners;                         /**< Listeners regsitered with name table */
-    std::map<qcc::StringMapKey, VirtualEndpoint*> virtualAliasNames;   /**< map of virtual aliases to virtual endpts */
+    std::map<qcc::StringMapKey, VirtualEndpoint> virtualAliasNames;    /**< map of virtual aliases to virtual endpts */
 
     /**
      * Helper used to call the listners

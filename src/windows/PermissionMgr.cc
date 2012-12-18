@@ -30,17 +30,17 @@ PeerPermission::PeerPermStatus PeerPermission::CanPeerDoCall(Message& message, c
     return PP_ALLOWED;
 }
 
-QStatus PeerPermission::PeerAuthAndHandleMethodCall(Message& message, LocalEndpoint* localEp, const MethodTable::Entry* entry, qcc::ThreadPool* threadPool, const qcc::String& permStr)
+QStatus PeerPermission::PeerAuthAndHandleMethodCall(Message& message, LocalEndpoint& localEp, const MethodTable::Entry* entry, qcc::ThreadPool* threadPool, const qcc::String& permStr)
 {
     return ER_NOT_IMPLEMENTED;
 }
 
-QStatus PeerPermission::PeerAuthAndHandleSignalCall(Message& message, LocalEndpoint* localEp, std::list<SignalTable::Entry>& callList, qcc::ThreadPool* threadPool, const qcc::String& permStr)
+QStatus PeerPermission::PeerAuthAndHandleSignalCall(Message& message, LocalEndpoint& localEp, std::list<SignalTable::Entry>& callList, qcc::ThreadPool* threadPool, const qcc::String& permStr)
 {
     return ER_NOT_IMPLEMENTED;
 }
 
-QStatus TransportPermission::FilterTransports(BusEndpoint* srcEp, const qcc::String& sender, TransportMask& transports, const char* callerName)
+QStatus TransportPermission::FilterTransports(BusEndpoint& srcEp, const qcc::String& sender, TransportMask& transports, const char* callerName)
 {
     return ER_OK;
 }
@@ -50,7 +50,7 @@ void TransportPermission::GetForbiddenTransports(uint32_t uid, TransportList& tr
     transForbidden = 0;
 }
 
-uint32_t PermissionMgr::AddAliasUnixUser(BusEndpoint* srcEp, qcc::String& sender, uint32_t origUID, uint32_t aliasUID)
+uint32_t PermissionMgr::AddAliasUnixUser(BusEndpoint& srcEp, qcc::String& sender, uint32_t origUID, uint32_t aliasUID)
 {
     return ALLJOYN_ALIASUNIXUSER_REPLY_NO_SUPPORT;
 }

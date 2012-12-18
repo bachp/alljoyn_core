@@ -62,7 +62,7 @@ _ICECandidate::_ICECandidate(_ICECandidate::ICECandidateType type,
     candidateThread(NULL)
 {
     QCC_DbgTrace(("ICECandidate::ICECandidate1(%p, type=%d)", this, type));
-    stunActivity->SetCandidate(ICECandidate(this));
+    stunActivity->SetCandidate(ICECandidate::wrap(this));
 }
 
 _ICECandidate::_ICECandidate(IPEndpoint endPoint,
@@ -90,8 +90,8 @@ _ICECandidate::_ICECandidate(IPEndpoint endPoint,
     candidateThread(NULL)
 {
     QCC_DbgTrace(("ICECandidate::ICECandidate2(%p, relayed)", this));
-    stunActivity->SetCandidate(ICECandidate(this));
-    permissionStunActivity->SetCandidate(ICECandidate(this));
+    stunActivity->SetCandidate(ICECandidate::wrap(this));
+    permissionStunActivity->SetCandidate(ICECandidate::wrap(this));
 }
 
 _ICECandidate::_ICECandidate(_ICECandidate::ICECandidateType type,
@@ -118,7 +118,7 @@ _ICECandidate::_ICECandidate(_ICECandidate::ICECandidateType type,
 {
     QCC_DbgTrace(("ICECandidate::ICECandidate3(%p, type=%d)", this, type));
     if (stunActivity) {
-        stunActivity->SetCandidate(ICECandidate(this));
+        stunActivity->SetCandidate(ICECandidate::wrap(this));
     }
 }
 

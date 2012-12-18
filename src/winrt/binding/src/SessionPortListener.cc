@@ -44,7 +44,7 @@ SessionPortListener::SessionPortListener(BusAttachment ^ bus)
             break;
         }
         // Attach spl to managed _SessionPortListener
-        _mListener = new qcc::ManagedObj<_SessionPortListener>(spl);
+        _mListener = new qcc::ManagedObj<_SessionPortListener>(qcc::ManagedObj<_SessionPortListener>::wrap(spl));
         // Check for allocation error
         if (NULL == _mListener) {
             status = ER_OUT_OF_MEMORY;

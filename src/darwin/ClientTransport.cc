@@ -44,7 +44,7 @@ QStatus ClientTransport::NormalizeTransportSpec(const char* inSpec, qcc::String&
     return ER_FAIL;
 }
 
-QStatus ClientTransport::Connect(const char* connectArgs, const SessionOpts& opts, BusEndpoint** newep)
+QStatus ClientTransport::Connect(const char* connectArgs, const SessionOpts& opts, BusEndpoint& newep)
 {
     return ER_FAIL;
 }

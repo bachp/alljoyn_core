@@ -220,13 +220,13 @@ void AllJoynPeerObj::GetExpansion(const InterfaceDescription::Member* member, Me
     }
 }
 
-QStatus AllJoynPeerObj::RequestHeaderExpansion(Message& msg, RemoteEndpoint* sender)
+QStatus AllJoynPeerObj::RequestHeaderExpansion(Message& msg, RemoteEndpoint& sender)
 {
     bool expansionPending = false;
     uint32_t token = msg->GetCompressionToken();
 
     assert(bus);
-    assert(sender == bus->GetInternal().GetRouter().FindEndpoint(msg->GetRcvEndpointName()));
+    //assert(sender == bus.GetInternal().GetRouter().FindEndpoint(msg->GetRcvEndpointName()));
 
     lock.Lock(MUTEX_CONTEXT);
     /*
@@ -325,8 +325,8 @@ void AllJoynPeerObj::ExpandHeader(Message& msg, const qcc::String& receivedFrom)
      */
     while (RemoveCompressedMessage(msg, token)) {
         Router& router = bus->GetInternal().GetRouter();
-        BusEndpoint* sender = router.FindEndpoint(msg->GetRcvEndpointName());
-        if (sender) {
+        BusEndpoint sender = router.FindEndpoint(msg->GetRcvEndpointName());
+        if (sender->IsValid()) {
             /*
              * Expand the compressed fields. Don't overwrite headers we received.
              */
@@ -347,7 +347,7 @@ void AllJoynPeerObj::ExpandHeader(Message& msg, const qcc::String& receivedFrom)
             /*
              * we have succesfully expanded the message so now it can be routed.
              */
-            router.PushMessage(msg, *sender);
+            router.PushMessage(msg, sender);
         }
     }
 }
@@ -1033,7 +1033,7 @@ void AllJoynPeerObj::AlarmTriggered(const Alarm& alarm, QStatus reason)
          * Pause timeouts so reply handlers don't expire while waiting for authentication to complete
          */
         if (req->msg->GetType() == MESSAGE_METHOD_CALL) {
-            bus->GetInternal().GetLocalEndpoint().PauseReplyHandlerTimeout(req->msg);
+            bus->GetInternal().GetLocalEndpoint()->PauseReplyHandlerTimeout(req->msg);
         }
         status = AuthenticatePeer(req->msg->GetType(), req->msg->GetDestination(), false);
         if (status != ER_WOULDBLOCK) {
@@ -1047,6 +1047,7 @@ void AllJoynPeerObj::AlarmTriggered(const Alarm& alarm, QStatus reason)
             while (iter != msgsPendingAuth.end()) {
                 Message msg = *iter;
                 if (peerStateTable->IsAlias(msg->GetDestination(), req->msg->GetDestination())) {
+                    LocalEndpoint lep =  bus->GetInternal().GetLocalEndpoint();
                     if (status != ER_OK) {
                         /*
                          * If the failed message was a method call push an error response.
@@ -1054,13 +1055,14 @@ void AllJoynPeerObj::AlarmTriggered(const Alarm& alarm, QStatus reason)
                         if (req->msg->GetType() == MESSAGE_METHOD_CALL) {
                             Message reply(*bus);
                             reply->ErrorMsg(status, req->msg->GetCallSerial());
-                            bus->GetInternal().GetLocalEndpoint().PushMessage(reply);
+                            bus->GetInternal().GetLocalEndpoint()->PushMessage(reply);
                         }
                     } else {
                         if (msg->GetType() == MESSAGE_METHOD_CALL) {
-                            bus->GetInternal().GetLocalEndpoint().ResumeReplyHandlerTimeout(msg);
+                            bus->GetInternal().GetLocalEndpoint()->ResumeReplyHandlerTimeout(msg);
                         }
-                        bus->GetInternal().GetRouter().PushMessage(msg, bus->GetInternal().GetLocalEndpoint());
+                        BusEndpoint busEndpoint = BusEndpoint::cast(bus->GetInternal().GetLocalEndpoint());
+                        bus->GetInternal().GetRouter().PushMessage(msg, busEndpoint);
                     }
                     iter = msgsPendingAuth.erase(iter);
                 } else {
@@ -1181,12 +1183,9 @@ void AllJoynPeerObj::AcceptSession(const InterfaceDescription::Member* member, M
 
         if ((status == ER_OK) && isAccepted) {
             const uint32_t VER_250 = 33882112;
-            BusEndpoint* sender = bus->GetInternal().GetRouter().FindEndpoint(msg->GetRcvEndpointName());
-
-            // if not REMOTE, it must be a bundled daemon, which is the same version
-            if (sender && sender->GetEndpointType() == BusEndpoint::ENDPOINT_TYPE_REMOTE) {
-                RemoteEndpoint* rep = static_cast<RemoteEndpoint*>(sender);
-
+            BusEndpoint sender = bus->GetInternal().GetRouter().FindEndpoint(msg->GetRcvEndpointName());
+            if (sender->GetEndpointType() == ENDPOINT_TYPE_REMOTE) {
+                RemoteEndpoint rep = RemoteEndpoint::cast(sender);
                 // remote daemon is older than version 2.5.0; it will *NOT* send the SessionJoined signal
                 if (rep->GetRemoteAllJoynVersion() < VER_250) {
                     bus->GetInternal().CallJoinedListeners(sessionPort, sessionId, joiner.c_str());

@@ -217,7 +217,7 @@ public ref class MessageReceiver sealed {
                 status = ER_OUT_OF_MEMORY;
                 break;
             }
-            _mReceiver = new qcc::ManagedObj<_MessageReceiver>(mr);
+            _mReceiver = new qcc::ManagedObj<_MessageReceiver>(qcc::ManagedObj<_MessageReceiver>::wrap(mr));
             if (NULL == _mReceiver) {
                 status = ER_OUT_OF_MEMORY;
                 break;

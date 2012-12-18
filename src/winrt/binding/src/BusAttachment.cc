@@ -74,7 +74,7 @@ BusAttachment::BusAttachment(Platform::String ^ applicationName, bool allowRemot
             break;
         }
         // Create the managed version
-        _mBusAttachment = new qcc::ManagedObj<_BusAttachment>(ba);
+        _mBusAttachment = new qcc::ManagedObj<_BusAttachment>(qcc::ManagedObj<_BusAttachment>::wrap(ba));
         // Check for failed allocation
         if (NULL == _mBusAttachment) {
             status = ER_OUT_OF_MEMORY;

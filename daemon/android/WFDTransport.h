@@ -39,6 +39,7 @@
 #include <qcc/SocketStream.h>
 #include <qcc/time.h>
 
+
 #include <alljoyn/TransportMask.h>
 
 #include "Transport.h"
@@ -49,13 +50,13 @@
 
 namespace ajn {
 
-class WFDEndpoint;
-
+class _WFDEndpoint;
+typedef qcc::ManagedObj<_WFDEndpoint> WFDEndpoint;
 /**
  * @brief A class for WFD Transports used in daemons running on Android
  */
-class WFDTransport : public Transport, public RemoteEndpoint::EndpointListener, public qcc::Thread {
-    friend class WFDEndpoint;
+class WFDTransport : public Transport, public _RemoteEndpoint::EndpointListener, public qcc::Thread {
+    friend class _WFDEndpoint;
 
   public:
 
@@ -141,7 +142,7 @@ class WFDTransport : public Transport, public RemoteEndpoint::EndpointListener, 
      *      - ER_OK if successful.
      *      - an error status otherwise.
      */
-    QStatus Connect(const char* connectSpec, const SessionOpts& opts, BusEndpoint** newep);
+    QStatus Connect(const char* connectSpec, const SessionOpts& opts, BusEndpoint& newep);
 
     /**
      * Disconnect from a specified AllJoyn/DBus address.
@@ -280,7 +281,7 @@ class WFDTransport : public Transport, public RemoteEndpoint::EndpointListener, 
      *
      * @param endpoint   WFDEndpoint instance that has exited.
      */
-    void EndpointExit(RemoteEndpoint* endpoint);
+    void EndpointExit(RemoteEndpoint& endpoint);
 
     /**
      * Name of transport used in transport specs.
@@ -294,8 +295,8 @@ class WFDTransport : public Transport, public RemoteEndpoint::EndpointListener, 
     BusAttachment& m_bus;                                          /**< The message bus for this transport */
     bool m_stopping;                                               /**< True if Stop() has been called but endpoints still exist */
     TransportListener* m_listener;                                 /**< Registered TransportListener */
-    std::set<WFDEndpoint*> m_authList;                             /**< List of authenticating endpoints */
-    std::set<WFDEndpoint*> m_endpointList;                         /**< List of active endpoints */
+    std::set<WFDEndpoint> m_authList;                             /**< List of authenticating endpoints */
+    std::set<WFDEndpoint> m_endpointList;                         /**< List of active endpoints */
     std::set<Thread*> m_activeEndpointsThreadList;                 /**< List of threads starting up active endpoints */
     qcc::Mutex m_endpointListLock;                                 /**< Mutex that protects the endpoint and auth lists */
 
@@ -448,7 +449,7 @@ class WFDTransport : public Transport, public RemoteEndpoint::EndpointListener, 
      *
      * @param conn Pointer to the WFDEndpoint that completed authentication.
      */
-    void Authenticated(WFDEndpoint* conn);
+    void Authenticated(WFDEndpoint& conn);
 
     /**
      * @internal

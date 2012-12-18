@@ -69,12 +69,6 @@ static const uint8_t ALLJOYN_FLAG_ENCRYPTED          = 0x80;
 /** ALLJOYN protocol version */
 static const uint8_t ALLJOYN_MAJOR_PROTOCOL_VERSION  = 1;
 
-/*
- * Forward declarations.
- */
-class RemoteEndpoint;
-
-
 /** Message types */
 typedef enum {
     MESSAGE_INVALID     = 0, ///< an invalid message type
@@ -153,7 +147,13 @@ class HeaderFields {
  * Forward definition
  */
 class _Message;
+class _RemoteEndpoint;
 class BusAttachment;
+
+/**
+ * @internal
+ */
+typedef qcc::ManagedObj<_RemoteEndpoint> RemoteEndpoint;
 
 /**
  * Message is a reference counted (managed) version of _Message
@@ -169,10 +169,10 @@ class _Message {
 
     friend class BusObject;
     friend class ProxyBusObject;
-    friend class RemoteEndpoint;
     friend class EndpointAuth;
-    friend class LocalEndpoint;
-    friend class NullEndpoint;
+    friend class _RemoteEndpoint;
+    friend class _LocalEndpoint;
+    friend class _NullEndpoint;
     friend class DaemonRouter;
     friend class AllJoynObj;
     friend class DeferredMsg;
@@ -752,7 +752,7 @@ class _Message {
 
     /**
      * @internal
-     * Reads and unmarshals a message from a source. Only the message header is unmarshaled at this
+     * Reads and unmarshals a message from a remote endpoint. Only the message header is unmarshaled at this
      * time.
      *
      * @param endpoint       The endpoint to marshal the message data from.
@@ -767,7 +767,7 @@ class _Message {
 
     /**
      * @internal
-     * Deliver a marshaled message to an sink.
+     * Deliver a marshaled message to a remote endpoint.
      *
      * @param endpoint   Endpoint to receive marshaled message.
      * @return

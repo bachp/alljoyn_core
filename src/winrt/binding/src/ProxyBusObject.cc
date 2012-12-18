@@ -64,7 +64,7 @@ ProxyBusObject::ProxyBusObject(BusAttachment ^ bus, Platform::String ^ service, 
             break;
         }
         // Attach pbo to _ProxyBusObject managed object
-        _mProxyBusObject = new qcc::ManagedObj<_ProxyBusObject>(pbo);
+        _mProxyBusObject = new qcc::ManagedObj<_ProxyBusObject>(qcc::ManagedObj<_ProxyBusObject>::wrap(pbo));
         // Check for allocation error
         if (NULL == _mProxyBusObject) {
             status = ER_OUT_OF_MEMORY;
@@ -104,7 +104,7 @@ ProxyBusObject::ProxyBusObject(BusAttachment ^ bus, const ajn::ProxyBusObject* p
             break;
         }
         // Attach pbo to _ProxyBusObject managed object
-        _mProxyBusObject = new qcc::ManagedObj<_ProxyBusObject>(pbo);
+        _mProxyBusObject = new qcc::ManagedObj<_ProxyBusObject>(qcc::ManagedObj<_ProxyBusObject>::wrap(pbo));
         // Check for allocation error
         if (NULL == _mProxyBusObject) {
             status = ER_OUT_OF_MEMORY;
@@ -144,7 +144,7 @@ ProxyBusObject::ProxyBusObject(BusAttachment ^ bus, const ajn::_ProxyBusObject* 
             break;
         }
         // Attach pbo to _ProxyBusObject managed object
-        _mProxyBusObject = new qcc::ManagedObj<_ProxyBusObject>(pbo);
+        _mProxyBusObject = new qcc::ManagedObj<_ProxyBusObject>(qcc::ManagedObj<_ProxyBusObject>::wrap(pbo));
         // Check for allocation error
         if (NULL == _mProxyBusObject) {
             status = ER_OUT_OF_MEMORY;

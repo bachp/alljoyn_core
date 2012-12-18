@@ -203,7 +203,7 @@ class TestDriver : public BTTransport {
     Bus bus;
     const CmdLineOptions& opts;
     qcc::GUID128 busGuid;
-    RemoteEndpoint* ep;
+    RemoteEndpoint ep;
 
     deque<bool> btDevAvailQueue;
     Event btDevAvailEvent;
@@ -282,7 +282,6 @@ class TestDriver : public BTTransport {
         btAccessor(NULL),
         bus("BTAccessorTester", cntr, ""),
         opts(opts),
-        ep(NULL),
         testcase(0),
         success(true),
         maxWidth(80),
@@ -377,7 +376,6 @@ TestDriver::TestDriver(const CmdLineOptions& opts) :
     btAccessor(NULL),
     bus("BTAccessorTester", cntr, ""),
     opts(opts),
-    ep(NULL),
     testcase(0),
     success(true),
     maxWidth(80),
@@ -411,9 +409,6 @@ TestDriver::TestDriver(const CmdLineOptions& opts) :
 
 TestDriver::~TestDriver()
 {
-    if (ep) {
-        delete ep;
-    }
     if (btAccessor) {
         delete btAccessor;
     }
@@ -545,7 +540,7 @@ bool TestDriver::SendBuf(const uint8_t* buf, size_t size)
     size_t offset = 0;
     size_t sent = 0;
 
-    if (!ep) {
+    if (!ep->IsValid()) {
         ReportTestDetail("No connection to send data to.  Skipping.");
         return true;
     }
@@ -582,7 +577,7 @@ bool TestDriver::RecvBuf(uint8_t* buf, size_t size)
     size_t offset = 0;
     size_t received = 0;
 
-    if (!ep) {
+    if (!ep->IsValid()) {
         ReportTestDetail("No connection to send data to.  Skipping.");
         return true;
     }
@@ -1239,7 +1234,7 @@ bool ClientTestDriver::TC_ConnectSingle()
 
     ep = btAccessor->Connect(bus, connNode);
 
-    if (!ep) {
+    if (!ep->IsValid()) {
         String detail = "Failed to connect to ";
         detail += connNode->GetBusAddress().ToString();
         detail += ".";
@@ -1248,7 +1243,7 @@ bool ClientTestDriver::TC_ConnectSingle()
         goto exit;
     }
 
-    node = reinterpret_cast<BTEndpoint*>(ep)->GetNode();
+    node = (BTEndpoint::cast(ep))->GetNode();
 
     node->SetSessionID(0xdeadbeef);
 
@@ -1262,9 +1257,8 @@ bool ClientTestDriver::TC_ConnectSingle()
         detail += " != ";
         detail += U32ToString(connNode->GetSessionID(), 16, 8, 0);
         ReportTestDetail(detail);
-        delete ep;
-        ep = NULL;
         tcSuccess = false;
+        ep->Invalidate();
     }
 
 exit:
@@ -1276,7 +1270,7 @@ bool ClientTestDriver::TC_ConnectSingleReject()
     bool tcSuccess = true;
     BTNodeInfo node;
     String detail;
-    RemoteEndpoint* tep = NULL;
+    RemoteEndpoint tep;
     char buf[100];
     size_t size = sizeof(buf);
     size_t received;
@@ -1295,7 +1289,7 @@ bool ClientTestDriver::TC_ConnectSingleReject()
 
     tep = btAccessor->Connect(bus, connNode);
 
-    if (!tep) {
+    if (!tep->IsValid()) {
         String detail = "Connection to ";
         detail += connNode->GetBusAddress().ToString();
         detail += " failed when it should have succeeded.";
@@ -1311,10 +1305,6 @@ bool ClientTestDriver::TC_ConnectSingleReject()
     }
 
 exit:
-    if (tep) {
-        delete tep;
-    }
-
     return tcSuccess;
 }
 
@@ -1323,7 +1313,7 @@ bool ClientTestDriver::TC_ConnectSingleRedirect()
     bool tcSuccess = true;
     BTNodeInfo node;
     String detail;
-    RemoteEndpoint* tep = NULL;
+    RemoteEndpoint tep;
     BTBusAddress raddr;
     String authName;
     String redirectSpec;
@@ -1342,7 +1332,7 @@ bool ClientTestDriver::TC_ConnectSingleRedirect()
 
     tep = btAccessor->Connect(bus, connNode);
 
-    if (!tep) {
+    if (!tep->IsValid()) {
         ReportTestDetail("Failed to create outgoing connection.");
         tcSuccess = false;
         goto exit;
@@ -1387,18 +1377,13 @@ bool ClientTestDriver::TC_ConnectSingleRedirect()
 
 exit:
     qcc::Sleep(3000);
-
-    if (tep) {
-        delete tep;
-    }
-
     return tcSuccess;
 }
 
 bool ClientTestDriver::TC_ConnectMultiple()
 {
     bool tcSuccess = true;
-    RemoteEndpoint* eps[CONNECT_MULTIPLE_MAX_CONNECTIONS];
+    RemoteEndpoint eps[CONNECT_MULTIPLE_MAX_CONNECTIONS];
 
     memset(eps, 0, sizeof(eps));
 
@@ -1411,7 +1396,7 @@ bool ClientTestDriver::TC_ConnectMultiple()
     for (size_t i = 0; i < ArraySize(eps); ++i) {
         eps[i] = btAccessor->Connect(bus, connNode);
 
-        if (!eps[i]) {
+        if (!eps[i]->IsValid()) {
             String detail = "Failed connect ";
             detail += U32ToString(i);
             detail += " to ";
@@ -1461,12 +1446,6 @@ bool ClientTestDriver::TC_ConnectMultiple()
     }
 
 exit:
-    for (size_t i = 0; i < ArraySize(eps); ++i) {
-        if (eps[i]) {
-            delete eps[i];
-        }
-    }
-
     return tcSuccess;
 }
 
@@ -1740,18 +1719,17 @@ bool ServerTestDriver::TC_AcceptSingle()
 
     ep = btAccessor->Accept(bus, l2capEvent);
 
-    if (!ep) {
+    if (!ep->IsValid()) {
         ReportTestDetail("Failed to accept incoming connection.");
         tcSuccess = false;
         goto exit;
     }
 
-    node = reinterpret_cast<BTEndpoint*>(ep)->GetNode();
+    node = (BTEndpoint::cast(ep))->GetNode();
 
     if ((node->GetBusAddress().addr == invalidAddr) || (node->GetBusAddress().psm != bt::INCOMING_PSM)) {
         ReportTestDetail("BTAccessor failed to fill out the BTNodeInfo with appropriate data in the BTEndpoint instance.");
-        delete ep;
-        ep = NULL;
+        ep->Invalidate();
         tcSuccess = false;
         goto exit;
     }
@@ -1772,7 +1750,7 @@ bool ServerTestDriver::TC_RejectSingle()
     BTNodeInfo node;
     String detail;
     BDAddress invalidAddr;
-    RemoteEndpoint* tep;
+    RemoteEndpoint tep;
 
     allowIncomingAddress = false;
 
@@ -1797,10 +1775,9 @@ bool ServerTestDriver::TC_RejectSingle()
 
     tep = btAccessor->Accept(bus, l2capEvent);
 
-    if (tep) {
+    if (tep->IsValid()) {
         ReportTestDetail("Failed to reject incoming connection.");
         tcSuccess = false;
-        delete tep;
     }
 
 exit:
@@ -1816,7 +1793,7 @@ bool ServerTestDriver::TC_RedirectSingle()
     BTNodeInfo node;
     String detail;
     BDAddress invalidAddr;
-    RemoteEndpoint* tep = NULL;
+    RemoteEndpoint tep;
     BTBusAddress raddr;
     String authName;
     String unused;
@@ -1844,7 +1821,7 @@ bool ServerTestDriver::TC_RedirectSingle()
 
     tep = btAccessor->Accept(bus, l2capEvent);
 
-    if (!tep) {
+    if (!tep->IsValid()) {
         ReportTestDetail("Failed to accept incoming connection.");
         tcSuccess = false;
         goto exit;
@@ -1866,10 +1843,6 @@ exit:
 
     redirect = false;
 
-    if (tep) {
-        delete tep;
-    }
-
     return tcSuccess;
 }
 
@@ -1877,7 +1850,7 @@ bool ServerTestDriver::TC_AcceptMultiple()
 {
     bool tcSuccess = true;
     QStatus status;
-    RemoteEndpoint* eps[CONNECT_MULTIPLE_MAX_CONNECTIONS];
+    RemoteEndpoint eps[CONNECT_MULTIPLE_MAX_CONNECTIONS];
 
     Event* l2capEvent = btAccessor->GetL2CAPConnectEvent();
 
@@ -1903,7 +1876,7 @@ bool ServerTestDriver::TC_AcceptMultiple()
 
         eps[i] = btAccessor->Accept(bus, l2capEvent);
 
-        if (!eps[i]) {
+        if (!eps[i]->IsValid()) {
             String detail = "Failed to accept incoming connection ";
             detail += U32ToString(i);
             detail += ".";
@@ -1951,11 +1924,6 @@ bool ServerTestDriver::TC_AcceptMultiple()
     }
 
 exit:
-    for (size_t i = 0; i < ArraySize(eps); ++i) {
-        if (eps[i]) {
-            delete eps[i];
-        }
-    }
 
     return tcSuccess;
 }

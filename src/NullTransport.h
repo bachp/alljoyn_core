@@ -137,7 +137,7 @@ class NullTransport : public Transport {
      *      - ER_OK if successful.
      *      - an error status otherwise.
      */
-    QStatus Connect(const char* connectSpec, const SessionOpts& opts, BusEndpoint** newep);
+    QStatus Connect(const char* connectSpec, const SessionOpts& opts, BusEndpoint& newep);
 
     /**
      * Disconnect from the bundled daemon.
@@ -204,7 +204,7 @@ class NullTransport : public Transport {
   private:
     BusAttachment& bus;           /**< The message bus for this transport */
     bool running;                 /**< True after Start() has been called, before Stop() */
-    BusEndpoint* endpoint;        /**< The active endpoint */
+    BusEndpoint endpoint;         /**< The active endpoint */
     BusAttachment* daemonBus;     /**< The daemon bus attachment if the a bundled daemon was launched */
 
     static DaemonLauncher* daemonLauncher; /**< The daemon launcher if there is bundled daemon present */

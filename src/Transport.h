@@ -183,7 +183,7 @@ class Transport {
      *      - ER_OK if successful.
      *      - an error status otherwise.
      */
-    virtual QStatus Connect(const char* connectSpec, const SessionOpts& opts, BusEndpoint** newep) { return ER_FAIL; }
+    virtual QStatus Connect(const char* connectSpec, const SessionOpts& opts, BusEndpoint& newep) { return ER_FAIL; }
 
     /**
      * Disconnect from a specified AllJoyn/DBus address.

@@ -111,7 +111,7 @@ InterfaceMember::InterfaceMember(InterfaceDescription ^ iface, AllJoynMessageTyp
             break;
         }
         // Attach interfacemember to managed object
-        _mMember = new qcc::ManagedObj<_InterfaceMember>(m);
+        _mMember = new qcc::ManagedObj<_InterfaceMember>(qcc::ManagedObj<_InterfaceMember>::wrap(m));
         if (NULL == _mMember) {
             status = ER_OUT_OF_MEMORY;
             break;
@@ -145,7 +145,7 @@ InterfaceMember::InterfaceMember(const ajn::InterfaceDescription::Member* interf
             break;
         }
         // Attach _InterfaceMember to managed object
-        _mMember = new qcc::ManagedObj<_InterfaceMember>(m);
+        _mMember = new qcc::ManagedObj<_InterfaceMember>(qcc::ManagedObj<_InterfaceMember>::wrap(m));
         if (NULL == _mMember) {
             status = ER_OUT_OF_MEMORY;
             break;

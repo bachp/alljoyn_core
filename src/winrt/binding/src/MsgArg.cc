@@ -69,7 +69,7 @@ MsgArg::MsgArg()
             break;
         }
         // Attach ma to _MsgArg managed object
-        _mMsgArg = new qcc::ManagedObj<_MsgArg>(ma);
+        _mMsgArg = new qcc::ManagedObj<_MsgArg>(qcc::ManagedObj<_MsgArg>::wrap(ma));
         // Check for allocation error
         if (NULL == _mMsgArg) {
             status = ER_OUT_OF_MEMORY;
@@ -104,7 +104,7 @@ MsgArg::MsgArg(Platform::String ^ signature, const Platform::Array<Platform::Obj
             break;
         }
         // Attach ma to _MsgArg managed object
-        _mMsgArg = new qcc::ManagedObj<_MsgArg>(ma);
+        _mMsgArg = new qcc::ManagedObj<_MsgArg>(qcc::ManagedObj<_MsgArg>::wrap(ma));
         // Check for allocation error
         if (NULL == _mMsgArg) {
             status = ER_OUT_OF_MEMORY;
@@ -158,7 +158,7 @@ MsgArg::MsgArg(const ajn::MsgArg* msgArg)
         // Do a deep copy
         *destArg = *msgArg;
         // Attach ma to _MsgArg managed object
-        _mMsgArg = new qcc::ManagedObj<_MsgArg>(ma);
+        _mMsgArg = new qcc::ManagedObj<_MsgArg>(qcc::ManagedObj<_MsgArg>::wrap(ma));
         // Check for allocation error
         if (NULL == _mMsgArg) {
             status = ER_OUT_OF_MEMORY;

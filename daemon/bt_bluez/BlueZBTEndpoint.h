@@ -30,19 +30,20 @@
 #include "BTNodeInfo.h"
 
 namespace ajn {
-
-class BlueZBTEndpoint : public BTEndpoint {
+class _BlueZBTEndpoint;
+typedef qcc::ManagedObj<_BlueZBTEndpoint> BlueZBTEndpoint;
+class _BlueZBTEndpoint : public _BTEndpoint {
   public:
 
     /**
      * Bluetooth endpoint constructor
      */
-    BlueZBTEndpoint(BusAttachment& bus,
-                    bool incoming,
-                    qcc::SocketFd sockFd,
-                    const BTNodeInfo& node,
-                    const BTBusAddress& redirect) :
-        BTEndpoint(bus, incoming, sockStream, node, redirect),
+    _BlueZBTEndpoint(BusAttachment& bus,
+                     bool incoming,
+                     qcc::SocketFd sockFd,
+                     const BTNodeInfo& node,
+                     const BTBusAddress& redirect) :
+        _BTEndpoint(bus, incoming, sockStream, node, redirect),
         sockStream(sockFd)
     { }
 

@@ -135,8 +135,8 @@ class BTTransport::BTAccessor : public MessageReceiver, public qcc::AlarmListene
      *
      * @return  A newly instatiated remote endpoint for the Bluetooth connection (NULL indicates a failure)
      */
-    RemoteEndpoint* Accept(BusAttachment& alljoyn,
-                           qcc::Event* connectEvent);
+    RemoteEndpoint Accept(BusAttachment& alljoyn,
+                          qcc::Event* connectEvent);
 
     /**
      * Create an outgoing connection to a remote Bluetooth device.  If the
@@ -147,8 +147,8 @@ class BTTransport::BTAccessor : public MessageReceiver, public qcc::AlarmListene
      *
      * @return  A newly instatiated remote endpoint for the Bluetooth connection (NULL indicates a failure)
      */
-    RemoteEndpoint* Connect(BusAttachment& alljoyn,
-                            const BTNodeInfo& node);
+    RemoteEndpoint Connect(BusAttachment& alljoyn,
+                           const BTNodeInfo& node);
 
     /**
      * Perform an SDP queary on the specified device to get the bus information.

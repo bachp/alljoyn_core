@@ -200,7 +200,7 @@ void SessionlessObj::ObjectRegistered(void)
     /* Acquire org.alljoyn.Sessionless name */
     uint32_t disposition = DBUS_REQUEST_NAME_REPLY_EXISTS;
     status = router.AddAlias(WellKnownName,
-                             bus.GetInternal().GetLocalEndpoint().GetUniqueName(),
+                             bus.GetInternal().GetLocalEndpoint()->GetUniqueName(),
                              DBUS_NAME_FLAG_DO_NOT_QUEUE,
                              disposition,
                              NULL,
@@ -449,12 +449,10 @@ void SessionlessObj::RequestSignalsSignalHandler(const InterfaceDescription::Mem
                     MessageMapKey key = it->first;
                     lock.Unlock();
                     router.LockNameTable();
-                    BusEndpoint* ep = router.FindEndpoint(msg->GetSender());
-                    if (ep) {
-                        ep->IncrementPushCount();
+                    BusEndpoint ep = router.FindEndpoint(msg->GetSender());
+                    if (ep->IsValid()) {
                         router.UnlockNameTable();
                         status = ep->PushMessage(it->second.second);
-                        ep->DecrementPushCount();
                     } else {
                         router.UnlockNameTable();
                     }

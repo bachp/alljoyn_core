@@ -354,22 +354,22 @@ QStatus BusAttachment::Start()
     return status;
 }
 
-QStatus BusAttachment::TryConnect(const char* connectSpec, BusEndpoint** newep)
+QStatus BusAttachment::TryConnect(const char* connectSpec)
 {
     QCC_DbgTrace(("BusAttachment::TryConnect to %s", connectSpec));
     QStatus status = ER_OK;
-    BusEndpoint* tempEp;
+    BusEndpoint tempEp;
 
     /* Get or create transport for connection */
     Transport* trans = busInternal->transportList.GetTransport(connectSpec);
     if (trans) {
         SessionOpts emptyOpts;
-        status = trans->Connect(connectSpec, emptyOpts, &tempEp);
+        status = trans->Connect(connectSpec, emptyOpts, tempEp);
 
         /* Make sure the remote side (daemon) is at least as new as the client */
-        if ((status == ER_OK) && ((tempEp->GetEndpointType() == BusEndpoint::ENDPOINT_TYPE_REMOTE) ||
-                                  (tempEp->GetEndpointType() == BusEndpoint::ENDPOINT_TYPE_BUS2BUS))) {
-            RemoteEndpoint* rem = static_cast<RemoteEndpoint*>(tempEp);
+        if ((status == ER_OK) && ((tempEp->GetEndpointType() == ENDPOINT_TYPE_REMOTE) ||
+                                  (tempEp->GetEndpointType() == ENDPOINT_TYPE_BUS2BUS))) {
+            RemoteEndpoint rem = RemoteEndpoint::cast(tempEp);
             /*
              * Reject a daemon whose ALLJOYN_PROTOCOL_VERSION is less than that of this
              * client. This check is complicated by the requirement to successfully connect to a
@@ -388,8 +388,8 @@ QStatus BusAttachment::TryConnect(const char* connectSpec, BusEndpoint** newep)
     } else {
         status = ER_BUS_TRANSPORT_NOT_AVAILABLE;
     }
-    if ((status == ER_OK) && newep) {
-        *newep = tempEp;
+    if (status == ER_OK) {
+        busInternal->daemonEndpoint = tempEp;
     }
     return status;
 }
@@ -404,7 +404,7 @@ QStatus BusAttachment::Connect()
     return Connect(connectArgs);
 }
 
-QStatus BusAttachment::Connect(const char* connectSpec, BusEndpoint** newep)
+QStatus BusAttachment::Connect(const char* connectSpec)
 {
     QStatus status;
     bool isDaemon = busInternal->GetRouter().IsDaemon();
@@ -418,14 +418,14 @@ QStatus BusAttachment::Connect(const char* connectSpec, BusEndpoint** newep)
         status = ER_BUS_ALREADY_CONNECTED;
     } else {
         this->connectSpec = connectSpec;
-        status = TryConnect(connectSpec, newep);
+        status = TryConnect(connectSpec);
         /*
          * Try using the null transport to connect to a bundled daemon if there is one
          */
         if (status != ER_OK && !isDaemon) {
             qcc::String bundledConnectSpec = "null:";
             if (bundledConnectSpec != connectSpec) {
-                status = TryConnect(bundledConnectSpec.c_str(), newep);
+                status = TryConnect(bundledConnectSpec.c_str());
                 if (ER_OK == status) {
                     this->connectSpec = bundledConnectSpec;
                 }
@@ -731,7 +731,7 @@ const qcc::String BusAttachment::GetUniqueName() const
     if (!IsConnected()) {
         return "";
     }
-    return busInternal->localEndpoint.GetUniqueName();
+    return busInternal->localEndpoint->GetUniqueName();
 }
 
 const qcc::String& BusAttachment::GetGlobalGUIDString() const
@@ -746,17 +746,17 @@ const qcc::String& BusAttachment::GetGlobalGUIDShortString() const
 
 const ProxyBusObject& BusAttachment::GetDBusProxyObj()
 {
-    return busInternal->localEndpoint.GetDBusProxyObj();
+    return busInternal->localEndpoint->GetDBusProxyObj();
 }
 
 const ProxyBusObject& BusAttachment::GetAllJoynProxyObj()
 {
-    return busInternal->localEndpoint.GetAllJoynProxyObj();
+    return busInternal->localEndpoint->GetAllJoynProxyObj();
 }
 
 const ProxyBusObject& BusAttachment::GetAllJoynDebugObj()
 {
-    return busInternal->localEndpoint.GetAllJoynDebugObj();
+    return busInternal->localEndpoint->GetAllJoynDebugObj();
 }
 
 QStatus BusAttachment::RegisterSignalHandler(MessageReceiver* receiver,
@@ -764,7 +764,7 @@ QStatus BusAttachment::RegisterSignalHandler(MessageReceiver* receiver,
                                              const InterfaceDescription::Member* member,
                                              const char* srcPath)
 {
-    return busInternal->localEndpoint.RegisterSignalHandler(receiver, signalHandler, member, srcPath);
+    return busInternal->localEndpoint->RegisterSignalHandler(receiver, signalHandler, member, srcPath);
 }
 
 QStatus BusAttachment::UnregisterSignalHandler(MessageReceiver* receiver,
@@ -772,12 +772,12 @@ QStatus BusAttachment::UnregisterSignalHandler(MessageReceiver* receiver,
                                                const InterfaceDescription::Member* member,
                                                const char* srcPath)
 {
-    return busInternal->localEndpoint.UnregisterSignalHandler(receiver, signalHandler, member, srcPath);
+    return busInternal->localEndpoint->UnregisterSignalHandler(receiver, signalHandler, member, srcPath);
 }
 
 QStatus BusAttachment::UnregisterAllHandlers(MessageReceiver* receiver)
 {
-    return busInternal->localEndpoint.UnregisterAllHandlers(receiver);
+    return busInternal->localEndpoint->UnregisterAllHandlers(receiver);
 }
 
 bool BusAttachment::IsConnected() const {
@@ -785,12 +785,12 @@ bool BusAttachment::IsConnected() const {
 }
 
 QStatus BusAttachment::RegisterBusObject(BusObject& obj) {
-    return busInternal->localEndpoint.RegisterBusObject(obj);
+    return busInternal->localEndpoint->RegisterBusObject(obj);
 }
 
 void BusAttachment::UnregisterBusObject(BusObject& object)
 {
-    busInternal->localEndpoint.UnregisterBusObject(object);
+    busInternal->localEndpoint->UnregisterBusObject(object);
 }
 
 QStatus BusAttachment::EnablePeerSecurity(const char* authMechanisms,
@@ -821,7 +821,7 @@ QStatus BusAttachment::EnablePeerSecurity(const char* authMechanisms,
     }
 
     if (status == ER_OK) {
-        AllJoynPeerObj* peerObj = busInternal->localEndpoint.GetPeerObj();
+        AllJoynPeerObj* peerObj = busInternal->localEndpoint->GetPeerObj();
         if (peerObj) {
             peerObj->SetupPeerAuthentication(authMechanisms, authMechanisms ? listener : NULL);
         } else {
@@ -833,7 +833,7 @@ QStatus BusAttachment::EnablePeerSecurity(const char* authMechanisms,
 
 bool BusAttachment::IsPeerSecurityEnabled()
 {
-    AllJoynPeerObj* peerObj = busInternal->localEndpoint.GetPeerObj();
+    AllJoynPeerObj* peerObj = busInternal->localEndpoint->GetPeerObj();
     if (peerObj) {
         return peerObj->AuthenticationEnabled();
     } else {
@@ -1693,7 +1693,7 @@ void BusAttachment::Internal::NonLocalEndpointDisconnected()
 
 void BusAttachment::EnableConcurrentCallbacks()
 {
-    busInternal->localEndpoint.GetDispatcher().EnableReentrancy();
+    busInternal->localEndpoint->EnableReentrancy();
 }
 
 void BusAttachment::Internal::AllJoynSignalHandler(const InterfaceDescription::Member* member,

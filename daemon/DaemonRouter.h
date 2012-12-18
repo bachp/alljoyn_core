@@ -37,6 +37,7 @@
 
 namespace ajn {
 
+
 /**
  * @internal Forward delcarations
  */
@@ -48,9 +49,7 @@ class BusController;
  */
 class DaemonRouter : public Router {
 
-    friend class TCPEndpoint;
-    friend class UnixEndpoint;
-    friend class LocalEndpoint;
+    friend class _LocalEndpoint;
 
   public:
     /**
@@ -148,9 +147,47 @@ class DaemonRouter : public Router {
      * Find the endpoint that owns the given unique or well-known name.
      *
      * @param busname    Unique or well-known bus name
-     * @return  Matching endpoint or NULL if none exists.
+     * @return Returns either the bus endpoint or an invalid bus endpoint with
      */
-    BusEndpoint* FindEndpoint(const qcc::String& busname);
+    BusEndpoint FindEndpoint(const qcc::String& busname);
+
+    /**
+     * Find the remote or bus-to-bus endpoint that owns the given unique or well-known name.
+     *
+     * @param busname    Unique or well-known bus name
+     * @param endpoint   Returns the bus endpoint
+     *
+     * @return  Returns true if the endpoint was found, false if it was not found.
+     */
+    bool FindEndpoint(const qcc::String& busname, RemoteEndpoint& endpoint) {
+        BusEndpoint ep = FindEndpoint(busname);
+        if ((ep->GetEndpointType() == ENDPOINT_TYPE_REMOTE) || (ep->GetEndpointType() == ENDPOINT_TYPE_BUS2BUS)) {
+            endpoint = RemoteEndpoint::cast(ep);
+            return true;
+        } else {
+            endpoint->Invalidate();
+            return false;
+        }
+    }
+
+    /**
+     * Find the virtual endpoint that owns the given unique or well-known name.
+     *
+     * @param busname    Unique or well-known bus name
+     * @param endpoint   Returns the bus endpoint
+     *
+     * @return  Returns true if the endpoint was found, false if it was not found.
+     */
+    bool FindEndpoint(const qcc::String& busname, VirtualEndpoint& endpoint) {
+        BusEndpoint ep = FindEndpoint(busname);
+        if (ep->GetEndpointType() == ENDPOINT_TYPE_VIRTUAL) {
+            endpoint = VirtualEndpoint::cast(ep);
+            return true;
+        } else {
+            endpoint->Invalidate();
+            return false;
+        }
+    }
 
     /**
      * Add a rule for an endpoint.
@@ -192,9 +229,8 @@ class DaemonRouter : public Router {
      * This method must be called by an endpoint before attempting to use the router.
      *
      * @param endpoint   Endpoint being registered.
-     * @param isLocal    true iff endpoint is local.
      */
-    QStatus RegisterEndpoint(BusEndpoint& endpoint, bool isLocal);
+    QStatus RegisterEndpoint(BusEndpoint& endpoint);
 
     /**
      * Un-register an endpoint.
@@ -202,7 +238,7 @@ class DaemonRouter : public Router {
      *
      * @param epName   Name of endpoint being unregistered.
      */
-    void UnregisterEndpoint(const qcc::String& epName);
+    void UnregisterEndpoint(const qcc::String& epName, EndpointType epType);
 
     /**
      * Return true if this router is in contact with a bus (either locally or remotely)
@@ -210,7 +246,7 @@ class DaemonRouter : public Router {
      *
      * @return true iff the messages can be routed currently.
      */
-    bool IsBusRunning(void) const { return NULL != localEndpoint; }
+    bool IsBusRunning(void) const { return localEndpoint->IsValid(); }
 
     /**
      * Indicate that this Bus instance is an AllJoyn daemon
@@ -283,12 +319,12 @@ class DaemonRouter : public Router {
      * @param  srcEp       Route source endpoint.
      * @param  srcB2bEp    Source B2B endpoint. (NULL if srcEp is not virtual).
      * @param  destEp      BusEndpoint of route destination.
-     * @param  destB2bEp   [IN/OUT] If passed in as NULL, attempt to use qosHint to choose destB2bEp and return selected ep.
+     * @param  destB2bEp   [IN/OUT] If passed in as invalid endpoint type, attempt to use optsHint to choose destB2bEp and return selected ep.
      * @param  optsHint    Optional session options constraint for selection of destB2bEp if not explicitly specified.
      * @return  ER_OK if successful.
      */
     QStatus AddSessionRoute(SessionId id, BusEndpoint& srcEp, RemoteEndpoint* srcB2bEp, BusEndpoint& destEp,
-                            RemoteEndpoint*& destB2bEp, SessionOpts* optsHint = NULL);
+                            RemoteEndpoint& destB2bEp, SessionOpts* optsHint = NULL);
 
     /**
      * Remove a (single) session route.
@@ -311,24 +347,25 @@ class DaemonRouter : public Router {
     void RemoveSessionRoutes(const char* uniqueName, SessionId id);
 
   private:
-    int32_t endpointRefs;           /**< Reference count tracking endpoints in use */
-    LocalEndpoint* localEndpoint;   /**< The local endpoint */
-    bool closing;                   /**< Indicates router is closing */
+    LocalEndpoint localEndpoint;    /**< The local endpoint */
     RuleTable ruleTable;            /**< Routing rule table */
     NameTable nameTable;            /**< BusName to transport lookupl table */
     BusController* busController;   /**< The bus controller used with this router */
 
-    std::set<RemoteEndpoint*> m_b2bEndpoints;  /**< Collection of Bus-to-bus endpoints */
-    qcc::Mutex m_b2bEndpointsLock;       /**< Lock that protects m_b2bEndpoints */
+    std::set<RemoteEndpoint> m_b2bEndpoints; /**< Collection of Bus-to-bus endpoints */
+    qcc::Mutex m_b2bEndpointsLock;           /**< Lock that protects m_b2bEndpoints */
 
     /** Session multicast destination map */
     struct SessionCastEntry {
         SessionId id;
         qcc::String src;
-        RemoteEndpoint* b2bEp;
-        BusEndpoint* destEp;
+        RemoteEndpoint b2bEp;
+        BusEndpoint destEp;
 
-        SessionCastEntry(SessionId id, const qcc::String& src, RemoteEndpoint* b2bEp, BusEndpoint* destEp) :
+        SessionCastEntry(SessionId id, const qcc::String& src) :
+            id(id), src(src) { }
+
+        SessionCastEntry(SessionId id, const qcc::String& src, RemoteEndpoint& b2bEp, BusEndpoint& destEp) :
             id(id), src(src), b2bEp(b2bEp), destEp(destEp) { }
 
         bool operator<(const SessionCastEntry& other) const {
@@ -339,8 +376,9 @@ class DaemonRouter : public Router {
             return (id == other.id)  && (src == other.src) && (b2bEp == other.b2bEp) && (destEp == other.destEp);
         }
     };
-    std::set<SessionCastEntry> sessionCastSet;
-    qcc::Mutex sessionCastSetLock;      /**< Lock that protects sessionCastSet */
+
+    std::set<SessionCastEntry> sessionCastSet; /**< Session multicast set */
+    qcc::Mutex sessionCastSetLock;             /**< Lock that protects sessionCastSet */
 };
 
 }

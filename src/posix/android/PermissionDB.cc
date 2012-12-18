@@ -179,9 +179,9 @@ uint32_t PermissionDB::UniqueUserID(uint32_t userID)
 
 QStatus PermissionDB::RemovePermissionCache(BusEndpoint& endpoint)
 {
-    QCC_DbgTrace(("PermissionDB::RemovePermissionCache(endpoint = %s)", endpoint.GetUniqueName().c_str()));
+    QCC_DbgTrace(("PermissionDB::RemovePermissionCache(endpoint = %s)", endpoint->GetUniqueName().c_str()));
     permissionDbLock.Lock(MUTEX_CONTEXT);
-    uint32_t userId = endpoint.GetUserId();
+    uint32_t userId = endpoint->GetUserId();
     uidAliasMap.erase(userId);
     uidPermsMap.erase(UniqueUserID(userId));
     unknownApps.erase(UniqueUserID(userId));

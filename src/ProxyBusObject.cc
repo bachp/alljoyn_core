@@ -624,8 +624,13 @@ QStatus ProxyBusObject::MethodCallAsync(const InterfaceDescription::Member& meth
 
     QStatus status;
     Message msg(*bus);
-    LocalEndpoint& localEndpoint = bus->GetInternal().GetLocalEndpoint();
-
+    LocalEndpoint localEndpoint = bus->GetInternal().GetLocalEndpoint();
+    if (!localEndpoint->IsValid()) {
+        return ER_BUS_ENDPOINT_CLOSING;
+    }
+    /*
+     * This object must implement the interface for this method
+     */
     if (!ImplementsInterface(method.iface->GetName())) {
         status = ER_BUS_OBJECT_NO_SUCH_INTERFACE;
         QCC_LogError(status, ("Object %s does not implement %s", path.c_str(), method.iface->GetName()));
@@ -646,16 +651,17 @@ QStatus ProxyBusObject::MethodCallAsync(const InterfaceDescription::Member& meth
     status = msg->CallMsg(method.signature, serviceName, sessionId, path, method.iface->GetName(), method.name, args, numArgs, flags);
     if (status == ER_OK) {
         if (!(flags & ALLJOYN_FLAG_NO_REPLY_EXPECTED)) {
-            status = localEndpoint.RegisterReplyHandler(receiver, replyHandler, method, msg, context, timeout);
+            status = localEndpoint->RegisterReplyHandler(receiver, replyHandler, method, msg, context, timeout);
         }
         if (status == ER_OK) {
-            if (b2bEp) {
+            if (b2bEp->IsValid()) {
                 status = b2bEp->PushMessage(msg);
             } else {
-                status = bus->GetInternal().GetRouter().PushMessage(msg, localEndpoint);
+                BusEndpoint busEndpoint = BusEndpoint::cast(localEndpoint);
+                status = bus->GetInternal().GetRouter().PushMessage(msg, busEndpoint);
             }
             if (status != ER_OK) {
-                bool unregistered = localEndpoint.UnregisterReplyHandler(msg);
+                bool unregistered = localEndpoint->UnregisterReplyHandler(msg);
                 if (!unregistered) {
                     /*
                      * Unregister failed, so the reply handler must have already been called.
@@ -716,17 +722,21 @@ QStatus ProxyBusObject::MethodCall(const InterfaceDescription::Member& method,
 {
     QStatus status;
     Message msg(*bus);
-    LocalEndpoint& localEndpoint = bus->GetInternal().GetLocalEndpoint();
-
+    LocalEndpoint localEndpoint = bus->GetInternal().GetLocalEndpoint();
+    if (!localEndpoint->IsValid()) {
+        return ER_BUS_ENDPOINT_CLOSING;
+    }
     /*
      * if we're being called from the LocalEndpoint (callback) thread, do not allow
      * blocking calls unless BusAttachment::EnableConcurrentCallbacks has been called first
      */
-    if (localEndpoint.GetDispatcher().ThreadHoldsLock()) {
+    if (localEndpoint->IsReentrantCall()) {
         status = ER_BUS_BLOCKING_CALL_NOT_ALLOWED;
         goto MethodCallExit;
     }
-
+    /*
+     * This object must implement the interface for this method
+     */
     if (!ImplementsInterface(method.iface->GetName())) {
         status = ER_BUS_OBJECT_NO_SUCH_INTERFACE;
         QCC_LogError(status, ("Object %s does not implement %s", path.c_str(), method.iface->GetName()));
@@ -750,10 +760,11 @@ QStatus ProxyBusObject::MethodCall(const InterfaceDescription::Member& method,
         /*
          * Push the message to the router and we are done
          */
-        if (b2bEp) {
+        if (b2bEp->IsValid()) {
             status = b2bEp->PushMessage(msg);
         } else {
-            status = bus->GetInternal().GetRouter().PushMessage(msg, localEndpoint);
+            BusEndpoint busEndpoint = BusEndpoint::cast(localEndpoint);
+            status = bus->GetInternal().GetRouter().PushMessage(msg, busEndpoint);
         }
     } else {
         ManagedObj<SyncReplyContext> ctxt(*bus);
@@ -762,17 +773,18 @@ QStatus ProxyBusObject::MethodCall(const InterfaceDescription::Member& method,
          * reply handler to be called.
          */
         ManagedObj<SyncReplyContext>* heapCtx = new ManagedObj<SyncReplyContext>(ctxt);
-        status = localEndpoint.RegisterReplyHandler(const_cast<MessageReceiver*>(static_cast<const MessageReceiver* const>(this)),
-                                                    static_cast<MessageReceiver::ReplyHandler>(&ProxyBusObject::SyncReplyHandler),
-                                                    method,
-                                                    msg,
-                                                    heapCtx,
-                                                    timeout);
+        status = localEndpoint->RegisterReplyHandler(const_cast<MessageReceiver*>(static_cast<const MessageReceiver* const>(this)),
+                                                     static_cast<MessageReceiver::ReplyHandler>(&ProxyBusObject::SyncReplyHandler),
+                                                     method,
+                                                     msg,
+                                                     heapCtx,
+                                                     timeout);
         if (status == ER_OK) {
-            if (b2bEp) {
+            if (b2bEp->IsValid()) {
                 status = b2bEp->PushMessage(msg);
             } else {
-                status = bus->GetInternal().GetRouter().PushMessage(msg, localEndpoint);
+                BusEndpoint busEndpoint = BusEndpoint::cast(localEndpoint);
+                status = bus->GetInternal().GetRouter().PushMessage(msg, busEndpoint);
             }
         } else {
             delete heapCtx;
@@ -806,7 +818,7 @@ QStatus ProxyBusObject::MethodCall(const InterfaceDescription::Member& method,
              * can't know whether this object still exists.
              */
             status = ER_BUS_METHOD_CALL_ABORTED;
-        } else if (localEndpoint.UnregisterReplyHandler(msg)) {
+        } else if (localEndpoint->UnregisterReplyHandler(msg)) {
             /*
              * The handler was deregistered so we need to delete the context here.
              */
@@ -872,11 +884,16 @@ QStatus ProxyBusObject::SecureConnection(bool forceAuth)
     if (!bus->IsPeerSecurityEnabled()) {
         return ER_BUS_SECURITY_NOT_ENABLED;
     }
-    AllJoynPeerObj* peerObj =  bus->GetInternal().GetLocalEndpoint().GetPeerObj();
-    if (forceAuth) {
-        peerObj->ForceAuthentication(serviceName);
+    LocalEndpoint localEndpoint = bus->GetInternal().GetLocalEndpoint();
+    if (!localEndpoint->IsValid()) {
+        return ER_BUS_ENDPOINT_CLOSING;
+    } else {
+        AllJoynPeerObj* peerObj = localEndpoint->GetPeerObj();
+        if (forceAuth) {
+            peerObj->ForceAuthentication(serviceName);
+        }
+        return peerObj->AuthenticatePeer(MESSAGE_METHOD_CALL, serviceName);
     }
-    return peerObj->AuthenticatePeer(MESSAGE_METHOD_CALL, serviceName);
 }
 
 QStatus ProxyBusObject::SecureConnectionAsync(bool forceAuth)
@@ -884,11 +901,16 @@ QStatus ProxyBusObject::SecureConnectionAsync(bool forceAuth)
     if (!bus->IsPeerSecurityEnabled()) {
         return ER_BUS_SECURITY_NOT_ENABLED;
     }
-    AllJoynPeerObj* peerObj =  bus->GetInternal().GetLocalEndpoint().GetPeerObj();
-    if (forceAuth) {
-        peerObj->ForceAuthentication(serviceName);
+    LocalEndpoint localEndpoint = bus->GetInternal().GetLocalEndpoint();
+    if (localEndpoint->IsValid()) {
+        return ER_BUS_ENDPOINT_CLOSING;
+    } else {
+        AllJoynPeerObj* peerObj =  localEndpoint->GetPeerObj();
+        if (forceAuth) {
+            peerObj->ForceAuthentication(serviceName);
+        }
+        return peerObj->AuthenticatePeerAsync(serviceName);
     }
-    return peerObj->AuthenticatePeerAsync(serviceName);
 }
 
 QStatus ProxyBusObject::IntrospectRemoteObject(uint32_t timeout)
@@ -1029,7 +1051,6 @@ ProxyBusObject::ProxyBusObject(BusAttachment& bus, const char* service, const ch
     serviceName(service),
     sessionId(sessionId),
     hasProperties(false),
-    b2bEp(NULL),
     lock(new Mutex),
     isExiting(false)
 {
@@ -1042,7 +1063,6 @@ ProxyBusObject::ProxyBusObject() :
     components(NULL),
     sessionId(0),
     hasProperties(false),
-    b2bEp(NULL),
     lock(NULL),
     isExiting(false)
 {
@@ -1090,7 +1110,7 @@ ProxyBusObject& ProxyBusObject::operator=(const ProxyBusObject& other)
     return *this;
 }
 
-void ProxyBusObject::SetB2BEndpoint(RemoteEndpoint* b2bEp)
+void ProxyBusObject::SetB2BEndpoint(RemoteEndpoint& b2bEp)
 {
     this->b2bEp = b2bEp;
 }

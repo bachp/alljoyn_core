@@ -219,6 +219,17 @@ class BusAttachment::Internal : public MessageReceiver {
      */
     void SetLinkTimeoutAsyncCB(Message& message, void* context);
 
+    /**
+     * Push a message into the local endpoint
+     *
+     * @param msg  The message to push
+     * @return  ER_OK if successful.
+     */
+    QStatus PushToLocalEndpoint(Message& msg) { 
+	BusEndpoint busEndpoint = BusEndpoint::cast(localEndpoint);
+	return router->PushMessage(msg, busEndpoint);
+    }
+
   private:
 
     /**
@@ -240,6 +251,7 @@ class BusAttachment::Internal : public MessageReceiver {
     qcc::String application;              /* Name of the that owns the BusAttachment application */
     BusAttachment& bus;                   /* Reference back to the bus attachment that owns this state */
 
+
     qcc::Mutex listenersLock;             /* Mutex that protects BusListeners container (set) */
     typedef qcc::ManagedObj<BusListener*> ProtectedBusListener;
     typedef std::set<ProtectedBusListener> ListenerSet;
@@ -252,7 +264,8 @@ class BusAttachment::Internal : public MessageReceiver {
     int32_t msgSerial;                    /* Serial number is updated for every message sent by this bus */
     Router* router;                       /* Message bus router */
     PeerStateTable peerStateTable;        /* Table that maintains state information about remote peers */
-    LocalEndpoint& localEndpoint;         /* The local endpoint */
+    LocalEndpoint localEndpoint;          /* The local endpoint */
+    BusEndpoint daemonEndpoint;           /* Endpoint to the daemon */
     CompressionRules compressionRules;    /* Rules for compresssing and decompressing headers */
     std::map<qcc::StringMapKey, InterfaceDescription> ifaceDescriptions;
 

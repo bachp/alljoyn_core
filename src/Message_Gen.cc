@@ -451,7 +451,7 @@ QStatus _Message::MarshalArgs(const MsgArg* arg, size_t numArgs)
 QStatus _Message::Deliver(RemoteEndpoint& endpoint)
 {
     QStatus status = ER_OK;
-    Sink& sink = endpoint.GetSink();
+    Sink& sink = endpoint->GetSink();
     uint8_t* buf = reinterpret_cast<uint8_t*>(msgBuf);
     size_t len = bufEOD - buf;
     size_t pushed;
@@ -466,7 +466,7 @@ QStatus _Message::Deliver(RemoteEndpoint& endpoint)
     /*
      * Handles can only be passed if that feature was negotiated.
      */
-    if (handles && !endpoint.GetFeatures().handlePassing) {
+    if (handles && !endpoint->GetFeatures().handlePassing) {
         status = ER_BUS_HANDLES_NOT_ENABLED;
         QCC_LogError(status, ("Handle passing was not negotiated on this connection"));
         return status;
@@ -495,7 +495,7 @@ QStatus _Message::Deliver(RemoteEndpoint& endpoint)
      */
     if (status == ER_OK) {
         if (handles) {
-            status = sink.PushBytesAndFds(buf, len, pushed, handles, numHandles, endpoint.GetProcessId());
+            status = sink.PushBytesAndFds(buf, len, pushed, handles, numHandles, endpoint->GetProcessId());
         } else {
             status = sink.PushBytes(buf, len, pushed, ttl);
         }
@@ -509,7 +509,7 @@ QStatus _Message::Deliver(RemoteEndpoint& endpoint)
         status = sink.PushBytes(buf, len, pushed);
     }
     if (status == ER_OK) {
-        QCC_DbgHLPrintf(("Deliver message %s to %s", Description().c_str(), endpoint.GetUniqueName().c_str()));
+        QCC_DbgHLPrintf(("Deliver message %s to %s", Description().c_str(), endpoint->GetUniqueName().c_str()));
         QCC_DbgPrintf(("%s", ToString().c_str()));
     } else {
         QCC_LogError(status, ("Failed to deliver message %s", Description().c_str()));
@@ -687,8 +687,8 @@ QStatus _Message::EncryptMessage()
      */
     if (status == ER_BUS_KEY_UNAVAILABLE) {
         QCC_DbgHLPrintf(("Deliver: No key - requesting authentication %s", Description().c_str()));
-        Message msg(this);
-        status = bus->GetInternal().GetLocalEndpoint().GetPeerObj()->RequestAuthentication(msg);
+        Message msg = Message::wrap(this);
+        status = bus->GetInternal().GetLocalEndpoint()->GetPeerObj()->RequestAuthentication(msg);
         if (status == ER_OK) {
             status = ER_BUS_AUTHENTICATION_PENDING;
         } else {
@@ -768,7 +768,7 @@ QStatus _Message::MarshalMessage(const qcc::String& expectedSignature,
     /*
      * Sender is obtained from the bus
      */
-    const qcc::String& sender = bus->GetInternal().GetLocalEndpoint().GetUniqueName();
+    const qcc::String& sender = bus->GetInternal().GetLocalEndpoint()->GetUniqueName();
     hdrFields.field[ALLJOYN_HDR_FIELD_SENDER].Clear();
     if (!sender.empty()) {
         hdrFields.field[ALLJOYN_HDR_FIELD_SENDER].typeId = ALLJOYN_STRING;

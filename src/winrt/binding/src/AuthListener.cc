@@ -45,7 +45,7 @@ AuthListener::AuthListener(BusAttachment ^ bus)
             break;
         }
         // Attach the constructed auth listener as a managed type
-        _mListener = new qcc::ManagedObj<_AuthListener>(al);
+        _mListener = new qcc::ManagedObj<_AuthListener>(qcc::ManagedObj<_AuthListener>::wrap(al));
         if (NULL == _mListener) {
             status = ER_OUT_OF_MEMORY;
             break;
