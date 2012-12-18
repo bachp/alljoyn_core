@@ -202,8 +202,8 @@ void NameTable::RemoveAlias(const qcc::String& aliasName,
                             NameListener* listener,
                             void* context)
 {
-    const qcc::String* oldOwner = NULL;
-    const qcc::String* newOwner = NULL;
+    qcc::String oldOwner;
+    qcc::String newOwner;
     qcc::String aliasNameCopy(aliasName);
 
     QCC_DbgTrace(("NameTable: RemoveAlias(%s, %s)", aliasName.c_str(), ownerName.c_str()));
@@ -222,18 +222,18 @@ void NameTable::RemoveAlias(const qcc::String& aliasName,
                 queue.pop_front();
                 BusEndpoint ep = FindEndpoint(queue[0].endpointName);
                 if (ep->IsValid()) {
-                    newOwner = &queue[0].endpointName;
+                    newOwner = queue[0].endpointName;
                 }
             }
-            if (!newOwner) {
+            if (newOwner.empty()) {
                 /* Check to see if there is a (now unmasked) remote owner for the alias */
                 map<qcc::StringMapKey, VirtualEndpoint>::const_iterator vit = virtualAliasNames.find(aliasName);
                 if (vit != virtualAliasNames.end()) {
-                    newOwner = &vit->second->GetUniqueName();
+                    newOwner = vit->second->GetUniqueName();
                 }
                 aliasNames.erase(it);
             }
-            oldOwner = &ownerName;
+            oldOwner = ownerName;
             disposition = DBUS_RELEASE_NAME_REPLY_RELEASED;
         } else {
             /* Alias is not owned by ownerName */
@@ -248,8 +248,8 @@ void NameTable::RemoveAlias(const qcc::String& aliasName,
     if (listener) {
         listener->RemoveAliasComplete(aliasNameCopy, disposition, context);
     }
-    if (oldOwner) {
-        CallListeners(aliasNameCopy, oldOwner, newOwner);
+    if (!oldOwner.empty()) {
+        CallListeners(aliasNameCopy, &oldOwner, newOwner.empty() ? NULL : &newOwner);
     }
 }
 
