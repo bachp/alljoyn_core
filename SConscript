@@ -31,7 +31,8 @@ if env['VARIANT'] == 'debug':
         env.PrependENVPath('PATH', env.get('BULLSEYE_BIN'))
         if (not(os.environ.has_key('COVFILE'))):
             print('Error: COVFILE environment variable must be set')
-            Exit()
+            if not GetOption('help'):
+                Exit()
         else:
             env.PrependENVPath('COVFILE', os.environ['COVFILE'])
 

@@ -39,7 +39,8 @@ elif env['DOCS'] == 'pdf':
 elif env['DOCS'] == 'sandcastle':
     if not os.environ.has_key('SHFBROOT'):
         print 'Missing required environment build variable SHFBROOT'
-        Exit()
+        if not GetOption('help'):
+            Exit()
 
     chm_env = env.Clone();
 
