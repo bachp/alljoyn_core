@@ -228,12 +228,12 @@ class FindNewNameBusListener : public BusListener, public BusAttachmentTest {
     }
 };
 
-bool sessionAccepted;
-bool sessionJoined;
-bool onJoined;
-QStatus joinSessionStatus;
-int busSessionId;
-int otherBusSessionId;
+bool sessionAccepted = false;
+bool sessionJoined = false;
+bool onJoined = false;
+QStatus joinSessionStatus = ER_FAIL;
+int busSessionId = 0;
+int otherBusSessionId = 0;
 
 class JoinSession_SessionPortListener : public SessionPortListener {
   public:
@@ -281,6 +281,15 @@ class JoinSession_BusListener : public BusListener {
 
 TEST_F(BusAttachmentTest, JoinSession) {
     QStatus status = ER_FAIL;
+
+    // Initialize test specific globals
+    sessionAccepted = false;
+    sessionJoined = false;
+    onJoined = false;
+    joinSessionStatus = ER_FAIL;
+    busSessionId = 0;
+    otherBusSessionId = 0;
+
     // Set up SessionOpts
     SessionOpts sessionOpts(SessionOpts::TRAFFIC_MESSAGES, false, SessionOpts::PROXIMITY_ANY, TRANSPORT_ANY);
 
@@ -326,7 +335,7 @@ TEST_F(BusAttachmentTest, JoinSession) {
     EXPECT_TRUE(found);
 
     for (size_t i = 0; i < 200; ++i) {
-        if (!sessionAccepted || !sessionJoined) {
+        if (sessionAccepted && sessionJoined) {
             break;
         }
         qcc::Sleep(5);
