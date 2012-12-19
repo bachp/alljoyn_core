@@ -153,13 +153,14 @@ QStatus RuleTable::AddRule(BusEndpoint& endpoint, const Rule& rule)
 QStatus RuleTable::RemoveRule(BusEndpoint& endpoint, Rule& rule)
 {
     Lock();
+
     std::pair<RuleIterator, RuleIterator> range = rules.equal_range(endpoint);
     while (range.first != range.second) {
         if (range.first->second == rule) {
             rules.erase(range.first);
             break;
         }
-        range.first++;
+        ++range.first;
     }
     Unlock();
     return ER_OK;

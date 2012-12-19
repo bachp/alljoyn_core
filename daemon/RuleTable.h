@@ -69,7 +69,7 @@ struct Rule {
     // @@ TODO
 
     /** Equality comparison */
-    bool operator==(const Rule& o) {
+    bool operator==(const Rule& o) const {
         return (type == o.type) && (sender == o.sender) && (iface == o.iface) &&
                (member == o.member) && (path == o.path) && (destination == o.destination);
     }
