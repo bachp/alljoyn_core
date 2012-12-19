@@ -225,7 +225,7 @@ class BusAttachment::Internal : public MessageReceiver {
      * @param msg  The message to push
      * @return  ER_OK if successful.
      */
-    QStatus PushToLocalEndpoint(Message& msg) { 
+    QStatus PushToLocalEndpoint(Message& msg) {
         BusEndpoint busEndpoint = BusEndpoint::cast(localEndpoint);
         return router->PushMessage(msg, busEndpoint);
     }
