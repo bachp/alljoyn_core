@@ -82,7 +82,7 @@ class ProxyBusObjectTest : public testing::Test {
 
         servicebus.RegisterBusListener(buslistener);
 
-        ProxyBusObjectTestBusObject testObj(servicebus, OBJECT_PATH);
+        ProxyBusObjectTestBusObject testObj(OBJECT_PATH);
 
         const InterfaceDescription* exampleIntf = servicebus.GetInterface(INTERFACE_NAME);
         ASSERT_TRUE(exampleIntf);
@@ -125,7 +125,7 @@ class ProxyBusObjectTest : public testing::Test {
 
     class ProxyBusObjectTestBusObject : public BusObject {
       public:
-        ProxyBusObjectTestBusObject(BusAttachment& bus, const char* path) :
+        ProxyBusObjectTestBusObject(const char* path) :
             BusObject(path)
         {
 
@@ -214,4 +214,78 @@ TEST_F(ProxyBusObjectTest, ParseXml) {
         "  </method>\n"
         "</interface>\n";
     EXPECT_STREQ(expectedIntrospect, introspect.c_str());
+}
+
+class ProxyBusObjectTestAuthListenerOne : public AuthListener {
+
+    QStatus RequestCredentialsAsync(const char* authMechanism, const char* authPeer, uint16_t authCount, const char* userId, uint16_t credMask, void* context)
+    {
+        Credentials creds;
+        EXPECT_STREQ("ALLJOYN_SRP_KEYX", authMechanism);
+        if (strcmp(authMechanism, "ALLJOYN_SRP_KEYX") == 0) {
+            if (credMask & AuthListener::CRED_PASSWORD) {
+                creds.SetPassword("123456");
+            }
+            return RequestCredentialsResponse(context, true, creds);
+        }
+        return RequestCredentialsResponse(context, false, creds);
+    }
+
+    void AuthenticationComplete(const char* authMechanism, const char* authPeer, bool success) {
+        EXPECT_STREQ("ALLJOYN_SRP_KEYX", authMechanism);
+        EXPECT_TRUE(success);
+    }
+};
+
+class ProxyBusObjectTestAuthListenerTwo : public AuthListener {
+
+    QStatus RequestCredentialsAsync(const char* authMechanism, const char* authPeer, uint16_t authCount, const char* userId, uint16_t credMask, void* context)
+    {
+        Credentials creds;
+        creds.SetPassword("123456");
+        return RequestCredentialsResponse(context, true, creds);
+    }
+
+    void AuthenticationComplete(const char* authMechanism, const char* authPeer, bool success) {
+        EXPECT_STREQ("ALLJOYN_SRP_KEYX", authMechanism);
+        EXPECT_TRUE(success);
+    }
+};
+
+TEST_F(ProxyBusObjectTest, SecureConnection) {
+    /* create/activate alljoyn_interface */
+    InterfaceDescription* testIntf = NULL;
+    status = servicebus.CreateInterface(INTERFACE_NAME, testIntf, false);
+    EXPECT_EQ(ER_OK, status) << "  Actual Status: " << QCC_StatusText(status);
+    status = testIntf->AddMember(MESSAGE_METHOD_CALL, "ping", "s", "s", "in,out", 0);
+    EXPECT_EQ(ER_OK, status) << "  Actual Status: " << QCC_StatusText(status);
+    status = testIntf->AddMember(MESSAGE_METHOD_CALL, "chirp", "s", "", "chirp", 0);
+    EXPECT_EQ(ER_OK, status) << "  Actual Status: " << QCC_StatusText(status);
+    testIntf->Activate();
+
+    ProxyBusObjectTestBusObject testObj(OBJECT_PATH);
+
+    status = servicebus.Start();
+    EXPECT_EQ(ER_OK, status) << "  Actual Status: " << QCC_StatusText(status);
+    status = servicebus.Connect(ajn::getConnectArg().c_str());
+    EXPECT_EQ(ER_OK, status) << "  Actual Status: " << QCC_StatusText(status);
+
+    status = servicebus.RegisterBusObject(testObj);
+    EXPECT_EQ(ER_OK, status) << "  Actual Status: " << QCC_StatusText(status);
+
+    status = servicebus.RequestName(OBJECT_NAME, 0);
+
+    status = servicebus.EnablePeerSecurity("ALLJOYN_SRP_KEYX", new ProxyBusObjectTestAuthListenerOne());
+    EXPECT_EQ(ER_OK, status) << "  Actual Status: " << QCC_StatusText(status);
+    servicebus.ClearKeyStore();
+
+
+    status = bus.EnablePeerSecurity("ALLJOYN_SRP_KEYX", new ProxyBusObjectTestAuthListenerTwo());
+    EXPECT_EQ(ER_OK, status) << "  Actual Status: " << QCC_StatusText(status);
+    bus.ClearKeyStore();
+
+    ProxyBusObject proxy(bus, OBJECT_NAME, OBJECT_PATH, 0);
+
+    status = proxy.SecureConnection();
+    EXPECT_EQ(ER_OK, status) << "  Actual Status: " << QCC_StatusText(status);
 }
