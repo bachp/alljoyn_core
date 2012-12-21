@@ -39,15 +39,8 @@ InterfaceDescription::InterfaceDescription(const ajn::InterfaceDescription* inte
             status = ER_BAD_ARG_1;
             break;
         }
-        // Create _InterfaceDescription
-        _InterfaceDescription* intdescr = new _InterfaceDescription(interfaceDescr);
-        // Check for allocation error
-        if (NULL == intdescr) {
-            status = ER_OUT_OF_MEMORY;
-            break;
-        }
-        // Attach _InterfaceDescription to a managed object
-        _mInterfaceDescr = new qcc::ManagedObj<_InterfaceDescription>(qcc::ManagedObj<_InterfaceDescription>::wrap(intdescr));
+        // Create _InterfaceDescription managed object
+        _mInterfaceDescr = new qcc::ManagedObj<_InterfaceDescription>(interfaceDescr);
         // Check for allocation error
         if (NULL == _mInterfaceDescr) {
             status = ER_OUT_OF_MEMORY;

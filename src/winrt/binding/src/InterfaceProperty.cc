@@ -55,15 +55,11 @@ InterfaceProperty::InterfaceProperty(Platform::String ^ name, Platform::String ^
             status = ER_OUT_OF_MEMORY;
             break;
         }
-        // Create _InterfaceProperty
-        _InterfaceProperty* p = new _InterfaceProperty(strName.c_str(), strSignature.c_str(), access);
-        // Check for allocation error
-        if (NULL == p) {
-            status = ER_OUT_OF_MEMORY;
-            break;
-        }
-        // Create managed _InterfaceProperty from p
-        _mProperty = new qcc::ManagedObj<_InterfaceProperty>(qcc::ManagedObj<_InterfaceProperty>::wrap(p));
+
+        // Create managed _InterfaceProperty
+        const char* name = strName.c_str();
+        const char* signature = strSignature.c_str();
+        _mProperty = new qcc::ManagedObj<_InterfaceProperty>(name, signature, access);
         // Check for allocation error
         if (NULL == _mProperty) {
             status = ER_OUT_OF_MEMORY;
@@ -90,14 +86,10 @@ InterfaceProperty::InterfaceProperty(const ajn::InterfaceDescription::Property* 
             status = ER_BAD_ARG_1;
             break;
         }
-        // Create _InterfaceProperty
-        _InterfaceProperty* p = new _InterfaceProperty(interfaceProperty->name.c_str(), interfaceProperty->signature.c_str(), interfaceProperty->access);
-        if (NULL == p) {
-            status = ER_OUT_OF_MEMORY;
-            break;
-        }
-        // Attach _InterfaceProperty to managed obj
-        _mProperty = new qcc::ManagedObj<_InterfaceProperty>(qcc::ManagedObj<_InterfaceProperty>::wrap(p));
+        // Create _InterfaceProperty managed obj
+        const char* propName = interfaceProperty->name.c_str();
+        const char* propSignature = interfaceProperty->signature.c_str();
+        _mProperty = new qcc::ManagedObj<_InterfaceProperty>(propName, propSignature, interfaceProperty->access);
         // Check for allocation error
         if (NULL == _mProperty) {
             status = ER_OUT_OF_MEMORY;

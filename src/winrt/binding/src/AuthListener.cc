@@ -38,14 +38,8 @@ AuthListener::AuthListener(BusAttachment ^ bus)
             status = ER_BAD_ARG_1;
             break;
         }
-        // Construct the inner unmanaged type with bus attachment
-        _AuthListener* al = new _AuthListener(bus);
-        if (NULL == al) {
-            status = ER_OUT_OF_MEMORY;
-            break;
-        }
-        // Attach the constructed auth listener as a managed type
-        _mListener = new qcc::ManagedObj<_AuthListener>(qcc::ManagedObj<_AuthListener>::wrap(al));
+        // Create auth listener as a managed type
+        _mListener = new qcc::ManagedObj<_AuthListener>(bus);
         if (NULL == _mListener) {
             status = ER_OUT_OF_MEMORY;
             break;

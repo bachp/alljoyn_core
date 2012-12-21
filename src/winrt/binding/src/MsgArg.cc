@@ -61,15 +61,9 @@ MsgArg::MsgArg()
     ::QStatus status = ER_OK;
 
     while (true) {
-        // Create _MsgArg
-        _MsgArg* ma = new _MsgArg();
-        // Check for allocation error
-        if (NULL == ma) {
-            status = ER_OUT_OF_MEMORY;
-            break;
-        }
-        // Attach ma to _MsgArg managed object
-        _mMsgArg = new qcc::ManagedObj<_MsgArg>(qcc::ManagedObj<_MsgArg>::wrap(ma));
+
+        // Create _MsgArg managed object
+        _mMsgArg = new qcc::ManagedObj<_MsgArg>();
         // Check for allocation error
         if (NULL == _mMsgArg) {
             status = ER_OUT_OF_MEMORY;

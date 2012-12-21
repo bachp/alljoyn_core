@@ -32,15 +32,8 @@ SessionOpts::SessionOpts()
     ::QStatus status = ER_OK;
 
     while (true) {
-        // Create _SessionOpts
-        _SessionOpts* so = new _SessionOpts();
-        // Check for allocation error
-        if (NULL == so) {
-            status = ER_OUT_OF_MEMORY;
-            break;
-        }
-        // Attach so to managed _SessionOpts
-        _mSessionOpts = new qcc::ManagedObj<_SessionOpts>(qcc::ManagedObj<_SessionOpts>::wrap(so));
+        // Create managed _SessionOpts
+        _mSessionOpts = new qcc::ManagedObj<_SessionOpts>();
         // Check for allocation error
         if (NULL == _mSessionOpts) {
             status = ER_OUT_OF_MEMORY;
@@ -62,15 +55,11 @@ SessionOpts::SessionOpts(TrafficType traffic, bool isMultipoint, ProximityType p
     ::QStatus status = ER_OK;
 
     while (true) {
-        // Create _SessionOpts
-        _SessionOpts* so = new _SessionOpts((ajn::SessionOpts::TrafficType)(int)traffic, isMultipoint, (ajn::SessionOpts::Proximity)(int)proximity, (ajn::TransportMask)(int)transports);
-        // Check for allocation error
-        if (NULL == so) {
-            status = ER_OUT_OF_MEMORY;
-            break;
-        }
-        // Attach so to managed _SessionOpts
-        _mSessionOpts = new qcc::ManagedObj<_SessionOpts>(qcc::ManagedObj<_SessionOpts>::wrap(so));
+        // Create managed _SessionOpts
+        ajn::SessionOpts::TrafficType trafficType = (ajn::SessionOpts::TrafficType)(int)traffic;
+        ajn::SessionOpts::Proximity prox = (ajn::SessionOpts::Proximity)(int)proximity;
+        ajn::TransportMask trans = (ajn::TransportMask)(int)transports;
+        _mSessionOpts = new qcc::ManagedObj<_SessionOpts>(trafficType, isMultipoint, prox, trans);
         // Check for allocation error
         if (NULL == _mSessionOpts) {
             status = ER_OUT_OF_MEMORY;
@@ -97,18 +86,11 @@ SessionOpts::SessionOpts(const ajn::SessionOpts* sessionOpts)
             status = ER_BAD_ARG_1;
             break;
         }
-        // Create _SessionOpts
-        _SessionOpts* so = new _SessionOpts(sessionOpts->traffic,
-                                            sessionOpts->isMultipoint,
-                                            sessionOpts->proximity,
-                                            sessionOpts->transports);
-        // Check for allocation error
-        if (NULL == so) {
-            status = ER_OUT_OF_MEMORY;
-            break;
-        }
-        // Attach so to managed _SessionOpts
-        _mSessionOpts = new qcc::ManagedObj<_SessionOpts>(qcc::ManagedObj<_SessionOpts>::wrap(so));
+        // Create managed _SessionOpts
+        _mSessionOpts = new qcc::ManagedObj<_SessionOpts>(sessionOpts->traffic,
+                                                          sessionOpts->isMultipoint,
+                                                          sessionOpts->proximity,
+                                                          sessionOpts->transports);
         // Check for allocation error
         if (NULL == _mSessionOpts) {
             status = ER_OUT_OF_MEMORY;

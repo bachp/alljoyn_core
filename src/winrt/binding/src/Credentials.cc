@@ -30,15 +30,8 @@ Credentials::Credentials()
     ::QStatus status = ER_OK;
 
     while (true) {
-        // Create _Credentials
-        _Credentials* creds = new _Credentials();
-        // Check for allocation error
-        if (NULL == creds) {
-            status = ER_OUT_OF_MEMORY;
-            break;
-        }
-        // Attach _Credentials to a managed object
-        _mCredentials = new qcc::ManagedObj<_Credentials>(qcc::ManagedObj<_Credentials>::wrap(creds));
+        // Create Credentials managed object
+        _mCredentials = new qcc::ManagedObj<_Credentials>();
         // Check for allocation error
         if (NULL == _mCredentials) {
             status = ER_OUT_OF_MEMORY;

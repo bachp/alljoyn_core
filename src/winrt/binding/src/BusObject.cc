@@ -56,15 +56,10 @@ BusObject::BusObject(BusAttachment ^ bus, Platform::String ^ path, bool isPlaceh
         }
         // Get the unmanaged version
         ajn::BusAttachment* attachment = bus->_busAttachment;
-        // Create the _BusObject
-        _BusObject* bo = new _BusObject(bus, *attachment, strPath.c_str(), isPlaceholder);
-        // Check for allocation failure
-        if (NULL == bo) {
-            status = ER_OUT_OF_MEMORY;
-            break;
-        }
+
         // Create the managed version of _BusObject
-        _mBusObject = new qcc::ManagedObj<_BusObject>(qcc::ManagedObj<_BusObject>::wrap(bo));
+        const char* str1 = strPath.c_str();
+        _mBusObject = new qcc::ManagedObj<_BusObject>(bus, *attachment, str1, isPlaceholder);
         // Check for allocation failure
         if (NULL == _mBusObject) {
             status = ER_OUT_OF_MEMORY;

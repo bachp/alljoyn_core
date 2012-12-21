@@ -66,16 +66,9 @@ BusAttachment::BusAttachment(Platform::String ^ applicationName, bool allowRemot
             status = ER_OUT_OF_MEMORY;
             break;
         }
-        // Create the unmanaged internal class
-        _BusAttachment* ba = new _BusAttachment(strApplicationName.c_str(), allowRemoteMessages, concurrency);
-        // Check for failed allocation
-        if (NULL == ba) {
-            status = ER_OUT_OF_MEMORY;
-            break;
-        }
-        // Create the managed version
-        _mBusAttachment = new qcc::ManagedObj<_BusAttachment>(qcc::ManagedObj<_BusAttachment>::wrap(ba));
-        // Check for failed allocation
+        // Create the managed version of BusAttachment
+        const char* name = strApplicationName.c_str();
+        _mBusAttachment = new qcc::ManagedObj<_BusAttachment>(name, allowRemoteMessages, concurrency);
         if (NULL == _mBusAttachment) {
             status = ER_OUT_OF_MEMORY;
             break;

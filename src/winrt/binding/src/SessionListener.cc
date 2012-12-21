@@ -37,15 +37,8 @@ SessionListener::SessionListener(BusAttachment ^ bus)
             status = ER_BAD_ARG_1;
             break;
         }
-        // Create _SessionListener
-        _SessionListener* sl = new _SessionListener(bus);
-        // Check for allocation error
-        if (NULL == sl) {
-            status = ER_OUT_OF_MEMORY;
-            break;
-        }
-        // Attach sl to managed _SessionListener
-        _mListener = new qcc::ManagedObj<_SessionListener>(qcc::ManagedObj<_SessionListener>::wrap(sl));
+        // Create sl to managed _SessionListener
+        _mListener = new qcc::ManagedObj<_SessionListener>(bus);
         // Check for allocation error
         if (NULL == _mListener) {
             status = ER_OUT_OF_MEMORY;

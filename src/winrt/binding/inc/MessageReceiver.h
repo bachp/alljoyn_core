@@ -212,12 +212,7 @@ public ref class MessageReceiver sealed {
                 status = ER_BAD_ARG_1;
                 break;
             }
-            _MessageReceiver* mr = new _MessageReceiver(bus);
-            if (NULL == mr) {
-                status = ER_OUT_OF_MEMORY;
-                break;
-            }
-            _mReceiver = new qcc::ManagedObj<_MessageReceiver>(qcc::ManagedObj<_MessageReceiver>::wrap(mr));
+            _mReceiver = new qcc::ManagedObj<_MessageReceiver>(bus);
             if (NULL == _mReceiver) {
                 status = ER_OUT_OF_MEMORY;
                 break;

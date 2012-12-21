@@ -101,17 +101,16 @@ InterfaceMember::InterfaceMember(InterfaceDescription ^ iface, AllJoynMessageTyp
             status = ER_OUT_OF_MEMORY;
             break;
         }
-        // Create _InterfaceMember
-        _InterfaceMember* m = new _InterfaceMember(id, (ajn::AllJoynMessageType)(int)type, strName.c_str(),
-                                                   strSignature.c_str(), strReturnSignature.c_str(), strArgNames.c_str(),
-                                                   annotation, strAccessPerms.c_str());
-        // Check for allocation error
-        if (NULL == m) {
-            status = ER_OUT_OF_MEMORY;
-            break;
-        }
-        // Attach interfacemember to managed object
-        _mMember = new qcc::ManagedObj<_InterfaceMember>(qcc::ManagedObj<_InterfaceMember>::wrap(m));
+        // Create interfacemember managed object
+        const char* name = strName.c_str();
+        ajn::AllJoynMessageType ajMsgType = (ajn::AllJoynMessageType)(int)type;
+        const char* signature = strSignature.c_str();
+        const char* retSignature = strReturnSignature.c_str();
+        const char* argNames = strArgNames.c_str();
+        const char* accessPerms = strAccessPerms.c_str();
+        _mMember = new qcc::ManagedObj<_InterfaceMember>(id, ajMsgType, name,
+                                                         signature, retSignature, argNames,
+                                                         annotation, accessPerms);
         if (NULL == _mMember) {
             status = ER_OUT_OF_MEMORY;
             break;
@@ -137,15 +136,8 @@ InterfaceMember::InterfaceMember(const ajn::InterfaceDescription::Member* interf
             status = ER_BAD_ARG_1;
             break;
         }
-        // Create _InterfaceMember
-        _InterfaceMember* m = new _InterfaceMember(interfaceMember);
-        // Check for allocation error
-        if (NULL == m) {
-            status = ER_OUT_OF_MEMORY;
-            break;
-        }
-        // Attach _InterfaceMember to managed object
-        _mMember = new qcc::ManagedObj<_InterfaceMember>(qcc::ManagedObj<_InterfaceMember>::wrap(m));
+        // Create _InterfaceMember managed object
+        _mMember = new qcc::ManagedObj<_InterfaceMember>(interfaceMember);
         if (NULL == _mMember) {
             status = ER_OUT_OF_MEMORY;
             break;
