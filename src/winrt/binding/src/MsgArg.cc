@@ -90,15 +90,8 @@ MsgArg::MsgArg(Platform::String ^ signature, const Platform::Array<Platform::Obj
             status = ER_BAD_ARG_2;
             break;
         }
-        // Create _MsgArg
-        _MsgArg* ma = new _MsgArg();
-        // Check for allocation error
-        if (NULL == ma) {
-            status = ER_OUT_OF_MEMORY;
-            break;
-        }
-        // Attach ma to _MsgArg managed object
-        _mMsgArg = new qcc::ManagedObj<_MsgArg>(qcc::ManagedObj<_MsgArg>::wrap(ma));
+        // Create the managed version of MsgArg
+        _mMsgArg = new qcc::ManagedObj<_MsgArg>();
         // Check for allocation error
         if (NULL == _mMsgArg) {
             status = ER_OUT_OF_MEMORY;
@@ -140,26 +133,15 @@ MsgArg::MsgArg(const ajn::MsgArg* msgArg)
             status = ER_BAD_ARG_1;
             break;
         }
-        // Create _MsgArg
-        _MsgArg* ma = new _MsgArg();
-        // Check for allocation error
-        if (NULL == ma) {
-            status = ER_OUT_OF_MEMORY;
-            break;
-        }
-        // Get the unmanaged MsgArg
-        ajn::MsgArg* destArg = ma;
-        // Do a deep copy
-        *destArg = *msgArg;
-        // Attach ma to _MsgArg managed object
-        _mMsgArg = new qcc::ManagedObj<_MsgArg>(qcc::ManagedObj<_MsgArg>::wrap(ma));
+
+        _mMsgArg = new qcc::ManagedObj<_MsgArg>();
         // Check for allocation error
         if (NULL == _mMsgArg) {
             status = ER_OUT_OF_MEMORY;
             break;
         }
-        // Store pointer to _MsgArg for convenience
-        _msgArg = &(**_mMsgArg);
+        ajn::MsgArg* _msgArg = &(**_mMsgArg);
+        *_msgArg = *msgArg;
         break;
     }
 

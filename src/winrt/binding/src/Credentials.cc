@@ -58,19 +58,8 @@ Credentials::Credentials(const ajn::AuthListener::Credentials* creds)
             status = ER_BAD_ARG_1;
             break;
         }
-        // Create _Credentials
-        _Credentials* credentials = new _Credentials();
-        // Check for allocation error
-        if (NULL == credentials) {
-            status = ER_OUT_OF_MEMORY;
-            break;
-        }
-        // Get the unmanaged Credentials
-        ajn::AuthListener::Credentials* dstCreds = credentials;
-        // Invoke the copy constructor
-        *dstCreds = *creds;
-        // Attach credentials to a managed object
-        _mCredentials = new qcc::ManagedObj<_Credentials>(qcc::ManagedObj<_Credentials>::wrap(credentials));
+
+        _mCredentials = new qcc::ManagedObj<_Credentials>();
         // Check for allocation error
         if (NULL == _mCredentials) {
             status = ER_OUT_OF_MEMORY;
@@ -78,6 +67,9 @@ Credentials::Credentials(const ajn::AuthListener::Credentials* creds)
         }
         // Store a pointer to _Credentials for convenience
         _credentials = &(**_mCredentials);
+        ajn::AuthListener::Credentials* dstCreds = _credentials;
+        // Do deep copy
+        *dstCreds = *creds;
         break;
     }
 
