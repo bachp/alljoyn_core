@@ -63,7 +63,7 @@ env.Install('$DISTDIR/inc/alljoyn', '$OBJDIR/Status.h')
 if env['OS_GROUP'] == 'winrt':
     env.Install('$DISTDIR/inc/alljoyn', '$OBJDIR/Status_CPP0x.h')
 
-env.Install('$DISTDIR/inc/alljoyn', env.Glob('inc/alljoyn/*.h'))
+env.Install('$DISTDIR/inc/alljoyn', [ h for h in env.Glob('inc/alljoyn/*.h') if h not in env.Glob('inc/alljoyn/Status*.h') ])
 
 for d,h in common_hdrs.items():
     env.Install('$DISTDIR/inc/%s' % d, h)

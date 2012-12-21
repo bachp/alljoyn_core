@@ -154,6 +154,7 @@ QStatus RuleTable::RemoveRule(BusEndpoint& endpoint, Rule& rule)
 {
     Lock();
 
+    //std::pair<std::multimap<BusEndpoint, Rule>::const_iterator, RuleIterator> range = rules.equal_range(endpoint);
     std::pair<RuleIterator, RuleIterator> range = rules.equal_range(endpoint);
     while (range.first != range.second) {
         if (range.first->second == rule) {
