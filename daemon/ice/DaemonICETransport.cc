@@ -2124,7 +2124,7 @@ QStatus DaemonICETransport::Connect(const char* connectSpec, const SessionOpts& 
                  * so that ManageEndpoints() can clean-up the endpoint */
                 wakeDaemonICETransportRun.SetEvent();
             }
-
+        } else {
             /* Set the ICEPacketStream Connection State to disconnecting if the state is connecting */
             pktStreamMapLock.Lock(MUTEX_CONTEXT);
             if (pktStreamInfoPtr->IsConnecting()) {
