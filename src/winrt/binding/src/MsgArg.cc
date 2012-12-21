@@ -140,8 +140,9 @@ MsgArg::MsgArg(const ajn::MsgArg* msgArg)
             status = ER_OUT_OF_MEMORY;
             break;
         }
-        ajn::MsgArg* _msgArg = &(**_mMsgArg);
-        *_msgArg = *msgArg;
+        _msgArg = &(**_mMsgArg);
+        ajn::MsgArg* destMsg = _msgArg;
+        *destMsg = *msgArg;
         break;
     }
 

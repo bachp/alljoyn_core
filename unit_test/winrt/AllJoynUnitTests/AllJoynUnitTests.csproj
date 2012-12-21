@@ -140,7 +140,7 @@
       <!-- Because this unit test could run before SCons has copied the binaries to the output directory,
            point HintPath to the alljoyn_core\build directory tree, and pick the right binary flavor
       -->
-      <HintPath>$(MSBuildProjectDirectory)\..\..\..\build\win8\$(SConsPlatform)\$(Configuration)\dist\bin\AllJoyn.winmd</HintPath>
+      <HintPath>$(MSBuildProjectDirectory)\..\..\..\..\build\win8\$(SConsPlatform)\$(Configuration)\dist\bin\AllJoyn.winmd</HintPath>
     </Reference>
   </ItemGroup>
   <PropertyGroup Condition=" '$(VisualStudioVersion)' == '' or '$(VisualStudioVersion)' &lt; '11.0' ">
