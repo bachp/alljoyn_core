@@ -369,7 +369,7 @@ class DaemonRouter : public Router {
             id(id), src(src), b2bEp(b2bEp), destEp(destEp) { }
 
         bool operator<(const SessionCastEntry& other) const {
-            return (id < other.id) || ((id == other.id) && ((src < other.src) || ((src == other.src) && ((b2bEp < other.b2bEp) || ((b2bEp == other.b2bEp) && (destEp < other.destEp))))));
+            return (id < other.id) || ((id == other.id) && (src < other.src));
         }
 
         bool operator==(const SessionCastEntry& other) const {
