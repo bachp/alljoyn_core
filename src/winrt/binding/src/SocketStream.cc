@@ -25,6 +25,7 @@
 #include <qcc/winrt/SocketWrapper.h>
 #include <qcc/winrt/SocketsWrapper.h>
 #include <qcc/winrt/utility.h>
+#include <qcc/winrt/exception.h>
 
 using namespace Windows::Foundation;
 using namespace Windows::Networking::Sockets;

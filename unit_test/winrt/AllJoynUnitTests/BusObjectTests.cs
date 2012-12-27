@@ -163,7 +163,7 @@ namespace AllJoynUnitTests
                 catch (Exception ex)
                 {
 #if DEBUG
-                    string err = AllJoynException.GetExceptionMessage(ex.HResult);
+                    string err = AllJoynException.GetErrorMessage(ex.HResult);
 #else
                     QStatus err = AllJoynException.FromCOMException(ex.HResult);
 #endif

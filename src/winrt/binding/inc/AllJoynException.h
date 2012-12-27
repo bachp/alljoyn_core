@@ -21,38 +21,36 @@
 #include <qcc/platform.h>
 #include <Status_CPP0x.h>
 #include <qcc/winrt/utility.h>
+#include <qcc/winrt/exception.h>
 
 namespace AllJoyn {
 
-#ifndef NDEBUG
-extern const char* QCC_StatusComment(uint32_t status);
-#endif
-
 /// <summary>
-/// A help class to interpret a COM exception throwed by AllJoyn.
+/// A helper class to interpret a customized COMException thrown by AllJoyn component. When an AllJoyn
+/// method/signal call fails, AllJoyn throws a customized COMException which contains the QStatus code.
+/// This class provides static methods to retrieve the QStatus/Error code and the corresponding error message.
 /// </summary>
 public ref class AllJoynException sealed {
   public:
     /// <summary>
-    /// Tranlate the COMException HResult value to a QStatus code.
+    /// Map a COMException HResult property to the corresponding AllJoyn QStatus code.
     /// </summary>
-    /// <param name="hresult">The HResult value of a COMException </param>
-    /// <returns>A corresponding QStatus code </returns>
-    static QStatus FromCOMException(int hresult)
+    /// <param name="hresult">The HResult property of a COMException </param>
+    /// <returns>The corresponding AllJoyn QStatus code </returns>
+    static QStatus GetErrorCode(int hresult)
     {
         return (QStatus)(hresult & 0x7FFFFFFF);
     }
-#ifndef NDEBUG
+
     /// <summary>
-    /// Get a string that gives more detail explanation of the COMException.
+    /// Get a text string that gives more information about a COMException thrown by AllJoyn component.
     /// </summary>
-    /// <param name="hresult">The HResult value of a COMException </param>
-    /// <returns>A string explaining the reason of the exception </returns>
-    static Platform::String ^ GetExceptionMessage(int hresult)
+    /// <param name="hresult">The HResult property of a COMException </param>
+    /// <returns>A text string that sheds light on the cause of the COMException </returns>
+    static Platform::String ^ GetErrorMessage(int hresult)
     {
-        return MultibyteToPlatformString(QCC_StatusComment(hresult & 0x7FFFFFFF));
+        return MultibyteToPlatformString(qcc::QCC_StatusMessage(hresult & 0x7FFFFFFF));
     }
-#endif
 };
 
 }
