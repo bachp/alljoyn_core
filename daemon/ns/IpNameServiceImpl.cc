@@ -493,7 +493,12 @@ QStatus IpNameServiceImpl::Init(const qcc::String& guid, bool loopback)
     // Override the broadcast bit so we never actually use it (it didn't actually
     // work any better than multicast as it happens).
     //
+#ifdef QCC_OS_WINRT
+    m_broadcast = true;
+#else
     m_broadcast = false;
+#endif
+
 
     m_guid = guid;
     m_loopback = loopback;
@@ -1170,7 +1175,7 @@ void IpNameServiceImpl::LazyUpdateInterfaces(void)
             //
             if (m_broadcast && entries[i].m_flags & qcc::IfConfigEntry::BROADCAST) {
                 status = qcc::SetBroadcast(sockFd, true);
-                if (status != ER_OK) {
+                if (status != ER_OK && status != ER_NOT_IMPLEMENTED) {
                     QCC_LogError(status, ("LazyUpdateInterfaces: enable broadcast failed"));
                     continue;
                 }
@@ -2773,7 +2778,7 @@ void IpNameServiceImpl::SendOutboundMessages(void)
                 //
                 if (interfaceApproved) {
                     QCC_DbgPrintf(("IpNameServiceImpl::SendOutboundMessages(): SendProtocolMessage()"));
-                    SendProtocolMessage(m_liveInterfaces[i].m_sockFd, ipv6Address, interfaceAddressPrefixLen, flags,
+                    SendProtocolMessage(m_liveInterfaces[i].m_sockFd, ipv4Address, interfaceAddressPrefixLen, flags,
                                         interfaceIsIPv4, header);
                 } else {
                     QCC_DbgPrintf(("IpNameServiceImpl::SendOutboundMessages(): Do not SendProtocolMessage(): Not approved."));
