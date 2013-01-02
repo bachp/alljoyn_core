@@ -473,7 +473,11 @@ QStatus _DaemonICEEndpoint::PacketEngineConnect(const IPAddress& addr, uint16_t 
     /* Connect to dest */
     Event waitEvt;
     m_connectWaitEvent = &waitEvt;
-    status = m_transport->m_packetEngine.Connect(packDest, m_icePktStream, *m_transport, this);
+    DaemonICEEndpoint* ep = new DaemonICEEndpoint(DaemonICEEndpoint::wrap(this));
+    /* Pass a pointer to the managed endpoint as context, to ensure that the endpoint is not
+     * deleted before the PacketEndineConnectCB returns.
+     */
+    status = m_transport->m_packetEngine.Connect(packDest, m_icePktStream, *m_transport, ep);
     if (status != ER_OK) {
         QCC_LogError(status, ("%s: Failed PacketEngine::Connect()", __FUNCTION__));
         return status;
@@ -841,18 +845,21 @@ void DaemonICETransport::PacketEngineConnectCB(PacketEngine& engine,
         QCC_LogError(ER_BUS_TRANSPORT_NOT_STARTED, ("%s: DaemonICETransport not running or stopping; exiting", __FUNCTION__));
         return;
     }
-    _DaemonICEEndpoint* temp = static_cast<_DaemonICEEndpoint*>(context);
-    assert(temp->m_connectWaitEvent);
+    DaemonICEEndpoint* temp = static_cast<DaemonICEEndpoint*>(context);
+    assert((*temp)->m_connectWaitEvent);
 
     if (status == ER_OK) {
-        temp->SetStream(*stream);
-        temp->m_isConnected = true;
+        (*temp)->SetStream(*stream);
+        (*temp)->m_isConnected = true;
     } else {
-        QCC_LogError(status, ("%s(ep=%p) Connect to %s failed\n", __FUNCTION__, temp, m_packetEngine.ToString(temp->m_icePktStream, dest).c_str()));
+        QCC_LogError(status, ("%s(ep=%p) Connect to %s failed\n", __FUNCTION__, &(*temp), m_packetEngine.ToString((*temp)->m_icePktStream, dest).c_str()));
     }
 
-    temp->m_packetEngineReturnStatus = status;
-    temp->m_connectWaitEvent->SetEvent();
+    (*temp)->m_packetEngineReturnStatus = status;
+    (*temp)->m_connectWaitEvent->SetEvent();
+
+    /* The following delete causes the references on the managed endpoint to be decremented */
+    delete temp;
 }
 
 bool DaemonICETransport::PacketEngineAcceptCB(PacketEngine& engine, const PacketEngineStream& stream, const PacketDest& dest)
@@ -2134,6 +2141,7 @@ QStatus DaemonICETransport::Connect(const char* connectSpec, const SessionOpts& 
             /* Set the status to indicate that the connect attempt failed */
             status = ER_BUS_CONNECT_FAILED;
         }
+
     }
 
     /* Clean up iceSession if it hasnt been already */

@@ -298,6 +298,7 @@ _RemoteEndpoint::~_RemoteEndpoint()
         Stop();
         Join();
         delete internal;
+        internal = NULL;
     }
 }
 
