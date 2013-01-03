@@ -5,7 +5,7 @@
  */
 
 /******************************************************************************
- * Copyright 2009-2012, Qualcomm Innovation Center, Inc.
+ * Copyright 2009-2013, Qualcomm Innovation Center, Inc.
  *
  *    Licensed under the Apache License, Version 2.0 (the "License");
  *    you may not use this file except in compliance with the License.
@@ -223,10 +223,24 @@ QStatus DaemonRouter::PushMessage(Message& msg, BusEndpoint& origSender)
          */
         sessionCastSetLock.Lock(MUTEX_CONTEXT);
         RemoteEndpoint lastB2b;
-        SessionCastEntry sce(sessionId, msg->GetSender());
-        set<SessionCastEntry>::iterator sit = sessionCastSet.lower_bound(sce);
+        /* We need to obtain the first entry in the sessionCastSet that has the id equal to 'sessionId'
+         * and the src equal to 'msg->GetSender()'.
+         * Note: sce.id has been set to sessionId - 1. Since the src is compared first, and session Ids
+         * are integers, upper_bound will return the iterator to the first element with the desired or
+         * greater src(if not present) and desired or greater id in most cases.
+         */
+        SessionCastEntry sce(sessionId - 1, msg->GetSender());
+        set<SessionCastEntry>::iterator sit = sessionCastSet.upper_bound(sce);
         bool foundDest = false;
-        while ((sit != sessionCastSet.end()) && (sit->id == sce.id) && (sit->src == sce.src)) {
+
+        /* In other cases, it may return the iterator to an element that has the desired src and
+         * (sessionId - 1). In that case iterate, until the id is less than the desired one.
+         */
+        while ((sit != sessionCastSet.end()) && (sit->src == sce.src) && (sit->id < sessionId)) {
+            sit++;
+        }
+
+        while ((sit != sessionCastSet.end()) && (sit->id == sessionId) && (sit->src == sce.src)) {
             if (sit->b2bEp != lastB2b) {
                 foundDest = true;
                 lastB2b = sit->b2bEp;

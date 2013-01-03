@@ -5,7 +5,7 @@
  */
 
 /******************************************************************************
- * Copyright 2009-2011, Qualcomm Innovation Center, Inc.
+ * Copyright 2009-2013, Qualcomm Innovation Center, Inc.
  *
  *    Licensed under the Apache License, Version 2.0 (the "License");
  *    you may not use this file except in compliance with the License.
@@ -369,7 +369,11 @@ class DaemonRouter : public Router {
             id(id), src(src), b2bEp(b2bEp), destEp(destEp) { }
 
         bool operator<(const SessionCastEntry& other) const {
-            return (id < other.id) || ((id == other.id) && (src < other.src));
+            /* The order of comparison of src and id has been reversed, so that upper_bound can be
+             * used with (desiredID -1) to obtain the first entry that has the desired src and id.
+             */
+            return (src < other.src) || ((src == other.src) && ((id < other.id) || ((id == other.id) && ((b2bEp < other.b2bEp) || ((b2bEp == other.b2bEp) && (destEp < other.destEp))))));
+
         }
 
         bool operator==(const SessionCastEntry& other) const {
