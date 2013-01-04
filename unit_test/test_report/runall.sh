@@ -121,7 +121,7 @@ else
 	export HOME="$PWD"
 fi
 # MBUS-1589: remove .alljoyn_keystore, if any
-rm -f .alljoyn_keystore
+rm -rf .alljoyn_keystore
 
 echo "# runall test plan:"
 if $start_daemon
