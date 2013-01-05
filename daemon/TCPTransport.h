@@ -622,6 +622,7 @@ class TCPTransport : public Transport, public _RemoteEndpoint::EndpointListener,
     void DisableDiscoveryInstance(ListenRequest& listenRequest);
 
     bool m_isAdvertising;
+    bool m_isAdvertisingQuietly;
     bool m_isDiscovering;
     bool m_isListening;
     bool m_isNsEnabled;

@@ -455,7 +455,7 @@ QStatus IpNameService::CancelFindAdvertisedName(TransportMask transportMask, con
     return ER_OK;
 }
 
-QStatus IpNameService::AdvertiseName(TransportMask transportMask, const qcc::String& wkn)
+QStatus IpNameService::AdvertiseName(TransportMask transportMask, const qcc::String& wkn, bool quietly)
 {
     //
     // If the entry gate has been closed, we do not allow an AdvertiseName to
@@ -469,7 +469,7 @@ QStatus IpNameService::AdvertiseName(TransportMask transportMask, const qcc::Str
     }
 
     ASSERT_STATE("AdvertiseName");
-    return m_pimpl->AdvertiseName(transportMask, wkn);
+    return m_pimpl->AdvertiseName(transportMask, wkn, quietly);
 }
 
 QStatus IpNameService::CancelAdvertiseName(TransportMask transportMask, const qcc::String& wkn)

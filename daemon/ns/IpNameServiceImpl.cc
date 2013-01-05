@@ -1644,17 +1644,17 @@ size_t IpNameServiceImpl::NumAdvertisements(TransportMask transportMask)
     return m_advertised[i].size();
 }
 
-QStatus IpNameServiceImpl::AdvertiseName(TransportMask transportMask, const qcc::String& wkn)
+QStatus IpNameServiceImpl::AdvertiseName(TransportMask transportMask, const qcc::String& wkn, bool quietly)
 {
     QCC_DbgHLPrintf(("IpNameServiceImpl::AdvertiseName(): %s", wkn.c_str()));
 
     vector<qcc::String> wknVector;
     wknVector.push_back(wkn);
 
-    return AdvertiseName(transportMask, wknVector);
+    return AdvertiseName(transportMask, wknVector, quietly);
 }
 
-QStatus IpNameServiceImpl::AdvertiseName(TransportMask transportMask, vector<qcc::String>& wkn)
+QStatus IpNameServiceImpl::AdvertiseName(TransportMask transportMask, vector<qcc::String>& wkn, bool quietly)
 {
     QCC_DbgHLPrintf(("IpNameServiceImpl::AdvertiseName()"));
 
@@ -1686,37 +1686,73 @@ QStatus IpNameServiceImpl::AdvertiseName(TransportMask transportMask, vector<qcc
     //
     // Make a note to ourselves which services we are advertising so we can
     // respond to protocol questions in the future.  Only allow one entry per
-    // name.
+    // name.  We keep separate lists of quietly advertised names and actively
+    // advertised names since it makes it easy to decide which names go in
+    // periodic keep-alive advertisements.
     //
-    for (uint32_t i = 0; i < wkn.size(); ++i) {
-        list<qcc::String>::iterator j = find(m_advertised[transportIndex].begin(), m_advertised[transportIndex].end(), wkn[i]);
-        if (j == m_advertised[transportIndex].end()) {
-            m_advertised[transportIndex].push_back(wkn[i]);
-        } else {
-            //
-            // Nothing has changed, so don't bother.
-            //
-            QCC_DbgPrintf(("IpNameServiceImpl::AdvertiseName(): Duplicate advertisement"));
-            // printf("%s: m_mutex.Unlock()\n", __FUNCTION__);
-            m_mutex.Unlock();
-            return ER_OK;
+    if (quietly) {
+        for (uint32_t i = 0; i < wkn.size(); ++i) {
+            list<qcc::String>::iterator j = find(m_advertised_quietly[transportIndex].begin(), m_advertised_quietly[transportIndex].end(), wkn[i]);
+            if (j == m_advertised_quietly[transportIndex].end()) {
+                m_advertised_quietly[transportIndex].push_back(wkn[i]);
+            } else {
+                //
+                // Nothing has changed, so don't bother.
+                //
+                QCC_DbgPrintf(("IpNameServiceImpl::AdvertiseName(): Duplicate advertisement"));
+                // printf("%s: m_mutex.Unlock()\n", __FUNCTION__);
+                m_mutex.Unlock();
+                return ER_OK;
+            }
         }
-    }
 
-    //
-    // Keep the list sorted so we can easily distinguish a change in
-    // the content of the advertised names versus a change in the order of the
-    // names.
-    //
-    m_advertised[transportIndex].sort();
+        //
+        // Keep the list sorted so we can easily distinguish a change in
+        // the content of the advertised names versus a change in the order of the
+        // names.
+        //
+        m_advertised_quietly[transportIndex].sort();
 
-    //
-    // If the advertisement retransmission timer is cleared, then set us
-    // up to retransmit.  This has to be done with the mutex locked since
-    // the main thread is playing with this value as well.
-    //
-    if (m_timer == 0) {
-        m_timer = m_tDuration;
+        //
+        // Since we are advertising quietly, we need to quetly return without
+        // advertising the name, which would happen if we just fell out of the
+        // if-else.
+        //
+        // printf("%s: m_mutex.Unlock()\n", __FUNCTION__);
+        m_mutex.Unlock();
+        return ER_OK;
+    } else {
+        for (uint32_t i = 0; i < wkn.size(); ++i) {
+            list<qcc::String>::iterator j = find(m_advertised[transportIndex].begin(), m_advertised[transportIndex].end(), wkn[i]);
+            if (j == m_advertised[transportIndex].end()) {
+                m_advertised[transportIndex].push_back(wkn[i]);
+            } else {
+                //
+                // Nothing has changed, so don't bother.
+                //
+                QCC_DbgPrintf(("IpNameServiceImpl::AdvertiseName(): Duplicate advertisement"));
+
+                // printf("%s: m_mutex.Unlock()\n", __FUNCTION__);
+                m_mutex.Unlock();
+                return ER_OK;
+            }
+        }
+
+        //
+        // Keep the list sorted so we can easily distinguish a change in
+        // the content of the advertised names versus a change in the order of the
+        // names.
+        //
+        m_advertised[transportIndex].sort();
+
+        //
+        // If the advertisement retransmission timer is cleared, then set us
+        // up to retransmit.  This has to be done with the mutex locked since
+        // the main thread is playing with this value as well.
+        //
+        if (m_timer == 0) {
+            m_timer = m_tDuration;
+        }
     }
 
     // printf("%s: m_mutex.Unlock()\n", __FUNCTION__);
@@ -1972,18 +2008,31 @@ QStatus IpNameServiceImpl::CancelAdvertiseName(TransportMask transportMask, vect
     //
     bool changed = false;
 
+    //
+    // We cancel advertisements in either the quietly or actively advertised
+    // lists through this method.  Note that it is only actively advertised
+    // names that have changes in status reflected out on the network.  The
+    // variable <changed> drives this network operation and so <changed> is not
+    // set in the quietly advertised list even though the list was changed.
+    //
     for (uint32_t i = 0; i < wkn.size(); ++i) {
         list<qcc::String>::iterator j = find(m_advertised[transportIndex].begin(), m_advertised[transportIndex].end(), wkn[i]);
         if (j != m_advertised[transportIndex].end()) {
             m_advertised[transportIndex].erase(j);
             changed = true;
         }
+
+        list<qcc::String>::iterator k = find(m_advertised_quietly[transportIndex].begin(), m_advertised_quietly[transportIndex].end(), wkn[i]);
+        if (k != m_advertised_quietly[transportIndex].end()) {
+            m_advertised_quietly[transportIndex].erase(k);
+        }
     }
 
     //
     // If we have no more advertisements, there is no need to repeatedly state
     // this so turn off the retransmit timer.  The main thread is playing with
-    // this number too, so this must be done with the mutex locked.
+    // this number too, so this must be done with the mutex locked.  Note that
+    // the timer only reflects the presence of active advertisements.
     //
     bool activeAdvertisements = false;
     for (uint32_t i = 0; i < N_TRANSPORTS; ++i) {
@@ -2000,7 +2049,8 @@ QStatus IpNameServiceImpl::CancelAdvertiseName(TransportMask transportMask, vect
     m_mutex.Unlock();
 
     //
-    // If we didn't actually make a change, just return.
+    // If we didn't actually make a change that needs to be sent out on the
+    // network, just return.
     //
     if (changed == false) {
         return ER_OK;
@@ -3007,7 +3057,7 @@ void* IpNameServiceImpl::Run(void* arg)
                 // the is-at messages metioned above, and then we run until they
                 // are all processed and then we exit.
                 //
-                // Calling Retransmit(index, true) will queue the desired
+                // Calling Retransmit(index, true, false) will queue the desired
                 // terminal is-at messages from the given transport on the
                 // m_outbound list.  To ensure that they are sent before we
                 // exit, we set m_terminal to true.  We will have set m_state to
@@ -3017,7 +3067,7 @@ void* IpNameServiceImpl::Run(void* arg)
                 // run routine (above).
                 //
                 for (uint32_t index = 0; index < N_TRANSPORTS; ++index) {
-                    Retransmit(index, true);
+                    Retransmit(index, true, false);
                 }
                 m_terminal = true;
                 break;
@@ -3138,7 +3188,7 @@ void IpNameServiceImpl::Retry(void)
     }
 }
 
-void IpNameServiceImpl::Retransmit(uint32_t transportIndex, bool exiting)
+void IpNameServiceImpl::Retransmit(uint32_t transportIndex, bool exiting, bool quietly)
 {
     QCC_DbgPrintf(("IpNameServiceImpl::Retransmit()"));
 
@@ -3150,7 +3200,23 @@ void IpNameServiceImpl::Retransmit(uint32_t transportIndex, bool exiting)
     // printf("%s: m_mutex.Lock()\n", __FUNCTION__);
     m_mutex.Lock();
 
-    if (m_advertised[transportIndex].empty()) {
+    //
+    // We've been asked to retransmit our advertised names.  There are two main
+    // classes of names: those actively advertised and those quietly advertised.
+    // The difference is that quietly advertised names only go out when a
+    // who-has message is received.  They are not sent periodically.  The
+    // reception of a who-has message is indicated by the <quietly> parameter
+    // being set to true.  Since we want to allow passive observers to hear our
+    // responses, if we get a who-has message, no matter what is being looked
+    // or, we take the opportunity to retransmit all of our names whether or not
+    // they are quitely or actively advertised.
+    //
+    // So, based on these observations, we retransmit our whole list if
+    // <quietly> is true and the advertised quietly list is not empty or if the
+    // advertised list is not empty -- otherwise we don't have anything to do.
+    //
+    bool doRetransmit = (quietly && !m_advertised_quietly[transportIndex].empty()) || !m_advertised[transportIndex].empty();
+    if (doRetransmit == false) {
         QCC_DbgPrintf(("IpNameServiceImpl::Retransmit(): Nothing to do for transportIndex %d", transportIndex));
         // printf("%s: m_mutex.Unlock()\n", __FUNCTION__);
         m_mutex.Unlock();
@@ -3298,6 +3364,35 @@ void IpNameServiceImpl::Retransmit(uint32_t transportIndex, bool exiting)
             } else {
                 QCC_DbgPrintf(("IpNameServiceImpl::Retransmit(): Message has room.  Adding \"%s\"", (*i).c_str()));
                 isAt.AddName(*i);
+            }
+        }
+
+        //
+        // The only time we want to spew out the quietly advertised names is when
+        // we have been actively pinged with a who-as message.  This is indicated
+        // here by <quietly> being set to true.
+        //
+        if (quietly) {
+            for (list<qcc::String>::iterator i = m_advertised_quietly[transportIndex].begin(); i != m_advertised_quietly[transportIndex].end(); ++i) {
+                QCC_DbgPrintf(("IpNameServiceImpl::Retransmit(): Accumulating (quiet) \"%s\"", (*i).c_str()));
+
+                size_t currentSize = header.GetSerializedSize() + isAt.GetSerializedSize();
+                currentSize += 20;
+                if (currentSize + 1 + (*i).size() > NS_MESSAGE_MAX) {
+                    QCC_DbgPrintf(("IpNameServiceImpl::Retransmit(): Message is full"));
+                    QCC_DbgPrintf(("IpNameServiceImpl::Retransmit(): Sending partial list"));
+                    header.AddAnswer(isAt);
+                    QueueProtocolMessage(header);
+                    ++nSent;
+
+                    QCC_DbgPrintf(("IpNameServiceImpl::Retransmit(): Resetting current list"));
+                    header.Reset();
+                    isAt.Reset();
+                    isAt.AddName(*i);
+                } else {
+                    QCC_DbgPrintf(("IpNameServiceImpl::Retransmit(): Message has room.  Adding (quiet) \"%s\"", (*i).c_str()));
+                    isAt.AddName(*i);
+                }
             }
         }
 
@@ -3454,6 +3549,31 @@ void IpNameServiceImpl::Retransmit(uint32_t transportIndex, bool exiting)
             }
         }
 
+        if (quietly) {
+            for (list<qcc::String>::iterator i = m_advertised_quietly[transportIndex].begin(); i != m_advertised_quietly[transportIndex].end(); ++i) {
+                QCC_DbgPrintf(("IpNameServiceImpl::Retransmit(): Accumulating (quiet) \"%s\"", (*i).c_str()));
+
+                size_t currentSize = header.GetSerializedSize() + isAt.GetSerializedSize();
+                currentSize += 20;
+
+                if (currentSize + 1 + (*i).size() > NS_MESSAGE_MAX) {
+                    QCC_DbgPrintf(("IpNameServiceImpl::Retransmit(): Message is full"));
+                    QCC_DbgPrintf(("IpNameServiceImpl::Retransmit(): Sending partial list"));
+                    header.AddAnswer(isAt);
+                    QueueProtocolMessage(header);
+                    ++nSent;
+
+                    QCC_DbgPrintf(("IpNameServiceImpl::Retransmit(): Resetting current list"));
+                    header.Reset();
+                    isAt.Reset();
+                    isAt.AddName(*i);
+                } else {
+                    QCC_DbgPrintf(("IpNameServiceImpl::Retransmit(): Message has room.  Adding (quiet) \"%s\"", (*i).c_str()));
+                    isAt.AddName(*i);
+                }
+            }
+        }
+
         //
         // We most likely have a partially full message waiting to go out.  If we
         // haven't sent a message, then the one message holds all of the names that
@@ -3498,7 +3618,7 @@ void IpNameServiceImpl::DoPeriodicMaintenance(void)
         if (m_timer == m_tRetransmit) {
             QCC_DbgPrintf(("IpNameServiceImpl::DoPeriodicMaintenance(): Retransmit()"));
             for (uint32_t index = 0; index < N_TRANSPORTS; ++index) {
-                Retransmit(index, false);
+                Retransmit(index, false, false);
             }
             m_timer = m_tDuration;
         }
@@ -3530,7 +3650,7 @@ void IpNameServiceImpl::HandleProtocolQuestion(WhoHas whoHas, qcc::IPAddress add
         // If there are no names being advertised by the transport identified by
         // its index, there is nothing to do.
         //
-        if (m_advertised[index].empty()) {
+        if (m_advertised[index].empty() && m_advertised_quietly[index].empty()) {
             continue;
         }
 
@@ -3552,7 +3672,7 @@ void IpNameServiceImpl::HandleProtocolQuestion(WhoHas whoHas, qcc::IPAddress add
             }
 
             //
-            // check to see if this name on the list of names we advertise.
+            // check to see if this name on the list of names we actively advertise.
             //
             for (list<qcc::String>::iterator j = m_advertised[index].begin(); j != m_advertised[index].end(); ++j) {
 
@@ -3571,7 +3691,34 @@ void IpNameServiceImpl::HandleProtocolQuestion(WhoHas whoHas, qcc::IPAddress add
             }
 
             //
-            // If we find a match, don't bother going any further since we need
+            // If we foud a match, don't bother going any further since we need
+            // to respond in any case.
+            //
+            if (respond) {
+                break;
+            }
+
+            //
+            // check to see if this name on the list of names we quietly advertise.
+            //
+            for (list<qcc::String>::iterator j = m_advertised_quietly[index].begin(); j != m_advertised_quietly[index].end(); ++j) {
+
+                //
+                // The requested name comes in from the WhoHas message and we
+                // allow wildcards there.
+                //
+                if (IpNameServiceImplWildcardMatch((*j), wkn)) {
+                    QCC_DbgHLPrintf(("IpNameServiceImpl::HandleProtocolQuestion(): request for %s does not match my %s",
+                                     wkn.c_str(), (*j).c_str()));
+                    continue;
+                } else {
+                    respond = true;
+                    break;
+                }
+            }
+
+            //
+            // If we foud a match, don't bother going any further since we need
             // to respond in any case.
             //
             if (respond) {
@@ -3587,7 +3734,11 @@ void IpNameServiceImpl::HandleProtocolQuestion(WhoHas whoHas, qcc::IPAddress add
             // printf("%s: m_mutex.Unlock()\n", __FUNCTION__);
             m_mutex.Unlock();
 
-            Retransmit(index, false);
+            //
+            // Since we have been pinged with a who-has message, we need to also
+            // include any silently advertised names in the response
+            //
+            Retransmit(index, false, true);
 
             // printf("%s: m_mutex.Lock()\n", __FUNCTION__);
             m_mutex.Lock();
@@ -3596,7 +3747,6 @@ void IpNameServiceImpl::HandleProtocolQuestion(WhoHas whoHas, qcc::IPAddress add
 
     // printf("%s: m_mutex.Unlock()\n", __FUNCTION__);
     m_mutex.Unlock();
-
 }
 
 void IpNameServiceImpl::HandleProtocolAnswer(IsAt isAt, uint32_t timer, qcc::IPAddress address)

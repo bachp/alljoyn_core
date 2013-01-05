@@ -328,7 +328,7 @@ QStatus AdvTunnel::RelayAdv()
         ns = nsRelay[guid];
     }
     if (timer) {
-        status = ns->AdvertiseName(TRANSPORT_TCP, nameList);
+        status = ns->AdvertiseName(TRANSPORT_TCP, nameList, false);
         if (status != ER_OK) {
             QCC_LogError(status, ("Failed to advertise relayed names"));
         }

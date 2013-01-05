@@ -774,7 +774,7 @@ void* _TCPEndpoint::AuthThread::Run(void* arg)
 TCPTransport::TCPTransport(BusAttachment& bus)
     : Thread("TCPTransport"), m_bus(bus), m_stopping(false), m_listener(0),
     m_foundCallback(m_listener),
-    m_isAdvertising(false), m_isDiscovering(false), m_isListening(false), m_isNsEnabled(false),
+    m_isAdvertising(false), m_isAdvertisingQuietly(false), m_isDiscovering(false), m_isListening(false), m_isNsEnabled(false),
     m_listenPort(0), m_nsReleaseCount(0)
 {
     QCC_DbgTrace(("TCPTransport::TCPTransport()"));
@@ -1814,7 +1814,7 @@ void* TCPTransport::Run(void* arg)
  *     it from listening.  We do so if this is the last discovery instance and
  *     there are no other advertisements.
  *
- * There are four member variables that reflect the state of the transport
+ * There are five member variables that reflect the state of the transport
  * and name service with respect to this code:
  *
  *   m_isListening:  The list of listeners is reflected by currently listening
@@ -1824,12 +1824,14 @@ void* TCPTransport::Run(void* arg)
  *   m_isNsEnabled:  The name service is up and running and listening on its
  *     sockets for incoming requests.
  *
- *   m_isAdvertising: The list of advertisements is reflected by current
- *     advertisements in the name service.  if we are m_isAdvertising then
- *     m_isNsEnabled must be true.
+ *   m_isAdvertising: We are actively advertising at least one well-known name.
+ *     If we are m_isAdvertising then m_isNsEnabled must be true.
+ *
+ *   m_isAdvertisingQuietly: We are quitely advertising at least one well-known
+ *     name.  If we are m_isAdvertisingQuietly then m_isNsEnabled must be true.
  *
  *   m_isDiscovering: The list of discovery requests has been sent to the name
- *     service.  if we are m_isDiscovering then m_isNsEnabled must be true.
+ *     service.  If we are m_isDiscovering then m_isNsEnabled must be true.
  */
 void TCPTransport::RunListenMachine(void)
 {
@@ -1854,38 +1856,54 @@ void TCPTransport::RunListenMachine(void)
          * is going on.
          *
          * First, if we are not listening, then we had better not think we're
-         * advertising or discovering.  If we are not listening, then the name
-         * service must not be enabled and sending or responding to external
-         * daemons.
+         * quetly advertising, actively advertising or discovering.  If we are
+         * not listening, then the name service must not be enabled and sending
+         * or responding to external daemons.
          */
         if (m_isListening == false) {
             assert(m_isAdvertising == false);
+            assert(m_isAdvertisingQuietly == false);
             assert(m_isDiscovering == false);
             assert(m_isNsEnabled == false);
         }
 
         /*
          * If we think the name service is enabled, it had better think it is
-         * enabled.  It must be enabled either because we are advertising or we
-         * are discovering.  If we are advertising or discovering, then there
+         * enabled.  It must be enabled either because we are actively
+         * advertising, quietly advertising or we are discovering.  If we are
+         * actively advertising, quietly advertising or discovering, then there
          * must be listeners waiting for connections as a result of those
          * advertisements or discovery requests.  If there are listeners, then
          * there must be a non-zero listenPort.
          */
         if (m_isNsEnabled) {
-            assert(m_isAdvertising || m_isDiscovering);
+            assert(m_isAdvertising || m_isAdvertisingQuietly || m_isDiscovering);
             assert(m_isListening);
             assert(m_listenPort);
         }
 
         /*
-         * If we think we are advertising, we'd better have an entry in the
-         * advertisements list to make us advertise, and there must be listeners
-         * waiting for inbound connections as a result of those advertisements.
-         * If we are advertising the name service had better be enabled.
+         * If we think we are actively advertising, we'd better have an entry in
+         * the active advertisements list to advertise, and there must be
+         * listeners waiting for inbound connections as a result of those
+         * advertisements.  If we are actively advertising the name service had
+         * better be enabled.
          */
         if (m_isAdvertising) {
             assert(!m_advertising.empty());
+            assert(m_isListening);
+            assert(m_listenPort);
+            assert(m_isNsEnabled);
+        }
+
+        /*
+         * If we think we are quietly advertising, we'd better have an entry in
+         * the quiet advertisements list to advertise, and there must be
+         * listeners waiting for inbound connections as a result of those
+         * advertisements.  If we are actively advertising the name service had
+         * better be enabled.
+         */
+        if (m_isAdvertisingQuietly) {
             assert(m_isListening);
             assert(m_listenPort);
             assert(m_isNsEnabled);
@@ -1955,8 +1973,24 @@ void TCPTransport::StartListenInstance(ListenRequest& listenRequest)
      * we can delay listening to passify the Android Compatibility Test Suite.
      * We do this unless we have any outstanding advertisements or discovery
      * operations in which case we start up the listens immediately.
+     *
+     * We have a bit of a chicken-and-egg problem when we want to start a quiet
+     * advertisement of the daemon router for embedded AllJoyn clients.  We
+     * don't want to start the quiet advertisement until we have a listener, but
+     * then we don't start listeners until we have advertisements in order to
+     * pass the Android Compatibility Test Suite.
+     *
+     * There is only one quiet advertisement that needs to be done
+     * automagically, and this is the daemon router advertisement we do based on
+     * configuration.  So, we take a peek at this configuration item and if it
+     * is set, we go ahead and execute the DoStartListen to crank up a listener.
+     * We actually start the quiet advertisement there in DoStartListen, after
+     * we have a valid listener to respond to remote requests.  Note that we are
+     * just driving the start listen, and there is no quiet advertisement yet so
+     * the corresponding <m_isAdvertisingQuietly> must not yet be set.
      */
-    if (m_isAdvertising || m_isDiscovering) {
+    qcc::String routerName = DaemonConfig::Access()->Get("tcp/property@router_advertisement_prefix", "");
+    if (m_isAdvertising || m_isDiscovering || !routerName.empty()) {
         DoStartListen(listenRequest.m_requestParam);
     }
 }
@@ -1981,6 +2015,9 @@ void TCPTransport::StopListenInstance(ListenRequest& listenRequest)
      * a non-existent endpoint and fail.  It does seem better to log an
      * error and then cancel any outstanding advertisements since they
      * are soon to be meaningless.
+     *
+     * Note that this only affects actively advertised names.  We never
+     * time out or lose quietly advertised names.
      */
     if (empty && m_isAdvertising) {
         QCC_LogError(ER_FAIL, ("TCPTransport::StopListenInstance(): No listeners with outstanding advertisements."));
@@ -2011,15 +2048,18 @@ void TCPTransport::EnableAdvertisementInstance(ListenRequest& listenRequest)
     NewAdvertiseOp(ENABLE_ADVERTISEMENT, listenRequest.m_requestParam, isFirst);
 
     /*
-     * If it turned out that is the first advertisement on our list, we need to
-     * prepare before actually doing the advertisement.
+     * If it turned out that is the first active advertisement on our list, we
+     * need to prepare before actually doing the advertisement.  We do have to
+     * take the possibility that there is a quiet advertisement that already
+     * caused a previous preparation step to happen.
      */
     if (isFirst) {
 
         /*
          * If we don't have any listeners up and running, we need to get them
-         * up.  If this is a Windows box, the listeners will start running
-         * immediately and will never go down, so they may already be running.
+         * up.  If this is a Windows box or if there is an in-process quiet
+         * advertisement, the listeners will start running immediately and will
+         * never go down, so they may already be running.
          */
         if (!m_isListening) {
             for (list<qcc::String>::iterator i = m_listening.begin(); i != m_listening.end(); ++i) {
@@ -2028,7 +2068,6 @@ void TCPTransport::EnableAdvertisementInstance(ListenRequest& listenRequest)
                     continue;
                 }
                 assert(m_listenPort);
-                m_isListening = true;
             }
         }
 
@@ -2045,6 +2084,7 @@ void TCPTransport::EnableAdvertisementInstance(ListenRequest& listenRequest)
             }
         }
     }
+
     if (!m_isListening) {
         QCC_LogError(ER_FAIL, ("TCPTransport::EnableAdvertisementInstance(): Advertise with no TCP listeners"));
         return;
@@ -2092,7 +2132,7 @@ void TCPTransport::DisableAdvertisementInstance(ListenRequest& listenRequest)
      * to think about disabling our listeners and turning off the name service.
      * We only to this if there are no discovery instances in progress.
      */
-    if (isEmpty && !m_isDiscovering) {
+    if (isEmpty && !m_isAdvertisingQuietly && !m_isDiscovering) {
 
         /*
          * Since the cancel advertised name has been sent, we can disable the
@@ -2152,7 +2192,6 @@ void TCPTransport::EnableDiscoveryInstance(ListenRequest& listenRequest)
                     continue;
                 }
                 assert(m_listenPort);
-                m_isListening = true;
             }
         }
 
@@ -2235,7 +2274,7 @@ void TCPTransport::DisableDiscoveryInstance(ListenRequest& listenRequest)
      * the name service.  We only to this if there are no advertisements in
      * progress.
      */
-    if (isEmpty && !m_isAdvertising) {
+    if (isEmpty && !m_isAdvertising && !m_isAdvertisingQuietly) {
 
         IpNameService::Instance().Enable(TRANSPORT_TCP, 0, 0, 0, 0);
         m_isNsEnabled = false;
@@ -3152,6 +3191,7 @@ QStatus TCPTransport::DoStartListen(qcc::String& normSpec)
             QCC_LogError(status, ("TCPTransport::DoStartListen(): OpenInterface() failed for %s", currentInterface.c_str()));
         }
     }
+
     /*
      * We have the name service work out of the way, so we can now create the
      * TCP listener sockets and set SO_REUSEADDR/SO_REUSEPORT so we don't have
@@ -3239,6 +3279,35 @@ QStatus TCPTransport::DoStartListen(qcc::String& normSpec)
      */
     m_listenPort = listenPort;
     IpNameService::Instance().Enable(TRANSPORT_TCP, listenPort, 0, 0, 0);
+    m_isNsEnabled = true;
+
+    /*
+     * There is a special case in which we respond to embedded AllJoyn bus
+     * attachements actively looking for daemons to connect to.  We don't want
+     * do blindly do this all the time so we can pass the Android Compatibility
+     * Test, so we crank up an advertisement when we do the start listen (which
+     * is why we bother to do all of the serialization of DoStartListen work
+     * anyway).  We make this a configurable advertisement so users of bundled
+     * daemons can change the advertisement and know they are connecting to
+     * "their" daemons if desired.
+     *
+     * We pull the advertisement prefix out of the configuration and if it is
+     * there, we append the short GUID of the daemon to make it unique and then
+     * advertise it quietly via the IP name service.  The quietly option means
+     * that we do not send gratuitous is-at (advertisements) of the name, but we
+     * do respond to who-has requests on the name.
+     */
+    qcc::String routerName = DaemonConfig::Access()->Get("tcp/property@router_advertisement_prefix", "");
+    if (!routerName.empty()) {
+        routerName.append(m_bus.GetInternal().GetGlobalGUID().ToShortString());
+        QStatus status = IpNameService::Instance().AdvertiseName(TRANSPORT_TCP, routerName, true);
+        if (status != ER_OK) {
+            QCC_LogError(status, ("TCPTransport::DoStartListen(): Failed to AdvertiseNameQuietly \"%s\"", routerName.c_str()));
+        }
+        m_isAdvertisingQuietly = true;
+    }
+
+    m_isListening = true;
     m_listenFdsLock.Unlock(MUTEX_CONTEXT);
 
     /*

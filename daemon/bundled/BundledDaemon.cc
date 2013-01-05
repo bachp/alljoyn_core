@@ -77,6 +77,9 @@ static const char bundledConfig[] =
     "    <property enable_ipv4=\"true\"/>"
     "    <property enable_ipv6=\"true\"/>"
     "  </ip_name_service>"
+    "  <tcp>"
+    "    <property router_advertisement_prefix=\"org.alljoyn.router.\"/>"
+    "  </tcp>"
 #if defined(QCC_OS_ANDROID) || defined(QCC_OS_LINUX) || defined(QCC_OS_DARWIN) || defined(QCC_OS_WINRT)
     "  <listen>ice:</listen>"
     "  <ice>"

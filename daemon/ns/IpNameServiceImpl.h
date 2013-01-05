@@ -631,10 +631,14 @@ class IpNameServiceImpl : public qcc::Thread {
      * @param[in] transportMask A bitmask containing the transport requesting the
      *     advertisement.
      * @param[in] wkn The AllJoyn interface (e.g., "org.freedesktop.Sensor").
+     * @param[in] quietly The quietly parameter, if true, specifies to not do
+     *     gratuitous advertisements (send periodic is-at messages indicating we
+     *     have the provided name avialable) but do respond to who-has requests
+     *     for the name.
      *
      * @return Status of the operation.  Returns ER_OK on success.
      */
-    QStatus AdvertiseName(TransportMask transportMask, const qcc::String& wkn);
+    QStatus AdvertiseName(TransportMask transportMask, const qcc::String& wkn, bool quietly);
 
     /**
      * @brief Cancel an AllJoyn daemon service advertisement.
@@ -669,7 +673,7 @@ class IpNameServiceImpl : public qcc::Thread {
      *
      * @return Status of the operation.  Returns ER_OK on success.
      */
-    QStatus AdvertiseName(TransportMask transportMask, std::vector<qcc::String>& wkn);
+    QStatus AdvertiseName(TransportMask transportMask, std::vector<qcc::String>& wkn, bool quietly);
 
     /**
      * @brief Cancel an AllJoyn daemon service advertisement.
@@ -892,9 +896,15 @@ class IpNameServiceImpl : public qcc::Thread {
 
     /**
      * @internal @brief A vector of list of all of the names that the various
-     * transports have advertised.
+     * transports have actively advertised.
      */
     std::list<qcc::String> m_advertised[N_TRANSPORTS];
+
+    /**
+     * @internal @brief A vector of list of all of the names that the various
+     * transports have quietly advertised.
+     */
+    std::list<qcc::String> m_advertised_quietly[N_TRANSPORTS];
 
     /**
      * @internal
@@ -980,7 +990,7 @@ class IpNameServiceImpl : public qcc::Thread {
      * @internal
      * @brief Retransmit exported advertisements.
      */
-    void Retransmit(uint32_t index, bool exiting);
+    void Retransmit(uint32_t index, bool exiting, bool quietly);
 
     /**
      * @internal

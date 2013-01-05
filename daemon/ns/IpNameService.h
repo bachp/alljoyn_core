@@ -351,8 +351,12 @@ class IpNameService {
      * @param transportMask A bitmask containing the transport requesting the
      *     advertisement.
      * @param wkn The well-known name to advertise.
+     * @param quietly The quietly parameter, if true, specifies to not do
+     *     gratuitous advertisements (send periodic is-at messages indicating we
+     *     have the provided name avialable) but do respond to who-has requests
+     *     for the name.
      */
-    QStatus AdvertiseName(TransportMask transportMask, const qcc::String& wkn);
+    QStatus AdvertiseName(TransportMask transportMask, const qcc::String& wkn, bool quietly = false);
 
     /**
      * @brief Stop advertising a well-known name over the network interfaces
