@@ -1,4 +1,4 @@
-# Copyright 2010-2012, Qualcomm Innovation Center, Inc.
+# Copyright 2010-2013, Qualcomm Innovation Center, Inc.
 #
 #    Licensed under the Apache License, Version 2.0 (the "License");
 #    you may not use this file except in compliance with the License.
@@ -17,7 +17,8 @@ CC:=$(TARGET_CC)
 endif
 
 ifneq ($(TARGET_CXX),)
-CC:=$(TARGET_CXX)
+CXX:=$(TARGET_CXX)
+else
 endif
 
 CPPFLAGS:=$(TARGET_CPPFLAGS) -DQCC_OS_GROUP_POSIX -DQCC_OS_LINUX
