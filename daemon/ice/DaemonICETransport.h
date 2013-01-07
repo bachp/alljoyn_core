@@ -91,9 +91,20 @@ class ICESessionListenerImpl : public ICESessionListener {
 
     QStatus Wait()
     {
-        QStatus status = Event::Wait(waitEvent, ICE_ALLOCATE_SESSION_WAIT_TIMEOUT);
+        vector<Event*> checkEvents, signaledEvents;
+
+        checkEvents.push_back(&((Thread::GetThread())->GetStopEvent()));
+        checkEvents.push_back(&waitEvent);
+
+        QStatus status = Event::Wait(checkEvents, signaledEvents, ICE_ALLOCATE_SESSION_WAIT_TIMEOUT);
         if (ER_OK == status) {
-            waitEvent.ResetEvent();
+            for (vector<Event*>::iterator i = signaledEvents.begin(); i != signaledEvents.end(); ++i) {
+                if (*i == &((Thread::GetThread())->GetStopEvent())) {
+                    status = ER_STOPPING_THREAD;
+                } else if (*i == &waitEvent) {
+                    waitEvent.ResetEvent();
+                }
+            }
         }
         return status;
     }
@@ -126,9 +137,21 @@ class PeerCandidateListenerImpl : public PeerCandidateListener {
 
     QStatus Wait()
     {
-        QStatus status = Event::Wait(waitEvent, ICE_CLIENT_SESSION_WAIT_TIMEOUT);
+        vector<Event*> checkEvents, signaledEvents;
+
+        checkEvents.push_back(&((Thread::GetThread())->GetStopEvent()));
+        checkEvents.push_back(&waitEvent);
+
+        QStatus status = Event::Wait(checkEvents, signaledEvents, ICE_CLIENT_SESSION_WAIT_TIMEOUT);
+
         if (ER_OK == status) {
-            waitEvent.ResetEvent();
+            for (vector<Event*>::iterator i = signaledEvents.begin(); i != signaledEvents.end(); ++i) {
+                if (*i == &((Thread::GetThread())->GetStopEvent())) {
+                    status = ER_STOPPING_THREAD;
+                } else if (*i == &waitEvent) {
+                    waitEvent.ResetEvent();
+                }
+            }
         }
         return status;
     }
