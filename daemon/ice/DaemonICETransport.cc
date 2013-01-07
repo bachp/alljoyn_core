@@ -1086,6 +1086,7 @@ ThreadReturn STDCALL DaemonICETransport::AllocateICESessionThread::Run(void* arg
 
     /*Figure out the ICE Address Candidates*/
     ICESessionListenerImpl iceListener;
+    PeerCandidateListenerImpl peerCandidateListener;
     ICESession* iceSession = NULL;
 
     assert(transportObj->m_dm);
@@ -1152,6 +1153,8 @@ ThreadReturn STDCALL DaemonICETransport::AllocateICESessionThread::Run(void* arg
         if (ER_OK != status) {
             if (status == ER_TIMEOUT) {
                 QCC_LogError(status, ("DaemonICETransport::AllocateICESessionThread::Run(): Timed out waiting for ICE Listener change notification"));
+            } else if (status == ER_STOPPING_THREAD) {
+                QCC_LogError(status, ("DaemonICETransport::AllocateICESessionThread::Run(): Thread is stopping"));
             } else {
                 QCC_LogError(status, ("DaemonICETransport::AllocateICESessionThread::Run(): Error waiting for ICE Listener change notification"));
             }
@@ -1176,7 +1179,6 @@ ThreadReturn STDCALL DaemonICETransport::AllocateICESessionThread::Run(void* arg
                         /* Send candidates to the server */
                         QCC_DbgPrintf(("DaemonICETransport::AllocateICESessionThread::Run(): Service sending candidates to Peer"));
 
-                        PeerCandidateListenerImpl peerCandidateListener;
                         entry.SetServiceInfo(candidates, ufrag, pwd, &peerCandidateListener);
 
                         /* Send the ICE Address Candidates to the client */
@@ -1188,7 +1190,7 @@ ThreadReturn STDCALL DaemonICETransport::AllocateICESessionThread::Run(void* arg
                              * Wait for the service candidates to be delivered to the client before triggering the ICE Checks
                              */
                             status = peerCandidateListener.Wait();
-                            if (status != ER_OK && status != ER_TIMEOUT) {
+                            if (status != ER_OK && status != ER_TIMEOUT && status != ER_STOPPING_THREAD) {
 
                                 QCC_LogError(status, ("DaemonICETransport::AllocateICESessionThread::Run(): peerCandidateListener.Wait(): Failed"));
 
@@ -1328,6 +1330,8 @@ ThreadReturn STDCALL DaemonICETransport::AllocateICESessionThread::Run(void* arg
                                             } else {
                                                 if (status == ER_TIMEOUT) {
                                                     QCC_LogError(status, ("DaemonICETransport::AllocateICESessionThread::Run(): Timed out waiting for StartChecks to complete"));
+                                                } else if (status == ER_STOPPING_THREAD) {
+                                                    QCC_LogError(status, ("DaemonICETransport::AllocateICESessionThread::Run(): Thread is stopping"));
                                                 } else {
                                                     QCC_LogError(status, ("DaemonICETransport::AllocateICESessionThread::Run(): Wait for StartChecks failed"));
                                                 }
@@ -1339,6 +1343,8 @@ ThreadReturn STDCALL DaemonICETransport::AllocateICESessionThread::Run(void* arg
                                         status = ER_FAIL;
                                         QCC_LogError(status, ("DaemonICETransport::AllocateICESessionThread::Run(): Not starting the ICE checks: Peer candidates list is empty"));
                                     }
+                                } else if (status == ER_STOPPING_THREAD) {
+                                    QCC_LogError(status, ("DaemonICETransport::AllocateICESessionThread::Run(): Thread stopping"));
                                 } else {
                                     QCC_LogError(status, ("DaemonICETransport::AllocateICESessionThread::Run(): Timed out waiting for the delivery of the Address Candidates to the peer"));
                                 }
@@ -1764,6 +1770,7 @@ QStatus DaemonICETransport::Connect(const char* connectSpec, const SessionOpts& 
     QCC_DbgHLPrintf(("DaemonICETransport::Connect(): %s", connectSpec));
     QStatus status = ER_FAIL;
     ICESessionListenerImpl iceListener;
+    PeerCandidateListenerImpl peerCandidateListener;
     ICESession* iceSession = NULL;
 
     /*
@@ -1878,6 +1885,8 @@ QStatus DaemonICETransport::Connect(const char* connectSpec, const SessionOpts& 
             if (ER_OK != status) {
                 if (status == ER_TIMEOUT) {
                     QCC_LogError(status, ("DaemonICETransport::Connect(): Timed out waiting for ICE Listener change notification"));
+                } else if (status == ER_STOPPING_THREAD) {
+                    QCC_LogError(status, ("DaemonICETransport::Connect(): Thread is stopping"));
                 } else {
                     QCC_LogError(status, ("DaemonICETransport::Connect(): Error waiting for ICE Listener change notification"));
                 }
@@ -1896,7 +1905,6 @@ QStatus DaemonICETransport::Connect(const char* connectSpec, const SessionOpts& 
                             /* Send ICE candidates to server */
                             QCC_DbgPrintf(("DaemonICETransport::Connect(): Client sending its candidates to Peer"));
 
-                            PeerCandidateListenerImpl peerCandidateListener;
                             entry.SetClientInfo(candidates, ufrag, pwd, &peerCandidateListener);
 
                             status = m_dm->QueueICEAddressCandidatesMessage(true, std::pair<String, DiscoveryManager::SessionEntry>(argMap["guid"], entry));
@@ -2021,6 +2029,8 @@ QStatus DaemonICETransport::Connect(const char* connectSpec, const SessionOpts& 
                                             } else {
                                                 if (status == ER_TIMEOUT) {
                                                     QCC_LogError(status, ("DaemonICETransport::Connect(): Timed out waiting for StartChecks to complete"));
+                                                } else if (status == ER_STOPPING_THREAD) {
+                                                    QCC_LogError(status, ("DaemonICETransport::Connect(): Thread is stopping"));
                                                 } else {
                                                     QCC_LogError(status, ("DaemonICETransport::Connect(): Error waiting for StartChecks to complete"));
                                                 }
