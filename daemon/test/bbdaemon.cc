@@ -80,7 +80,7 @@ static const char daemonConfig[] =
     "    <property enable_ipv6=\"true\"/>"
     "  </ip_name_service>"
     "  <tcp>"
-    "    <property router_advertisement_prefix=\"org.alljoyn.router.\"/>"
+//  "    <property router_advertisement_prefix=\"org.alljoyn.router.\"/>"
     "  </tcp>"
     "  <ice>"
     "    <limit max_incomplete_connections=\"16\"/>"
