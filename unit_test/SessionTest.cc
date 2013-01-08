@@ -320,8 +320,9 @@ class SessionJoinedSessionPortListener : public SessionPortListener {
     virtual void SessionJoined(SessionPort sessionPort, SessionId id, const char* joiner) {
         printf("SessionJoined sessionPort = %d, SessionId=%d, joiner = %s\n", sessionPort, id, joiner);
         bindMemberSessionId = id;
-        sessionJoinedFlag = true;
         sessionJoinedTestJoiner = joiner;
+        sessionJoinedFlag = true;
+
     }
 };
 
@@ -360,6 +361,14 @@ TEST_F(SessionTest, DISABLED_SessionJoined) {
     EXPECT_EQ(ER_OK, status) << "  Actual Status: " << QCC_StatusText(status);
 
     EXPECT_TRUE(sessionJoinerAcceptedFlag);
+    //Wait upto 3 seconds all callbacks and listeners to be called.
+    for (int i = 0; i < 300; ++i) {
+        if (sessionJoinedFlag) {
+            break;
+        }
+        qcc::Sleep(10);
+    }
+
     EXPECT_TRUE(sessionJoinedFlag);
     EXPECT_EQ(bindMemberSessionId, sessionId);
     EXPECT_STRNE(busA.GetUniqueName().c_str(), sessionJoinedTestJoiner.c_str()) <<
