@@ -95,6 +95,11 @@ void NameTable::RemoveUniqueName(const qcc::String& uniqueName)
                         lock.Unlock(MUTEX_CONTEXT);
                         RemoveAlias(alias, epName, disposition, NULL, NULL);
                         lock.Lock(MUTEX_CONTEXT);
+                        /* Make sure iterator is still valid */
+                        it = uniqueNames.find(uniqueName);
+                        if (it == uniqueNames.end()) {
+                            break;
+                        }
                         if (DBUS_RELEASE_NAME_REPLY_RELEASED == disposition) {
                             ait = aliasNames.begin();
                             startOver = true;
@@ -116,10 +121,12 @@ void NameTable::RemoveUniqueName(const qcc::String& uniqueName)
             }
         }
 
-        uniqueNames.erase(it);
-        lock.Unlock(MUTEX_CONTEXT);
-        QCC_DbgPrintf(("Removed ep=%s from name table", uniqueName.c_str()));
+        if (it != uniqueNames.end()) {
+            uniqueNames.erase(it);
+            QCC_DbgPrintf(("Removed ep=%s from name table", uniqueName.c_str()));
+        }
 
+        lock.Unlock(MUTEX_CONTEXT);
         /* Notify listeners */
         CallListeners(uniqueName, &uniqueName, NULL);
     } else {
