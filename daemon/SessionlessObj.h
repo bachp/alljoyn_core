@@ -161,6 +161,17 @@ class SessionlessObj : public BusObject, public SessionListener, public SessionP
                                     Message& msg);
 
     /**
+     * Receive SessionLost signals.
+     *
+     * @param   member      SessionLost interface member.
+     * @param   sourcePath  Sender of signal.
+     * @param   msg         SessionLost message.
+     */
+    void SessionLostSignalHandler(const InterfaceDescription::Member* member,
+                                  const char* sourcePath,
+                                  Message& msg);
+
+    /**
      * Process incoming RequestSignals signals from remote daemons.
      *
      * @param member        Interface member for signal

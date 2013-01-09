@@ -151,6 +151,16 @@ QStatus SessionlessObj::Init()
         QCC_LogError(status, ("Failed to register FoundAdvertisedName signal handler"));
     }
 
+    /* Register signal handler for SessionLost */
+    /* (If we werent in the daemon, we could just use SessionListener, but it doesnt work without the full BusAttachment implementation */
+    status = bus.RegisterSignalHandler(this,
+                                       static_cast<MessageReceiver::SignalHandler>(&SessionlessObj::SessionLostSignalHandler),
+                                       ajIntf->GetMember("SessionLost"),
+                                       NULL);
+    if (status != ER_OK) {
+        QCC_LogError(status, ("Failed to register SessionLost signal handler"));
+    }
+
     /* Register signal handler for SessionJoined */
     /* (If we werent in the daemon, we could just use SessionListener, but it doesnt work without the full BusAttachment implementation */
     const InterfaceDescription* ajpIntf = bus.GetInterface(org::alljoyn::Bus::Peer::Session::InterfaceName);
@@ -368,7 +378,9 @@ void SessionlessObj::FoundAdvertisedNameSignalHandler(const InterfaceDescription
     /* Join session if we need signals from this advertiser */
     if (doRequestSignals) {
         uint32_t*changeIdPtr = new uint32_t(changeId);
-        QStatus status = bus.JoinSessionAsync(name, sessionPort, this, sessionOpts, this, reinterpret_cast<void*>(changeIdPtr));
+        SessionOpts opts = sessionOpts;
+        opts.transports = transport;
+        QStatus status = bus.JoinSessionAsync(name, sessionPort, this, opts, this, reinterpret_cast<void*>(changeIdPtr));
         if (status != ER_OK) {
             QCC_LogError(status, ("JoinSessionAsync failed"));
             delete changeIdPtr;
@@ -382,7 +394,6 @@ bool SessionlessObj::AcceptSessionJoiner(SessionPort port,
                                          const SessionOpts& opts)
 {
     QCC_DbgTrace(("SessionlessObj::AcceptSessionJoiner(%d, %s, ...)", port, joiner));
-
     return true;
 }
 
@@ -426,6 +437,15 @@ void SessionlessObj::SessionJoinedSignalHandler(const InterfaceDescription::Memb
     } else {
         lock.Unlock();
     }
+}
+
+void SessionlessObj::SessionLostSignalHandler(const InterfaceDescription::Member* member,
+                                              const char* sourcePath,
+                                              Message& msg)
+{
+    uint32_t sessionId = 0;
+    QStatus status = msg->GetArgs("u", &sessionId);
+    QCC_DbgTrace(("SessionlessObj::SessionLostSignalHandler(0x%x)", sessionId));
 }
 
 void SessionlessObj::RequestSignalsSignalHandler(const InterfaceDescription::Member* member,
