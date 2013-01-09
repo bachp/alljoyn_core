@@ -39,7 +39,7 @@ public ref class AllJoynException sealed {
     /// <returns>The corresponding AllJoyn QStatus code </returns>
     static QStatus GetErrorCode(int hresult)
     {
-        return (QStatus)(hresult & 0x7FFFFFFF);
+        return (QStatus)(hresult & 0x3FFFFFFF);
     }
 
     /// <summary>
@@ -49,7 +49,7 @@ public ref class AllJoynException sealed {
     /// <returns>A text string that sheds light on the cause of the COMException </returns>
     static Platform::String ^ GetErrorMessage(int hresult)
     {
-        return MultibyteToPlatformString(qcc::QCC_StatusMessage(hresult & 0x7FFFFFFF));
+        return MultibyteToPlatformString(qcc::QCC_StatusMessage(hresult & 0x3FFFFFFF));
     }
 };
 
