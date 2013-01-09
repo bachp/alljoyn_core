@@ -139,7 +139,7 @@ QStatus _Message::ParseArray(MsgArg* arg,
             size_t num = (size_t)(len / 4);
             bool* bools = new bool[num];
             for (size_t i = 0; i < num; i++) {
-                uint32_t b = *bufPos;
+                uint32_t b = *(uint32_t*)bufPos;
                 if (endianSwap) {
                     b = EndianSwap32(b);
                 }
