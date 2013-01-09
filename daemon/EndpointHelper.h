@@ -37,10 +37,10 @@ inline bool operator ==(const VirtualEndpoint& vep, const BusEndpoint& ep) {
     return ep.iden(vep);
 }
 inline bool operator !=(const BusEndpoint& ep, const VirtualEndpoint& vep) {
-    return ep.iden(vep);
+    return !ep.iden(vep);
 }
 inline bool operator !=(const VirtualEndpoint& vep, const BusEndpoint& ep) {
-    return ep.iden(vep);
+    return !ep.iden(vep);
 }
 
 inline bool operator ==(const BusEndpoint& ep, const RemoteEndpoint& rep)  {
@@ -50,10 +50,10 @@ inline bool operator ==(const RemoteEndpoint& rep, const BusEndpoint& ep)  {
     return ep.iden(rep);
 }
 inline bool operator !=(const BusEndpoint& ep, const RemoteEndpoint& rep)  {
-    return ep.iden(rep);
+    return !ep.iden(rep);
 }
 inline bool operator !=(const RemoteEndpoint& rep, const BusEndpoint& ep)  {
-    return ep.iden(rep);
+    return !ep.iden(rep);
 }
 
 inline bool operator ==(const BusEndpoint& ep, const LocalEndpoint& lep)   {
@@ -63,10 +63,10 @@ inline bool operator ==(const LocalEndpoint& lep, const BusEndpoint& ep)   {
     return ep.iden(lep);
 }
 inline bool operator !=(const BusEndpoint& ep, const LocalEndpoint& lep)   {
-    return ep.iden(lep);
+    return !ep.iden(lep);
 }
 inline bool operator !=(const LocalEndpoint& lep, const BusEndpoint& ep)   {
-    return ep.iden(lep);
+    return !ep.iden(lep);
 }
 
 };

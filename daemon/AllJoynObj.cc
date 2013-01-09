@@ -625,6 +625,7 @@ ThreadReturn STDCALL AllJoynObj::JoinSessionThread::RunJoin()
                             ajObj.SessionMapInsert(joinerSme);
                             id = joinerSme.id;
                             optsOut = sme.opts;
+                            optsOut.transports &= optsIn.transports;
                             sme.id = newSessionId;
 
                             /* Send session changed notification */
@@ -653,6 +654,7 @@ ThreadReturn STDCALL AllJoynObj::JoinSessionThread::RunJoin()
                                 ajObj.SessionMapInsert(sme2);
                                 id = sme2.id;
                                 optsOut = sme.opts;
+                                optsOut.transports &= optsIn.transports;
                             } else {
                                 qcc::Close(fds[0]);
                                 qcc::Close(fds[1]);
@@ -1244,6 +1246,7 @@ qcc::ThreadReturn STDCALL AllJoynObj::JoinSessionThread::RunAttach()
                 optsOut = sme.opts;
             } else {
                 optsOut = sme.opts;
+                optsOut.transports &= optsIn.transports;
 
                 /* Add virtual endpoint (AddVirtualEndpoint cannot be called with locks) */
                 ajObj.ReleaseLocks();
