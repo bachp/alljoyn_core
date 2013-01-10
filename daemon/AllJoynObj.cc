@@ -328,6 +328,12 @@ void AllJoynObj::BindSessionPort(const InterfaceDescription::Member* member, Mes
         BusEndpoint srcEp = router.FindEndpoint(sender);
         if (srcEp->IsValid()) {
             status = TransportPermission::FilterTransports(srcEp, sender, opts.transports, "BindSessionPort");
+            if (status == ER_OK) {
+                if (PermissionMgr::GetDaemonBusCallPolicy(srcEp) == PermissionMgr::STDBUSCALL_SHOULD_REJECT) {
+                    QCC_DbgPrintf(("The sender endpoint is not allowed to call BindSessionPort()"));
+                    status = ER_BUS_NOT_ALLOWED;
+                }
+            }
         } else {
             status = ER_BUS_NO_ENDPOINT;
         }
@@ -482,6 +488,38 @@ ThreadReturn STDCALL AllJoynObj::JoinSessionThread::RunJoin()
         BusEndpoint srcEp = ajObj.router.FindEndpoint(sender);
         if (srcEp->IsValid()) {
             status = TransportPermission::FilterTransports(srcEp, sender, optsIn.transports, "JoinSessionThread.Run");
+        }
+    }
+
+    if (status == ER_OK) {
+        PermissionMgr::DaemonBusCallPolicy policy = PermissionMgr::GetDaemonBusCallPolicy(joinerEp);
+        bool rejectCall = false;
+        if (policy == PermissionMgr::STDBUSCALL_SHOULD_REJECT) {
+            rejectCall = true;
+        } else if (policy == PermissionMgr::STDBUSCALL_ALLOW_ACCESS_SERVICE_LOCAL) {
+            if (sessionHost) {
+                BusEndpoint ep = ajObj.router.FindEndpoint(sessionHost);
+                if (ep->GetEndpointType() == ENDPOINT_TYPE_VIRTUAL) {
+                    rejectCall = true;
+                } else if ((ep->GetEndpointType() == ENDPOINT_TYPE_REMOTE) || (ep->GetEndpointType() == ENDPOINT_TYPE_NULL)) {
+                    rejectCall = false;
+                }
+            }
+        } else if (policy == PermissionMgr::STDBUSCALL_ALLOW_ACCESS_SERVICE_ANY) {
+            rejectCall = false;
+        }
+
+        if (rejectCall) {
+            QCC_DbgPrintf(("The sender endpoint is not allowed to call JoinSession()"));
+            replyCode = ALLJOYN_JOINSESSION_REPLY_REJECTED;
+            /* Reply to request */
+            MsgArg replyArgs[3];
+            replyArgs[0].Set("u", replyCode);
+            replyArgs[1].Set("u", id);
+            SetSessionOpts(optsOut, replyArgs[2]);
+            status = ajObj.MethodReply(msg, replyArgs, ArraySize(replyArgs));
+            QCC_DbgPrintf(("AllJoynObj::JoinSession(%d) returned (%d,%u) (status=%s)", sessionPort, replyCode, id, QCC_StatusText(status)));
+            return 0;
         }
     }
 
@@ -2213,52 +2251,58 @@ void AllJoynObj::AdvertiseName(const InterfaceDescription::Member* member, Messa
     if (status == ER_OK) {
         BusEndpoint srcEp = router.FindEndpoint(sender);
         status = TransportPermission::FilterTransports(srcEp, sender, transports, "AdvertiseName");
+        if ((status == ER_OK) && PermissionMgr::GetDaemonBusCallPolicy(srcEp) == PermissionMgr::STDBUSCALL_SHOULD_REJECT) {
+            QCC_DbgPrintf(("The sender endpoint is not allowed to call AdvertiseName()"));
+            replyCode = ALLJOYN_ADVERTISENAME_REPLY_FAILED;
+        }
     }
 
-    /* Check to see if the advertise name is valid and well formed */
-    if (IsLegalBusName(advertiseName)) {
+    if (ALLJOYN_ADVERTISENAME_REPLY_SUCCESS == replyCode) {
+        /* Check to see if the advertise name is valid and well formed */
+        if (IsLegalBusName(advertiseName)) {
 
-        /* Check to see if advertiseName is already being advertised */
-        AcquireLocks();
-        String advertiseNameStr = advertiseName;
-        multimap<qcc::String, pair<TransportMask, qcc::String> >::iterator it = advertiseMap.find(advertiseNameStr);
+            /* Check to see if advertiseName is already being advertised */
+            AcquireLocks();
+            String advertiseNameStr = advertiseName;
+            multimap<qcc::String, pair<TransportMask, qcc::String> >::iterator it = advertiseMap.find(advertiseNameStr);
 
-        while ((it != advertiseMap.end()) && (it->first == advertiseNameStr)) {
-            if (it->second.second == sender) {
-                if ((it->second.first & transports) != 0) {
-                    replyCode = ALLJOYN_ADVERTISENAME_REPLY_ALREADY_ADVERTISING;
-                }
-                break;
-            }
-            ++it;
-        }
-
-        if (ALLJOYN_ADVERTISENAME_REPLY_SUCCESS == replyCode) {
-            /* Add to advertise map */
-            if (it == advertiseMap.end()) {
-                advertiseMap.insert(pair<qcc::String, pair<TransportMask, qcc::String> >(advertiseNameStr, pair<TransportMask, String>(transports, sender)));
-            } else {
-                it->second.first |= transports;
-            }
-
-            /* Advertise on transports specified */
-            TransportList& transList = bus.GetInternal().GetTransportList();
-            status = ER_BUS_BAD_SESSION_OPTS;
-            for (size_t i = 0; i < transList.GetNumTransports(); ++i) {
-                Transport* trans = transList.GetTransport(i);
-                if (trans && trans->IsBusToBus() && (trans->GetTransportMask() & transports)) {
-                    status = trans->EnableAdvertisement(advertiseNameStr);
-                    if ((status != ER_OK) && (status != ER_NOT_IMPLEMENTED)) {
-                        QCC_LogError(status, ("EnableAdvertisment failed for transport %s - mask=0x%x", trans->GetTransportName(), transports));
+            while ((it != advertiseMap.end()) && (it->first == advertiseNameStr)) {
+                if (it->second.second == sender) {
+                    if ((it->second.first & transports) != 0) {
+                        replyCode = ALLJOYN_ADVERTISENAME_REPLY_ALREADY_ADVERTISING;
                     }
-                } else if (!trans) {
-                    QCC_LogError(ER_BUS_TRANSPORT_NOT_AVAILABLE, ("NULL transport pointer found in transportList"));
+                    break;
+                }
+                ++it;
+            }
+
+            if (ALLJOYN_ADVERTISENAME_REPLY_SUCCESS == replyCode) {
+                /* Add to advertise map */
+                if (it == advertiseMap.end()) {
+                    advertiseMap.insert(pair<qcc::String, pair<TransportMask, qcc::String> >(advertiseNameStr, pair<TransportMask, String>(transports, sender)));
+                } else {
+                    it->second.first |= transports;
+                }
+
+                /* Advertise on transports specified */
+                TransportList& transList = bus.GetInternal().GetTransportList();
+                status = ER_BUS_BAD_SESSION_OPTS;
+                for (size_t i = 0; i < transList.GetNumTransports(); ++i) {
+                    Transport* trans = transList.GetTransport(i);
+                    if (trans && trans->IsBusToBus() && (trans->GetTransportMask() & transports)) {
+                        status = trans->EnableAdvertisement(advertiseNameStr);
+                        if ((status != ER_OK) && (status != ER_NOT_IMPLEMENTED)) {
+                            QCC_LogError(status, ("EnableAdvertisment failed for transport %s - mask=0x%x", trans->GetTransportName(), transports));
+                        }
+                    } else if (!trans) {
+                        QCC_LogError(ER_BUS_TRANSPORT_NOT_AVAILABLE, ("NULL transport pointer found in transportList"));
+                    }
                 }
             }
+            ReleaseLocks();
+        } else {
+            replyCode = ALLJOYN_ADVERTISENAME_REPLY_FAILED;
         }
-        ReleaseLocks();
-    } else {
-        replyCode = ALLJOYN_ADVERTISENAME_REPLY_FAILED;
     }
 
     /* Reply to request */
@@ -2395,6 +2439,13 @@ void AllJoynObj::FindAdvertisedName(const InterfaceDescription::Member* member, 
             break;
         }
         ++it;
+    }
+
+    if (ALLJOYN_FINDADVERTISEDNAME_REPLY_SUCCESS == replyCode) {
+        if (PermissionMgr::GetDaemonBusCallPolicy(srcEp) == PermissionMgr::STDBUSCALL_SHOULD_REJECT) {
+            QCC_DbgPrintf(("The sender endpoint is not allowed to call FindAdvertisedName()"));
+            replyCode = ER_ALLJOYN_FINDADVERTISEDNAME_REPLY_FAILED;
+        }
     }
     if (ALLJOYN_FINDADVERTISEDNAME_REPLY_SUCCESS == replyCode) {
         /* Notify transports if this is a new prefix */

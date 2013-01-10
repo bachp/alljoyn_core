@@ -230,7 +230,7 @@ void* DaemonTransport::Run(void* arg)
             qcc::String authName;
             qcc::String redirection;
             static const bool truthiness = true;
-            DaemonEndpoint conn = DaemonEndpoint(bus, truthiness, "", newSock);
+            DaemonEndpoint conn = DaemonEndpoint(bus, truthiness, DaemonTransport::TransportName, newSock);
             conn->SetUserId(uid);
             conn->SetGroupId(gid);
             conn->SetProcessId(pid);

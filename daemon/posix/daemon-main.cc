@@ -136,6 +136,9 @@ static const char
     "    <property protocol=\"HTTPS\"/>"
     "    <property enable_ipv6=\"false\"/>"
     "  </ice_discovery_manager>"
+    "  <policy>"
+    "    <property enable_daemon_bus_call_restriction=\"true\"/>"
+    "  </policy>"
     "</busconfig>";
 
 

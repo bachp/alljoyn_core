@@ -94,8 +94,11 @@ static const char bundledConfig[] =
     "  </ice_discovery_manager>"
 #endif
 #if defined(QCC_OS_WINRT)
-    "  <listen>proximity:addr=0::0,port=0,family=ipv6</listen>"
+//    "  <listen>proximity:addr=0::0,port=0,family=ipv6</listen>"
 #endif
+    "  <policy>"
+    "    <property enable_daemon_bus_call_restriction=\"true\"/>"
+    "  </policy>"
     "</busconfig>";
 
 class BundledDaemon : public DaemonLauncher, public TransportFactoryContainer {
@@ -288,7 +291,7 @@ QStatus BundledDaemon::Start(NullTransport* nullTransport)
             Add(new TransportFactory<DaemonICETransport>(DaemonICETransport::TransportName, false));
 #endif
 #if defined(QCC_OS_WINRT)
-            Add(new TransportFactory<ProximityTransport>(ProximityTransport::TransportName, false));
+//            Add(new TransportFactory<ProximityTransport>(ProximityTransport::TransportName, false));
 #endif
 #if defined(QCC_OS_ANDROID)
 //            QCC_DbgPrintf(("adding WFD transport"));

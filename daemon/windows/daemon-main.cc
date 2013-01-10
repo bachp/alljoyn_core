@@ -100,6 +100,9 @@ static const char defaultConfig[] =
     "    <property protocol=\"HTTPS\"/>"
     "    <property enable_ipv6=\"false\"/>"
     "  </ice_discovery_manager>"
+    "  <policy>"
+    "    <property enable_daemon_bus_call_restriction=\"true\"/>"
+    "  </policy>"
     "</busconfig>";
 
 static volatile sig_atomic_t g_interrupt = false;
