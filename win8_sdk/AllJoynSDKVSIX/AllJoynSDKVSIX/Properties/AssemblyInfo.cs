@@ -1,6 +1,6 @@
 ﻿//-----------------------------------------------------------------------
 // <copyright file="AssemblyInfo.cs" company="Qualcomm Innovation Center, Inc.">
-//     Copyright 2012, Qualcomm Innovation Center, Inc.
+//     Copyright 2012-2013, Qualcomm Innovation Center, Inc.
 //
 //    Licensed under the Apache License, Version 2.0 (the "License");
 //    you may not use this file except in compliance with the License.
@@ -28,7 +28,7 @@ using System.Runtime.InteropServices;
 [assembly: AssemblyConfiguration("")]
 [assembly: AssemblyCompany("Qualcomm Innovation Center, Inc.")]
 [assembly: AssemblyProduct("AllJoynSDK")]
-[assembly: AssemblyCopyright("Copyright 2012, Qualcomm Innovation Center, Inc.")]
+[assembly: AssemblyCopyright("Copyright 2009-2013, Qualcomm Innovation Center, Inc.")]
 [assembly: AssemblyTrademark("")]
 [assembly: AssemblyCulture("")]
 
@@ -47,5 +47,5 @@ using System.Runtime.InteropServices;
 // You can specify all the values or you can default the Build and Revision Numbers 
 // by using the '*' as shown below:
 // [assembly: AssemblyVersion("1.0.*")]
-[assembly: AssemblyVersion("1.0.0.0")]
-[assembly: AssemblyFileVersion("1.0.0.0")]
+[assembly: AssemblyVersion("3.2.0.0")]
+[assembly: AssemblyFileVersion("3.2.0.0")]

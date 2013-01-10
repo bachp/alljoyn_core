@@ -1,6 +1,6 @@
 ﻿//-----------------------------------------------------------------------
 // <copyright file="AssemblyInfo.cs" company="Qualcomm Innovation Center, Inc.">
-//     Copyright 2012, Qualcomm Innovation Center, Inc.
+//     Copyright 2012-2013, Qualcomm Innovation Center, Inc.
 //
 //    Licensed under the Apache License, Version 2.0 (the "License");
 //    you may not use this file except in compliance with the License.
@@ -28,7 +28,7 @@ using System.Runtime.InteropServices;
 [assembly: AssemblyConfiguration("")]
 [assembly: AssemblyCompany("AllJoyn http://alljoyn.org/")]
 [assembly: AssemblyProduct("AllJoynUnitTests")]
-[assembly: AssemblyCopyright("Copyright ©  2012 Qualcomm Innovation Center, Inc.")]
+[assembly: AssemblyCopyright("Copyright ©  2009-2013 Qualcomm Innovation Center, Inc.")]
 [assembly: AssemblyTrademark("")]
 [assembly: AssemblyCulture("")]
 
