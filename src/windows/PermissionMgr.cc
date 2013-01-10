@@ -25,21 +25,6 @@
 
 namespace ajn {
 
-PeerPermission::PeerPermStatus PeerPermission::CanPeerDoCall(Message& message, const qcc::String& permStr)
-{
-    return PP_ALLOWED;
-}
-
-QStatus PeerPermission::PeerAuthAndHandleMethodCall(Message& message, LocalEndpoint& localEp, const MethodTable::Entry* entry, qcc::ThreadPool* threadPool, const qcc::String& permStr)
-{
-    return ER_NOT_IMPLEMENTED;
-}
-
-QStatus PeerPermission::PeerAuthAndHandleSignalCall(Message& message, LocalEndpoint& localEp, std::list<SignalTable::Entry>& callList, qcc::ThreadPool* threadPool, const qcc::String& permStr)
-{
-    return ER_NOT_IMPLEMENTED;
-}
-
 QStatus TransportPermission::FilterTransports(BusEndpoint& srcEp, const qcc::String& sender, TransportMask& transports, const char* callerName)
 {
     return ER_OK;

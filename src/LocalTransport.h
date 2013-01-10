@@ -362,15 +362,6 @@ class _LocalEndpoint : public _BusEndpoint, public qcc::AlarmListener, public Me
      */
     bool IsReentrantCall();
 
-    /** Internal utility method needed (only) by PermissionMsg */
-    void SendErrMessage(Message& message, qcc::String errStr, qcc::String description);
-
-    /** Internal utility function needed (only) by PermissionMgr */
-    void DoCallMethodHandler(const MethodTable::Entry* entry, Message& message)
-    {
-        entry->object->CallMethodHandler(entry->handler, entry->member, message, entry->context);
-    }
-
   private:
 
     /**
