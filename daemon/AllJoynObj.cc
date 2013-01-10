@@ -1419,16 +1419,16 @@ qcc::ThreadReturn STDCALL AllJoynObj::JoinSessionThread::RunAttach()
                     BusEndpoint tempEp = ajObj.router.FindEndpoint(srcStr);
                     VirtualEndpoint srcEp = VirtualEndpoint::cast(tempEp);
                     tempEp = ajObj.router.FindEndpoint(srcB2BStr);
-                    RemoteEndpoint srcB2BEp2 = RemoteEndpoint::cast(tempEp);
+                    srcB2BEp = RemoteEndpoint::cast(tempEp);
                     /* Add bi-directional session routes */
-                    if (srcB2BEp2->IsValid() && srcEp->IsValid() && vDestEp->IsValid() && b2bEp->IsValid()) {
+                    if (srcB2BEp->IsValid() && srcEp->IsValid() && vDestEp->IsValid() && b2bEp->IsValid()) {
                         id = tempId;
                         optsOut = tempOpts;
                         BusEndpoint busEndpointDest = BusEndpoint::cast(vDestEp);
                         BusEndpoint busEndpointSrc = BusEndpoint::cast(srcEp);
-                        status = ajObj.router.AddSessionRoute(id, busEndpointDest, &b2bEp, busEndpointSrc, srcB2BEp2);
+                        status = ajObj.router.AddSessionRoute(id, busEndpointDest, &b2bEp, busEndpointSrc, srcB2BEp);
                         if (status != ER_OK) {
-                            QCC_LogError(status, ("AddSessionRoute(%u, %s, %s, %s) failed", id, dest, b2bEp->GetUniqueName().c_str(), srcEp->GetUniqueName().c_str(), srcB2BEp2->GetUniqueName().c_str()));
+                            QCC_LogError(status, ("AddSessionRoute(%u, %s, %s, %s) failed", id, dest, b2bEp->GetUniqueName().c_str(), srcEp->GetUniqueName().c_str(), srcB2BEp->GetUniqueName().c_str()));
                         }
                     } else {
                         replyCode = ALLJOYN_JOINSESSION_REPLY_FAILED;
@@ -1456,7 +1456,7 @@ qcc::ThreadReturn STDCALL AllJoynObj::JoinSessionThread::RunAttach()
      * On success, ensure that reply goes over the new b2b connection. Otherwise a race condition
      * related to shutting down endpoints that are to become raw will occur.
      */
-    if (srcB2BEp->IsValid() && ajObj.router.FindEndpoint(srcB2BStr, srcB2BEp)) {
+    if (srcB2BEp->IsValid()) {
         ajObj.ReleaseLocks();
         status = msg->ReplyMsg(msg, replyArgs, ArraySize(replyArgs));
         if (status == ER_OK) {
