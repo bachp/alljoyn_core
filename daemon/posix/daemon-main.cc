@@ -4,7 +4,7 @@
  */
 
 /******************************************************************************
- * Copyright 2010-2012, Qualcomm Innovation Center, Inc.
+ * Copyright 2010-2013, Qualcomm Innovation Center, Inc.
  *
  *    Licensed under the Apache License, Version 2.0 (the "License");
  *    you may not use this file except in compliance with the License.
@@ -144,7 +144,7 @@ static const char
 
 static const char versionPreamble[] =
     "AllJoyn Message Bus Daemon version: %s\n"
-    "Copyright (c) 2009-2012 Qualcomm Innovation Center, Inc.\n"
+    "Copyright (c) 2009-2013 Qualcomm Innovation Center, Inc.\n"
     "Licensed under Apache2.0: http://www.apache.org/licenses/LICENSE-2.0.html\n"
     "Build: %s\n";
 
