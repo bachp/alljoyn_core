@@ -33,7 +33,7 @@ PermissionMgr::DaemonBusCallPolicy PermissionMgr::GetDaemonBusCallPolicy(BusEndp
     QCC_DbgTrace(("PermissionMgr::GetDaemonBusCallPolicy(send=%s)", sender->GetUniqueName().c_str()));
     DaemonBusCallPolicy policy = STDBUSCALL_ALLOW_ACCESS_SERVICE_ANY;
     if (enableRestrict) {
-        if (sender->GetEndpointType() == ENDPOINT_TYPE_NULL) {
+        if (sender->GetEndpointType() == ENDPOINT_TYPE_NULL || sender->GetEndpointType() == ENDPOINT_TYPE_LOCAL) {
             policy = STDBUSCALL_ALLOW_ACCESS_SERVICE_ANY;
         } else if (sender->GetEndpointType() == ENDPOINT_TYPE_REMOTE) {
             RemoteEndpoint rEndpoint = RemoteEndpoint::cast(sender);
