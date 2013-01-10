@@ -44,7 +44,6 @@
 #include "AllJoynPeerObj.h"
 #include "BusUtil.h"
 #include "BusInternal.h"
-#include "PermissionMgr.h"
 
 #define QCC_MODULE "LOCAL_TRANSPORT"
 
@@ -864,27 +863,6 @@ QStatus _LocalEndpoint::HandleMethodCall(Message& message)
     if (status == ER_OK) {
         /* Call the method handler */
         if (entry) {
-            // Disabled Peer permissions since not useful in bundled daemon use case
-#if 0
-            if (entry->member->accessPerms.size() > 0) {
-                PeerPermission::PeerPermStatus pps = PeerPermission::CanPeerDoCall(message, entry->member->accessPerms);
-                if (pps == PeerPermission::PP_DENIED) {
-                    if (message->GetType() == MESSAGE_METHOD_CALL && !(message->GetFlags() & ALLJOYN_FLAG_NO_REPLY_EXPECTED)) {
-                        qcc::String errStr;
-                        qcc::String errMsg;
-                        errStr += "org.alljoyn.Bus.";
-                        errStr += QCC_StatusText(ER_ALLJOYN_ACCESS_PERMISSION_ERROR);
-                        errMsg = message->Description();
-                        message->ErrorMsg(message, errStr.c_str(), errMsg.c_str());
-                        status = bus->GetInternal().GetRouter().PushMessage(message, *this);
-                    }
-                    return status;
-                } else if (pps == PeerPermission::PP_PENDING) {
-                    PeerPermission::PeerAuthAndHandleMethodCall(message, this, entry, threadPool, entry->member->accessPerms);
-                    return status;
-                }
-            }
-#endif
             entry->object->CallMethodHandler(entry->handler, entry->member, message, entry->context);
         }
     } else if (message->GetType() == MESSAGE_METHOD_CALL && !(message->GetFlags() & ALLJOYN_FLAG_NO_REPLY_EXPECTED)) {
@@ -981,19 +959,6 @@ QStatus _LocalEndpoint::HandleSignal(Message& message)
             status = ER_OK;
         }
     } else {
-#if 0
-        list<SignalTable::Entry>::const_iterator first = callList.begin();
-        // Disabled Access perms because not useful with bundled daemon
-        if (first->member->accessPerms.size() > 0) {
-            PeerPermission::PeerPermStatus pps = PeerPermission::CanPeerDoCall(message, first->member->accessPerms);
-            if (pps == PeerPermission::PP_DENIED) {
-                return status;
-            } else if (pps == PeerPermission::PP_PENDING) {
-                PeerPermission::PeerAuthAndHandleSignalCall(message, this, callList, threadPool, first->member->accessPerms);
-                return status;
-            }
-        }
-#endif
         list<SignalTable::Entry>::const_iterator callit;
         for (callit = callList.begin(); callit != callList.end(); ++callit) {
             (callit->object->*callit->handler)(callit->member, message->GetObjectPath(), message);
@@ -1110,13 +1075,6 @@ const ProxyBusObject& _LocalEndpoint::GetAllJoynDebugObj()
     }
 
     return *alljoynDebugObj;
-}
-
-void _LocalEndpoint::SendErrMessage(Message& message, qcc::String errStr, qcc::String description)
-{
-    message->ErrorMsg(message, errStr.c_str(), description.c_str());
-    BusEndpoint busEndpoint = BusEndpoint::wrap(this);
-    bus->GetInternal().GetRouter().PushMessage(message, busEndpoint);
 }
 
 }

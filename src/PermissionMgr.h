@@ -28,45 +28,6 @@
 namespace ajn {
 
 #define MAX_PERM_CHECKEDCALL_SIZE (512)
-/*
- * This class is to impose permission verification on a peer when it tries to invoke a method/signal call.
- * This only applies to the scenario that two peers on the same device connect to the same alljoyn pre-installed daemon.
- */
-class PeerPermission {
-  public:
-    typedef enum  {
-        PP_ALLOWED = 1,
-        PP_DENIED  = 2,
-        PP_PENDING = 3
-    } PeerPermStatus;
-
-    /**
-     * Called to check permissions for a method/signal call.
-     * @param   message        The message containing the call signature
-     * @param   permStr        The permissions required to invoke the call
-     */
-    static PeerPermStatus CanPeerDoCall(Message& message, const qcc::String& permStr);
-
-    /**
-     * Inquire daemon for the peer permission and handle the method call accordingly.
-     * @param   message        The message containing the method call signature
-     * @param   localEp        The local endpoint
-     * @param   entry          The method entry in the MethodTable
-     * @param   threadpool     The thread pool
-     * @param   permStr        The permissions required to invoke the call
-     */
-    static QStatus PeerAuthAndHandleMethodCall(Message& message, LocalEndpoint& localEp, const MethodTable::Entry* entry, qcc::ThreadPool* threadpool, const qcc::String& permStr);
-
-    /**
-     * Inquire daemon for the peer permission and handle the signal call accordingly.
-     * @param   message        The message containing the signal call signature
-     * @param   localEp        The local endpoint
-     * @param   callList       List of recipients that have registered for this signal
-     * @param   threadpool     The thread pool
-     * @param   permStr        The permissions required to invoke the call
-     */
-    static QStatus PeerAuthAndHandleSignalCall(Message& message, LocalEndpoint& localEp, std::list<SignalTable::Entry>& callList, qcc::ThreadPool* threadpool, const qcc::String& permStr);
-};
 
 class TransportPermission {
   public:
