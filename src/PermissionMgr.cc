@@ -30,7 +30,7 @@ PermissionMgr::DaemonBusCallPolicy PermissionMgr::GetDaemonBusCallPolicy(BusEndp
 {
     static bool enableRestrict = (DaemonConfig::Access())->Get("policy/property@enable_daemon_bus_call_restriction", "true") == "true";
 
-    QCC_DbgTrace(("PermissionMgr::GetDaemonBusCallPolicy(send=%s)", sender->GetUniqueName()));
+    QCC_DbgTrace(("PermissionMgr::GetDaemonBusCallPolicy(send=%s)", sender->GetUniqueName().c_str()));
     DaemonBusCallPolicy policy = STDBUSCALL_ALLOW_ACCESS_SERVICE_ANY;
     if (enableRestrict) {
         if (sender->GetEndpointType() == ENDPOINT_TYPE_NULL) {
@@ -48,11 +48,11 @@ PermissionMgr::DaemonBusCallPolicy PermissionMgr::GetDaemonBusCallPolicy(BusEndp
                 }
             } else {
                 policy = STDBUSCALL_SHOULD_REJECT;
-                QCC_LogError(ER_FAIL, ("Unrecognized connect spec for endpoint:%s", sender->GetUniqueName()));
+                QCC_LogError(ER_FAIL, ("Unrecognized connect spec for endpoint:%s", sender->GetUniqueName().c_str()));
             }
         } else if (sender->GetEndpointType() == ENDPOINT_TYPE_BUS2BUS || sender->GetEndpointType() == ENDPOINT_TYPE_VIRTUAL) {
             policy = STDBUSCALL_SHOULD_REJECT;
-            QCC_LogError(ER_FAIL, ("Bus-to-bus endpoint(%s) is not ALLOW_ACCESSed to invoke daemon standard method call", sender->GetUniqueName()));
+            QCC_LogError(ER_FAIL, ("Bus-to-bus endpoint(%s) is not ALLOW_ACCESSed to invoke daemon standard method call", sender->GetUniqueName().c_str()));
         } else {
             policy = STDBUSCALL_SHOULD_REJECT;
             QCC_LogError(ER_FAIL, ("Unexpected endponit type(%d)", sender->GetEndpointType()));
