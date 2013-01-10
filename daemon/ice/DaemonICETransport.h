@@ -492,20 +492,6 @@ class DaemonICETransport : public Transport, public _RemoteEndpoint::EndpointLis
 
     void EndpointListUnlock(void) { m_endpointListLock.Unlock(MUTEX_CONTEXT); };
 
-    bool IsStopped(void) {
-        bool stopped = false;
-        m_stoppedLock.Lock(MUTEX_CONTEXT);
-        stopped = m_stopped;
-        m_stoppedLock.Unlock(MUTEX_CONTEXT);
-        return stopped;
-    };
-
-    void SetStopped(void) {
-        m_stoppedLock.Lock(MUTEX_CONTEXT);
-        m_stopped = true;
-        m_stoppedLock.Unlock(MUTEX_CONTEXT);
-    };
-
   private:
 
     DaemonICETransport(const DaemonICETransport& other);
@@ -527,10 +513,6 @@ class DaemonICETransport : public Transport, public _RemoteEndpoint::EndpointLis
     PacketEngine m_packetEngine;
 
     Mutex m_IncomingICESessionsLock; /**< Mutex that protects IncomingICESessions */
-
-    Mutex m_stoppedLock; /**< Mutex that protects state variable m_stopped */
-
-    bool m_stopped; /**< Boolean indicating that the Run() thread is aware that it has been stopped */
 
     /*
      * List of the GUIDs of the remote daemons trying to connected to this daemon.

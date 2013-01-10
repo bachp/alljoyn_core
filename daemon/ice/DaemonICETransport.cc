@@ -522,7 +522,6 @@ DaemonICETransport::DaemonICETransport(BusAttachment& bus) :
     m_stopping(false),
     m_listener(0),
     m_packetEngine("ice_packet_engine"),
-    m_stopped(false),
     m_iceCallback(m_listener, this),
     daemonICETransportTimer("ICETransTimer", true)
 {
@@ -724,58 +723,43 @@ QStatus DaemonICETransport::Stop(void)
 {
     QCC_DbgTrace(("DaemonICETransport::Stop()"));
 
-    if (!IsStopped()) {
-        /*
-         * It is legal to call Stop() more than once, so it must be possible to
-         * call Stop() on a stopped transport.
-         */
-        m_stopping = true;
+    /*
+     * It is legal to call Stop() more than once, so it must be possible to
+     * call Stop() on a stopped transport.
+     */
+    m_stopping = true;
 
-        /*
-         * Tell the DaemonICETransport Run thread to shut down through the thread
-         * base class.
-         */
-        QStatus status = Thread::Stop();
-        if (status != ER_OK) {
-            QCC_LogError(status, ("DaemonICETransport::Stop(): Failed to Stop() DaemonICETransport Run thread"));
-        }
-
-        /* Stop all the DaemonICEEndpoints */
-        StopAllEndpoints();
-
-        /*
-         * The use model for DaemonICETransport is that it works like a thread.
-         * There is a call to Start() that spins up the DaemonICETransport Run loop in order
-         * to get it running.  When someone wants to tear down the transport, they
-         * call Stop() which requests the transport to stop.  This is followed by
-         * Join() which waits for all of the threads to actually stop.
-         *
-         * The DiscoveryManager should play by those rules as well.  We allocate and
-         * initialize it in Start(), which will spin up the main thread there.
-         * We need to Stop() the DiscoveryManager here and Join its thread in
-         * DaemonICETransport::Join().  If someone just deletes the transport
-         * there is an implied Stop() and Join() so it behaves correctly.
-         */
-        if (m_dm) {
-            m_dm->Stop();
-        }
-
-        /* Wait until the Run() thread is actually aware that it has been stopped before
-         * clearing the PacketStreamMap */
-        while (!IsStopped()) ;
-
-        /* Clear the PacketStreamMap */
-        ClearPacketStreamMap();
-
-        /* Stop the Packet Engine */
-        status = m_packetEngine.Stop();
-        if (status != ER_OK) {
-            QCC_LogError(status, ("%s: PacketEngine::Stop() failed", __FUNCTION__));
-        }
-
-        /* Stop the timer */
-        daemonICETransportTimer.Stop();
+    /*
+     * Tell the DaemonICETransport Run thread to shut down through the thread
+     * base class.
+     */
+    QStatus status = Thread::Stop();
+    if (status != ER_OK) {
+        QCC_LogError(status, ("DaemonICETransport::Stop(): Failed to Stop() DaemonICETransport Run thread"));
     }
+
+    /* Stop all the DaemonICEEndpoints */
+    StopAllEndpoints();
+
+    /*
+     * The use model for DaemonICETransport is that it works like a thread.
+     * There is a call to Start() that spins up the DaemonICETransport Run loop in order
+     * to get it running.  When someone wants to tear down the transport, they
+     * call Stop() which requests the transport to stop.  This is followed by
+     * Join() which waits for all of the threads to actually stop.
+     *
+     * The DiscoveryManager should play by those rules as well.  We allocate and
+     * initialize it in Start(), which will spin up the main thread there.
+     * We need to Stop() the DiscoveryManager here and Join its thread in
+     * DaemonICETransport::Join().  If someone just deletes the transport
+     * there is an implied Stop() and Join() so it behaves correctly.
+     */
+    if (m_dm) {
+        m_dm->Stop();
+    }
+
+    /* Stop the timer */
+    daemonICETransportTimer.Stop();
 
     return ER_OK;
 }
@@ -807,13 +791,10 @@ QStatus DaemonICETransport::Join(void)
         m_dm->Join();
     }
 
-    /* Join the Packet Engine */
-    status = m_packetEngine.Join();
-    if (status != ER_OK) {
-        QCC_LogError(status, ("%s: PacketEngine::Join() failed", __FUNCTION__));
-    }
-
     m_stopping = false;
+
+    /* Clear the PacketStreamMap */
+    ClearPacketStreamMap();
 
     return ER_OK;
 }
@@ -1652,11 +1633,10 @@ void* DaemonICETransport::Run(void* arg)
         for (vector<Event*>::iterator i = signaledEvents.begin(); i != signaledEvents.end(); ++i) {
 
             /*
-             * Reset the Stop() event if it has been received, set m_stopped to true and exit out of the for loop.
+             * Reset the Stop() event if it has been received and exit out of the for loop.
              */
             if (*i == &stopEvent) {
                 stopEvent.ResetEvent();
-                SetStopped();
                 break;
             }
 
