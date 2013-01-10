@@ -56,7 +56,7 @@ class _DaemonEndpoint : public _RemoteEndpoint {
   public:
 
     _DaemonEndpoint(BusAttachment& bus, SocketFd sock) :
-        _RemoteEndpoint(bus, true, String::Empty, &stream, DaemonTransport::TransportName),
+        _RemoteEndpoint(bus, true, DaemonTransport::TransportName, &stream, DaemonTransport::TransportName),
         stream(sock)
     {
     }

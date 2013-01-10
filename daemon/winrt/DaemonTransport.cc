@@ -95,7 +95,7 @@ void* DaemonTransport::Run(void* arg)
             qcc::String authName;
             qcc::String redirection;
             bool truthiness = true;
-            String str = "";
+            String str = DaemonTransport::TransportName;
             DaemonEndpoint conn = DaemonEndpoint(bus, truthiness, str, newSock);
 
             QCC_DbgHLPrintf(("DaemonTransport::Run(): Accepting connection newSock=%d", newSock));

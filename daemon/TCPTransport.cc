@@ -1608,7 +1608,7 @@ void* TCPTransport::Run(void* arg)
                 if ((m_authList.size() < maxAuth) && (m_authList.size() + m_endpointList.size() < maxConn)) {
                     static const bool truthiness = true;
                     TCPTransport* ptr = this;
-                    TCPEndpoint conn(ptr, m_bus, truthiness, String::Empty, newSock, remoteAddr, remotePort);
+                    TCPEndpoint conn(ptr, m_bus, truthiness, TCPTransport::TransportName, newSock, remoteAddr, remotePort);
                     conn->SetPassive();
                     Timespec tNow;
                     GetTimeNow(&tNow);
