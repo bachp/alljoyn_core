@@ -289,3 +289,42 @@ TEST_F(ProxyBusObjectTest, SecureConnection) {
     status = proxy.SecureConnection();
     EXPECT_EQ(ER_OK, status) << "  Actual Status: " << QCC_StatusText(status);
 }
+
+//ALLJOYN-1595
+TEST_F(DISABLED_ProxyBusObjectTest, SecureConnectionAsync) {
+    /* create/activate alljoyn_interface */
+    InterfaceDescription* testIntf = NULL;
+    status = servicebus.CreateInterface(INTERFACE_NAME, testIntf, false);
+    EXPECT_EQ(ER_OK, status) << "  Actual Status: " << QCC_StatusText(status);
+    status = testIntf->AddMember(MESSAGE_METHOD_CALL, "ping", "s", "s", "in,out", 0);
+    EXPECT_EQ(ER_OK, status) << "  Actual Status: " << QCC_StatusText(status);
+    status = testIntf->AddMember(MESSAGE_METHOD_CALL, "chirp", "s", "", "chirp", 0);
+    EXPECT_EQ(ER_OK, status) << "  Actual Status: " << QCC_StatusText(status);
+    testIntf->Activate();
+
+    ProxyBusObjectTestBusObject testObj(OBJECT_PATH);
+
+    status = servicebus.Start();
+    EXPECT_EQ(ER_OK, status) << "  Actual Status: " << QCC_StatusText(status);
+    status = servicebus.Connect(ajn::getConnectArg().c_str());
+    EXPECT_EQ(ER_OK, status) << "  Actual Status: " << QCC_StatusText(status);
+
+    status = servicebus.RegisterBusObject(testObj);
+    EXPECT_EQ(ER_OK, status) << "  Actual Status: " << QCC_StatusText(status);
+
+    status = servicebus.RequestName(OBJECT_NAME, 0);
+
+    status = servicebus.EnablePeerSecurity("ALLJOYN_SRP_KEYX", new ProxyBusObjectTestAuthListenerOne());
+    EXPECT_EQ(ER_OK, status) << "  Actual Status: " << QCC_StatusText(status);
+    servicebus.ClearKeyStore();
+
+
+    status = bus.EnablePeerSecurity("ALLJOYN_SRP_KEYX", new ProxyBusObjectTestAuthListenerTwo());
+    EXPECT_EQ(ER_OK, status) << "  Actual Status: " << QCC_StatusText(status);
+    bus.ClearKeyStore();
+
+    ProxyBusObject proxy(bus, OBJECT_NAME, OBJECT_PATH, 0);
+
+    status = proxy.SecureConnectionAsync();
+    EXPECT_EQ(ER_OK, status) << "  Actual Status: " << QCC_StatusText(status);
+}
