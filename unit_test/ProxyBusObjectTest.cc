@@ -289,8 +289,8 @@ TEST_F(ProxyBusObjectTest, SecureConnection) {
     status = proxy.SecureConnection();
     EXPECT_EQ(ER_OK, status) << "  Actual Status: " << QCC_StatusText(status);
 }
-
-TEST_F(ProxyBusObjectTest, SecureConnectionAsync) {
+//ALLJOYN-1595
+TEST_F(ProxyBusObjectTest, DISABLED_SecureConnectionAsync) {
     /* create/activate alljoyn_interface */
     InterfaceDescription* testIntf = NULL;
     status = servicebus.CreateInterface(INTERFACE_NAME, testIntf, false);
