@@ -902,7 +902,7 @@ QStatus ProxyBusObject::SecureConnectionAsync(bool forceAuth)
         return ER_BUS_SECURITY_NOT_ENABLED;
     }
     LocalEndpoint localEndpoint = bus->GetInternal().GetLocalEndpoint();
-    if (localEndpoint->IsValid()) {
+    if (!localEndpoint->IsValid()) {
         return ER_BUS_ENDPOINT_CLOSING;
     } else {
         AllJoynPeerObj* peerObj =  localEndpoint->GetPeerObj();
