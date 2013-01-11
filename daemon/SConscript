@@ -22,6 +22,11 @@ if env['OS'] == "darwin":
 else:
     srcs = [ f for f in env.Glob('*.cc') + env.Glob('*.c') + env.Glob(env['OS_GROUP'] + '/DaemonTransport.cc')]
 
+if env['OS'] == "android":
+    srcs += [env.Glob(env['OS'] + '/PermissionMrg.cc')]
+else:
+    srcs += [env.Glob(env['OS_GROUP'] + '/PermissionMgr.cc')]
+
 # scattergather sources
 	
 # bluetooth source files

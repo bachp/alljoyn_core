@@ -38,6 +38,12 @@ else
     DAEMON_SRCS += $(OS_GROUP)/DaemonTransport.cc
 endif
 
+ifeq "$(OS)" "android"
+    DAEMON_SRCS += $(OS)/PermissionMgr.cc
+else
+    DAEMON_SRCS += $(OS_GROUP)/PermissionMgr.cc
+endif
+# 
 # Select BlueZ for bluetooth support or not
 ifeq "$(OS)" "android_donut"
     # Skip bluetooth
