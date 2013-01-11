@@ -291,7 +291,7 @@ TEST_F(ProxyBusObjectTest, SecureConnection) {
 }
 
 //ALLJOYN-1595
-TEST_F(DISABLED_ProxyBusObjectTest, SecureConnectionAsync) {
+TEST_F(ProxyBusObjectTest, DISABLED_SecureConnectionAsync) {
     /* create/activate alljoyn_interface */
     InterfaceDescription* testIntf = NULL;
     status = servicebus.CreateInterface(INTERFACE_NAME, testIntf, false);
