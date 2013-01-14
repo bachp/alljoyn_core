@@ -343,17 +343,17 @@ class DiscoveryManager : public Thread, public AlarmListener {
 
     uint8_t currentProximityIndex;
 
-    void InitializeProximity()
+    void InitializeProximity(String staticProximity, bool attached)
     {
         WiFiProximity wifi;
         BTProximity bt;
 
-        wifi.attached = true;
-        bt.self = true;
+        wifi.attached = attached;
+        bt.self = attached;
 
-        wifi.BSSID = String("a1");
-        wifi.SSID = String("a1");
-        bt.MAC = String("a1");
+        wifi.BSSID = staticProximity;
+        wifi.SSID = staticProximity;
+        bt.MAC = staticProximity;
 
         proximity[0].wifiaps.push_back(wifi);
         proximity[0].BTs.push_back(bt);
@@ -361,9 +361,9 @@ class DiscoveryManager : public Thread, public AlarmListener {
         // Using this function to print the hard-coded proximity message
         GenerateJSONProximity(proximity[0]);
 
-        wifi.BSSID = String("a1");
-        wifi.SSID = String("a1");
-        bt.MAC = String("a1");
+        wifi.BSSID = staticProximity;
+        wifi.SSID = staticProximity;
+        bt.MAC = staticProximity;
 
         proximity[1].wifiaps.push_back(wifi);
         proximity[1].BTs.push_back(bt);
@@ -371,9 +371,9 @@ class DiscoveryManager : public Thread, public AlarmListener {
         // Using this function to print the hard-coded proximity message
         GenerateJSONProximity(proximity[1]);
 
-        wifi.BSSID = String("a1");
-        wifi.SSID = String("a1");
-        bt.MAC = String("a1");
+        wifi.BSSID = staticProximity;
+        wifi.SSID = staticProximity;
+        bt.MAC = staticProximity;
 
         proximity[2].wifiaps.push_back(wifi);
         proximity[2].BTs.push_back(bt);
