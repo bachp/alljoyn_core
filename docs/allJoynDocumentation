@@ -55,7 +55,7 @@ This document describes the C++ language binding for the AllJoyn API. It covers 
 - @ref section3 "Messages"
 - @ref section4 "Signals" 
 @section section2 Type Signatures
-AllJoyn uses the same type signatures that are used by the Dbus protocol.  The type signature is made up of <em> type codes </em> .  Type code is an ASCII character that represents a standard data type where.
+AllJoyn uses the same type signatures that are used by the Dbus protocol.  The type signature is made up of <em> type codes </em> .  Type code is an ASCII character that represents a standard data type.
 
 The following table summarizes the AllJoyn types.
 <table >
