@@ -183,9 +183,10 @@ DiscoveryManager::DiscoveryManager(BusAttachment& bus) :
     ProximityScanner = new ProximityScanEngine(this);
 #else
     currentProximityIndex = 0;
-    // This will be removed once the framework
-    // to derive proximity information from the kernel is available.
-    InitializeProximity();
+    /* Default hard-coded proximity should be "" to avoid false search matches */
+    String staticProximity("");
+    bool attached = false;
+    InitializeProximity(staticProximity, attached);
 #endif
 
     clientLoginBusListener = new ClientLoginBusListener();
