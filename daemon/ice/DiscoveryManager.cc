@@ -183,10 +183,19 @@ DiscoveryManager::DiscoveryManager(BusAttachment& bus) :
     ProximityScanner = new ProximityScanEngine(this);
 #else
     currentProximityIndex = 0;
+
     /* Default hard-coded proximity should be "" to avoid false search matches */
     String staticProximity("");
     bool attached = false;
+
+    /* Retrieve the static proximity value from the config file */
+    staticProximity = config->Get("ice_discovery_manager/property@linux_static_proximity", "");
+    if (staticProximity != String("")) {
+        attached = true;
+    }
+
     InitializeProximity(staticProximity, attached);
+
 #endif
 
     clientLoginBusListener = new ClientLoginBusListener();
