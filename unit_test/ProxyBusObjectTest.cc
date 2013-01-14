@@ -216,6 +216,8 @@ TEST_F(ProxyBusObjectTest, ParseXml) {
     EXPECT_STREQ(expectedIntrospect, introspect.c_str());
 }
 
+bool auth_complete_listener1_flag;
+bool auth_complete_listener2_flag;
 class ProxyBusObjectTestAuthListenerOne : public AuthListener {
 
     QStatus RequestCredentialsAsync(const char* authMechanism, const char* authPeer, uint16_t authCount, const char* userId, uint16_t credMask, void* context)
@@ -234,6 +236,7 @@ class ProxyBusObjectTestAuthListenerOne : public AuthListener {
     void AuthenticationComplete(const char* authMechanism, const char* authPeer, bool success) {
         EXPECT_STREQ("ALLJOYN_SRP_KEYX", authMechanism);
         EXPECT_TRUE(success);
+        auth_complete_listener1_flag = true;
     }
 };
 
@@ -247,12 +250,16 @@ class ProxyBusObjectTestAuthListenerTwo : public AuthListener {
     }
 
     void AuthenticationComplete(const char* authMechanism, const char* authPeer, bool success) {
+
         EXPECT_STREQ("ALLJOYN_SRP_KEYX", authMechanism);
         EXPECT_TRUE(success);
+        auth_complete_listener2_flag = true;
     }
 };
 
 TEST_F(ProxyBusObjectTest, SecureConnection) {
+    auth_complete_listener1_flag = false;
+    auth_complete_listener2_flag = false;
     /* create/activate alljoyn_interface */
     InterfaceDescription* testIntf = NULL;
     status = servicebus.CreateInterface(INTERFACE_NAME, testIntf, false);
@@ -289,8 +296,11 @@ TEST_F(ProxyBusObjectTest, SecureConnection) {
     status = proxy.SecureConnection();
     EXPECT_EQ(ER_OK, status) << "  Actual Status: " << QCC_StatusText(status);
 }
-//ALLJOYN-1595
-TEST_F(ProxyBusObjectTest, DISABLED_SecureConnectionAsync) {
+
+TEST_F(ProxyBusObjectTest, SecureConnectionAsync) {
+    auth_complete_listener1_flag = false;
+    auth_complete_listener2_flag = false;
+
     /* create/activate alljoyn_interface */
     InterfaceDescription* testIntf = NULL;
     status = servicebus.CreateInterface(INTERFACE_NAME, testIntf, false);
@@ -326,4 +336,11 @@ TEST_F(ProxyBusObjectTest, DISABLED_SecureConnectionAsync) {
 
     status = proxy.SecureConnectionAsync();
     EXPECT_EQ(ER_OK, status) << "  Actual Status: " << QCC_StatusText(status);
+    for (size_t i = 0; i < 200; ++i) {
+        if (auth_complete_listener1_flag && auth_complete_listener2_flag) {
+            break;
+        }
+        qcc::Sleep(10);
+    }
+
 }
