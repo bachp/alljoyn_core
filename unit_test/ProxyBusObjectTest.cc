@@ -342,5 +342,6 @@ TEST_F(ProxyBusObjectTest, SecureConnectionAsync) {
         }
         qcc::Sleep(10);
     }
-
+    EXPECT_TRUE(auth_complete_listener1_flag);
+    EXPECT_TRUE(auth_complete_listener2_flag);
 }
