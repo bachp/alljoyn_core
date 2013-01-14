@@ -611,6 +611,17 @@ int main(int argc, char** argv)
             }
         }
 
+        /*
+         * Do a find on the default router name just to coax daemons into
+         * responding so we can have a look in wireshark to make sure they are
+         * working.  The name we are finding is a prefix and we expect to find
+         * daemons advertising something like "org.alljoyn.daemon.MFqCZb8c" with
+         * the short GUID unique-i-fier added.  We expect responses to be sent
+         * back to our unicast address, not the usual multicast group.  We don't
+         * ever actually do anything with the responses.
+         */
+        g_msgBus->FindAdvertisedName("org.alljoyn.daemon.");
+
         if (ER_OK == status) {
             if (startService) {
                 /* Start the org.alljoyn.alljoyn_test service. */

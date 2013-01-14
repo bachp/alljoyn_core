@@ -860,6 +860,18 @@ class IpNameServiceImpl : public qcc::Thread {
     void SendOutboundMessages(void);
 
     /**
+     * Send outbound name service messages over unicast, out the network
+     * interfaces implied by the destination address in the header.
+     */
+    void SendOutboundMessageQuietly(Header& header);
+
+    /**
+     * Send outbound name service messages over multicast, out the list of live
+     * interfaces implied by the transport masks in the message.
+     */
+    void SendOutboundMessageActively(Header& header);
+
+    /**
      * Main thread entry point.
      *
      * @param arg  Unused thread entry arg.
@@ -876,6 +888,24 @@ class IpNameServiceImpl : public qcc::Thread {
     /**
      * @internal
      * @brief Send a protocol message out on the multicast group.
+     *
+     * @param sockFd The socket FD that is used to send and receive to and from
+     *     the life interface to which the name service message will be sent.
+     * @param interfaceAddress The IPV4 address of the interface which is used
+     *     as a template for constructing a subnet directed broadcast address.
+     *     This address provides the network number part of the broadcast
+     *     address.  Only useful if sockFd is of family QCC_AF_INET.
+     * @param interfaceAddressPrefixLen The network prefix length of the
+     *     networkd which is used to determine which part of <interfaceAddress>
+     *     contains the network part of the address.
+     * @param flags The flags (IFF_*) bits from the network interface.  Used
+     *     to decide if the network is broadcast- or multicast-capable.
+     * @param sockFdIsIPv4 Used to tell what address family sockFd has been
+     *     initialized to and therefore what kind of multicast needs to be done
+     *     or whether or not broadcast is meaninful.
+     * @param interfaceIndex The index into the live interfaces array
+     *     corresponding to the interface we're going to send to.  Really just
+     *     used for debugging.
      */
     void SendProtocolMessage(
         qcc::SocketFd sockFd,
@@ -883,7 +913,62 @@ class IpNameServiceImpl : public qcc::Thread {
         uint32_t interfaceAddressPrefixLen,
         uint32_t flags,
         bool sockFdIsIPv4,
-        Header& header);
+        Header& header,
+        uint32_t interfaceIndex);
+
+    /**
+     * @internal
+     * @brief Is the interface specified by the liveIndex an interface requested
+     * to be opened by the transport specified by the transportIndex.
+     *
+     * @param transportIndex An index into the per-transport data structures
+     *     derived from the transport mask of the transport under consideration.
+     * @param liveIndex An index into the list of live interfaces specifying the
+     *     index under consideration.
+     */
+    bool InterfaceRequested(uint32_t transportIndex, uint32_t liveIndex);
+
+    /**
+     * @internal
+     * @brief Rewrite (set) the IPv4 and IPv6 addresses of the provided is-at message
+     * respecting the version of the messagd as specified by msgVersion.
+     *
+     * @param msgVersion The version of the message that is being constructed.
+     * @param isAt A pointer to the is-at message that is to be rewritten.
+     * @param haveIPv4address If true, the provided ipv4Address is valid and
+     *     should be used.
+     * @param iPv4address The qcc::IPAddress of the IPv4 interface for which
+     *      the is-at message is eventually destined.
+     * @param haveIPv6address If true, the provided ipv6Address is valid and
+     *      should be used.
+     * @param iPv6address The qcc::IPAddress of the IPv6 interface for which
+     *     the is-at message is eventually destined.
+     */
+    void RewriteVersionSpecific(uint32_t msgVersion, IsAt* isAt,
+                                bool haveIPv4address, qcc::IPAddress ipv4address,
+                                bool haveIPv6Address, qcc::IPAddress ipv6address);
+
+    /**
+     * @internal
+     * @brief Are the provided IP Addresses on the same network?
+     *
+     * Take a look at the network number part of the two IP addresses (as
+     * determined by the prefix length) and compare them.  If the two networks
+     * both appear to be on the same network, then return true.
+     *
+     * @warning This method does not take the interface index of an IP address
+     * into account, so two netwok interfaces, both connected to a private
+     * network address (192.168.x.x) may be erroneously identified as belonging
+     * to the same network.  In this case, it might result in a name service
+     * packet being unintentionally sent to the "duplicate" network as well as
+     * the "correct" network.
+     *
+     * @param interfaceAddressPrefixLen The network prefix length of both
+     *     networks.
+     * @param addressA The qcc::IPAddress of the first of the two networks.
+     * @param addressB The qcc::IPAddress of the first of the two networks.
+     */
+    bool SameNetwork(uint32_t interfaceAddressPrefixLen, qcc::IPAddress addressA, qcc::IPAddress addressB);
 
     /**
      * @internal
@@ -1005,7 +1090,7 @@ class IpNameServiceImpl : public qcc::Thread {
      * @internal
      * @brief Retransmit exported advertisements.
      */
-    void Retransmit(uint32_t index, bool exiting, bool quietly);
+    void Retransmit(uint32_t index, bool exiting, bool quietly, qcc::IPAddress destination);
 
     /**
      * @internal
@@ -1165,6 +1250,9 @@ class IpNameServiceImpl : public qcc::Thread {
      * communication with the outside world.
      */
     bool m_doDisable;
+
+    qcc::SocketFd m_ipv4QuietSockFd;
+    qcc::SocketFd m_ipv6QuietSockFd;
 };
 
 } // namespace ajn

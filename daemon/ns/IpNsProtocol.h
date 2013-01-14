@@ -29,6 +29,7 @@
 
 #include <vector>
 #include <qcc/String.h>
+#include <qcc/IPAddress.h>
 #include <alljoyn/TransportMask.h>
 #include <alljoyn/Status.h>
 
@@ -1586,6 +1587,49 @@ class Header : public ProtocolElement {
 
     /**
      * @internal
+     * @brief Set the optional destination address for the message corresponding
+     * to this header.  This is not a perfect place for this information, but it
+     * is a very convenient place.  This information is not part of the wire
+     * protocol.
+     *
+     * @param destination The destination IP address of the corresponding message.
+     */
+    void SetDestination(qcc::IPAddress destination) { m_destination = destination; m_destinationSet = true; }
+
+    /**
+     * @internal
+     * @brief Get the optional destination address for the message corresponding
+     * to this header.  If the destination has not been set, the result is not
+     * defined.  This is not a perfect place for this information, but it is a
+     * very convenient place.  This information is not part of the wire
+     * protocol.
+     *
+     * @return The destination IP address of the corresponding message.
+     */
+    qcc::IPAddress GetDestination(void) { return m_destination; }
+
+    /**
+     * @internal
+     * @brief Set the optional destination address for the message corresponding
+     * to this header.  This is not a perfect place for this information, but it
+     * is a very convenient place.  This information is not part of the wire
+     * protocol.
+     *
+     * @return The destination IP address of the corresponding message.
+     */
+    bool DestinationSet(void) { return m_destinationSet; }
+
+    /**
+     * @internal
+     * @brief Set the optional destination address for the message corresponding
+     * to this header.  This is not a perfect place for this information, but it
+     * is a very convenient place.  This information is not part of the wire
+     * protocol.
+     */
+    void ClearDestination() { m_destinationSet = false; }
+
+    /**
+     * @internal
      * @brief Set the number of times this header has been sent on the wire.
      * This is not a perfect place for this information, but it is a very
      * convenient place.  This information is not part of the wire protocol.
@@ -1886,6 +1930,8 @@ class Header : public ProtocolElement {
   private:
     uint8_t m_version;
     uint8_t m_timer;
+    qcc::IPAddress m_destination;
+    bool m_destinationSet;
     uint32_t m_retries;
     uint32_t m_tick;
     std::vector<WhoHas> m_questions;

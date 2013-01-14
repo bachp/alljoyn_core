@@ -452,9 +452,10 @@ IpNameServiceImpl::IpNameServiceImpl()
     m_modulus(QUESTION_MODULUS), m_retries(NUMBER_RETRIES),
     m_loopback(false), m_enableIPv4(false), m_enableIPv6(false),
     m_wakeEvent(), m_forceLazyUpdate(false),
-    m_enabled(false), m_doEnable(false), m_doDisable(false)
+    m_enabled(false), m_doEnable(false), m_doDisable(false),
+    m_ipv4QuietSockFd(-1), m_ipv6QuietSockFd(-1)
 {
-    QCC_DbgPrintf(("IpNameServiceImpl::IpNameServiceImpl()"));
+    QCC_DbgHLPrintf(("IpNameServiceImpl::IpNameServiceImpl()"));
 
     memset(&m_any[0], 0, sizeof(m_any));
     memset(&m_callback[0], 0, sizeof(m_callback));
@@ -466,7 +467,7 @@ IpNameServiceImpl::IpNameServiceImpl()
 
 QStatus IpNameServiceImpl::Init(const qcc::String& guid, bool loopback)
 {
-    QCC_DbgPrintf(("IpNameServiceImpl::Init()"));
+    QCC_DbgHLPrintf(("IpNameServiceImpl::Init()"));
 
     //
     // Can only call Init() if the object is not running or in the process
@@ -499,7 +500,6 @@ QStatus IpNameServiceImpl::Init(const qcc::String& guid, bool loopback)
     m_broadcast = false;
 #endif
 
-
     m_guid = guid;
     m_loopback = loopback;
     m_terminal = false;
@@ -526,7 +526,7 @@ QStatus IpNameServiceImpl::Init(const qcc::String& guid, bool loopback)
 //
 IpNameServiceImpl::~IpNameServiceImpl()
 {
-    QCC_DbgPrintf(("IpNameServiceImpl::~IpNameServiceImpl()"));
+    QCC_DbgHLPrintf(("IpNameServiceImpl::~IpNameServiceImpl()"));
 
     //
     // Stop the worker thread to get things calmed down.
@@ -558,6 +558,20 @@ IpNameServiceImpl::~IpNameServiceImpl()
         // nobody else clears them and we are obviously done with them.
         //
         m_requestedInterfaces[i].clear();
+    }
+
+    //
+    // If we opened a socket to send quiet responses (unicast, not over the
+    // multicast channel) we need to close it.
+    //
+    if (m_ipv4QuietSockFd != -1) {
+        qcc::Close(m_ipv4QuietSockFd);
+        m_ipv4QuietSockFd = -1;
+    }
+
+    if (m_ipv6QuietSockFd != -1) {
+        qcc::Close(m_ipv6QuietSockFd);
+        m_ipv6QuietSockFd = -1;
     }
 
     //
@@ -602,7 +616,7 @@ QStatus IpNameServiceImpl::DeleteVirtualInterface(const qcc::String& ifceName)
 
 QStatus IpNameServiceImpl::OpenInterface(TransportMask transportMask, const qcc::String& name)
 {
-    QCC_DbgPrintf(("IpNameServiceImpl::OpenInterface(%s)", name.c_str()));
+    QCC_DbgHLPrintf(("IpNameServiceImpl::OpenInterface(%s)", name.c_str()));
 
     //
     // Exactly one bit must be set in a transport mask in order to identify the
@@ -664,7 +678,7 @@ QStatus IpNameServiceImpl::OpenInterface(TransportMask transportMask, const qcc:
 
 QStatus IpNameServiceImpl::OpenInterface(TransportMask transportMask, const qcc::IPAddress& addr)
 {
-    QCC_DbgPrintf(("IpNameServiceImpl::OpenInterface(%s)", addr.ToString().c_str()));
+    QCC_DbgHLPrintf(("IpNameServiceImpl::OpenInterface(%s)", addr.ToString().c_str()));
 
     //
     // Exactly one bit must be set in a transport mask in order to identify the
@@ -738,7 +752,7 @@ QStatus IpNameServiceImpl::OpenInterface(TransportMask transportMask, const qcc:
 
 QStatus IpNameServiceImpl::CloseInterface(TransportMask transportMask, const qcc::String& name)
 {
-    QCC_DbgPrintf(("IpNameServiceImpl::CloseInterface(%s)", name.c_str()));
+    QCC_DbgHLPrintf(("IpNameServiceImpl::CloseInterface(%s)", name.c_str()));
 
     //
     // Exactly one bit must be set in a transport mask in order to identify the
@@ -789,7 +803,7 @@ QStatus IpNameServiceImpl::CloseInterface(TransportMask transportMask, const qcc
 
 QStatus IpNameServiceImpl::CloseInterface(TransportMask transportMask, const qcc::IPAddress& addr)
 {
-    QCC_DbgPrintf(("IpNameServiceImpl::CloseInterface(%s)", addr.ToString().c_str()));
+    QCC_DbgHLPrintf(("IpNameServiceImpl::CloseInterface(%s)", addr.ToString().c_str()));
 
     //
     // Exactly one bit must be set in a transport mask in order to identify the
@@ -1326,7 +1340,8 @@ QStatus IpNameServiceImpl::Enable(TransportMask transportMask,
                                   uint16_t reliableIPv4Port, uint16_t reliableIPv6Port,
                                   uint16_t unreliableIPv4Port, uint16_t unreliableIPv6Port)
 {
-    QCC_DbgHLPrintf(("IpNameServiceImpl::Enable()"));
+    QCC_DbgHLPrintf(("IpNameServiceImpl::Enable(0x%x, %d., %d., %d., %d.)", transportMask,
+                     reliableIPv4Port, reliableIPv6Port, unreliableIPv4Port, unreliableIPv6Port));
 
     //
     // Exactly one bit must be set in a transport mask in order to identify the
@@ -1428,7 +1443,7 @@ QStatus IpNameServiceImpl::Enabled(TransportMask transportMask,
                                    uint16_t& reliableIPv4Port, uint16_t& reliableIPv6Port,
                                    uint16_t& unreliableIPv4Port, uint16_t& unreliableIPv6Port)
 {
-    QCC_DbgHLPrintf(("IpNameServiceImpl::Enabled()"));
+    QCC_DbgPrintf(("IpNameServiceImpl::Enabled()"));
 
     //
     // Exactly one bit must be set in a transport mask in order to identify the
@@ -1452,7 +1467,7 @@ QStatus IpNameServiceImpl::Enabled(TransportMask transportMask,
 
 QStatus IpNameServiceImpl::FindAdvertisedName(TransportMask transportMask, const qcc::String& wkn, LocatePolicy policy)
 {
-    QCC_DbgHLPrintf(("IpNameServiceImpl::FindAdvertisedName(): %s with policy %d", wkn.c_str(), policy));
+    QCC_DbgHLPrintf(("IpNameServiceImpl::FindAdvertisedName(0x%x, \"%s\", %d)", transportMask, wkn.c_str(), policy));
 
     //
     // Exactly one bit must be set in a transport mask in order to identify the
@@ -1631,7 +1646,7 @@ void IpNameServiceImpl::ClearCallbacks(void)
 
 size_t IpNameServiceImpl::NumAdvertisements(TransportMask transportMask)
 {
-    QCC_DbgHLPrintf(("IpNameServiceImpl::NumAdvertisements()"));
+    QCC_DbgPrintf(("IpNameServiceImpl::NumAdvertisements()"));
 
     //
     // Exactly one bit must be set in a transport mask in order to identify the
@@ -1650,7 +1665,7 @@ size_t IpNameServiceImpl::NumAdvertisements(TransportMask transportMask)
 
 QStatus IpNameServiceImpl::AdvertiseName(TransportMask transportMask, const qcc::String& wkn, bool quietly)
 {
-    QCC_DbgHLPrintf(("IpNameServiceImpl::AdvertiseName(): %s", wkn.c_str()));
+    QCC_DbgHLPrintf(("IpNameServiceImpl::AdvertiseName(0x%x, \"%s\", %d)", transportMask, wkn.c_str(), quietly));
 
     vector<qcc::String> wknVector;
     wknVector.push_back(wkn);
@@ -1660,7 +1675,7 @@ QStatus IpNameServiceImpl::AdvertiseName(TransportMask transportMask, const qcc:
 
 QStatus IpNameServiceImpl::AdvertiseName(TransportMask transportMask, vector<qcc::String>& wkn, bool quietly)
 {
-    QCC_DbgHLPrintf(("IpNameServiceImpl::AdvertiseName()"));
+    QCC_DbgHLPrintf(("IpNameServiceImpl::AdvertiseName(0x%x, 0x%p, %d)", transportMask, &wkn, quietly));
 
     //
     // Exactly one bit must be set in a transport mask in order to identify the
@@ -1970,7 +1985,7 @@ QStatus IpNameServiceImpl::AdvertiseName(TransportMask transportMask, vector<qcc
 
 QStatus IpNameServiceImpl::CancelAdvertiseName(TransportMask transportMask, const qcc::String& wkn)
 {
-    QCC_DbgPrintf(("IpNameServiceImpl::CancelAdvertiseName(): %s", wkn.c_str()));
+    QCC_DbgPrintf(("IpNameServiceImpl::CancelAdvertiseName(0x%x, \"%s\")", transportMask, wkn.c_str()));
 
     vector<qcc::String> wknVector;
     wknVector.push_back(wkn);
@@ -1980,7 +1995,7 @@ QStatus IpNameServiceImpl::CancelAdvertiseName(TransportMask transportMask, cons
 
 QStatus IpNameServiceImpl::CancelAdvertiseName(TransportMask transportMask, vector<qcc::String>& wkn)
 {
-    QCC_DbgPrintf(("IpNameServiceImpl::CancelAdvertiseName()"));
+    QCC_DbgPrintf(("IpNameServiceImpl::CancelAdvertiseName(0x%x, 0x%p)", transportMask, &wkn));
 
     //
     // Exactly one bit must be set in a transport mask in order to identify the
@@ -2367,9 +2382,10 @@ void IpNameServiceImpl::SendProtocolMessage(
     uint32_t interfaceAddressPrefixLen,
     uint32_t flags,
     bool sockFdIsIPv4,
-    Header& header)
+    Header& header,
+    uint32_t interfaceIndex)
 {
-    QCC_DbgHLPrintf(("IpNameServiceImpl::SendProtocolMessage()"));
+    QCC_DbgPrintf(("IpNameServiceImpl::SendProtocolMessage()"));
 
     //
     // Legacy 802.11 MACs do not do backoff and retransmission of packets
@@ -2385,7 +2401,7 @@ void IpNameServiceImpl::SendProtocolMessage(
     // This also works to limit the number of name service messages that
     // can be sent out on the network for any given amount of time; which
     // is good for preventing our users from trying to advertise zillions
-    // of names and tie up the net.
+    // of names and flooding the net.
     //
     qcc::Sleep(rand() % 128);
 
@@ -2412,14 +2428,78 @@ void IpNameServiceImpl::SendProtocolMessage(
     uint8_t* buffer = new uint8_t[size];
     header.Serialize(buffer);
 
+    size_t sent;
+
     //
+    // We have the concept of a quiet advertisement which means that we don't
+    // actively send out is-at packets announcing that we have corresponding
+    // well-known names.  We don't announce them gratuitously, but we do respond
+    // to queries on the names we are quietly advertising.  With quiet
+    // advertisements come quiet responses.  This means that we don't yell our
+    // answers over IP multicast, but we politely and quietly respond over
+    // unicast.
+    //
+    // So the first thing to do is to decide whether or not we need to respond
+    // quietly or over the multicast channel.  If this protocol message corresponds
+    // to a quiet advertisement, the destination address in the header will have
+    // been set and we can just respond directly to that address and bail.
+    //
+    // One complication is that the name service wants to discover all possible
+    // interfaces and send all advertisements out all interfaces over all
+    // flavors (IPv4 and IPv6) and be completely in control of routing.  In the
+    // case of quiet responses we only want to send out responses when the
+    // flavor of the address and socket match, and we only want to send messages
+    // out on the network number on which the advertisement came in.  Rather
+    // than fight with the natural inclination of the bulk of the code, we just
+    // quickly open a new socket and let the system route the message out in its
+    // usual way.
+    //
+    // This is a bit of a hack, but then again, this is an experimental change
+    // as of now.
+    //
+    if (header.DestinationSet()) {
+        QStatus status = ER_OK;
+        qcc::IPAddress destination = header.GetDestination();
+        qcc::AddressFamily family = destination.IsIPv4() ? qcc::QCC_AF_INET : qcc::QCC_AF_INET6;
+
+        if (family == qcc::QCC_AF_INET && m_ipv4QuietSockFd == -1) {
+            status = qcc::Socket(family, qcc::QCC_SOCK_DGRAM, m_ipv4QuietSockFd);
+        }
+
+        if (family == qcc::QCC_AF_INET6 && m_ipv6QuietSockFd == -1) {
+            status = qcc::Socket(family, qcc::QCC_SOCK_DGRAM, m_ipv6QuietSockFd);
+        }
+
+        if (status != ER_OK) {
+            QCC_LogError(status, ("IpNameServiceImpl::SendProtocolMessage(): Socket() failed: %d - %s", qcc::GetLastError(), qcc::GetLastErrorString().c_str()));
+        }
+
+        if (status == ER_OK) {
+            QCC_DbgHLPrintf(("IpNameServiceImpl::SendProtocolMessage(): Sending quietly to \"%s\" over \"%s\"", destination.ToString().c_str(), m_liveInterfaces[interfaceIndex].m_interfaceName.c_str()));
+
+            if (family == qcc::QCC_AF_INET) {
+                status = qcc::SendTo(m_ipv4QuietSockFd, destination, MULTICAST_PORT, buffer, size, sent);
+            } else {
+                status = qcc::SendTo(m_ipv6QuietSockFd, destination, MULTICAST_PORT, buffer, size, sent);
+            }
+        }
+
+        if (status != ER_OK) {
+            QCC_LogError(status, ("IpNameServiceImpl::SendProtocolMessage(): Error quietly sending to \"%s\"", destination.ToString().c_str()));
+        }
+
+        delete [] buffer;
+        return;
+    }
+
+    //
+    // Since we have fallen through to here,
     // Now it's time to send the packets.  Packets is plural since we will try
     // to get our name service information across to peers in as many ways as is
     // reasonably possible since it turns out that discovery is a weak link in
     // the system.  This means we will try broadcast and IPv6 multicast whenever
     // possible.
     //
-    size_t sent;
     if (sockFdIsIPv4) {
         //
         // If the underlying interface told us that it suported multicast, send
@@ -2432,20 +2512,22 @@ void IpNameServiceImpl::SendProtocolMessage(
 #if WORKAROUND_2_3_BUG
 
             if (msgVersion == 0) {
-                QCC_DbgPrintf(("IpNameServiceImpl::SendProtocolMessage():  Sending to IPv4 Site Administered multicast group"));
                 qcc::IPAddress ipv4SiteAdminMulticast(IPV4_MULTICAST_GROUP);
+                QCC_DbgHLPrintf(("IpNameServiceImpl::SendProtocolMessage():  Sending actively to \"%s\" over \"%s\"",
+                                 ipv4SiteAdminMulticast.ToString().c_str(), m_liveInterfaces[interfaceIndex].m_interfaceName.c_str()));
                 QStatus status = qcc::SendTo(sockFd, ipv4SiteAdminMulticast, MULTICAST_PORT, buffer, size, sent);
                 if (status != ER_OK) {
-                    QCC_LogError(ER_FAIL, ("IpNameServiceImpl::SendProtocolMessage():  Error sending to IPv4 Site Administered multicast group"));
+                    QCC_LogError(status, ("IpNameServiceImpl::SendProtocolMessage():  Error sending to IPv4 Site Administered multicast group"));
                 }
             }
 #endif
 
-            QCC_DbgPrintf(("IpNameServiceImpl::SendProtocolMessage():  Sending to IPv4 Local Network Control Block multicast group"));
             qcc::IPAddress ipv4LocalMulticast(IPV4_ALLJOYN_MULTICAST_GROUP);
+            QCC_DbgHLPrintf(("IpNameServiceImpl::SendProtocolMessage():  Sending actively to \"%s\" over \"%s\"",
+                             ipv4LocalMulticast.ToString().c_str(), m_liveInterfaces[interfaceIndex].m_interfaceName.c_str()));
             QStatus status = qcc::SendTo(sockFd, ipv4LocalMulticast, MULTICAST_PORT, buffer, size, sent);
             if (status != ER_OK) {
-                QCC_LogError(ER_FAIL, ("IpNameServiceImpl::SendProtocolMessage():  Error sending to IPv4 Local Network Control Block multicast group"));
+                QCC_LogError(status, ("IpNameServiceImpl::SendProtocolMessage():  Error sending to IPv4 Local Network Control Block multicast group"));
             }
         }
 #endif
@@ -2489,9 +2571,8 @@ void IpNameServiceImpl::SendProtocolMessage(
                 //
                 uint32_t addr = (interfaceAddress.GetIPv4AddressCPUOrder() & mask) | ~mask;
                 qcc::IPAddress ipv4Broadcast(addr);
-                QCC_DbgPrintf(("IpNameServiceImpl::SendProtocolMessage():  Sending to subnet directed broadcast address %s",
-                               ipv4Broadcast.ToString().c_str()));
-
+                QCC_DbgHLPrintf(("IpNameServiceImpl::SendProtocolMessage():  Sending actively to \"%s\" over \"%s\"",
+                                 ipv4Broadcast.ToString().c_str(), m_liveInterfaces[interfaceIndex].m_interfaceName.c_str()));
                 QStatus status = qcc::SendTo(sockFd, ipv4Broadcast, BROADCAST_PORT, buffer, size, sent);
                 if (status != ER_OK) {
                     QCC_LogError(ER_FAIL, ("IpNameServiceImpl::SendProtocolMessage():  Error sending to IPv4 (broadcast)"));
@@ -2508,21 +2589,23 @@ void IpNameServiceImpl::SendProtocolMessage(
 #if WORKAROUND_2_3_BUG
 
             if (msgVersion == 0) {
-                QCC_DbgPrintf(("IpNameServiceImpl::SendProtocolMessage():  Sending to IPv6 Site Administered multicast group"));
                 qcc::IPAddress ipv6SiteAdmin(IPV6_MULTICAST_GROUP);
+                QCC_DbgHLPrintf(("IpNameServiceImpl::SendProtocolMessage():  Sending actively to \"%s\" over \"%s\"",
+                                 ipv6SiteAdmin.ToString().c_str(), m_liveInterfaces[interfaceIndex].m_interfaceName.c_str()));
                 QStatus status = qcc::SendTo(sockFd, ipv6SiteAdmin, MULTICAST_PORT, buffer, size, sent);
                 if (status != ER_OK) {
-                    QCC_LogError(ER_FAIL, ("IpNameServiceImpl::SendProtocolMessage():  Error sending to IPv6 Site Administered multicast group "));
+                    QCC_LogError(status, ("IpNameServiceImpl::SendProtocolMessage():  Error sending to IPv6 Site Administered multicast group "));
                 }
             }
 
 #endif
 
-            QCC_DbgPrintf(("IpNameServiceImpl::SendProtocolMessage():  Sending to IPv6 Link-Local Scope multicast group"));
             qcc::IPAddress ipv6AllJoyn(IPV6_ALLJOYN_MULTICAST_GROUP);
+            QCC_DbgHLPrintf(("IpNameServiceImpl::SendProtocolMessage():  Sending actively to \"%s\" over \"%s\"",
+                             ipv6AllJoyn.ToString().c_str(), m_liveInterfaces[interfaceIndex].m_interfaceName.c_str()));
             QStatus status = qcc::SendTo(sockFd, ipv6AllJoyn, MULTICAST_PORT, buffer, size, sent);
             if (status != ER_OK) {
-                QCC_LogError(ER_FAIL, ("IpNameServiceImpl::SendProtocolMessage():  Error sending to IPv6 Link-Local Scope multicast group "));
+                QCC_LogError(status, ("IpNameServiceImpl::SendProtocolMessage():  Error sending to IPv6 Link-Local Scope multicast group "));
             }
         }
     }
@@ -2530,14 +2613,648 @@ void IpNameServiceImpl::SendProtocolMessage(
     delete [] buffer;
 }
 
+bool IpNameServiceImpl::InterfaceRequested(uint32_t transportIndex, uint32_t liveIndex)
+{
+    QCC_DbgPrintf(("IpNameServiceImpl::InterfaceRequested()"));
+
+    //
+    // Look for the wildcard condition (any interface) and take into account
+    // that <any> doesn't mean P2P on Android.
+    //
+#if defined(QCC_OS_ANDROID)
+    if (m_any[transportIndex] && m_liveInterfaces[liveIndex].m_interfaceName.find("p2p") == qcc::String::npos) {
+        QCC_DbgPrintf(("IpNameServiceImpl::InterfaceRequested(): Interface \"%s\" approved.", m_liveInterfaces[liveIndex].m_interfaceName.c_str()));
+        return true;
+    }
+#else
+    if (m_any[transportIndex]) {
+        QCC_DbgPrintf(("IpNameServiceImpl::InterfaceRequested(): Interface \"%s\" approved.", m_liveInterfaces[liveIndex].m_interfaceName.c_str()));
+        return true;
+    }
+#endif
+
+    //
+    // Now, the question is whether or not the current interface as indicated by
+    // the interface name is on the list of requested interfaces for the
+    // transport mask found in the message.  If it is not, we must not send this
+    // message out the current interface.
+    //
+    for (uint32_t i = 0; i < m_requestedInterfaces[transportIndex].size(); ++i) {
+        if (m_requestedInterfaces[transportIndex][i].m_interfaceName == m_liveInterfaces[liveIndex].m_interfaceName) {
+            QCC_DbgPrintf(("IpNameServiceImpl::InterfaceRequested(): Interface \"%s\" approved.", m_liveInterfaces[liveIndex].m_interfaceName.c_str()));
+            return true;
+        }
+    }
+
+    return false;
+}
+
+void IpNameServiceImpl::RewriteVersionSpecific(
+    uint32_t msgVersion,
+    IsAt* isAt,
+    bool haveIPv4address, qcc::IPAddress ipv4address,
+    bool haveIPv6address, qcc::IPAddress ipv6address)
+{
+    QCC_DbgPrintf(("IpNameServiceImpl::RewriteVersionSpecific()"));
+
+    //
+    // We're modifying answsers in-place so clear any state we might have
+    // previosly added.
+    //
+    isAt->ClearIPv4();
+    isAt->ClearIPv6();
+    isAt->ClearReliableIPv4();
+    isAt->ClearUnreliableIPv4();
+    isAt->ClearReliableIPv6();
+    isAt->ClearUnreliableIPv6();
+
+    switch (msgVersion) {
+    case 0:
+        QCC_DbgPrintf(("IpNameServiceImpl::RewriteVersionSpecific(): Answer gets version zero"));
+
+        isAt->SetVersion(0, 0);
+        isAt->SetTcpFlag(true);
+
+        //
+        // Remember that we must sneak in the fact that we are a post-zero name
+        // service by the old "setting the UDP flag" trick.
+        //
+        isAt->SetUdpFlag(true);
+
+        //
+        // For version zero, the name service was an integral part of the TCP
+        // transport.  Because of this, we know implicitly that the only kind of
+        // address supported was the reliable IPv4 address.  This means we just
+        // need to set the IPv4 address.
+        //
+        if (haveIPv4address) {
+            isAt->SetIPv4(ipv4address.ToString());
+        }
+        break;
+
+    case 1:
+    {
+        QCC_DbgPrintf(("IpNameServiceImpl::RewriteVersionSpecific(): Answer gets version one"));
+
+        isAt->SetVersion(1, 1);
+
+        uint32_t transportIndex = IndexFromBit(isAt->GetTransportMask());
+        assert(transportIndex < 16 && "IpNameServiceImpl::RewriteVersionSpecific(): Bad transport index in messageg");
+
+        //
+        // Now we can write the various addresses into the
+        // packet if they are called for.
+        //
+        if (haveIPv4address && m_reliableIPv4Port[transportIndex]) {
+            isAt->SetReliableIPv4(ipv4address.ToString(), m_reliableIPv4Port[transportIndex]);
+        }
+        if (haveIPv4address && m_unreliableIPv4Port[transportIndex]) {
+            isAt->SetUnreliableIPv4(ipv4address.ToString(), m_unreliableIPv4Port[transportIndex]);
+        }
+        if (haveIPv6address && m_reliableIPv6Port[transportIndex]) {
+            isAt->SetReliableIPv6(ipv6address.ToString(), m_reliableIPv6Port[transportIndex]);
+        }
+        if (haveIPv6address && m_unreliableIPv6Port[transportIndex]) {
+            isAt->SetUnreliableIPv6(ipv6address.ToString(), m_unreliableIPv6Port[transportIndex]);
+        }
+        break;
+    }
+
+    default:
+        assert(false && "IpNameServiceImpl::RewriteVersionSpecific(): Bad message version");
+        break;
+    }
+}
+
+bool IpNameServiceImpl::SameNetwork(uint32_t interfaceAddressPrefixLen, qcc::IPAddress addressA, qcc::IPAddress addressB)
+{
+    QCC_DbgPrintf(("IpNameServiceImpl::SameNetwork(%d, \"%s\", \"%s\")", interfaceAddressPrefixLen,
+                   addressA.ToString().c_str(), addressB.ToString().c_str()));
+
+    //
+    // If there was a problem getting the IP address prefix length, it will come
+    // in as -1.  In this case, we can't determine what part of the addresses
+    // are network number so we don't try.
+    //
+    if (interfaceAddressPrefixLen == static_cast<uint32_t>(-1)) {
+        QCC_LogError(ER_FAIL, ("IpNameServiceImpl::SameNetwork(): Bad network prefix"));
+        return false;
+    }
+
+    if (addressA.IsIPv6()) {
+        if (addressB.IsIPv4()) {
+            QCC_DbgPrintf(("IpNameServiceImpl::SameNetwork(): Network families are different"));
+            return false;
+        }
+
+        if (interfaceAddressPrefixLen > 128) {
+            QCC_LogError(ER_FAIL, ("IpNameServiceImpl::SameNetwork(): Bad IPv6 network prefix"));
+            return false;
+        }
+
+        uint8_t addrA[qcc::IPAddress::IPv6_SIZE];
+        addressA.RenderIPv6Binary(addrA, qcc::IPAddress::IPv6_SIZE);
+        uint8_t addrB[qcc::IPAddress::IPv6_SIZE];
+        addressB.RenderIPv6Binary(addrB, qcc::IPAddress::IPv6_SIZE);
+
+        uint32_t nBytes = interfaceAddressPrefixLen / 8;
+        for (uint32_t i = 0; i < nBytes; ++i) {
+            if (addrA[i] != addrB[i]) {
+                QCC_DbgPrintf(("IpNameServiceImpl::SameNetwork(): IPv6 networks are different"));
+                return false;
+            }
+        }
+
+        uint32_t nBits = interfaceAddressPrefixLen % 8;
+        uint8_t mask = 0;
+        for (uint32_t i = 0; i < nBits; ++i) {
+            mask >>= 1;
+            mask |= 0x80;
+        }
+
+        if ((addrA[nBytes] & mask) == (addrB[nBytes] & mask)) {
+            QCC_DbgPrintf(("IpNameServiceImpl::SameNetwork(): IPv6 networks are the same"));
+            return true;
+        } else {
+            QCC_DbgPrintf(("IpNameServiceImpl::SameNetwork(): IPv6 networks are different"));
+            return false;
+        }
+    } else if (addressA.IsIPv4()) {
+        if (addressB.IsIPv6()) {
+            QCC_DbgPrintf(("IpNameServiceImpl::SameNetwork(): Network families are different"));
+            return false;
+        }
+
+        if (interfaceAddressPrefixLen > 32) {
+            QCC_LogError(ER_FAIL, ("IpNameServiceImpl::SameNetwork(): Bad IPv4 network prefix"));
+            return false;
+        }
+
+        //
+        // Create a netmask with a one in the leading bits for each position
+        // implied by the prefix length.
+        //
+        uint32_t mask = 0;
+        for (uint32_t i = 0; i < interfaceAddressPrefixLen; ++i) {
+            mask >>= 1;
+            mask |= 0x80000000;
+        }
+
+        //
+        // The subnet directed broadcast address is the address part of the
+        // interface address (defined by the mask) with the rest of the bits
+        // set to one.
+        //
+        uint32_t addrA = (addressA.GetIPv4AddressCPUOrder() & mask);
+        uint32_t addrB = (addressB.GetIPv4AddressCPUOrder() & mask);
+
+        //
+        // If the masked off network bits are the same, the two addresses belong
+        // to the same network.
+        //
+        if (addrA == addrB) {
+            QCC_DbgPrintf(("IpNameServiceImpl::SameNetwork(): IPv4 networks are the same"));
+            return true;
+        } else {
+            QCC_DbgPrintf(("IpNameServiceImpl::SameNetwork(): IPv4 networks are different"));
+            return false;
+        }
+    }
+
+    assert(false && "IpNameServiceImpl::SameNetwork(): Not IPv4 or IPv6?");
+    return false;
+}
+
+void IpNameServiceImpl::SendOutboundMessageQuietly(Header& header)
+{
+    QCC_DbgPrintf(("IpNameServiceImpl::SendOutboundMessageQuietly()"));
+
+    //
+    // Sending messages quietly is a "new thing" so we don't bother to send
+    // down-version messages quietly since nobody will have a need for them.
+    //
+    uint32_t nsVersion, msgVersion;
+    header.GetVersion(nsVersion, msgVersion);
+    if (msgVersion == 0) {
+        QCC_DbgPrintf(("IpNameServiceImpl::SendOutboundMessageQuietly(): Down-version message ignored"));
+        return;
+    }
+
+    //
+    // If we are doing a quiet response, we'd better have a destination address
+    // to use.
+    //
+    assert(header.DestinationSet() && "IpNameServiceImpl::SendOutboundMessageQuietly(): No destination IP address");
+    qcc::IPAddress destination = header.GetDestination();
+
+    //
+    // We have a destination address for the message which came ultimately from
+    // the recvfrom that received the who-has message that drove the process
+    // that got us here.  Someone figured out how to send us this message, and
+    // we already figured out that we have an advertisement that matches that
+    // message, but are we sure that we are allowed to send a response out the
+    // interface specified by the network part of the destination address?
+    //
+    // Well, we have obviously opened the interface over which the message was
+    // received or it would not have been received; so *some* transport has
+    // opened that interface.  The question now is, was it the interface that
+    // advertised the name that opened the interface over which we received the
+    // who-has that caused us to respond?  It could be that transport A opened
+    // the interface, but transport B advertised the name.  the right place to
+    // do this check is up when the name was first received since we may have a
+    // collection of names here and we aren't really sure which one of those
+    // corresponds to the original request, so we simply assume that the right
+    // thing to do was done and we just send the message on out the interface
+    // corresponding to the destination address.
+    //
+    // Now, when higher level code queues up messages for us to send, it doesn't
+    // know to what interfaces we will eventually send the messages, and
+    // therefore what IP addresses we will be need to send as the contact
+    // addresses in the messages.  We expect our transport listeners to be
+    // listening to the appropriate INADDR_ANY address, and that they are
+    // relying on us to get the IP addressing information of the various
+    // networks we are talking to correct when we send out address and port
+    // information.  What this means is that we are going to have to rewrite the
+    // correct addresses into our is-at messages on the fly as we prepare to
+    // send them out.
+    //
+    // So we need to walk the list of live interfaces and figure out which one
+    // corresponds to the network part of the destination address.
+    //
+    for (uint32_t i = 0; (m_state == IMPL_RUNNING) && (i < m_liveInterfaces.size()); ++i) {
+        QCC_DbgPrintf(("IpNameServiceImpl::SendOutboundMessageQuetly(): Checking out live interface %d. (\"%s\")",
+                       i, m_liveInterfaces[i].m_interfaceName.c_str()));
+
+        //
+        // Don't bother to do anything if the socket FD isn't initialized, since
+        // we most likely couldn't have actually received this message over that
+        // socket (unless we're in a transient state) and so we shouldn't send
+        // it out that interface.
+        //
+        if (m_liveInterfaces[i].m_sockFd == -1) {
+            QCC_DbgPrintf(("IpNameServiceImpl::SendOutboundMessageQuietly(): Interface %d. is not live", i));
+            continue;
+        }
+
+        QCC_DbgPrintf(("IpNameServiceImpl::SendOutboundMessageQuietly(): Interface %d. is live", i));
+
+        //
+        // We need to start doing cuts to figure out where (not) to send this
+        // message.  The easiest cut is on address type.  If we have an IPv4
+        // destination address we quite obviously aren't giong to send it out an
+        // interface with an IPv6 address or vice versa.
+        //
+        if ((destination.IsIPv4() && m_liveInterfaces[i].m_address.IsIPv6()) || (destination.IsIPv4() && m_liveInterfaces[i].m_address.IsIPv6())) {
+            QCC_DbgPrintf(("IpNameServiceImpl::SendOutboundMessageQuietly(): Interface %d. is address family mismatched", i));
+            continue;
+        }
+
+        //
+        // Now we know we have a destination address which is the same address family
+        // as the current interface address.  Now, we need to see if they are on the
+        // same network.
+        //
+        // The interesting tidbit for us now is the network address prefix
+        // length (cf. net mask) that will let us know what part of the
+        // destination address corresponds to the network number and will allow
+        // us to compare destination address network with interface address
+        // network.
+        //
+        uint32_t interfaceAddressPrefixLen = m_liveInterfaces[i].m_prefixlen;
+
+        if (SameNetwork(interfaceAddressPrefixLen, m_liveInterfaces[i].m_address, destination)) {
+            uint32_t flags = m_liveInterfaces[i].m_flags;
+
+            //
+            // Okay, we have found the interface that received the who-has message
+            // that started this process.
+            //
+            // When higher level code queues up messages, it doesn't know to
+            // what interfaces and therefore over what source IP addresses we
+            // will be using to send messages out on.  What this means is that
+            // we are going to have to rewrite any IP addresses into is-at
+            // messages on the fly as we prepare to send them out.
+            //
+            // The next thing we need to do is to pull out the IP address of the
+            // current interface.  It may be either IPv4 or IPv6 -- all we know
+            // now is that it matches the destination.
+            //
+            qcc::IPAddress ipv4address;
+            bool haveIPv4address = m_liveInterfaces[i].m_address.IsIPv4();
+            if (haveIPv4address) {
+                QCC_DbgPrintf(("IpNameServiceImpl::SendOutboundMessageQuietly(): Interface %d. is IPv4", i));
+                ipv4address = m_liveInterfaces[i].m_address;
+            }
+            bool interfaceIsIPv4 = haveIPv4address;
+
+            qcc::IPAddress ipv6address;
+            bool haveIPv6address = m_liveInterfaces[i].m_address.IsIPv6();
+            if (haveIPv6address) {
+                QCC_DbgPrintf(("IpNameServiceImpl::SendOutboundMessageQuietly(): Interface %d. is IPv6", i));
+                ipv6address = m_liveInterfaces[i].m_address;
+            }
+
+            //
+            // Each interface in our list is going to have eiter an IPv4 or an IPv6
+            // address.  When we send the message, we want to send out both flavors
+            // (Ipv4 and IPv6) over each interface since we want to maximize the
+            // possibility that clients will actually receive this information
+            // (i.e. we send IPv4 addressing over an IPv6 packet).  This is because
+            // the probability to get a name service packet out is actually greater
+            // over IPv6, but TCP transports want to listen on IPv4.  We do the
+            // inverse just for consistency and to prepare for when TCP might
+            // actually use IPv6.
+            //
+            // So, if the current address is IPv4, we scan for an IPv6 address on
+            // another interface of the same name.  If the current address is IPv6,
+            // we for an IPv4 address.
+            //
+            for (uint32_t j = 0; j < m_liveInterfaces.size(); ++j) {
+                if (m_liveInterfaces[i].m_sockFd == -1 ||
+                    m_liveInterfaces[j].m_interfaceName != m_liveInterfaces[i].m_interfaceName) {
+                    continue;
+                }
+                if (haveIPv4address == false && m_liveInterfaces[j].m_address.IsIPv4()) {
+                    QCC_DbgPrintf(("IpNameServiceImpl::SendOutboundMessageQuietly(): Interface %d. has IPv4 counterpart %d.", i, j));
+                    haveIPv4address = true;
+                    ipv4address = m_liveInterfaces[j].m_address;
+                    break;
+                }
+
+                if (haveIPv6address == false && m_liveInterfaces[j].m_address.IsIPv6()) {
+                    QCC_DbgPrintf(("IpNameServiceImpl::SendOutboundMessageQuietly(): Interface %d. has IPv6 counterpart %d.", i, j));
+                    haveIPv6address = true;
+                    ipv6address = m_liveInterfaces[j].m_address;
+                    break;
+                }
+            }
+
+            //
+            // At this point, we know both of our local IPv4 and IPv6 addresses if they exist.  Now, we have to
+            // walk the list of answer (is-at) messages and rewrite the provided addresses
+            // that will correspond to the interface we are sending the message out
+            // of.
+            //
+            for (uint8_t j = 0; j < header.GetNumberAnswers(); ++j) {
+                QCC_DbgPrintf(("IpNameServiceImpl::SendOutboundMessageQuietly(): Rewrite answer %d.", j));
+
+                IsAt* isAt;
+                header.GetAnswer(j, &isAt);
+
+                //
+                // Do the version-specific rewriting of the addresses in this is-at message.
+                //
+                RewriteVersionSpecific(msgVersion, isAt, haveIPv4address, ipv4address, haveIPv6address, ipv6address);
+            }
+
+            //
+            // Send the protocol message described by the header, with its contained
+            // rewritten is-at messages out on the socket that corresonds to the
+            // live interface we chose for sending.  Note that the actual destination
+            //
+            QCC_DbgPrintf(("IpNameServiceImpl::SendOutboundMessageQuietly(): SendProtocolMessage()"));
+            SendProtocolMessage(m_liveInterfaces[i].m_sockFd, ipv4address, interfaceAddressPrefixLen, flags, interfaceIsIPv4, header, i);
+        }
+    }
+}
+
+void IpNameServiceImpl::SendOutboundMessageActively(Header& header)
+{
+    QCC_DbgPrintf(("IpNameServiceImpl::SendOutboundMessageActively()"));
+
+    //
+    // Make a note of what version this message is on, since there is a
+    // difference in what information is there that will need to be passed down
+    // in order to rewrite the addresses (see below).
+    //
+    uint32_t nsVersion, msgVersion;
+    header.GetVersion(nsVersion, msgVersion);
+
+    //
+    // We walk the list of live interfaces looking for those with IPv4 or IPv6
+    // addresses, rewrite the messages as required for those interfaces and send
+    // them out if they have been enabled.
+    //
+    QCC_DbgPrintf(("IpNameServiceImpl::SendOutboundMessageActively(): Walk interfaces"));
+
+    for (uint32_t i = 0; (m_state == IMPL_RUNNING || m_terminal) && (i < m_liveInterfaces.size()); ++i) {
+        QCC_DbgPrintf(("IpNameServiceImpl::SendOutboundMessageActively(): Checking out live interface %d. (\"%s\")",
+                       i, m_liveInterfaces[i].m_interfaceName.c_str()));
+
+        //
+        // Don't bother to do anything if the socket FD isn't initialized, since
+        // we wouldn't be able to send anyway.
+        //
+        if (m_liveInterfaces[i].m_sockFd == -1) {
+            QCC_DbgPrintf(("IpNameServiceImpl::SendOutboundMessageActively(): Interface %d. is not live", i));
+            continue;
+        }
+
+        QCC_DbgPrintf(("IpNameServiceImpl::SendOutboundMessageActively(): Interface %d. is live", i));
+
+        //
+        // We have a candidate interface to send the message out on.  The
+        // question is whether or not the current interface as indicated by the
+        // interface name is on the list of requested interfaces for the
+        // transport mask found in the message.  If it is not, we must not send
+        // this message out the current interface.
+        //
+        // The requested interfaces are stored on a per-transport basis.  Each
+        // transport can open a different list of interfaces, and these lists
+        // are selected by the <transportIndex> which is derived from the
+        // transport mask passed to the originating advertisement or disdovery
+        // operation.  The transport mask comes to us in the questions and
+        // answers stored in the message (header).
+        //
+        // To keep things at least slightly simpler, if any of the questions or
+        // answers in our message have a transport mask that refers to a
+        // transport that, in turn, has either a wildcard or the current
+        // specific interface opened, we approve this interface as one to which
+        // the message can be sent.
+        //
+        // We have to be careful about sending messages from transports that
+        // open a wildcard interface as well.  Wildcard means all interfaces,
+        // but all interfaces really means all except for "special use"
+        // interfaces like Wi-Fi Direct interfaces on Android.  We don't know
+        // what interfaces are actually in use by the Wi-Fi Direct subsystem but
+        // it does seem that any P2P-based interface will begin with the string
+        // "p2p" as in "p2p0" or "p2p-p2p0-0".
+        //
+        bool interfaceApproved = false;
+
+        //
+        // Do we have any questions that need to go out on this interface?
+        //
+        for (uint8_t j = 0; j < header.GetNumberQuestions(); ++j) {
+            WhoHas* whoHas;
+            header.GetQuestion(j, &whoHas);
+
+            //
+            // Get the transport mask referred to by the current question (who-has)
+            // and convert the mask into an index into the per-transport data.
+            //
+            TransportMask transportMask = whoHas->GetTransportMask();
+            assert(transportMask != TRANSPORT_NONE && "IpNameServiceImpl::SendOutboundMessageActively(): TransportMask must always be set");
+
+            uint32_t transportIndex = IndexFromBit(transportMask);
+            assert(transportIndex < 16 && "IpNameServiceImpl::SendOutboundMessageActively(): Bad transport index");
+
+            //
+            // If this interface is requested as an outbound interface for this
+            // transport, we approve sending it over that interface.
+            //
+            if (InterfaceRequested(transportIndex, i)) {
+                interfaceApproved = true;
+                break;
+            }
+        }
+
+        //
+        // Do we have any answers that need to go out on this interface?
+        //
+        for (uint8_t j = 0; j < header.GetNumberAnswers(); ++j) {
+            IsAt* isAt;
+            header.GetAnswer(j, &isAt);
+
+            TransportMask transportMask = isAt->GetTransportMask();
+            assert(transportMask != TRANSPORT_NONE && "IpNameServiceImpl::SendOutboundMessageActively(): TransportMask must always be set");
+
+            uint32_t transportIndex = IndexFromBit(transportMask);
+            assert(transportIndex < 16 && "IpNameServiceImpl::SendOutboundMessageActively(): Bad transport index");
+
+            //
+            // If this interface is requested as an outbound interface for this
+            // transport, we approve sending it over that interface.
+            //
+            if (InterfaceRequested(transportIndex, i)) {
+                interfaceApproved = true;
+                break;
+            }
+        }
+
+        //
+        // If no questions nor answers of our message need to go out, then we
+        // don't do anything on this interface.
+        //
+        if (interfaceApproved == false) {
+            QCC_DbgPrintf(("IpNameServiceImpl::SendOutboundMessageActively(): No questinos or answers for this interface"));
+            continue;
+        }
+
+        //
+        // When higher level code queues up messages, it doesn't know to what
+        // interfaces and therefore over what source IP addresses we will be
+        // using to send messages out on.  We expect our transport listeners to
+        // be listening to the appropriate INADDR_ANY address, and that they are
+        // relying on us to get the IP addressing information of the various
+        // networks we are talking to correct when we send out address and port
+        // information.  What this means is that we are going to rewrite any IP
+        // addresses into is-at messages on the fly as we prepare to send them
+        // out our sundry interfaces.  who-has messages don't include any source
+        // addresses, so we can leave them as-is.
+        //
+        // The next thing we need to do is to pull out the IP address of the
+        // current interface.  It may be either IPv4 or IPv6.
+        //
+        qcc::IPAddress ipv4address;
+        bool haveIPv4address = m_liveInterfaces[i].m_address.IsIPv4();
+        if (haveIPv4address) {
+            QCC_DbgPrintf(("IpNameServiceImpl::SendOutboundMessageActively(): Interface %d. is IPv4", i));
+            ipv4address = m_liveInterfaces[i].m_address;
+        }
+        bool interfaceIsIPv4 = haveIPv4address;
+
+        qcc::IPAddress ipv6address;
+        bool haveIPv6address = m_liveInterfaces[i].m_address.IsIPv6();
+        if (haveIPv6address) {
+            QCC_DbgPrintf(("IpNameServiceImpl::SendOutboundMessageActively(): Interface %d. is IPv6", i));
+            ipv6address = m_liveInterfaces[i].m_address;
+        }
+
+        //
+        // While we're here pulling out IP addresses, take the time to get the
+        // network address prefix length (cf. net mask) and flags for the
+        // interface.  We'll need to pass them on down to the method that does
+        // the sending so it can figure out subnet directed broadcast addresses
+        // if it needs to.
+        //
+        uint32_t interfaceAddressPrefixLen = m_liveInterfaces[i].m_prefixlen;
+        uint32_t flags = m_liveInterfaces[i].m_flags;
+
+        //
+        // Each interface in our list is going to have eiter an IPv4 or an IPv6
+        // address.  When we send the message, we want to send out both flavors
+        // (Ipv4 and IPv6) over each interface since we want to maximize the
+        // possibility that clients will actually receive this information
+        // (i.e. we send IPv4 addressing over an IPv6 packet).  This is because
+        // the probability to get a name service packet out is actually greater
+        // over IPv6, but TCP transports want to listen on IPv4.  We do the
+        // inverse just for consistency and to prepare for when TCP might
+        // actually use IPv6.
+        //
+        // So, if the current address is IPv4, we scan for an IPv6 address on
+        // another interface of the same name.  If the current address is IPv6,
+        // we for an IPv4 address.
+        //
+        for (uint32_t j = 0; j < m_liveInterfaces.size(); ++j) {
+            if (m_liveInterfaces[i].m_sockFd == -1 ||
+                m_liveInterfaces[j].m_interfaceName != m_liveInterfaces[i].m_interfaceName) {
+                continue;
+            }
+            if (haveIPv4address == false && m_liveInterfaces[j].m_address.IsIPv4()) {
+                QCC_DbgPrintf(("IpNameServiceImpl::SendOutboundMessageActively(): Interface %d. has IPv4 counterpart %d.", i, j));
+                haveIPv4address = true;
+                ipv4address = m_liveInterfaces[j].m_address;
+                break;
+            }
+
+            if (haveIPv6address == false && m_liveInterfaces[j].m_address.IsIPv6()) {
+                QCC_DbgPrintf(("IpNameServiceImpl::SendOutboundMessageActively(): Interface %d. has IPv6 counterpart %d.", i, j));
+                haveIPv6address = true;
+                ipv6address = m_liveInterfaces[j].m_address;
+                break;
+            }
+        }
+
+        //
+        // At this point, we are ready to multicast out an interface and we know
+        // both of our IPv4 and IPv6 addresses if they exist.  Now, we have to
+        // walk the list of answer (is-at) messages and rewrite the provided addresses
+        // that will correspond to the interface we are sending the message out
+        // of.  Recall that until this point, nobody knew the addresses that the
+        // message was going out over.  Question (who-has) messages don't have any
+        // address information so we don't have to touch them.
+        //
+        for (uint8_t j = 0; j < header.GetNumberAnswers(); ++j) {
+            QCC_DbgPrintf(("IpNameServiceImpl::SendOutboundMessageActively(): Rewrite answer %d.", j));
+
+            IsAt* isAt;
+            header.GetAnswer(j, &isAt);
+
+            //
+            // Do the version-specific rewriting of the addresses in this is-at message.
+            //
+            RewriteVersionSpecific(msgVersion, isAt, haveIPv4address, ipv4address, haveIPv6address, ipv6address);
+        }
+
+        //
+        // Send the protocol message described by the header, with its contained
+        // rewritten is-at messages out on the socket that corresonds to the
+        // live interface we approved for sending.
+        //
+        QCC_DbgPrintf(("IpNameServiceImpl::SendOutboundMessageActively(): SendProtocolMessage()"));
+        SendProtocolMessage(m_liveInterfaces[i].m_sockFd, ipv4address, interfaceAddressPrefixLen, flags, interfaceIsIPv4, header, i);
+    }
+}
+
 void IpNameServiceImpl::SendOutboundMessages(void)
 {
+    QCC_DbgPrintf(("IpNameServiceImpl::SendOutboundMessages()"));
+
     //
-    // We know what interfaces can be currently used to send messages
-    // over, so now send any messages we have queued for transmission.
-    //
-    // We expect to be called with the mutex taken so we can wander
-    // around in the various protected data structures freely.
+    // Send any messages we have queued for transmission.  We expect to be
+    // called with the mutex locked so we can wander around in the various
+    // protected data structures freely.
     //
     while (m_outbound.size() && (m_state == IMPL_RUNNING || m_terminal)) {
 
@@ -2551,317 +3268,18 @@ void IpNameServiceImpl::SendOutboundMessages(void)
         Header header = m_outbound.front();
 
         //
-        // Exactly what we will do depends on the version of the message.
+        // We have the concept of quiet advertisements that imply quiet
+        // (unicast) responses.  If we have a quiet response, we know because a
+        // destination address will have been set in the header.
         //
-        uint32_t nsVersion, msgVersion;
-        header.GetVersion(nsVersion, msgVersion);
-
-        //
-        // When higher level code queues up messages, it doesn't know to what
-        // interfaces and therefore over what source IP addresses it will be
-        // using.  We expect the transport listeners to be listening to the
-        // appropriate INADDR_ANY address, and relying on us to get the IP
-        // addressing information of the various networks we are talking to
-        // correct.  What this means is that we are going to rewrite any IP
-        // addresses into is-at messages on the fly as we prepare to send them
-        // out our sundry interfaces.  who-has messages don't include any
-        // source addresses, so we leave them as-is.
-        //
-        // IP-based transports can implement four basic mechanisms for moving
-        // bits (reliable IPv4, unreliable IPv4, reliable IPv6 and unreliable
-        // IPv4), so we need to communicate addresses in the contents of the
-        // name service packets and can not rely on packet source addresses at
-        // all.
-        //
-        // So, we walk the list of live interfaces looking for those with IPv4
-        // or IPv6 addresses, rewrite the messages as required for those
-        // interfaces and send them out.
-        //
-        QCC_DbgPrintf(("IpNameServiceImpl::SendOutboundMessages(): Walk interfaces"));
-        for (uint32_t i = 0; (m_state == IMPL_RUNNING || m_terminal) && (i < m_liveInterfaces.size()); ++i) {
-            QCC_DbgPrintf(("IpNameServiceImpl::SendOutboundMessages(): Checking out live interface %d. (\"%s\")",
-                           i, m_liveInterfaces[i].m_interfaceName.c_str()));
-
-            //
-            // Don't bother if the socket FD isn't initialized, since we
-            // wouldn't be able to send anything anyway.
-            //
-            if (m_liveInterfaces[i].m_sockFd != -1) {
-
-                QCC_DbgPrintf(("IpNameServiceImpl::SendOutboundMessages(): Interface %d. is live", i));
-
-                uint32_t interfaceAddressPrefixLen = m_liveInterfaces[i].m_prefixlen;
-                uint32_t flags = m_liveInterfaces[i].m_flags;
-
-                qcc::IPAddress ipv4Address;
-                bool haveIPv4Address = m_liveInterfaces[i].m_address.IsIPv4();
-                if (haveIPv4Address) {
-                    QCC_DbgPrintf(("IpNameServiceImpl::SendOutboundMessages(): Interface %d. is IPv4", i));
-                    ipv4Address = m_liveInterfaces[i].m_address;
-                }
-                bool interfaceIsIPv4 = haveIPv4Address;
-
-                qcc::IPAddress ipv6Address;
-                bool haveIPv6Address = m_liveInterfaces[i].m_address.IsIPv6();
-                if (haveIPv6Address) {
-                    QCC_DbgPrintf(("IpNameServiceImpl::SendOutboundMessages(): Interface %d. is IPv6", i));
-                    ipv6Address = m_liveInterfaces[i].m_address;
-                }
-
-                //
-                // In order to get all of the information we need, if the
-                // current address is IPv4, we need to scan for an IPv6 address.
-                // If the current address is IPv6, we need to scan for an IPv4
-                // address.
-                //
-                for (uint32_t j = 0; j < m_liveInterfaces.size(); ++j) {
-                    if (m_liveInterfaces[i].m_sockFd == -1 ||
-                        m_liveInterfaces[j].m_interfaceName != m_liveInterfaces[i].m_interfaceName) {
-                        continue;
-                    }
-                    if (haveIPv4Address == false && m_liveInterfaces[j].m_address.IsIPv4()) {
-                        QCC_DbgPrintf(("IpNameServiceImpl::SendOutboundMessages(): Interface %d. has IPv4 counterpart %d.", i, j));
-                        haveIPv4Address = true;
-                        ipv4Address = m_liveInterfaces[j].m_address;
-                        break;
-                    }
-
-                    if (haveIPv6Address == false && m_liveInterfaces[j].m_address.IsIPv6()) {
-                        QCC_DbgPrintf(("IpNameServiceImpl::SendOutboundMessages(): Interface %d. has IPv6 counterpart %d.", i, j));
-                        haveIPv6Address = true;
-                        ipv6Address = m_liveInterfaces[j].m_address;
-                        break;
-                    }
-                }
-
-                //
-                // We need to be careful to only send messages out on the
-                // interfaces that have been opened by the transport that is the
-                // source of the message.
-                //
-                // For example, if the Wi-Fi Direct transport has only opened
-                // the "p2p0" or "p2p-p2p0-0" interface, we don't want to be
-                // sending the who-has or is-at messages that happen as a result
-                // of WFD activity out the "eth0" interface.
-                //
-                // Both of those interfaces ("eth0" and "p2p0") may be live, if for
-                // example the TCP transport has opened the wildcard interface;
-                // but irrespective of what the TCP transport has done, messages
-                // from the WFD transport need to only go out "p2p0".
-                //
-                bool interfaceApproved = false;
-                for (uint8_t j = 0; j < header.GetNumberQuestions(); ++j) {
-                    WhoHas* whoHas;
-                    header.GetQuestion(j, &whoHas);
-
-                    TransportMask transportMask = whoHas->GetTransportMask();
-                    assert(transportMask != TRANSPORT_NONE &&
-                           "IpNameServiceImpl::SendOutboundMessages(): TransportMask must always be set");
-
-                    uint32_t transportIndex = IndexFromBit(transportMask);
-                    assert(transportIndex < 16 && "IpNameServiceImpl::SendOutboundMessages(): Bad transport index");
-
-                    //
-                    // We have to be careful about sending messages from
-                    // transports that open a wildcard interface.  Wildcard
-                    // means all interfaces, but all interfaces really means all
-                    // except for "special use" interfaces like Wi-Fi Direct
-                    // interfaces on Android.  We don't know what interfaces are
-                    // actually in use by the Wi-Fi Direct subsystem but it does
-                    // seem that any P2P-based interface will begin with the
-                    // string "p2p" as in "p2p0" or "p2p-p2p0-0".
-                    //
-#if defined(QCC_OS_ANDROID)
-                    if (m_any[transportIndex] && m_liveInterfaces[i].m_interfaceName.find("p2p") == qcc::String::npos) {
-                        interfaceApproved = true;
-                    }
-#else
-                    if (m_any[transportIndex]) {
-                        interfaceApproved = true;
-                    }
-#endif
-
-                    //
-                    // Now, the question is whether or not the current interface
-                    // as indicated by the interface name is on the list of
-                    // requested interfaces for the transport mask found in the
-                    // message.  If it is not, we must not send this message out
-                    // the current interface.
-                    //
-                    // printf("%s: m_mutex.Lock()\n", __FUNCTION__);
-                    m_mutex.Lock();
-
-                    for (uint32_t k = 0; k < m_requestedInterfaces[transportIndex].size(); ++k) {
-                        if (m_requestedInterfaces[transportIndex][k].m_interfaceName == m_liveInterfaces[i].m_interfaceName) {
-                            QCC_DbgPrintf(("IpNameServiceImpl::SendoutboundMessages(): Interface \"%s\" is approved.",
-                                           m_liveInterfaces[i].m_interfaceName.c_str()));
-                            interfaceApproved = true;
-                            break;
-                        }
-                    }
-
-                    // printf("%s: m_mutex.Unlock()\n", __FUNCTION__);
-                    m_mutex.Unlock();
-                }
-
-                //
-                // At this point, we are ready to multicast out an interface and
-                // we know our IPv4 and IPv6 addresses if they exist.  Now, we
-                // have to walk the list of answer messages and rewrite the
-                // provided addresses.
-                //
-                for (uint8_t j = 0; j < header.GetNumberAnswers(); ++j) {
-                    QCC_DbgPrintf(("IpNameServiceImpl::SendOutboundMessages(): Rewrite answer %d.", j));
-
-                    IsAt* isAt;
-                    header.GetAnswer(j, &isAt);
-
-                    TransportMask transportMask = isAt->GetTransportMask();
-                    assert(transportMask != TRANSPORT_NONE &&
-                           "IpNameServiceImpl::SendOutboundMessages(): TransportMask must always be set");
-
-                    uint32_t transportIndex = IndexFromBit(transportMask);
-                    assert(transportIndex < 16 && "IpNameServiceImpl::SendOutboundMessages(): Bad transport index");
-
-                    //
-                    // We have to be careful about sending messages from
-                    // transports that open a wildcard interface.  Wildcard
-                    // means all interfaces, but all interfaces really means all
-                    // except for "special use" interfaces like Wi-Fi Direct
-                    // interfaces on Android.  We don't know what interfaces are
-                    // actually in use by the Wi-Fi Direct subsystem but it does
-                    // seem that any P2P-based interface will begin with the
-                    // string "p2p" as in "p2p0" or "p2p-p2p0-0".
-                    //
-#if defined(QCC_OS_ANDROID)
-                    if (m_any[transportIndex] && m_liveInterfaces[i].m_interfaceName.find("p2p") == qcc::String::npos) {
-                        interfaceApproved = true;
-                    }
-#else
-                    if (m_any[transportIndex]) {
-                        interfaceApproved = true;
-                    }
-#endif
-
-                    //
-                    // Now, the question is whether or not the current interface
-                    // as indicated by the interface name is on the list of
-                    // requested interfaces for the transport mask found in the
-                    // message.  If it is not, we must not send this message out
-                    // the current interface.
-                    //
-                    // printf("%s: m_mutex.Lock()\n", __FUNCTION__);
-                    m_mutex.Lock();
-
-                    for (uint32_t k = 0; k < m_requestedInterfaces[transportIndex].size(); ++k) {
-                        if (m_requestedInterfaces[transportIndex][k].m_interfaceName == m_liveInterfaces[j].m_interfaceName) {
-                            QCC_DbgPrintf(("IpNameServiceImpl::SendoutboundMessages(): Interface \"%s\" is approved.",
-                                           m_liveInterfaces[j].m_interfaceName.c_str()));
-                            interfaceApproved = true;
-                            break;
-                        }
-                    }
-
-                    // printf("%s: m_mutex.Unlock()\n", __FUNCTION__);
-                    m_mutex.Unlock();
-
-                    //
-                    // If we are version zero, do the version zero-specific
-                    // changes.
-                    //
-                    if (msgVersion == 0) {
-                        QCC_DbgPrintf(("IpNameServiceImpl::SendOutboundMessages(): Answer %d. gets version zero", j));
-
-                        //
-                        // We're modifying the answsers in-place so clear any
-                        // state we might have added on the last iteration.
-                        // Remember that we must use the old version scheme
-                        // with old messages and we have to sneak in the post
-                        // zero version indication by setting the UDP flag.
-                        //
-                        isAt->SetVersion(0, 0);
-                        isAt->SetTcpFlag(true);
-                        isAt->SetUdpFlag(true);
-                        isAt->ClearIPv4();
-                        isAt->ClearIPv6();
-
-                        //
-                        // For version zero, the name service was an integral
-                        // part of the TCP transport.  Because of this, we
-                        // know implicitly that the only kind of address
-                        // supported is the reliable IPv4 address.  This means
-                        // we just need to set the IPv4 address of the packet
-                        // and we're done.
-                        //
-                        if (haveIPv4Address) {
-                            isAt->SetIPv4(ipv4Address.ToString());
-                        }
-                    }
-
-                    //
-                    // If we are version one, do the version one-specific changes.
-                    //
-                    if (msgVersion == 1) {
-                        QCC_DbgPrintf(("IpNameServiceImpl::SendOutboundMessages(): Answer %d. gets version one", j));
-
-                        //
-                        // We're modifying the answsers in-place so clear any
-                        // state we might have added on the last iteration.
-                        //
-                        isAt->SetVersion(1, 1);
-                        isAt->ClearReliableIPv4();
-                        isAt->ClearUnreliableIPv4();
-                        isAt->ClearReliableIPv6();
-                        isAt->ClearUnreliableIPv6();
-
-                        uint32_t transportIndex = IndexFromBit(isAt->GetTransportMask());
-
-                        //
-                        // Now we can write the various addresses into the
-                        // packet if they are called for.
-                        //
-                        if (haveIPv4Address && m_reliableIPv4Port[transportIndex]) {
-                            isAt->SetReliableIPv4(ipv4Address.ToString(), m_reliableIPv4Port[transportIndex]);
-                        }
-                        if (haveIPv4Address && m_unreliableIPv4Port[transportIndex]) {
-                            isAt->SetUnreliableIPv4(ipv4Address.ToString(), m_unreliableIPv4Port[transportIndex]);
-                        }
-                        if (m_reliableIPv6Port[transportIndex]) {
-                            isAt->SetReliableIPv6(ipv6Address.ToString(), m_reliableIPv6Port[transportIndex]);
-                        }
-                        if (m_unreliableIPv6Port[transportIndex]) {
-                            isAt->SetUnreliableIPv6(ipv6Address.ToString(), m_unreliableIPv6Port[transportIndex]);
-                        }
-                    }
-                }
-
-                //
-                // At this point, we have ignored the questions (who-has) on the
-                // header since they stay the same, and we have rewritten the
-                // answers (is-at) on the header according to the version.  Now
-                // we can the modified message on out the current interface if
-                // it was approved.
-                //
-                // Discarding the message at the end of the process can throw
-                // away work we've spent a considerable amount of time doing, but
-                // we are backfitting this functionality on existing code that
-                // had no idea about transport masks, so this was the way to go
-                // since we are concerned about regressions as this was done at
-                // a relatively late time in the release process.  Feel free to
-                // refactor this.
-                //
-                if (interfaceApproved) {
-                    QCC_DbgPrintf(("IpNameServiceImpl::SendOutboundMessages(): SendProtocolMessage()"));
-                    SendProtocolMessage(m_liveInterfaces[i].m_sockFd, ipv4Address, interfaceAddressPrefixLen, flags,
-                                        interfaceIsIPv4, header);
-                } else {
-                    QCC_DbgPrintf(("IpNameServiceImpl::SendOutboundMessages(): Do not SendProtocolMessage(): Not approved."));
-                }
-            }
+        if (header.DestinationSet()) {
+            SendOutboundMessageQuietly(header);
+        } else {
+            SendOutboundMessageActively(header);
         }
 
         //
-        // The current message has been sent to all of the live interfaces that
+        // The current message has been sent to any and all of interfaces that
         // make sense, so we can discard it and loop back for another.
         //
         m_outbound.pop_front();
@@ -2926,6 +3344,7 @@ void* IpNameServiceImpl::Run(void* arg)
         }
 
         GetTimeNow(&tNow);
+
         // printf("%s: m_mutex.Lock()\n", __FUNCTION__);
         m_mutex.Lock();
 
@@ -3091,7 +3510,7 @@ void* IpNameServiceImpl::Run(void* arg)
                 // run routine (above).
                 //
                 for (uint32_t index = 0; index < N_TRANSPORTS; ++index) {
-                    Retransmit(index, true, false);
+                    Retransmit(index, true, false, qcc::IPAddress("0.0.0.0"));
                 }
                 m_terminal = true;
                 break;
@@ -3151,6 +3570,8 @@ void* IpNameServiceImpl::Run(void* arg)
                     }
                     continue;
                 }
+
+                QCC_DbgHLPrintf(("IpNameServiceImpl::Run(): Got IPNS message from \"%s\"", address.ToString().c_str()));
 
                 //
                 // We got a message over the multicast channel.  Deal with it.
@@ -3212,7 +3633,7 @@ void IpNameServiceImpl::Retry(void)
     }
 }
 
-void IpNameServiceImpl::Retransmit(uint32_t transportIndex, bool exiting, bool quietly)
+void IpNameServiceImpl::Retransmit(uint32_t transportIndex, bool exiting, bool quietly, qcc::IPAddress destination)
 {
     QCC_DbgPrintf(("IpNameServiceImpl::Retransmit()"));
 
@@ -3233,7 +3654,10 @@ void IpNameServiceImpl::Retransmit(uint32_t transportIndex, bool exiting, bool q
     // being set to true.  Since we want to allow passive observers to hear our
     // responses, if we get a who-has message, no matter what is being looked
     // or, we take the opportunity to retransmit all of our names whether or not
-    // they are quitely or actively advertised.
+    // they are quitely or actively advertised.  Since quiet responses are a
+    // "new thing," we don't worry about sending down-version packets.  This all
+    // means quiet advertisement responses are quite simple as compared to
+    // active advertisement responses.  They are a special case though.
     //
     // So, based on these observations, we retransmit our whole list if
     // <quietly> is true and the advertised quietly list is not empty or if the
@@ -3256,10 +3680,12 @@ void IpNameServiceImpl::Retransmit(uint32_t transportIndex, bool exiting, bool q
     // of message.  Since the version is located in the message header, this
     // means two messages.
     //
-    // Do it once for version zero, but only if the transport index corresponds
-    // to TRANSPORT_TCP since that was the only possibility in version zero.
+    // Put together and send response packets for version zero, but only if the
+    // transport index corresponds to TRANSPORT_TCP since that was the only
+    // possibility in version zero and keeping in mind that we aren't going to
+    // send version zero messages over our newly defined "quiet" mechanism.
     //
-    if (transportIndex == IndexFromBit(TRANSPORT_TCP)) {
+    if (transportIndex == IndexFromBit(TRANSPORT_TCP) && quietly == false) {
         //
         // Keep track of how many messages we actually send in order to get all of
         // the advertisements out.
@@ -3373,6 +3799,13 @@ void IpNameServiceImpl::Retransmit(uint32_t transportIndex, bool exiting, bool q
                 //
                 QCC_DbgPrintf(("IpNameServiceImpl::Retransmit(): Sending partial list"));
                 header.AddAnswer(isAt);
+
+                if (quietly) {
+                    header.SetDestination(destination);
+                } else {
+                    header.ClearDestination();
+                }
+
                 QueueProtocolMessage(header);
                 ++nSent;
 
@@ -3392,35 +3825,6 @@ void IpNameServiceImpl::Retransmit(uint32_t transportIndex, bool exiting, bool q
         }
 
         //
-        // The only time we want to spew out the quietly advertised names is when
-        // we have been actively pinged with a who-as message.  This is indicated
-        // here by <quietly> being set to true.
-        //
-        if (quietly) {
-            for (list<qcc::String>::iterator i = m_advertised_quietly[transportIndex].begin(); i != m_advertised_quietly[transportIndex].end(); ++i) {
-                QCC_DbgPrintf(("IpNameServiceImpl::Retransmit(): Accumulating (quiet) \"%s\"", (*i).c_str()));
-
-                size_t currentSize = header.GetSerializedSize() + isAt.GetSerializedSize();
-                currentSize += 20;
-                if (currentSize + 1 + (*i).size() > NS_MESSAGE_MAX) {
-                    QCC_DbgPrintf(("IpNameServiceImpl::Retransmit(): Message is full"));
-                    QCC_DbgPrintf(("IpNameServiceImpl::Retransmit(): Sending partial list"));
-                    header.AddAnswer(isAt);
-                    QueueProtocolMessage(header);
-                    ++nSent;
-
-                    QCC_DbgPrintf(("IpNameServiceImpl::Retransmit(): Resetting current list"));
-                    header.Reset();
-                    isAt.Reset();
-                    isAt.AddName(*i);
-                } else {
-                    QCC_DbgPrintf(("IpNameServiceImpl::Retransmit(): Message has room.  Adding (quiet) \"%s\"", (*i).c_str()));
-                    isAt.AddName(*i);
-                }
-            }
-        }
-
-        //
         // We most likely have a partially full message waiting to go out.  If we
         // haven't sent a message, then the one message holds all of the names that
         // are being advertised.  In this case, we set the complete flag to indicate
@@ -3432,13 +3836,15 @@ void IpNameServiceImpl::Retransmit(uint32_t transportIndex, bool exiting, bool q
             isAt.SetCompleteFlag(true);
         }
 
-        QCC_DbgPrintf(("IpNameServiceImpl::Retransmit(): Sending final message "));
+        QCC_DbgPrintf(("IpNameServiceImpl::Retransmit(): Sending final version zero message "));
         header.AddAnswer(isAt);
+
+        header.ClearDestination();
         QueueProtocolMessage(header);
     }
 
     //
-    // Do it once for version one.
+    // Put together and send response packets for version one.
     //
     {
         //
@@ -3555,6 +3961,13 @@ void IpNameServiceImpl::Retransmit(uint32_t transportIndex, bool exiting, bool q
                 //
                 QCC_DbgPrintf(("IpNameServiceImpl::Retransmit(): Sending partial list"));
                 header.AddAnswer(isAt);
+
+                if (quietly) {
+                    header.SetDestination(destination);
+                } else {
+                    header.ClearDestination();
+                }
+
                 QueueProtocolMessage(header);
                 ++nSent;
 
@@ -3584,6 +3997,13 @@ void IpNameServiceImpl::Retransmit(uint32_t transportIndex, bool exiting, bool q
                     QCC_DbgPrintf(("IpNameServiceImpl::Retransmit(): Message is full"));
                     QCC_DbgPrintf(("IpNameServiceImpl::Retransmit(): Sending partial list"));
                     header.AddAnswer(isAt);
+
+                    if (quietly) {
+                        header.SetDestination(destination);
+                    } else {
+                        header.ClearDestination();
+                    }
+
                     QueueProtocolMessage(header);
                     ++nSent;
 
@@ -3612,6 +4032,13 @@ void IpNameServiceImpl::Retransmit(uint32_t transportIndex, bool exiting, bool q
 
         QCC_DbgPrintf(("IpNameServiceImpl::Retransmit(): Sending final message "));
         header.AddAnswer(isAt);
+
+        if (quietly) {
+            header.SetDestination(destination);
+        } else {
+            header.ClearDestination();
+        }
+
         QueueProtocolMessage(header);
     }
 
@@ -3642,7 +4069,7 @@ void IpNameServiceImpl::DoPeriodicMaintenance(void)
         if (m_timer == m_tRetransmit) {
             QCC_DbgPrintf(("IpNameServiceImpl::DoPeriodicMaintenance(): Retransmit()"));
             for (uint32_t index = 0; index < N_TRANSPORTS; ++index) {
-                Retransmit(index, false, false);
+                Retransmit(index, false, false, qcc::IPAddress("0.0.0.0"));
             }
             m_timer = m_tDuration;
         }
@@ -3654,7 +4081,7 @@ void IpNameServiceImpl::DoPeriodicMaintenance(void)
 
 void IpNameServiceImpl::HandleProtocolQuestion(WhoHas whoHas, qcc::IPAddress address)
 {
-    QCC_DbgHLPrintf(("IpNameServiceImpl::HandleProtocolQuestion()"));
+    QCC_DbgPrintf(("IpNameServiceImpl::HandleProtocolQuestion()"));
 
     //
     // There are at least two threads wandering through the advertised list.
@@ -3672,7 +4099,7 @@ void IpNameServiceImpl::HandleProtocolQuestion(WhoHas whoHas, qcc::IPAddress add
 
         //
         // If there are no names being advertised by the transport identified by
-        // its index, there is nothing to do.
+        // its index (actively or quietly), there is nothing to do.
         //
         if (m_advertised[index].empty() && m_advertised_quietly[index].empty()) {
             continue;
@@ -3681,9 +4108,22 @@ void IpNameServiceImpl::HandleProtocolQuestion(WhoHas whoHas, qcc::IPAddress add
         //
         // Loop through the names we are being asked about, and if we have
         // advertised any of them, we are going to need to respond to this
-        // question.
+        // question.  Keep track of whether or not any of our corresponding
+        // advertisements are quiet, since we want to respond quietly to a
+        // question about a quiet advertisements.  That is, if any of the names
+        // the client is asking about corresponds to a quiet advertisement we
+        // respond directly to the client and do not multicast the response.
+        // The only way we multicast a response is if the client does not ask
+        // about any of our quietly advertised names.
+        //
+        // Becuse of this requirement, we loop through all of the names in the
+        // who-has message to see if any of them correspond to quiet
+        // advertisements.  We don't just break out and respond if we find any
+        // old match since it may be the case that the last name is the quiet
+        // one.
         //
         bool respond = false;
+        bool respondQuietly = false;
         for (uint32_t i = 0; i < whoHas.GetNumberNames(); ++i) {
             qcc::String wkn = whoHas.GetName(i);
 
@@ -3705,8 +4145,8 @@ void IpNameServiceImpl::HandleProtocolQuestion(WhoHas whoHas, qcc::IPAddress add
                 // allow wildcards there.
                 //
                 if (IpNameServiceImplWildcardMatch((*j), wkn)) {
-                    QCC_DbgHLPrintf(("IpNameServiceImpl::HandleProtocolQuestion(): request for %s does not match my %s",
-                                     wkn.c_str(), (*j).c_str()));
+                    QCC_DbgPrintf(("IpNameServiceImpl::HandleProtocolQuestion(): request for %s does not match my %s",
+                                   wkn.c_str(), (*j).c_str()));
                     continue;
                 } else {
                     respond = true;
@@ -3715,15 +4155,7 @@ void IpNameServiceImpl::HandleProtocolQuestion(WhoHas whoHas, qcc::IPAddress add
             }
 
             //
-            // If we foud a match, don't bother going any further since we need
-            // to respond in any case.
-            //
-            if (respond) {
-                break;
-            }
-
-            //
-            // check to see if this name on the list of names we quietly advertise.
+            // Check to see if this name on the list of names we quietly advertise.
             //
             for (list<qcc::String>::iterator j = m_advertised_quietly[index].begin(); j != m_advertised_quietly[index].end(); ++j) {
 
@@ -3732,21 +4164,14 @@ void IpNameServiceImpl::HandleProtocolQuestion(WhoHas whoHas, qcc::IPAddress add
                 // allow wildcards there.
                 //
                 if (IpNameServiceImplWildcardMatch((*j), wkn)) {
-                    QCC_DbgHLPrintf(("IpNameServiceImpl::HandleProtocolQuestion(): request for %s does not match my %s",
-                                     wkn.c_str(), (*j).c_str()));
+                    QCC_DbgPrintf(("IpNameServiceImpl::HandleProtocolQuestion(): request for %s does not match my %s",
+                                   wkn.c_str(), (*j).c_str()));
                     continue;
                 } else {
                     respond = true;
+                    respondQuietly = true;
                     break;
                 }
-            }
-
-            //
-            // If we foud a match, don't bother going any further since we need
-            // to respond in any case.
-            //
-            if (respond) {
-                break;
             }
         }
 
@@ -3758,11 +4183,7 @@ void IpNameServiceImpl::HandleProtocolQuestion(WhoHas whoHas, qcc::IPAddress add
             // printf("%s: m_mutex.Unlock()\n", __FUNCTION__);
             m_mutex.Unlock();
 
-            //
-            // Since we have been pinged with a who-has message, we need to also
-            // include any silently advertised names in the response
-            //
-            Retransmit(index, false, true);
+            Retransmit(index, false, respondQuietly, address);
 
             // printf("%s: m_mutex.Lock()\n", __FUNCTION__);
             m_mutex.Lock();
@@ -3775,7 +4196,7 @@ void IpNameServiceImpl::HandleProtocolQuestion(WhoHas whoHas, qcc::IPAddress add
 
 void IpNameServiceImpl::HandleProtocolAnswer(IsAt isAt, uint32_t timer, qcc::IPAddress address)
 {
-    QCC_DbgHLPrintf(("IpNameServiceImpl::HandleProtocolAnswer()"));
+    QCC_DbgPrintf(("IpNameServiceImpl::HandleProtocolAnswer()"));
 
     //
     // We have to determine where the transport mask is going to come
@@ -3978,7 +4399,7 @@ void IpNameServiceImpl::HandleProtocolAnswer(IsAt isAt, uint32_t timer, qcc::IPA
             qcc::String busAddress(addrbuf);
 
             if (m_callback[transportIndex]) {
-                QCC_DbgHLPrintf(("IpNameServiceImpl::HandleProtocolAnswer(): Calling back with %s", addrbuf));
+                QCC_DbgPrintf(("IpNameServiceImpl::HandleProtocolAnswer(): Calling back with %s", addrbuf));
                 (*m_callback[transportIndex])(busAddress, guid, wkn, timer);
             }
         }
@@ -4068,7 +4489,7 @@ void IpNameServiceImpl::HandleProtocolAnswer(IsAt isAt, uint32_t timer, qcc::IPA
         qcc::String busAddress(addrbuf);
 
         if (m_callback[transportIndex]) {
-            QCC_DbgHLPrintf(("IpNameServiceImpl::HandleProtocolAnswer(): Calling back with %s", busAddress.c_str()));
+            QCC_DbgPrintf(("IpNameServiceImpl::HandleProtocolAnswer(): Calling back with %s", busAddress.c_str()));
             (*m_callback[transportIndex])(busAddress, guid, wkn, timer);
         }
     }
@@ -4079,7 +4500,7 @@ void IpNameServiceImpl::HandleProtocolAnswer(IsAt isAt, uint32_t timer, qcc::IPA
 
 void IpNameServiceImpl::HandleProtocolMessage(uint8_t const* buffer, uint32_t nbytes, qcc::IPAddress address)
 {
-    QCC_DbgHLPrintf(("IpNameServiceImpl::HandleProtocolMessage(0x%x, %d, %s)", buffer, nbytes, address.ToString().c_str()));
+    QCC_DbgPrintf(("IpNameServiceImpl::HandleProtocolMessage(0x%x, %d, %s)", buffer, nbytes, address.ToString().c_str()));
 
 #if HAPPY_WANDERER
     if (Wander() == false) {
