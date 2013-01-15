@@ -988,8 +988,15 @@ void DiscoveryManager::ComposeProximityMessage(ProximityMessage& message)
         message = ProximityScanner->GetScanResults(currentBSSIDList, currentBTMACList);
     }
 #else
-    message = proximity[currentProximityIndex];
-    currentProximityIndex = ((currentProximityIndex + 1) % 3);
+    /* Send a proximity message to the RDVZ server only if we have valid
+     * static proximity value */
+    if (proximity[currentProximityIndex].wifiaps.back().attached) {
+        message = proximity[currentProximityIndex];
+        currentProximityIndex = ((currentProximityIndex + 1) % 3);
+    } else {
+        message.messageType = INVALID_MESSAGE;
+        return;
+    }
 #endif
 
     /* Clear the temporary sent lists and populate them with the content of the current lists */
