@@ -1494,6 +1494,9 @@ qcc::ThreadReturn STDCALL AllJoynObj::JoinSessionThread::RunAttach()
      * On success, ensure that reply goes over the new b2b connection. Otherwise a race condition
      * related to shutting down endpoints that are to become raw will occur.
      */
+    /* Obtain the srcB2BEp */
+    BusEndpoint tempEp = ajObj.router.FindEndpoint(srcB2BStr);
+    srcB2BEp = RemoteEndpoint::cast(tempEp);
     if (srcB2BEp->IsValid()) {
         ajObj.ReleaseLocks();
         status = msg->ReplyMsg(msg, replyArgs, ArraySize(replyArgs));
