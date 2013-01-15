@@ -135,10 +135,6 @@ static const char
     "    <property server=\"rdvs.alljoyn.org\"/>"
     "    <property protocol=\"HTTPS\"/>"
     "    <property enable_ipv6=\"false\"/>"
-// This is a test-only ICE property used to send a hard-coded proximity
-// value to the RDVZ server intended to be used for testing ICE support
-// on Linux. This config item should NOT be exposed to the end users.
-//  "    <property linux_static_proximity=\"a1\"/>"
     "  </ice_discovery_manager>"
     "  <policy>"
     "    <property enable_daemon_bus_call_restriction=\"true\"/>"

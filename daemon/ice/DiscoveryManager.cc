@@ -188,8 +188,10 @@ DiscoveryManager::DiscoveryManager(BusAttachment& bus) :
     String staticProximity("");
     bool attached = false;
 
-    /* Retrieve the static proximity value from the config file */
-    staticProximity = config->Get("ice_discovery_manager/property@linux_static_proximity", "");
+    /* Retrieve the static proximity value from the environment variable - if it exists*/
+    qcc::Environ* env = qcc::Environ::GetAppEnviron();
+    staticProximity = env->Find("LINUX_STATIC_PROXIMITY", "");
+
     if (staticProximity != String("")) {
         attached = true;
     }
