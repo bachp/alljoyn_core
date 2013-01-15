@@ -2895,7 +2895,7 @@ QStatus TCPTransport::Connect(const char* connectSpec, const SessionOpts& opts, 
         assert(i != m_activeEndpointsThreadList.end() && "TCPTransport::Connect(): Thread* not on m_activeEndpointsThreadList");
         m_activeEndpointsThreadList.erase(i);
         m_endpointListLock.Unlock(MUTEX_CONTEXT);
-    } else   {
+    } else {
         /*
          * If we got an error, and have not created an endpoint, we need to cleanup
          * the socket. If an endpoint was created, the endpoint will be responsible
