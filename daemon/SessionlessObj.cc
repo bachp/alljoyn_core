@@ -373,7 +373,7 @@ void SessionlessObj::FoundAdvertisedNameSignalHandler(const InterfaceDescription
 
     lock.Lock();
     map<String, uint32_t>::iterator it = changeIdMap.find(guid);
-    bool doRequestSignals = (it == changeIdMap.end()) || IS_GREATER(uint32_t, it->second, changeId);
+    bool doRequestSignals = (it == changeIdMap.end()) || IS_GREATER(uint32_t, changeId, it->second);
 
     /* Join session if we need signals from this advertiser */
     if (doRequestSignals) {
@@ -416,14 +416,28 @@ void SessionlessObj::SessionJoinedSignalHandler(const InterfaceDescription::Memb
     lock.Lock();
     map<uint32_t, uint32_t>::iterator it = joinsInProgress.find(id);
     if (it != joinsInProgress.end()) {
+        /* Extract guid from joiner */
+        String nameStr(joiner);
+        String guid;
+        size_t changePos = nameStr.find_last_of('.');
+        if (changePos != String::npos) {
+            size_t guidPos = nameStr.find_last_of('.', changePos);
+            if (guidPos != String::npos) {
+                guid = nameStr.substr(guidPos + 2, changePos - guidPos - 2);
+            }
+        }
+        if (guid.empty()) {
+            QCC_LogError(ER_FAIL, ("Cant extract guid from name \"%s\"", joiner));
+            return;
+        }
         /* Prepare RequestSignals message */
         MsgArg args[1];
-        map<String, uint32_t>::iterator cit = changeIdMap.find(joiner);
-        uint32_t changeId = (cit == changeIdMap.end()) ? 0 : cit->second;
+        map<String, uint32_t>::iterator cit = changeIdMap.find(guid);
+        uint32_t changeId = (cit == changeIdMap.end()) ? 0 : (cit->second + 1);
         args[0].Set("u", changeId);
 
         /* Update changeIdMap and remove joinInProgress entry*/
-        changeIdMap[joiner] = it->second;
+        changeIdMap[guid] = it->second;
         joinsInProgress.erase(it);
 
         /* Send the signal */
@@ -444,7 +458,7 @@ void SessionlessObj::SessionLostSignalHandler(const InterfaceDescription::Member
                                               Message& msg)
 {
     uint32_t sessionId = 0;
-    QStatus status = msg->GetArgs("u", &sessionId);
+    msg->GetArgs("u", &sessionId);
     QCC_DbgTrace(("SessionlessObj::SessionLostSignalHandler(0x%x)", sessionId));
 }
 
