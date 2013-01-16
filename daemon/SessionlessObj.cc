@@ -44,7 +44,7 @@ using namespace qcc;
  * IS_GREATER_OR_EQUAL returns true if first (non-type) param is greater than or
  * equal to the second while taking into account the possibility of wrap-around
  */
-#define IS_GREATER_OR_EQUAL(tp, a, b) IN_WINDOW(tp, (b), numeric_limits<tp>::max() << 1, (a))
+#define IS_GREATER_OR_EQUAL(tp, a, b) IN_WINDOW(tp, (b), (numeric_limits<tp>::max() >> 1), (a))
 
 /**
  * IS_GREATER returns true if first (non-type) param is greater than the second
@@ -361,7 +361,7 @@ void SessionlessObj::FoundAdvertisedNameSignalHandler(const InterfaceDescription
     uint32_t changeId;
 
     if (changePos != String::npos) {
-        changeId = StringToU32(nameStr.substr(changePos + 2));
+        changeId = StringToU32(nameStr.substr(changePos + 2), 16);
         guidPos = nameStr.find_last_of('.', changePos);
     }
     if (guidPos == String::npos) {
