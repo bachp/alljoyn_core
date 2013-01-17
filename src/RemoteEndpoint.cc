@@ -743,7 +743,12 @@ QStatus _RemoteEndpoint::PushMessage(Message& msg)
     static const size_t MAX_TX_QUEUE_SIZE = 30;
 
     QStatus status = ER_OK;
-    if (!IsValid()) {
+
+    /* Remote endpoints can be invalid if they were created with the default
+     * constructor or being torn down. Return ER_BUS_NO_ENDPOINT only if the
+     * endpoint was created with the default constructor. i.e. internal=NULL
+     */
+    if (!internal) {
         return ER_BUS_NO_ENDPOINT;
     }
     /*
