@@ -1,13 +1,137 @@
 This document contains a list of changes to the C++ AllJoyn API.
 Each Status, class, Method, Function, or MACRO will be marked as follows:
 'NEW': API code that was added to the release.
-'CHANGED': API code that has been changed since the last release.  
-'REMOVED': API code that has been deleted from the release and can no longer be 
+'CHANGED': API code that has been changed since the last release.
+'REMOVED': API code that has been deleted from the release and can no longer be
            used.
-'DEPRECATED': API code that has been marked as deprecated.    
+'DEPRECATED': API code that has been marked as deprecated.
 
 Each addition should contain a short explanation of what added or changed.
 For more information please refer to the API documentation.
+-------------------------------------------------------------------------------
+AllJoyn API Changes between v3.0.0 and v3.2.0 (C++ API)
+NEW MACRO
+QCC_DLLEXPORT
+    if required call dllexport
+
+NEW MACRO
+strcasecmp
+    Map strcasecmp to _stricmp
+    strcasecmp does not properly map in windows this is needed to insure calls to
+    strcasecmp(const char *s1, const char *s2) will compile in windows.
+
+NEW STATUS
+NO_SUCH_DEVICE  value=0x90dc
+    A referenced device cannot be located.
+    
+NEW STATUS
+P2P value=0x90dd
+    An error occurred in a Wi-Fi Direct helper method call.
+
+NEW STATUS
+P2P_TIMEOUT  value=0x90de
+    A timeout occurred in a Wi-Fi Direct helper method call.
+
+NEW STATUS
+P2P_NOT_CONNECTED  value=0x90df
+    A required Wi-Fi Direct network connection does not exist.
+
+NEW STATUS
+BAD_TRANSPORT_MASK  value=0x90e0
+    Exactly one mask bit was not set in the provided TransportMask.
+
+NEW STATUS
+PROXIMITY_CONNECTION_ESTABLISH_FAIL  value=0x90e1
+    Fail to establish P2P proximity connection.
+
+NEW STATUS
+PROXIMITY_NO_PEERS_FOUND  value=0x90e2
+    Cannot find proximity P2P peers.
+
+NEW STATUS
+BUS_OBJECT_NOT_REGISTERED  value=0x90e3
+    Operation not permitted on unregistered bus object.
+
+NEW STATUS
+P2P_DISABLED  value=0x90e4
+    Wi-Fi Direct is disabled on the device.
+    
+NEW STATUS
+P2P_BUSY  value=0x90e5
+    Wi-Fi Direct resources are in busy state.
+
+NEW STATUS
+BUS_INCOMPATIBLE_DAEMON  value=0x90e6
+    The daemon version is too old to be used by this client.
+
+NEW STATUS
+P2P_NO_GO  value=0x90e7
+    Attempt to execute a Wi-Fi Direct GO-related operation while STA.
+
+NEW STATUS
+P2P_NO_STA  value=0x90e8
+    Attempt to execute a Wi-Fi Direct STA-related operation while GO.
+
+NEW STATUS
+P2P_FORBIDDEN  value=0x90e9
+    Attempt to execute a forbidden Wi-Fi Direct operation.
+
+NEW METHOD
+ajn::BusAttachment.Connect()
+    Connect to local a AllJoyn daemon.
+    
+    Locate a local AllJoyn daemon that is compatible with this AllJoyn client's 
+    version and connect to the daemon.
+
+NEW METHOD
+ajn::BusAttachment.GetGlobalGUIDShortString()
+    Get the GUID of this BusAttachment as an 8 character string.
+    
+    The returned value may be appended to an advertised well-known name in order
+    to guarantee that the resulting name is globally unique.  Note: This version
+    of the string is not quite as unique as the version that returns 32 hex
+    characters, but it is sufficient since the returned string is identical to
+    the base portion of the unique name.  Also, the returned string may begin
+    with a digit and so the application would need to accomodate that if used
+    immediately after a "." in a d-bus compliant bus name.
+
+NEW METHOD
+ajn::BusObject.BusObject(const char* path, bool isPlaceholder = false)
+    BusObject constructor
+    [param] path - Object path for object.
+    [param] isPlaceholder - Place-holder objects are created by the bus itself and serve only
+                            as parent objects (in the object path sense) to other objects.
+    
+DEPRECATED METHOD
+ajn::BusObject.BusObject(BusAttachment& bus, const char* path, bool isPlaceholder = false)
+    BusOject constructor
+    [param] bus - Bus that this object exists on.
+    [param] path - Object path for object.
+    [param] isPlaceholder - Place-holder objects are created by the bus itself 
+                            and serve only as parent objects (in the object path 
+                            sense) to other objects.
+
+NEW METHOD
+ajn::InterfaceDescription.Property.operator=(const Property& other)
+    Property assignment operator
+    [param] other - The Property being copied to this one.
+
+NEW METHOD
+ajn::_Message.IsSessionless() const
+    Determin if message is sessionless.
+
+NEW METHOD
+qcc::ManagedObj<T> wrap(T* naked)
+    Static method to wrap an existing T that is already managed in its managed object type.
+    This method is typically called from within a method of the inner T class to provide
+    a managed object instance that can be passed to methods that required that type.
+    [param] naked - A unwrapped managed object instance.
+
+NEW METHOD
+qcc::ManagedObj<T>.cast(T2& other)
+    Static method to convert between managed objects of related types.
+    [param] other - A managed object instance of a related type.
+
 -------------------------------------------------------------------------------
 AllJoyn API Changes between v2.6.0 and v3.0.0 (C++ API)
 NEW MASK
