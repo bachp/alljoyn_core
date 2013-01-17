@@ -486,7 +486,11 @@ void SessionlessObj::RequestSignalsSignalHandler(const InterfaceDescription::Mem
                     BusEndpoint ep = router.FindEndpoint(msg->GetSender());
                     if (ep->IsValid()) {
                         router.UnlockNameTable();
-                        status = ep->PushMessage(it->second.second);
+                        if (ep->GetEndpointType() == ENDPOINT_TYPE_VIRTUAL) {
+                            status = VirtualEndpoint::cast(ep)->PushMessage(it->second.second, msg->GetSessionId());
+                        } else {
+                            status = ep->PushMessage(it->second.second);
+                        }
                     } else {
                         router.UnlockNameTable();
                     }
@@ -542,7 +546,7 @@ void SessionlessObj::AlarmTriggered(const Alarm& alarm, QStatus reason)
 
             /* Cancel previous advertisment */
             if (!lastAdvName.empty()) {
-                status = bus.CancelAdvertiseName(lastAdvName.c_str(), TRANSPORT_ANY);
+                status = bus.CancelAdvertiseName(lastAdvName.c_str(), TRANSPORT_ANY & ~TRANSPORT_ICE);
                 if (status != ER_OK) {
                     QCC_LogError(status, ("Failed to cancel advertisment for \"%s\"", lastAdvName.c_str()));
                 }
@@ -560,7 +564,7 @@ void SessionlessObj::AlarmTriggered(const Alarm& alarm, QStatus reason)
 
                 status = bus.RequestName(lastAdvName.c_str(), DBUS_NAME_FLAG_DO_NOT_QUEUE);
                 if (status == ER_OK) {
-                    status = bus.AdvertiseName(lastAdvName.c_str(), TRANSPORT_ANY);
+                    status = bus.AdvertiseName(lastAdvName.c_str(), TRANSPORT_ANY & ~TRANSPORT_ICE);
                 }
 
                 if (status != ER_OK) {
