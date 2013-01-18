@@ -1,9 +1,9 @@
-AllJoyn Version 3.0.2 Release Notes
+AllJoyn Version 3.2.0 Release Notes
 -----------------------------------
 
 Platform Support
 ----------------
-1) Linux Ubuntu 10.10 64-bit (x86-64)
+1) Linux Ubuntu (32 and 64 bit x86)
 2) Android Froyo 2.2 (ARM7)
 3) Android Gingerbread 2.3.4 (ARM7)
 4) Android Ice Cream Sandwich 4.0 (ARM7)
@@ -14,69 +14,39 @@ Platform Support
 9) Windows RT (ARM)
 10) iOS 6
 11) OSX 10.7 Lion
+12) OpenWRT (trunk)
 
 
-Features added in Release 3.0
+Features added in Release 3.2
 -----------------------------
 
-* Added support for iOS and OSX.
-* Added support for Windows 8 and Windows RT.
+* Support for OpenWRT
+* JavaScript binding now uses asynchronous callbacks, instead of
+  method returns
+* Introduced Sessionless Signals
 
 
-Issues Addressed in Release 3.0
--------------------------------
-
-ALLJOYN-(various): Stability issues related to bundled daemon usage
-
-ALLJOYN-(various): Stability issues related to ICE transport
-
-ALLJOYN-1154: The number of names that can be advertised from a single AllJoyn
-daemon instance (either bundled or unbundled) over TCP is limited to about 1400
-bytes.
-
-ALLJOYN-1350: Signals are not guaranteed to be received in the order sent
-
-ALLJOYN-1358: Occasional join session failures when using raw sessions
-
-ALLJOYN-1369: ICE transport does not operate over a symmetric NAT
-
-ALLJOYN-1373: Memory leak in ICE transport
-
-
-Issues Addressed in Release 3.0.1
----------------------------------
-ALLJOYN-1423: Name service compatibility between 3.0 and < 3.0 daemons
-is broken.
-
-ALLJOYN-1417: Memory leaks in ICE transport
-
-
-Issues Addressed in Release 3.0.2
+Issues Addressed in Release 3.2.0
 ---------------------------------
 
-ALLJOYN-various: Various issues related to repeatedly creating and destroying
-BusAttachments
+ALLJOYN-1565: Bundled daemon should gracefully Stop() and Join() 
+the BusContoller and the transports before deleting their objects
 
-ALLJOYN-1397: XML schema for <limit> tag within alljoyn-daemon config
-file examples is incorrect.
+ALLJOYN-1569: Join raw session on WinRT causes access violation 
+in AllJoyn
 
-ALLJOYN-1421: Multi-homed Win8 devices can fail to advertise a
-valid IP address resulting in join session failures.
+ALLJOYN-1572: Crash and deadlock seen in ICE transport under sress
 
-ALLJOYN-1439: Client cannot join session with same name over ICE transport after Wifi
-is toggled on both devices.
+ALLJOYN-1591: Crash in HandleAddressCandidatesResponse while under 
+stress
 
+ALLJOYN-1592: Crash in PacketEngine::RemovePacketStream while under
+stress
 
-Known issues and limitations with Release 3.0.2
------------------------------------------------
+ALLJOYN-1599: Crash in NameTable::RemoveUniqueName while under stress
 
-ALLJOYN-1465: Win8 devices cannot reconnect to ICE's rendezvous server after Wifi 
-is toggled.
-
-ALLJOYN-1394: AllJoyn on Windows RT does not support running multiple AllJoyn apps
-simultaneously.
-
-ALLJOYN-1477: ICE transport does not work on Windows 7 platform.
+ALLJOYN-1609: Cannot successfully establish a multipoint session 
+for third participant.
 
 
 Compatibility
@@ -116,6 +86,11 @@ applications. This issue was addressed in version 3.0.1.
 
 Change history
 --------------
+
+3.2.0 - Support for OpenWRT, asynchronous callbacks in JavaScript binding, 
+        and sessionless signals.
+        
+3.0.2 - Bug fixes.
 
 3.0.1 - Bug fixes.
 
