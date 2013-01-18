@@ -1023,6 +1023,30 @@ public ref class BusAttachment sealed {
     bool IsSameBusAttachment(BusAttachment ^ other);
 
     /// <summary>
+    /// Notify AllJoyn that the application is suspending. Exclusively-held resource should be released so that other applications
+    /// will not be prevented from acquiring the resource.
+    /// </summary>
+    /// <remarks>
+    /// On WinRT, an application is suspended when it becomes invisible for 10 seconds. The application should register the event when
+    /// the application goes into suspending state, and call OnAppSuspend()in the event handler.
+    /// </remarks>
+    /// <exception cref="Platform::COMException">
+    /// HRESULT will contain the AllJoyn error status code for the error.
+    /// </exception>
+    void OnAppSuspend();
+
+    /// <summary>
+    /// Notify AllJoyn that the application is resuming so that it can re-acquire the resource that has been released when the application was suspended.
+    /// </summary>
+    /// <remarks>
+    /// On WinRT, an application is suspended when it becomes invisible for 10 seconds. And it is resumed when users switch it back.
+    /// The application should register the event when the application goes into resuming state, and call OnAppResume()in the event handler.
+    /// </remarks>
+    /// <exception cref="Platform::COMException">
+    /// HRESULT will contain the AllJoyn error status code for the error.
+    /// </exception>
+    void OnAppResume();
+    /// <summary>
     /// Get a reference to the org.freedesktop.DBus proxy object.
     /// </summary>
     property ProxyBusObject ^ DBusProxyBusObject

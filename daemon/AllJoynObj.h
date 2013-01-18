@@ -265,6 +265,45 @@ class AllJoynObj : public BusObject, public NameListener, public TransportListen
      * @param endpoint  Bus-to-bus endpoint to add.
      * @param ER_OK if successful
      */
+
+    /**
+     * Handle event that the application/process is suspending for OS like WinRT.
+     * On Windows RT, an application is suspended when it becomes invisible after about
+     * 10 seconds and resumed when users bring it back to the foreground if not terminated.
+     * Upon the suspending event the daemon bundled with the Windows Store applcation has to release
+     * exclusive resources (eg., socket file descriptor and port); the bundled daemon re-aquires the
+     * resource when the application resumes.
+     *
+     * The input Message (METHOD_CALL) is expected to contain no parameters.
+     *
+     * The output Message (METHOD_REPLY) contains the following parameters:
+     *   resultCode   uint32   A ALLJOYN_ONAPPSUSPEND_* reply code (see AllJoynStd.h)
+     *
+     * @param member  Member.
+     * @param msg     The incoming message.
+     *
+     */
+    void AllJoynObj::OnAppSuspend(const InterfaceDescription::Member* member, Message& msg);
+
+    /**
+     * Handle event that the application/process is suspending for OS like WinRT.
+     * On Windows RT, an application is suspended when it becomes invisible after about
+     * 10 seconds and resumed when users bring it back to the foreground if not terminated.
+     * Upon the suspending event the daemon bundled with the Windows Store applcation has to release
+     * exclusive resources (eg., socket file descriptor and port); the bundled daemon re-aquires the
+     * resource when the application resumes.
+     *
+     * The input Message (METHOD_CALL) is expected to contain no parameters.
+     *
+     * The output Message (METHOD_REPLY) contains the following parameters:
+     *   resultCode   uint32   A ALLJOYN_ONAPPRESUME_* reply code (see AllJoynStd.h)
+     *
+     * @param member  Member.
+     * @param msg     The incoming message.
+     *
+     */
+    void AllJoynObj::OnAppResume(const InterfaceDescription::Member* member, Message& msg);
+
     QStatus AddBusToBusEndpoint(RemoteEndpoint& endpoint);
 
     /**

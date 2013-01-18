@@ -489,4 +489,22 @@ QStatus IpNameService::CancelAdvertiseName(TransportMask transportMask, const qc
     return m_pimpl->CancelAdvertiseName(transportMask, wkn);
 }
 
+QStatus IpNameService::OnProcSuspend()
+{
+    if (m_destroyed) {
+        return ER_OK;
+    }
+    ASSERT_STATE("OnProcSuspend");
+    return m_pimpl->OnProcSuspend();
+}
+
+QStatus IpNameService::OnProcResume()
+{
+    if (m_destroyed) {
+        return ER_OK;
+    }
+    ASSERT_STATE("OnProcResume");
+    return m_pimpl->OnProcResume();
+}
+
 } // namespace ajn

@@ -81,6 +81,8 @@ QStatus org::alljoyn::CreateInterfaces(BusAttachment& bus)
         ifc->AddMethod("GetSessionFd",             "u",                 "h",                 "sessionId,handle",                           0);
         ifc->AddMethod("SetLinkTimeout",           "uu",                "uu",                "sessionId,inLinkTO,disposition,outLinkTO",   0);
         ifc->AddMethod("AliasUnixUser",            "u",                 "u",                 "aliasUID, disposition",                      0);
+        ifc->AddMethod("OnAppSuspend",             "",                  "u",                 "disposition",                      0);
+        ifc->AddMethod("OnAppResume",              "",                  "u",                 "disposition",                      0);
 
         ifc->AddSignal("FoundAdvertisedName",      "sqs",              "name,transport,prefix",                        0);
         ifc->AddSignal("LostAdvertisedName",       "sqs",              "name,transport,prefix",                        0);

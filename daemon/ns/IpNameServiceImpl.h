@@ -699,6 +699,16 @@ class IpNameServiceImpl : public qcc::Thread {
      */
     size_t NumAdvertisements(TransportMask transportMask);
 
+    /**
+     * @brief Handle the suspending event of the process. Release exclusive held socket file descriptor and port.
+     */
+    QStatus OnProcSuspend();
+
+    /**
+     * @brief Handle the resuming event of the process. Re-acquire exclusive held socket file descriptor and port.
+     */
+    QStatus OnProcResume();
+
   private:
     /**
      * @brief Copying an IpNameServiceImpl object is forbidden.
@@ -780,6 +790,11 @@ class IpNameServiceImpl : public qcc::Thread {
      */
     State m_state;
 
+    /**
+     * @internal
+     * @brief State variable to indicate whether the OS is suspending the process.
+     */
+    bool m_isProcSuspending;
     /**
      * @internal
      * @brief State variable to indicate that the name service is in the process

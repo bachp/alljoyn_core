@@ -238,4 +238,8 @@ Copyright 2010 - 2012, Qualcomm Innovation Center, Inc.
   <status name="ER_P2P_NO_GO" value="0x90e7" comment="Attempt to execute a Wi-Fi Direct GO-related operation while STA"/>
   <status name="ER_P2P_NO_STA" value="0x90e8" comment="Attempt to execute a Wi-Fi Direct STA-related operation while GO"/>
   <status name="ER_P2P_FORBIDDEN" value="0x90e9" comment="Attempt to execute a forbidden Wi-Fi Direct operation"/>
+  <status name="ER_ALLJOYN_ONAPPSUSPEND_REPLY_FAILED" value="0x90ea" comment="OnAppSuspend reply: Failed"/>
+  <status name="ER_ALLJOYN_ONAPPSUSPEND_REPLY_UNSUPPORTED" value="0x90eb" comment="OnAppSuspend reply: Unsupported operation"/>
+  <status name="ER_ALLJOYN_ONAPPRESUME_REPLY_FAILED" value="0x90ec" comment="OnAppResume reply: Failed"/>
+  <status name="ER_ALLJOYN_ONAPPRESUME_REPLY_UNSUPPORTED" value="0x90ed" comment="OnAppResume reply: Unsupported operation"/>
 </status_block>

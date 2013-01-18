@@ -1547,6 +1547,24 @@ bool BusAttachment::IsSameBusAttachment(BusAttachment ^ other)
     return &(**_mBusAttachment) == &(**other->_mBusAttachment);
 }
 
+void BusAttachment::OnAppSuspend()
+{
+    ::QStatus status = _busAttachment->OnAppSuspend();
+    // Bubble up any QStatus error as exception
+    if (ER_OK != status) {
+        QCC_THROW_EXCEPTION(status);
+    }
+}
+
+void BusAttachment::OnAppResume()
+{
+    ::QStatus status = _busAttachment->OnAppResume();
+    // Bubble up any QStatus error as exception
+    if (ER_OK != status) {
+        QCC_THROW_EXCEPTION(status);
+    }
+}
+
 ProxyBusObject ^ BusAttachment::DBusProxyBusObject::get()
 {
     ::QStatus status = ER_OK;

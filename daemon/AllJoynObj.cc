@@ -54,6 +54,7 @@
 #include "BusController.h"
 #include "VirtualEndpoint.h"
 #include "EndpointHelper.h"
+#include "ns/IpNameService.h"
 
 #define QCC_MODULE "ALLJOYN_OBJ"
 
@@ -132,7 +133,9 @@ QStatus AllJoynObj::Init()
         { alljoynIntf->GetMember("LeaveSession"),             static_cast<MessageReceiver::MethodHandler>(&AllJoynObj::LeaveSession) },
         { alljoynIntf->GetMember("GetSessionFd"),             static_cast<MessageReceiver::MethodHandler>(&AllJoynObj::GetSessionFd) },
         { alljoynIntf->GetMember("SetLinkTimeout"),           static_cast<MessageReceiver::MethodHandler>(&AllJoynObj::SetLinkTimeout) },
-        { alljoynIntf->GetMember("AliasUnixUser"),            static_cast<MessageReceiver::MethodHandler>(&AllJoynObj::AliasUnixUser) }
+        { alljoynIntf->GetMember("AliasUnixUser"),            static_cast<MessageReceiver::MethodHandler>(&AllJoynObj::AliasUnixUser) },
+        { alljoynIntf->GetMember("OnAppSuspend"),             static_cast<MessageReceiver::MethodHandler>(&AllJoynObj::OnAppSuspend) },
+        { alljoynIntf->GetMember("OnAppResume"),              static_cast<MessageReceiver::MethodHandler>(&AllJoynObj::OnAppResume) }
     };
 
     AddInterface(*alljoynIntf);
@@ -2232,6 +2235,64 @@ void AllJoynObj::AliasUnixUser(const InterfaceDescription::Member* member, Messa
     replyArg.Set("u", replyCode);
     MethodReply(msg, &replyArg, 1);
     QCC_DbgPrintf(("AllJoynObj::AliasUnixUser(%d) returned %d", aliasUID, replyCode));
+}
+
+void AllJoynObj::OnAppSuspend(const InterfaceDescription::Member* member, Message& msg)
+{
+    uint32_t replyCode = ALLJOYN_ONAPPSUSPEND_REPLY_SUCCESS;
+    qcc::String sender = msg->GetSender();
+    BusEndpoint srcEp = router.FindEndpoint(sender);
+    if (srcEp->IsValid()) {
+        // Only allow NullEndpoint to make this call
+        if (srcEp->GetEndpointType() == ENDPOINT_TYPE_NULL) {
+            if (ER_OK != IpNameService::Instance().OnProcSuspend()) {
+                replyCode = ALLJOYN_ONAPPSUSPEND_REPLY_FAILED;
+            }
+        } else {
+            QCC_DbgPrintf(("OnAppSuspend() is only supported for bundled daemon"));
+            replyCode = ALLJOYN_ONAPPSUSPEND_REPLY_NO_SUPPORT;
+        }
+    } else {
+        QCC_LogError(ER_BUS_NO_ENDPOINT, ("AllJoynObj::OnAppSuspend() sender endpoint is invalid"));
+        replyCode = ALLJOYN_ONAPPSUSPEND_REPLY_FAILED;
+    }
+
+    /* Reply to request */
+    MsgArg replyArg;
+    replyArg.Set("u", replyCode);
+    QStatus status = MethodReply(msg, &replyArg, 1);
+    if (ER_OK != status) {
+        QCC_LogError(status, ("AllJoynObj::OnAppSuspend() failed to send reply message"));
+    }
+}
+
+void AllJoynObj::OnAppResume(const InterfaceDescription::Member* member, Message& msg)
+{
+    uint32_t replyCode = ALLJOYN_ONAPPRESUME_REPLY_SUCCESS;
+    qcc::String sender = msg->GetSender();
+    BusEndpoint srcEp = router.FindEndpoint(sender);
+    if (srcEp->IsValid()) {
+        // Only allow NullEndpoint to make this call
+        if (srcEp->GetEndpointType() == ENDPOINT_TYPE_NULL) {
+            if (ER_OK != IpNameService::Instance().OnProcResume()) {
+                replyCode = ALLJOYN_ONAPPRESUME_REPLY_FAILED;
+            }
+        } else {
+            QCC_DbgPrintf(("OnAppResume() is only supported for bundled daemon"));
+            replyCode = ALLJOYN_ONAPPRESUME_REPLY_NO_SUPPORT;
+        }
+    } else {
+        QCC_LogError(ER_BUS_NO_ENDPOINT, ("AllJoynObj::OnAppResume() sender endpoint is invalid"));
+        replyCode = ALLJOYN_ONAPPRESUME_REPLY_FAILED;
+    }
+
+    /* Reply to request */
+    MsgArg replyArg;
+    replyArg.Set("u", replyCode);
+    QStatus status = MethodReply(msg, &replyArg, 1);
+    if (ER_OK != status) {
+        QCC_LogError(status, ("AllJoynObj::OnAppResume() failed to send reply message"));
+    }
 }
 
 void AllJoynObj::AdvertiseName(const InterfaceDescription::Member* member, Message& msg)

@@ -308,6 +308,43 @@ QStatus CreateInterfaces(BusAttachment& bus);          /**< Create the org.alljo
 #define ALLJOYN_ALIASUNIXUSER_REPLY_NO_SUPPORT       3   /**< AliasUnixUser reply: Failed*/
 // @}
 
+/**
+ * @name org.alljoyn.Bus.OnAppSuspend
+ *  Interface: org.alljoyn.Bus
+ *  Method: OnAppSuspend()
+ *
+ *  Input params:
+ *     None
+ *
+ *  Output params:
+ *     disposition - One of the ALLJOYN_ONAPPSUSPEND_* dispositions listed below
+ *
+ */
+// @{
+/* org.alljoyn.Bus.OnAppSuspend */
+#define ALLJOYN_ONAPPSUSPEND_REPLY_SUCCESS           1   /**< OnAppSuspend reply: Success */
+#define ALLJOYN_ONAPPSUSPEND_REPLY_FAILED            2   /**< OnAppSuspend reply: Failed */
+#define ALLJOYN_ONAPPSUSPEND_REPLY_NO_SUPPORT        3   /**< OnAppSuspend reply: Not Supported */
+// @}
+
+/**
+ * @name org.alljoyn.Bus.OnAppResume
+ *  Interface: org.alljoyn.Bus
+ *  Method: OnAppResume()
+ *
+ *  Input params:
+ *     None
+ *
+ *  Output params:
+ *     disposition - One of the ALLJOYN_ONAPPRESUME_* dispositions listed below
+ *
+ */
+// @{
+/* org.alljoyn.Bus.OnAppResume */
+#define ALLJOYN_ONAPPRESUME_REPLY_SUCCESS           1   /**< OnAppResume reply: Success */
+#define ALLJOYN_ONAPPRESUME_REPLY_FAILED            2   /**< OnAppResume reply: Failed */
+#define ALLJOYN_ONAPPRESUME_REPLY_NO_SUPPORT        3   /**< OnAppResume reply: Not Supported */
+// @}
 
 /**
  * Collection of Session Port numbers defined for org.alljoyn endpoint.

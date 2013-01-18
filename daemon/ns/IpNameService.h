@@ -368,6 +368,16 @@ class IpNameService {
      */
     QStatus CancelAdvertiseName(TransportMask transportMask, const qcc::String& wkn);
 
+    /**
+     * @brief Handle the suspending event of the process. Release exclusive socket file descriptor and port.
+     */
+    QStatus OnProcSuspend();
+
+    /**
+     * @brief Handle the resuming event of the process. Re-acquire exclusive socket file descriptor and port.
+     */
+    QStatus OnProcResume();
+
   private:
     /**
      * This is a singleton so the constructor is marked private to prevent

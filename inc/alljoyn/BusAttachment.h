@@ -1693,6 +1693,19 @@ class BusAttachment : public MessageReceiver {
     BusAttachment(Internal* internal, uint32_t concurrency);
     /// @endcond
 
+    /**
+     * @internal
+     * Notify AllJoyn that the application is suspending. Exclusively-held resource should be released so that other applications
+     * will not be prevented from acquiring the resource.
+     */
+    QStatus OnAppSuspend();
+
+    /**
+     * @internal
+     * Notify AllJoyn that the application is resuming so that it can re-acquire the resource that has been released when the application was suspended.
+     */
+    QStatus OnAppResume();
+
   private:
     /**
      * Assignment operator is private.

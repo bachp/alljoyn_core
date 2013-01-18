@@ -1960,4 +1960,78 @@ QStatus BusAttachment::GetKeyExpiration(const qcc::String& guid, uint32_t& timeo
     }
 }
 
+QStatus BusAttachment::OnAppSuspend()
+{
+    if (!IsConnected()) {
+        return ER_BUS_NOT_CONNECTED;
+    }
+
+    Message reply(*this);
+
+    const ProxyBusObject& alljoynObj = this->GetAllJoynProxyObj();
+    QStatus status = alljoynObj.MethodCall(org::alljoyn::Bus::InterfaceName, "OnAppSuspend", NULL, 0, reply);
+    if (ER_OK == status) {
+        uint32_t disposition;
+        status = reply->GetArgs("u", &disposition);
+        if (ER_OK == status) {
+            switch (disposition) {
+            case ALLJOYN_ONAPPSUSPEND_REPLY_SUCCESS:
+                break;
+
+            case ALLJOYN_ONAPPSUSPEND_REPLY_FAILED:
+                status = ER_ALLJOYN_ONAPPSUSPEND_REPLY_FAILED;
+                break;
+
+            case ALLJOYN_ONAPPSUSPEND_REPLY_NO_SUPPORT:
+                status = ER_ALLJOYN_ONAPPSUSPEND_REPLY_UNSUPPORTED;
+                break;
+
+            default:
+                status = ER_BUS_UNEXPECTED_DISPOSITION;
+                break;
+            }
+        }
+    } else {
+        QCC_LogError(status, ("%s.OnAppSuspend returned ERROR_MESSAGE (error=%s)", org::alljoyn::Bus::InterfaceName, reply->GetErrorDescription().c_str()));
+    }
+    return status;
+}
+
+QStatus BusAttachment::OnAppResume()
+{
+    if (!IsConnected()) {
+        return ER_BUS_NOT_CONNECTED;
+    }
+
+    Message reply(*this);
+
+    const ProxyBusObject& alljoynObj = this->GetAllJoynProxyObj();
+    QStatus status = alljoynObj.MethodCall(org::alljoyn::Bus::InterfaceName, "OnAppResume", NULL, 0, reply);
+    if (ER_OK == status) {
+        uint32_t disposition;
+        status = reply->GetArgs("u", &disposition);
+        if (ER_OK == status) {
+            switch (disposition) {
+            case ALLJOYN_ONAPPRESUME_REPLY_SUCCESS:
+                break;
+
+            case ALLJOYN_ONAPPRESUME_REPLY_FAILED:
+                status = ER_ALLJOYN_ONAPPRESUME_REPLY_FAILED;
+                break;
+
+            case ALLJOYN_ONAPPRESUME_REPLY_NO_SUPPORT:
+                status = ER_ALLJOYN_ONAPPRESUME_REPLY_UNSUPPORTED;
+                break;
+
+            default:
+                status = ER_BUS_UNEXPECTED_DISPOSITION;
+                break;
+            }
+        }
+    } else {
+        QCC_LogError(status, ("%s.OnAppResume returned ERROR_MESSAGE (error=%s)", org::alljoyn::Bus::InterfaceName, reply->GetErrorDescription().c_str()));
+    }
+    return status;
+}
+
 }

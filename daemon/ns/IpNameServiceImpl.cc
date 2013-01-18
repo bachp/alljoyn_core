@@ -452,7 +452,7 @@ IpNameServiceImpl::IpNameServiceImpl()
     m_modulus(QUESTION_MODULUS), m_retries(NUMBER_RETRIES),
     m_loopback(false), m_enableIPv4(false), m_enableIPv6(false),
     m_wakeEvent(), m_forceLazyUpdate(false),
-    m_enabled(false), m_doEnable(false), m_doDisable(false)
+    m_enabled(false), m_doEnable(false), m_doDisable(false), m_isProcSuspending(false)
 {
     QCC_DbgPrintf(("IpNameServiceImpl::IpNameServiceImpl()"));
 
@@ -968,6 +968,10 @@ void IpNameServiceImpl::LazyUpdateInterfaces(void)
         return;
     }
 
+    if (m_isProcSuspending) {
+        QCC_DbgPrintf(("IpNameServiceImpl::LazyUpdateInterfaces(): The process is suspending. Stop communicating with the outside world"));
+        return;
+    }
     //
     // Call IfConfig to get the list of interfaces currently configured in the
     // system.  This also pulls out interface flags, addresses and MTU.  If we
@@ -2235,6 +2239,26 @@ QStatus IpNameServiceImpl::CancelAdvertiseName(TransportMask transportMask, vect
         QueueProtocolMessage(header);
     }
 
+    return ER_OK;
+}
+
+QStatus IpNameServiceImpl::OnProcSuspend()
+{
+    if (!m_isProcSuspending) {
+        m_isProcSuspending = true;
+        m_forceLazyUpdate = true;
+        m_wakeEvent.SetEvent();
+    }
+    return ER_OK;
+}
+
+QStatus IpNameServiceImpl::OnProcResume()
+{
+    if (m_isProcSuspending) {
+        m_isProcSuspending = false;
+        m_forceLazyUpdate = true;
+        m_wakeEvent.SetEvent();
+    }
     return ER_OK;
 }
 
