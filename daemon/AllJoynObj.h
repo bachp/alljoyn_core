@@ -267,7 +267,7 @@ class AllJoynObj : public BusObject, public NameListener, public TransportListen
      */
 
     /**
-     * Handle event that the application/process is suspending for OS like WinRT.
+     * Handle event that the application/process is suspending on OS like WinRT.
      * On Windows RT, an application is suspended when it becomes invisible after about
      * 10 seconds and resumed when users bring it back to the foreground if not terminated.
      * Upon the suspending event the daemon bundled with the Windows Store applcation has to release
@@ -283,10 +283,10 @@ class AllJoynObj : public BusObject, public NameListener, public TransportListen
      * @param msg     The incoming message.
      *
      */
-    void AllJoynObj::OnAppSuspend(const InterfaceDescription::Member* member, Message& msg);
+    void OnAppSuspend(const InterfaceDescription::Member* member, Message& msg);
 
     /**
-     * Handle event that the application/process is suspending for OS like WinRT.
+     * Handle event that the application/process is suspending on OS like WinRT.
      * On Windows RT, an application is suspended when it becomes invisible after about
      * 10 seconds and resumed when users bring it back to the foreground if not terminated.
      * Upon the suspending event the daemon bundled with the Windows Store applcation has to release
@@ -302,7 +302,7 @@ class AllJoynObj : public BusObject, public NameListener, public TransportListen
      * @param msg     The incoming message.
      *
      */
-    void AllJoynObj::OnAppResume(const InterfaceDescription::Member* member, Message& msg);
+    void OnAppResume(const InterfaceDescription::Member* member, Message& msg);
 
     QStatus AddBusToBusEndpoint(RemoteEndpoint& endpoint);
 
