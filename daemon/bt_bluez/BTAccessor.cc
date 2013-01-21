@@ -1638,11 +1638,6 @@ QStatus BTTransport::BTAccessor::ProcessSDPXML(XmlParseContext& xmlctx,
                     } else {
                         String verStr = (*valElem)->GetAttributes().find("value")->second;
                         remoteVersion = StringToU32(verStr);
-                        if (remoteVersion < GenerateVersionValue(2, 0, 0)) {
-                            QCC_DbgHLPrintf(("Remote device is running an unsupported version of AllJoyn"));
-                            status = ER_FAIL;
-                            goto exit;
-                        }
                     }
                     QCC_DbgPrintf(("    Attribute ID: %04x  ALLJOYN_BT_VERSION_NUM_ATTR: %u.%u.%u",
                                    attrId,

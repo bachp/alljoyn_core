@@ -1402,12 +1402,7 @@ static bool GetSdpRemoteVersion(BLOB* blob, uint32_t* remoteVersion)
     // Do we have the remote version?
     if (ERROR_SUCCESS == status && SDP_ST_UINT32 == data.specificType) {
         *remoteVersion = data.data.uint32;
-
-        if (*remoteVersion >= GenerateVersionValue(2, 0, 0)) {
-            foundIt = true;
-        } else {
-            QCC_DbgHLPrintf(("Remote device is running an unsupported version of AllJoyn"));
-        }
+        foundIt = true;
     }
 
     return foundIt;
