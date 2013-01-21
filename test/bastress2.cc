@@ -71,9 +71,11 @@ static void SigIntHandler(int sig)
 
 /*constants*/
 static const char* INTERFACE_NAME = "org.alljoyn.Bus.test.bastress";
-static const char* SERVICE_NAME = "org.alljoyn.Bus.test.bastress";
+static const char* DEFAULT_SERVICE_NAME = "org.alljoyn.Bus.test.bastress";
 static const char* SERVICE_PATH = "/sample";
 static const SessionPort SERVICE_PORT = 25;
+
+static String s_wellKnownName = DEFAULT_SERVICE_NAME;
 
 class BasicSampleObject : public BusObject {
   public:
@@ -156,7 +158,7 @@ class ClientBusListener : public BusListener, public SessionListener {
     {
         QCC_SyncPrintf("FoundAdvertisedName(name=%s, prefix=%s)\n", name, namePrefix);
 
-        if (0 == strcmp(namePrefix, SERVICE_NAME)) {
+        if (0 == strcmp(namePrefix, s_wellKnownName.c_str())) {
 
             mutex.Lock();
             bool shouldReturn = wasNameFoundAlready;
@@ -197,7 +199,7 @@ class ClientBusListener : public BusListener, public SessionListener {
 
     void NameOwnerChanged(const char* busName, const char* previousOwner, const char* newOwner)
     {
-        if (newOwner && (0 == strcmp(busName, SERVICE_NAME))) {
+        if (newOwner && (0 == strcmp(busName, s_wellKnownName.c_str()))) {
             QCC_SyncPrintf("NameOwnerChanged: name=%s, oldOwner=%s, newOwner=%s\n",
                            busName,
                            previousOwner ? previousOwner : "<none>",
@@ -215,7 +217,7 @@ class ServiceBusListener : public BusListener, public SessionPortListener {
 
     void NameOwnerChanged(const char* busName, const char* previousOwner, const char* newOwner)
     {
-        if (newOwner && (0 == strcmp(busName, SERVICE_NAME))) {
+        if (newOwner && (0 == strcmp(busName, s_wellKnownName.c_str()))) {
             QCC_SyncPrintf("NameOwnerChanged: name=%s, oldOwner=%s, newOwner=%s\n",
                            busName,
                            previousOwner ? previousOwner : "<none>",
@@ -287,7 +289,7 @@ inline void ThreadClass::ClientRun() {
     QCC_SyncPrintf("ClientBusListener Registered.\n");
 
     /* Begin discovery on the well-known name of the service to be called */
-    status = bus->FindAdvertisedName(SERVICE_NAME);
+    status = bus->FindAdvertisedName(s_wellKnownName.c_str());
     if (status != ER_OK) {
         QCC_SyncPrintf("org.alljoyn.Bus.FindAdvertisedName failed (%s))\n", QCC_StatusText(status));
     }
@@ -338,7 +340,7 @@ inline void ThreadClass::ClientRun() {
     bus->LeaveSession(sessionId);
 
     /* Cancel discovery on the well-known name of the service */
-    status = bus->CancelFindAdvertisedName(SERVICE_NAME);
+    status = bus->CancelFindAdvertisedName(s_wellKnownName.c_str());
     if (status != ER_OK) {
         QCC_SyncPrintf("org.alljoyn.Bus.CancelFindAdvertisedName failed (%s))\n", QCC_StatusText(status));
     }
@@ -398,7 +400,7 @@ inline void ThreadClass::ServiceRun() {
     char buf[512];
     // Don't use qcc::Rand16() because it can result in the same exact sequence
     // for multiple threads.
-    sprintf(buf, "%s.i%05d", SERVICE_NAME, qcc::Rand32() & 0xffff);
+    sprintf(buf, "%s.i%05d", s_wellKnownName.c_str(), qcc::Rand32() & 0xffff);
 
     qcc::String serviceName(buf);
 
@@ -411,7 +413,7 @@ inline void ThreadClass::ServiceRun() {
         uint32_t flags = DBUS_NAME_FLAG_REPLACE_EXISTING | DBUS_NAME_FLAG_DO_NOT_QUEUE;
         QStatus status = bus->RequestName(serviceName.c_str(), flags);
         if (ER_OK != status) {
-            QCC_SyncPrintf("RequestName(%s) failed (status=%s)\n", SERVICE_NAME, QCC_StatusText(status));
+            QCC_SyncPrintf("RequestName(%s) failed (status=%s)\n", s_wellKnownName.c_str(), QCC_StatusText(status));
         }
     }
 
@@ -521,6 +523,7 @@ static void usage(void)
     QCC_SyncPrintf("   -os                   = Operate in service mode\n");
     QCC_SyncPrintf("   -p                    = Use point-to-point sessions, default is multipoint\n");
     QCC_SyncPrintf("   -m <mask>             = Transport mask to use for client\n");
+    QCC_SyncPrintf("   -n <well-known-name>  = Well-known name to advertise\n");
 }
 
 /** Main entry point */
@@ -570,6 +573,15 @@ int main(int argc, char**argv)
                 exit(1);
             } else {
                 s_transports = static_cast<TransportMask>(StringToU32(argv[i], 16, TRANSPORT_ANY));
+            }
+        } else if (0 == strcmp("-n", argv[i])) {
+            ++i;
+            if (i == argc) {
+                QCC_SyncPrintf("option %s requires a parameter\n", argv[i - 1]);
+                usage();
+                exit(1);
+            } else {
+                s_wellKnownName = argv[i];
             }
         } else {
             usage();
