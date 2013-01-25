@@ -113,6 +113,7 @@ int main(int argc, char** argv)
     /* Expect same message to have same token */
     if (tok1 != tok2) {
         printf("\nFAILED 1\n");
+        delete stream;
         return -1;
     }
 
@@ -125,6 +126,7 @@ int main(int argc, char** argv)
     /* Expect different messages to have different token */
     if (tok1 == tok2) {
         printf("\nFAILED 2\n");
+        delete stream;
         return -1;
     }
 
@@ -137,6 +139,7 @@ int main(int argc, char** argv)
     status = msg.Signal(":1.99", "/foo/bar/gorn", "foo.bar", "test", 1000);
     if (status != ER_OK) {
         printf("Error %s\n", QCC_StatusText(status));
+        delete stream;
         return -1;
     }
     tok2 = msg.GetCompressionToken();
@@ -144,6 +147,7 @@ int main(int argc, char** argv)
     /* Expect messages with and without TTL to have different token */
     if (tok1 == tok2) {
         printf("\nFAILED 3\n");
+        delete stream;
         return -1;
     }
 
@@ -151,12 +155,14 @@ int main(int argc, char** argv)
     status = msg.Signal(":1.99", "/foo/bar/gorn", "foo.bar", "test", 9999);
     if (status != ER_OK) {
         printf("Error %s\n", QCC_StatusText(status));
+        delete stream;
         return -1;
     }
     tok1 = msg.GetCompressionToken();
 
     if (tok1 == tok2) {
         printf("\nFAILED 4\n");
+        delete stream;
         return -1;
     }
 
@@ -164,6 +170,7 @@ int main(int argc, char** argv)
     status = msg.Signal(":1.1234", "/foo/bar/again", "boo.far", "test", 1700);
     if (status != ER_OK) {
         printf("Error %s\n", QCC_StatusText(status));
+        delete stream;
         return -1;
     }
     tok1 = msg.GetCompressionToken();
@@ -173,12 +180,14 @@ int main(int argc, char** argv)
     status = msg.Signal(":1.1234", "/foo/bar/again", "boo.far", "test", 1700);
     if (status != ER_OK) {
         printf("Error %s\n", QCC_StatusText(status));
+        delete stream;
         return -1;
     }
     tok2 = msg.GetCompressionToken();
 
     if (tok1 != tok2) {
         printf("\nFAILED 5\n");
+        delete stream;
         return -1;
     }
 
@@ -191,6 +200,7 @@ int main(int argc, char** argv)
     status = msg.Signal(":1.99", "/foo/bar/gorn", "foo.bar", "test", 0, 5678);
     if (status != ER_OK) {
         printf("Error %s\n", QCC_StatusText(status));
+        delete stream;
         return -1;
     }
     tok2 = msg.GetCompressionToken();
@@ -198,6 +208,7 @@ int main(int argc, char** argv)
     /* Expect messages with different session id's to have different token */
     if (tok1 == tok2) {
         printf("\nFAILED 3\n");
+        delete stream;
         return -1;
     }
 
@@ -208,11 +219,13 @@ int main(int argc, char** argv)
         status = msg.Signal(":1.1234", "/fun/games", "boo.far", sig.c_str(), 1900, sess);
         if (status != ER_OK) {
             printf("Error %s\n", QCC_StatusText(status));
+            delete stream;
             return -1;
         }
         status = msg.Deliver(ep);
         if (status != ER_OK) {
             printf("Error %s\n", QCC_StatusText(status));
+            delete stream;
             return -1;
         }
     }
@@ -224,19 +237,22 @@ int main(int argc, char** argv)
         status = msg2.Unmarshal(ep, ":88.88");
         if (status != ER_OK) {
             printf("Error %s\n", QCC_StatusText(status));
+            delete stream;
             return -1;
         }
         if (msg2.GetSessionId() != sess) {
             printf("\nFAILED 6.%d\n", i);
+            delete stream;
             return -1;
         }
         if (sig != msg2.GetMemberName()) {
             printf("\nFAILED 6.%d\n", i);
+            delete stream;
             return -1;
         }
     }
 
     printf("PASSED\n");
-
+    delete stream;
     return 0;
 }
