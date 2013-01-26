@@ -39,15 +39,6 @@ class TransportPermission {
      * @param   callerName    The caller that invokes this method
      */
     static QStatus FilterTransports(BusEndpoint& srcEp, const qcc::String& sender, TransportMask& transports, const char* callerName);
-
-    /**
-     * Get transports that the endpoint has no permission to use
-     * @param   uid             Uid to check.
-     * @param   transList       List of transports available
-     * @param   transForbidden  Mask of fobidden transports
-     * @param   callerName      The caller that invokes this method
-     */
-    static void GetForbiddenTransports(uint32_t uid, TransportList& transList, TransportMask& transForbidden, const char* callerName);
 };
 
 class PermissionMgr {

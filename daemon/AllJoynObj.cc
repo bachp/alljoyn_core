@@ -127,7 +127,9 @@ QStatus AllJoynObj::Init()
         { alljoynIntf->GetMember("AdvertiseName"),            static_cast<MessageReceiver::MethodHandler>(&AllJoynObj::AdvertiseName) },
         { alljoynIntf->GetMember("CancelAdvertiseName"),      static_cast<MessageReceiver::MethodHandler>(&AllJoynObj::CancelAdvertiseName) },
         { alljoynIntf->GetMember("FindAdvertisedName"),       static_cast<MessageReceiver::MethodHandler>(&AllJoynObj::FindAdvertisedName) },
+        { alljoynIntf->GetMember("FindAdvertisedNameByTransport"),       static_cast<MessageReceiver::MethodHandler>(&AllJoynObj::FindAdvertisedNameByTransport) },
         { alljoynIntf->GetMember("CancelFindAdvertisedName"), static_cast<MessageReceiver::MethodHandler>(&AllJoynObj::CancelFindAdvertisedName) },
+        { alljoynIntf->GetMember("CancelFindAdvertisedNameByTransport"), static_cast<MessageReceiver::MethodHandler>(&AllJoynObj::CancelFindAdvertisedNameByTransport) },
         { alljoynIntf->GetMember("BindSessionPort"),          static_cast<MessageReceiver::MethodHandler>(&AllJoynObj::BindSessionPort) },
         { alljoynIntf->GetMember("UnbindSessionPort"),        static_cast<MessageReceiver::MethodHandler>(&AllJoynObj::UnbindSessionPort) },
         { alljoynIntf->GetMember("JoinSession"),              static_cast<MessageReceiver::MethodHandler>(&AllJoynObj::JoinSession) },
@@ -337,6 +339,9 @@ void AllJoynObj::BindSessionPort(const InterfaceDescription::Member* member, Mes
                 if (PermissionMgr::GetDaemonBusCallPolicy(srcEp) == PermissionMgr::STDBUSCALL_SHOULD_REJECT) {
                     QCC_DbgPrintf(("The sender endpoint is not allowed to call BindSessionPort()"));
                     status = ER_BUS_NOT_ALLOWED;
+                } else if (PermissionMgr::GetDaemonBusCallPolicy(srcEp) == PermissionMgr::STDBUSCALL_ALLOW_ACCESS_SERVICE_LOCAL) {
+                    opts.transports &= TRANSPORT_LOCAL;
+                    QCC_DbgPrintf(("The sender endpoint is only allowed to use local transport"));
                 }
             }
         } else {
@@ -503,16 +508,8 @@ ThreadReturn STDCALL AllJoynObj::JoinSessionThread::RunJoin()
         if (policy == PermissionMgr::STDBUSCALL_SHOULD_REJECT) {
             rejectCall = true;
         } else if (policy == PermissionMgr::STDBUSCALL_ALLOW_ACCESS_SERVICE_LOCAL) {
-            if (sessionHost) {
-                BusEndpoint ep = ajObj.router.FindEndpoint(sessionHost);
-                if (ep->GetEndpointType() == ENDPOINT_TYPE_VIRTUAL) {
-                    rejectCall = true;
-                } else if ((ep->GetEndpointType() == ENDPOINT_TYPE_REMOTE) || (ep->GetEndpointType() == ENDPOINT_TYPE_NULL)) {
-                    rejectCall = false;
-                }
-            }
-        } else if (policy == PermissionMgr::STDBUSCALL_ALLOW_ACCESS_SERVICE_ANY) {
-            rejectCall = false;
+            optsIn.transports &= TRANSPORT_LOCAL;
+            QCC_DbgPrintf(("The sender endpoint is only allowed to use local transport."));
         }
 
         if (rejectCall) {
@@ -2342,15 +2339,29 @@ void AllJoynObj::AdvertiseName(const InterfaceDescription::Member* member, Messa
     QStatus status = MsgArg::Get(args, numArgs, "sq", &advertiseName, &transports);
     QCC_DbgTrace(("AllJoynObj::AdvertiseName(%s, %x)", (status == ER_OK) ? advertiseName : "", transports));
 
+    if (ER_OK != status) {
+        QCC_LogError(status, ("Fail to parse msg parameters"));
+        replyCode = ALLJOYN_FINDADVERTISEDNAME_REPLY_FAILED;
+    }
+
     /* Get the sender name */
     qcc::String sender = msg->GetSender();
+    BusEndpoint srcEp = router.FindEndpoint(sender);
 
-    if (status == ER_OK) {
-        BusEndpoint srcEp = router.FindEndpoint(sender);
-        status = TransportPermission::FilterTransports(srcEp, sender, transports, "AdvertiseName");
-        if ((status == ER_OK) && PermissionMgr::GetDaemonBusCallPolicy(srcEp) == PermissionMgr::STDBUSCALL_SHOULD_REJECT) {
+    if (ALLJOYN_ADVERTISENAME_REPLY_SUCCESS == replyCode) {
+        if (PermissionMgr::GetDaemonBusCallPolicy(srcEp) == PermissionMgr::STDBUSCALL_SHOULD_REJECT) {
             QCC_DbgPrintf(("The sender endpoint is not allowed to call AdvertiseName()"));
             replyCode = ALLJOYN_ADVERTISENAME_REPLY_FAILED;
+        } else if (PermissionMgr::GetDaemonBusCallPolicy(srcEp) == PermissionMgr::STDBUSCALL_ALLOW_ACCESS_SERVICE_LOCAL) {
+            transports &= TRANSPORT_LOCAL;
+            QCC_DbgPrintf(("The sender endpoint is only allowed to use local transport"));
+        }
+    }
+
+    if (ALLJOYN_ADVERTISENAME_REPLY_SUCCESS == replyCode) {
+        status = TransportPermission::FilterTransports(srcEp, sender, transports, "AdvertiseName");
+        if (ER_OK != status) {
+            QCC_LogError(status, ("Filter transports failed"));
         }
     }
 
@@ -2361,13 +2372,15 @@ void AllJoynObj::AdvertiseName(const InterfaceDescription::Member* member, Messa
             /* Check to see if advertiseName is already being advertised */
             AcquireLocks();
             String advertiseNameStr = advertiseName;
-            multimap<qcc::String, pair<TransportMask, qcc::String> >::iterator it = advertiseMap.find(advertiseNameStr);
+            multimap<qcc::String, pair<TransportMask, qcc::String> >::iterator it = advertiseMap.lower_bound(advertiseNameStr);
 
+            bool foundEntry = false;
             while ((it != advertiseMap.end()) && (it->first == advertiseNameStr)) {
                 if (it->second.second == sender) {
                     if ((it->second.first & transports) != 0) {
                         replyCode = ALLJOYN_ADVERTISENAME_REPLY_ALREADY_ADVERTISING;
                     }
+                    foundEntry = true;
                     break;
                 }
                 ++it;
@@ -2375,7 +2388,7 @@ void AllJoynObj::AdvertiseName(const InterfaceDescription::Member* member, Messa
 
             if (ALLJOYN_ADVERTISENAME_REPLY_SUCCESS == replyCode) {
                 /* Add to advertise map */
-                if (it == advertiseMap.end()) {
+                if (!foundEntry) {
                     advertiseMap.insert(pair<qcc::String, pair<TransportMask, qcc::String> >(advertiseNameStr, pair<TransportMask, String>(transports, sender)));
                 } else {
                     it->second.first |= transports;
@@ -2472,31 +2485,37 @@ QStatus AllJoynObj::ProcCancelAdvertise(const qcc::String& sender, const qcc::St
 
     /* Check to see if this advertised name exists and delete it */
     bool foundAdvert = false;
-    bool advertHasRefs = false;
+    TransportMask refMask = 0;
+    TransportMask cancelMask = 0;
+    TransportMask origMask = 0;
 
     AcquireLocks();
     multimap<qcc::String, pair<TransportMask, qcc::String> >::iterator it = advertiseMap.find(advertiseName);
     while ((it != advertiseMap.end()) && (it->first == advertiseName)) {
         if (it->second.second == sender) {
             foundAdvert = true;
+            origMask = it->second.first;
             it->second.first &= ~transports;
             if (it->second.first == 0) {
                 advertiseMap.erase(it++);
-            } else {
-                ++it;
+                continue;
             }
-        } else {
-            advertHasRefs = true;
-            ++it;
         }
+        refMask |= it->second.first;
+        ++it;
+    }
+
+    cancelMask = transports & ~refMask;
+    if (foundAdvert) {
+        cancelMask &= origMask;
     }
 
     /* Cancel transport advertisement if no other refs exist */
-    if (foundAdvert && !advertHasRefs) {
+    if (foundAdvert && cancelMask) {
         TransportList& transList = bus.GetInternal().GetTransportList();
         for (size_t i = 0; i < transList.GetNumTransports(); ++i) {
             Transport* trans = transList.GetTransport(i);
-            if (trans && (trans->GetTransportMask() & transports)) {
+            if (trans && (trans->GetTransportMask() & cancelMask)) {
                 trans->DisableAdvertisement(advertiseName, advertiseMap.empty());
             } else if (!trans) {
                 QCC_LogError(ER_BUS_TRANSPORT_NOT_AVAILABLE, ("NULL transport pointer found in transportList"));
@@ -2513,64 +2532,95 @@ QStatus AllJoynObj::ProcCancelAdvertise(const qcc::String& sender, const qcc::St
 
 void AllJoynObj::FindAdvertisedName(const InterfaceDescription::Member* member, Message& msg)
 {
-    uint32_t replyCode;
+    ProcFindAdvertisedName(msg, true);
+}
+
+void AllJoynObj::FindAdvertisedNameByTransport(const InterfaceDescription::Member* member, Message& msg)
+{
+    ProcFindAdvertisedName(msg, false);
+}
+
+void AllJoynObj::ProcFindAdvertisedName(Message& msg, bool isAnyTrans)
+{
+    uint32_t replyCode = ALLJOYN_FINDADVERTISEDNAME_REPLY_SUCCESS;
     size_t numArgs;
     const MsgArg* args;
-    TransportMask transForbidden = 0;
+    const char* nprefix;
+    QStatus status = ER_OK;
+    TransportMask transports = 0;
+    TransportMask enableMask = 0;
+    TransportMask origMask = 0;
+
     /* Get the name prefix */
     msg->GetArgs(numArgs, args);
-    assert((numArgs == 1) && (args[0].typeId == ALLJOYN_STRING));
-    String namePrefix = args[0].v_string.str;
+    if (isAnyTrans) {
+        status = MsgArg::Get(args, numArgs, "s", &nprefix);
+        transports = TRANSPORT_ANY;
+    } else {
+        status = MsgArg::Get(args, numArgs, "sq", &nprefix, &transports);
+    }
 
-    QCC_DbgTrace(("AllJoynObj::FindAdvertisedName(%s)", namePrefix.c_str()));
+    QCC_DbgTrace(("AllJoynObj::FindAdvertisedNameProc(%s)", nprefix));
+    if (ER_OK != status) {
+        QCC_LogError(status, ("Fail to parse msg parameters"));
+        replyCode = ALLJOYN_FINDADVERTISEDNAME_REPLY_FAILED;
+    }
 
-    /* Check to see if this endpoint is already discovering this prefix */
+    qcc::String namePrefix = nprefix;
     qcc::String sender = msg->GetSender();
-    replyCode = ALLJOYN_FINDADVERTISEDNAME_REPLY_SUCCESS;
+
     AcquireLocks();
     BusEndpoint srcEp = router.FindEndpoint(sender);
-    uint32_t uid = srcEp->IsValid() ? srcEp->GetUserId() : -1;
-    multimap<qcc::String, qcc::String>::const_iterator it = discoverMap.find(namePrefix);
-    while ((it != discoverMap.end()) && (it->first == namePrefix)) {
-        if (it->second == sender) {
-            replyCode = ALLJOYN_FINDADVERTISEDNAME_REPLY_ALREADY_DISCOVERING;
-            break;
-        }
-        ++it;
-    }
 
     if (ALLJOYN_FINDADVERTISEDNAME_REPLY_SUCCESS == replyCode) {
         if (PermissionMgr::GetDaemonBusCallPolicy(srcEp) == PermissionMgr::STDBUSCALL_SHOULD_REJECT) {
             QCC_DbgPrintf(("The sender endpoint is not allowed to call FindAdvertisedName()"));
             replyCode = ER_ALLJOYN_FINDADVERTISEDNAME_REPLY_FAILED;
+        } else if (PermissionMgr::GetDaemonBusCallPolicy(srcEp) == PermissionMgr::STDBUSCALL_ALLOW_ACCESS_SERVICE_LOCAL) {
+            QCC_DbgPrintf(("The sender endpoint is only allowed to use local transport."));
+            transports &= TRANSPORT_LOCAL;
         }
     }
+
     if (ALLJOYN_FINDADVERTISEDNAME_REPLY_SUCCESS == replyCode) {
-        /* Notify transports if this is a new prefix */
-        bool notifyTransports = (discoverMap.find(namePrefix) == discoverMap.end());
+        status = TransportPermission::FilterTransports(srcEp, sender, transports, "AllJoynObj::FindAdvertisedName");
+    }
 
-        /* Add to discover map */
-        discoverMap.insert(pair<String, String>(namePrefix, sender));
-
-        /* Add entry to denote that the sender is not allowed to discover the service over the forbidden transports*/
-        if (transForbidden) {
-            transForbidMap.insert(pair<qcc::String, pair<TransportMask, qcc::String> >(namePrefix, pair<TransportMask, String>(transForbidden, sender)));
+    if (ALLJOYN_FINDADVERTISEDNAME_REPLY_SUCCESS == replyCode) {
+        /* Check to see if this endpoint is already discovering this prefix */
+        bool foundEntry = false;
+        multimap<qcc::String, pair<TransportMask, qcc::String> >::iterator it = discoverMap.lower_bound(namePrefix);
+        while ((it != discoverMap.end()) && (it->first == namePrefix)) {
+            /* This is the transportMask of the transports that this name was being discovered prior to this FindAdvertisedName call. */
+            origMask |= it->second.first;
+            if (it->second.second == sender) {
+                if ((it->second.first & transports) != 0) {
+                    replyCode = ALLJOYN_FINDADVERTISEDNAME_REPLY_ALREADY_DISCOVERING;
+                } else {
+                    it->second.first = it->second.first | transports;
+                }
+                foundEntry = true;
+            }
+            ++it;
         }
 
+        if (!foundEntry) {
+            discoverMap.insert(std::make_pair(namePrefix, std::make_pair(transports, sender)));
+        }
+    }
+    /* Find out the transports on which discovery needs to be enabled for this name.
+     * i.e. The ones that are set in the requested transport mask and not set in the origMask.
+     */
+    enableMask = transports & ~origMask;
+    if (ALLJOYN_FINDADVERTISEDNAME_REPLY_SUCCESS == replyCode) {
         /* Find name on all remote transports */
-        if (notifyTransports) {
-            TransportList& transList = bus.GetInternal().GetTransportList();
-            TransportPermission::GetForbiddenTransports(uid, transList, transForbidden, "AllJoynObj::FindAdvertisedName");
-            for (size_t i = 0; i < transList.GetNumTransports(); ++i) {
-                Transport* trans = transList.GetTransport(i);
-                if (trans && (uid != static_cast<uint32_t>(-1))) {
-                    if (transForbidden & trans->GetTransportMask()) {
-                        continue;
-                    }
-                    trans->EnableDiscovery(namePrefix.c_str());
-                } else {
-                    QCC_LogError(ER_BUS_TRANSPORT_NOT_AVAILABLE, ("NULL transport pointer found in transportList"));
-                }
+        TransportList& transList = bus.GetInternal().GetTransportList();
+        for (size_t i = 0; i < transList.GetNumTransports(); ++i) {
+            Transport* trans = transList.GetTransport(i);
+            if (trans && (trans->GetTransportMask() & enableMask)) {
+                trans->EnableDiscovery(namePrefix.c_str());
+            } else if (!trans) {
+                QCC_LogError(ER_BUS_TRANSPORT_NOT_AVAILABLE, ("NULL transport pointer found in transportList"));
             }
         }
     }
@@ -2578,7 +2628,7 @@ void AllJoynObj::FindAdvertisedName(const InterfaceDescription::Member* member, 
 
     /* Reply to request */
     MsgArg replyArg("u", replyCode);
-    QStatus status = MethodReply(msg, &replyArg, 1);
+    status = MethodReply(msg, &replyArg, 1);
     QCC_DbgPrintf(("AllJoynObj::FindAdvertisedName(%s) returned %d (status=%s)", namePrefix.c_str(), replyCode, QCC_StatusText(status)));
 
     /* Log error if reply could not be sent */
@@ -2592,10 +2642,7 @@ void AllJoynObj::FindAdvertisedName(const InterfaceDescription::Member* member, 
         multimap<String, NameMapEntry>::iterator it = nameMap.lower_bound(namePrefix);
         set<pair<String, TransportMask> > sentSet;
         while ((it != nameMap.end()) && (0 == strncmp(it->first.c_str(), namePrefix.c_str(), namePrefix.size()))) {
-            /* If this transport is forbidden to use, then skip the advertised name */
-            if ((it->second.transport & transForbidden) != 0) {
-                QCC_DbgPrintf(("AllJoynObj::FindAdvertisedName(%s): forbid to send existing advertised name %s over transport %d to %s due to lack of permission",
-                               namePrefix.c_str(), it->first.c_str(), it->second.transport, sender.c_str()));
+            if ((it->second.transport & transports) == 0) {
                 ++it;
                 continue;
             }
@@ -2621,22 +2668,44 @@ void AllJoynObj::FindAdvertisedName(const InterfaceDescription::Member* member, 
 
 void AllJoynObj::CancelFindAdvertisedName(const InterfaceDescription::Member* member, Message& msg)
 {
+    HandleCancelFindAdvertisedName(msg, true);
+}
+
+void AllJoynObj::CancelFindAdvertisedNameByTransport(const InterfaceDescription::Member* member, Message& msg)
+{
+    HandleCancelFindAdvertisedName(msg, false);
+}
+
+void AllJoynObj::HandleCancelFindAdvertisedName(Message& msg, bool isAnyTrans)
+{
     size_t numArgs;
     const MsgArg* args;
-
+    TransportMask transports;
+    const char* namePrefix;
+    QStatus status = ER_OK;
+    uint32_t replyCode = ALLJOYN_CANCELFINDADVERTISEDNAME_REPLY_SUCCESS;
     /* Get the name prefix to be removed from discovery */
     msg->GetArgs(numArgs, args);
-    assert((numArgs == 1) && (args[0].typeId == ALLJOYN_STRING));
+    if (isAnyTrans) {
+        status = MsgArg::Get(args, numArgs, "s", &namePrefix);
+        transports = TRANSPORT_ANY;
+    } else {
+        status = MsgArg::Get(args, numArgs, "sq", &namePrefix, &transports);
+    }
 
     /* Cancel advertisement */
-    QCC_DbgPrintf(("Calling ProcCancelFindName from CancelFindAdvertisedName [%s]", Thread::GetThread()->GetName()));
-    QStatus status = ProcCancelFindName(msg->GetSender(), args[0].v_string.str);
-    uint32_t replyCode = (ER_OK == status) ? ALLJOYN_CANCELFINDADVERTISEDNAME_REPLY_SUCCESS : ALLJOYN_CANCELFINDADVERTISEDNAME_REPLY_FAILED;
-
+    QCC_DbgPrintf(("Calling ProcCancelFindName from HandleCancelFindAdvertisedName [%s]", Thread::GetThread()->GetName()));
+    if (ER_OK == status) {
+        status = ProcCancelFindName(msg->GetSender(), args[0].v_string.str, transports);
+        replyCode = (ER_OK == status) ? ALLJOYN_CANCELFINDADVERTISEDNAME_REPLY_SUCCESS : ALLJOYN_CANCELFINDADVERTISEDNAME_REPLY_FAILED;
+    } else {
+        QCC_LogError(status, ("HandleCancelFindAdvertisedName() parse message arguments error"));
+        replyCode = ALLJOYN_CANCELFINDADVERTISEDNAME_REPLY_FAILED;
+    }
     /* Reply to request */
     MsgArg replyArg("u", replyCode);
     status = MethodReply(msg, &replyArg, 1);
-    // QCC_DbgPrintf(("AllJoynObj::CancelDiscover(%s) returned %d (status=%s)", args[0].v_string.str, replyCode, QCC_StatusText(status)));
+    QCC_DbgPrintf(("AllJoynObj::CancelDiscover(%s) returned %d (status=%s)", args[0].v_string.str, replyCode, QCC_StatusText(status)));
 
     /* Log error if reply could not be sent */
     if (ER_OK != status) {
@@ -2644,49 +2713,45 @@ void AllJoynObj::CancelFindAdvertisedName(const InterfaceDescription::Member* me
     }
 }
 
-QStatus AllJoynObj::ProcCancelFindName(const qcc::String& sender, const qcc::String& namePrefix)
+QStatus AllJoynObj::ProcCancelFindName(const qcc::String& sender, const qcc::String& namePrefix, TransportMask transports)
 {
-    QCC_DbgTrace(("AllJoynObj::ProcCancelFindName(sender = %s, namePrefix = %s)", sender.c_str(), namePrefix.c_str()));
+    QCC_DbgTrace(("AllJoynObj::ProcCancelFindName(sender = %s, namePrefix = %s, transports = %d)", sender.c_str(), namePrefix.c_str(), transports));
     QStatus status = ER_OK;
-
-    /* Check to see if this prefix exists and delete it */
-    bool foundNamePrefix = false;
     AcquireLocks();
-    multimap<qcc::String, qcc::String>::iterator it = discoverMap.lower_bound(namePrefix);
+    bool foundFinder = false;
+    TransportMask refMask = 0;
+    TransportMask origMask = 0;
+    TransportMask cancelMask = 0;
+    multimap<qcc::String, pair<TransportMask, qcc::String> >::iterator it = discoverMap.lower_bound(namePrefix);
     while ((it != discoverMap.end()) && (it->first == namePrefix)) {
-        if (it->second == sender) {
-            discoverMap.erase(it);
-            foundNamePrefix = true;
-            break;
+        if (it->second.second == sender) {
+            foundFinder = true;
+            origMask = it->second.first;
+            it->second.first &= ~transports;
+            if (it->second.first == 0) {
+                discoverMap.erase(it++);
+                continue;
+            }
         }
+        refMask |= it->second.first;
         ++it;
     }
 
-    /* Check and delete the transport restriction info on this sender and prefix*/
-    multimap<String, std::pair<TransportMask, String> >::iterator forbidIt = transForbidMap.lower_bound(namePrefix);
-    while ((forbidIt != transForbidMap.end()) && (forbidIt->first == namePrefix)) {
-        if (forbidIt->second.second == sender) {
-            transForbidMap.erase(forbidIt);
-            break;
-        }
-        ++forbidIt;
+    cancelMask = transports & ~refMask;
+    if (foundFinder) {
+        cancelMask &= origMask;
     }
-
-    /* Disable discovery if we removed the last discoverMap entry with a given prefix */
-    bool isLastEntry = (discoverMap.find(namePrefix) == discoverMap.end());
-    if (foundNamePrefix && isLastEntry) {
+    /* Disable discovery if certain transports are no longer referenced for the name prefix */
+    if (foundFinder && cancelMask) {
         TransportList& transList = bus.GetInternal().GetTransportList();
         for (size_t i = 0; i < transList.GetNumTransports(); ++i) {
             Transport* trans =  transList.GetTransport(i);
-            if (trans) {
+            if (trans && (trans->GetTransportMask() & cancelMask)) {
                 trans->DisableDiscovery(namePrefix.c_str());
-            } else {
-                QCC_LogError(ER_BUS_TRANSPORT_NOT_AVAILABLE, ("NULL transport pointer found in transportList"));
             }
         }
-
-    } else if (!foundNamePrefix) {
-        status = ER_FAIL;
+    } else if (!foundFinder) {
+        return ER_FAIL;
     }
     ReleaseLocks();
     return status;
@@ -3382,17 +3447,17 @@ void AllJoynObj::NameOwnerChanged(const qcc::String& alias, const qcc::String* o
             }
 
             /* Remove endpoint refs from discover map */
-            it = discoverMap.begin();
-            while (it != discoverMap.end()) {
-                if (it->second == *oldOwner) {
-                    last = it++->first;
+            multimap<String, pair<TransportMask, String> >::const_iterator dit = discoverMap.begin();
+            while (dit != discoverMap.end()) {
+                if (dit->second.second == *oldOwner) {
+                    last = dit++->first;
                     QCC_DbgPrintf(("Calling ProcCancelFindName from NameOwnerChanged [%s]", Thread::GetThread()->GetName()));
-                    QStatus status = ProcCancelFindName(*oldOwner, last);
+                    QStatus status = ProcCancelFindName(*oldOwner, last, dit->second.first);
                     if (ER_OK != status) {
                         QCC_LogError(status, ("Failed to cancel discover for name \"%s\"", last.c_str()));
                     }
                 } else {
-                    ++it;
+                    ++dit;
                 }
             }
             ReleaseLocks();
@@ -3475,24 +3540,11 @@ void AllJoynObj::FoundNames(const qcc::String& busAddr,
                     }
                     /* Send FoundAdvertisedName to anyone who is discovering *nit */
                     if (0 < discoverMap.size()) {
-                        multimap<String, String>::const_iterator dit = discoverMap.begin();
+                        multimap<String, pair<TransportMask, String> >::const_iterator dit = discoverMap.begin();
                         while ((dit != discoverMap.end()) && (dit->first.compare(*nit) <= 0)) {
                             if (nit->compare(0, dit->first.size(), dit->first) == 0) {
-                                /* Check whether the discoverer is allowed to use the transport over which the advertised name if found*/
-                                bool forbidden = false;
-                                multimap<String, std::pair<TransportMask, String> >::const_iterator forbidIt = transForbidMap.lower_bound((*nit)[0]);
-                                while ((forbidIt != transForbidMap.end()) && (forbidIt->first.compare(*nit) <= 0)) {
-                                    if (nit->compare(0, forbidIt->first.size(), forbidIt->first) == 0 &&
-                                        forbidIt->second.second.compare(dit->second) == 0 &&
-                                        (forbidIt->second.first & transport) != 0) {
-                                        forbidden = true;
-                                        QCC_DbgPrintf(("FoundNames: Forbid to send advertised name %s over transport %d to %s due to lack of permission", (*nit).c_str(), transport, forbidIt->second.second.c_str()));
-                                        break;
-                                    }
-                                    ++forbidIt;
-                                }
-                                if (!forbidden) {
-                                    foundNameSet.insert(FoundNameEntry(*nit, dit->first, dit->second));
+                                if (transport & dit->second.first) {
+                                    foundNameSet.insert(FoundNameEntry(*nit, dit->first, dit->second.second));
                                 }
                             }
                             ++dit;
@@ -3608,10 +3660,10 @@ QStatus AllJoynObj::SendLostAdvertisedName(const String& name, TransportMask tra
     AcquireLocks();
     vector<pair<String, String> > sigVec;
     if (0 < discoverMap.size()) {
-        multimap<String, String>::const_iterator dit = discoverMap.lower_bound(name[0]);
+        multimap<qcc::String, pair<TransportMask, qcc::String> >::const_iterator dit = discoverMap.lower_bound(name[0]);
         while ((dit != discoverMap.end()) && (dit->first.compare(name) <= 0)) {
-            if (name.compare(0, dit->first.size(), dit->first) == 0) {
-                sigVec.push_back(pair<String, String>(dit->first, dit->second));
+            if (name.compare(0, dit->first.size(), dit->first) == 0 && (dit->second.first & transport)) {
+                sigVec.push_back(pair<String, String>(dit->first, dit->second.second));
             }
             ++dit;
         }

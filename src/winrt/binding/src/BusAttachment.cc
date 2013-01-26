@@ -1165,6 +1165,29 @@ void BusAttachment::FindAdvertisedName(Platform::String ^ namePrefix)
     }
 }
 
+void BusAttachment::FindAdvertisedNameByTransport(Platform::String ^ namePrefix, TransportMaskType transports)
+{
+    ::QStatus status = ER_OK;
+
+    while (true) {
+        // Convert namePrefix to qcc::String
+        qcc::String strNamePrefix = PlatformToMultibyteString(namePrefix);
+        // Check for failed conversion
+        if (nullptr != namePrefix && strNamePrefix.empty()) {
+            status = ER_OUT_OF_MEMORY;
+            break;
+        }
+        // Call the real API
+        status = _busAttachment->FindAdvertisedNameByTransport(strNamePrefix.c_str(), (int)transports);
+        break;
+    }
+
+    // Bubble up any QStatus error as exception
+    if (ER_OK != status) {
+        QCC_THROW_EXCEPTION(status);
+    }
+}
+
 void BusAttachment::CancelFindAdvertisedName(Platform::String ^ namePrefix)
 {
     ::QStatus status = ER_OK;
@@ -1179,6 +1202,29 @@ void BusAttachment::CancelFindAdvertisedName(Platform::String ^ namePrefix)
         }
         // Call the real API
         status = _busAttachment->CancelFindAdvertisedName(strNamePrefix.c_str());
+        break;
+    }
+
+    // Bubble up any QStatus error as exception
+    if (ER_OK != status) {
+        QCC_THROW_EXCEPTION(status);
+    }
+}
+
+void BusAttachment::CancelFindAdvertisedNameByTransport(Platform::String ^ namePrefix, TransportMaskType transports)
+{
+    ::QStatus status = ER_OK;
+
+    while (true) {
+        // Convert namePrefix to qcc::String
+        qcc::String strNamePrefix = PlatformToMultibyteString(namePrefix);
+        // Check for invalid conversion
+        if (nullptr != namePrefix && strNamePrefix.empty()) {
+            status = ER_OUT_OF_MEMORY;
+            break;
+        }
+        // Call the real API
+        status = _busAttachment->CancelFindAdvertisedNameByTransport(strNamePrefix.c_str(), (int)transports);
         break;
     }
 

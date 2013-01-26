@@ -1233,7 +1233,7 @@ class BusAttachment : public MessageReceiver {
     QStatus CancelAdvertiseName(const char* name, TransportMask transports);
 
     /**
-     * Register interest in a well-known name prefix for the purpose of discovery.
+     * Register interest in a well-known name prefix for the purpose of discovery over transports included in TRANSPORT_ANY
      *
      * See also these sample file(s): @n
      * basic/basic_client.cc @n
@@ -1279,8 +1279,27 @@ class BusAttachment : public MessageReceiver {
     QStatus FindAdvertisedName(const char* namePrefix);
 
     /**
+     * Register interest in a well-known name prefix for the purpose of discovery over specified transports
+     *
+     *
+     * This method is a shortcut/helper that issues an org.alljoyn.Bus.FindAdvertisedName method call to the local daemon
+     * and interprets the response.
+     *
+     * @param[in]  namePrefix    Well-known name prefix that application is interested in receiving
+     *                           BusListener::FoundAdvertisedName notifications about.
+     * @param[in]  transports    Transports over which to do well-known name discovery
+     *
+     * @return
+     *      - #ER_OK iff daemon response was received and discovery was successfully started.
+     *      - #ER_BUS_NOT_CONNECTED if a connection has not been made with a local bus.
+     *      - Other error status codes indicating a failure.
+     */
+    QStatus FindAdvertisedNameByTransport(const char* namePrefix, TransportMask transports);
+
+    /**
      * Cancel interest in a well-known name prefix that was previously
-     * registered with FindAdvertisedName.  This method is a shortcut/helper
+     * registered with FindAdvertisedName. This cancels well-known name discovery over transports
+     * included in TRANSPORT_ANY.  This method is a shortcut/helper
      * that issues an org.alljoyn.Bus.CancelFindAdvertisedName method
      * call to the local daemon and interprets the response.
      *
@@ -1297,6 +1316,24 @@ class BusAttachment : public MessageReceiver {
      *      - Other error status codes indicating a failure.
      */
     QStatus CancelFindAdvertisedName(const char* namePrefix);
+
+    /**
+     * Cancel interest in a well-known name prefix that was previously
+     * registered with FindAdvertisedName. This cancels well-known name discovery over
+     * the specified transports.  This method is a shortcut/helper
+     * that issues an org.alljoyn.Bus.CancelFindAdvertisedName method
+     * call to the local daemon and interprets the response.
+     *
+     * @param[in]  namePrefix    Well-known name prefix that application is no longer interested in receiving
+     *                           BusListener::FoundAdvertisedName notifications about.
+     * @param[in]  transports    Transports over which to cancel well-known name discovery
+     *
+     * @return
+     *      - #ER_OK iff daemon response was received and cancel was successfully completed.
+     *      - #ER_BUS_NOT_CONNECTED if a connection has not been made with a local bus.
+     *      - Other error status codes indicating a failure.
+     */
+    QStatus CancelFindAdvertisedNameByTransport(const char* namePrefix, TransportMask transports);
 
     /**
      * Make a SessionPort available for external BusAttachments to join.

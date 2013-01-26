@@ -69,26 +69,6 @@ QStatus TransportPermission::FilterTransports(BusEndpoint& srcEp, const qcc::Str
     return status;
 }
 
-void TransportPermission::GetForbiddenTransports(uint32_t uid, TransportList& transList, TransportMask& transForbidden, const char* callerName)
-{
-    QCC_DbgHLPrintf(("TransportPermission::GetForbiddenTransports() callerName(%s)", callerName));
-    for (size_t i = 0; i < transList.GetNumTransports(); ++i) {
-        Transport* trans = transList.GetTransport(i);
-        if (trans) {
-            if (trans->GetTransportMask() & TRANSPORT_BLUETOOTH && !PermissionDB::GetDB().IsBluetoothAllowed(uid)) {
-                QCC_LogError(ER_ALLJOYN_ACCESS_PERMISSION_WARNING, ("TransportPermission: (Func %s) WARNING: No permission to use Bluetooth", callerName));
-                transForbidden |= TRANSPORT_BLUETOOTH;
-                continue;
-            }
-            if (trans->GetTransportMask() & TRANSPORT_WLAN && !PermissionDB::GetDB().IsWifiAllowed(uid)) {
-                QCC_LogError(ER_ALLJOYN_ACCESS_PERMISSION_WARNING, ("TransportPermission: (Func %s) WARNING: No permission to use Wifi", callerName));
-                transForbidden |= TRANSPORT_WLAN;
-                continue;
-            }
-        }
-    }
-}
-
 uint32_t PermissionMgr::AddAliasUnixUser(BusEndpoint& srcEp, qcc::String& sender, uint32_t origUID, uint32_t aliasUID)
 {
     QCC_DbgHLPrintf(("PermissionMgr::AddAliasUnixUser() origUID(%d), aliasUID(%d)", origUID, aliasUID));

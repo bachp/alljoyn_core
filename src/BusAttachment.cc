@@ -1029,6 +1029,51 @@ QStatus BusAttachment::FindAdvertisedName(const char* namePrefix)
     return status;
 }
 
+QStatus BusAttachment::FindAdvertisedNameByTransport(const char* namePrefix, TransportMask transports)
+{
+    if (!IsConnected()) {
+        return ER_BUS_NOT_CONNECTED;
+    }
+
+    if (!namePrefix) {
+        return ER_BAD_ARG_1;
+    }
+
+    Message reply(*this);
+    MsgArg args[2];
+    size_t numArgs = ArraySize(args);
+
+    MsgArg::Set(args, numArgs, "sq", namePrefix, transports);
+
+    const ProxyBusObject& alljoynObj = this->GetAllJoynProxyObj();
+    QStatus status = alljoynObj.MethodCall(org::alljoyn::Bus::InterfaceName, "FindAdvertisedNameByTransport", args, numArgs, reply);
+    if (ER_OK == status) {
+        uint32_t disposition;
+        status = reply->GetArgs("u", &disposition);
+        if (ER_OK == status) {
+            switch (disposition) {
+            case ALLJOYN_FINDADVERTISEDNAME_REPLY_SUCCESS:
+                break;
+
+            case ALLJOYN_FINDADVERTISEDNAME_REPLY_ALREADY_DISCOVERING:
+                status = ER_ALLJOYN_FINDADVERTISEDNAME_REPLY_ALREADY_DISCOVERING;
+                break;
+
+            case ALLJOYN_FINDADVERTISEDNAME_REPLY_FAILED:
+                status = ER_ALLJOYN_FINDADVERTISEDNAME_REPLY_FAILED;
+                break;
+
+            default:
+                status = ER_BUS_UNEXPECTED_DISPOSITION;
+                break;
+            }
+        }
+    } else {
+        QCC_LogError(status, ("%s.FindAdvertisedName returned ERROR_MESSAGE (error=%s)", org::alljoyn::Bus::InterfaceName, reply->GetErrorDescription().c_str()));
+    }
+    return status;
+}
+
 QStatus BusAttachment::CancelFindAdvertisedName(const char* namePrefix)
 {
     if (!IsConnected()) {
@@ -1043,6 +1088,43 @@ QStatus BusAttachment::CancelFindAdvertisedName(const char* namePrefix)
 
     const ProxyBusObject& alljoynObj = this->GetAllJoynProxyObj();
     QStatus status = alljoynObj.MethodCall(org::alljoyn::Bus::InterfaceName, "CancelFindAdvertisedName", args, numArgs, reply);
+    if (ER_OK == status) {
+        uint32_t disposition;
+        status = reply->GetArgs("u", &disposition);
+        if (ER_OK == status) {
+            switch (disposition) {
+            case ALLJOYN_CANCELFINDADVERTISEDNAME_REPLY_SUCCESS:
+                break;
+
+            case ALLJOYN_CANCELFINDADVERTISEDNAME_REPLY_FAILED:
+                status = ER_ALLJOYN_CANCELFINDADVERTISEDNAME_REPLY_FAILED;
+                break;
+
+            default:
+                status = ER_BUS_UNEXPECTED_DISPOSITION;
+                break;
+            }
+        }
+    } else {
+        QCC_LogError(status, ("%s.CancelFindAdvertisedName returned ERROR_MESSAGE (error=%s)", org::alljoyn::Bus::InterfaceName, reply->GetErrorDescription().c_str()));
+    }
+    return status;
+}
+
+QStatus BusAttachment::CancelFindAdvertisedNameByTransport(const char* namePrefix, TransportMask transports)
+{
+    if (!IsConnected()) {
+        return ER_BUS_NOT_CONNECTED;
+    }
+
+    Message reply(*this);
+    MsgArg args[2];
+    size_t numArgs = ArraySize(args);
+
+    MsgArg::Set(args, numArgs, "sq", namePrefix, transports);
+
+    const ProxyBusObject& alljoynObj = this->GetAllJoynProxyObj();
+    QStatus status = alljoynObj.MethodCall(org::alljoyn::Bus::InterfaceName, "CancelFindAdvertisedNameByTransport", args, numArgs, reply);
     if (ER_OK == status) {
         uint32_t disposition;
         status = reply->GetArgs("u", &disposition);

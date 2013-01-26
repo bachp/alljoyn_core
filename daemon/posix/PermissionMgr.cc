@@ -30,11 +30,6 @@ QStatus TransportPermission::FilterTransports(BusEndpoint& srcEp, const qcc::Str
     return ER_OK;
 }
 
-void TransportPermission::GetForbiddenTransports(uint32_t uid, TransportList& transList, TransportMask& transForbidden, const char* callerName)
-{
-    transForbidden = 0;
-}
-
 uint32_t PermissionMgr::AddAliasUnixUser(BusEndpoint& srcEp, qcc::String& sender, uint32_t origUID, uint32_t aliasUID)
 {
     return ALLJOYN_ALIASUNIXUSER_REPLY_NO_SUPPORT;

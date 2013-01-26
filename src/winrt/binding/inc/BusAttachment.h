@@ -818,7 +818,7 @@ public ref class BusAttachment sealed {
     void CancelAdvertiseName(Platform::String ^ name, TransportMaskType transports);
 
     /// <summary>
-    /// Register interest in a well-known name prefix for the purpose of discovery.
+    /// Register interest in a well-known name prefix for the purpose of discovery over transports included in TRANSPORT_ANY.
     /// </summary>
     /// <remarks>
     /// This method is a shortcut/helper that issues an org.alljoyn.Bus.FindAdvertisedName method call to the local daemon
@@ -835,9 +835,29 @@ public ref class BusAttachment sealed {
     void FindAdvertisedName(Platform::String ^ namePrefix);
 
     /// <summary>
-    /// Cancel interest in a well-known name prefix that was previously registered with FindAdvertisedName.
+    /// Register interest in a well-known name prefix for the purpose of discovery over over a set of transports.
     /// </summary>
     /// <remarks>
+    /// This method is a shortcut/helper that issues an org.alljoyn.Bus.FindAdvertisedName method call to the local daemon
+    /// and interprets the response.
+    /// </remarks>
+    /// <param name="namePrefix">Well-known name prefix that application is interested in receiving
+    /// BusListener::FoundAdvertisedName notifications about.
+    /// </param>
+    /// <param name="transports">Set of transports who will do well-known name discovery.
+    /// </param>
+    /// <exception cref="Platform::COMException">
+    /// HRESULT will contain the AllJoyn error status code for the error.
+    /// #ER_BUS_NOT_CONNECTED if a connection has not been made with a local bus.
+    /// Or other error status codes indicating the reason the operation failed.
+    /// </exception>
+    void FindAdvertisedNameByTransport(Platform::String ^ namePrefix, TransportMaskType transports);
+
+    /// <summary>
+    /// Cancel interest in a well-known name prefix that was previously registered with FindAdvertisedName over transports included in TRANSPORT_ANY.
+    /// </summary>
+    /// <remarks>
+    /// This method is equivalent to CancelFindAdvertisedName(namePrefix, TRANSPORT_ANY).
     /// This method is a shortcut/helper that issues an org.alljoyn.Bus.CancelFindAdvertisedName method
     /// call to the local daemon and interprets the response.
     /// </remarks>
@@ -850,6 +870,25 @@ public ref class BusAttachment sealed {
     /// Or other error status codes indicating the reason the operation failed.
     /// </exception>
     void CancelFindAdvertisedName(Platform::String ^ namePrefix);
+
+    /// <summary>
+    /// Cancel interest in a well-known name prefix that was previously registered with FindAdvertisedName over a set of transports.
+    /// </summary>
+    /// <remarks>
+    /// This method is a shortcut/helper that issues an org.alljoyn.Bus.CancelFindAdvertisedName method
+    /// call to the local daemon and interprets the response.
+    /// </remarks>
+    /// <param name="namePrefix">Well-known name prefix that application is no longer interested in receiving
+    /// BusListener::FoundAdvertisedName notifications about.
+    /// </param>
+    /// <param name="transports">Set of transports who will cancel well-known name discovery.
+    /// </param>
+    /// <exception cref="Platform::COMException">
+    /// HRESULT will contain the AllJoyn error status code for the error.
+    /// #ER_BUS_NOT_CONNECTED if a connection has not been made with a local bus.
+    /// Or other error status codes indicating the reason the operation failed.
+    /// </exception>
+    void CancelFindAdvertisedNameByTransport(Platform::String ^ namePrefix, TransportMaskType transports);
 
     /// <summary>
     /// Make a SessionPort available for external BusAttachments to join.
