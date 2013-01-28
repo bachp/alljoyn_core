@@ -353,6 +353,11 @@ class _RemoteEndpoint : public _BusEndpoint, public qcc::ThreadListener {
     Internal* internal; /* All the internal state for a remote endpoint */
 
     /**
+     * Copy constructor is undefined.
+     */
+    _RemoteEndpoint(const _RemoteEndpoint& other);
+
+    /**
      * Assignment operator is undefined - _RemoteEndpoints cannot be assigned.
      */
     _RemoteEndpoint& operator=(const _RemoteEndpoint& other);
