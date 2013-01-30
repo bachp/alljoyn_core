@@ -163,26 +163,26 @@ static void usage(void)
 {
     printf("Usage: bbclient [-h] [-c <count>] [-i] [-e] [-r #] [-l | -la | -d[s]] [-n <well-known name>] [-t[a] <delay> [<interval>] | -rt]\n\n");
     printf("Options:\n");
-    printf("   -h                    = Print this help message\n");
-    printf("   -k <key store name>   = The key store file name\n");
-    printf("   -c <count>            = Number of pings to send to the server\n");
-    printf("   -i                    = Use introspection to discover remote interfaces\n");
-    printf("   -e[k] [RSA|SRP]       = Encrypt the test interface using specified auth mechanism, -ek means clear keys\n");
-    printf("   -a #                  = Max authentication attempts\n");
-    printf("   -kx #                 = Authentication key expiration (seconds)\n");
-    printf("   -r #                  = AllJoyn attachment restart count\n");
-    printf("   -l                    = launch bbservice if not already running\n");
-    printf("   -n <well-known name>  = Well-known bus name advertised by bbservice\n");
-    printf("   -d                    = discover remote bus with test service\n");
-    printf("   -ds                   = discover remote bus with test service and cancel discover when found\n");
-    printf("   -t                    = Call delayed_ping with <delay> and repeat at <interval> if -c given\n");
-    printf("   -ta                   = Like -t except calls asynchronously\n");
-    printf("   -rt [run time]        = Round trip timer (optional run time in ms)\n");
-    printf("   -w                    = Don't wait for service\n");
-    printf("   -s                    = Wait for SIGINT (Control-C) at the end of the tests\n");
-    printf("   -be                   = Send messages as big endian\n");
-    printf("   -le                   = Send messages as little endian\n");
-    printf("   -m <trans_mask>       = Transports allowed to connect to service\n");
+    printf("   -h                        = Print this help message\n");
+    printf("   -k <key store name>       = The key store file name\n");
+    printf("   -c <count>                = Number of pings to send to the server\n");
+    printf("   -i                        = Use introspection to discover remote interfaces\n");
+    printf("   -e[k] [RSA|SRP|PIN|LOGON] = Encrypt the test interface using specified auth mechanism, -ek means clear keys\n");
+    printf("   -a #                      = Max authentication attempts\n");
+    printf("   -kx #                     = Authentication key expiration (seconds)\n");
+    printf("   -r #                      = AllJoyn attachment restart count\n");
+    printf("   -l                        = launch bbservice if not already running\n");
+    printf("   -n <well-known name>      = Well-known bus name advertised by bbservice\n");
+    printf("   -d                        = discover remote bus with test service\n");
+    printf("   -ds                       = discover remote bus with test service and cancel discover when found\n");
+    printf("   -t                        = Call delayed_ping with <delay> and repeat at <interval> if -c given\n");
+    printf("   -ta                       = Like -t except calls asynchronously\n");
+    printf("   -rt [run time]            = Round trip timer (optional run time in ms)\n");
+    printf("   -w                        = Don't wait for service\n");
+    printf("   -s                        = Wait for SIGINT (Control-C) at the end of the tests\n");
+    printf("   -be                       = Send messages as big endian\n");
+    printf("   -le                       = Send messages as little endian\n");
+    printf("   -m <trans_mask>           = Transports allowed to connect to service\n");
     printf("\n");
 }
 
