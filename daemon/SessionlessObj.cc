@@ -296,7 +296,7 @@ QStatus SessionlessObj::PushMessage(Message& msg)
     }
 
     /* Put the message in the map and kick the worker */
-    MessageMapKey key(msg->GetSender(), msg->GetInterface(), msg->GetMemberName());
+    MessageMapKey key(msg->GetSender(), msg->GetInterface(), msg->GetMemberName(), msg->GetObjectPath());
     lock.Lock();
     pair<uint32_t, Message> val(nextChangeId++, msg);
     map<MessageMapKey, pair<uint32_t, Message> >::iterator it = messageMap.find(key);

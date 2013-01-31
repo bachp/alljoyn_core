@@ -208,13 +208,15 @@ class SessionlessObj : public BusObject, public SessionListener, public SessionP
     /* Class used as key for messageMap */
     class MessageMapKey : public qcc::String {
       public:
-        MessageMapKey(const char* sender, const char* iface, const char* member) :
-            qcc::String(sender, 0, ::strlen(sender) + ::strlen(iface) + ::strlen(member) + 3)
+        MessageMapKey(const char* sender, const char* iface, const char* member, const char* objPath) :
+            qcc::String(sender, 0, ::strlen(sender) + ::strlen(iface) + ::strlen(member) + ::strlen(objPath) + 4)
         {
             append(':');
             append(iface);
             append(':');
             append(member);
+            append(':');
+            append(objPath);
         }
     };
 
