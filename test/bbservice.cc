@@ -873,9 +873,7 @@ int main(int argc, char** argv)
     g_msgBus->UnregisterBusObject(testObj);
 
     /* Clean up msg bus */
-    BusAttachment* deleteMe = g_msgBus;
-    g_msgBus = NULL;
-    delete deleteMe;
+    delete g_msgBus;
     delete g_myBusListener;
 
     printf("%s exiting with status %d (%s)\n", argv[0], status, QCC_StatusText(status));

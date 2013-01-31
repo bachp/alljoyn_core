@@ -748,8 +748,7 @@ int main(int argc, char** argv)
 
 
     if (g_msgBus) {
-        BusAttachment* deleteMe = g_msgBus;
-        delete deleteMe;
+        delete g_msgBus;
         g_msgBus = NULL;
     }
 

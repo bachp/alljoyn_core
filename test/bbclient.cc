@@ -856,9 +856,8 @@ int main(int argc, char** argv)
         }
 
         /* Deallocate bus */
-        BusAttachment* deleteMe = g_msgBus;
+        delete g_msgBus;
         g_msgBus = NULL;
-        delete deleteMe;
 
         delete g_busListener;
         g_busListener = NULL;
