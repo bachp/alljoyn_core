@@ -1125,7 +1125,19 @@ QStatus _Message::Unmarshal(RemoteEndpoint& endpoint, bool checkSender, bool ped
             status = ReMarshal(rcvEndpointName.c_str());
         }
     }
-    if (senderField->typeId != ALLJOYN_INVALID) {
+
+    /*
+     * Check serial number and TTL if message is valid and not sessionless.
+     * Sessionless signals have a very inflated RTT since an advertise/discovery
+     * cycle is built into their RTT. Therefore they should not contribute to the
+     * clock offset estimation and TTL itself should not be verified here.
+     *
+     * Also, since sessionless signals are stored (for long periods of
+     * time) and then forwarded, their serial numbers can appear to be
+     * behind messages coming from the same sender over a traditional
+     * session.
+     */
+    if ((senderField->typeId != ALLJOYN_INVALID) && ((msgHeader.flags & ALLJOYN_FLAG_SESSIONLESS) == 0)) {
         PeerState peerState = bus->GetInternal().GetPeerStateTable()->GetPeerState(senderField->v_string.str);
         bool unreliable = hdrFields.field[ALLJOYN_HDR_FIELD_TIME_TO_LIVE].typeId != ALLJOYN_INVALID;
         bool secure = (msgHeader.flags & ALLJOYN_FLAG_ENCRYPTED) != 0;
