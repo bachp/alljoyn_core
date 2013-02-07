@@ -530,7 +530,7 @@ class MsgArg {
      *  - @c 'd'  A pointer to a double (64 bits)
      *  - @c 'g'  A pointer to a char*  (character string is valid for the lifetime of the MsgArg)
      *  - @c 'h'  A pointer to a qcc::SocketFd
-     *  - @c 'i'  A pointer to a uint16_t
+     *  - @c 'i'  A pointer to an int32_t
      *  - @c 'n'  A pointer to an int16_t
      *  - @c 'o'  A pointer to a char*  (character string is valid for the lifetime of the MsgArg)
      *  - @c 'q'  A pointer to a uint16_t
