@@ -482,6 +482,7 @@ ThreadReturn STDCALL AllJoynObj::JoinSessionThread::RunJoin()
     SessionPort sessionPort;
     SessionOpts optsIn;
     QStatus status = MsgArg::Get(args, 2, "sq", &sessionHost, &sessionPort);
+    BusEndpoint rSessionEp;
 
     if (status == ER_OK) {
         status = GetSessionOpts(args[2], optsIn);
@@ -548,18 +549,17 @@ ThreadReturn STDCALL AllJoynObj::JoinSessionThread::RunJoin()
             replyCode = ALLJOYN_JOINSESSION_REPLY_FAILED;
             QCC_DbgTrace(("JoinSession(<bad_args>"));
         }
-    } else {
+    } else if (replyCode == ALLJOYN_JOINSESSION_REPLY_SUCCESS) {
         QCC_DbgTrace(("JoinSession(%d, <%u, 0x%x, 0x%x>)", sessionPort, optsIn.traffic, optsIn.proximity, optsIn.transports));
 
         /* Decide how to proceed based on the session endpoint existence/type */
         VirtualEndpoint vSessionEp;
-        BusEndpoint rSessionEp;
 
         if (sessionHost) {
             BusEndpoint ep = ajObj.router.FindEndpoint(sessionHost);
             if (ep->GetEndpointType() == ENDPOINT_TYPE_VIRTUAL) {
                 vSessionEp = VirtualEndpoint::cast(ep);
-            } else if ((ep->GetEndpointType() == ENDPOINT_TYPE_REMOTE) || (ep->GetEndpointType() == ENDPOINT_TYPE_NULL)) {
+            } else if ((ep->GetEndpointType() == ENDPOINT_TYPE_REMOTE) || (ep->GetEndpointType() == ENDPOINT_TYPE_NULL) || (ep->GetEndpointType() == ENDPOINT_TYPE_LOCAL)) {
                 rSessionEp = ep;
             }
         }
@@ -1019,8 +1019,8 @@ ThreadReturn STDCALL AllJoynObj::JoinSessionThread::RunJoin()
         QCC_LogError(status, ("Failed to respond to org.alljoyn.Bus.JoinSession"));
     }
 
-    /* Send SessionJoined to creator */
-    if ((status == ER_OK) && (replyCode == ALLJOYN_JOINSESSION_REPLY_SUCCESS)) {
+    /* Send SessionJoined to creator if creator is local since RunAttach does not run in this case */
+    if ((status == ER_OK) && (replyCode == ALLJOYN_JOINSESSION_REPLY_SUCCESS) && rSessionEp->IsValid()) {
         ajObj.SendSessionJoined(sme.sessionPort, sme.id, sessionHost, sme.endpointName.c_str());
     }
 

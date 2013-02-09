@@ -150,17 +150,6 @@ class SessionlessObj : public BusObject, public SessionListener, public SessionP
                              const SessionOpts& opts);
 
     /**
-     * Receive SessionJoined signals.
-     *
-     * @param   member      FoundAdvertisedName interface member.
-     * @param   sourcePath  Sender of signal.
-     * @param   msg         FoundAdvertisedName message.
-     */
-    void SessionJoinedSignalHandler(const InterfaceDescription::Member* member,
-                                    const char* sourcePath,
-                                    Message& msg);
-
-    /**
      * Receive SessionLost signals.
      *
      * @param   member      SessionLost interface member.
@@ -227,10 +216,15 @@ class SessionlessObj : public BusObject, public SessionListener, public SessionP
     std::map<qcc::String, uint32_t> ruleCountMap;
 
     /** Track the changeIds of the advertisments coming from other daemons */
-    std::map<qcc::String, uint32_t> changeIdMap;
-
-    /** Map of sessionIds to the advertised changeIds that are currently being joined */
-    std::map<uint32_t, uint32_t> joinsInProgress;
+    struct ChangeIdEntry {
+      public:
+        ChangeIdEntry(const char* advName, uint32_t changeId, bool inProgress, uint32_t retries) : advName(advName), changeId(changeId), inProgress(inProgress), retries(retries) { }
+        qcc::String advName;
+        uint32_t changeId;
+        bool inProgress;
+        uint32_t retries;
+    };
+    std::map<qcc::String, ChangeIdEntry> changeIdMap;
 
     qcc::Mutex lock;            /**< Mutex that protects messageMap this obj's data structures */
     uint32_t nextChangeId;      /**< Change id assoc with next pushed signal */
