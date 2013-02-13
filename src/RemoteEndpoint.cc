@@ -129,7 +129,10 @@ class _RemoteEndpoint::Internal {
         threadName(threadName),
         started(false)
     {
-
+        /* Increment threadCount so that each RemoteEndpoint Rx/Tx thread
+         * has a different name - useful for identification
+         */
+        threadCount++;
     }
 
     ~Internal() {
