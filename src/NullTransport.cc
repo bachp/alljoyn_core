@@ -39,6 +39,19 @@
 
 #define QCC_MODULE "NULL_TRANSPORT"
 
+/* NULLEP_REFS_AT_DELETION:
+ * Only the following refs to NullEndpoint should be active,
+ * at the time of deletion of DaemonRouter,
+ * all held by the current thread:
+ *  DaemonRouter::localEndpoint
+ *  ClientRouter::nonLocalEndpoint
+ *  BusInternal::daemonEndpoint
+ *  NullTransport::endpoint
+ * This is to ensure that there are no threads in
+ * NullEndpoint::PushMessage.
+ */
+const uint8_t NULLEP_REFS_AT_DELETION = 4;
+
 using namespace std;
 using namespace qcc;
 
@@ -135,6 +148,11 @@ _NullEndpoint::~_NullEndpoint()
 
 QStatus _NullEndpoint::PushMessage(Message& msg)
 {
+    /* Get an extra reference to this endpoint to ensure
+     * that the daemon router is not deleted while NullEndpoint::PushMessage
+     * is in progress.
+     */
+    BusEndpoint busEndpoint = BusEndpoint::wrap(this);
     if (!IsValid()) {
         return ER_BUS_ENDPOINT_CLOSING;
     }
@@ -168,7 +186,6 @@ QStatus _NullEndpoint::PushMessage(Message& msg)
         }
         if (status == ER_OK) {
             msg->bus = &daemonBus;
-            BusEndpoint busEndpoint = BusEndpoint::wrap(this);
             status = daemonBus.GetInternal().GetRouter().PushMessage(msg, busEndpoint);
         } else if (status == ER_BUS_AUTHENTICATION_PENDING) {
             status = ER_OK;
@@ -186,11 +203,9 @@ QStatus _NullEndpoint::PushMessage(Message& msg)
         if (msg->IsBroadcastSignal()) {
             Message clone(msg, true /*deep copy*/);
             clone->bus = &clientBus;
-            BusEndpoint busEndpoint = BusEndpoint::wrap(this);
             status = clientBus.GetInternal().GetRouter().PushMessage(clone, busEndpoint);
         } else {
             msg->bus = &clientBus;
-            BusEndpoint busEndpoint = BusEndpoint::wrap(this);
             status = clientBus.GetInternal().GetRouter().PushMessage(msg, busEndpoint);
         }
     }
@@ -205,10 +220,10 @@ NullTransport::~NullTransport()
 {
     Stop();
     Join();
-    /* Wait for any threads that are in PushMessage to finish */
-    while (endpoint.GetRefCount() > 1) {
-        qcc::Sleep(4);
-    }
+    /* Only one ref to the NullEndpoint must remain,
+     * held by NullTransport::endpoint
+     */
+    assert(endpoint.GetRefCount() == 1);
 }
 
 QStatus NullTransport::Start()
@@ -297,9 +312,25 @@ QStatus NullTransport::Disconnect(const char* connectSpec)
         assert(daemonLauncher);
         ep->clientBus.GetInternal().GetRouter().UnregisterEndpoint(ep->GetUniqueName(), ep->GetEndpointType());
         ep->daemonBus.GetInternal().GetRouter().UnregisterEndpoint(ep->GetUniqueName(), ep->GetEndpointType());
+        ep->Invalidate();
+        /* Wait for any threads that are in PushMessage to finish
+         * before the daemon-side BusAttachment is deleted as
+         * a part of the daemonLauncher Stop and Join.
+         */
+        while (endpoint.GetRefCount() > NULLEP_REFS_AT_DELETION) {
+            qcc::Sleep(4);
+        }
+
+        /* Only the following refs to NullEndpoint should be active now,
+         * all held by the current thread:
+         *  DaemonRouter::localEndpoint
+         *  ClientRouter::nonLocalEndpoint
+         *  BusInternal::daemonEndpoint
+         *  NullTransport::endpoint
+         */
+
         daemonLauncher->Stop(this);
         daemonLauncher->Join();
-        ep->Invalidate();
     }
     return ER_OK;
 }
