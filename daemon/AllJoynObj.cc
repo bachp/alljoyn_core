@@ -1128,7 +1128,7 @@ void AllJoynObj::LeaveSession(const InterfaceDescription::Member* member, Messag
         detachSessionArgs[0].Set("u", id);
         detachSessionArgs[1].Set("s", msg->GetSender());
 
-        QStatus status = Signal(NULL, id, *detachSessionSignal, detachSessionArgs, ArraySize(detachSessionArgs), 0, ALLJOYN_FLAG_GLOBAL_BROADCAST);
+        QStatus status = Signal(NULL, 0, *detachSessionSignal, detachSessionArgs, ArraySize(detachSessionArgs), 0, ALLJOYN_FLAG_GLOBAL_BROADCAST);
         if (status != ER_OK) {
             QCC_LogError(status, ("Error sending org.alljoyn.Daemon.DetachSession signal"));
         }
