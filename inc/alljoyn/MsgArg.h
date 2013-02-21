@@ -351,7 +351,7 @@ class MsgArg {
     /**
      * Destructor
      */
-    ~MsgArg() { Clear(); }
+    virtual ~MsgArg() { Clear(); }
 
     /**
      * Constructor

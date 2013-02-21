@@ -129,7 +129,7 @@ class _MsgArg : protected ajn::MsgArg {
     __MsgArg ^ _eventsAndProperties;
     std::map<void*, void*> _refMap;
     std::list<qcc::String> _strRef;
-    std::list<void*> _msgScratch;
+    std::list<ajn::MsgArg*> _msgScratch;
 };
 
 /// <summary>

@@ -36,7 +36,7 @@ using namespace ajn;
     }
 
 #define CLEAR_SCRATCH() \
-    { std::list<void*>::const_iterator itr2; \
+    { std::list<ajn::MsgArg*>::const_iterator itr2; \
       for (itr2 = _msgScratch.begin(); itr2 != _msgScratch.end(); ++itr2) { \
           delete [] *itr2; \
       } \
