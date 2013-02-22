@@ -266,6 +266,7 @@ class JoinSession_BusListener : public BusListener {
     JoinSession_BusListener(BusAttachment* bus) : bus(bus) { }
 
     void FoundAdvertisedName(const char* name, TransportMask transport, const char* namePrefix) {
+        found = true;
         SessionOpts sessionOpts(SessionOpts::TRAFFIC_MESSAGES, false, SessionOpts::PROXIMITY_ANY, TRANSPORT_ANY);
 
         SessionId sessionId = 0;
@@ -274,7 +275,7 @@ class JoinSession_BusListener : public BusListener {
         // Join session once the AdvertisedName has been found
         joinSessionStatus = bus->JoinSession(name, 42, new SessionListener(), sessionId, sessionOpts);
         otherBusSessionId = sessionId;
-        found = true;
+
     }
     BusAttachment* bus;
 };
@@ -335,7 +336,7 @@ TEST_F(BusAttachmentTest, JoinSession) {
     EXPECT_TRUE(found);
 
     for (size_t i = 0; i < 200; ++i) {
-        if (sessionAccepted && sessionJoined) {
+        if (sessionAccepted && sessionJoined && otherBusSessionId) {
             break;
         }
         qcc::Sleep(5);
