@@ -749,19 +749,35 @@ ThreadReturn STDCALL AllJoynObj::JoinSessionThread::RunJoin()
 
             String busAddr;
             if (!b2bEp->IsValid()) {
-                /* Step 1: If there is a busAddr from advertisement use it to (possibly) create a physical connection */
+                /* Step 1a: If there is a busAddr from advertisement use it to (possibly) create a physical connection */
                 vector<String> busAddrs;
                 multimap<String, NameMapEntry>::iterator nmit = ajObj.nameMap.lower_bound(sessionHost);
                 while (nmit != ajObj.nameMap.end() && (nmit->first == sessionHost)) {
                     if (nmit->second.transport & optsIn.transports) {
                         busAddrs.push_back(nmit->second.busAddr);
-                        break;
                     }
                     ++nmit;
                 }
+                /* Step 1b: If no busAddr, see if one exists in the adv alias map */
+                if (busAddrs.empty() && (sessionHost[0] == ':')) {
+                    String rguidStr = String(sessionHost).substr(1, GUID128::SHORT_SIZE);
+                    multimap<String, pair<String, TransportMask> >::iterator ait = ajObj.advAliasMap.lower_bound(rguidStr);
+                    while ((ait != ajObj.advAliasMap.end()) && (ait->first == rguidStr)) {
+                        if ((ait->second.second & optsIn.transports) != 0) {
+                            multimap<String, NameMapEntry>::iterator nmit2 = ajObj.nameMap.lower_bound(ait->second.first);
+                            while (nmit2 != ajObj.nameMap.end() && (nmit2->first == ait->second.first)) {
+                                if ((nmit2->second.transport & ait->second.second & optsIn.transports) != 0) {
+                                    busAddrs.push_back(nmit2->second.busAddr);
+                                }
+                                ++nmit2;
+                            }
+                        }
+                        ++ait;
+                    }
+                }
                 ajObj.ReleaseLocks();
                 /*
-                 * Step 1b: If no advertisement (busAddr) and we are connected to the sesionHost, then ask it directly
+                 * Step 1c: If still no advertisement (busAddr) and we are connected to the sesionHost, then ask it directly
                  * for the busAddr
                  */
                 if (vSessionEp->IsValid() && busAddrs.empty()) {
@@ -1599,6 +1615,15 @@ qcc::ThreadReturn STDCALL AllJoynObj::JoinSessionThread::RunAttach()
     QCC_DbgPrintf(("AllJoynObj::AttachSession(%d) returned (%d,%u) (status=%s)", sessionPort, replyCode, id, QCC_StatusText(status)));
 
     return 0;
+}
+
+void AllJoynObj::SetAdvNameAlias(const String& guid, const TransportMask mask, const String& advName)
+{
+    QCC_DbgTrace(("AllJoynObj::SetAdvNameAlias(%s, 0x%x, %s)", guid.c_str(), mask, advName.c_str()));
+
+    AcquireLocks();
+    advAliasMap.insert(pair<String, pair<String, TransportMask> >(guid, pair<String, TransportMask>(advName, mask)));
+    ReleaseLocks();
 }
 
 void AllJoynObj::RemoveSessionRefs(const char* epName, SessionId id)
@@ -3516,11 +3541,31 @@ void AllJoynObj::FoundNames(const qcc::String& busAddr,
         ++fit;
     }
 
-    /* Send LostAdvetisedName signals */
     set<String>::const_iterator lit = lostNameSet.begin();
     while (lit != lostNameSet.end()) {
-        SendLostAdvertisedName(*lit++, transport);
+        /* Send LostAdvetisedName signals */
+        SendLostAdvertisedName(*lit, transport);
+        /* Clean advAliasMap */
+        CleanAdvAliasMap(*lit, transport);
+        lit++;
     }
+}
+
+void AllJoynObj::CleanAdvAliasMap(const String& name, const TransportMask mask)
+{
+    QCC_DbgTrace(("AllJoynObj::CleanAdvAliasMap(%s, 0x%x): size=%d", name.c_str(), mask, advAliasMap.size()));
+
+    /* Clean advAliasMap */
+    AcquireLocks();
+    multimap<String, pair<String, TransportMask> >::iterator ait = advAliasMap.begin();
+    while (ait != advAliasMap.end()) {
+        if ((ait->second.first == name) && ((ait->second.second & mask) != 0)) {
+            advAliasMap.erase(ait++);
+        } else {
+            ++ait;
+        }
+    }
+    ReleaseLocks();
 }
 
 QStatus AllJoynObj::SendFoundAdvertisedName(const String& dest,
@@ -3585,8 +3630,12 @@ void AllJoynObj::AlarmTriggered(const Alarm& alarm, QStatus reason)
             while (it != nameMap.end()) {
                 NameMapEntry& nme = it->second;
                 if ((now - nme.timestamp) >= nme.ttl) {
+                    /* Send LostAdvertisedName */
                     QCC_DbgPrintf(("Expiring discovered name %s for guid %s", it->first.c_str(), nme.guid.c_str()));
                     SendLostAdvertisedName(it->first, nme.transport);
+                    /* Clean advAliasMap */
+                    CleanAdvAliasMap(it->first, nme.transport);
+                    /* Remove alarm */
                     timer.RemoveAlarm(nme.alarm, false);
                     nme.alarm->SetContext((void*)false);
                     nameMap.erase(it++);

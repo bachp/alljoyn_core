@@ -24,6 +24,7 @@
 
 #include <qcc/platform.h>
 #include <vector>
+#include <map>
 
 #include <qcc/String.h>
 #include <qcc/StringUtil.h>
@@ -32,6 +33,7 @@
 #include <qcc/time.h>
 #include <qcc/SocketTypes.h>
 #include <qcc/Timer.h>
+#include <qcc/GUID.h>
 
 #include <alljoyn/BusObject.h>
 #include <alljoyn/Message.h>
@@ -260,11 +262,17 @@ class AllJoynObj : public BusObject, public NameListener, public TransportListen
     void AliasUnixUser(const InterfaceDescription::Member* member, Message& msg);
 
     /**
-     * Add a new Bus-to-bus endpoint.
+     * Set (add or replace) an advertised name alias for remote daemon guid.
      *
-     * @param endpoint  Bus-to-bus endpoint to add.
-     * @param ER_OK if successful
+     * This method is used by SessionlessObj to tell AllJoynObj that JoinSession requests
+     * for unique names containing the given GUID / transport mask should be aliased with the
+     * given well-known name for the purpose of estabilishing a transport connection.
+     *
+     * @param guid       Short GUID string of remote daemon that advertised the name.
+     * @param mask       Transport used by remote daemon to advertise advName.
+     * @param advName    Well-known name advertised by remote daemon.
      */
+    void SetAdvNameAlias(const qcc::String& guid, const TransportMask mask, const qcc::String& advName);
 
     /**
      * Handle event that the application/process is suspending on OS like WinRT.
@@ -304,6 +312,12 @@ class AllJoynObj : public BusObject, public NameListener, public TransportListen
      */
     void OnAppResume(const InterfaceDescription::Member* member, Message& msg);
 
+    /**
+     * Add a new Bus-to-bus endpoint.
+     *
+     * @param endpoint  Bus-to-bus endpoint to add.
+     * @param ER_OK if successful
+     */
     QStatus AddBusToBusEndpoint(RemoteEndpoint& endpoint);
 
     /**
@@ -511,6 +525,8 @@ class AllJoynObj : public BusObject, public NameListener, public TransportListen
     std::map<qcc::String, VirtualEndpoint> virtualEndpoints;   /**< Map of endpoints that reside behind a connected AllJoyn daemon */
 
     std::map<qcc::StringMapKey, RemoteEndpoint> b2bEndpoints;  /**< Map of bus-to-bus endpoints that are connected to external daemons */
+
+    std::multimap<qcc::String, std::pair<qcc::String, TransportMask> > advAliasMap;  /**< Map remote daemon guid/transport to advertised name alias */
 
     qcc::Timer timer;           /**< Timer object for reaping expired names */
 
@@ -786,6 +802,14 @@ class AllJoynObj : public BusObject, public NameListener, public TransportListen
      * @param b2bEpName     B2B endpoint that vep must route through in order to be cleaned.
      */
     void RemoveSessionRefs(const qcc::String& vepName, const qcc::String& b2bEpName);
+
+    /**
+     * Remove entry from advertise alias map.
+     *
+     * @param name    Name to remove from advAliasMap.
+     * @param mask    Set of transports whose advertisement for name will be removed from alias map.
+     */
+    void CleanAdvAliasMap(const qcc::String& name, TransportMask mask);
 };
 
 }

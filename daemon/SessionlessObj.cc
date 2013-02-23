@@ -582,8 +582,12 @@ void SessionlessObj::JoinSessionCB(QStatus status, SessionId id, const SessionOp
         }
         lock.Unlock();
 
-        /* Send the signal if join was successful */
         if (status == ER_OK) {
+            /* Add/replace sessionless adv name for remote daemon */
+            String guid = advName.substr(::strlen(WellKnownName) + 2, qcc::GUID128::SHORT_SIZE);
+            busController->GetAllJoynObj().SetAdvNameAlias(guid, opts.transports, advName);
+
+            /* Send the signal if join was successful */
             MsgArg args[1];
             args[0].Set("u", requestChangeId);
             QCC_DbgPrintf(("Sending RequestSignals (changeId=%d) to %s\n", ctx1->first, advName.c_str()));
