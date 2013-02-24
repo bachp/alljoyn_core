@@ -1182,12 +1182,21 @@ void AllJoynPeerObj::AcceptSession(const InterfaceDescription::Member* member, M
         status = MethodReply(msg, &replyArg, 1);
 
         if ((status == ER_OK) && isAccepted) {
-            const uint32_t VER_250 = 33882112;
             BusEndpoint sender = bus->GetInternal().GetRouter().FindEndpoint(msg->GetRcvEndpointName());
             if (sender->GetEndpointType() == ENDPOINT_TYPE_REMOTE) {
                 RemoteEndpoint rep = RemoteEndpoint::cast(sender);
-                // remote daemon is older than version 2.5.0; it will *NOT* send the SessionJoined signal
-                if (rep->GetRemoteAllJoynVersion() < VER_250) {
+                const uint32_t VER_250 = 33882112;
+                uint32_t protoVersion = rep->GetRemoteProtocolVersion();
+                /**
+                 * remote daemon is older than version 2.5.0; it will *NOT* send the SessionJoined signal
+                 *
+                 * Unfortunately, the original form of this code checked the AllJoyn version number rather than the
+                 * protocol version number. Since the AllJoyn version number is only valid at release time,
+                 * the check was later updated to also filter on protocol version numbers. Therefore protocol
+                 * version number works fine except when protocol version is 3 in which case the AllJoyn version
+                 * number must be used.
+                 */
+                if ((protoVersion < 3) || ((protoVersion == 3) && (rep->GetRemoteAllJoynVersion() < VER_250))) {
                     bus->GetInternal().CallJoinedListeners(sessionPort, sessionId, joiner.c_str());
                 }
             }
