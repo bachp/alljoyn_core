@@ -327,7 +327,7 @@ class SessionJoinedSessionPortListener : public SessionPortListener {
 };
 
 //ALLJOYN-1602
-TEST_F(SessionTest, DISABLED_SessionJoined) {
+TEST_F(SessionTest, SessionJoined) {
     bindMemberSessionId = 0;
     sessionJoinerAcceptedFlag = false;
     sessionJoinedFlag = false;

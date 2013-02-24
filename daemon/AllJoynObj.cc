@@ -1021,7 +1021,7 @@ ThreadReturn STDCALL AllJoynObj::JoinSessionThread::RunJoin()
 
     /* Send SessionJoined to creator if creator is local since RunAttach does not run in this case */
     if ((status == ER_OK) && (replyCode == ALLJOYN_JOINSESSION_REPLY_SUCCESS) && rSessionEp->IsValid()) {
-        ajObj.SendSessionJoined(sme.sessionPort, sme.id, sessionHost, sme.endpointName.c_str());
+        ajObj.SendSessionJoined(sme.sessionPort, sme.id, sender.c_str(), sme.endpointName.c_str());
     }
 
     /* Send a series of MPSessionChanged to "catch up" the new joiner */
@@ -1885,7 +1885,7 @@ QStatus AllJoynObj::SendSessionJoined(SessionPort sessionPort,
     args[1].Set("u", sessionId);
     args[2].Set("s", joinerName);
 
-    QCC_DbgPrintf(("Calling JoinSession(%u, %u, %s) to %s",
+    QCC_DbgPrintf(("SendSessionJoined(%u, %u, %s) to %s",
                    args[0].v_uint16,
                    args[1].v_uint32,
                    args[2].v_string.str,
