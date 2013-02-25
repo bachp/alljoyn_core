@@ -247,7 +247,7 @@ Exit:
 
 int main(int argc, char** argv)
 {
-    qcc::SocketFd handles[2];
+    qcc::SocketFd handles[2] = { 0, 0 };
     QStatus status = ER_OK;
     BusAttachment bus("sock_test");
     bool client = false;
@@ -362,6 +362,7 @@ int main(int argc, char** argv)
                 status = remoteObj.MethodCall(::org::alljoyn::sock_test::Interface, "PutSock", &arg, 1, reply);
                 /* Don't need this handle anymore */
                 qcc::Close(handles[0]);
+                handles[0] = 0;
                 if (ER_OK == status) {
                     uint8_t buf[256];
                     size_t recvd;
@@ -382,6 +383,7 @@ int main(int argc, char** argv)
                     }
                     /* Don't need this handle anymore */
                     qcc::Close(handles[1]);
+                    handles[1] = 0;
                 } else {
                     QCC_LogError(status, ("PutSock failed"));
                 }
@@ -405,7 +407,12 @@ int main(int argc, char** argv)
     }
 
 Exit:
-
+    if (handles[0] != 0) {
+        qcc::Close(handles[0]);
+    }
+    if (handles[1] != 0) {
+        qcc::Close(handles[1]);
+    }
     printf("sock_test exiting with status %d (%s)\n", status, QCC_StatusText(status));
     return (int) status;
 }

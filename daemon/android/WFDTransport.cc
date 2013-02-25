@@ -3016,24 +3016,28 @@ QStatus WFDTransport::Connect(const char* connectSpec, const SessionOpts& opts, 
         assert(i != m_activeEndpointsThreadList.end() && "WFDTransport::Connect(): Thread* not on m_activeEndpointsThreadList");
         m_activeEndpointsThreadList.erase(i);
         m_endpointListLock.Unlock(MUTEX_CONTEXT);
-    }
-
-    /*
-     * If we got an error, we need to cleanup the socket and zero out the
-     * returned endpoint.  If we got this connection and its endpoint up without
-     * a problem, we return a pointer to the new endpoint.  We aren't going to
-     * clean it up since it is an active connection, so we can safely pass the
-     * endoint back up to higher layers.
-     */
-    QCC_DbgPrintf(("WFDTransport::Connect(): Cleanup."));
-
-    if (status != ER_OK) {
+    } else {
+        /*
+         * If we got an error, and have not created an endpoint, we need to cleanup
+         * the socket. If an endpoint was created, the endpoint will be responsible
+         * for the cleanup.
+         */
         if (isConnected) {
             qcc::Shutdown(sockFd);
         }
         if (sockFd >= 0) {
             qcc::Close(sockFd);
         }
+
+    }
+
+    if (status != ER_OK) {
+        /* If we got this connection and its endpoint up without
+         * a problem, we return a pointer to the new endpoint.  We aren't going to
+         * clean it up since it is an active connection, so we can safely pass the
+         * endoint back up to higher layers.
+         * Invalidate the endpoint in case of error.
+         */
         newep->Invalidate();
     } else {
         assert(newep->IsValid() && "WFDTransport::Connect(): If the conn is up, the conn should be valid");
