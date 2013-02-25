@@ -359,6 +359,11 @@ void PacketEngine::AlarmTriggered(const Alarm& alarm, QStatus reason)
     AlarmContext* ctx = reinterpret_cast<AlarmContext*>(alarm->GetContext());
     //printf("rx(%d): AlarmTriggered cctx=%d\n", (GetTimestamp() / 100) % 100000, ctx->contextType);
 
+    // To make klocwork happy
+    if (!ctx) {
+        return;
+    }
+
     switch (ctx->contextType) {
     case AlarmContext::CONTEXT_DISCONNECT_REQ:
     {
@@ -459,6 +464,12 @@ void PacketEngine::AlarmTriggered(const Alarm& alarm, QStatus reason)
     case AlarmContext::CONTEXT_XON:
     {
         XOnAlarmContext* cctx = static_cast<XOnAlarmContext*>(ctx);
+
+        // To make klocwork happy
+        if (!cctx) {
+            break;
+        }
+
         ChannelInfo* ci = AcquireChannelInfo(cctx->chanId);
         QStatus status = ER_FAIL;
         if (ci) {
