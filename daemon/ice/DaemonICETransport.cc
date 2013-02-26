@@ -1923,7 +1923,7 @@ QStatus DaemonICETransport::Connect(const char* connectSpec, const SessionOpts& 
                                                   onDemandAddress, persistentAddress);
             if (status == ER_OK) {
                 if (IsICEConnectTimedOut(timeout)) {
-                    /* Do not worry releasing the packetStream here in the event
+                    /* Do not worry about releasing the packetStream here in the event
                      * of a timeout. It is released at the end of this function call */
                     status = ER_TIMEOUT;
                     QCC_LogError(status, ("%s: ICE connect timed out", __FUNCTION__));
@@ -1960,7 +1960,7 @@ QStatus DaemonICETransport::Connect(const char* connectSpec, const SessionOpts& 
                                     if (status == ER_OK) {
 
                                         if (IsICEConnectTimedOut(timeout)) {
-                                            /* Do not worry releasing the packetStream here in the event
+                                            /* Do not worry about releasing the packetStream here in the event
                                              * of a timeout. It is released at the end of this function call */
                                             status = ER_TIMEOUT;
                                             QCC_LogError(status, ("%s: ICE connect timed out", __FUNCTION__));
@@ -1991,7 +1991,7 @@ QStatus DaemonICETransport::Connect(const char* connectSpec, const SessionOpts& 
 
                                                     if (status == ER_OK) {
                                                         if (IsICEConnectTimedOut(timeout)) {
-                                                            /* Do not worry releasing the packetStream here in the event
+                                                            /* Do not worry about releasing the packetStream here in the event
                                                              * of a timeout. It is released at the end of this function call */
                                                             status = ER_TIMEOUT;
                                                             QCC_LogError(status, ("%s: ICE connect timed out", __FUNCTION__));
@@ -2138,7 +2138,7 @@ QStatus DaemonICETransport::Connect(const char* connectSpec, const SessionOpts& 
     /* If we created or reused an ICEPacketStream, then wrap it in a DamonICEEndpoint */
     if (status == ER_OK) {
         if (IsICEConnectTimedOut(timeout)) {
-            /* Do not worry releasing the packetStream here in the event
+            /* Do not worry about releasing the packetStream here in the event
              * of a timeout. It is released at the end of this function call */
             status = ER_TIMEOUT;
             QCC_LogError(status, ("%s: ICE connect timed out", __FUNCTION__));
@@ -2236,7 +2236,7 @@ QStatus DaemonICETransport::Connect(const char* connectSpec, const SessionOpts& 
 
 
     if ((status == ER_OK) && (IsICEConnectTimedOut(timeout))) {
-        /* Do not worry releasing the packetStream here in the event
+        /* Do not worry about releasing the packetStream here in the event
          * of a timeout. It is released at the end of this function call */
         status = ER_TIMEOUT;
         QCC_LogError(status, ("%s: ICE connect timed out", __FUNCTION__));
