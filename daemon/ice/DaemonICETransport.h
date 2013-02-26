@@ -50,25 +50,20 @@
 
 using namespace qcc;
 
-
-// Maximum time in milli seconds that an AllJoyn Client connect request will wait to
-// receive the candidates from the Service on the remote daemon.
-// Units in ms
-// PPN - Need to review this time
-const uint32_t ICE_CLIENT_SESSION_WAIT_TIMEOUT = 15000;
-
-// Maximum time in milli seconds that the DaemonICETransport will wait for the ICESession to allocate an ICE session
-// PPN - Need to review this time
-const uint32_t ICE_ALLOCATE_SESSION_WAIT_TIMEOUT = 15000;
-
-// Maximum time in milli seconds that the DaemonICETransport will wait to receive the new refreshed tokens
-// PPN - Need to review this time
-const uint32_t ICE_REFRESH_TOKENS_WAIT_TIMEOUT = 15000;
+// Maximum time in milli seconds that the DaemonICETransport will wait for a connect/allocate session
+// to succeed
+const uint64_t ICE_CONNECT_TIMEOUT = 28000;
 
 // Maximum time in milli seconds that the DaemonICETransport will wait before removing an ICEPacketStream from the
 // PacketEngine after the last PacketEngineStream associated with it has been disconnected
 // PPN - Need to review this time
 const uint64_t ICE_PACKET_STREAM_REMOVE_INTERVAL = 3000;
+
+#define IsICEConnectTimedOut(timeout) (timeout <= GetTimestamp64())
+
+#define ICEConnectTimeout(timeout) (uint32_t)(timeout - GetTimestamp64())
+
+#define InitialICEConnectTimeout() (GetTimestamp64() + ICE_CONNECT_TIMEOUT)
 
 namespace ajn {
 
@@ -89,14 +84,14 @@ class ICESessionListenerImpl : public ICESessionListener {
 
     ICESession::ICESessionState GetState() { return state; }
 
-    QStatus Wait()
+    QStatus Wait(uint32_t timeout)
     {
         vector<Event*> checkEvents, signaledEvents;
 
         checkEvents.push_back(&((Thread::GetThread())->GetStopEvent()));
         checkEvents.push_back(&waitEvent);
 
-        QStatus status = Event::Wait(checkEvents, signaledEvents, ICE_ALLOCATE_SESSION_WAIT_TIMEOUT);
+        QStatus status = Event::Wait(checkEvents, signaledEvents, timeout);
         if (ER_OK == status) {
             for (vector<Event*>::iterator i = signaledEvents.begin(); i != signaledEvents.end(); ++i) {
                 if (*i == &((Thread::GetThread())->GetStopEvent())) {
@@ -135,14 +130,14 @@ class PeerCandidateListenerImpl : public PeerCandidateListener {
         pwd = ice_pwd;
     }
 
-    QStatus Wait()
+    QStatus Wait(uint32_t timeout)
     {
         vector<Event*> checkEvents, signaledEvents;
 
         checkEvents.push_back(&((Thread::GetThread())->GetStopEvent()));
         checkEvents.push_back(&waitEvent);
 
-        QStatus status = Event::Wait(checkEvents, signaledEvents, ICE_CLIENT_SESSION_WAIT_TIMEOUT);
+        QStatus status = Event::Wait(checkEvents, signaledEvents, timeout);
 
         if (ER_OK == status) {
             for (vector<Event*>::iterator i = signaledEvents.begin(); i != signaledEvents.end(); ++i) {
@@ -186,9 +181,9 @@ class TokenRefreshListenerImpl : public TokenRefreshListener {
         expTime = expiryTime;
     }
 
-    QStatus Wait()
+    QStatus Wait(uint32_t timeout)
     {
-        QStatus status = Event::Wait(waitEvent, ICE_REFRESH_TOKENS_WAIT_TIMEOUT);
+        QStatus status = Event::Wait(waitEvent, timeout);
         if (ER_OK == status) {
             waitEvent.ResetEvent();
         }
@@ -460,7 +455,7 @@ class DaemonICETransport : public Transport, public _RemoteEndpoint::EndpointLis
      *
      * @return  true if the tokens have not expired, false otherwise.
      */
-    QStatus GetNewTokensFromServer(bool client, STUNServerInfo& stunInfo, String remotePeerAddress);
+    QStatus GetNewTokensFromServer(bool client, STUNServerInfo& stunInfo, String remotePeerAddress, uint32_t timeout);
 
     /**
      * @internal
