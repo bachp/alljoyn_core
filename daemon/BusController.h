@@ -35,6 +35,7 @@
 #include "AllJoynObj.h"
 #include "AllJoynDebugObj.h"
 #include "SessionlessObj.h"
+#include "ProtectedAuthListener.h"
 
 namespace ajn {
 
@@ -48,9 +49,10 @@ class BusController {
     /**
      * Constructor
      *
-     * @param bus        Bus to associate with this controller.
+     * @param bus           Bus to associate with this controller.
+     * @param authListener  Optional authentication listener
      */
-    BusController(Bus& bus);
+    BusController(Bus& bus, AuthListener* authListener = NULL);
 
     /**
      * Destructor
@@ -141,9 +143,17 @@ class BusController {
         sessionlessObj.RemoveRule(epName, rule);
     }
 
+    /**
+     * Get the auth listener for this bus controller
+     */
+    AuthListener* GetAuthListener() { return authListener; }
+
   private:
 
     Bus& bus;
+
+    /** Listener for authenticating clients */
+    AuthListener* authListener;
 
     /** Bus object responsible for org.freedesktop.DBus */
     DBusObj dbusObj;

@@ -70,6 +70,11 @@ class DaemonRouter : public Router {
     void SetBusController(BusController* busController) { this->busController = busController; }
 
     /**
+     * Get the bus controller associated with this router
+     */
+    BusController* GetBusController() { return busController; }
+
+    /**
      * Add a bus name listener.
      *
      * @param listener    Pointer to object that implements AllJoynNameListerer

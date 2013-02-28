@@ -32,9 +32,11 @@
 #include <alljoyn/Session.h>
 
 #include "BusInternal.h"
+#include "BusController.h"
 #include "RemoteEndpoint.h"
 #include "Router.h"
 #include "DaemonConfig.h"
+#include "DaemonRouter.h"
 #include "ns/IpNameService.h"
 #include "TCPTransport.h"
 
@@ -717,7 +719,9 @@ void* _TCPEndpoint::AuthThread::Run(void* arg)
     /* Run the actual connection authentication code. */
     qcc::String authName;
     qcc::String redirection;
-    status = m_endpoint->Establish("ANONYMOUS", authName, redirection);
+    DaemonRouter& router = reinterpret_cast<DaemonRouter&>(m_endpoint->m_transport->m_bus.GetInternal().GetRouter());
+    AuthListener* authListener = router.GetBusController()->GetAuthListener();
+    status = m_endpoint->Establish("ALLJOYN_PIN_KEYX ANONYMOUS", authName, redirection, authListener);
     if (status != ER_OK) {
         m_endpoint->m_stream.Close();
         QCC_LogError(status, ("Failed to establish TCP endpoint"));
@@ -2850,7 +2854,9 @@ QStatus TCPTransport::Connect(const char* connectSpec, const SessionOpts& opts, 
          * we keep we keep the states consistent since the endpoint will eventually
          * to there.
          */
-        status = tcpEp->Establish("ANONYMOUS", authName, redirection);
+        DaemonRouter& router = reinterpret_cast<DaemonRouter&>(m_bus.GetInternal().GetRouter());
+        AuthListener* authListener = router.GetBusController()->GetAuthListener();
+        status = tcpEp->Establish("ALLJOYN_PIN_KEYX ANONYMOUS", authName, redirection, authListener);
         if (status == ER_OK) {
             tcpEp->SetListener(this);
             status = tcpEp->Start();

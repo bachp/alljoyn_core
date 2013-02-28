@@ -101,6 +101,38 @@ static const char bundledConfig[] =
     "  </policy>"
     "</busconfig>";
 
+
+class ClientAuthListener : public AuthListener {
+  public:
+
+    ClientAuthListener() : AuthListener(), maxAuth(2) { }
+
+  private:
+
+    bool RequestCredentials(const char* authMechanism, const char* authPeer, uint16_t authCount, const char* userId, uint16_t credMask, Credentials& creds) {
+
+        if (authCount > maxAuth) {
+            return false;
+        }
+
+        printf("RequestCredentials for authenticating %s using mechanism %s\n", authPeer, authMechanism);
+
+        if (strcmp(authMechanism, "ALLJOYN_PIN_KEYX") == 0) {
+            if (credMask & AuthListener::CRED_PASSWORD) {
+                creds.SetPassword("1234");
+            }
+            return true;
+        }
+        return false;
+    }
+
+    void AuthenticationComplete(const char* authMechanism, const char* authPeer, bool success) {
+        QCC_DbgPrintf(("Authentication %s %s\n", authMechanism, success ? "succesful" : "failed"));
+    }
+
+    uint32_t maxAuth;
+};
+
 class BundledDaemon : public DaemonLauncher, public TransportFactoryContainer {
 
   public:
@@ -130,6 +162,7 @@ class BundledDaemon : public DaemonLauncher, public TransportFactoryContainer {
     bool stopping;
     Bus* ajBus;
     BusController* ajBusController;
+    ClientAuthListener authListener;
     Mutex lock;
     std::set<NullTransport*> transports;
 };
@@ -304,7 +337,7 @@ QStatus BundledDaemon::Start(NullTransport* nullTransport)
          * Create and start the daemon
          */
         ajBus = new Bus("bundled-daemon", *this, listenSpecs.c_str());
-        ajBusController = new BusController(*ajBus);
+        ajBusController = new BusController(*ajBus, &authListener);
         status = ajBusController->Init(listenSpecs);
         if (ER_OK != status) {
             goto ErrorExit;

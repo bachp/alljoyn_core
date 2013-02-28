@@ -257,19 +257,20 @@ const _RemoteEndpoint::Features&  _RemoteEndpoint::GetFeatures() const
     }
 }
 
-QStatus _RemoteEndpoint::Establish(const qcc::String& authMechanisms, qcc::String& authUsed, qcc::String& redirection)
+QStatus _RemoteEndpoint::Establish(const qcc::String& authMechanisms, qcc::String& authUsed, qcc::String& redirection, AuthListener* listener)
 {
     QStatus status = ER_BUS_NO_ENDPOINT;
 
     if (internal) {
         RemoteEndpoint rep = RemoteEndpoint::wrap(this);
         EndpointAuth auth(internal->bus, rep, internal->incoming);
-        status = auth.Establish(authMechanisms, authUsed, redirection);
+        status = auth.Establish(authMechanisms, authUsed, redirection, listener);
         if (status == ER_OK) {
             internal->uniqueName = auth.GetUniqueName();
             internal->remoteName = auth.GetRemoteName();
             internal->remoteGUID = auth.GetRemoteGUID();
             internal->features.protocolVersion = auth.GetRemoteProtocolVersion();
+            internal->features.authenticated = (authUsed != "ANONYMOUS");
         }
     }
     return status;

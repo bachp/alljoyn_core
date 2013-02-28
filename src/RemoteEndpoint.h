@@ -62,7 +62,7 @@ class _RemoteEndpoint : public _BusEndpoint, public qcc::ThreadListener {
 
       public:
 
-        Features() : isBusToBus(false), allowRemote(false), handlePassing(false), ajVersion(0), protocolVersion(0), processId(0)
+        Features() : isBusToBus(false), allowRemote(false), handlePassing(false), ajVersion(0), protocolVersion(0), processId(0), authenticated(false)
         { }
 
         bool isBusToBus;       /**< When initiating connection this is an input value indicating if this is a bus-to-bus connection.
@@ -81,6 +81,7 @@ class _RemoteEndpoint : public _BusEndpoint, public qcc::ThreadListener {
 
         uint32_t processId;        /**< Process id optionally obtained from the remote peer */
 
+        bool authenticated;        /**< Indicated if the remote client was authenticated */
     };
 
     /**
@@ -236,12 +237,14 @@ class _RemoteEndpoint : public _BusEndpoint, public qcc::ThreadListener {
      *                                 that was used to establish the connection.
      * @param redirection     [OUT}    Returns a redirection address for the endpoint. This value
      *                                 is only meaninful if the return status is ER_BUS_ENDPOINT_REDIRECT.
+     * @param listener        Optional authentication listener
+     *
      * @return
      *      - ER_OK if successful.
      *      = ER_BUS_ENDPOINT_REDIRECT if the endpoint is being redirected.
      *      - An error status otherwise
      */
-    QStatus Establish(const qcc::String& authMechanisms, qcc::String& authUsed, qcc::String& redirection);
+    QStatus Establish(const qcc::String& authMechanisms, qcc::String& authUsed, qcc::String& redirection, AuthListener* listener = NULL);
 
     /**
      * Get the GUID of the remote side of a bus-to-bus endpoint.

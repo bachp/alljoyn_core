@@ -35,8 +35,9 @@ using namespace std;
 using namespace qcc;
 using namespace ajn;
 
-BusController::BusController(Bus& alljoynBus) :
+BusController::BusController(Bus& alljoynBus, AuthListener* authListener) :
     bus(alljoynBus),
+    authListener(authListener),
     dbusObj(bus, this),
     alljoynObj(bus, this),
     sessionlessObj(bus, this),

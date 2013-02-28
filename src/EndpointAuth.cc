@@ -331,7 +331,8 @@ qcc::String EndpointAuth::SASLCallout(SASLEngine& sasl, const qcc::String& extCm
 
 QStatus EndpointAuth::Establish(const qcc::String& authMechanisms,
                                 qcc::String& authUsed,
-                                qcc::String& redirection)
+                                qcc::String& redirection,
+                                AuthListener* listener)
 {
     QStatus status = ER_OK;
     size_t numPushed;
@@ -340,6 +341,10 @@ QStatus EndpointAuth::Establish(const qcc::String& authMechanisms,
     qcc::String outStr;
 
     QCC_DbgPrintf(("EndpointAuth::Establish authMechanisms=\"%s\"", authMechanisms.c_str()));
+
+    if (listener) {
+        authListener.Set(listener);
+    }
 
     if (isAccepting) {
         SASLEngine sasl(bus, AuthMechanism::CHALLENGER, authMechanisms, NULL, authListener, this);
@@ -438,6 +443,7 @@ QStatus EndpointAuth::Establish(const qcc::String& authMechanisms,
 
 ExitEstablish:
 
+    authListener.Set(NULL);
 
     QCC_DbgPrintf(("Establish complete %s", QCC_StatusText(status)));
 
