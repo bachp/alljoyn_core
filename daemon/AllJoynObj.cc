@@ -613,6 +613,10 @@ ThreadReturn STDCALL AllJoynObj::JoinSessionThread::RunJoin()
                     sme.id = newSessionId;
 
                     if (!ajObj.SessionMapFind(sme.endpointName, sme.id)) {
+                        /* Set isInitializing to true, to ensure that this entry is not deleted
+                         * while the join session is in progress
+                         */
+                        sme.isInitializing = true;
                         ajObj.SessionMapInsert(sme);
                         hasSessionMapPlaceholder = true;
                     }
@@ -653,6 +657,7 @@ ThreadReturn STDCALL AllJoynObj::JoinSessionThread::RunJoin()
                             SessionMapEntry* smEntry = ajObj.SessionMapFind(sme.endpointName, newSessionId);
                             if (smEntry) {
                                 smEntry->memberNames.push_back(sender);
+                                smEntry->isInitializing = false;
                                 sme = *smEntry;
                             } else {
                                 replyCode = ALLJOYN_JOINSESSION_REPLY_FAILED;
