@@ -2856,7 +2856,7 @@ QStatus TCPTransport::Connect(const char* connectSpec, const SessionOpts& opts, 
          */
         DaemonRouter& router = reinterpret_cast<DaemonRouter&>(m_bus.GetInternal().GetRouter());
         AuthListener* authListener = router.GetBusController()->GetAuthListener();
-        status = tcpEp->Establish("ALLJOYN_PIN_KEYX ANONYMOUS", authName, redirection, authListener);
+        status = tcpEp->Establish("ANONYMOUS", authName, redirection, authListener);
         if (status == ER_OK) {
             tcpEp->SetListener(this);
             status = tcpEp->Start();
