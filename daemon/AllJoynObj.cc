@@ -2907,7 +2907,7 @@ void AllJoynObj::ExchangeNamesSignalHandler(const InterfaceDescription::Member* 
     const size_t numItems = args[0].v_array.GetNumElements();
     if (bit != b2bEndpoints.end()) {
         qcc::GUID128 otherGuid = bit->second->GetRemoteGUID();
-        bit = b2bEndpoints.begin();;
+        bit = b2bEndpoints.begin();
         while (bit != b2bEndpoints.end()) {
             if (bit->second->GetRemoteGUID() == otherGuid) {
                 StringMapKey key = bit->first;
@@ -2948,7 +2948,14 @@ void AllJoynObj::ExchangeNamesSignalHandler(const InterfaceDescription::Member* 
                     for (size_t j = 0; j < numAliases; ++j) {
                         assert(ALLJOYN_STRING == aliasItems[j].typeId);
                         if (vep->IsValid()) {
+                            ReleaseLocks();
                             bool madeChange = router.SetVirtualAlias(aliasItems[j].v_string.str, &vep, vep);
+                            AcquireLocks();
+                            bit = b2bEndpoints.find(key);
+                            if (bit == b2bEndpoints.end()) {
+                                QCC_DbgPrintf(("b2bEp %s disappeared during ExchangeNamesSignalHandler", key.c_str()));
+                                break;
+                            }
                             if (madeChange) {
                                 madeChanges = true;
                             }
@@ -3058,12 +3065,14 @@ void AllJoynObj::NameChangedSignalHandler(const InterfaceDescription::Member* me
         /* Change affects a well-known name (name table only) */
         VirtualEndpoint remoteController = FindVirtualEndpoint(msg->GetSender());
         if (remoteController->IsValid()) {
+            ReleaseLocks();
             if (newOwner.empty()) {
                 madeChanges = router.SetVirtualAlias(alias, NULL, remoteController);
             } else {
                 VirtualEndpoint newOwnerEp = FindVirtualEndpoint(newOwner.c_str());
                 madeChanges = router.SetVirtualAlias(alias, &newOwnerEp, remoteController);
             }
+            AcquireLocks();
         } else {
             QCC_LogError(ER_BUS_NO_ENDPOINT, ("Cannot find virtual endpoint %s", msg->GetSender()));
         }

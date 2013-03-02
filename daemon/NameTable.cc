@@ -440,7 +440,7 @@ bool NameTable::SetVirtualAlias(const qcc::String& alias,
     bool maskingLocalName = (aliasNames.find(alias) != aliasNames.end());
 
     bool madeChange;
-    if (newOwner) {
+    if (newOwner && (*newOwner)->IsValid()) {
         madeChange = !newOwner->iden(oldOwner);
         virtualAliasNames[alias] = *newOwner;
     } else {
