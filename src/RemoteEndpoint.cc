@@ -226,7 +226,7 @@ QStatus _RemoteEndpoint::Establish(const qcc::String& authMechanisms, qcc::Strin
             internal->remoteName = auth.GetRemoteName();
             internal->remoteGUID = auth.GetRemoteGUID();
             internal->features.protocolVersion = auth.GetRemoteProtocolVersion();
-            internal->features.authenticated = (authUsed != "ANONYMOUS");
+            internal->features.trusted = (authUsed != "ANONYMOUS");
         }
     }
     return status;

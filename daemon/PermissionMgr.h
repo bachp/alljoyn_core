@@ -78,10 +78,6 @@ class PermissionMgr {
      */
     static DaemonBusCallPolicy GetDaemonBusCallPolicy(BusEndpoint sender);
 
-    /**
-     * Check whether the bus endpoint is already authenticated
-     */
-    static bool IsEndpointAuthorized(BusEndpoint sender);
 };
 
 } // namespace ajn

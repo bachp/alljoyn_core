@@ -62,7 +62,7 @@ class _RemoteEndpoint : public _BusEndpoint, public qcc::ThreadListener, public 
 
       public:
 
-        Features() : isBusToBus(false), allowRemote(false), handlePassing(false), ajVersion(0), protocolVersion(0), processId(0), authenticated(false)
+        Features() : isBusToBus(false), allowRemote(false), handlePassing(false), ajVersion(0), protocolVersion(0), processId(0), trusted(false)
         { }
 
         bool isBusToBus;       /**< When initiating connection this is an input value indicating if this is a bus-to-bus connection.
@@ -81,7 +81,7 @@ class _RemoteEndpoint : public _BusEndpoint, public qcc::ThreadListener, public 
 
         uint32_t processId;        /**< Process id optionally obtained from the remote peer */
 
-        bool authenticated;        /**< Indicated if the remote client was authenticated */
+        bool trusted;              /**< Indicated if the remote client was trusted */
     };
 
     /**
@@ -274,6 +274,7 @@ class _RemoteEndpoint : public _BusEndpoint, public qcc::ThreadListener, public 
      */
     bool IsIncomingConnection() const;
 
+    bool IsTrusted() { return GetFeatures().trusted; }
     /**
      * Get the data source for this endpoint
      *

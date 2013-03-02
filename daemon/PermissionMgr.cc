@@ -41,7 +41,7 @@ PermissionMgr::DaemonBusCallPolicy PermissionMgr::GetDaemonBusCallPolicy(BusEndp
             if ((rEndpoint->GetConnectSpec() == "unix") || (rEndpoint->GetConnectSpec() == "localhost")) {
                 policy = STDBUSCALL_ALLOW_ACCESS_SERVICE_ANY;
             } else if (rEndpoint->GetConnectSpec() == "tcp") {
-                if (!IsEndpointAuthorized(sender)) {
+                if (!rEndpoint->IsTrusted()) {
                     policy = STDBUSCALL_ALLOW_ACCESS_SERVICE_LOCAL;
                 } else {
                     policy = STDBUSCALL_ALLOW_ACCESS_SERVICE_ANY;
@@ -59,11 +59,6 @@ PermissionMgr::DaemonBusCallPolicy PermissionMgr::GetDaemonBusCallPolicy(BusEndp
         }
     }
     return policy;
-}
-
-bool PermissionMgr::IsEndpointAuthorized(BusEndpoint sender)
-{
-    return false;
 }
 
 } // namespace ajn {
