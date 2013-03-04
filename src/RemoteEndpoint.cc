@@ -616,8 +616,7 @@ QStatus _RemoteEndpoint::ReadCallback(qcc::Source& source)
         /* Check pause condition. Block until stopped */
         if (internal->armRxPause && internal->started && (msg->GetType() == MESSAGE_METHOD_RET)) {
             status = ER_BUS_ENDPOINT_CLOSING;
-            internal->stopping = true;
-            internal->bus.GetInternal().GetIODispatch().StopStream(internal->stream);
+            internal->bus.GetInternal().GetIODispatch().DisableReadCallback(internal->stream);
         }
 
     } else if (status == ER_TIMEOUT) {
