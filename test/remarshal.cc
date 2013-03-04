@@ -79,6 +79,11 @@ class MyMessage : public _Message {
 
     QStatus UnmarshalBody() { return UnmarshalArgs("*"); }
 
+    QStatus Read(RemoteEndpoint& ep, bool pedantic = true)
+    {
+        return _Message::Read(ep, pedantic);
+    }
+
     QStatus Unmarshal(RemoteEndpoint& ep, bool pedantic = true)
     {
         return _Message::Unmarshal(ep, pedantic);
@@ -132,7 +137,11 @@ static QStatus TestRemarshal(const MsgArg* argList, size_t numArgs, const char* 
     if (status != ER_OK) {
         return status;
     }
-
+    status = msg.Read(ep);
+    if (status != ER_OK) {
+        printf("Message::Read status:%s\n", QCC_StatusText(status));
+        return status;
+    }
     status = msg.Unmarshal(ep);
     if (status != ER_OK) {
         printf("Message::Unmarshal status:%s\n", QCC_StatusText(status));

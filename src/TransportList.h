@@ -23,6 +23,7 @@
 
 #include <qcc/platform.h>
 #include <qcc/String.h>
+#include <qcc/IODispatch.h>
 
 #include <vector>
 
@@ -45,7 +46,7 @@ class TransportList : public TransportListener {
      * @param bus               The bus associated with this transport list.
      * @param factory           TransportFactoryContainer telling the list how to create its Transports.
      */
-    TransportList(BusAttachment& bus, TransportFactoryContainer& factories);
+    TransportList(BusAttachment& bus, TransportFactoryContainer& factories, qcc::IODispatch* m_ioDispatch);
 
     /** Destructor  */
     virtual ~TransportList();
@@ -170,6 +171,7 @@ class TransportList : public TransportListener {
     TransportFactoryContainer& m_factories;         /**< container for transport factories */
     bool isStarted;                                 /**< true iff transports are running */
     bool isInitialized;                             /**< true iff transportlist is initialized */
+    qcc::IODispatch* m_ioDispatch;                  /**< pointer to the iodispatch for this bus */
 };
 
 }  /* namespace */

@@ -72,6 +72,11 @@ QStatus EndpointAuth::Hello(qcc::String& redirection)
         return status;
     }
 
+    status = response->Read(endpoint, false, true, HELLO_RESPONSE_TIMEOUT);
+    if (status != ER_OK) {
+        return status;
+    }
+
     status = response->Unmarshal(endpoint, false, true, HELLO_RESPONSE_TIMEOUT);
     if (status != ER_OK) {
         return status;
@@ -149,6 +154,11 @@ QStatus EndpointAuth::WaitHello()
     QStatus status;
     Message hello(bus);
 
+    status = hello->Read(endpoint, false);
+
+    if (status != ER_OK) {
+        return status;
+    }
     status = hello->Unmarshal(endpoint, false);
     if (ER_OK == status) {
         if (hello->GetType() != MESSAGE_METHOD_CALL) {

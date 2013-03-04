@@ -70,6 +70,11 @@ class MyMessage : public _Message {
         return SignalMsg("", destination, sessionId, objPath, iface, signalName, NULL, 0, ALLJOYN_FLAG_COMPRESSED, ttl);
     }
 
+    QStatus Read(RemoteEndpoint& ep, const qcc::String& endpointName, bool pedantic = true)
+    {
+        return _Message::Read(ep, pedantic);
+    }
+
     QStatus Unmarshal(RemoteEndpoint& ep, const qcc::String& endpointName, bool pedantic = true)
     {
         return _Message::Unmarshal(ep, pedantic);
@@ -181,6 +186,9 @@ TEST(CompressionTest, Compression) {
         SessionId sess = 1000 + i % 3;
         qcc::String sig = "test" + qcc::U32ToString(i);
         MyMessage msg2(bus);
+        status = msg2.Read(ep, ":88.88");
+        ASSERT_EQ(ER_OK, status) << "  Actual Status: " << QCC_StatusText(status);
+
         status = msg2.Unmarshal(ep, ":88.88");
         ASSERT_EQ(ER_OK, status) << "  Actual Status: " << QCC_StatusText(status);
         ASSERT_EQ(sess, msg2.GetSessionId()) << "FAILD 6." << 1;

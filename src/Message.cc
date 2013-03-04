@@ -310,7 +310,11 @@ _Message::_Message(BusAttachment& bus) :
     ttl(0),
     handles(NULL),
     numHandles(0),
-    encrypt(false)
+    encrypt(false),
+    readState(MESSAGE_NEW),
+    countRead(0),
+    writeState(MESSAGE_NEW),
+    countWrite(0)
 {
     msgHeader.msgType = MESSAGE_INVALID;
     msgHeader.endian = myEndian;
@@ -339,6 +343,10 @@ _Message::_Message(const _Message& other) :
     rcvEndpointName(other.rcvEndpointName),
     numHandles(other.numHandles),
     encrypt(other.encrypt),
+    readState(other.readState),
+    countRead(other.countRead),
+    writeState(other.writeState),
+    countWrite(other.countWrite),
     hdrFields(other.hdrFields)
 {
     if (bufSize > 0) {

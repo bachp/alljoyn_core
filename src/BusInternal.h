@@ -31,6 +31,7 @@
 #include <qcc/Event.h>
 #include <qcc/atomic.h>
 #include <qcc/ManagedObj.h>
+#include <qcc/IODispatch.h>
 
 #include <alljoyn/BusAttachment.h>
 #include <alljoyn/InterfaceDescription.h>
@@ -123,6 +124,12 @@ class BusAttachment::Internal : public MessageReceiver {
      */
     const Router& GetRouter(void) const { return *router; }
 
+    /**
+     * Get the iodispatch.
+     *
+     * @return  The iodispatch
+     */
+    qcc::IODispatch& GetIODispatch(void) { return m_ioDispatch; }
     /**
      * Get the header compression rules
      *
@@ -256,7 +263,7 @@ class BusAttachment::Internal : public MessageReceiver {
     typedef qcc::ManagedObj<BusListener*> ProtectedBusListener;
     typedef std::set<ProtectedBusListener> ListenerSet;
     ListenerSet listeners;               /* List of registered BusListeners */
-
+    qcc::IODispatch m_ioDispatch;         /* iodispatch for this bus */
     TransportList transportList;          /* List of active transports */
     KeyStore keyStore;                    /* The key store for the bus attachment */
     AuthManager authManager;              /* The authentication manager for the bus attachment */

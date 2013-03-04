@@ -756,50 +756,6 @@ static const size_t MAX_PULL = (128 * 1024);
 #define PULL_TIMEOUT(num)  (20000 + num / 2)
 
 /*
- * Pull exactly the number or bytes requested from the source
- */
-static QStatus PullExact(Source& source,
-                         void* buffer,
-                         size_t numBytes,
-                         qcc::SocketFd* fdList,
-                         size_t maxFds,
-                         size_t& numFds)
-{
-    QStatus status = ER_OK;
-    uint8_t* bufPos = (uint8_t*)buffer;
-    maxFds = 0;
-    size_t bytesRead = 0;
-    while (numBytes > 0) {
-        size_t toRead = (std::min)(numBytes, MAX_PULL);
-        if ((maxFds > 0) && (numFds == 0)) {
-            numFds = maxFds;
-            status = source.PullBytesAndFds(bufPos, toRead, bytesRead, fdList, maxFds, PULL_TIMEOUT(toRead));
-            if ((status == ER_OK) && (numFds > 0)) {
-                QCC_DbgHLPrintf(("Message was accompanied by %d handles", numFds));
-            }
-        } else {
-            status = source.PullBytes(bufPos, toRead, bytesRead, PULL_TIMEOUT(toRead));
-        }
-        if (status != ER_OK) {
-            /*
-             * Once we have started to unmarshal a message we must finish so we
-             * ignore alerts on the rx thread.
-             */
-            if (status == ER_ALERTED_THREAD) {
-                QCC_LogError(status, ("PullExact ALERTED continuing"));
-                continue;
-            }
-            QCC_DbgPrintf(("PullExact %s", QCC_StatusText(status)));
-            break;
-        }
-        assert(bytesRead > 0);
-        bufPos += bytesRead;
-        numBytes -= bytesRead;
-    }
-    return status;
-}
-
-/*
  * Map from from wire protocol values to our enumeration type
  */
 static const AllJoynFieldType FieldTypeMapping[] = {
@@ -881,55 +837,18 @@ QStatus _Message::HeaderChecks(bool pedantic)
         }
     }
     return status;
+
 }
 
-QStatus _Message::Unmarshal(RemoteEndpoint& endpoint, bool checkSender, bool pedantic, uint32_t timeout)
+/* Check the first 16 bytes of the header */
+QStatus _Message::InterpretHeader()
 {
-    QStatus status;
-    size_t pktSize;
-    uint8_t* endOfHdr;
-    qcc::SocketFd fdList[qcc::SOCKET_MAX_FILE_DESCRIPTORS];
-    size_t maxFds = endpoint->GetFeatures().handlePassing ? ArraySize(fdList) : 0;
-    MsgArg* senderField = &hdrFields.field[ALLJOYN_HDR_FIELD_SENDER];
-    Source& source = endpoint->GetSource();
-
-    if (!bus->IsStarted()) {
-        return ER_BUS_BUS_NOT_STARTED;
-    }
-
-    rcvEndpointName = endpoint->GetUniqueName();
-
-    /*
-     * Clear out any stale message state
-     */
-    msgBuf = NULL;
-    delete [] _msgBuf;
-    _msgBuf = NULL;
-    ClearHeader();
-    /*
-     * Read the message header
-     */
-    size_t pulled;
-    if (maxFds > 0) {
-        numHandles = maxFds;
-        status = source.PullBytesAndFds(&msgHeader, sizeof(MessageHeader), pulled, fdList, numHandles, timeout ? timeout : Event::WAIT_FOREVER);
-    } else {
-        numHandles = 0;
-        status = source.PullBytes(&msgHeader, sizeof(MessageHeader), pulled, timeout ? timeout : Event::WAIT_FOREVER);
-    }
-    if (status != ER_OK) {
-        goto ExitUnmarshal;
-    }
-    if (pulled < sizeof(MessageHeader)) {
-        status = PullExact(source, (uint8_t*)(&msgHeader) + pulled, sizeof(MessageHeader) - pulled, fdList, maxFds, numHandles);
-        if (status != ER_OK) {
-            goto ExitUnmarshal;
-        }
-    }
+    readState = MESSAGE_HEADER_BODY;
     /*
      * Check if we need to swizzle the endianness
      */
     endianSwap = msgHeader.endian != myEndian;
+
     /*
      * Perform the endian swap on the header values and write the local process endianess into the
      * header.
@@ -939,9 +858,8 @@ QStatus _Message::Unmarshal(RemoteEndpoint& endpoint, bool checkSender, bool ped
          * Check we don't have a bogus header flag
          */
         if ((msgHeader.endian != ALLJOYN_LITTLE_ENDIAN) && (msgHeader.endian != ALLJOYN_BIG_ENDIAN)) {
-            status = ER_BUS_BAD_HEADER_FIELD;
-            QCC_LogError(status, ("Message header has invalid endian flag %d", msgHeader.endian));
-            goto ExitUnmarshal;
+            QCC_LogError(ER_BUS_BAD_HEADER_FIELD, ("Message header has invalid endian flag %d", msgHeader.endian));
+            return ER_BUS_BAD_HEADER_FIELD;
         }
         msgHeader.bodyLen = EndianSwap32(msgHeader.bodyLen);
         msgHeader.serialNum = EndianSwap32(msgHeader.serialNum);
@@ -952,9 +870,8 @@ QStatus _Message::Unmarshal(RemoteEndpoint& endpoint, bool checkSender, bool ped
      * Sanity check on the header size
      */
     if (msgHeader.headerLen > MAX_HEADER_LEN) {
-        status = ER_BUS_BAD_HEADER_LEN;
-        QCC_LogError(status, ("Message header length %d is invalid", msgHeader.headerLen));
-        goto ExitUnmarshal;
+        QCC_LogError(ER_BUS_BAD_HEADER_LEN, ("Message header length %d is invalid", msgHeader.headerLen));
+        return ER_BUS_BAD_HEADER_LEN;
     }
     /*
      * Calculate the size of the buffer we need
@@ -965,9 +882,8 @@ QStatus _Message::Unmarshal(RemoteEndpoint& endpoint, bool checkSender, bool ped
      * wraparound so we need to check the body length too.
      */
     if ((pktSize > ALLJOYN_MAX_PACKET_LEN) || (msgHeader.bodyLen > ALLJOYN_MAX_PACKET_LEN)) {
-        status = ER_BUS_BAD_BODY_LEN;
-        QCC_LogError(status, ("Message body length %d is invalid", msgHeader.bodyLen));
-        goto ExitUnmarshal;
+        QCC_LogError(ER_BUS_BAD_BODY_LEN, ("Message body length %d is invalid", msgHeader.bodyLen));
+        return ER_BUS_BAD_BODY_LEN;
     }
     /*
      * Padding the end of the buffer ensures we can unmarshal a few bytes beyond the end of the
@@ -991,18 +907,143 @@ QStatus _Message::Unmarshal(RemoteEndpoint& endpoint, bool checkSender, bool ped
     }
     bufPos = (uint8_t*)msgBuf + sizeof(msgHeader);
     bufEOD = bufPos + pktSize;
-    endOfHdr = bufPos + msgHeader.headerLen;
     /*
      * Zero fill the pad at the end of the buffer
      */
     memset(bufEOD, 0, (uint8_t*)msgBuf + bufSize - bufEOD);
+    /* Set count to number of bytes remaining */
+    countRead = pktSize;
+    return ER_OK;
 
-    QCC_DbgPrintf(("Msg type:%d headerLen: %d Attempting to read %d bytes", msgHeader.msgType, msgHeader.headerLen, pktSize));
+}
 
-    status = PullExact(source, bufPos, pktSize, fdList, maxFds, numHandles);
-    if (status != ER_OK) {
-        goto ExitUnmarshal;
+QStatus _Message::PullBytes(RemoteEndpoint& endpoint, bool checkSender, bool pedantic, uint32_t timeout)
+{
+    QStatus status;
+    qcc::SocketFd fdList[qcc::SOCKET_MAX_FILE_DESCRIPTORS];
+    Source& source = endpoint->GetSource();
+    size_t toRead;
+    size_t read = 0;
+
+    switch (readState) {
+    case MESSAGE_NEW:
+        /* Initialize variables */
+        maxFds = endpoint->GetFeatures().handlePassing ? ArraySize(fdList) : 0;
+        readState = MESSAGE_HEADERFIELDS;
+        bufPos = (uint8_t*)&msgHeader;
+        countRead = 16;
+
+    case MESSAGE_HEADERFIELDS:
+        /* First 16 bytes of the message */
+        toRead = (std::min)(countRead, MAX_PULL);
+        if (maxFds > 0 && (numHandles == 0)) {
+            /* If handlePassing was negotiated on the connection */
+            numHandles = maxFds;
+            status = source.PullBytesAndFds(bufPos, toRead, read, fdList, numHandles, timeout);
+            if ((status == ER_OK) && (numHandles > 0)) {
+                QCC_DbgHLPrintf(("Message was accompanied by %d handles", numHandles));
+                /*
+                 * If we unmarshaled handles we need to copy them into the message. Note we do this event if in
+                 * the case of an unmarshal error so the handles will be closed.
+                 */
+                handles = new qcc::SocketFd[numHandles];
+                memcpy(handles, fdList, numHandles * sizeof(qcc::SocketFd));
+            }
+        } else {
+            status = source.PullBytes(bufPos, toRead, read, timeout);
+        }
+        bufPos += read;
+        countRead -= read;
+
+        if (status != ER_OK) {
+            break;
+        }
+        if (countRead == 0) {
+            status = InterpretHeader();
+        }
+        break;
+
+    case MESSAGE_HEADER_BODY:
+        /* Read the rest of the message header and body */
+        toRead = (std::min)(countRead, MAX_PULL);
+        status = source.PullBytes(bufPos, toRead, read, timeout);
+        if (status == ER_ALERTED_THREAD) {
+            QCC_LogError(status, ("PullBytes ALERTED continuing"));
+            status = ER_OK;
+        } else if (status != ER_OK) break;
+        countRead -= read;
+        bufPos += read;
+        if (countRead == 0) {
+            /* When pktSize number of bytes following first 16 have been read,
+             * message is complete.
+             */
+            readState = MESSAGE_COMPLETE;
+            bufPos = (uint8_t*)msgBuf + sizeof(msgHeader);
+        }
+        break;
+
+    case MESSAGE_COMPLETE:
+        status = ER_OK;
+        break;
     }
+    return status;
+
+}
+QStatus _Message::ReadNonBlocking(RemoteEndpoint& endpoint, bool checkSender, bool pedantic)
+{
+
+
+    QStatus status = ER_OK;
+    while ((status == ER_OK) && (readState != MESSAGE_COMPLETE)) {
+        status = PullBytes(endpoint, checkSender, pedantic, 0); /* timeout zero */
+    }
+    if (status == ER_OK) {
+        status = ((readState == MESSAGE_COMPLETE) ? ER_OK : ER_TIMEOUT);
+    } else {
+        if ((status != ER_SOCK_OTHER_END_CLOSED) && (status != ER_STOPPING_THREAD) && (status != ER_TIMEOUT)) {
+            QCC_LogError(status, ("Failed to read message on %s", endpoint->GetUniqueName().c_str()));
+        }
+    }
+    return status;
+}
+
+QStatus _Message::Read(RemoteEndpoint& endpoint, bool checkSender, bool pedantic, uint32_t timeout)
+{
+    QStatus status = ER_OK;
+    /*
+     * Clear out any stale message state
+     */
+    msgBuf = NULL;
+    delete [] _msgBuf;
+    _msgBuf = NULL;
+    ClearHeader();
+    readState = MESSAGE_NEW;
+
+    /* Keep pulling bytes until the message is incomplete and
+     * no error has occured.
+     */
+    while (readState != MESSAGE_COMPLETE && status == ER_OK) {
+        status = PullBytes(endpoint, checkSender, pedantic, PULL_TIMEOUT(countRead));
+    }
+    if (status != ER_OK && (status != ER_SOCK_OTHER_END_CLOSED) && (status != ER_STOPPING_THREAD)) {
+        QCC_LogError(status, ("Failed to read message on %s", endpoint->GetUniqueName().c_str()));
+    }
+    return status;
+}
+
+QStatus _Message::Unmarshal(RemoteEndpoint& endpoint, bool checkSender, bool pedantic, uint32_t timeout)
+{
+    QStatus status;
+
+    uint8_t* endOfHdr;
+    MsgArg* senderField = &hdrFields.field[ALLJOYN_HDR_FIELD_SENDER];
+    if (!bus->IsStarted()) {
+        return ER_BUS_BUS_NOT_STARTED;
+    }
+    bufPos = (uint8_t*)msgBuf + sizeof(msgHeader);
+    endOfHdr = bufPos + msgHeader.headerLen;
+    rcvEndpointName = endpoint->GetUniqueName();
+
     /*
      * Parse the received header fields - each header starts on an 8 byte boundary
      */
@@ -1062,8 +1103,7 @@ QStatus _Message::Unmarshal(RemoteEndpoint& endpoint, bool checkSender, bool ped
     bufPos = AlignPtr(bufPos, 8);
     bodyPtr = bufPos;
     /*
-     * If header is compressed try to expand it
-     */
+     * If header is compressed try to expand it*/
     if (msgHeader.flags & ALLJOYN_FLAG_COMPRESSED) {
         uint32_t token = hdrFields.field[ALLJOYN_HDR_FIELD_COMPRESSION_TOKEN].v_uint32;
         QCC_DbgPrintf(("Expanding compressed header token %u", token));
@@ -1182,14 +1222,7 @@ QStatus _Message::Unmarshal(RemoteEndpoint& endpoint, bool checkSender, bool ped
 
 ExitUnmarshal:
 
-    /*
-     * If we unmarshaled handles we need to copy them into the message. Note we do this event if in
-     * the case of an unmarshal error so the handles will be closed.
-     */
-    if (numHandles > 0) {
-        handles = new qcc::SocketFd[numHandles];
-        memcpy(handles, fdList, numHandles * sizeof(qcc::SocketFd));
-    }
+
     switch (status) {
     case ER_OK:
         QCC_DbgHLPrintf(("Received %s via endpoint %s", Description().c_str(), rcvEndpointName.c_str()));

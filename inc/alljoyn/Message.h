@@ -102,6 +102,14 @@ typedef enum {
     ALLJOYN_HDR_FIELD_UNKNOWN                   ///< unknown header field type also used as maximum number of header field types.
 } AllJoynFieldType;
 
+/** Message states */
+typedef enum {
+    MESSAGE_NEW,
+    MESSAGE_HEADERFIELDS,
+    MESSAGE_HEADER_BODY,
+    MESSAGE_COMPLETE
+}AllJoynMessageState;
+
 
 /** AllJoyn header fields */
 class HeaderFields {
@@ -752,7 +760,35 @@ class _Message {
 
     /**
      * @internal
-     * Reads and unmarshals a message from a remote endpoint. Only the message header is unmarshaled at this
+     * Reads a message from a remote endpoint.
+     *
+     * @param endpoint       The endpoint to marshal the message data from.
+     * @param checkSender    True if message's sender field should be validated against the endpoint's unique name.
+     * @param pedantic       Perform detailed checks on the header fields.
+     * @param timeout        If non-zero, a timeout in milliseconds to wait for a message to unmarshal.
+     * @return
+     *      - #ER_OK if successful
+     *      - An error status otherwise
+     */
+    QStatus Read(RemoteEndpoint& endpoint, bool checkSender, bool pedantic = true, uint32_t timeout = 0);
+
+    /**
+     * @internal
+     * Reads a message from a remote endpoint. If data is not available it returns immediately
+     *
+     * @param endpoint       The endpoint to marshal the message data from.
+     * @param checkSender    True if message's sender field should be validated against the endpoint's unique name.
+     * @param pedantic       Perform detailed checks on the header fields.
+     * @return
+     *      - #ER_OK if successful i.e. message is complete
+     *      - #ER_END_OF_DATA if message is incomplete
+     *      - An error status otherwise
+     */
+    QStatus ReadNonBlocking(RemoteEndpoint& endpoint, bool checkSender, bool pedantic = true);
+
+    /**
+     * @internal
+     * Unmarshals a message from a remote endpoint. Only the message header is unmarshaled at this
      * time.
      *
      * @param endpoint       The endpoint to marshal the message data from.
@@ -776,6 +812,16 @@ class _Message {
      */
     QStatus Deliver(RemoteEndpoint& endpoint);
 
+    /**
+     * @internal
+     * Deliver a marshaled message to a remote endpoint. Non-blocking
+     *
+     * @param endpoint   Endpoint to receive marshaled message.
+     * @return
+     *      - #ER_OK if successful
+     *      - An error status otherwise
+     */
+    QStatus DeliverNonBlocking(RemoteEndpoint& endpoint);
     /**
      * @internal
      * Marshal the message again with the new sender name if one was provided.
@@ -875,7 +921,6 @@ class _Message {
     bool endianSwap;             ///< true if endianness will be swapped.
 
     MessageHeader msgHeader;     ///< Current message header.
-
     uint8_t* _msgBuf;            ///< Pointer to the current msg buffer.
     uint64_t* msgBuf;            ///< Pointer to the current msg buffer (8 byte aligned pointer into _msgBuf).
     MsgArg* msgArgs;             ///< Pointer to the unmarshaled arguments.
@@ -898,6 +943,15 @@ class _Message {
     qcc::SocketFd* handles;      ///< Array of file/socket descriptors.
     size_t numHandles;           ///< Number of handles in the handles array
     bool encrypt;                ///< True if the message is to be encrypted
+
+    AllJoynMessageState readState;  ///< The current state of the message during read.
+    size_t pktSize;                 ///< Packet size for this message.
+    size_t countRead;               ///< Number of bytes remaining to read for completion of the message.
+    size_t maxFds;                  ///< Store the number of max FDs for the endpoint, so it doesnt need to be calculated each time.
+
+    AllJoynMessageState writeState; ///< The current state of the message during write.
+    uint8_t* writePtr;              ///< Pointer to the current write position in the buffer.
+    size_t countWrite;              ///< Number of bytes remaining to write for completion of the message.
 
     /**
      * The header fields for this message. Which header fields are present depends on the message
@@ -949,6 +1003,9 @@ class _Message {
      */
     qcc::String ToString(const MsgArg* args, size_t numArgs) const;
 
+    /* Internal methods for read */
+    inline QStatus InterpretHeader();
+    QStatus PullBytes(RemoteEndpoint& endpoint, bool checkSender, bool pedantic = true, uint32_t timeout = 0);
 };
 
 }

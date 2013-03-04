@@ -68,6 +68,10 @@ class MyMessage : public _Message {
     {
         return SignalMsg("", destination, sessionId, objPath, interface, signalName, NULL, 0, ALLJOYN_FLAG_COMPRESSED, ttl);
     }
+    QStatus Read(RemoteEndpoint& ep, const qcc::String& endpointName, bool pedantic = true)
+    {
+        return _Message::Read(ep, pedantic);
+    }
 
     QStatus Unmarshal(RemoteEndpoint& ep, const qcc::String& endpointName, bool pedantic = true)
     {
@@ -234,6 +238,12 @@ int main(int argc, char** argv)
         SessionId sess = 1000 + i % 3;
         qcc::String sig = "test" + qcc::U32ToString(i);
         MyMessage msg2(bus);
+        status = msg2.Read(ep, ":88.88");
+        if (status != ER_OK) {
+            printf("Error %s\n", QCC_StatusText(status));
+            return -1;
+        }
+
         status = msg2.Unmarshal(ep, ":88.88");
         if (status != ER_OK) {
             printf("Error %s\n", QCC_StatusText(status));

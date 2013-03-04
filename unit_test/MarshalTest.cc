@@ -118,6 +118,12 @@ class MyMessage : public _Message {
 
     QStatus UnmarshalBody() { return UnmarshalArgs("*"); }
 
+    QStatus Read(RemoteEndpoint& ep, const qcc::String& endpointName, bool pedantic = true)
+    {
+        QStatus test = _Message::Read(ep, pedantic);
+        return test;
+    }
+
     QStatus Unmarshal(RemoteEndpoint& ep, const qcc::String& endpointName, bool pedantic = true)
     {
         return _Message::Unmarshal(ep, pedantic);
@@ -265,8 +271,10 @@ TEST(MarshalTest, TestMsgUnpack) {
     status = msg.MethodCall("a.b.c", "/foo/bar", "foo.bar", "test", args, numArgs);
     ASSERT_EQ(ER_OK, status) << "  Actual Status: " << QCC_StatusText(status);
 
-
     status = msg.Deliver(ep);
+    ASSERT_EQ(ER_OK, status) << "  Actual Status: " << QCC_StatusText(status);
+
+    status = msg.Read(ep, ":88.88");
     ASSERT_EQ(ER_OK, status) << "  Actual Status: " << QCC_StatusText(status);
 
     status = msg.Unmarshal(ep, ":88.88");
@@ -274,7 +282,6 @@ TEST(MarshalTest, TestMsgUnpack) {
 
     status = msg.UnmarshalBody();
     ASSERT_EQ(ER_OK, status) << "  Actual Status: " << QCC_StatusText(status);
-
 
     uint32_t i;
     const char* s;
@@ -536,6 +543,13 @@ static QStatus TestMarshal(const MsgArg* argList, size_t numArgs, const char* ex
 
     if (fuzzing) {
         Fuzz(stream);
+    }
+
+    status = msg.Read(ep, ":88.88");
+    if (status != ER_OK) {
+        if (!quiet) printf("Message::Read status:%s\n", QCC_StatusText(status));
+        else errString += "Message::Read status : " + static_cast<qcc::String>(QCC_StatusText(status)) + "\n";
+        return status;
     }
 
     status = msg.Unmarshal(ep, ":88.88");

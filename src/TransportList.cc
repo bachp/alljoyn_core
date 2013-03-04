@@ -32,8 +32,8 @@ using namespace qcc;
 
 namespace ajn {
 
-TransportList::TransportList(BusAttachment& bus, TransportFactoryContainer& factories)
-    : bus(bus), localTransport(new LocalTransport(bus)), m_factories(factories), isStarted(false), isInitialized(false)
+TransportList::TransportList(BusAttachment& bus, TransportFactoryContainer& factories, IODispatch* m_ioDispatch)
+    : bus(bus), localTransport(new LocalTransport(bus)), m_factories(factories), isStarted(false), isInitialized(false), m_ioDispatch(m_ioDispatch)
 {
 }
 
@@ -174,6 +174,11 @@ QStatus TransportList::Start(const String& transportSpecs)
         }
     }
 
+    /* Start the iodispatch */
+    QStatus s = m_ioDispatch->Start();
+    if (ER_OK == status) {
+        status = s;
+    }
     isStarted = (ER_OK == status);
     return status;
 }
@@ -189,17 +194,29 @@ QStatus TransportList::Stop()
             status = s;
         }
     }
+    /* Stop the iodispatch */
+    QStatus s = m_ioDispatch->Stop();
+    if (ER_OK == status) {
+        status = s;
+    }
+
     return status;
 }
 
 QStatus TransportList::Join()
 {
     QStatus status = localTransport->Join();
+
     for (size_t i = 0; i < transportList.size(); ++i) {
         QStatus s = transportList[i]->Join();
         if (ER_OK == status) {
             status = s;
         }
+    }
+    /* Join the iodispatch */
+    QStatus s = m_ioDispatch->Join();
+    if (ER_OK == status) {
+        status = s;
     }
     return status;
 }

@@ -127,7 +127,6 @@ QStatus DaemonTransport::Join(void)
 
 void DaemonTransport::EndpointExit(RemoteEndpoint& ep)
 {
-    assert(!ep->IsValid());
     /*
      * This is a callback driven from the remote endpoint thread exit function.
      * Our DaemonEndpoint inherits from class RemoteEndpoint and so when

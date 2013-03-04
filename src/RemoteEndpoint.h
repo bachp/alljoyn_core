@@ -50,7 +50,7 @@ typedef qcc::ManagedObj<_RemoteEndpoint> RemoteEndpoint;
  * %RemoteEndpoint handles incoming and outgoing messages
  * over a stream interface
  */
-class _RemoteEndpoint : public _BusEndpoint, public qcc::ThreadListener {
+class _RemoteEndpoint : public _BusEndpoint, public qcc::ThreadListener, public qcc::IOReadListener, public qcc::IOWriteListener, public qcc::IOExitListener {
 
   public:
 
@@ -391,8 +391,39 @@ class _RemoteEndpoint : public _BusEndpoint, public qcc::ThreadListener {
      */
     void ThreadExit(qcc::Thread* thread);
 
-    class RxThread;
-    class TxThread;
+
+    /**
+     * Internal callback used to indicate that data is available on the File descriptor.
+     * RemoteEndpoint users should not call this method.
+     *
+     * @param source   Source that data is available on.
+     */
+    QStatus ReadCallback(qcc::Source& source);
+
+    /**
+     * Internal callback used to indicate that the link timeout has reached.
+     * RemoteEndpoint users should not call this method.
+     *
+     * @param source   Source for which timeout has occured.
+     */
+    QStatus LinkTimeoutCallback(qcc::Source& source);
+
+    /**
+     * Internal callback used to indicate that data can be written to File descriptor.
+     * RemoteEndpoint users should not call this method.
+     *
+     * @param source   Source that data is available on.
+     * @return   ER_OK if successful
+     */
+    QStatus WriteCallback(qcc::Sink& sink);
+
+    /**
+     * Internal callback used to indicate that the Stream for this endpoint has been removed
+     * from the IODispatch.
+     * RemoteEndpoint users should not call this method.
+     *
+     */
+    void ExitCallback();
 };
 
 }

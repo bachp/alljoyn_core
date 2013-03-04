@@ -149,6 +149,11 @@ class _MyMessage : public _Message {
 
     QStatus UnmarshalBody() { return UnmarshalArgs("*"); }
 
+    QStatus Read(RemoteEndpoint& ep, const qcc::String& endpointName, bool pedantic = true)
+    {
+        return _Message::Read(ep, pedantic);
+    }
+
     QStatus Unmarshal(RemoteEndpoint& ep, const qcc::String& endpointName, bool pedantic = true)
     {
         return _Message::Unmarshal(ep, pedantic);
@@ -319,6 +324,12 @@ static QStatus TestMarshal(const MsgArg* argList, size_t numArgs, const char* ex
 
     if (fuzzing) {
         Fuzz(stream);
+    }
+
+    status = msg->Read(ep, ":88.88");
+    if (status != ER_OK) {
+        if (!quiet) printf("Message::Read status:%s\n", QCC_StatusText(status));
+        return status;
     }
 
     status = msg->Unmarshal(ep, ":88.88");
@@ -992,6 +1003,11 @@ QStatus TestMsgUnpack()
     if (status != ER_OK) {
         return status;
     }
+    status = msg->Read(ep, ":88.88");
+    if (status != ER_OK) {
+        return status;
+    }
+
     status = msg->Unmarshal(ep, ":88.88");
     if (status != ER_OK) {
         return status;

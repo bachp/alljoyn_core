@@ -517,7 +517,86 @@ QStatus _Message::Deliver(RemoteEndpoint& endpoint)
     return status;
 }
 
+QStatus _Message::DeliverNonBlocking(RemoteEndpoint& endpoint)
+{
+    size_t pushed;
+    QStatus status = ER_OK;
+    Sink& sink = endpoint->GetSink();
 
+    switch (writeState) {
+    case MESSAGE_NEW:
+        writePtr = reinterpret_cast<uint8_t*>(msgBuf);
+        countWrite = bufEOD - writePtr;
+        pushed = 0;
+
+        if (countWrite == 0) {
+            status = ER_BUS_EMPTY_MESSAGE;
+            QCC_LogError(status, ("Message is empty"));
+            return status;
+        }
+        /*
+         * Handles can only be passed if that feature was negotiated.
+         */
+        if (handles && !endpoint->GetFeatures().handlePassing) {
+            status = ER_BUS_HANDLES_NOT_ENABLED;
+            QCC_LogError(status, ("Handle passing was not negotiated on this connection"));
+            return status;
+        }
+        /*
+         * If the message has a TTL, check if it has expired
+         */
+        if (ttl && IsExpired()) {
+            QCC_DbgHLPrintf(("TTL has expired - discarding message %s", Description().c_str()));
+            return ER_OK;
+        }
+        /*
+         * Check if message needs to be encrypted
+         */
+        if (encrypt) {
+            status = EncryptMessage();
+            /*
+             * Delivery is retried when the authentication completes
+             */
+            if (status == ER_BUS_AUTHENTICATION_PENDING) {
+                return ER_OK;
+            }
+        }
+        writeState = MESSAGE_HEADERFIELDS;
+
+    case MESSAGE_HEADERFIELDS:
+        if (handles) {
+            status = sink.PushBytesAndFds(writePtr, countWrite, pushed, handles, numHandles, endpoint->GetProcessId());
+        } else {
+            status = sink.PushBytes(writePtr, countWrite, pushed, ttl);
+        }
+
+        if (status == ER_OK) {
+            countWrite -= pushed;
+            writePtr += pushed;
+            writeState = MESSAGE_HEADER_BODY;
+        } else break;
+
+    case MESSAGE_HEADER_BODY:
+        status = ER_OK;
+        while (status == ER_OK && countWrite > 0) {
+            status = sink.PushBytes(writePtr, countWrite, pushed);
+            if (status == ER_OK) {
+                countWrite -= pushed;
+                writePtr += pushed;
+            }
+        }
+        if (countWrite == 0) {
+            writeState = MESSAGE_COMPLETE;
+        }
+        break;
+
+    case MESSAGE_COMPLETE:
+        status = ER_OK;
+        break;
+
+    }
+    return status;
+}
 /*
  * Map from our enumeration type to the wire protocol values
  */
