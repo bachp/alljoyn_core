@@ -241,6 +241,7 @@ int main(int argc, char** argv)
         status = msg2.Read(ep, ":88.88");
         if (status != ER_OK) {
             printf("Error %s\n", QCC_StatusText(status));
+            delete stream;
             return -1;
         }
 
