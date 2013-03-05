@@ -4,7 +4,7 @@
  */
 
 /******************************************************************************
- * Copyright 2009-2011, Qualcomm Innovation Center, Inc.
+ * Copyright 2009-2013, Qualcomm Innovation Center, Inc.
  *
  *    Licensed under the Apache License, Version 2.0 (the "License");
  *    you may not use this file except in compliance with the License.
@@ -1693,18 +1693,38 @@ class BusAttachment : public MessageReceiver {
     BusAttachment(Internal* internal, uint32_t concurrency);
     /// @endcond
 
+    /// @cond ALLJOYN_DEV
     /**
      * @internal
-     * Notify AllJoyn that the application is suspending. Exclusively-held resource should be released so that other applications
-     * will not be prevented from acquiring the resource.
+     * Notify AllJoyn that the application is suspending. Exclusively-held
+     * resource should be released so that other applications will not be
+     * prevented from acquiring the resource.
+     *
+     * @return
+     *      - #ER_OK on success
+     *      - #ER_BUS_NOT_CONNECTED if BusAttachment is not connected
+     *      - #ER_ALLJOYN_ONAPPSUSPEND_REPLY_FAILED if the app suspend request faild
+     *      - #ER_ALLJOYN_ONAPPSUSPEND_REPLY_UNSUPPORTED if app suspend is not supported
+     *      - #ER_BUS_UNEXPECTED_DISPOSITION if OnAppSuspend enters an unexpected state
      */
     QStatus OnAppSuspend();
+    /// @endcond
 
+    /// @cond ALLJOYN_DEV
     /**
      * @internal
-     * Notify AllJoyn that the application is resuming so that it can re-acquire the resource that has been released when the application was suspended.
+     * Notify AllJoyn that the application is resuming so that it can re-acquire
+     * the resource that has been released when the application was suspended.
+     *
+     * @return
+     *      - #ER_OK on success
+     *      - #ER_BUS_NOT_CONNECTED if BusAttachment is not connected
+     *      - #ER_ALLJOYN_ONAPPRESUME_REPLY_FAILED if the app resume request faild
+     *      - #ER_ALLJOYN_ONAPPRESUME_REPLY_UNSUPPORTED if app resume is not supported
+     *      - #ER_BUS_UNEXPECTED_DISPOSITION if OnAppResume enters an unexpected state
      */
     QStatus OnAppResume();
+    /// @endcond
 
   private:
     /**

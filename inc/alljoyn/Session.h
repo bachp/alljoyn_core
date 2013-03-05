@@ -6,7 +6,7 @@
  */
 
 /******************************************************************************
- * Copyright 2011, Qualcomm Innovation Center, Inc.
+ * Copyright 2011-2013, Qualcomm Innovation Center, Inc.
  *
  *    Licensed under the Apache License, Version 2.0 (the "License");
  *    you may not use this file except in compliance with the License.
@@ -136,6 +136,13 @@ class SessionOpts {
 
     /**
      * Determine whether this SessionOpts is compatible with the SessionOpts offered by other
+     *
+     * Compatibility means that the SessionOpts share at least one of each
+     *  - transport type
+     *  - traffic type
+     *  - proximity type
+     *
+     * Note that multipoint support is not a condition of compatibility
      *
      * @param other  Options to be compared against this one.
      * @return true iff this SessionOpts can use the option set offered by other.

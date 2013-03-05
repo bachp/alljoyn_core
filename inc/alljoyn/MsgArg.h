@@ -6,7 +6,7 @@
  */
 
 /******************************************************************************
- * Copyright 2009-2012, Qualcomm Innovation Center, Inc.
+ * Copyright 2009-2013, Qualcomm Innovation Center, Inc.
  *
  *    Licensed under the Apache License, Version 2.0 (the "License");
  *    you may not use this file except in compliance with the License.
@@ -178,7 +178,7 @@ typedef struct {
 } AllJoynStruct;
 
 /**
- * Type for a handle. An handle is an abstraction of a platform-specific socket or file descriptor.
+ * Type for a handle. A handle is an abstraction of a platform-specific socket or file descriptor.
  *
  * @note Handles associated with in a message received by the application will be closed when the
  * message destructor is called or when a method call is converted into a method reply. If the
@@ -223,7 +223,7 @@ typedef struct {
  * Class definition for a message arg.
  * This class deals with the message bus types and the operations on them
  *
- * MsgArg's are designed to be light-weight. A MsgArg will normally hold references to the data
+ * MsgArgs are designed to be light-weight. A MsgArg will normally hold references to the data
  * (strings etc.) it wraps and will only copy that data if the MsgArg is assigned. For example no
  * additional memory is allocated for an #ALLJOYN_STRING that references an existing const char*.
  * If a MsgArg is assigned the destination receives a copy of the contents of the source. The

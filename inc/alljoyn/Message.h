@@ -6,7 +6,7 @@
  */
 
 /******************************************************************************
- * Copyright 2009-2012, Qualcomm Innovation Center, Inc.
+ * Copyright 2009-2013, Qualcomm Innovation Center, Inc.
  *
  *    Licensed under the Apache License, Version 2.0 (the "License");
  *    you may not use this file except in compliance with the License.
@@ -159,10 +159,11 @@ class _RemoteEndpoint;
 class BusAttachment;
 
 /**
+ * @cond ALLJOYN_DEV
  * @internal
  */
 typedef qcc::ManagedObj<_RemoteEndpoint> RemoteEndpoint;
-
+/// @endcond
 /**
  * Message is a reference counted (managed) version of _Message
  */
@@ -170,8 +171,11 @@ typedef qcc::ManagedObj<_Message> Message;
 
 
 /**
- * This class implements the functionality underlying the #Message class. Instances of #_Message should not be declared directly by applications. Rather applications create instances of
- * the class #Message which handles reference counting for the underlying #_Message instance. The members of #_Message are always accessed indirectly via #Message.
+ * This class implements the functionality underlying the #Message class. Instances
+ * of #_Message should not be declared directly by applications. Rather applications
+ * create instances of the class #Message which handles reference counting for the
+ * underlying #_Message instance. The members of #_Message are always accessed
+ * indirectly via #Message.
  */
 class _Message {
 
