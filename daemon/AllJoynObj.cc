@@ -3156,8 +3156,8 @@ void AllJoynObj::RemoveVirtualEndpoint(const String& vepName)
     if (it != virtualEndpoints.end()) {
         VirtualEndpoint vep = it->second;
         virtualEndpoints.erase(it);
-        ReleaseLocks();
         vep->Invalidate();
+        ReleaseLocks();
     } else {
         ReleaseLocks();
     }
