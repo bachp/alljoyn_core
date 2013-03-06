@@ -332,6 +332,7 @@ class BusObject : public MessageReceiver {
      *      - #ER_BUS_OBJECT_NOT_REGISTERED if bus object has not yet been registered
      *      - An error status otherwise
      */
+  public:
     QStatus Signal(const char* destination,
                    SessionId sessionId,
                    const InterfaceDescription::Member& signal,
@@ -339,7 +340,7 @@ class BusObject : public MessageReceiver {
                    size_t numArgs = 0,
                    uint16_t timeToLive = 0,
                    uint8_t flags = 0);
-
+  protected:
 
     /**
      * Add an interface to this object. If the interface has properties this will also add the

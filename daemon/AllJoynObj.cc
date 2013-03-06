@@ -55,6 +55,7 @@
 #include "VirtualEndpoint.h"
 #include "EndpointHelper.h"
 #include "ns/IpNameService.h"
+#include "AllJoynPeerObj.h"
 
 #define QCC_MODULE "ALLJOYN_OBJ"
 
@@ -1921,7 +1922,8 @@ QStatus AllJoynObj::SendSessionJoined(SessionPort sessionPort,
                    args[2].v_string.str,
                    creatorName));
 
-    QStatus status = Signal(creatorName, sessionId, *mpSessionJoinedSignal, args, ArraySize(args));
+    AllJoynPeerObj* peerObj = bus.GetInternal().GetLocalEndpoint()->GetPeerObj();
+    QStatus status = peerObj->Signal(creatorName, sessionId, *mpSessionJoinedSignal, args, ArraySize(args));
     if (status != ER_OK) {
         QCC_LogError(status, ("Failed to send SessionJoined to %s", creatorName));
     }
