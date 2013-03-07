@@ -1,4 +1,4 @@
-# Copyright 2010 - 2012, Qualcomm Innovation Center, Inc.
+# Copyright 2010 - 2013, Qualcomm Innovation Center, Inc.
 # 
 #    Licensed under the Apache License, Version 2.0 (the "License");
 #    you may not use this file except in compliance with the License.
@@ -55,7 +55,7 @@ if env['OS_GROUP'] == 'winrt':
     env.Append(CPPPATH=['OS_GROUP'])
 
 # Add in bluetooth support
-if env['OS'] == 'android_donut' or env['OS'] =="darwin" or env['OS_GROUP']=='winrt' or env['OS_GROUP'] == "windows":
+if env['OS'] =="darwin" or env['OS_GROUP']=='winrt' or env['OS_GROUP'] == "windows":
     # bluetooth not supported on this platform
     daemon_objs = base_objs;
     pass
