@@ -1,4 +1,4 @@
-# Copyright 2010 - 2011, Qualcomm Innovation Center, Inc.
+# Copyright 2010 - 2011, 2013, Qualcomm Innovation Center, Inc.
 # 
 #    Licensed under the Apache License, Version 2.0 (the "License");
 #    you may not use this file except in compliance with the License.
@@ -23,13 +23,26 @@ env.Append(CPPPATH=[env.Dir('../../daemon').srcnode()])
 # Build the resources for the dll
 rsc = env.RES('DaemonResources.rc')
 
+daemon_static_lib = [];
+daemon_shared_lib = [];
+
 # Build the Windows daemon.
 daemon_libs = env.SharedLibrary('daemonlib', ['daemon-service.cc', 'daemon-main.cc'] + daemon_objs + rsc + os_objs)
-env.Install('$DISTDIR/lib', daemon_libs[1]) #put the *.lib file in the lib folder
+
+# the variable daemon_libs contains the file nodes for the  static library and the 
+# shared library however it may contain more files such as .pdb files on windows.  
+# Search through the list and assign the static library to daemon_static_lib  and 
+# the shared library to daemon_shared_lib variable.
+for x in daemon_libs: 
+    if env['LIBSUFFIX'] in str(x):
+        daemon_static_lib = x;
+    if env['SHLIBSUFFIX'] in str(x):
+        daemon_shared_lib = x;
+
+env.Install('$DISTDIR/lib', daemon_static_lib) #put the *.lib file in the lib folder
 env2 = env.Clone();
 env2.Append(LIBS=['daemonlib'])
 daemon = []
 
-
-progs = [daemon, daemon_libs[0]] # daemonlibs.dll will be returned
+progs = [daemon, daemon_shared_lib] # daemonlibs.dll will be returned
 Return('progs', 'os_objs')
