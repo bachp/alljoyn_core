@@ -512,12 +512,7 @@ QStatus _RemoteEndpoint::ReadCallback(qcc::Source& source)
 
     status = internal->currentReadMsg->ReadNonBlocking(rep, (internal->validateSender && !bus2bus));
     if (status == ER_OK) {
-        /* Message read complete. Start a new message to recieve
-         * and continue to unmarshal this message.
-         */
         Message msg = internal->currentReadMsg;
-        internal->currentReadMsg = Message(internal->bus);
-        internal->bus.GetInternal().GetIODispatch().EnableReadCallback(internal->stream);
         status = msg->Unmarshal(rep, (internal->validateSender && !bus2bus));
 
         switch (status) {
@@ -613,11 +608,16 @@ QStatus _RemoteEndpoint::ReadCallback(qcc::Source& source)
         default:
             break;
         }
+
         /* Check pause condition. Block until stopped */
         if (internal->armRxPause && internal->started && (msg->GetType() == MESSAGE_METHOD_RET)) {
             status = ER_BUS_ENDPOINT_CLOSING;
             internal->bus.GetInternal().GetIODispatch().DisableReadCallback(internal->stream);
+            return ER_OK;
         }
+        internal->currentReadMsg = Message(internal->bus);
+        internal->bus.GetInternal().GetIODispatch().EnableReadCallback(internal->stream);
+
 
     } else if (status == ER_TIMEOUT) {
         internal->bus.GetInternal().GetIODispatch().EnableReadCallback(internal->stream);
