@@ -2963,6 +2963,11 @@ void AllJoynObj::ExchangeNamesSignalHandler(const InterfaceDescription::Member* 
                             }
                         }
                     }
+                    if (bit == b2bEndpoints.end()) {
+                        QCC_DbgPrintf(("b2bEp %s disappeared during ExchangeNamesSignalHandler", key.c_str()));
+                        break;
+                    }
+
                 }
                 bit = b2bEndpoints.upper_bound(key);
             } else {
