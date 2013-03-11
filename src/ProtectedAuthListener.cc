@@ -77,33 +77,36 @@ class AsyncTracker {
     static bool Trigger(AuthContext* context, bool accept, AuthListener::Credentials* credentials)
     {
         bool found = false;
-        if (IncrementAndFetch(&refs) > 1) {
-            self->lock.Lock();
-            for (std::list<AuthContext*>::iterator it = self->contexts.begin(); it != self->contexts.end(); ++it) {
-                if (*it == context) {
-                    self->contexts.erase(it);
-                    context->accept = accept;
-                    if (accept && credentials && context->credentials) {
-                        *context->credentials = *credentials;
+        /* Ensure that self has been Allocated in AsysncTracker::Allocate */
+        if (self) {
+            if (IncrementAndFetch(&refs) > 1) {
+                self->lock.Lock();
+                for (std::list<AuthContext*>::iterator it = self->contexts.begin(); it != self->contexts.end(); ++it) {
+                    if (*it == context) {
+                        self->contexts.erase(it);
+                        context->accept = accept;
+                        if (accept && credentials && context->credentials) {
+                            *context->credentials = *credentials;
+                        }
+                        /*
+                         * Set the event to unblock the waiting thread
+                         */
+                        context->event.SetEvent();
+                        found = true;
+                        /*
+                         * Decrement to balance increment in AsysncTracker::Allocate
+                         */
+                        DecrementAndFetch(&refs);
+                        break;
                     }
-                    /*
-                     * Set the event to unblock the waiting thread
-                     */
-                    context->event.SetEvent();
-                    found = true;
-                    /*
-                     * Decrement to balance increment in AsysncTracker::Allocate
-                     */
-                    DecrementAndFetch(&refs);
-                    break;
                 }
+                self->lock.Unlock();
             }
-            self->lock.Unlock();
-        }
-        if (DecrementAndFetch(&refs) == 0) {
-            QCC_DbgHLPrintf(("Released AsyncTracker %#x", self));
-            delete self;
-            self = NULL;
+            if (DecrementAndFetch(&refs) == 0) {
+                QCC_DbgHLPrintf(("Released AsyncTracker %#x", self));
+                delete self;
+                self = NULL;
+            }
         }
         return found;
     }
@@ -116,30 +119,33 @@ class AsyncTracker {
 
     static void RemoveAll(AuthListener* listener)
     {
-        if (IncrementAndFetch(&refs) > 1) {
-            self->lock.Lock();
-            for (std::list<AuthContext*>::iterator it = self->contexts.begin(); it != self->contexts.end();) {
-                AuthContext* context = *it;
-                if (context->listener == listener) {
-                    /*
-                     * Set the event to unblock the waiting thread
-                     */
-                    context->accept = false;
-                    context->event.SetEvent();
-                    it = self->contexts.erase(it);
-                    /*
-                     * Decrement to balance increment in AsyncTracker::Allocate
-                     */
-                    DecrementAndFetch(&refs);
-                } else {
-                    ++it;
+        /* Ensure that self has been Allocated in AsysncTracker::Allocate */
+        if (self) {
+            if (IncrementAndFetch(&refs) > 1) {
+                self->lock.Lock();
+                for (std::list<AuthContext*>::iterator it = self->contexts.begin(); it != self->contexts.end();) {
+                    AuthContext* context = *it;
+                    if (context->listener == listener) {
+                        /*
+                         * Set the event to unblock the waiting thread
+                         */
+                        context->accept = false;
+                        context->event.SetEvent();
+                        it = self->contexts.erase(it);
+                        /*
+                         * Decrement to balance increment in AsyncTracker::Allocate
+                         */
+                        DecrementAndFetch(&refs);
+                    } else {
+                        ++it;
+                    }
                 }
+                self->lock.Unlock();
             }
-            self->lock.Unlock();
-        }
-        if (DecrementAndFetch(&refs) == 0) {
-            delete self;
-            self = NULL;
+            if (DecrementAndFetch(&refs) == 0) {
+                delete self;
+                self = NULL;
+            }
         }
     }
 
