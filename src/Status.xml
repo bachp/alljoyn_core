@@ -242,4 +242,5 @@ Copyright 2010 - 2012, Qualcomm Innovation Center, Inc.
   <status name="ER_ALLJOYN_ONAPPSUSPEND_REPLY_UNSUPPORTED" value="0x90eb" comment="OnAppSuspend reply: Unsupported operation"/>
   <status name="ER_ALLJOYN_ONAPPRESUME_REPLY_FAILED" value="0x90ec" comment="OnAppResume reply: Failed"/>
   <status name="ER_ALLJOYN_ONAPPRESUME_REPLY_UNSUPPORTED" value="0x90ed" comment="OnAppResume reply: Unsupported operation"/>
+  <status name="ER_BUS_NO_SUCH_MESSAGE" value="0x90ee" comment="Message not found"/>
 </status_block>

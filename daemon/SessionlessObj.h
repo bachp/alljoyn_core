@@ -115,6 +115,15 @@ class SessionlessObj : public BusObject, public SessionListener, public SessionP
     QStatus PushMessage(Message& msg);
 
     /**
+     * Remove a sessionless signal with a given serial number from the store/forward cache.
+     *
+     * @param sender      Unique name of message sender.
+     * @param serialNum   Serial number of message to be removed from cache.
+     * @param   ER_OK if successful
+     */
+    QStatus CancelMessage(const qcc::String& sender, uint32_t serialNum);
+
+    /**
      * NameListener implementation called when a bus name changes ownership.
      *
      * @param busName   Unique or well-known bus name.

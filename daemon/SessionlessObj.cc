@@ -303,6 +303,38 @@ QStatus SessionlessObj::PushMessage(Message& msg)
     return status;
 }
 
+QStatus SessionlessObj::CancelMessage(const qcc::String& sender, uint32_t serialNum)
+{
+    QStatus status = ER_BUS_NO_SUCH_MESSAGE;
+
+    QCC_DbgTrace(("SessionlessObj::CancelMessage(%s, 0x%x)", sender.c_str(), serialNum));
+
+    lock.Lock();
+    map<MessageMapKey, pair<uint32_t, Message> >::iterator it = messageMap.begin();
+    while (it != messageMap.end()) {
+        if (it->second.second->GetCallSerial() == serialNum) {
+            if (sender == it->second.second->GetSender()) {
+                messageMap.erase(it);
+                status = ER_OK;
+            } else {
+                status = ER_BUS_NOT_ALLOWED;
+            }
+            break;
+        }
+        ++it;
+    }
+    lock.Unlock();
+
+    /* Alert the advertiser worker */
+    if (status == ER_OK) {
+        uint32_t zero = 0;
+        SessionlessObj* slObj = this;
+        status = timer.AddAlarm(Alarm(zero, slObj));
+    }
+
+    return status;
+}
+
 void SessionlessObj::NameOwnerChanged(const char* name,
                                       const char* oldOwner,
                                       const char* newOwner)

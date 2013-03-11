@@ -114,6 +114,15 @@ class BusController {
     }
 
     /**
+     * Get the sessionlessObj.
+     *
+     * @return   The sessionlessObj singleton
+     */
+    SessionlessObj& GetSessionlessObj() {
+        return sessionlessObj;
+    }
+
+    /**
      * Send a sessionless message to the SessionlessObj.
      *
      * @param msg  Sessionless message to be pushed.

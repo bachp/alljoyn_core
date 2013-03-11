@@ -150,10 +150,25 @@ class SessionTestObject : public BusObject {
     }
 
     /** Send a Chat signal */
-    QStatus SendChatSignal(SessionId id, const char* msg, uint8_t flags)
+    void SendChatSignal(SessionId id, const char* chat, uint8_t flags)
     {
-        MsgArg chatArg("s", msg);
-        return Signal(NULL, id, *chatSignalMember, &chatArg, 1, ttl, flags);
+        MsgArg chatArg("s", chat);
+        Message msg(*bus);
+        QStatus status = Signal(NULL, id, *chatSignalMember, &chatArg, 1, ttl, flags, &msg);
+        if (status == ER_OK) {
+            printf("Sent chat signal with serial = %d\n", msg->GetCallSerial());
+        } else {
+            printf("Failed to send chat signal (%s)\n", QCC_StatusText(status));
+        }
+    }
+
+    /** Cancel a sessionless signal */
+    void CancelSessionless(uint32_t serialNum)
+    {
+        QStatus status = CancelSessionlessMessage(serialNum);
+        if (status != ER_OK) {
+            printf("BusObject::CancelSessionlessMessage(0x%x) failed with %s\n", serialNum, QCC_StatusText(status));
+        }
     }
 
     /** Receive a signal from another Chat client */
@@ -872,6 +887,14 @@ int main(int argc, char** argv)
                 continue;
             }
             sessionTestObj.SendChatSignal(0, chatMsg.c_str(), flags);
+        } else if (cmd == "cancelsessionless") {
+            uint32_t serial = StringToU32(NextTok(line), 0, 0);
+            if (serial == 0) {
+                printf("Invalid serial number\n");
+                printf("Usage: cancelsessionless <serialNum>\n");
+                continue;
+            }
+            sessionTestObj.CancelSessionless(serial);
         } else if (cmd == "addmatch") {
             String rule = Trim(line);
             if (rule.empty()) {
@@ -911,6 +934,7 @@ int main(int argc, char** argv)
             printf("chat <sessionId> <msg>                                        - Send a message over a given session\n");
             printf("cchat <sessionId> <msg>                                       - Send a message over a given session with compression\n");
             printf("schat <msg>                                                   - Send a sessionless message\n");
+            printf("cancelsessionless <serialNum>                                 - Cancel a sessionless message\n");
             printf("autochat <sessionId> [count] [delay] [minSize] [maxSize]      - Send periodic messages of various sizes\n");
             printf("timeout <sessionId> <linkTimeout>                             - Set link timeout for a session\n");
             printf("chatecho [on|off]                                             - Turn on/off chat messages\n");

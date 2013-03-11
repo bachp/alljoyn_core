@@ -136,7 +136,8 @@ QStatus AllJoynObj::Init()
         { alljoynIntf->GetMember("SetLinkTimeout"),           static_cast<MessageReceiver::MethodHandler>(&AllJoynObj::SetLinkTimeout) },
         { alljoynIntf->GetMember("AliasUnixUser"),            static_cast<MessageReceiver::MethodHandler>(&AllJoynObj::AliasUnixUser) },
         { alljoynIntf->GetMember("OnAppSuspend"),             static_cast<MessageReceiver::MethodHandler>(&AllJoynObj::OnAppSuspend) },
-        { alljoynIntf->GetMember("OnAppResume"),              static_cast<MessageReceiver::MethodHandler>(&AllJoynObj::OnAppResume) }
+        { alljoynIntf->GetMember("OnAppResume"),              static_cast<MessageReceiver::MethodHandler>(&AllJoynObj::OnAppResume) },
+        { alljoynIntf->GetMember("CancelSessionlessMessage"), static_cast<MessageReceiver::MethodHandler>(&AllJoynObj::CancelSessionlessMessage) }
     };
 
     AddInterface(*alljoynIntf);
@@ -3663,6 +3664,49 @@ void AllJoynObj::AlarmTriggered(const Alarm& alarm, QStatus reason)
         ReleaseLocks();
     }
 }
+
+void AllJoynObj::CancelSessionlessMessage(const InterfaceDescription::Member* member, Message& msg)
+{
+    size_t numArgs;
+    const MsgArg* args;
+    msg->GetArgs(numArgs, args);
+
+    uint32_t serialNum = args[0].v_uint32;
+    qcc::String sender = msg->GetSender();
+
+    SessionlessObj& sessionlessObj = busController->GetSessionlessObj();
+    QStatus status = sessionlessObj.CancelMessage(sender, serialNum);
+    if (status != ER_OK) {
+        QCC_LogError(status, ("SessionlessObj::CancelMessage failed"));
+    }
+
+    /* Form response and send it */
+    MsgArg replyArg;
+    uint32_t replyCode;
+    switch (status) {
+    case ER_OK:
+        replyCode = ALLJOYN_CANCELSESSIONLESS_REPLY_SUCCESS;
+        break;
+
+    case ER_BUS_NO_SUCH_MESSAGE:
+        replyCode = ALLJOYN_CANCELSESSIONLESS_REPLY_NO_SUCH_MSG;
+        break;
+
+    case ER_BUS_NOT_ALLOWED:
+        replyCode = ALLJOYN_CANCELSESSIONLESS_REPLY_NOT_ALLOWED;
+        break;
+
+    default:
+        replyCode = ALLJOYN_CANCELSESSIONLESS_REPLY_FAILED;
+        break;
+    }
+    replyArg.Set("u", replyCode);
+    status = MethodReply(msg, &replyArg, 1);
+    if (ER_OK != status) {
+        QCC_LogError(status, ("AllJoynObj::CancelSessionlessMessage() failed to send reply message"));
+    }
+}
+
 
 void AllJoynObj::BusConnectionLost(const qcc::String& busAddr)
 {

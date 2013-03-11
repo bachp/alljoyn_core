@@ -32,7 +32,7 @@
 #define QCC_MODULE  "ALLJOYN"
 
 /** Daemon-to-daemon protocol version number */
-#define ALLJOYN_PROTOCOL_VERSION  4
+#define ALLJOYN_PROTOCOL_VERSION  5
 
 namespace ajn {
 
@@ -352,6 +352,27 @@ QStatus CreateInterfaces(BusAttachment& bus);          /**< Create the org.alljo
 // @{
 #define ALLJOYN_BTCONTROLLER_SESSION_PORT 0x0001  /**< Session port used by BT topology manager (daemon-to-daemon use only) */
 // @}
+
+/**
+ * @name org.alljoyn.Bus.CancelSessionlessMessage
+ *  Interface: org.alljoyn.Bus
+ *  Method: CancelSessionlessMessage(uint32_t serialNubmer)
+ *
+ *  Input params:
+ *     serialNumber - Serial number of the message to remove from the store/forward cache.
+ *
+ *  Output params:
+ *     disposition - One of the ALLJOYN_CANCELSESSIONLESS_* dispositions listed below
+ *
+ */
+// @{
+/* org.alljoyn.Bus.CancelSessionlessMessage */
+#define ALLJOYN_CANCELSESSIONLESS_REPLY_SUCCESS      1   /**< CancelSessionlessMessage reply: Success */
+#define ALLJOYN_CANCELSESSIONLESS_REPLY_NO_SUCH_MSG  2   /**< CancelSessionlessMessage reply: Message with given serial num not found */
+#define ALLJOYN_CANCELSESSIONLESS_REPLY_NOT_ALLOWED  3   /**< CancelSessionlessMessage reply: Caller is not allowed to cancel msg */
+#define ALLJOYN_CANCELSESSIONLESS_REPLY_FAILED       4   /**< CancelSessionlessMessage reply: Failed for unspecified reason */
+// @}
+
 }
 
 #undef QCC_MODULE

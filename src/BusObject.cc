@@ -469,7 +469,8 @@ QStatus BusObject::Signal(const char* destination,
                           const MsgArg* args,
                           size_t numArgs,
                           uint16_t timeToLive,
-                          uint8_t flags)
+                          uint8_t flags,
+                          Message* outMsg)
 {
     /* Protect against calling Signal before object is registered */
     if (!bus) {
@@ -501,6 +502,48 @@ QStatus BusObject::Signal(const char* destination,
     if (status == ER_OK) {
         BusEndpoint bep = BusEndpoint::cast(bus->GetInternal().GetLocalEndpoint());
         status = bus->GetInternal().GetRouter().PushMessage(msg, bep);
+        if ((status == ER_OK) && outMsg) {
+            *outMsg = msg;
+        }
+    }
+    return status;
+}
+
+QStatus BusObject::CancelSessionlessMessage(uint32_t serialNum)
+{
+    if (!bus) {
+        return ER_BUS_OBJECT_NOT_REGISTERED;
+    }
+
+    Message reply(*bus);
+    MsgArg arg("u", serialNum);
+    const ProxyBusObject& alljoynObj = bus->GetAllJoynProxyObj();
+    QStatus status = alljoynObj.MethodCall(org::alljoyn::Bus::InterfaceName, "CancelSessionlessMessage", &arg, 1, reply);
+    if (ER_OK == status) {
+        uint32_t disposition;
+        status = reply->GetArgs("u", &disposition);
+        if (ER_OK == status) {
+            switch (disposition) {
+            case ALLJOYN_CANCELSESSIONLESS_REPLY_SUCCESS:
+                break;
+
+            case ALLJOYN_CANCELSESSIONLESS_REPLY_NO_SUCH_MSG:
+                status = ER_BUS_NO_SUCH_MESSAGE;
+                break;
+
+            case ALLJOYN_CANCELSESSIONLESS_REPLY_NOT_ALLOWED:
+                status = ER_BUS_NOT_ALLOWED;
+                break;
+
+            case ALLJOYN_CANCELSESSIONLESS_REPLY_FAILED:
+                status = ER_FAIL;
+                break;
+
+            default:
+                status = ER_BUS_UNEXPECTED_DISPOSITION;
+                break;
+            }
+        }
     }
     return status;
 }

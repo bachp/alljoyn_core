@@ -70,7 +70,7 @@ QStatus org::alljoyn::CreateInterfaces(BusAttachment& bus)
             return status;
         }
         ifc->AddMethod("BusHello",                 "su",                "ssu",               "GUIDC,protoVerC,GUIDS,uniqueName,protoVerS", 0);
-        ifc->AddMethod("BindSessionPort",          "q" SESSIONOPTS_SIG,  "uq",                "portIn,opts,disposition,portOut",            0);
+        ifc->AddMethod("BindSessionPort",          "q" SESSIONOPTS_SIG,  "uq",                "portIn,opts,disposition,portOut",           0);
         ifc->AddMethod("UnbindSessionPort",        "q",                 "u",                 "port,disposition",                           0);
         ifc->AddMethod("JoinSession",              "sq" SESSIONOPTS_SIG, "uu" SESSIONOPTS_SIG, "sessionHost,port,opts,disp,sessionId,opts",  0);
         ifc->AddMethod("LeaveSession",             "u",                 "u",                 "sessionId,disposition",                      0);
@@ -81,8 +81,9 @@ QStatus org::alljoyn::CreateInterfaces(BusAttachment& bus)
         ifc->AddMethod("GetSessionFd",             "u",                 "h",                 "sessionId,handle",                           0);
         ifc->AddMethod("SetLinkTimeout",           "uu",                "uu",                "sessionId,inLinkTO,disposition,outLinkTO",   0);
         ifc->AddMethod("AliasUnixUser",            "u",                 "u",                 "aliasUID, disposition",                      0);
-        ifc->AddMethod("OnAppSuspend",             "",                  "u",                 "disposition",                      0);
-        ifc->AddMethod("OnAppResume",              "",                  "u",                 "disposition",                      0);
+        ifc->AddMethod("OnAppSuspend",             "",                  "u",                 "disposition",                                0);
+        ifc->AddMethod("OnAppResume",              "",                  "u",                 "disposition",                                0);
+        ifc->AddMethod("CancelSessionlessMessage", "u",                 "u",                 "serialNum,disposition",                      0);
 
         ifc->AddSignal("FoundAdvertisedName",      "sqs",              "name,transport,prefix",                        0);
         ifc->AddSignal("LostAdvertisedName",       "sqs",              "name,transport,prefix",                        0);

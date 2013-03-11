@@ -177,6 +177,92 @@ class BusObject : public MessageReceiver {
         return *bus;
     }
 
+    /**
+     * Send a signal.
+     *
+     * See also these sample file(s): @n
+     * basic/signalConsumer_client.cc @n
+     * basic/signal_service.cc @n
+     * chat/android/jni/Chat_jni.cpp @n
+     * chat/linux/chat.cc @n
+     * FileTransfer/FileTransferClient.cc @n
+     * FileTransfer/FileTransferService.cc @n
+     * windows/chat/ChatLib32/ChatClasses.cpp @n
+     * windows/chat/ChatLib32/ChatClasses.h @n
+     * windows/chat/ChatLib32/ChatLib32.cpp @n
+     * windows/PhotoChat/AllJoynBusLib/AllJoynBusLib.cpp @n
+     * windows/PhotoChat/AllJoynBusLib/AllJoynConnection.cpp @n
+     * windows/PhotoChat/AllJoynBusLib/AllJoynConnection.h
+     *
+     * For Windows 8 see also these sample file(s): @n
+     * cpp/AllJoynStreaming/src/MediaSource.cc @n
+     * cpp/Basic/Signal_Consumer_Client/SignalConsumerClient/AllJoynObjects.cpp @n
+     * cpp/Basic/Signal_Consumer_Client/SignalConsumerClient/MainPage.xaml.cpp @n
+     * cpp/Basic/Signal_Service/SignalService/AllJoynObjects.cpp @n
+     * cpp/Basic/Signal_Service/SignalService/MainPage.xaml.cpp @n
+     * cpp/Chat/Chat/AllJoynObjects.cpp @n
+     * cpp/Chat/Chat/AllJoynObjects.h @n
+     * csharp/Basic/Signal_Consumer_Client/SignalConsumerClient/Common/SignalConsumerBusListener.cs @n
+     * csharp/Basic/Signal_Consumer_Client/SignalConsumerClient/MainPage.xaml.cs @n
+     * csharp/Basic/Signal_Service/SignalService/Common/SignalServiceBusObject.cs @n
+     * csharp/chat/chat/Common/ChatSessionObject.cs @n
+     * csharp/chat/chat/MainPage.xaml.cs @n
+     * csharp/FileTransfer/Client/Common/FileTransferBusObject.cs @n
+     * csharp/Sessions/Sessions/Common/MyBusObject.cs @n
+     * csharp/Sessions/Sessions/Common/SessionOperations.cs @n
+     * csharp/Sessions/Sessions/MainPage.xaml.cs @n
+     * javascript/Basic/Signal_Consumer_Client/SignalConsumerClient/js/AlljoynObjects.js @n
+     * javascript/Basic/Signal_Consumer_Client/SignalConsumerClient/js/SignalConsumerClient.js @n
+     * javascript/Basic/Signal_Service/SignalService/js/AlljoynObjects.js @n
+     * javascript/chat/chat/js/alljoyn.js
+     *
+     * @param destination      The unique or well-known bus name or the signal recipient (NULL for broadcast signals)
+     * @param sessionId        A unique SessionId for this AllJoyn session instance. The session this message is for. For the signal to transmit outside of the
+     *                         current process this must be 0.
+     * @param signal           Interface member of signal being emitted.
+     * @param args             The arguments for the signal (can be NULL)
+     * @param numArgs          The number of arguments
+     * @param timeToLive       If non-zero this specifies in milliseconds the useful lifetime for this
+     *                         signal. If delivery of the signal is delayed beyond the timeToLive due to
+     *                         network congestion or other factors the signal may be discarded. There is
+     *                         no guarantee that expired signals will not still be delivered.
+     * @param flags            Logical OR of the message flags for this signals. The following flags apply to signals:
+     *                         - If ::ALLJOYN_FLAG_GLOBAL_BROADCAST is set broadcast signal (null destination) will be forwarded across bus-to-bus connections.
+     *                         - If ::ALLJOYN_FLAG_COMPRESSED is set the header is compressed for destinations that can handle header compression.
+     *                         - If ::ALLJOYN_FLAG_ENCRYPTED is set the message is authenticated and the payload if any is encrypted.
+     * @param msg              [OUT] If non-null, the sent signal message is returned to the caller.
+     * @return
+     *      - #ER_OK if successful
+     *      - #ER_BUS_OBJECT_NOT_REGISTERED if bus object has not yet been registered
+     *      - An error status otherwise
+     */
+    QStatus Signal(const char* destination,
+                   SessionId sessionId,
+                   const InterfaceDescription::Member& signal,
+                   const MsgArg* args = NULL,
+                   size_t numArgs = 0,
+                   uint16_t timeToLive = 0,
+                   uint8_t flags = 0,
+                   Message* msg = NULL);
+
+    /**
+     * Remove sessionless message sent from this object from local daemon's
+     * store/forward cache.
+     *
+     * @param serialNumber    Serial number of previously sent sessionless signal.
+     * @return   ER_OK if successful.
+     */
+    QStatus CancelSessionlessMessage(uint32_t serialNumber);
+
+    /**
+     * Remove sessionless message sent from this object from local daemon's
+     * store/forward cache.
+     *
+     * @param msg    Message to be removed.
+     * @return   ER_OK if successful.
+     */
+    QStatus CancelSessionlessMessage(const Message& msg) { return CancelSessionlessMessage(msg->GetCallSerial()); }
+
   protected:
 
     /**
@@ -274,73 +360,6 @@ class BusObject : public MessageReceiver {
      */
     QStatus MethodReply(const Message& msg, QStatus status);
 
-    /**
-     * Send a signal.
-     *
-     * See also these sample file(s): @n
-     * basic/signalConsumer_client.cc @n
-     * basic/signal_service.cc @n
-     * chat/android/jni/Chat_jni.cpp @n
-     * chat/linux/chat.cc @n
-     * FileTransfer/FileTransferClient.cc @n
-     * FileTransfer/FileTransferService.cc @n
-     * windows/chat/ChatLib32/ChatClasses.cpp @n
-     * windows/chat/ChatLib32/ChatClasses.h @n
-     * windows/chat/ChatLib32/ChatLib32.cpp @n
-     * windows/PhotoChat/AllJoynBusLib/AllJoynBusLib.cpp @n
-     * windows/PhotoChat/AllJoynBusLib/AllJoynConnection.cpp @n
-     * windows/PhotoChat/AllJoynBusLib/AllJoynConnection.h
-     *
-     * For Windows 8 see also these sample file(s): @n
-     * cpp/AllJoynStreaming/src/MediaSource.cc @n
-     * cpp/Basic/Signal_Consumer_Client/SignalConsumerClient/AllJoynObjects.cpp @n
-     * cpp/Basic/Signal_Consumer_Client/SignalConsumerClient/MainPage.xaml.cpp @n
-     * cpp/Basic/Signal_Service/SignalService/AllJoynObjects.cpp @n
-     * cpp/Basic/Signal_Service/SignalService/MainPage.xaml.cpp @n
-     * cpp/Chat/Chat/AllJoynObjects.cpp @n
-     * cpp/Chat/Chat/AllJoynObjects.h @n
-     * csharp/Basic/Signal_Consumer_Client/SignalConsumerClient/Common/SignalConsumerBusListener.cs @n
-     * csharp/Basic/Signal_Consumer_Client/SignalConsumerClient/MainPage.xaml.cs @n
-     * csharp/Basic/Signal_Service/SignalService/Common/SignalServiceBusObject.cs @n
-     * csharp/chat/chat/Common/ChatSessionObject.cs @n
-     * csharp/chat/chat/MainPage.xaml.cs @n
-     * csharp/FileTransfer/Client/Common/FileTransferBusObject.cs @n
-     * csharp/Sessions/Sessions/Common/MyBusObject.cs @n
-     * csharp/Sessions/Sessions/Common/SessionOperations.cs @n
-     * csharp/Sessions/Sessions/MainPage.xaml.cs @n
-     * javascript/Basic/Signal_Consumer_Client/SignalConsumerClient/js/AlljoynObjects.js @n
-     * javascript/Basic/Signal_Consumer_Client/SignalConsumerClient/js/SignalConsumerClient.js @n
-     * javascript/Basic/Signal_Service/SignalService/js/AlljoynObjects.js @n
-     * javascript/chat/chat/js/alljoyn.js
-     *
-     * @param destination      The unique or well-known bus name or the signal recipient (NULL for broadcast signals)
-     * @param sessionId        A unique SessionId for this AllJoyn session instance. The session this message is for. For the signal to transmit outside of the
-     *                         current process this must be 0.
-     * @param signal           Interface member of signal being emitted.
-     * @param args             The arguments for the signal (can be NULL)
-     * @param numArgs          The number of arguments
-     * @param timeToLive       If non-zero this specifies in milliseconds the useful lifetime for this
-     *                         signal. If delivery of the signal is delayed beyond the timeToLive due to
-     *                         network congestion or other factors the signal may be discarded. There is
-     *                         no guarantee that expired signals will not still be delivered.
-     * @param flags            Logical OR of the message flags for this signals. The following flags apply to signals:
-     *                         - If ::ALLJOYN_FLAG_GLOBAL_BROADCAST is set broadcast signal (null destination) will be forwarded across bus-to-bus connections.
-     *                         - If ::ALLJOYN_FLAG_COMPRESSED is set the header is compressed for destinations that can handle header compression.
-     *                         - If ::ALLJOYN_FLAG_ENCRYPTED is set the message is authenticated and the payload if any is encrypted.
-     * @return
-     *      - #ER_OK if successful
-     *      - #ER_BUS_OBJECT_NOT_REGISTERED if bus object has not yet been registered
-     *      - An error status otherwise
-     */
-  public:
-    QStatus Signal(const char* destination,
-                   SessionId sessionId,
-                   const InterfaceDescription::Member& signal,
-                   const MsgArg* args = NULL,
-                   size_t numArgs = 0,
-                   uint16_t timeToLive = 0,
-                   uint8_t flags = 0);
-  protected:
 
     /**
      * Add an interface to this object. If the interface has properties this will also add the
