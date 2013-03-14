@@ -1,4 +1,4 @@
-# Copyright 2011-2012, Qualcomm Innovation Center, Inc.
+# Copyright 2011-2013, Qualcomm Innovation Center, Inc.
 # 
 #    Licensed under the Apache License, Version 2.0 (the "License");
 #    you may not use this file except in compliance with the License.
@@ -15,56 +15,61 @@
 
 Import('env')
 
+# The return value is the collection of files installed in the build destination.
+returnValue = []
+
 # Install source
 if env['OS'] == 'android':
     distDir = '$DISTDIR/alljoyn_android/alljoyn'
-    env.Install(distDir, env.Glob('alljoyn/AndroidManifest.xml'))
-    env.Install(distDir, env.Glob('alljoyn/.classpath'))
-    env.Install(distDir, env.Glob('alljoyn/.project'))
-    env.Install(distDir, Dir('alljoyn/.settings').srcnode())
-    env.Install(distDir, env.Glob('alljoyn/default.properties'))
-    env.Install(distDir, Dir('alljoyn/jni').srcnode())
-    env.Install(distDir, Dir('alljoyn/src').srcnode())
-    env.Install(distDir, Dir('alljoyn/res').srcnode())
+    returnValue += env.Install(distDir, env.Glob('alljoyn/AndroidManifest.xml'))
+    returnValue += env.Install(distDir, env.Glob('alljoyn/.classpath'))
+    returnValue += env.Install(distDir, env.Glob('alljoyn/.project'))
+    returnValue += env.Install(distDir, Dir('alljoyn/.settings').srcnode())
+    returnValue += env.Install(distDir, env.Glob('alljoyn/default.properties'))
+    returnValue += env.Install(distDir, Dir('alljoyn/jni').srcnode())
+    returnValue += env.Install(distDir, Dir('alljoyn/src').srcnode())
+    returnValue += env.Install(distDir, Dir('alljoyn/res').srcnode())
 
     distDir = '$DISTDIR/alljoyn_android/bundle_test/BundledClient'
-    env.Install(distDir, env.Glob('bundle_test/BundledClient/AndroidManifest.xml'))
-    env.Install(distDir, env.Glob('bundle_test/BundledClient/.classpath'))
-    env.Install(distDir, env.Glob('bundle_test/BundledClient/.project'))
-    env.Install(distDir, env.Glob('bundle_test/BundledClient/default.properties'))
-    env.Install(distDir, Dir('bundle_test/BundledClient/src').srcnode())
-    env.Install(distDir, Dir('bundle_test/BundledClient/res').srcnode())
+    returnValue += env.Install(distDir, env.Glob('bundle_test/BundledClient/AndroidManifest.xml'))
+    returnValue += env.Install(distDir, env.Glob('bundle_test/BundledClient/.classpath'))
+    returnValue += env.Install(distDir, env.Glob('bundle_test/BundledClient/.project'))
+    returnValue += env.Install(distDir, env.Glob('bundle_test/BundledClient/default.properties'))
+    returnValue += env.Install(distDir, Dir('bundle_test/BundledClient/src').srcnode())
+    returnValue += env.Install(distDir, Dir('bundle_test/BundledClient/res').srcnode())
 
     distDir = '$DISTDIR/alljoyn_android/bundle_test/BundledService'
-    env.Install(distDir, env.Glob('bundle_test/BundledService/AndroidManifest.xml'))
-    env.Install(distDir, env.Glob('bundle_test/BundledService/.classpath'))
-    env.Install(distDir, env.Glob('bundle_test/BundledService/.project'))
-    env.Install(distDir, env.Glob('bundle_test/BundledService/default.properties'))
-    env.Install(distDir, Dir('bundle_test/BundledService/src').srcnode())
-    env.Install(distDir, Dir('bundle_test/BundledService/res').srcnode())
+    returnValue += env.Install(distDir, env.Glob('bundle_test/BundledService/AndroidManifest.xml'))
+    returnValue += env.Install(distDir, env.Glob('bundle_test/BundledService/.classpath'))
+    returnValue += env.Install(distDir, env.Glob('bundle_test/BundledService/.project'))
+    returnValue += env.Install(distDir, env.Glob('bundle_test/BundledService/default.properties'))
+    returnValue += env.Install(distDir, Dir('bundle_test/BundledService/src').srcnode())
+    returnValue += env.Install(distDir, Dir('bundle_test/BundledService/res').srcnode())
     
     distDir = '$DISTDIR/alljoyn_android/alljoyn_android_ext'
-    env.Install(distDir, env.Glob('alljoyn_android_ext/AndroidManifest.xml'))
-    env.Install(distDir, env.Glob('alljoyn_android_ext/.classpath'))
-    env.Install(distDir, env.Glob('alljoyn_android_ext/.project'))
-    env.Install(distDir, env.Glob('alljoyn_android_ext/default.properties'))
-    env.Install(distDir, Dir('alljoyn_android_ext/jni').srcnode())
-    env.Install(distDir, Dir('alljoyn_android_ext/src').srcnode())
-    env.Install(distDir, Dir('alljoyn_android_ext/res').srcnode())
+    returnValue += env.Install(distDir, env.Glob('alljoyn_android_ext/AndroidManifest.xml'))
+    returnValue += env.Install(distDir, env.Glob('alljoyn_android_ext/.classpath'))
+    returnValue += env.Install(distDir, env.Glob('alljoyn_android_ext/.project'))
+    returnValue += env.Install(distDir, env.Glob('alljoyn_android_ext/default.properties'))
+    returnValue += env.Install(distDir, Dir('alljoyn_android_ext/jni').srcnode())
+    returnValue += env.Install(distDir, Dir('alljoyn_android_ext/src').srcnode())
+    returnValue += env.Install(distDir, Dir('alljoyn_android_ext/res').srcnode())
     
 #    distDir = '$DISTDIR/alljoyn_android/alljoyn_android_p2pservice'
-#    env.Install(distDir, env.Glob('alljoyn_android_p2pservice/AndroidManifest.xml'))
-#    env.Install(distDir, env.Glob('alljoyn_android_p2pservice/.classpath'))
-#    env.Install(distDir, env.Glob('alljoyn_android_p2pservice/.project'))
-#    env.Install(distDir, env.Glob('alljoyn_android_p2pservice/default.properties'))
-#    env.Install(distDir, Dir('alljoyn_android_p2pservice/jni').srcnode())
-#    env.Install(distDir, Dir('alljoyn_android_p2pservice/src').srcnode())
-#    env.Install(distDir, Dir('alljoyn_android_p2pservice/res').srcnode())
+#    returnValue += env.Install(distDir, env.Glob('alljoyn_android_p2pservice/AndroidManifest.xml'))
+#    returnValue += env.Install(distDir, env.Glob('alljoyn_android_p2pservice/.classpath'))
+#    returnValue += env.Install(distDir, env.Glob('alljoyn_android_p2pservice/.project'))
+#    returnValue += env.Install(distDir, env.Glob('alljoyn_android_p2pservice/default.properties'))
+#    returnValue += env.Install(distDir, Dir('alljoyn_android_p2pservice/jni').srcnode())
+#    returnValue += env.Install(distDir, Dir('alljoyn_android_p2pservice/src').srcnode())
+#    returnValue += env.Install(distDir, Dir('alljoyn_android_p2pservice/res').srcnode())
     
     distDir = '$DISTDIR/alljoyn_android/ice_client_login_service'
-    env.Install(distDir, env.Glob('ice_client_login_service/AndroidManifest.xml'))
-    env.Install(distDir, env.Glob('ice_client_login_service/.classpath'))
-    env.Install(distDir, env.Glob('ice_client_login_service/.project'))
-    env.Install(distDir, env.Glob('ice_client_login_service/default.properties'))
-    env.Install(distDir, Dir('ice_client_login_service/src').srcnode())
-    env.Install(distDir, Dir('ice_client_login_service/res').srcnode())
+    returnValue += env.Install(distDir, env.Glob('ice_client_login_service/AndroidManifest.xml'))
+    returnValue += env.Install(distDir, env.Glob('ice_client_login_service/.classpath'))
+    returnValue += env.Install(distDir, env.Glob('ice_client_login_service/.project'))
+    returnValue += env.Install(distDir, env.Glob('ice_client_login_service/default.properties'))
+    returnValue += env.Install(distDir, Dir('ice_client_login_service/src').srcnode())
+    returnValue += env.Install(distDir, Dir('ice_client_login_service/res').srcnode())
+
+Return('returnValue')

@@ -1,4 +1,4 @@
-# Copyright 2010 - 2011, Qualcomm Innovation Center, Inc.
+# Copyright 2010 - 2013, Qualcomm Innovation Center, Inc.
 # 
 #    Licensed under the Apache License, Version 2.0 (the "License");
 #    you may not use this file except in compliance with the License.
@@ -15,26 +15,30 @@
 
 Import('env')
 
+# The return value is the collection of files installed in the build destination.
+returnValue = []
+
 # Install sample source
 clientDistDir = '$DISTDIR/samples/chat'
 if env['OS'] == 'android':
-    env.Install(clientDistDir, env.Glob('android/AndroidManifest.xml'))
-    env.Install(clientDistDir, env.Glob('android/.classpath'))
-    env.Install(clientDistDir, env.Glob('android/.project'))
-    env.Install(clientDistDir, env.Glob('android/default.properties'))
-    env.Install(clientDistDir, Dir('android/jni').srcnode())
-    env.Install(clientDistDir, Dir('android/src').srcnode())
-    env.Install(clientDistDir, Dir('android/res').srcnode())
+    returnValue += env.Install(clientDistDir, env.Glob('android/AndroidManifest.xml'))
+    returnValue += env.Install(clientDistDir, env.Glob('android/.classpath'))
+    returnValue += env.Install(clientDistDir, env.Glob('android/.project'))
+    returnValue += env.Install(clientDistDir, env.Glob('android/default.properties'))
+    returnValue += env.Install(clientDistDir, Dir('android/jni').srcnode())
+    returnValue += env.Install(clientDistDir, Dir('android/src').srcnode())
+    returnValue += env.Install(clientDistDir, Dir('android/res').srcnode())
 elif env['OS'] == 'linux' or 'darwin' == env['OS']:
     env.Program('chat', ['linux/chat.cc'])
-    env.Install('$DISTDIR/bin/samples', ['chat'])
-    env.Install(clientDistDir, env.Glob('linux/*.cc'))
-    env.Install(clientDistDir, env.Glob('linux/Make*'))
+    returnValue += env.Install('$DISTDIR/bin/samples', ['chat'])
+    returnValue += env.Install(clientDistDir, env.Glob('linux/*.cc'))
+    returnValue += env.Install(clientDistDir, env.Glob('linux/Make*'))
 elif env['OS_GROUP'] == 'windows':
     env.Program('chat', ['linux/chat.cc'])
-    env.Install('$DISTDIR/bin/samples', ['chat.exe'])
-    env.Install(clientDistDir, env.Glob('linux/*.cc'))
+    returnValue += env.Install('$DISTDIR/bin/samples', ['chat.exe'])
+    returnValue += env.Install(clientDistDir, env.Glob('linux/*.cc'))
     #install Visual Studio solution files
-    env.Install(clientDistDir+'/VC2008Win7', 'linux/VC2008Win7/VC2008Win7.sln')
-    env.Install(clientDistDir+'/VC2008Win7/chatsample', 'linux/VC2008Win7/chatsample/chatsample.vcproj')
+    returnValue += env.Install(clientDistDir+'/VC2008Win7', 'linux/VC2008Win7/VC2008Win7.sln')
+    returnValue += env.Install(clientDistDir+'/VC2008Win7/chatsample', 'linux/VC2008Win7/chatsample/chatsample.vcproj')
 
+Return ('returnValue')

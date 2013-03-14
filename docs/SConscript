@@ -1,4 +1,4 @@
-# Copyright 2011, Qualcomm Innovation Center, Inc.
+# Copyright 2011, 2013, Qualcomm Innovation Center, Inc.
 # 
 #    Licensed under the Apache License, Version 2.0 (the "License");
 #    you may not use this file except in compliance with the License.
@@ -15,6 +15,8 @@
 
 import os
 Import('env')
+
+returnValue = []
 
 docenv = env.Clone()
 docenv['ENV']['DISTDIR'] = str(env.Dir('$DISTDIR'))
@@ -83,6 +85,7 @@ elif docenv['DOCS'] == 'sandcastle':
                             )
 
         chm_install = chm_env.Install('$DISTDIR/bin', 'winrt/Help/AllJoyn.chm')
+        returnValue += chm_install
 
         # make sure the chm file is built before trying to install it.
         Depends(chm_install, chm_cmd)
@@ -97,4 +100,6 @@ elif docenv['DOCS'] == 'chm':
 
     chm_env.Decider(always_decider)
     chm_env.Doxygen(source='Doxygen_chm', target=File('html/AllJoyn.chm'))
-    chm_env.Install('$DISTDIR/bin', 'html/AllJoyn.chm')
+    returnValue += chm_env.Install('$DISTDIR/bin', 'html/AllJoyn.chm')
+
+Return('returnValue')

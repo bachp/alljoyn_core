@@ -1,0 +1,50 @@
+# Copyright 2013, Qualcomm Innovation Center, Inc.
+# 
+#    Licensed under the Apache License, Version 2.0 (the "License");
+#    you may not use this file except in compliance with the License.
+#    You may obtain a copy of the License at
+# 
+#        http://www.apache.org/licenses/LICENSE-2.0
+# 
+#    Unless required by applicable law or agreed to in writing, software
+#    distributed under the License is distributed on an "AS IS" BASIS,
+#    WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+#    See the License for the specific language governing permissions and
+#    limitations under the License.
+# 
+import os
+Import('env')
+
+cwd = os.getcwd()
+
+msiDestination = '../../build/Win7'
+msiSource='./release/AllJoynWinInstaller.msi'
+
+# Always rebuild the MSI so that multiple builds of debug, release, CPU can be made and
+# a new MSI is made after each one. 
+if os.path.exists(msiSource):
+    os.remove(msiSource)
+
+programFiles=''
+
+if os.environ.has_key('ProgramFiles(x86)'):
+    programFiles=os.environ['ProgramFiles(x86)']
+elif os.environ.has_key('ProgramFiles'):
+    programFiles=os.environ['ProgramFiles']
+else:
+    print 'Program files directory not found.'
+    Exit()
+
+if env.has_key('MSVC_VERSION'):
+    msvcVer = env['MSVC_VERSION']
+else:
+    print 'Visual Studio version not found.'
+    Exit()
+
+devEnv = '"' + programFiles + '\Microsoft Visual Studio ' + msvcVer + '\Common7\IDE\devenv.exe"' 
+cmd = cwd + '\MakeAjSdkMsi.cmd ' + cwd + ' ' + devEnv
+
+Msi = env.Command(msiSource, Dir('$DISTDIR'), cmd)
+installedMsi = env.Install(msiDestination, Msi)
+
+Return ('installedMsi')

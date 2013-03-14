@@ -1,4 +1,4 @@
-# Copyright 2010 - 2012, Qualcomm Innovation Center, Inc.
+# Copyright 2010 - 2013, Qualcomm Innovation Center, Inc.
 # 
 #    Licensed under the Apache License, Version 2.0 (the "License");
 #    you may not use this file except in compliance with the License.
@@ -23,6 +23,9 @@ env['_ALLJOYNCORE_'] = True
 # Dependent Projects
 common_hdrs, common_objs = env.SConscript(['../common/SConscript'])
 
+# The return value is the collection of files installed in the build destination.
+returnValue = []
+
 # Bullseye code coverage for 'debug' builds.
 if env['VARIANT'] == 'debug':
     if(not(env.has_key('BULLSEYE_BIN'))):
@@ -41,7 +44,6 @@ env.Depends('$OBJDIR/Status.h', 'src/Status.xml')
 env.Depends('$OBJDIR/Status.h', '../common/src/Status.xml')
 env.Append(STATUS_FLAGS=['--base=%s' % os.getcwd()])
 
-
 if env['OS_GROUP'] == 'winrt':
     env.Depends('$OBJDIR/Status_CPP0x.h', 'src/Status.xml')
     env.Depends('$OBJDIR/Status_CPP0x.h', '../common/src/Status.xml')
@@ -59,14 +61,15 @@ env.VariantDir('$OBJDIR/alljoyn_android', 'alljoyn_android', duplicate = 0)
 # AllJoyn Install
 env.Install('$OBJDIR', env.File('src/Status.xml'))
 env.Status('$OBJDIR/Status')
-env.Install('$DISTDIR/inc/alljoyn', '$OBJDIR/Status.h')
-if env['OS_GROUP'] == 'winrt':
-    env.Install('$DISTDIR/inc/alljoyn', '$OBJDIR/Status_CPP0x.h')
+returnValue = env.Install('$DISTDIR/inc/alljoyn', '$OBJDIR/Status.h')
 
-env.Install('$DISTDIR/inc/alljoyn', [ h for h in env.Glob('inc/alljoyn/*.h') if h not in env.Glob('inc/alljoyn/Status*.h') ])
+if env['OS_GROUP'] == 'winrt':
+    returnValue += env.Install('$DISTDIR/inc/alljoyn', '$OBJDIR/Status_CPP0x.h')
+
+returnValue += env.Install('$DISTDIR/inc/alljoyn', [ h for h in env.Glob('inc/alljoyn/*.h') if h not in env.Glob('inc/alljoyn/Status*.h') ])
 
 for d,h in common_hdrs.items():
-    env.Install('$DISTDIR/inc/%s' % d, h)
+    returnValue += env.Install('$DISTDIR/inc/%s' % d, h)
 
 # Header file includes
 env.Append(CPPPATH = [env.Dir('$DISTDIR/inc'), env.Dir('$DISTDIR/inc/alljoyn')])
@@ -78,6 +81,7 @@ env.Append(CPPPATH = [env.Dir('src')])
 (libs, alljoyn_core_objs) = env.SConscript('$OBJDIR/SConscript', exports = ['common_objs'])
 
 ajlib = env.Install('$DISTDIR/lib', libs)
+returnValue += ajlib
 env.Append(LIBPATH = [env.Dir('$DISTDIR/lib')])
 
 # Set the alljoyn library 
@@ -86,8 +90,11 @@ env.Prepend(LIBS = ajlib)
 # AllJoyn Daemon, daemon library, and bundled daemon object file
 daemon_progs, bdlib, bdobj = env.SConscript('$OBJDIR/daemon/SConscript', exports = ['common_objs', 'alljoyn_core_objs'])
 daemon_lib = env.Install('$DISTDIR/lib', bdlib)
+returnValue += daemon_lib
+
 daemon_obj = env.Install('$DISTDIR/lib', bdobj)
-env.Install('$DISTDIR/bin', daemon_progs)
+returnValue += daemon_obj
+returnValue += env.Install('$DISTDIR/bin', daemon_progs)
 
 # Test programs to have built-in bundled daemon or not
 if env['BD'] == 'on':
@@ -106,35 +113,36 @@ if env['OS'] == 'darwin' and (env['CPU'] == 'arm' or env['CPU'] == 'armv7' or en
 else:
     # Test programs
     progs = env.SConscript('$OBJDIR/test/SConscript')
-    env.Install('$DISTDIR/bin', progs)
+    returnValue += env.Install('$DISTDIR/bin', progs)
 
     # Build unit Tests
     env.SConscript('unit_test/SConscript', variant_dir='$OBJDIR/unittest', duplicate=0)
 
     # Sample programs
-    progs = env.SConscript('$OBJDIR/samples/SConscript')
-    env.Install('$DISTDIR/bin/samples', progs)
-
+    returnValue += env.SConscript('$OBJDIR/samples/SConscript')
+    
 # Android daemon runner
-progs = env.SConscript('$OBJDIR/alljoyn_android/SConscript')
-env.Install('$DISTDIR/bin/alljoyn_android', progs)
+returnValue += env.SConscript('$OBJDIR/alljoyn_android/SConscript')
 
 # Release notes and misc. legals
-env.Install('$DISTDIR', 'docs/ReleaseNotes.txt')
-env.Install('$DISTDIR', 'docs/AllJoyn_API_Changes_cpp.txt')
-env.Install('$DISTDIR', 'docs/AllJoyn_API_Changes_java.txt')
-#if env['OS_CONF'] == 'windows': 
-#    env.InstallAs('$DISTDIR/README.txt', 'docs/README.windows')
-#if env['OS_CONF'] == 'linux':
-#    env.InstallAs('$DISTDIR/README.txt', 'docs/README.linux')
-#if env['OS_CONF'] == 'android':
-#    env.InstallAs('$DISTDIR/README.txt', 'docs/README.android')
+returnValue += env.Install('$DISTDIR', 'docs/ReleaseNotes.txt')
+returnValue += env.Install('$DISTDIR', 'docs/AllJoyn_API_Changes_cpp.txt')
+returnValue += env.Install('$DISTDIR', 'docs/AllJoyn_API_Changes_java.txt')
 
-env.Install('$DISTDIR', 'README.md')
-env.Install('$DISTDIR', 'NOTICE.txt')
+#if env['OS_CONF'] == 'windows': 
+#    returnValue += env.InstallAs('$DISTDIR/README.txt', 'docs/README.windows')
+#if env['OS_CONF'] == 'linux':
+#    returnValue += env.InstallAs('$DISTDIR/README.txt', 'docs/README.linux')
+#if env['OS_CONF'] == 'android':
+#    returnValue += env.InstallAs('$DISTDIR/README.txt', 'docs/README.android')
+
+returnValue += env.Install('$DISTDIR', 'README.md')
+returnValue += env.Install('$DISTDIR', 'NOTICE.txt')
 
 # Build docs
-env.SConscript('docs/SConscript')
+returnValue += env.SConscript('docs/SConscript')
 
 #Build Win8 SDK installer
 env.SConscript('win8_sdk/SConscript')
+
+Return('returnValue')

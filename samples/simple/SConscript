@@ -1,4 +1,4 @@
-# Copyright 2010 - 2011, Qualcomm Innovation Center, Inc.
+# Copyright 2010 - 2011, 2013, Qualcomm Innovation Center, Inc.
 # 
 #    Licensed under the Apache License, Version 2.0 (the "License");
 #    you may not use this file except in compliance with the License.
@@ -15,26 +15,29 @@
 
 Import('env')
 
+# The return value is the collection of files installed in the build destination.
+returnValue = []
+
 # Install sample source
 if env['OS'] == 'android':
     clientDistDir = '$DISTDIR/samples/simple/client'
-    env.Install(clientDistDir, env.Glob('android/client/AndroidManifest.xml'))
-    env.Install(clientDistDir, env.Glob('android/client/.classpath'))
-    env.Install(clientDistDir, env.Glob('android/client/.project'))
-    env.Install(clientDistDir, env.Glob('android/client/default.properties'))
-    env.Install(clientDistDir, Dir('android/client/.settings').srcnode())
-    env.Install(clientDistDir, Dir('android/client/jni').srcnode())
-    env.Install(clientDistDir, Dir('android/client/src').srcnode())
-    env.Install(clientDistDir, Dir('android/client/res').srcnode())
+    returnValue += env.Install(clientDistDir, env.Glob('android/client/AndroidManifest.xml'))
+    returnValue += env.Install(clientDistDir, env.Glob('android/client/.classpath'))
+    returnValue += env.Install(clientDistDir, env.Glob('android/client/.project'))
+    returnValue += env.Install(clientDistDir, env.Glob('android/client/default.properties'))
+    returnValue += env.Install(clientDistDir, Dir('android/client/.settings').srcnode())
+    returnValue += env.Install(clientDistDir, Dir('android/client/jni').srcnode())
+    returnValue += env.Install(clientDistDir, Dir('android/client/src').srcnode())
+    returnValue += env.Install(clientDistDir, Dir('android/client/res').srcnode())
 
     serviceDistDir = '$DISTDIR/samples/simple/service'
-    env.Install(serviceDistDir, env.Glob('android/service/AndroidManifest.xml'))
-    env.Install(serviceDistDir, env.Glob('android/service/.classpath'))
-    env.Install(serviceDistDir, env.Glob('android/service/.project'))
-    env.Install(serviceDistDir, env.Glob('android/service/default.properties'))
-    env.Install(serviceDistDir, Dir('android/service/.settings').srcnode())
-    env.Install(serviceDistDir, Dir('android/service/jni').srcnode())
-    env.Install(serviceDistDir, Dir('android/service/src').srcnode())
-    env.Install(serviceDistDir, Dir('android/service/res').srcnode())
+    returnValue += env.Install(serviceDistDir, env.Glob('android/service/AndroidManifest.xml'))
+    returnValue += env.Install(serviceDistDir, env.Glob('android/service/.classpath'))
+    returnValue += env.Install(serviceDistDir, env.Glob('android/service/.project'))
+    returnValue += env.Install(serviceDistDir, env.Glob('android/service/default.properties'))
+    returnValue += env.Install(serviceDistDir, Dir('android/service/.settings').srcnode())
+    returnValue += env.Install(serviceDistDir, Dir('android/service/jni').srcnode())
+    returnValue += env.Install(serviceDistDir, Dir('android/service/src').srcnode())
+    returnValue += env.Install(serviceDistDir, Dir('android/service/res').srcnode())
 
-    
+Return ('returnValue')

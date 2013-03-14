@@ -1,4 +1,4 @@
-# Copyright 2010 - 2012, Qualcomm Innovation Center, Inc.
+# Copyright 2010 - 2013, Qualcomm Innovation Center, Inc.
 # 
 #    Licensed under the Apache License, Version 2.0 (the "License");
 #    you may not use this file except in compliance with the License.
@@ -29,17 +29,21 @@ Help(vars.GenerateHelpText(env))
 bindings = env['BINDINGS'].split(',')
 
 # Add/remove projects from build
-env.SConscript(['alljoyn_core/SConscript'])
+installedFiles = env.SConscript(['alljoyn_core/SConscript'])
 
 if ('java' in bindings) and os.path.exists('alljoyn_java/SConscript'):
-    env.SConscript(['alljoyn_java/SConscript'])
+    installedFiles += env.SConscript(['alljoyn_java/SConscript'])
 
 if ('js' in bindings) and os.path.exists('alljoyn_js/SConscript'):
-    env.SConscript(['alljoyn_js/SConscript'])
+    installedFiles += env.SConscript(['alljoyn_js/SConscript'])
 
 if ('c' in bindings) and os.path.exists('alljoyn_c/SConscript'):
-    env.SConscript(['alljoyn_c/SConscript'])
+    installedFiles += env.SConscript(['alljoyn_c/SConscript'])
 
 if ('unity' in bindings) and os.path.exists('alljoyn_unity/SConscript'):
-    env.SConscript(['alljoyn_unity/SConscript'])
+    installedFiles += env.SConscript(['alljoyn_unity/SConscript'])
 
+#Build Win7 SDK installer
+if env.has_key('WIN7_MSI') and env['WIN7_MSI'] == 'true':
+    win7Sdk = env.SConscript(['alljoyn_core/install/Win7/SConscript'])
+    env.Depends(win7Sdk, installedFiles)

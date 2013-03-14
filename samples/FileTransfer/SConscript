@@ -1,4 +1,4 @@
-# Copyright 2012, Qualcomm Innovation Center, Inc.
+# Copyright 2012, 2013 Qualcomm Innovation Center, Inc.
 # 
 #    Licensed under the Apache License, Version 2.0 (the "License");
 #    you may not use this file except in compliance with the License.
@@ -16,11 +16,16 @@
 Import('env')
 clientDistDir = '$DISTDIR/samples/FileTransfer'
 
+# The return value is the collection of files installed in the build destination.
+returnValue = []
+
 # Sample Programs
 progs = [
     env.Program('FileTransferClient',  ['FileTransferClient.cc']),
     env.Program('FileTransferService', ['FileTransferService.cc'])
     ]
 if 'linux' == env['OS'] or 'darwin' == env['OS'] or env['OS_GROUP'] == 'windows':
-    env.Install('$DISTDIR/bin/samples', progs )
-    env.Install(clientDistDir, env.Glob('*.cc'))
+    returnValue += env.Install('$DISTDIR/bin/samples', progs )
+    returnValue += env.Install(clientDistDir, env.Glob('*.cc'))
+
+Return ('returnValue')
