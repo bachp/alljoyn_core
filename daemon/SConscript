@@ -18,14 +18,12 @@ from os.path import basename
 
 if env['OS'] == "darwin":
     # Darwin has its own version of the daemon transport
-    srcs = [ f for f in env.Glob('*.cc') + env.Glob('*.c') + env.Glob(env['OS'] + '/DaemonTransport.cc')]
+    srcs = [ f for f in env.Glob('*.cc') + env.Glob('*.c') + [env['OS'] + '/DaemonTransport.cc']]
 else:
-    srcs = [ f for f in env.Glob('*.cc') + env.Glob('*.c') + env.Glob(env['OS_GROUP'] + '/DaemonTransport.cc')]
+    srcs = [ f for f in env.Glob('*.cc') + env.Glob('*.c') + [env['OS_GROUP'] + '/DaemonTransport.cc']]
 
-if env['OS'] == "android":
-    srcs += [env.Glob(env['OS'] + '/PermissionMrg.cc')]
-else:
-    srcs += [env.Glob(env['OS_GROUP'] + '/PermissionMgr.cc')]
+if env['OS'] != "android":
+    srcs += [env['OS_GROUP'] + '/PermissionMgr.cc']
 
 # scattergather sources
 	
