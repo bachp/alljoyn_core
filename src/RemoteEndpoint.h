@@ -398,25 +398,21 @@ class _RemoteEndpoint : public _BusEndpoint, public qcc::ThreadListener, public 
      * RemoteEndpoint users should not call this method.
      *
      * @param source   Source that data is available on.
+     * @param isTimedOut         false - if the source event has fired.
+     *                           true - if no source event has fired in the specified timeout.
      */
-    QStatus ReadCallback(qcc::Source& source);
-
-    /**
-     * Internal callback used to indicate that the link timeout has reached.
-     * RemoteEndpoint users should not call this method.
-     *
-     * @param source   Source for which timeout has occured.
-     */
-    QStatus LinkTimeoutCallback(qcc::Source& source);
+    QStatus ReadCallback(qcc::Source& source, bool isTimedOut);
 
     /**
      * Internal callback used to indicate that data can be written to File descriptor.
      * RemoteEndpoint users should not call this method.
      *
      * @param source   Source that data is available on.
+     * @param isTimedOut         false - if the sink event has fired.
+     *                           true - if no sink event has fired in the specified timeout.
      * @return   ER_OK if successful
      */
-    QStatus WriteCallback(qcc::Sink& sink);
+    QStatus WriteCallback(qcc::Sink& sink, bool isTimedOut);
 
     /**
      * Internal callback used to indicate that the Stream for this endpoint has been removed

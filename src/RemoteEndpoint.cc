@@ -270,9 +270,9 @@ QStatus _RemoteEndpoint::SetLinkTimeout(uint32_t idleTimeout, uint32_t probeTime
         internal->idleTimeout = idleTimeout;
         internal->probeTimeout = probeTimeout;
         internal->maxIdleProbes = maxIdleProbes;
-        uint32_t timeout = (internal->idleTimeoutCount == 0) ? internal->idleTimeout : internal->probeTimeout;
         IODispatch& iodispatch = internal->bus.GetInternal().GetIODispatch();
-        return iodispatch.SetLinkTimeout(internal->stream, timeout);
+        uint32_t timeout = (internal->idleTimeoutCount == 0) ? internal->idleTimeout : internal->probeTimeout;
+        return iodispatch.EnableTimeoutCallback(internal->stream, timeout);
     } else {
         return ER_ALLJOYN_SETLINKTIMEOUT_REPLY_NO_DEST_SUPPORT;
     }
@@ -456,45 +456,7 @@ void _RemoteEndpoint::ExitCallback() {
     internal->exitCount = 1;
 }
 
-QStatus _RemoteEndpoint::LinkTimeoutCallback(qcc::Source& source)
-{
-    /* Remote endpoints can be invalid if they were created with the default
-     * constructor or being torn down. Return ER_BUS_NO_ENDPOINT only if the
-     * endpoint was created with the default constructor. i.e. internal=NULL
-     */
-    if (!internal) {
-        return ER_BUS_NO_ENDPOINT;
-    }
-
-    QStatus status;
-    /* This is a timeout alarm, try to send a probe message if maximum idle
-     * probe attempts has not been reached.
-     */
-    if (internal->idleTimeoutCount++ < internal->maxIdleProbes) {
-        Message probeMsg(internal->bus);
-        status = GenProbeMsg(false, probeMsg);
-        if (status == ER_OK) {
-            status = PushMessage(probeMsg);
-        }
-        QCC_DbgPrintf(("%s: Sent ProbeReq (%s)\n", GetUniqueName().c_str(), QCC_StatusText(status)));
-        internal->bus.GetInternal().GetIODispatch().EnableTimeoutCallback(internal->stream);
-    } else {
-        QCC_DbgPrintf(("%s: Maximum number of idle probe (%d) attempts reached", GetUniqueName().c_str(), internal->maxIdleProbes));
-        /* On an unexpected disconnect save the status that cause the thread exit */
-        if (disconnectStatus == ER_OK) {
-            disconnectStatus = ER_TIMEOUT;
-        }
-
-        QCC_DbgPrintf(("Endpoint Rx timed out (%s)", GetUniqueName().c_str()));
-        status = ER_BUS_ENDPOINT_CLOSING;
-        Invalidate();
-        internal->stopping = true;
-        internal->bus.GetInternal().GetIODispatch().StopStream(internal->stream);
-    }
-    return status;
-}
-
-QStatus _RemoteEndpoint::ReadCallback(qcc::Source& source)
+QStatus _RemoteEndpoint::ReadCallback(qcc::Source& source, bool isTimedOut)
 {
     /* Remote endpoints can be invalid if they were created with the default
      * constructor or being torn down. Return ER_BUS_NO_ENDPOINT only if the
@@ -509,135 +471,170 @@ QStatus _RemoteEndpoint::ReadCallback(qcc::Source& source)
     const bool bus2bus = ENDPOINT_TYPE_BUS2BUS == GetEndpointType();
     Router& router = internal->bus.GetInternal().GetRouter();
     RemoteEndpoint rep = RemoteEndpoint::wrap(this);
+    if (!isTimedOut) {
+        status = ER_OK;
+        while (status == ER_OK) {
 
-    status = internal->currentReadMsg->ReadNonBlocking(rep, (internal->validateSender && !bus2bus));
-    if (status == ER_OK) {
-        Message msg = internal->currentReadMsg;
-        status = msg->Unmarshal(rep, (internal->validateSender && !bus2bus));
+            status = internal->currentReadMsg->ReadNonBlocking(rep, (internal->validateSender && !bus2bus));
+            if (status == ER_OK) {
+                /* Message read complete.Proceed to unmarshal it. */
+                Message msg = internal->currentReadMsg;
+                status = msg->Unmarshal(rep, (internal->validateSender && !bus2bus));
 
-        switch (status) {
-        case ER_OK:
-            internal->idleTimeoutCount = 0;
-            bool isAck;
-            if (IsProbeMsg(msg, isAck)) {
-                QCC_DbgPrintf(("%s: Received %s\n", GetUniqueName().c_str(), isAck ? "ProbeAck" : "ProbeReq"));
-                if (!isAck) {
-                    /* Respond to probe request */
-                    Message probeMsg(internal->bus);
-                    status = GenProbeMsg(true, probeMsg);
-                    if (status == ER_OK) {
-                        status = PushMessage(probeMsg);
-                    }
-                    QCC_DbgPrintf(("%s: Sent ProbeAck (%s)\n", GetUniqueName().c_str(), QCC_StatusText(status)));
-                }
-            } else {
-                BusEndpoint bep  = BusEndpoint::cast(rep);
+                switch (status) {
+                case ER_OK:
+                    internal->idleTimeoutCount = 0;
+                    bool isAck;
+                    if (IsProbeMsg(msg, isAck)) {
+                        QCC_DbgPrintf(("%s: Received %s\n", GetUniqueName().c_str(), isAck ? "ProbeAck" : "ProbeReq"));
+                        if (!isAck) {
+                            /* Respond to probe request */
+                            Message probeMsg(internal->bus);
+                            status = GenProbeMsg(true, probeMsg);
+                            if (status == ER_OK) {
+                                status = PushMessage(probeMsg);
+                            }
+                            QCC_DbgPrintf(("%s: Sent ProbeAck (%s)\n", GetUniqueName().c_str(), QCC_StatusText(status)));
+                        }
+                    } else {
+                        BusEndpoint bep  = BusEndpoint::cast(rep);
 
-                status = router.PushMessage(msg, bep);
-                if (status != ER_OK) {
-                    /*
-                     * There are five cases where a failure to push a message to the router is ok:
-                     *
-                     * 1) The message received did not match the expected signature.
-                     * 2) The message was a method reply that did not match up to a method call.
-                     * 3) A daemon is pushing the message to a connected client or service.
-                     * 4) Pushing a message to an endpoint that has closed.
-                     * 5) Pushing the first non-control message of a new session (must wait for route to be fully setup)
-                     *
-                     */
+                        status = router.PushMessage(msg, bep);
+                        if (status != ER_OK) {
+                            /*
+                             * There are five cases where a failure to push a message to the router is ok:
+                             *
+                             * 1) The message received did not match the expected signature.
+                             * 2) The message was a method reply that did not match up to a method call.
+                             * 3) A daemon is pushing the message to a connected client or service.
+                             * 4) Pushing a message to an endpoint that has closed.
+                             * 5) Pushing the first non-control message of a new session (must wait for route to be fully setup)
+                             *
+                             */
 
-                    if (status == ER_BUS_NO_ROUTE) {
+                            if (status == ER_BUS_NO_ROUTE) {
 
-                        int retries = 20;
-                        while (!internal->stopping && (status == ER_BUS_NO_ROUTE) && !internal->hasRxSessionMsg && retries--) {
-                            qcc::Sleep(10);
-                            status = router.PushMessage(msg, bep);
+                                int retries = 20;
+                                while (!internal->stopping && (status == ER_BUS_NO_ROUTE) && !internal->hasRxSessionMsg && retries--) {
+                                    qcc::Sleep(10);
+                                    status = router.PushMessage(msg, bep);
+                                }
+                            }
+                            if ((router.IsDaemon() && !bus2bus) || (status == ER_BUS_SIGNATURE_MISMATCH) || (status == ER_BUS_UNMATCHED_REPLY_SERIAL) || (status == ER_BUS_ENDPOINT_CLOSING)) {
+                                QCC_DbgHLPrintf(("Discarding %s: %s", msg->Description().c_str(), QCC_StatusText(status)));
+                                status = ER_OK;
+                            }
+                        }
+                        /* Update haxRxSessionMessage */
+                        if ((status == ER_OK) && !internal->hasRxSessionMsg && !IsControlMessage(msg)) {
+                            internal->hasRxSessionMsg = true;
                         }
                     }
-                    if ((router.IsDaemon() && !bus2bus) || (status == ER_BUS_SIGNATURE_MISMATCH) || (status == ER_BUS_UNMATCHED_REPLY_SERIAL) || (status == ER_BUS_ENDPOINT_CLOSING)) {
-                        QCC_DbgHLPrintf(("Discarding %s: %s", msg->Description().c_str(), QCC_StatusText(status)));
+                    break;
+
+                case ER_BUS_CANNOT_EXPAND_MESSAGE:
+                    /*
+                     * The message could not be expanded so pass it the peer object to request the expansion
+                     * rule from the endpoint that sent it.
+                     */
+                    status = internal->bus.GetInternal().GetLocalEndpoint()->GetPeerObj()->RequestHeaderExpansion(msg, rep);
+                    if ((status != ER_OK) && router.IsDaemon()) {
+                        QCC_LogError(status, ("Discarding %s", msg->Description().c_str()));
                         status = ER_OK;
                     }
+                    break;
+
+                case ER_BUS_TIME_TO_LIVE_EXPIRED:
+                    QCC_DbgHLPrintf(("TTL expired discarding %s", msg->Description().c_str()));
+                    status = ER_OK;
+                    break;
+
+                case ER_BUS_INVALID_HEADER_SERIAL:
+                    /*
+                     * Ignore invalid serial numbers for unreliable messages or broadcast messages that come from
+                     * bus2bus endpoints as these can be delivered out-of-order or repeated.
+                     *
+                     * Ignore control messages (i.e. messages targeted at the bus controller)
+                     * TODO - need explanation why this is neccessary.
+                     *
+                     * In all other cases an invalid serial number cause the connection to be dropped.
+                     */
+                    if (msg->IsUnreliable() || msg->IsBroadcastSignal() || IsControlMessage(msg)) {
+                        QCC_DbgHLPrintf(("Invalid serial discarding %s", msg->Description().c_str()));
+                        status = ER_OK;
+                    } else {
+                        QCC_LogError(status, ("Invalid serial %s", msg->Description().c_str()));
+                    }
+                    break;
+
+                case ER_ALERTED_THREAD:
+                    status = ER_OK;
+                    break;
+
+                default:
+                    break;
                 }
-                /* Update haxRxSessionMessage */
-                if ((status == ER_OK) && !internal->hasRxSessionMsg && !IsControlMessage(msg)) {
-                    internal->hasRxSessionMsg = true;
+
+                /* Check pause condition. Block until stopped */
+                if (internal->armRxPause && internal->started && (msg->GetType() == MESSAGE_METHOD_RET)) {
+                    status = ER_BUS_ENDPOINT_CLOSING;
+                    internal->bus.GetInternal().GetIODispatch().DisableReadCallback(internal->stream);
+                    return ER_OK;
+                }
+                if (status == ER_OK) {
+                    internal->currentReadMsg = Message(internal->bus);
                 }
             }
-            break;
-
-        case ER_BUS_CANNOT_EXPAND_MESSAGE:
-            /*
-             * The message could not be expanded so pass it the peer object to request the expansion
-             * rule from the endpoint that sent it.
-             */
-            status = internal->bus.GetInternal().GetLocalEndpoint()->GetPeerObj()->RequestHeaderExpansion(msg, rep);
-            if ((status != ER_OK) && router.IsDaemon()) {
-                QCC_LogError(status, ("Discarding %s", msg->Description().c_str()));
-                status = ER_OK;
-            }
-            break;
-
-        case ER_BUS_TIME_TO_LIVE_EXPIRED:
-            QCC_DbgHLPrintf(("TTL expired discarding %s", msg->Description().c_str()));
-            status = ER_OK;
-            break;
-
-        case ER_BUS_INVALID_HEADER_SERIAL:
-            /*
-             * Ignore invalid serial numbers for unreliable messages or broadcast messages that come from
-             * bus2bus endpoints as these can be delivered out-of-order or repeated.
-             *
-             * Ignore control messages (i.e. messages targeted at the bus controller)
-             * TODO - need explanation why this is neccessary.
-             *
-             * In all other cases an invalid serial number cause the connection to be dropped.
-             */
-            if (msg->IsUnreliable() || msg->IsBroadcastSignal() || IsControlMessage(msg)) {
-                QCC_DbgHLPrintf(("Invalid serial discarding %s", msg->Description().c_str()));
-                status = ER_OK;
-            } else {
-                QCC_LogError(status, ("Invalid serial %s", msg->Description().c_str()));
-            }
-            break;
-
-        case ER_ALERTED_THREAD:
-            status = ER_OK;
-            break;
-
-        default:
-            break;
         }
+        if (status == ER_TIMEOUT) {
+            internal->bus.GetInternal().GetIODispatch().EnableReadCallback(internal->stream, internal->idleTimeout);
+        } else {
 
-        /* Check pause condition. Block until stopped */
-        if (internal->armRxPause && internal->started && (msg->GetType() == MESSAGE_METHOD_RET)) {
-            status = ER_BUS_ENDPOINT_CLOSING;
-            internal->bus.GetInternal().GetIODispatch().DisableReadCallback(internal->stream);
-            return ER_OK;
+            if ((status != ER_STOPPING_THREAD) && (status != ER_SOCK_OTHER_END_CLOSED) && (status != ER_BUS_STOPPING)) {
+                QCC_LogError(status, ("Endpoint Rx failed (%s)", GetUniqueName().c_str()));
+            }
+            /* On an unexpected disconnect save the status that cause the thread exit */
+            if (disconnectStatus == ER_OK) {
+                disconnectStatus = (status == ER_STOPPING_THREAD) ? ER_OK : status;
+            }
+            Invalidate();
+            internal->stopping = true;
+            internal->bus.GetInternal().GetIODispatch().StopStream(internal->stream);
         }
-        internal->currentReadMsg = Message(internal->bus);
-        internal->bus.GetInternal().GetIODispatch().EnableReadCallback(internal->stream);
-
-
-    } else if (status == ER_TIMEOUT) {
-        internal->bus.GetInternal().GetIODispatch().EnableReadCallback(internal->stream);
     } else {
+        /* This is a timeout alarm, try to send a probe message if maximum idle
+         * probe attempts has not been reached.
+         */
+        if (internal->idleTimeoutCount++ < internal->maxIdleProbes) {
+            Message probeMsg(internal->bus);
+            status = GenProbeMsg(false, probeMsg);
+            if (status == ER_OK) {
+                PushMessage(probeMsg);
+            }
+            QCC_DbgPrintf(("%s: Sent ProbeReq (%s)\n", GetUniqueName().c_str(), QCC_StatusText(status)));
+            uint32_t timeout = (internal->idleTimeoutCount == 0) ? internal->idleTimeout : internal->probeTimeout;
+            internal->bus.GetInternal().GetIODispatch().EnableReadCallback(internal->stream, timeout);
+        } else {
+            QCC_DbgPrintf(("%s: Maximum number of idle probe (%d) attempts reached", GetUniqueName().c_str(), internal->maxIdleProbes));
+            /* On an unexpected disconnect save the status that cause the thread exit */
+            if (disconnectStatus == ER_OK) {
+                disconnectStatus = ER_TIMEOUT;
+            }
 
-        if ((status != ER_STOPPING_THREAD) && (status != ER_SOCK_OTHER_END_CLOSED) && (status != ER_BUS_STOPPING)) {
-            QCC_LogError(status, ("Endpoint Rx failed (%s)", GetUniqueName().c_str()));
+            QCC_LogError(ER_TIMEOUT, ("Endpoint Rx timed out (%s)", GetUniqueName().c_str()));
+            status = ER_BUS_ENDPOINT_CLOSING;
+            Invalidate();
+            internal->stopping = true;
+            internal->bus.GetInternal().GetIODispatch().StopStream(internal->stream);
         }
-        /* On an unexpected disconnect save the status that cause the thread exit */
-        if (disconnectStatus == ER_OK) {
-            disconnectStatus = (status == ER_STOPPING_THREAD) ? ER_OK : status;
-        }
-        Invalidate();
-        internal->stopping = true;
-        internal->bus.GetInternal().GetIODispatch().StopStream(internal->stream);
     }
     return status;
 }
-
-QStatus _RemoteEndpoint::WriteCallback(qcc::Sink& sink) {
+/* Note: isTimedOut indicates that this is a timeout alarm. This is for future
+ * use if SendTimeout functionality is required.
+ * Currently unused.
+ */
+QStatus _RemoteEndpoint::WriteCallback(qcc::Sink& sink, bool isTimedOut) {
     /* Remote endpoints can be invalid if they were created with the default
      * constructor or being torn down. Return ER_BUS_NO_ENDPOINT only if the
      * endpoint was created with the default constructor. i.e. internal=NULL
@@ -645,13 +642,17 @@ QStatus _RemoteEndpoint::WriteCallback(qcc::Sink& sink) {
     if (!internal) {
         return ER_BUS_NO_ENDPOINT;
     }
+
     QStatus status = ER_OK;
     while (status == ER_OK) {
         if (internal->getNextMsg) {
             internal->txQueueLock.Lock(MUTEX_CONTEXT);
             if (!internal->txQueue.empty()) {
-                internal->currentWriteMsg = Message(internal->txQueue.back(), true); //deep copy
-                internal->txQueue.pop_back();
+                /* Make a deep copy of the message since there is state information inside the message.
+                 * Each copy of the message could be in different write state.
+                 */
+                internal->currentWriteMsg = Message(internal->txQueue.back(), true);
+
                 /* Alert next thread on wait queue */
                 if (0 < internal->txWaitQueue.size()) {
                     Thread* wakeMe = internal->txWaitQueue.back();
@@ -673,7 +674,6 @@ QStatus _RemoteEndpoint::WriteCallback(qcc::Sink& sink) {
         /* Deliver message */
         RemoteEndpoint rep = RemoteEndpoint::wrap(this);
         status = internal->currentWriteMsg->DeliverNonBlocking(rep);
-
         /* Report authorization failure as a security violation */
         if (status == ER_BUS_NOT_AUTHORIZED) {
             internal->bus.GetInternal().GetLocalEndpoint()->GetPeerObj()->HandleSecurityViolation(internal->currentWriteMsg, status);
@@ -683,26 +683,31 @@ QStatus _RemoteEndpoint::WriteCallback(qcc::Sink& sink) {
              */
             status = ER_OK;
         }
-        if (status != ER_OK && status != ER_TIMEOUT) {
-            /* On an unexpected disconnect save the status that cause the thread exit */
-            if (disconnectStatus == ER_OK) {
-                disconnectStatus = (status == ER_STOPPING_THREAD) ? ER_OK : status;
-            }
-            if ((status != ER_OK) && (status != ER_STOPPING_THREAD) && (status != ER_SOCK_OTHER_END_CLOSED) && (status != ER_BUS_STOPPING)) {
-                QCC_LogError(status, ("Endpoint Tx failed (%s)", GetUniqueName().c_str()));
-            }
-
-            Invalidate();
-            internal->stopping = true;
-            internal->bus.GetInternal().GetIODispatch().StopStream(internal->stream);
-            break;
-        }
         if (status == ER_OK) {
+            /* Message has been successfully delivered. i.e. PushBytes is complete
+             */
+            internal->txQueueLock.Lock(MUTEX_CONTEXT);
+            internal->txQueue.pop_back();
             internal->getNextMsg = true;
+            internal->txQueueLock.Unlock(MUTEX_CONTEXT);
         }
     }
+
     if (status == ER_TIMEOUT) {
+        /* Timed-out in the middle of a message write. */
         internal->bus.GetInternal().GetIODispatch().EnableWriteCallback(internal->stream);
+    } else if (status != ER_OK) {
+        /* On an unexpected disconnect save the status that cause the thread exit */
+        if (disconnectStatus == ER_OK) {
+            disconnectStatus = (status == ER_STOPPING_THREAD) ? ER_OK : status;
+        }
+        if ((status != ER_OK) && (status != ER_STOPPING_THREAD) && (status != ER_SOCK_OTHER_END_CLOSED) && (status != ER_BUS_STOPPING)) {
+            QCC_LogError(status, ("Endpoint Tx failed (%s)", GetUniqueName().c_str()));
+        }
+
+        Invalidate();
+        internal->stopping = true;
+        internal->bus.GetInternal().GetIODispatch().StopStream(internal->stream);
     }
     return status;
 }
