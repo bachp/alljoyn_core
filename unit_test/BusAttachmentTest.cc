@@ -1,5 +1,5 @@
 /******************************************************************************
- * Copyright 2012, Qualcomm Innovation Center, Inc.
+ * Copyright 2012-2013, Qualcomm Innovation Center, Inc.
  *
  *    Licensed under the Apache License, Version 2.0 (the "License");
  *    you may not use this file except in compliance with the License.
@@ -50,8 +50,10 @@ class BusAttachmentTest : public testing::Test {
         QStatus status = ER_OK;
         status = bus.Start();
         ASSERT_EQ(ER_OK, status) << "  Actual Status: " << QCC_StatusText(status);
+        ASSERT_FALSE(bus.IsConnected());
         status = bus.Connect(getConnectArg().c_str());
         ASSERT_EQ(ER_OK, status) << "  Actual Status: " << QCC_StatusText(status);
+        ASSERT_TRUE(bus.IsConnected());
     }
 
     virtual void TearDown() {
@@ -60,6 +62,16 @@ class BusAttachmentTest : public testing::Test {
     }
 
 };
+
+TEST_F(BusAttachmentTest, IsConnected)
+{
+    EXPECT_TRUE(bus.IsConnected());
+    QStatus disconnectStatus = bus.Disconnect(getConnectArg().c_str());
+    EXPECT_EQ(ER_OK, disconnectStatus) << "  Actual Status: " << QCC_StatusText(disconnectStatus);
+    if (ER_OK == disconnectStatus) {
+        EXPECT_FALSE(bus.IsConnected());
+    }
+}
 
 TEST_F(BusAttachmentTest, FindName_Join_Self)
 {
