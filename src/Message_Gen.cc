@@ -497,7 +497,7 @@ QStatus _Message::Deliver(RemoteEndpoint& endpoint)
         if (handles) {
             status = sink.PushBytesAndFds(buf, len, pushed, handles, numHandles, endpoint->GetProcessId());
         } else {
-            status = sink.PushBytes(buf, len, pushed, ttl);
+            status = sink.PushBytes(buf, len, pushed, (msgHeader.flags & ALLJOYN_FLAG_SESSIONLESS) ? (ttl * 1000) : ttl);
         }
     }
     /*

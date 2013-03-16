@@ -458,14 +458,17 @@ bool _Message::IsExpired(uint32_t* tillExpireMS) const
 
     /* If the mssage has a TTL check if it has expired */
     if (ttl) {
+        /* Sessionless signals TTL field is in seconds rather than ms */
+        uint32_t ttlVal = (msgHeader.flags & ALLJOYN_FLAG_SESSIONLESS) ? ttl * 1000 : ttl;
+
         /* timestamp can be larger than 'now' due to clock drift adjustment */
         uint32_t now = GetTimestamp();
         uint32_t elapsed = (now > timestamp) ? now - timestamp : 0;
-        if (ttl > elapsed) {
-            expires = ttl - elapsed;
+        if (ttlVal > elapsed) {
+            expires = ttlVal - elapsed;
             QCC_DbgHLPrintf(("Message expires in %d milliseconds", expires));
         } else {
-            QCC_DbgHLPrintf(("Message expired %u milliseconds ago", elapsed - ttl));
+            QCC_DbgHLPrintf(("Message expired %u milliseconds ago", elapsed - ttlVal));
             expires = 0;
         }
     } else {

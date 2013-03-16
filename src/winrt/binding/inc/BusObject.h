@@ -218,8 +218,8 @@ public ref class BusObject sealed {
     /// <param name="sessionId">A unique SessionId for this AllJoyn session instance</param>
     /// <param name="signal">Interface member of signal being emitted.</param>
     /// <param name="args">The arguments for the signal (can be NULL)</param>
-    /// <param name="timeToLive">If non-zero this specifies in milliseconds the useful lifetime for this
-    /// signal. If delivery of the signal is delayed beyond the timeToLive due to
+    /// <param name="timeToLive">If non-zero this specifies in milliseconds for non-sessionless signals and seconds for
+    /// sessionless signals the useful lifetime for this signal. If delivery of the signal is delayed beyond the timeToLive due to
     /// network congestion or other factors the signal may be discarded. There is
     /// no guarantee that expired signals will not still be delivered.</param>
     /// <param name="flags">Logical OR of the message flags for this signals. The following flags apply to signals:

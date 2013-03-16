@@ -729,8 +729,8 @@ class _Message {
      * @param args        The signal argument list (can be NULL)
      * @param numArgs     The number of arguments
      * @param flags       A logical OR of the AllJoyn flags.
-     * @param timeToLive  Time-to-live in milliseconds. Signals that cannot be sent within this time
-     *                    limit are discarded. Zero indicates reliable delivery.
+     * @param timeToLive  Time-to-live. Units are seconds for sessionless signals. Milliseconds for non-sessionless signals.
+     *                    Signals that cannot be sent within this time limit are discarded. Zero indicates reliable delivery.
      * @return
      *      - #ER_OK if successful
      *      - An error status otherwise
@@ -935,7 +935,7 @@ class _Message {
     uint8_t* bufPos;             ///< Pointer to the position in buffer.
     uint8_t* bodyPtr;            ///< Pointer to start of message body.
 
-    uint16_t ttl;                ///< Time to live
+    uint16_t ttl;                ///< Time to live (units of seconds for sessionless. MS for everything else)
     uint32_t timestamp;          ///< Timestamp (local time) for messages with a ttl (time to live).
 
     qcc::String replySignature;  ///< Expected reply signature for a method call
