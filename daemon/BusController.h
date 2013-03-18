@@ -179,7 +179,7 @@ class BusController {
 #endif
 
     /** Event to wait on while initialization completes */
-    qcc::Event* initComplete;
+    bool initComplete;
 };
 
 }

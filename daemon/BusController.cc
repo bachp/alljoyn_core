@@ -44,7 +44,7 @@ BusController::BusController(Bus& alljoynBus, AuthListener* authListener) :
 #ifndef NDEBUG
     alljoynDebugObj(bus, this),
 #endif
-    initComplete(NULL)
+    initComplete(false)
 
 {
     DaemonRouter& router(reinterpret_cast<DaemonRouter&>(bus.GetInternal().GetRouter()));
@@ -62,7 +62,6 @@ QStatus BusController::Init(const qcc::String& listenSpecs)
     QStatus status;
     qcc::Event initEvent;
 
-    initComplete = &initEvent;
 
     /*
      * Start the object initialization chain (see ObjectRegistered callback below)
@@ -75,7 +74,9 @@ QStatus BusController::Init(const qcc::String& listenSpecs)
             status = bus.Start();
         }
         if (status == ER_OK) {
-            status = Event::Wait(initEvent);
+            while (!initComplete) {
+                qcc::Sleep(4);
+            }
         }
         if (status == ER_OK) {
             status = bus.StartListen(listenSpecs.c_str());
@@ -86,7 +87,6 @@ QStatus BusController::Init(const qcc::String& listenSpecs)
         }
     }
 
-    initComplete = NULL;
     return status;
 }
 
@@ -207,7 +207,7 @@ void BusController::ObjectRegistered(BusObject* obj)
     }
 #endif
 
-    if (initComplete && isDone) {
-        initComplete->SetEvent();
+    if (isDone) {
+        initComplete = true;
     }
 }
