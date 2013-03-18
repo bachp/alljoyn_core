@@ -21,10 +21,10 @@ returnValue = []
 # Install sample source
 clientDistDir = '$DISTDIR/samples/chat'
 if env['OS'] == 'android':
-    returnValue += env.Install(clientDistDir, env.Glob('android/AndroidManifest.xml'))
-    returnValue += env.Install(clientDistDir, env.Glob('android/.classpath'))
-    returnValue += env.Install(clientDistDir, env.Glob('android/.project'))
-    returnValue += env.Install(clientDistDir, env.Glob('android/default.properties'))
+    returnValue += env.Install(clientDistDir, 'android/AndroidManifest.xml')
+    returnValue += env.Install(clientDistDir, 'android/.classpath')
+    returnValue += env.Install(clientDistDir, 'android/.project')
+    returnValue += env.Install(clientDistDir, 'android/default.properties')
     returnValue += env.Install(clientDistDir, Dir('android/jni').srcnode())
     returnValue += env.Install(clientDistDir, Dir('android/src').srcnode())
     returnValue += env.Install(clientDistDir, Dir('android/res').srcnode())

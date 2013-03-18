@@ -31,7 +31,7 @@ returnValue = []
 if 'linux' == env['OS'] or 'darwin' == env['OS']:
     returnValue += env.Install('$DISTDIR/bin/samples', progs )
     returnValue += env.Install(clientDistDir, env.Glob('*.cc'))
-    returnValue += env.Install(clientDistDir, env.Glob('Makefile'))
+    returnValue += env.Install(clientDistDir, 'Makefile')
     returnValue += env.Install(clientDistDir, 'README.txt')
 elif env['OS_GROUP'] == 'windows':
     returnValue += env.Install('$DISTDIR/bin/samples', progs )
