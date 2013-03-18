@@ -82,7 +82,8 @@ class _RemoteEndpoint::Internal {
         hasRxSessionMsg(false),
         getNextMsg(true),
         currentWriteMsg(bus),
-        stopping(false)
+        stopping(false),
+        sessionId(0)
     {
     }
 
@@ -126,6 +127,7 @@ class _RemoteEndpoint::Internal {
     bool getNextMsg;                         /**< If true, read the next message from the txQueue */
     Message currentWriteMsg;                 /**< The message currently being read for this endpoint */
     bool stopping;                           /**< Is this EP stopping? */
+    uint32_t sessionId;                      /**< SessionId for BusToBus endpoint. (not used for non-B2B endpoints) */
 };
 
 void _RemoteEndpoint::SetStream(qcc::Stream* s)
@@ -862,6 +864,20 @@ bool _RemoteEndpoint::IsProbeMsg(const Message& msg, bool& isAck)
 QStatus _RemoteEndpoint::GenProbeMsg(bool isAck, Message msg)
 {
     return msg->SignalMsg("", NULL, 0, "/", org::alljoyn::Daemon::InterfaceName, isAck ? "ProbeAck" : "ProbeReq", NULL, 0, 0, 0);
+}
+
+void _RemoteEndpoint::SetSessionId(uint32_t sessionId) {
+    if (internal) {
+        internal->sessionId = sessionId;
+    }
+}
+
+uint32_t _RemoteEndpoint::GetSessionId() {
+    if (internal) {
+        return internal->sessionId;
+    } else {
+        return 0;
+    }
 }
 
 }

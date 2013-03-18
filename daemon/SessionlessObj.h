@@ -25,6 +25,7 @@
 
 #include <map>
 #include <set>
+#include <queue>
 
 #include <qcc/String.h>
 #include <qcc/Timer.h>
@@ -115,6 +116,15 @@ class SessionlessObj : public BusObject, public SessionListener, public SessionP
     QStatus PushMessage(Message& msg);
 
     /**
+     * Route an incoming sessionless signal if possible.
+     *
+     * @param sessionId   Session Id associated with sessionless message.
+     * @param msg         Sesionless messgae to be routed.
+     * @return true if message was delivered, false otherwise.
+     */
+    bool RouteSessionlessMessage(uint32_t sessionId, Message& msg);
+
+    /**
      * Remove a sessionless signal with a given serial number from the store/forward cache.
      *
      * @param sender      Unique name of message sender.
@@ -180,6 +190,26 @@ class SessionlessObj : public BusObject, public SessionListener, public SessionP
                                      const char* sourcePath,
                                      Message& msg);
 
+    /**
+     * Process incoming RequestRange signals from remote daemons.
+     *
+     * @param member        Interface member for signal
+     * @param sourcePath    object path sending the signal.
+     * @param msg           The signal message.
+     */
+    void RequestRangeSignalHandler(const InterfaceDescription::Member* member,
+                                   const char* sourcePath,
+                                   Message& msg);
+
+    /**
+     * Trigger (re)reception of sessionless signals from a single or from all
+     * remote daemons.
+     *
+     * @param sender    Unique name of client that is requesting to re-receive sessionless messages.
+     * @param guid      GUID of remote host that sender wants to re-receive messages from or empty for all remote hosts
+     */
+    QStatus RereceiveMessages(const qcc::String& sender, const qcc::String& guid);
+
   private:
     /**
      * SessionlessObj worker.
@@ -193,6 +223,31 @@ class SessionlessObj : public BusObject, public SessionListener, public SessionP
      */
     void JoinSessionCB(QStatus status, SessionId id, const SessionOpts& opts, void* context);
 
+    /**
+     * Emit the range of cached sessionless signals [fromId, toId)
+     *
+     * @param msg       org.alljoyn.sl.ReqeustSignals or org.alljoyn.sl.RequestRange message
+     * @param fromId    Beginning of changeId range (inclusive)
+     * @param toId      End of changeId range (exclusive)
+     */
+    void HandleRangeRequest(Message& msg, uint32_t fromId, uint32_t toId);
+
+    /**
+     * Internal helper for FoundAdvertisedName.
+     *
+     * @param name        Advertised name that has been found.
+     * @param transport   Transport that received the advertisment
+     * @param catchUp     true if caller is intending to trigger rereceiption of sessionless signals.
+     */
+    QStatus HandleFoundAdvertisedName(const char* name, TransportMask transport, bool catchUp);
+
+    /**
+     * SessionLost helper handler.
+     *
+     * @param sessionId    Session id of lost session.
+     */
+    void DoSessionLost(uint32_t sessionId);
+
     Bus& bus;                             /**< The bus */
     BusController* busController;         /**< BusController that created this BusObject */
     DaemonRouter& router;                 /**< The router */
@@ -200,6 +255,7 @@ class SessionlessObj : public BusObject, public SessionListener, public SessionP
     const InterfaceDescription* sessionlessIface;  /**< org.alljoyn.Sessionless interface */
 
     const InterfaceDescription::Member* requestSignalsSignal;   /**< org.alljoyn.Sessionless.RequestSignal signal */
+    const InterfaceDescription::Member* requestRangeSignal;     /**< org.alljoyn.Sessionless.RequestRange signal */
 
     qcc::Timer timer;                     /**< Timer object for reaping expired names */
 
@@ -224,15 +280,31 @@ class SessionlessObj : public BusObject, public SessionListener, public SessionP
     /** Count the number of rules (per endpoint) that specify sesionless=TRUE */
     std::map<qcc::String, uint32_t> ruleCountMap;
 
+    /** CatchupState is used to track individual local clients that are behind the state of the server for a particular remote host */
+    struct CatchupState {
+        CatchupState() : changeId(0), sessionId(0) { }
+        CatchupState(const qcc::String& sender, const qcc::String& guid, uint32_t changeId, uint32_t sessionId) : sender(sender), guid(guid), changeId(changeId), sessionId(sessionId) { }
+        qcc::String sender;
+        qcc::String guid;
+        uint32_t changeId;
+        uint32_t sessionId;
+    };
+    /** Map sessionIds to catupStates */
+    std::map<uint32_t, CatchupState> catchupMap;
+
     /** Track the changeIds of the advertisments coming from other daemons */
     struct ChangeIdEntry {
       public:
-        ChangeIdEntry(const char* advName, uint32_t changeId, bool inProgress, uint32_t retries) : advName(advName), changeId(changeId), inProgress(inProgress), retries(retries) { }
+        ChangeIdEntry(const char* advName, TransportMask transport, uint32_t changeId, bool inProgress, uint32_t retries) :
+            advName(advName), transport(transport), changeId(changeId), inProgress(inProgress), retries(retries), catchupList() { }
         qcc::String advName;
+        TransportMask transport;
         uint32_t changeId;
         bool inProgress;
         uint32_t retries;
+        std::queue<CatchupState> catchupList;
     };
+    /** Map remote guid to ChangeIdEntry */
     std::map<qcc::String, ChangeIdEntry> changeIdMap;
 
     qcc::Mutex lock;            /**< Mutex that protects messageMap this obj's data structures */

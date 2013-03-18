@@ -339,6 +339,18 @@ class _RemoteEndpoint : public _BusEndpoint, public qcc::ThreadListener, public 
      */
     virtual qcc::String RedirectionAddress() { return ""; }
 
+    /**
+     * Get SessionId for endpoint.
+     * This is used for BusToBus endpoints only.
+     */
+    uint32_t GetSessionId();
+
+    /**
+     * Set SessionId for endpoint.
+     * This is used for BusToBus endpoints only.
+     */
+    void SetSessionId(uint32_t sessionId);
+
   protected:
 
     /**
@@ -391,7 +403,6 @@ class _RemoteEndpoint : public _BusEndpoint, public qcc::ThreadListener, public 
      * @param thread   Thread that exited.
      */
     void ThreadExit(qcc::Thread* thread);
-
 
     /**
      * Internal callback used to indicate that data is available on the File descriptor.

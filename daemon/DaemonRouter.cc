@@ -82,6 +82,26 @@ QStatus DaemonRouter::PushMessage(Message& msg, BusEndpoint& origSender)
     bool replyExpected = (msg->GetType() == MESSAGE_METHOD_CALL) && ((msg->GetFlags() & ALLJOYN_FLAG_NO_REPLY_EXPECTED) == 0);
     const char* destination = msg->GetDestination();
     SessionId sessionId = msg->GetSessionId();
+    bool isSessionless = msg->GetFlags() & ALLJOYN_FLAG_SESSIONLESS;
+
+    /*
+     * Sessionless messages don't have a session id even though they have a dedicated
+     * session to travel over. Therefore, get the sessionId from the endpoint if possible.
+     */
+    if (isSessionless && (sender->GetEndpointType() == ENDPOINT_TYPE_BUS2BUS)) {
+        /*
+         * The bus controller is responsible for "some" routing of sessionless signals.
+         * Specifically, sessionless signals that are received solely to "catch-up" a
+         * newly connected local client are routed directly to that client by the BusController.
+         * If RouteSessionlessSignal returns true, then the BusController has successfully
+         * routed the sessionless signal to its destination and no further action should be
+         * taken here. If it returns false, then the normal routing procedure should
+         * attempt to deliver the message.
+         */
+        if (busController->GetSessionlessObj().RouteSessionlessMessage(RemoteEndpoint::cast(sender)->GetSessionId(), msg)) {
+            return ER_OK;
+        }
+    }
 
     /*
      * If the message originated at the local endpoint check if the serial number needs to be
@@ -428,6 +448,14 @@ QStatus DaemonRouter::AddSessionRoute(SessionId id, BusEndpoint& srcEp, RemoteEn
             QCC_LogError(status, ("AddSessionRef(this=%s, %u, %s) failed", srcEp->GetUniqueName().c_str(), id, (*srcB2bEp)->GetUniqueName().c_str()));
             VirtualEndpoint::cast(destEp)->RemoveSessionRef(id);
         }
+    }
+
+    /* Set sessionId on B2B endpoints */
+    if (status == ER_OK) {
+        if (srcB2bEp) {
+            (*srcB2bEp)->SetSessionId(id);
+        }
+        destB2bEp->SetSessionId(id);
     }
 
     /* Add sessionCast entries */

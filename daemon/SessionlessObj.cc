@@ -73,6 +73,7 @@ SessionlessObj::SessionlessObj(Bus& bus, BusController* busController) :
     router(reinterpret_cast<DaemonRouter&>(bus.GetInternal().GetRouter())),
     sessionlessIface(NULL),
     requestSignalsSignal(NULL),
+    requestRangeSignal(NULL),
     timer("sessionless"),
     messageMap(),
     ruleCountMap(),
@@ -118,6 +119,7 @@ QStatus SessionlessObj::Init()
         return status;
     }
     intf->AddSignal("RequestSignals", "u", NULL, 0);
+    intf->AddSignal("RequestRange", "uu", NULL, 0);
     intf->Activate();
 
     /* Make this object implement org.alljoyn.Sessionless */
@@ -128,9 +130,11 @@ QStatus SessionlessObj::Init()
         return status;
     }
 
-    /* Cache requestSignals interface member */
+    /* Cache requestSignals and requestRange interface members */
     requestSignalsSignal = sessionlessIntf->GetMember("RequestSignals");
     assert(requestSignalsSignal);
+    requestRangeSignal = sessionlessIntf->GetMember("RequestRange");
+    assert(requestRangeSignal);
 
     /* Register a signal handler for requestSignals */
     status = bus.RegisterSignalHandler(this,
@@ -139,6 +143,15 @@ QStatus SessionlessObj::Init()
                                        NULL);
     if (status != ER_OK) {
         QCC_LogError(status, ("Failed to register RequestSignals signal handler"));
+    }
+
+    /* Register a signal handler for requestRange */
+    status = bus.RegisterSignalHandler(this,
+                                       static_cast<MessageReceiver::SignalHandler>(&SessionlessObj::RequestRangeSignalHandler),
+                                       requestRangeSignal,
+                                       NULL);
+    if (status != ER_OK) {
+        QCC_LogError(status, ("Failed to register RequestRange signal handler"));
     }
 
     /* Register signal handler for FoundAdvertisedName */
@@ -234,6 +247,17 @@ void SessionlessObj::AddRule(const qcc::String& epName, Rule& rule)
         map<String, uint32_t>::iterator it = ruleCountMap.find(epName);
         if (it == ruleCountMap.end()) {
             ruleCountMap.insert(pair<String, int>(epName, 1));
+            /*
+             * Since this is the first addMatch that specifies sessionless='t'
+             * from this client, we need to re-receive previous signals for
+             * this client (implicitly) if this daemon has previously received
+             * sessionless signals for any client.
+             */
+            if (isDiscoveryStarted) {
+                lock.Unlock();
+                RereceiveMessages(epName, "");
+                lock.Lock();
+            }
         } else {
             it->second++;
         }
@@ -303,6 +327,44 @@ QStatus SessionlessObj::PushMessage(Message& msg)
     return status;
 }
 
+bool SessionlessObj::RouteSessionlessMessage(uint32_t sessionId, Message& msg)
+{
+    QCC_DbgTrace(("SessionlessObj::RouteSessionlessMessage(sid=%d, sn=%d)", sessionId, msg->GetCallSerial()));
+
+    /*
+     * Check to see if this sessionId is for a catchup. If it is, it gets routed here
+     * otherwise, return false and it will get routed (in the standard way) by
+     * DaemonRouter.
+     */
+    bool ret = false;
+    lock.Lock();
+    map<uint32_t, CatchupState>::const_iterator it = catchupMap.find(sessionId);
+    if (it != catchupMap.end()) {
+        String epName = it->second.sender;
+        lock.Unlock();
+        router.LockNameTable();
+        BusEndpoint ep = router.FindEndpoint(epName);
+        if (ep->IsValid()) {
+            QStatus status;
+            router.UnlockNameTable();
+            if (ep->GetEndpointType() == ENDPOINT_TYPE_VIRTUAL) {
+                status = VirtualEndpoint::cast(ep)->PushMessage(msg, sessionId);
+            } else {
+                status = ep->PushMessage(msg);
+            }
+            if (status != ER_OK) {
+                QCC_LogError(status, ("PushMessage to %s failed", epName.c_str()));
+            }
+        } else {
+            router.UnlockNameTable();
+        }
+        ret = true;
+    } else {
+        lock.Unlock();
+    }
+    return ret;
+}
+
 QStatus SessionlessObj::CancelMessage(const qcc::String& sender, uint32_t serialNum)
 {
     QStatus status = ER_BUS_NO_SUCH_MESSAGE;
@@ -331,6 +393,60 @@ QStatus SessionlessObj::CancelMessage(const qcc::String& sender, uint32_t serial
         SessionlessObj* slObj = this;
         status = timer.AddAlarm(Alarm(zero, slObj));
     }
+
+    return status;
+}
+
+QStatus SessionlessObj::RereceiveMessages(const qcc::String& sender, const qcc::String& guid)
+{
+    QStatus status = ER_OK;
+    QCC_DbgTrace(("SessionlessObj::RereceiveMessages(%s, %s)", sender.c_str(), guid.c_str()));
+    uint64_t now = GetTimestamp64();
+    const uint64_t timeoutValue = 18000;
+
+    lock.Lock();
+
+    map<String, ChangeIdEntry>::iterator it = guid.empty() ? changeIdMap.begin() : changeIdMap.find(guid);
+    while ((status == ER_OK) && (it != changeIdMap.end())) {
+        String lastGuid = it->first;
+
+        /* Wait for inProgress to be false */
+        while ((it != changeIdMap.end()) && it->second.inProgress && (GetTimestamp64() < (now + timeoutValue))) {
+            lock.Unlock();
+            qcc::Sleep(5);
+            lock.Lock();
+            it = changeIdMap.lower_bound(lastGuid);
+            if (it != changeIdMap.end()) {
+                lastGuid = it->first;
+            }
+        }
+
+        /* Process this guid */
+        if (GetTimestamp64() >= (now + timeoutValue)) {
+            status = ER_TIMEOUT;
+        } else if (it != changeIdMap.end()) {
+            assert(!it->second.inProgress);
+
+            /* Add new catchup state */
+            uint32_t beginState = it->second.changeId - (numeric_limits<uint32_t>::max() >> 1);
+            it->second.catchupList.push(CatchupState(sender, it->first, beginState, 0));
+
+            /* Trigger an artificial FoundAdvertisedName to get the sessions rolling */
+            String advName = it->second.advName;
+            lock.Unlock();
+            HandleFoundAdvertisedName(advName.c_str(), it->second.transport, true);
+            lock.Lock();
+            it = changeIdMap.lower_bound(lastGuid);
+        }
+
+        /* Continue with other guids if guid is empty. (empty means all) */
+        if (!guid.empty()) {
+            break;
+        } else if ((it != changeIdMap.end()) && (it->first == lastGuid)) {
+            ++it;
+        }
+    }
+    lock.Unlock();
 
     return status;
 }
@@ -372,9 +488,16 @@ void SessionlessObj::FoundAdvertisedNameSignalHandler(const InterfaceDescription
     TransportMask transport;
     const char* prefix;
     QStatus status = msg->GetArgs("sqs", &name, &transport, &prefix);
-    if (status != ER_OK) {
+    if (status == ER_OK) {
+        HandleFoundAdvertisedName(name, transport, false);
+    } else {
         QCC_LogError(status, ("SessionlessObj::FoundAdvNameSigHnd failed to parse msg args"));
     }
+}
+
+QStatus SessionlessObj::HandleFoundAdvertisedName(const char* name, TransportMask transport, bool catchUp)
+{
+    QStatus status = ER_OK;
 
     /* Examine found name to see if we need to connect to it */
     String nameStr(name);
@@ -388,7 +511,7 @@ void SessionlessObj::FoundAdvertisedNameSignalHandler(const InterfaceDescription
     }
     if (guidPos == String::npos) {
         QCC_LogError(ER_FAIL, ("Found invalid name \"%s\"", name));
-        return;
+        return ER_FAIL;
     }
     String guid = nameStr.substr(guidPos + 2, changePos - guidPos - 2);
     QCC_DbgPrintf(("Found sessionless adv: guid=%s, changeId=%d", guid.c_str(), changeId));
@@ -397,32 +520,38 @@ void SessionlessObj::FoundAdvertisedNameSignalHandler(const InterfaceDescription
     lock.Lock();
     map<String, ChangeIdEntry>::iterator it = changeIdMap.find(guid);
     bool updateChangeIdMap = (it == changeIdMap.end()) || IS_GREATER(uint32_t, changeId, it->second.changeId);
-    if (updateChangeIdMap) {
+    if (updateChangeIdMap || catchUp) {
         if ((it == changeIdMap.end()) || !it->second.inProgress) {
             /* Attempt to join session with advertised name */
             SessionOpts opts = sessionOpts;
             opts.transports = transport;
             pair<uint32_t, String>* ctx = new pair<uint32_t, String>(changeId, name);
-            QStatus status = bus.JoinSessionAsync(name, sessionPort, this, opts, this, reinterpret_cast<void*>(ctx));
+            status = bus.JoinSessionAsync(name, sessionPort, this, opts, this, reinterpret_cast<void*>(ctx));
             if (status == ER_OK) {
                 if (it == changeIdMap.end()) {
-                    changeIdMap.insert(pair<String, ChangeIdEntry>(guid, ChangeIdEntry(name, numeric_limits<uint32_t>::max(), true, 0)));
+                    changeIdMap.insert(pair<String, ChangeIdEntry>(guid, ChangeIdEntry(name, transport, numeric_limits<uint32_t>::max(), true, 0)));
                 } else {
-                    it->second.advName = name;
+                    if (!catchUp) {
+                        it->second.advName = name;
+                    }
                     it->second.inProgress = true;
                     it->second.retries = 0;
+                    it->second.transport = transport;
                 }
             } else {
                 QCC_LogError(status, ("JoinSessionAsync failed"));
                 delete ctx;
             }
         } else {
-            /* Join already in progress so update to advName */
-            it->second.advName = name;
-            it->second.retries = 0;
+            /* Join already in progress so update advName */
+            if (!catchUp) {
+                it->second.advName = name;
+                it->second.retries = 0;
+            }
         }
     }
     lock.Unlock();
+    return status;
 }
 
 bool SessionlessObj::AcceptSessionJoiner(SessionPort port,
@@ -440,56 +569,106 @@ void SessionlessObj::SessionLostSignalHandler(const InterfaceDescription::Member
     uint32_t sessionId = 0;
     msg->GetArgs("u", &sessionId);
     QCC_DbgTrace(("SessionlessObj::SessionLostSignalHandler(0x%x)", sessionId));
+    DoSessionLost(sessionId);
+}
+
+void SessionlessObj::DoSessionLost(uint32_t sessionId)
+{
+    /* Cleanup catchupMap */
+    lock.Lock();
+    map<uint32_t, CatchupState>::iterator it = catchupMap.find(sessionId);
+    if (it != catchupMap.end()) {
+        String guid = it->second.guid;
+        catchupMap.erase(it);
+        map<String, ChangeIdEntry>::iterator cit = changeIdMap.find(guid);
+        if (cit != changeIdMap.end()) {
+            /* Reset inProgress */
+            cit->second.inProgress = false;
+            /* Retrigger FoundAdvName in case a real one occured during the catchup */
+            String advName = cit->second.advName;
+            TransportMask transport = cit->second.transport;
+            lock.Unlock();
+            HandleFoundAdvertisedName(advName.c_str(), transport, false);
+        } else {
+            lock.Unlock();
+        }
+    } else {
+        lock.Unlock();
+    }
 }
 
 void SessionlessObj::RequestSignalsSignalHandler(const InterfaceDescription::Member* member,
                                                  const char* sourcePath,
                                                  Message& msg)
 {
-    QCC_DbgTrace(("SessionlessObj::RequestSignalsSignalHandler(%s, %s, ...)", member->name.c_str(), sourcePath));
+    QCC_DbgTrace(("SessionlessObj::RequestSignalsHandler(%s, %s, ...)", member->name.c_str(), sourcePath));
+    uint32_t fromId;
+    QStatus status = msg->GetArgs("u", &fromId);
+    if (status == ER_OK) {
+        /* Send all signals in the half-max-uint32 range from [fromIdx, fromIdx + max(uint32)/2) */
+        HandleRangeRequest(msg, fromId, fromId + (numeric_limits<uint32_t>::max() >> 1));
+    } else {
+        QCC_LogError(status, ("Message::GetArgs failed"));
+    }
+}
+
+void SessionlessObj::RequestRangeSignalHandler(const InterfaceDescription::Member* member,
+                                               const char* sourcePath,
+                                               Message& msg)
+{
+    QCC_DbgTrace(("SessionlessObj::RequestRangeHandler(%s, %s, ...)", member->name.c_str(), sourcePath));
+    uint32_t fromId, toId;
+    QStatus status = msg->GetArgs("uu", &fromId, &toId);
+    if (status == ER_OK) {
+        HandleRangeRequest(msg, fromId, toId);
+    } else {
+        QCC_LogError(status, ("Message::GetArgs failed"));
+    }
+}
+
+void SessionlessObj::HandleRangeRequest(Message& msg, uint32_t fromChangeId, uint32_t toChangeId)
+{
+    QStatus status = ER_OK;
+    QCC_DbgTrace(("SessionlessObj::HandleControlSignal(%d, %d)", fromChangeId, toChangeId));
 
     /* Enable concurrency since PushMessage could block */
     bus.EnableConcurrentCallbacks();
 
-    /* Send all messages in messageMap whose changeId is >= requested changeId */
-    if (msg->GetType() == MESSAGE_SIGNAL) {
-        uint32_t fromChangeId;
-        QStatus status = msg->GetArgs("u", &fromChangeId);
-        if (status == ER_OK) {
-            lock.Lock();
-            map<MessageMapKey, pair<uint32_t, Message> >::iterator it = messageMap.begin();
-            while (it != messageMap.end()) {
-                if (IS_GREATER_OR_EQUAL(uint32_t, it->second.first, fromChangeId)) {
-                    MessageMapKey key = it->first;
-                    lock.Unlock();
-                    router.LockNameTable();
-                    BusEndpoint ep = router.FindEndpoint(msg->GetSender());
-                    if (ep->IsValid()) {
-                        router.UnlockNameTable();
-                        if (ep->GetEndpointType() == ENDPOINT_TYPE_VIRTUAL) {
-                            status = VirtualEndpoint::cast(ep)->PushMessage(it->second.second, msg->GetSessionId());
-                        } else {
-                            status = ep->PushMessage(it->second.second);
-                        }
-                    } else {
-                        router.UnlockNameTable();
-                    }
-                    lock.Lock();
-                    it = messageMap.upper_bound(key);
-                    if (status != ER_OK) {
-                        QCC_LogError(status, ("Failed to push sessionless signal to %s", msg->GetDestination()));
-                    }
-                } else {
-                    ++it;
-                }
-            }
+    /* Send all messages in messageMap in range [fromChangeId, toChangeId) */
+    lock.Lock();
+    map<MessageMapKey, pair<uint32_t, Message> >::iterator it = messageMap.begin();
+    uint32_t rangeLen = toChangeId - fromChangeId;
+    while (it != messageMap.end()) {
+        if (IN_WINDOW(uint32_t, fromChangeId, rangeLen, it->second.first)) {
+            MessageMapKey key = it->first;
             lock.Unlock();
-            /* Close the session */
-            status = bus.LeaveSession(msg->GetSessionId());
-            if (status != ER_OK) {
-                QCC_LogError(status, ("LeaveSession failed"));
+            router.LockNameTable();
+            BusEndpoint ep = router.FindEndpoint(msg->GetSender());
+            if (ep->IsValid()) {
+                router.UnlockNameTable();
+                if (ep->GetEndpointType() == ENDPOINT_TYPE_VIRTUAL) {
+                    status = VirtualEndpoint::cast(ep)->PushMessage(it->second.second, msg->GetSessionId());
+                } else {
+                    status = ep->PushMessage(it->second.second);
+                }
+            } else {
+                router.UnlockNameTable();
             }
+            lock.Lock();
+            it = messageMap.upper_bound(key);
+            if (status != ER_OK) {
+                QCC_LogError(status, ("Failed to push sessionless signal to %s", msg->GetDestination()));
+            }
+        } else {
+            ++it;
         }
+    }
+    lock.Unlock();
+
+    /* Close the session */
+    status = bus.LeaveSession(msg->GetSessionId());
+    if (status != ER_OK) {
+        QCC_LogError(status, ("LeaveSession failed"));
     }
 }
 
@@ -586,16 +765,50 @@ void SessionlessObj::JoinSessionCB(QStatus status, SessionId id, const SessionOp
         return;
     }
 
-    /* Send out RequestSignals message if join was successful. Otherwise retry. */
+    /* Send out RequestSignals or RequestRange message if join was successful. Otherwise retry. */
     lock.Lock();
     map<String, ChangeIdEntry>::iterator cit = changeIdMap.find(guid);
     if (cit != changeIdMap.end()) {
         String advName = cit->second.advName;
+        bool isCatchup = false;
+        CatchupState catchup;
+
+        /* Check to see if there are any pending catch ups */
         uint32_t requestChangeId = cit->second.changeId + 1;
         if (status == ER_OK) {
-            /* Update changeIdMap */
-            cit->second.changeId = ctx1->first;
-            cit->second.inProgress = false;
+            if (cit->second.catchupList.empty()) {
+                /* No catchups pending. Update changeIdMap */
+                cit->second.changeId = ctx1->first;
+                cit->second.inProgress = false;
+            } else {
+                /* Check to see if session host is capable of handling RequestSignalRange */
+                bool rangeCapable = false;
+                BusEndpoint ep = router.FindEndpoint(ctx1->second);
+                router.LockNameTable();
+                if (ep->IsValid() && (ep->GetEndpointType() == ENDPOINT_TYPE_VIRTUAL)) {
+                    RemoteEndpoint rep = VirtualEndpoint::cast(ep)->GetBusToBusEndpoint(id);
+                    if (rep->IsValid()) {
+                        rangeCapable = (rep->GetRemoteProtocolVersion() >= 6);
+                    }
+                }
+                router.UnlockNameTable();
+                if (rangeCapable) {
+                    /* Handle head of catchup list */
+                    isCatchup = true;
+                    catchup = cit->second.catchupList.front();
+                    cit->second.catchupList.pop();
+                } else {
+                    /* This session cant be used for catchup because remote side doesn't support it */
+                    /* Just clear the catchupList and move on as if it was the non-catchup case */
+                    while (!cit->second.catchupList.empty()) {
+                        cit->second.catchupList.pop();
+                    }
+                    cit->second.inProgress = false;
+                    bus.LeaveSession(id);
+                    DoSessionLost(id);
+                    status = ER_NONE;
+                }
+            }
         } else {
             /* Retry JoinSession if retries aren't exhausted */
             if (cit->second.retries++ < MAX_JOINSESSION_RETRIES) {
@@ -620,12 +833,32 @@ void SessionlessObj::JoinSessionCB(QStatus status, SessionId id, const SessionOp
             busController->GetAllJoynObj().SetAdvNameAlias(guid, opts.transports, advName);
 
             /* Send the signal if join was successful */
-            MsgArg args[1];
-            args[0].Set("u", requestChangeId);
-            QCC_DbgPrintf(("Sending RequestSignals (changeId=%d) to %s\n", ctx1->first, advName.c_str()));
-            status = Signal(advName.c_str(), id, *requestSignalsSignal, args, ArraySize(args));
-            if (status != ER_OK) {
-                QCC_LogError(status, ("Failed to send signal to %s", advName.c_str()));
+            if (isCatchup) {
+                /* Put catchup on catchupMap */
+                catchupMap[id] = catchup;
+
+                MsgArg args[2];
+                args[0].Set("u", catchup.changeId);
+                args[1].Set("u", requestChangeId);
+                QCC_DbgPrintf(("Sending RequestRange (from=%d, to=%d) to %s\n", catchup.changeId, requestChangeId, advName.c_str()));
+                status = Signal(advName.c_str(), id, *requestRangeSignal, args, ArraySize(args));
+                if (status != ER_OK) {
+                    catchupMap.erase(id);
+                    QCC_LogError(status, ("RequestRange to %s failed", advName.c_str()));
+                    /* Reset inProgress */
+                    cit = changeIdMap.find(guid);
+                    if (cit != changeIdMap.end()) {
+                        cit->second.inProgress = false;
+                    }
+                }
+            } else {
+                MsgArg args[1];
+                args[0].Set("u", requestChangeId);
+                QCC_DbgPrintf(("Sending RequestSignals (changeId=%d) to %s\n", requestChangeId, advName.c_str()));
+                status = Signal(advName.c_str(), id, *requestSignalsSignal, args, ArraySize(args));
+                if (status != ER_OK) {
+                    QCC_LogError(status, ("Failed to send RequestSignals to %s", advName.c_str()));
+                }
             }
         }
     } else {
