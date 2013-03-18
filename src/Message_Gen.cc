@@ -567,7 +567,7 @@ QStatus _Message::DeliverNonBlocking(RemoteEndpoint& endpoint)
         if (handles) {
             status = sink.PushBytesAndFds(writePtr, countWrite, pushed, handles, numHandles, endpoint->GetProcessId());
         } else {
-            status = sink.PushBytes(writePtr, countWrite, pushed, ttl);
+            status = sink.PushBytes(writePtr, countWrite, pushed, (msgHeader.flags & ALLJOYN_FLAG_SESSIONLESS) ? (ttl * 1000) : ttl);
         }
 
         if (status == ER_OK) {
