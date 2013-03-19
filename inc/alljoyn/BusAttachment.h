@@ -969,11 +969,11 @@ class BusAttachment : public MessageReceiver {
     QStatus RegisterKeyStoreListener(KeyStoreListener& listener);
 
     /**
-     * Set a key store listener to listen for key store load and store requests.
-     * This overrides the internal key store listener.
+     * Unregister a previously registered KeyStore. This will return control for
+     * load and store requests to the default internal keystore listener.
      *
      * @return
-     *      - #ER_OK if the default key store was set
+     *      - #ER_OK if the key store Unregistered
      */
     QStatus UnregisterKeyStoreListener();
 
@@ -1547,7 +1547,7 @@ class BusAttachment : public MessageReceiver {
      * Each transport type defines a lower bound on link timeout to avoid defeating transport
      * specific power management algorithms.
      *
-     * This call executes asynchronously. When the JoinSession response is received, the callback will be called.
+     * This call executes asynchronously. When the SetLinkTimeout response is received, the callback will be called.
      *
      * For Windows 8 see also these sample file(s): @n
      * cpp/Chat/Chat/AllJoynObjects.cpp @n
