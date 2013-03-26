@@ -721,7 +721,11 @@ void* _TCPEndpoint::AuthThread::Run(void* arg)
     qcc::String redirection;
     DaemonRouter& router = reinterpret_cast<DaemonRouter&>(m_endpoint->m_transport->m_bus.GetInternal().GetRouter());
     AuthListener* authListener = router.GetBusController()->GetAuthListener();
-    status = m_endpoint->Establish("ALLJOYN_PIN_KEYX ANONYMOUS", authName, redirection, authListener);
+    if (authListener) {
+        status = m_endpoint->Establish("ALLJOYN_PIN_KEYX ANONYMOUS", authName, redirection, authListener);
+    } else {
+        status = m_endpoint->Establish("ANONYMOUS", authName, redirection, authListener);
+    }
     if (status != ER_OK) {
         m_endpoint->m_stream.Close();
         QCC_LogError(status, ("Failed to establish TCP endpoint"));
