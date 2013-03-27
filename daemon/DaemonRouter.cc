@@ -30,6 +30,7 @@
 #include <qcc/Util.h>
 #include <qcc/atomic.h>
 
+#include <alljoyn/AllJoynStd.h>
 #include <alljoyn/Status.h>
 
 #include "BusController.h"
@@ -216,12 +217,33 @@ QStatus DaemonRouter::PushMessage(Message& msg, BusEndpoint& origSender)
                 status = busController->PushSessionlessMessage(msg);
             }
         } else if (msg->IsGlobalBroadcast()) {
+            /*
+             * A bit of explanation is needed here.  The AllJoyn daemon-to-daemon method
+             * "DetachSession" is sent with session id == 0 (and NULL dest) rather than using the
+             * session id being detached. This is because the receiver of the detach session message
+             * is the bus controller of the session participant and is therefore not a member of the
+             * session.  Unfortunately, because of the lack of a session id in this message, it was
+             * discovered that the detach session message was capable of arriving at its destination
+             * BEFORE the last user message(s) were received over the session. This caused
+             * occasional loss of user data when there was more than one B2B endpoint that could
+             * route to the receiving bus controller.
+             *
+             * The fix to this problem is unfortunately needed here. If the message is using
+             * sessionId 0 and the message is a detach session message, then the session id in the
+             * message body is used for selecting a B2B endpoint rather than the one that is in the
+             * message header (0).
+             */
+            if ((sessionId == 0) && (::strcmp("DetachSession", msg->GetMemberName()) == 0) && (::strcmp(org::alljoyn::Daemon::InterfaceName, msg->GetInterface()) == 0)) {
+                msg->UnmarshalArgs("us");
+                sessionId = msg->GetArg(0)->v_uint32;
+            }
+
             /* Route global broadcast to all bus-to-bus endpoints that aren't the sender of the message */
             m_b2bEndpointsLock.Lock(MUTEX_CONTEXT);
             set<RemoteEndpoint>::iterator it = m_b2bEndpoints.begin();
             while (it != m_b2bEndpoints.end()) {
                 RemoteEndpoint ep = *it;
-                if (ep != origSender) {
+                if ((ep != origSender) && ((sessionId == 0) || ep->GetSessionId() == sessionId)) {
                     m_b2bEndpointsLock.Unlock(MUTEX_CONTEXT);
                     BusEndpoint busEndpoint = BusEndpoint::cast(ep);
                     QStatus tStatus = SendThroughEndpoint(msg, busEndpoint, sessionId);

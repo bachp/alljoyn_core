@@ -561,10 +561,10 @@ QStatus _Message::UnmarshalArgs(const qcc::String& expectedSignature, const char
     int _numMsgArgs = 0;
     MsgArg* _msgArgs = NULL;
 
-    /*
-     * We don't expect the message to have already been unmarshaled.
-     */
-    assert(msgArgs == NULL);
+    /* Check if message body is already unmarshaled */
+    if (msgArgs != NULL) {
+        return ER_OK;
+    }
 
     if (!bus->IsStarted()) {
         return ER_BUS_BUS_NOT_STARTED;
