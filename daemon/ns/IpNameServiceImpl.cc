@@ -447,7 +447,7 @@ bool IpNameServiceImplWildcardMatch(qcc::String str, qcc::String pat)
 
 IpNameServiceImpl::IpNameServiceImpl()
     : Thread("IpNameServiceImpl"), m_state(IMPL_SHUTDOWN), m_isProcSuspending(false),
-    m_terminal(false), m_timer(0), m_tDuration(DEFAULT_DURATION),
+    m_terminal(false), m_protect_callback(false), m_timer(0), m_tDuration(DEFAULT_DURATION),
     m_tRetransmit(RETRANSMIT_TIME), m_tQuestion(QUESTION_TIME),
     m_modulus(QUESTION_MODULUS), m_retries(NUMBER_RETRIES),
     m_loopback(false), m_enableIPv4(false), m_enableIPv6(false),
@@ -1612,6 +1612,12 @@ QStatus IpNameServiceImpl::SetCallback(TransportMask transportMask,
 
     // printf("%s: m_mutex.Lock()\n", __FUNCTION__);
     m_mutex.Lock();
+    // Wait till the callback is in use.
+    while (m_protect_callback) {
+        m_mutex.Unlock();
+        qcc::Sleep(2);
+        m_mutex.Lock();
+    }
 
     Callback<void, const qcc::String&, const qcc::String&, vector<qcc::String>&, uint8_t>*  goner = m_callback[i];
     m_callback[i] = NULL;
@@ -1630,6 +1636,12 @@ void IpNameServiceImpl::ClearCallbacks(void)
 
     // printf("%s: m_mutex.Lock()\n", __FUNCTION__);
     m_mutex.Lock();
+    // Wait till the callback is in use.
+    while (m_protect_callback) {
+        m_mutex.Unlock();
+        qcc::Sleep(2);
+        m_mutex.Lock();
+    }
 
     //
     // Delete any callbacks that any users of this class may have set.
@@ -2279,10 +2291,16 @@ QStatus IpNameServiceImpl::OnProcResume()
 
 void IpNameServiceImpl::QueueProtocolMessage(Header& header)
 {
+    // Maximum number of IpNameService protocol messages that can be queued.
+    static const size_t MAX_IPNS_MESSAGES = 50;
     QCC_DbgPrintf(("IpNameServiceImpl::QueueProtocolMessage()"));
 
     // printf("%s: m_mutex.Lock()\n", __FUNCTION__);
     m_mutex.Lock();
+    if (m_outbound.size() > MAX_IPNS_MESSAGES) {
+        m_mutex.Unlock();
+        return;
+    }
     m_outbound.push_back(header);
     m_wakeEvent.SetEvent();
     // printf("%s: m_mutex.Unlock()\n", __FUNCTION__);
@@ -2387,23 +2405,6 @@ void IpNameServiceImpl::SendProtocolMessage(
 {
     QCC_DbgPrintf(("IpNameServiceImpl::SendProtocolMessage()"));
 
-    //
-    // Legacy 802.11 MACs do not do backoff and retransmission of packets
-    // destined for multicast addresses.  Therefore if there is a collision
-    // on the air, a multicast packet will be silently dropped.  We get
-    // no indication of this at all up at the Socket level.  When a remote
-    // daemon makes a WhoHas request, we have to be very careful about
-    // ensuring that all other daemons on the net don't try to respond at
-    // the same time.  That would mean that all responses could result in
-    // collisions and all responses would be lost.  We delay a short
-    // random time before sending anything to avoid the thundering herd.
-    //
-    // This also works to limit the number of name service messages that
-    // can be sent out on the network for any given amount of time; which
-    // is good for preventing our users from trying to advertise zillions
-    // of names and flooding the net.
-    //
-    qcc::Sleep(rand() % 128);
 
 #if HAPPY_WANDERER
     if (Wander() == false) {
@@ -3283,6 +3284,16 @@ void IpNameServiceImpl::SendOutboundMessages(void)
         // make sense, so we can discard it and loop back for another.
         //
         m_outbound.pop_front();
+
+        // This is to limit the number of name service messages that
+        // can be sent out on the network for any given amount of time; which
+        // is good for preventing our users from trying to advertise zillions
+        // of names and flooding the net.
+        //
+        m_mutex.Unlock();
+        qcc::Sleep(rand() % 128);
+        m_mutex.Lock();
+
     }
 }
 
@@ -3521,6 +3532,7 @@ void* IpNameServiceImpl::Run(void* arg)
                 // to do any protocol maintenance, like retransmitting queued
                 // advertisements.
                 //
+
                 DoPeriodicMaintenance();
             } else if (*i == &m_wakeEvent) {
                 QCC_DbgPrintf(("IpNameServiceImpl::Run(): Wake event fired"));
@@ -4225,12 +4237,13 @@ void IpNameServiceImpl::HandleProtocolAnswer(IsAt isAt, uint32_t timer, qcc::IPA
     }
 
     //
-    // We need mutex protection since other threads can call in and change the
-    // callback out from under us if we do not use protection.  Taking a lock
-    // and holding it during the callback is a bit dangerous, but if we want to
-    // have a contract that says we won't ever send out a callback after it is
-    // cleared, we do have to hold that lock until all of our callbacks return
-    // back into this class.  We therefore do expect that callbacks won't do
+    // We need protection since other threads can call in and change the
+    // callback out from under us if we do not use protection.
+    // We want to have a contract that says we won't ever send out a
+    // callback after it is cleared.  Taking a lock
+    // and holding it during the callback is a bit dangerous, so we grab the lock,
+    // set m_protect_callback to true and then release the lock before making the
+    // callback. We therefore do expect that callbacks won't do
     // something silly like call back and cancel callbacks or make some other
     // call back into this class from another direction.
     //
@@ -4371,8 +4384,13 @@ void IpNameServiceImpl::HandleProtocolAnswer(IsAt isAt, uint32_t timer, qcc::IPA
             qcc::String busAddress(addrbuf);
 
             if (m_callback[transportIndex]) {
+                m_protect_callback = true;
+                m_mutex.Unlock();
                 QCC_DbgPrintf(("IpNameServiceImpl::HandleProtocolAnswer(): Calling back with %s", addrbuf));
                 (*m_callback[transportIndex])(busAddress, guid, wkn, timer);
+                m_mutex.Lock();
+                m_protect_callback = false;
+
             }
         }
 
@@ -4385,8 +4403,14 @@ void IpNameServiceImpl::HandleProtocolAnswer(IsAt isAt, uint32_t timer, qcc::IPA
             qcc::String busAddress(addrbuf);
 
             if (m_callback[transportIndex]) {
+                m_protect_callback = true;
+                m_mutex.Unlock();
+
                 QCC_DbgPrintf(("IpNameServiceImpl::HandleProtocolAnswer(): Calling back with %s", addrbuf));
                 (*m_callback[transportIndex])(busAddress, guid, wkn, timer);
+                m_mutex.Lock();
+                m_protect_callback = false;
+
             }
         }
 
@@ -4399,8 +4423,14 @@ void IpNameServiceImpl::HandleProtocolAnswer(IsAt isAt, uint32_t timer, qcc::IPA
             qcc::String busAddress(addrbuf);
 
             if (m_callback[transportIndex]) {
+                m_protect_callback = true;
+                m_mutex.Unlock();
+
                 QCC_DbgPrintf(("IpNameServiceImpl::HandleProtocolAnswer(): Calling back with %s", addrbuf));
                 (*m_callback[transportIndex])(busAddress, guid, wkn, timer);
+                m_mutex.Lock();
+                m_protect_callback = false;
+
             }
         }
     } else if (msgVersion == 1) {
@@ -4489,8 +4519,14 @@ void IpNameServiceImpl::HandleProtocolAnswer(IsAt isAt, uint32_t timer, qcc::IPA
         qcc::String busAddress(addrbuf);
 
         if (m_callback[transportIndex]) {
+            m_protect_callback = true;
+            m_mutex.Unlock();
+
             QCC_DbgPrintf(("IpNameServiceImpl::HandleProtocolAnswer(): Calling back with %s", busAddress.c_str()));
             (*m_callback[transportIndex])(busAddress, guid, wkn, timer);
+            m_mutex.Lock();
+            m_protect_callback = false;
+
         }
     }
 

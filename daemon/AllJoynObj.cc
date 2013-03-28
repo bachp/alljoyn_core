@@ -2490,7 +2490,6 @@ QStatus AllJoynObj::ProcCancelAdvertise(const qcc::String& sender, const qcc::St
             ++it;
         }
     }
-    ReleaseLocks();
 
     /* Cancel transport advertisement if no other refs exist */
     if (foundAdvert && !advertHasRefs) {
@@ -2507,6 +2506,8 @@ QStatus AllJoynObj::ProcCancelAdvertise(const qcc::String& sender, const qcc::St
     } else if (!foundAdvert) {
         status = ER_FAIL;
     }
+    ReleaseLocks();
+
     return status;
 }
 
@@ -2557,7 +2558,6 @@ void AllJoynObj::FindAdvertisedName(const InterfaceDescription::Member* member, 
         }
 
         /* Find name on all remote transports */
-        ReleaseLocks();
         if (notifyTransports) {
             TransportList& transList = bus.GetInternal().GetTransportList();
             TransportPermission::GetForbiddenTransports(uid, transList, transForbidden, "AllJoynObj::FindAdvertisedName");
@@ -2573,9 +2573,8 @@ void AllJoynObj::FindAdvertisedName(const InterfaceDescription::Member* member, 
                 }
             }
         }
-    } else {
-        ReleaseLocks();
     }
+    ReleaseLocks();
 
     /* Reply to request */
     MsgArg replyArg("u", replyCode);

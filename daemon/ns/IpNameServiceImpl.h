@@ -855,6 +855,13 @@ class IpNameServiceImpl : public qcc::Thread {
     qcc::Mutex m_mutex;
 
     /**
+     * @internal
+     * @brief Variable used to indicate that callbacks are currently in use and
+     * may not be deleted.
+     */
+    bool m_protect_callback;
+
+    /**
      * Send outbound name service messages out the current live interfaces.
      */
     void SendOutboundMessages(void);

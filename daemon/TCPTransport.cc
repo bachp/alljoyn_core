@@ -1668,23 +1668,6 @@ void* TCPTransport::Run(void* arg)
             }
         }
 
-        /*
-         * If we're not stopping, we always check for queued requests to start
-         * and stop listening on address and port combinations (listen specs).
-         * We need to change the state of the sockets in one place (here) to
-         * ensure that we don't ever end up with Events that contain references
-         * to closed Sockets; and this is the one place were we can be assured
-         * we don't have those Events live.
-         *
-         * When we loop back to the top of the server accept loop, we will
-         * re-evaluate the list of listenFds and create new Events based on the
-         * current state of the list (after we remove or add anything here).
-         *
-         * We also take this opportunity to run the state machine that deals
-         * with whether or not to enable TCP listeners and the name service
-         * UDP listeners.
-         */
-        RunListenMachine();
     }
 
     /*
@@ -1841,125 +1824,109 @@ void* TCPTransport::Run(void* arg)
  *   m_isDiscovering: The list of discovery requests has been sent to the name
  *     service.  If we are m_isDiscovering then m_isNsEnabled must be true.
  */
-void TCPTransport::RunListenMachine(void)
+void TCPTransport::RunListenMachine(ListenRequest& listenRequest)
 {
     QCC_DbgPrintf(("TCPTransport::RunListenMachine()"));
+    /*
+     * Do some consistency checks to make sure we're not confused about what
+     * is going on.
+     *
+     * First, if we are not listening, then we had better not think we're
+     * quetly advertising, actively advertising or discovering.  If we are
+     * not listening, then the name service must not be enabled and sending
+     * or responding to external daemons.
+     */
+    if (m_isListening == false) {
+        assert(m_isAdvertising == false);
+        assert(m_isAdvertisingQuietly == false);
+        assert(m_isDiscovering == false);
+        assert(m_isNsEnabled == false);
+    }
 
-    while (m_listenRequests.empty() == false) {
-        QCC_DbgPrintf(("TCPTransport::RunListenMachine(): Do request."));
+    /*
+     * If we think the name service is enabled, it had better think it is
+     * enabled.  It must be enabled either because we are actively
+     * advertising, quietly advertising or we are discovering.  If we are
+     * actively advertising, quietly advertising or discovering, then there
+     * must be listeners waiting for connections as a result of those
+     * advertisements or discovery requests.  If there are listeners, then
+     * there must be a non-zero listenPort.
+     */
+    if (m_isNsEnabled) {
+        assert(m_isAdvertising || m_isAdvertisingQuietly || m_isDiscovering);
+        assert(m_isListening);
+        assert(m_listenPort);
+    }
 
-        /*
-         * Pull a request to do a listen request off of the queue of requests.
-         * These requests relate to starting and stopping discovery and
-         * advertisements; and also whether or not to listen for inbound
-         * connections.
-         */
-        m_listenRequestsLock.Lock(MUTEX_CONTEXT);
-        ListenRequest listenRequest = m_listenRequests.front();
-        m_listenRequests.pop();
-        m_listenRequestsLock.Unlock(MUTEX_CONTEXT);
+    /*
+     * If we think we are actively advertising, we'd better have an entry in
+     * the active advertisements list to advertise, and there must be
+     * listeners waiting for inbound connections as a result of those
+     * advertisements.  If we are actively advertising the name service had
+     * better be enabled.
+     */
+    if (m_isAdvertising) {
+        assert(!m_advertising.empty());
+        assert(m_isListening);
+        assert(m_listenPort);
+        assert(m_isNsEnabled);
+    }
 
-        /*
-         * Do some consistency checks to make sure we're not confused about what
-         * is going on.
-         *
-         * First, if we are not listening, then we had better not think we're
-         * quetly advertising, actively advertising or discovering.  If we are
-         * not listening, then the name service must not be enabled and sending
-         * or responding to external daemons.
-         */
-        if (m_isListening == false) {
-            assert(m_isAdvertising == false);
-            assert(m_isAdvertisingQuietly == false);
-            assert(m_isDiscovering == false);
-            assert(m_isNsEnabled == false);
-        }
+    /*
+     * If we think we are quietly advertising, we'd better have an entry in
+     * the quiet advertisements list to advertise, and there must be
+     * listeners waiting for inbound connections as a result of those
+     * advertisements.  If we are actively advertising the name service had
+     * better be enabled.
+     */
+    if (m_isAdvertisingQuietly) {
+        assert(m_isListening);
+        assert(m_listenPort);
+        assert(m_isNsEnabled);
+    }
 
-        /*
-         * If we think the name service is enabled, it had better think it is
-         * enabled.  It must be enabled either because we are actively
-         * advertising, quietly advertising or we are discovering.  If we are
-         * actively advertising, quietly advertising or discovering, then there
-         * must be listeners waiting for connections as a result of those
-         * advertisements or discovery requests.  If there are listeners, then
-         * there must be a non-zero listenPort.
-         */
-        if (m_isNsEnabled) {
-            assert(m_isAdvertising || m_isAdvertisingQuietly || m_isDiscovering);
-            assert(m_isListening);
-            assert(m_listenPort);
-        }
+    /*
+     * If we are discovering, we'd better have an entry in the discovering
+     * list to make us discover, and there must be listeners waiting for
+     * inbound connections as a result of session operations driven by those
+     * discoveries.  If we are discovering the name service had better be
+     * enabled.
+     */
+    if (m_isDiscovering) {
+        assert(!m_discovering.empty());
+        assert(m_isListening);
+        assert(m_listenPort);
+        assert(m_isNsEnabled);
+    }
 
-        /*
-         * If we think we are actively advertising, we'd better have an entry in
-         * the active advertisements list to advertise, and there must be
-         * listeners waiting for inbound connections as a result of those
-         * advertisements.  If we are actively advertising the name service had
-         * better be enabled.
-         */
-        if (m_isAdvertising) {
-            assert(!m_advertising.empty());
-            assert(m_isListening);
-            assert(m_listenPort);
-            assert(m_isNsEnabled);
-        }
+    /*
+     * Now that are sure we have a consistent view of the world, let's do
+     * what needs to be done.
+     */
+    switch (listenRequest.m_requestOp) {
+    case START_LISTEN_INSTANCE:
+        StartListenInstance(listenRequest);
+        break;
 
-        /*
-         * If we think we are quietly advertising, we'd better have an entry in
-         * the quiet advertisements list to advertise, and there must be
-         * listeners waiting for inbound connections as a result of those
-         * advertisements.  If we are actively advertising the name service had
-         * better be enabled.
-         */
-        if (m_isAdvertisingQuietly) {
-            assert(m_isListening);
-            assert(m_listenPort);
-            assert(m_isNsEnabled);
-        }
+    case STOP_LISTEN_INSTANCE:
+        StopListenInstance(listenRequest);
+        break;
 
-        /*
-         * If we are discovering, we'd better have an entry in the discovering
-         * list to make us discover, and there must be listeners waiting for
-         * inbound connections as a result of session operations driven by those
-         * discoveries.  If we are discovering the name service had better be
-         * enabled.
-         */
-        if (m_isDiscovering) {
-            assert(!m_discovering.empty());
-            assert(m_isListening);
-            assert(m_listenPort);
-            assert(m_isNsEnabled);
-        }
+    case ENABLE_ADVERTISEMENT_INSTANCE:
+        EnableAdvertisementInstance(listenRequest);
+        break;
 
-        /*
-         * Now that are sure we have a consistent view of the world, let's do
-         * what needs to be done.
-         */
-        switch (listenRequest.m_requestOp) {
-        case START_LISTEN_INSTANCE:
-            StartListenInstance(listenRequest);
-            break;
+    case DISABLE_ADVERTISEMENT_INSTANCE:
+        DisableAdvertisementInstance(listenRequest);
+        break;
 
-        case STOP_LISTEN_INSTANCE:
-            StopListenInstance(listenRequest);
-            break;
+    case ENABLE_DISCOVERY_INSTANCE:
+        EnableDiscoveryInstance(listenRequest);
+        break;
 
-        case ENABLE_ADVERTISEMENT_INSTANCE:
-            EnableAdvertisementInstance(listenRequest);
-            break;
-
-        case DISABLE_ADVERTISEMENT_INSTANCE:
-            DisableAdvertisementInstance(listenRequest);
-            break;
-
-        case ENABLE_DISCOVERY_INSTANCE:
-            EnableDiscoveryInstance(listenRequest);
-            break;
-
-        case DISABLE_DISCOVERY_INSTANCE:
-            DisableDiscoveryInstance(listenRequest);
-            break;
-        }
+    case DISABLE_DISCOVERY_INSTANCE:
+        DisableDiscoveryInstance(listenRequest);
+        break;
     }
 }
 
@@ -2216,6 +2183,7 @@ void TCPTransport::EnableDiscoveryInstance(ListenRequest& listenRequest)
             }
         }
     }
+
     if (!m_isListening) {
         QCC_LogError(ER_FAIL, ("TCPTransport::EnableDiscoveryInstance(): Discover with no TCP listeners"));
         return;
@@ -2863,6 +2831,7 @@ QStatus TCPTransport::Connect(const char* connectSpec, const SessionOpts& opts, 
         status = tcpEp->Establish("ANONYMOUS", authName, redirection, authListener);
         if (status == ER_OK) {
             tcpEp->SetListener(this);
+            tcpEp->SetEpStarting();
             status = tcpEp->Start();
             if (status == ER_OK) {
                 tcpEp->SetEpStarted();
@@ -3108,14 +3077,10 @@ void TCPTransport::QueueStartListen(qcc::String& normSpec)
     listenRequest.m_requestParam = normSpec;
 
     m_listenRequestsLock.Lock(MUTEX_CONTEXT);
-    m_listenRequests.push(listenRequest);
+    /* Process the request */
+    RunListenMachine(listenRequest);
     m_listenRequestsLock.Unlock(MUTEX_CONTEXT);
 
-    /*
-     * Wake the server accept loop thread up so it will process the request we
-     * just queued.
-     */
-    Alert();
 }
 
 QStatus TCPTransport::DoStartListen(qcc::String& normSpec)
@@ -3419,14 +3384,10 @@ void TCPTransport::QueueStopListen(qcc::String& normSpec)
     listenRequest.m_requestParam = normSpec;
 
     m_listenRequestsLock.Lock(MUTEX_CONTEXT);
-    m_listenRequests.push(listenRequest);
+    /* Process the request */
+    RunListenMachine(listenRequest);
     m_listenRequestsLock.Unlock(MUTEX_CONTEXT);
 
-    /*
-     * Wake the server accept loop thread up so it will process the request we
-     * just queued.
-     */
-    Alert();
 }
 
 void TCPTransport::DoStopListen(qcc::String& normSpec)
@@ -3573,14 +3534,11 @@ void TCPTransport::QueueEnableDiscovery(const char* namePrefix)
     listenRequest.m_requestParam = namePrefix;
 
     m_listenRequestsLock.Lock(MUTEX_CONTEXT);
-    m_listenRequests.push(listenRequest);
+    /* Process the request */
+    RunListenMachine(listenRequest);
     m_listenRequestsLock.Unlock(MUTEX_CONTEXT);
 
-    /*
-     * Wake the server accept loop thread up so it will process the request we
-     * just queued.
-     */
-    Alert();
+
 }
 
 void TCPTransport::DisableDiscovery(const char* namePrefix)
@@ -3617,14 +3575,10 @@ void TCPTransport::QueueDisableDiscovery(const char* namePrefix)
     listenRequest.m_requestParam = namePrefix;
 
     m_listenRequestsLock.Lock(MUTEX_CONTEXT);
-    m_listenRequests.push(listenRequest);
+    /* Process the request */
+    RunListenMachine(listenRequest);
     m_listenRequestsLock.Unlock(MUTEX_CONTEXT);
 
-    /*
-     * Wake the server accept loop thread up so it will process the request we
-     * just queued.
-     */
-    Alert();
 }
 
 QStatus TCPTransport::EnableAdvertisement(const qcc::String& advertiseName)
@@ -3662,14 +3616,11 @@ void TCPTransport::QueueEnableAdvertisement(const qcc::String& advertiseName)
     listenRequest.m_requestParam = advertiseName;
 
     m_listenRequestsLock.Lock(MUTEX_CONTEXT);
-    m_listenRequests.push(listenRequest);
+    /* Process the request */
+    RunListenMachine(listenRequest);
     m_listenRequestsLock.Unlock(MUTEX_CONTEXT);
 
-    /*
-     * Wake the server accept loop thread up so it will process the request we
-     * just queued.
-     */
-    Alert();
+
 }
 
 void TCPTransport::DisableAdvertisement(const qcc::String& advertiseName, bool nameListEmpty)
@@ -3706,14 +3657,10 @@ void TCPTransport::QueueDisableAdvertisement(const qcc::String& advertiseName)
     listenRequest.m_requestParam = advertiseName;
 
     m_listenRequestsLock.Lock(MUTEX_CONTEXT);
-    m_listenRequests.push(listenRequest);
+    /* Process the request */
+    RunListenMachine(listenRequest);
     m_listenRequestsLock.Unlock(MUTEX_CONTEXT);
 
-    /*
-     * Wake the server accept loop thread up so it will process the request we
-     * just queued.
-     */
-    Alert();
 }
 
 void TCPTransport::FoundCallback::Found(const qcc::String& busAddr, const qcc::String& guid,

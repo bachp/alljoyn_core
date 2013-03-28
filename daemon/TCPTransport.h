@@ -331,7 +331,6 @@ class TCPTransport : public Transport, public _RemoteEndpoint::EndpointListener,
         qcc::String m_requestParam;
     };
 
-    std::queue<ListenRequest> m_listenRequests;                    /**< Queue of StartListen and StopListen requests */
     qcc::Mutex m_listenRequestsLock;                               /**< Mutex that protects m_listenRequests */
 
     /**
@@ -612,7 +611,7 @@ class TCPTransport : public Transport, public _RemoteEndpoint::EndpointListener,
     void QueueEnableAdvertisement(const qcc::String& advertiseName);
     void QueueDisableAdvertisement(const qcc::String& advertiseName);
 
-    void RunListenMachine(void);
+    void RunListenMachine(ListenRequest& listenRequest);
 
     void StartListenInstance(ListenRequest& listenRequest);
     void StopListenInstance(ListenRequest& listenRequest);
