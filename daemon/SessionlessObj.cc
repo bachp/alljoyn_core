@@ -368,6 +368,7 @@ bool SessionlessObj::RouteSessionlessMessage(uint32_t sessionId, Message& msg)
 QStatus SessionlessObj::CancelMessage(const qcc::String& sender, uint32_t serialNum)
 {
     QStatus status = ER_BUS_NO_SUCH_MESSAGE;
+    bool messageErased = false;
 
     QCC_DbgTrace(("SessionlessObj::CancelMessage(%s, 0x%x)", sender.c_str(), serialNum));
 
@@ -375,8 +376,12 @@ QStatus SessionlessObj::CancelMessage(const qcc::String& sender, uint32_t serial
     map<MessageMapKey, pair<uint32_t, Message> >::iterator it = messageMap.begin();
     while (it != messageMap.end()) {
         if (it->second.second->GetCallSerial() == serialNum) {
-            if (sender == it->second.second->GetSender()) {
+            if (it->second.second->IsExpired()) {
                 messageMap.erase(it);
+                messageErased = true;
+            } else if (sender == it->second.second->GetSender()) {
+                messageMap.erase(it);
+                messageErased = true;
                 status = ER_OK;
             } else {
                 status = ER_BUS_NOT_ALLOWED;
@@ -388,7 +393,7 @@ QStatus SessionlessObj::CancelMessage(const qcc::String& sender, uint32_t serial
     lock.Unlock();
 
     /* Alert the advertiser worker */
-    if (status == ER_OK) {
+    if (messageErased) {
         uint32_t zero = 0;
         SessionlessObj* slObj = this;
         status = timer.AddAlarm(Alarm(zero, slObj));
@@ -629,6 +634,7 @@ void SessionlessObj::RequestRangeSignalHandler(const InterfaceDescription::Membe
 void SessionlessObj::HandleRangeRequest(Message& msg, uint32_t fromChangeId, uint32_t toChangeId)
 {
     QStatus status = ER_OK;
+    bool messageErased = false;
     QCC_DbgTrace(("SessionlessObj::HandleControlSignal(%d, %d)", fromChangeId, toChangeId));
 
     /* Enable concurrency since PushMessage could block */
@@ -641,21 +647,28 @@ void SessionlessObj::HandleRangeRequest(Message& msg, uint32_t fromChangeId, uin
     while (it != messageMap.end()) {
         if (IN_WINDOW(uint32_t, fromChangeId, rangeLen, it->second.first)) {
             MessageMapKey key = it->first;
-            lock.Unlock();
-            router.LockNameTable();
-            BusEndpoint ep = router.FindEndpoint(msg->GetSender());
-            if (ep->IsValid()) {
-                router.UnlockNameTable();
-                if (ep->GetEndpointType() == ENDPOINT_TYPE_VIRTUAL) {
-                    status = VirtualEndpoint::cast(ep)->PushMessage(it->second.second, msg->GetSessionId());
-                } else {
-                    status = ep->PushMessage(it->second.second);
-                }
+            if (it->second.second->IsExpired()) {
+                /* Remove expired message without sending */
+                messageMap.erase(++it);
+                messageErased = true;
             } else {
-                router.UnlockNameTable();
+                /* Send message */
+                lock.Unlock();
+                router.LockNameTable();
+                BusEndpoint ep = router.FindEndpoint(msg->GetSender());
+                if (ep->IsValid()) {
+                    router.UnlockNameTable();
+                    if (ep->GetEndpointType() == ENDPOINT_TYPE_VIRTUAL) {
+                        status = VirtualEndpoint::cast(ep)->PushMessage(it->second.second, msg->GetSessionId());
+                    } else {
+                        status = ep->PushMessage(it->second.second);
+                    }
+                } else {
+                    router.UnlockNameTable();
+                }
+                lock.Lock();
+                it = messageMap.upper_bound(key);
             }
-            lock.Lock();
-            it = messageMap.upper_bound(key);
             if (status != ER_OK) {
                 QCC_LogError(status, ("Failed to push sessionless signal to %s", msg->GetDestination()));
             }
@@ -664,6 +677,13 @@ void SessionlessObj::HandleRangeRequest(Message& msg, uint32_t fromChangeId, uin
         }
     }
     lock.Unlock();
+
+    /* Alert the advertiser worker */
+    if (messageErased) {
+        uint32_t zero = 0;
+        SessionlessObj* slObj = this;
+        status = timer.AddAlarm(Alarm(zero, slObj));
+    }
 
     /* Close the session */
     status = bus.LeaveSession(msg->GetSessionId());

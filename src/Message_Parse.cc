@@ -1177,22 +1177,24 @@ QStatus _Message::Unmarshal(RemoteEndpoint& endpoint, bool checkSender, bool ped
      * behind messages coming from the same sender over a traditional
      * session.
      */
-    if ((senderField->typeId != ALLJOYN_INVALID) && ((msgHeader.flags & ALLJOYN_FLAG_SESSIONLESS) == 0)) {
+    if (senderField->typeId != ALLJOYN_INVALID) {
         PeerState peerState = bus->GetInternal().GetPeerStateTable()->GetPeerState(senderField->v_string.str);
         bool unreliable = hdrFields.field[ALLJOYN_HDR_FIELD_TIME_TO_LIVE].typeId != ALLJOYN_INVALID;
         bool secure = (msgHeader.flags & ALLJOYN_FLAG_ENCRYPTED) != 0;
-        /*
-         * Check the serial number
-         */
-        if (!peerState->IsValidSerial(msgHeader.serialNum, secure, unreliable)) {
+        if ((msgHeader.flags & ALLJOYN_FLAG_SESSIONLESS) == 0) {
             /*
-             * Treat all out-of-order or repeat messages specially.
-             * This can happen even on reliable transports if message replies come in from a remote endpoint
-             * after they have been timed out locally. It can also happen for broadcast messages on a distributed
-             * bus when there are "circular" (redundant) connections between nodes.
+             * Check the serial number
              */
-            status = ER_BUS_INVALID_HEADER_SERIAL;
-            goto ExitUnmarshal;
+            if (!peerState->IsValidSerial(msgHeader.serialNum, secure, unreliable)) {
+                /*
+                 * Treat all out-of-order or repeat messages specially.
+                 * This can happen even on reliable transports if message replies come in from a remote endpoint
+                 * after they have been timed out locally. It can also happen for broadcast messages on a distributed
+                 * bus when there are "circular" (redundant) connections between nodes.
+                 */
+                status = ER_BUS_INVALID_HEADER_SERIAL;
+                goto ExitUnmarshal;
+            }
         }
         /*
          * If the message has a timestamp turn it into an estimated local time
