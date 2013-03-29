@@ -234,8 +234,16 @@ QStatus DaemonRouter::PushMessage(Message& msg, BusEndpoint& origSender)
              * message header (0).
              */
             if ((sessionId == 0) && (::strcmp("DetachSession", msg->GetMemberName()) == 0) && (::strcmp(org::alljoyn::Daemon::InterfaceName, msg->GetInterface()) == 0)) {
-                msg->UnmarshalArgs("us");
-                sessionId = msg->GetArg(0)->v_uint32;
+                /* Clone the message since this message is unmarshalled by the LocalEndpoint too
+                 * and the process of unmarshalling is not thread-safe.
+                 */
+                Message clone = Message(msg, true);
+                QStatus status = clone->UnmarshalArgs("us");
+                if (status == ER_OK) {
+                    sessionId = clone->GetArg(0)->v_uint32;
+                } else {
+                    QCC_LogError(status, ("Failed to unmarshal args for DetachSession message"));
+                }
             }
 
             /* Route global broadcast to all bus-to-bus endpoints that aren't the sender of the message */
