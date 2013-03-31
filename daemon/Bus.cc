@@ -42,7 +42,7 @@ using namespace std;
 const uint32_t EP_CONCURRENCY = 4;
 
 Bus::Bus(const char* applicationName, TransportFactoryContainer& factories, const char* listenSpecs) :
-    BusAttachment(new Internal(applicationName, *this, factories, new DaemonRouter, true, listenSpecs), EP_CONCURRENCY),
+    BusAttachment(new Internal(applicationName, *this, factories, new DaemonRouter, true, listenSpecs, EP_CONCURRENCY), EP_CONCURRENCY),
     busListener(NULL)
 {
     GetInternal().GetRouter().SetGlobalGUID(GetInternal().GetGlobalGUID());

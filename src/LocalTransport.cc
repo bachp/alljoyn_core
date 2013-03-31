@@ -58,7 +58,7 @@ static const uint32_t LOCAL_ENDPOINT_CONCURRENCY = 4;
 
 class _LocalEndpoint::Dispatcher : public qcc::Timer, public qcc::AlarmListener {
   public:
-    Dispatcher(_LocalEndpoint* endpoint) : Timer("lepDisp", true, LOCAL_ENDPOINT_CONCURRENCY, true, 10), AlarmListener(), endpoint(endpoint) { }
+    Dispatcher(_LocalEndpoint* endpoint, uint32_t concurrency = LOCAL_ENDPOINT_CONCURRENCY) : Timer("lepDisp", true, concurrency, true, 10), AlarmListener(), endpoint(endpoint) { }
     QStatus DispatchMessage(Message& msg);
 
     void AlarmTriggered(const qcc::Alarm& alarm, QStatus reason);
@@ -150,9 +150,9 @@ class _LocalEndpoint::ReplyContext {
     ReplyContext operator=(const ReplyContext& other);
 };
 
-_LocalEndpoint::_LocalEndpoint(BusAttachment& bus) :
+_LocalEndpoint::_LocalEndpoint(BusAttachment& bus, uint32_t concurrency) :
     _BusEndpoint(ENDPOINT_TYPE_LOCAL),
-    dispatcher(new Dispatcher(this)),
+    dispatcher(new Dispatcher(this, concurrency)),
     deferredCallbacks(new DeferredCallbacks(this)),
     running(false),
     bus(&bus),

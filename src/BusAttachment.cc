@@ -106,13 +106,14 @@ BusAttachment::Internal::Internal(const char* appName,
                                   TransportFactoryContainer& factories,
                                   Router* router,
                                   bool allowRemoteMessages,
-                                  const char* listenAddresses) :
+                                  const char* listenAddresses,
+                                  uint32_t concurrency) :
     application(appName ? appName : "unknown"),
     bus(bus),
     listenersLock(),
     listeners(),
     m_ioDispatch("iodisp", 16),
-    transportList(bus, factories, &m_ioDispatch),
+    transportList(bus, factories, &m_ioDispatch, concurrency),
     keyStore(application),
     authManager(keyStore),
     globalGuid(qcc::GUID128()),
@@ -191,7 +192,7 @@ BusAttachment::BusAttachment(const char* applicationName, bool allowRemoteMessag
     isStarted(false),
     isStopping(false),
     concurrency(concurrency),
-    busInternal(new Internal(applicationName, *this, clientTransportsContainer, NULL, allowRemoteMessages, NULL)),
+    busInternal(new Internal(applicationName, *this, clientTransportsContainer, NULL, allowRemoteMessages, NULL, concurrency)),
     joinObj(this)
 {
     clientTransportsContainer.Init();
