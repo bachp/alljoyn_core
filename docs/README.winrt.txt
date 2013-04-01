@@ -54,10 +54,8 @@ cpp/inc/alljoyn/Status.h
 cpp/inc/alljoyn/Status_CPP0x.h
 cpp/inc/alljoyn/TransportMask.h
 cpp/inc/alljoyn/version.h
-cpp/lib/BundledDaemon.obj
 winRT/bin/AllJoyn.dll
 winRT/bin/AllJoyn.winmd
 winRT/bin/AllJoyn.xml
 winRT/docs/AllJoyn.chm
-winRT/lib/AllJoyn.lib
 ## DELETE ME ##
