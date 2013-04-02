@@ -138,8 +138,6 @@ void ProximityScanner::Scan(bool request_scan) {
 
     QCC_DbgTrace(("ProximityScanner::Scan()"));
 
-    LOGD(("ProximityScanner::Scan()"));
-
     //
     // Check if this is an instance of bundled daemon running or a standalone alljoyn-daemon
     // In case of AllJoyn.apk we will go with the same approach as standalone daemon that is we
@@ -147,14 +145,10 @@ void ProximityScanner::Scan(bool request_scan) {
     //
     if (proxJVM != NULL) {
         // Check if proxJVM was initialized
-        LOGD("======================= We are running inside a Bundled daemon ==============================");
         if (proxJVM == NULL) {
-            LOGD("-------------proxJVM == NULL-----------------");
             // Here since proxJVM is null there is no point in proceeding
             scanResults.clear();
             return;
-        } else {
-            LOGD("--------------proxJVM != NULL-----------------");
         }
 
         //
@@ -163,9 +157,6 @@ void ProximityScanner::Scan(bool request_scan) {
         jint jret = proxJVM->GetEnv((void**)&psenv, JNI_VERSION_1_2);
         if (JNI_EDETACHED == jret) {
             proxJVM->AttachCurrentThread(&psenv, NULL);
-            LOGD("Attached to VM thread \n");
-        } else {
-            LOGD("Thread already attached");
         }
 
         //
@@ -179,20 +170,16 @@ void ProximityScanner::Scan(bool request_scan) {
         jboolean jRequestScan = (jboolean)request_scan;
         jobjectArray scanresults = (jobjectArray)psenv->CallStaticObjectMethod(CLS_AllJoynAndroidExt, MID_AllJoynAndroidExt_Scan, jRequestScan);
         if (psenv->ExceptionCheck()) {
-            LOGE("Exception thrown after method call Scan ---------------");
+            LOGE("Exception thrown after method call Scan");
             psenv->ExceptionDescribe();
         }
         if (scanresults == NULL) {
             LOGE("Scan results returned nothing");
             return;
-        } else {
-            LOGE("~!~!~!~!~!~!~!~!~!~!~!~!~!~!~!~!~~ Scan Results received ~!~!~!~!~~!~!!~!~!~!~!~!~!~!~!~");
         }
 
         // We print out the size of scan results
         jsize scanresultsize = psenv->GetArrayLength(scanresults);
-        LOGD("Length of scan results : %d", scanresultsize);
-        LOGD(" *****************************Printing the scan results***************************** ");
 
         //
         // Store the field ids of the structure ScanResultMessage class
@@ -200,15 +187,15 @@ void ProximityScanner::Scan(bool request_scan) {
 
         jfieldID bssidFID = psenv->GetFieldID(CLS_ScanResultMessage, "bssid", "Ljava/lang/String;");
         if (bssidFID == NULL) {
-            LOGD("Error while getting the field id bssid");
+            LOGE("Error while getting the field id bssid");
         }
         jfieldID ssidFID = psenv->GetFieldID(CLS_ScanResultMessage, "ssid", "Ljava/lang/String;");
         if (ssidFID == NULL) {
-            LOGD("Error while getting the field id ssid");
+            LOGE("Error while getting the field id ssid");
         }
         jfieldID attachedFID = psenv->GetFieldID(CLS_ScanResultMessage, "attached", "Z");
         if (attachedFID == NULL) {
-            LOGD("Error while getting the field id attached");
+            LOGE("Error while getting the field id attached");
         }
 
         //
@@ -219,7 +206,7 @@ void ProximityScanner::Scan(bool request_scan) {
 
             jobject scanresult = psenv->GetObjectArrayElement(scanresults, i);
             if (scanresult == NULL) {
-                LOGD("Error while getting the scan result object from the array");
+                LOGE("Error while getting the scan result object from the array");
             }
 
             jstring jbssid = (jstring)psenv->GetObjectField(scanresult, bssidFID);
@@ -238,10 +225,11 @@ void ProximityScanner::Scan(bool request_scan) {
             const char*ssid = psenv->GetStringUTFChars(jssid, NULL);
             bool attached = (bool)jattached;
 
+#ifndef NDEBUG
             if (bssid != NULL) {
                 LOGD("BSSID = %s    SSID = %s    attached = %s", bssid, ssid, (attached) ? "true" : "false");
             }
-
+#endif
             qcc::String bssid_str(bssid);
             qcc::String ssid_str(ssid);
             scanResults.insert(std::map<std::pair<qcc::String, qcc::String>, bool>::value_type(std::make_pair(bssid_str, ssid_str), attached));
@@ -256,7 +244,6 @@ void ProximityScanner::Scan(bool request_scan) {
         //
         // We are not running inside bundled daemon
         //
-        LOGD("======================= We are NOT running inside a Bundled daemon ==============================");
         QStatus status;
         MyBusListener* g_busListener;
 
@@ -273,7 +260,7 @@ void ProximityScanner::Scan(bool request_scan) {
                 QCC_LogError(status, ("Error while calling NameHasOwner"));
             }
             if (hasOwer) {
-                QCC_DbgPrintf((" =-=-=-=-=-=-=- NameHasOwnwer: Android Helper Service running  =-=-=-=-=-="));
+                QCC_DbgPrintf(("NameHasOwnwer: Android Helper Service running"));
                 break;
             } else {
                 QCC_DbgPrintf(("No Android service owner found yet"));
@@ -299,7 +286,7 @@ void ProximityScanner::Scan(bool request_scan) {
         // Why do change request_scan here ? This handles the situation where the service was killed by the OS and
         // we are not able to get the scan results
 
-        QCC_DbgPrintf(("===============Time before Scan ================== %d", starttime));
+        QCC_DbgPrintf(("Time before Scan  %d", starttime));
         Message reply(bus);
         MsgArg arg;
         arg.Set("b", request_scan);
@@ -337,7 +324,6 @@ void ProximityScanner::Scan(bool request_scan) {
         //
         // We populate the scanResultsMap only when we have results
         //
-        //printf("\n -------------------- From Message --------------------------------- \n");
         if (ER_OK == status && scanArraySize > 0) {
             QCC_DbgPrintf(("Array size of scan results > 0"));
             for (size_t i = 0; i < scanArraySize; i++) {
@@ -349,7 +335,6 @@ void ProximityScanner::Scan(bool request_scan) {
                 if (ER_OK != status) {
                     QCC_LogError(status, ("Error while getting the struct members Expected signature = %s", scanArray[i].Signature().c_str()));
                 } else {
-                    //printf("\n BSSID = %s , SSID = %s , attached = %s",bssid, ssid, attached ? "true" : "false");
                     qcc::String bssid_str(bssid);
                     qcc::String ssid_str(ssid);
                     scanResults.insert(std::map<std::pair<qcc::String, qcc::String>, bool>::value_type(std::make_pair(bssid_str, ssid_str), attached));
@@ -357,7 +342,7 @@ void ProximityScanner::Scan(bool request_scan) {
 
             }
 
-            QCC_DbgPrintf(("-------------------- From Scan function -----------------------------------\n"));
+            QCC_DbgPrintf(("From Scan function"));
             std::map<std::pair<qcc::String, qcc::String>, bool>::iterator it;
             for (it = scanResults.begin(); it != scanResults.end(); it++) {
                 QCC_DbgPrintf(("BSSID = %s , SSID = %s, attached = %s", it->first.first.c_str(), it->first.second.c_str(), (it->second ? "true" : "false")));
@@ -369,7 +354,7 @@ void ProximityScanner::Scan(bool request_scan) {
             QCC_DbgPrintf(("No Scan results were returned by the service. Either Wifi is turned off or there are no APs around"));
         }
 
-        QCC_DbgPrintf(("================ Time after Scan processing ============  %d", GetTimestamp() - starttime));
+        QCC_DbgPrintf(("Time after Scan processing %d", GetTimestamp() - starttime));
         // end if
     }
 
@@ -422,7 +407,7 @@ void ProximityScanner::Scan(bool request_scan) {
 
             scanResults.insert(std::map<std::pair<qcc::String, qcc::String>, bool>::value_type(std::make_pair(bssid_str, ssid_str), attached));
 
-            QCC_DbgPrintf(("-------------------- From Scan function -----------------------------------\n"));
+            QCC_DbgPrintf(("From Scan function"));
             std::map<std::pair<qcc::String, qcc::String>, bool>::iterator it;
             for (it = scanResults.begin(); it != scanResults.end(); it++) {
                 QCC_DbgPrintf(("BSSID = %s , SSID = %s, attached = %s", it->first.first.c_str(), it->first.second.c_str(), (it->second ? "true" : "false")));
