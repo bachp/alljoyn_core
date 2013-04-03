@@ -625,6 +625,7 @@ class TCPTransport : public Transport, public _RemoteEndpoint::EndpointListener,
     bool m_isDiscovering;
     bool m_isListening;
     bool m_isNsEnabled;
+    bool m_reload;             /**< Flag used for synchronization of DoStopListen with the Run thread */
 
     uint16_t m_listenPort;     /**< If m_isListening, is the port on which we are listening */
 

@@ -782,7 +782,8 @@ void* _TCPEndpoint::AuthThread::Run(void* arg)
 TCPTransport::TCPTransport(BusAttachment& bus)
     : Thread("TCPTransport"), m_bus(bus), m_stopping(false), m_listener(0),
     m_foundCallback(m_listener),
-    m_isAdvertising(false), m_isAdvertisingQuietly(false), m_isDiscovering(false), m_isListening(false), m_isNsEnabled(false),
+    m_isAdvertising(false), m_isAdvertisingQuietly(false), m_isDiscovering(false), m_isListening(false),
+    m_isNsEnabled(false), m_reload(false),
     m_listenPort(0), m_nsReleaseCount(0)
 {
     QCC_DbgTrace(("TCPTransport::TCPTransport()"));
@@ -1532,8 +1533,10 @@ void* TCPTransport::Run(void* arg)
          * addresses and ports we are listening on.  If the list changes, the
          * code that does the change Alert()s this thread and we wake up and
          * re-evaluate the list of SocketFds.
+         * Set reload to true to indicate that the set of events has been reloaded.
          */
         m_listenFdsLock.Lock(MUTEX_CONTEXT);
+        m_reload = true;
         vector<Event*> checkEvents, signaledEvents;
         checkEvents.push_back(&stopEvent);
         for (list<pair<qcc::String, SocketFd> >::const_iterator i = m_listenFds.begin(); i != m_listenFds.end(); ++i) {
@@ -3418,8 +3421,18 @@ void TCPTransport::DoStopListen(qcc::String& normSpec)
             break;
         }
     }
+    /* Set m_reload to false, unlock the mutex, alert the main Run thread that
+     * there is a change and wait for the Run thread to finish any connections
+     * it may be accepting and then reload the set of events.
+     */
+    m_reload = false;
     m_listenFdsLock.Unlock(MUTEX_CONTEXT);
 
+    Alert();
+
+    while (!m_reload) {
+        qcc::Sleep(2);
+    }
     /*
      * If we took a socketFD off of the list of active FDs, we need to tear it
      * down and alert the server accept loop that the list of FDs on which it
