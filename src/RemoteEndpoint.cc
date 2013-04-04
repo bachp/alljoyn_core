@@ -128,7 +128,10 @@ class _RemoteEndpoint::Internal {
     Message currentWriteMsg;                 /**< The message currently being read for this endpoint */
     bool stopping;                           /**< Is this EP stopping? */
     uint32_t sessionId;                      /**< SessionId for BusToBus endpoint. (not used for non-B2B endpoints) */
+    static int32_t numUntrustedClients;      /**< Number of untrusted clients currently registered with the daemon */
 };
+
+int32_t _RemoteEndpoint::Internal::numUntrustedClients = 0;
 
 void _RemoteEndpoint::SetStream(qcc::Stream* s)
 {
@@ -217,18 +220,59 @@ const _RemoteEndpoint::Features&  _RemoteEndpoint::GetFeatures() const
 
 QStatus _RemoteEndpoint::Establish(const qcc::String& authMechanisms, qcc::String& authUsed, qcc::String& redirection, AuthListener* listener)
 {
-    QStatus status = ER_BUS_NO_ENDPOINT;
+    QStatus status = ER_OK;
 
-    if (internal) {
+    if (!internal) {
+        status = ER_BUS_NO_ENDPOINT;
+    } else {
+        Router& router = internal->bus.GetInternal().GetRouter();
+        int32_t maxUntrustedClients = router.GetMaxUntrustedClients();
+        if (internal->incoming) {
+            /* It is not yet known whether this will be a trusted or untrusted client.
+             * Assume that this is an untrusted client. If after authentication, we find out
+             * that this is a trusted client, we will update the count accordingly.
+             */
+            IncrementAndFetch(&internal->numUntrustedClients);
+            if (GetConnectSpec() != "localhost" && (internal->numUntrustedClients > maxUntrustedClients) && authMechanisms == "ANONYMOUS") {
+                /* This is not a localhost or unix domain connection.
+                 * Note: UNIX domain sockets use "EXTERNAL" as the auth mechanism.
+                 * If this is an incoming connection (not on Unix domain sockets/local host),
+                 * the number of untrusted clients is reached, and
+                 * there is no auth mechanism, do not attempt to authenticate this client since
+                 * it will be untrusted.
+                 */
+                status = ER_BUS_NOT_ALLOWED;
+            }
+        }
         RemoteEndpoint rep = RemoteEndpoint::wrap(this);
         EndpointAuth auth(internal->bus, rep, internal->incoming);
-        status = auth.Establish(authMechanisms, authUsed, redirection, listener);
+
+        if (status == ER_OK) {
+            status = auth.Establish(authMechanisms, authUsed, redirection, listener);
+        }
         if (status == ER_OK) {
             internal->uniqueName = auth.GetUniqueName();
             internal->remoteName = auth.GetRemoteName();
             internal->remoteGUID = auth.GetRemoteGUID();
             internal->features.protocolVersion = auth.GetRemoteProtocolVersion();
-            internal->features.trusted = (authUsed != "ANONYMOUS");
+            internal->features.trusted = (authUsed != "ANONYMOUS") || (GetConnectSpec() == "localhost");
+            if (internal->incoming) {
+
+                if (internal->features.trusted) {
+                    /* We had earlier assumed that this would be an untrusted client
+                     * but it turned out to be trusted, so we update the counts here.
+                     */
+                    DecrementAndFetch(&internal->numUntrustedClients);
+                } else if (internal->numUntrustedClients > maxUntrustedClients) {
+                    DecrementAndFetch(&internal->numUntrustedClients);
+                    status = ER_BUS_NOT_ALLOWED;
+                }
+            }
+        } else {
+            /* Authentication failed or not allowed. */
+            if (internal->incoming) {
+                DecrementAndFetch(&internal->numUntrustedClients);
+            }
         }
     }
     return status;
@@ -456,6 +500,9 @@ void _RemoteEndpoint::ExitCallback() {
     if (internal->listener) {
         internal->listener->EndpointExit(rep);
         internal->listener = NULL;
+    }
+    if (!internal->features.trusted) {
+        DecrementAndFetch(&internal->numUntrustedClients);
     }
     internal->exitCount = 1;
 }

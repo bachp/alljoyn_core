@@ -94,6 +94,7 @@ static const char daemonConfig[] =
     "  </ice_discovery_manager>"
     "  <policy>"
     "    <property enable_daemon_bus_call_restriction=\"true\"/>"
+    "    <limit max_untrusted_clients=\"0\"/>"
     "  </policy>"
     "</busconfig>";
 

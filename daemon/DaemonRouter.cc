@@ -37,6 +37,7 @@
 #include "BusEndpoint.h"
 #include "DaemonRouter.h"
 #include "EndpointHelper.h"
+#include "DaemonConfig.h"
 
 #define QCC_MODULE "ALLJOYN"
 
@@ -565,4 +566,8 @@ void DaemonRouter::RemoveSessionRoutes(const char* src, SessionId id)
     sessionCastSetLock.Unlock(MUTEX_CONTEXT);
 }
 
+int32_t DaemonRouter::GetMaxUntrustedClients() {
+    return (DaemonConfig::Access())->Get("policy/limit@max_untrusted_clients", ALLJOYN_MAX_UNTRUSTED_CLIENTS_DEFAULT);
 }
+}
+
