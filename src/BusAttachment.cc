@@ -4,7 +4,7 @@
  */
 
 /******************************************************************************
- * Copyright 2009-2012, Qualcomm Innovation Center, Inc.
+ * Copyright 2009-2013, Qualcomm Innovation Center, Inc.
  *
  *    Licensed under the Apache License, Version 2.0 (the "License");
  *    you may not use this file except in compliance with the License.
@@ -1795,7 +1795,7 @@ void BusAttachment::Internal::AllJoynSignalHandler(const InterfaceDescription::M
                     (*pl)->PropertyChanged(entries[i].v_dictEntry.key->v_string.str, entries[i].v_dictEntry.val);
                 }
 
-                args[2].Get("a{s}", &num, &entries);
+                args[2].Get("as", &num, &entries);
                 for (unsigned i = 0; i < num; ++i) {
                     // invalidated params
                     (*pl)->PropertyChanged(entries[i].v_string.str, NULL);
