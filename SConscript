@@ -99,8 +99,8 @@ env.Prepend(LIBS = ajlib)
 daemon_progs, bdlib, bdobj = env.SConscript('$OBJDIR/daemon/SConscript', exports = ['common_objs', 'alljoyn_core_objs'])
 if env['OS_GROUP'] == 'winrt':
     returnValue += env.Install('$WINRT_DISTDIR/bin', daemon_progs)
-    daemon_lib = []
-    daemon_obj = []
+    daemon_lib = [bdlib]
+    daemon_obj = [bdobj]
 else:
     returnValue += env.Install('$CPP_DISTDIR/bin', daemon_progs)
     daemon_lib = env.Install('$CPP_DISTDIR/lib', bdlib)
