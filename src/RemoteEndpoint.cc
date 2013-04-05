@@ -233,23 +233,11 @@ QStatus _RemoteEndpoint::Establish(const qcc::String& authMechanisms, qcc::Strin
              * that this is a trusted client, we will update the count accordingly.
              */
             IncrementAndFetch(&internal->numUntrustedClients);
-            if (GetConnectSpec() != "localhost" && (internal->numUntrustedClients > maxUntrustedClients) && authMechanisms == "ANONYMOUS") {
-                /* This is not a localhost or unix domain connection.
-                 * Note: UNIX domain sockets use "EXTERNAL" as the auth mechanism.
-                 * If this is an incoming connection (not on Unix domain sockets/local host),
-                 * the number of untrusted clients is reached, and
-                 * there is no auth mechanism, do not attempt to authenticate this client since
-                 * it will be untrusted.
-                 */
-                status = ER_BUS_NOT_ALLOWED;
-            }
         }
         RemoteEndpoint rep = RemoteEndpoint::wrap(this);
         EndpointAuth auth(internal->bus, rep, internal->incoming);
 
-        if (status == ER_OK) {
-            status = auth.Establish(authMechanisms, authUsed, redirection, listener);
-        }
+        status = auth.Establish(authMechanisms, authUsed, redirection, listener);
         if (status == ER_OK) {
             internal->uniqueName = auth.GetUniqueName();
             internal->remoteName = auth.GetRemoteName();
@@ -258,9 +246,10 @@ QStatus _RemoteEndpoint::Establish(const qcc::String& authMechanisms, qcc::Strin
             internal->features.trusted = (authUsed != "ANONYMOUS") || (GetConnectSpec() == "localhost");
             if (internal->incoming) {
 
-                if (internal->features.trusted) {
+                if (internal->features.trusted || internal->features.isBusToBus) {
                     /* We had earlier assumed that this would be an untrusted client
-                     * but it turned out to be trusted, so we update the counts here.
+                     * but it turned out to be trusted or a bus-to-bus endpoint,
+                     * so we update the counts here.
                      */
                     DecrementAndFetch(&internal->numUntrustedClients);
                 } else if (internal->numUntrustedClients > maxUntrustedClients) {
@@ -501,7 +490,7 @@ void _RemoteEndpoint::ExitCallback() {
         internal->listener->EndpointExit(rep);
         internal->listener = NULL;
     }
-    if (!internal->features.trusted) {
+    if (!internal->features.trusted && !internal->features.isBusToBus) {
         DecrementAndFetch(&internal->numUntrustedClients);
     }
     internal->exitCount = 1;
