@@ -42,6 +42,7 @@
 #include "Transport.h"
 #include "TCPTransport.h"
 #include "NullTransport.h"
+#include "PasswordManager.h"
 
 #if defined(QCC_OS_ANDROID) || defined(QCC_OS_LINUX) || defined(QCC_OS_DARWIN) || defined(QCC_OS_WINRT)
 #include "DaemonICETransport.h"
@@ -118,9 +119,9 @@ class ClientAuthListener : public AuthListener {
 
         printf("RequestCredentials for authenticating %s using mechanism %s\n", authPeer, authMechanism);
 
-        if (strcmp(authMechanism, "ALLJOYN_PIN_KEYX") == 0) {
+        if (strcmp(authMechanism, PasswordManager::GetAuthMechanism().c_str()) == 0) {
             if (credMask & AuthListener::CRED_PASSWORD) {
-                creds.SetPassword("1234");
+                creds.SetPassword(PasswordManager::GetPassword());
             }
             return true;
         }
@@ -338,7 +339,12 @@ QStatus BundledDaemon::Start(NullTransport* nullTransport)
          * Create and start the daemon
          */
         ajBus = new Bus("bundled-daemon", *this, listenSpecs.c_str());
-        ajBusController = new BusController(*ajBus, &authListener);
+        if (PasswordManager::GetAuthMechanism() != "ANONYMOUS" && PasswordManager::GetPassword() != "") {
+            ajBusController = new BusController(*ajBus, &authListener);
+        } else {
+            ajBusController = new BusController(*ajBus, NULL);
+        }
+
         status = ajBusController->Init(listenSpecs);
         if (ER_OK != status) {
             goto ErrorExit;
