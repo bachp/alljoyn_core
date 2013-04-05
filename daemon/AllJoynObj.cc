@@ -2751,7 +2751,7 @@ QStatus AllJoynObj::ProcCancelFindName(const qcc::String& sender, const qcc::Str
             }
         }
     } else if (!foundFinder) {
-        return ER_FAIL;
+        status = ER_FAIL;
     }
     ReleaseLocks();
     return status;
