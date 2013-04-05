@@ -119,6 +119,7 @@ TEST_F(BusAttachmentTest, FindName_Same_Name)
     EXPECT_EQ(ER_OK, status) << "  Actual Status: " << QCC_StatusText(status);
 }
 
+
 TEST_F(BusAttachmentTest, FindName_Null_Name)
 {
     QStatus status = ER_OK;
@@ -224,6 +225,85 @@ TEST_F(BusAttachmentTest, find_multiple_names)
     otherBus.Join();
 }
 
+bool foundName1;
+bool foundName2;
+bool foundName3;
+TransportMask transport1;
+TransportMask transport2;
+TransportMask transport3;
+class FindNamesByTransportListener : public BusListener {
+    void FoundAdvertisedName(const char* name, TransportMask transport, const char* namePrefix) {
+        printf("FoundAdvertisedName name=%s  prefix=%s\n", name, namePrefix);
+        if (strcmp(name, "name.x") == 0) {
+            foundName1 = true;
+            transport1 |= transport;
+        }
+        if (strcmp(name, "name.y") == 0) {
+            foundName2 = true;
+            transport2 |= transport;
+        }
+        if (strcmp(name, "name.z") == 0) {
+            foundName3 = true;
+            transport3 |= transport;
+        }
+
+    }
+};
+
+TEST_F(BusAttachmentTest, find_names_by_transport)
+{
+    QStatus status = ER_FAIL;
+    FindNamesByTransportListener testBusListener;
+    bus.RegisterBusListener(testBusListener);
+
+    foundName1 = false;
+    transport1 = 0;
+    foundName2 = false;
+    transport2 = 0;
+    foundName3 = false;
+    transport3 = 0;
+
+    status = bus.FindAdvertisedNameByTransport("name.x", TRANSPORT_TCP);
+    EXPECT_EQ(ER_OK, status) << "  Actual Status: " << QCC_StatusText(status);
+    status = bus.FindAdvertisedNameByTransport("name.y", TRANSPORT_LOCAL);
+    EXPECT_EQ(ER_OK, status) << "  Actual Status: " << QCC_StatusText(status);
+    status = bus.FindAdvertisedNameByTransport("name.z", TRANSPORT_LOCAL);
+    EXPECT_EQ(ER_OK, status) << "  Actual Status: " << QCC_StatusText(status);
+    status = bus.CancelFindAdvertisedNameByTransport("name.z", TRANSPORT_LOCAL);
+    EXPECT_EQ(ER_OK, status) << "  Actual Status: " << QCC_StatusText(status);
+
+    BusAttachment otherBus("BusAttachmentTestOther", true);
+    status = otherBus.Start();
+    EXPECT_EQ(ER_OK, status) << "  Actual Status: " << QCC_StatusText(status);
+    status = otherBus.Connect(getConnectArg().c_str());
+    EXPECT_EQ(ER_OK, status) << "  Actual Status: " << QCC_StatusText(status);
+
+    status = otherBus.AdvertiseName("name.x", TRANSPORT_ANY);
+    EXPECT_EQ(ER_OK, status) << "  Actual Status: " << QCC_StatusText(status);
+    status = otherBus.AdvertiseName("name.y", TRANSPORT_ANY);
+    EXPECT_EQ(ER_OK, status) << "  Actual Status: " << QCC_StatusText(status);
+    status = otherBus.AdvertiseName("name.z", TRANSPORT_ANY);
+    EXPECT_EQ(ER_OK, status) << "  Actual Status: " << QCC_StatusText(status);
+
+    //Wait upto 2 seconds for the found name signal to complete.
+    for (int i = 0; i < 200; ++i) {
+        qcc::Sleep(10);
+        if (foundName1 && foundName2 && foundName3) {
+            break;
+        }
+    }
+
+    EXPECT_FALSE(foundName1);
+    EXPECT_TRUE(foundName2);
+    EXPECT_EQ(transport2, TRANSPORT_LOCAL);
+    EXPECT_FALSE(foundName3);
+    //Must Unregister bus listener or the test will segfault
+    bus.UnregisterBusListener(testBusListener);
+
+    otherBus.Stop();
+    otherBus.Join();
+
+}
 /*
  * listeners and variables used by the JoinSession Test.
  * This test is a mirror of the JUnit test that goes by the same name
