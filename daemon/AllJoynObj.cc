@@ -3450,9 +3450,11 @@ void AllJoynObj::NameOwnerChanged(const qcc::String& alias, const qcc::String* o
             multimap<String, pair<TransportMask, String> >::const_iterator dit = discoverMap.begin();
             while (dit != discoverMap.end()) {
                 if (dit->second.second == *oldOwner) {
-                    last = dit++->first;
+                    last = dit->first;
+                    TransportMask mask = dit->second.first;
+                    ++dit;
                     QCC_DbgPrintf(("Calling ProcCancelFindName from NameOwnerChanged [%s]", Thread::GetThread()->GetName()));
-                    QStatus status = ProcCancelFindName(*oldOwner, last, dit->second.first);
+                    QStatus status = ProcCancelFindName(*oldOwner, last, mask);
                     if (ER_OK != status) {
                         QCC_LogError(status, ("Failed to cancel discover for name \"%s\"", last.c_str()));
                     }
