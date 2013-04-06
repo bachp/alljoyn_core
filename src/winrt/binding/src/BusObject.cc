@@ -333,6 +333,29 @@ void BusObject::Signal(Platform::String ^ destination,
     }
 }
 
+
+void BusObject::CancelSessionlessMessageBySN(uint32_t serialNumber)
+{
+    ::QStatus status = ER_OK;
+    status = _busObject->CancelSessionlessMessage(serialNumber);
+
+    // Bubble up any QStatus error as an exception
+    if (ER_OK != status) {
+        QCC_THROW_EXCEPTION(status);
+    }
+}
+
+void BusObject::CancelSessionlessMessage(Message ^ msg)
+{
+    ::QStatus status = ER_OK;
+    status = _busObject->CancelSessionlessMessage(msg->CallSerial);
+
+    // Bubble up any QStatus error as an exception
+    if (ER_OK != status) {
+        QCC_THROW_EXCEPTION(status);
+    }
+}
+
 void BusObject::AddInterface(InterfaceDescription ^ iface)
 {
     ::QStatus status = ER_OK;

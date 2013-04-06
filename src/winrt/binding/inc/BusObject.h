@@ -239,6 +239,28 @@ public ref class BusObject sealed {
                 uint8_t flags);
 
     /// <summary>
+    /// Remove sessionless message sent from this object from local daemon's store/forward cache.
+    /// /<summary>
+    /// <param name="serialNumber"> Serial number of previously sent sessionless signal. </param>
+    /// <exception cref="Platform::COMException">
+    /// HRESULT will contain the AllJoyn error status code for the error.
+    /// - #ER_OK if successful
+    /// - An error status otherwise
+    /// </exception>
+    void CancelSessionlessMessageBySN(uint32_t serialNumber);
+
+    /// <summary>
+    /// Remove sessionless message sent from this object from local daemon's store/forward cache.
+    /// /<summary>
+    /// <param name="msg"> Message to be remove. </param>
+    /// <exception cref="Platform::COMException">
+    /// HRESULT will contain the AllJoyn error status code for the error.
+    /// - #ER_OK if successful
+    /// - An error status otherwise
+    /// </exception>
+    void CancelSessionlessMessage(Message ^ msg);
+
+    /// <summary>
     /// Add an interface to this object. If the interface has properties this will also add the
     /// standard property access interface. An interface must be added before its method handlers can be
     /// added. Note that the Peer interface (org.freedesktop.DBus.peer) is implicit on all objects and
