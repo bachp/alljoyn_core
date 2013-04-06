@@ -132,7 +132,7 @@ else:
     env.SConscript('unit_test/SConscript', variant_dir='$OBJDIR/unittest', duplicate=0)
 
     # Sample programs
-    returnValue = env.SConscript('$OBJDIR/samples/SConscript')
+    returnValue += env.SConscript('$OBJDIR/samples/SConscript')
 
 # Android daemon runner
 returnValue += env.SConscript('$OBJDIR/alljoyn_android/SConscript')
