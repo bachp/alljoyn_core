@@ -57,6 +57,7 @@ class PasswordManager {
         return ER_OK;
     }
 
+    /// @cond ALLJOYN_DEV
     /* @internal Get the password set by the user/app
      *
      * @return Returns the password set by the user/app.
@@ -68,6 +69,7 @@ class PasswordManager {
      * @return Returns the authMechanism set by the user/app.
      */
     static qcc::String GetAuthMechanism() { return authMechanism; }
+    /// @endcond
   private:
     static qcc::String authMechanism;           /**< The auth mechanism selected by the user/app */
     static qcc::String password;                /**< The password selected by the user/app */

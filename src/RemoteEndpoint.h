@@ -95,6 +95,20 @@ class _RemoteEndpoint : public _BusEndpoint, public qcc::ThreadListener, public 
         virtual ~EndpointListener() { }
 
         /**
+         * Called when a new untrusted client has connected to the daemon.
+         * @return
+         *       - ER_OK if client is to be accepted
+         *       - ER_BUS_NOT_ALLOWED if client NOT to be accepted
+         *       - ER_NOT_IMPLEMENTED for transports that do not allow untrusted clients.
+         */
+        virtual QStatus UntrustedClientStart() { return ER_NOT_IMPLEMENTED; };
+
+        /**
+         * Called when an untrusted client exits.
+         */
+        virtual void UntrustedClientExit() { /*Default do-nothing*/ };
+
+        /**
          * Called when endpoint is about to exit.
          *
          * @param ep   Endpoint that is exiting.

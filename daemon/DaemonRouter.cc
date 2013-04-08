@@ -566,8 +566,5 @@ void DaemonRouter::RemoveSessionRoutes(const char* src, SessionId id)
     sessionCastSetLock.Unlock(MUTEX_CONTEXT);
 }
 
-int32_t DaemonRouter::GetMaxUntrustedClients() {
-    return (DaemonConfig::Access())->Get("policy/limit@max_untrusted_clients", ALLJOYN_MAX_UNTRUSTED_CLIENTS_DEFAULT);
-}
 }
 

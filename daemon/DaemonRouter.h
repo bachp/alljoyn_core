@@ -271,13 +271,6 @@ class DaemonRouter : public Router {
     void UnlockNameTable() { nameTable.Unlock(); }
 
     /**
-     * Get the number of allowed untrusted clients for this daemon.
-     *
-     * @return Number of untrusted clients allowed for this daemon at any point of time.
-     */
-    int32_t GetMaxUntrustedClients();
-
-    /**
      * Get all unique names and their exportable alias (well-known) names.
      *
      * @param  nameVec   Vector of (uniqueName, aliases) pairs where aliases is a vector of alias names.
@@ -395,7 +388,6 @@ class DaemonRouter : public Router {
 
     std::set<SessionCastEntry> sessionCastSet; /**< Session multicast set */
     qcc::Mutex sessionCastSetLock;             /**< Lock that protects sessionCastSet */
-    static const uint32_t ALLJOYN_MAX_UNTRUSTED_CLIENTS_DEFAULT = 0;
 };
 
 }

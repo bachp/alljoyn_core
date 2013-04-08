@@ -98,7 +98,7 @@ class _RemoteEndpoint::Internal {
     qcc::Mutex lock;                         /**< Mutex that protects the txQueue and timeout values */
     int32_t exitCount;                       /**< Number of sub-threads (rx and tx) that have exited (atomically incremented) */
 
-    EndpointListener* listener;              /**< Listener for thread exit notifications */
+    EndpointListener* listener;              /**< Listener for thread exit and untrusted client start and exit notifications. */
 
     qcc::String connSpec;                    /**< Connection specification for out-going connections */
     bool incoming;                           /**< Indicates if connection is incoming (true) or outgoing (false) */
@@ -128,10 +128,8 @@ class _RemoteEndpoint::Internal {
     Message currentWriteMsg;                 /**< The message currently being read for this endpoint */
     bool stopping;                           /**< Is this EP stopping? */
     uint32_t sessionId;                      /**< SessionId for BusToBus endpoint. (not used for non-B2B endpoints) */
-    static int32_t numUntrustedClients;      /**< Number of untrusted clients currently registered with the daemon */
 };
 
-int32_t _RemoteEndpoint::Internal::numUntrustedClients = 0;
 
 void _RemoteEndpoint::SetStream(qcc::Stream* s)
 {
@@ -225,15 +223,6 @@ QStatus _RemoteEndpoint::Establish(const qcc::String& authMechanisms, qcc::Strin
     if (!internal) {
         status = ER_BUS_NO_ENDPOINT;
     } else {
-        Router& router = internal->bus.GetInternal().GetRouter();
-        int32_t maxUntrustedClients = router.GetMaxUntrustedClients();
-        if (internal->incoming) {
-            /* It is not yet known whether this will be a trusted or untrusted client.
-             * Assume that this is an untrusted client. If after authentication, we find out
-             * that this is a trusted client, we will update the count accordingly.
-             */
-            IncrementAndFetch(&internal->numUntrustedClients);
-        }
         RemoteEndpoint rep = RemoteEndpoint::wrap(this);
         EndpointAuth auth(internal->bus, rep, internal->incoming);
 
@@ -244,23 +233,17 @@ QStatus _RemoteEndpoint::Establish(const qcc::String& authMechanisms, qcc::Strin
             internal->remoteGUID = auth.GetRemoteGUID();
             internal->features.protocolVersion = auth.GetRemoteProtocolVersion();
             internal->features.trusted = (authUsed != "ANONYMOUS") || (GetConnectSpec() == "localhost");
-            if (internal->incoming) {
 
-                if (internal->features.trusted || internal->features.isBusToBus) {
-                    /* We had earlier assumed that this would be an untrusted client
-                     * but it turned out to be trusted or a bus-to-bus endpoint,
-                     * so we update the counts here.
-                     */
-                    DecrementAndFetch(&internal->numUntrustedClients);
-                } else if (internal->numUntrustedClients > maxUntrustedClients) {
-                    DecrementAndFetch(&internal->numUntrustedClients);
-                    status = ER_BUS_NOT_ALLOWED;
-                }
-            }
-        } else {
-            /* Authentication failed or not allowed. */
-            if (internal->incoming) {
-                DecrementAndFetch(&internal->numUntrustedClients);
+            if (internal->incoming && !internal->features.trusted && !internal->features.isBusToBus) {
+                /* If a transport expects to accept untrusted clients, it MUST implement the
+                 * UntrustedClientStart and UntrustedClientExit methods and call SetListener
+                 * before making a call to _RemoteEndpoint::Establish(). So assert if the
+                 * internal->listener is NULL.
+                 * Note: It is required to set the listener only on the accepting end
+                 * i.e. for incoming endpoints.
+                 */
+                assert(internal->listener);
+                status = internal->listener->UntrustedClientStart();
             }
         }
     }
@@ -486,12 +469,20 @@ void _RemoteEndpoint::ExitCallback() {
     RemoteEndpoint rep = RemoteEndpoint::wrap(this);
     /* Un-register this remote endpoint from the router */
     internal->bus.GetInternal().GetRouter().UnregisterEndpoint(this->GetUniqueName(), this->GetEndpointType());
+    if (internal->incoming && !internal->features.trusted && !internal->features.isBusToBus) {
+        /* If a transport expects to accept untrusted clients, it MUST implement the
+         * UntrustedClientStart and UntrustedClientExit methods and call SetListener
+         * before making a call to _RemoteEndpoint::Establish(). Since the ExitCallback
+         * can occur only after _RemoteEndpoint::Establish() is successful, we assert
+         * if the internal->listener is NULL.
+         */
+        assert(internal->listener);
+        internal->listener->UntrustedClientExit();
+    }
+
     if (internal->listener) {
         internal->listener->EndpointExit(rep);
         internal->listener = NULL;
-    }
-    if (!internal->features.trusted && !internal->features.isBusToBus) {
-        DecrementAndFetch(&internal->numUntrustedClients);
     }
     internal->exitCount = 1;
 }

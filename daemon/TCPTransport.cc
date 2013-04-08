@@ -721,6 +721,13 @@ void* _TCPEndpoint::AuthThread::Run(void* arg)
     qcc::String redirection;
     DaemonRouter& router = reinterpret_cast<DaemonRouter&>(m_endpoint->m_transport->m_bus.GetInternal().GetRouter());
     AuthListener* authListener = router.GetBusController()->GetAuthListener();
+    /* Since the TCPTransport allows untrusted clients, it must implement UntrustedClientStart and
+     * UntrustedClientExit.
+     * As a part of Establish, the endpoint can call the Transport's UntrustedClientStart method if
+     * it is an untrusted client, so the transport MUST call m_endpoint->SetListener before calling Establish
+     * Note: This is only required on the accepting end i.e. for incoming endpoints.
+     */
+    m_endpoint->SetListener(m_endpoint->m_transport);
     if (authListener) {
         status = m_endpoint->Establish("ALLJOYN_PIN_KEYX ANONYMOUS", authName, redirection, authListener);
     } else {
@@ -782,9 +789,10 @@ void* _TCPEndpoint::AuthThread::Run(void* arg)
 TCPTransport::TCPTransport(BusAttachment& bus)
     : Thread("TCPTransport"), m_bus(bus), m_stopping(false), m_listener(0),
     m_foundCallback(m_listener),
-    m_isAdvertising(false), m_isAdvertisingQuietly(false), m_isDiscovering(false), m_isListening(false),
+    m_isAdvertising(false), m_isDiscovering(false), m_isListening(false),
     m_isNsEnabled(false), m_reload(false),
-    m_listenPort(0), m_nsReleaseCount(0)
+    m_listenPort(0), m_nsReleaseCount(0),
+    m_maxUntrustedClients(0), m_numUntrustedClients(0)
 {
     QCC_DbgTrace(("TCPTransport::TCPTransport()"));
     /*
@@ -1821,9 +1829,6 @@ void* TCPTransport::Run(void* arg)
  *   m_isAdvertising: We are advertising at least one well-known name either actively or quietly .
  *     If we are m_isAdvertising then m_isNsEnabled must be true.
  *
- *   m_isAdvertisingQuietly: We are quitely advertising at least one well-known
- *     name.  If we are m_isAdvertisingQuietly then m_isNsEnabled must be true.
- *
  *   m_isDiscovering: The list of discovery requests has been sent to the name
  *     service.  If we are m_isDiscovering then m_isNsEnabled must be true.
  */
@@ -1835,54 +1840,40 @@ void TCPTransport::RunListenMachine(ListenRequest& listenRequest)
      * is going on.
      *
      * First, if we are not listening, then we had better not think we're
-     * quetly advertising, actively advertising or discovering.  If we are
+     * advertising(actively or quietly) or discovering.  If we are
      * not listening, then the name service must not be enabled and sending
      * or responding to external daemons.
      */
     if (m_isListening == false) {
         assert(m_isAdvertising == false);
-        assert(m_isAdvertisingQuietly == false);
         assert(m_isDiscovering == false);
         assert(m_isNsEnabled == false);
     }
 
     /*
      * If we think the name service is enabled, it had better think it is
-     * enabled.  It must be enabled either because we are actively
-     * advertising, quietly advertising or we are discovering.  If we are
-     * actively advertising, quietly advertising or discovering, then there
+     * enabled.  It must be enabled either because we are advertising
+     * (actively or quietly) or we are discovering.  If we are
+     * advertising(actively or quietly) or discovering, then there
      * must be listeners waiting for connections as a result of those
      * advertisements or discovery requests.  If there are listeners, then
      * there must be a non-zero listenPort.
      */
     if (m_isNsEnabled) {
-        assert(m_isAdvertising || m_isAdvertisingQuietly || m_isDiscovering);
+        assert(m_isAdvertising || m_isDiscovering);
         assert(m_isListening);
         assert(m_listenPort);
     }
 
     /*
-     * If we think we are actively advertising, we'd better have an entry in
-     * the active advertisements list to advertise, and there must be
+     * If we think we are advertising, we'd better have an entry in
+     * the advertisements list to advertise, and there must be
      * listeners waiting for inbound connections as a result of those
-     * advertisements.  If we are actively advertising the name service had
+     * advertisements.  If we are advertising the name service had
      * better be enabled.
      */
     if (m_isAdvertising) {
         assert(!m_advertising.empty());
-        assert(m_isListening);
-        assert(m_listenPort);
-        assert(m_isNsEnabled);
-    }
-
-    /*
-     * If we think we are quietly advertising, we'd better have an entry in
-     * the quiet advertisements list to advertise, and there must be
-     * listeners waiting for inbound connections as a result of those
-     * advertisements.  If we are actively advertising the name service had
-     * better be enabled.
-     */
-    if (m_isAdvertisingQuietly) {
         assert(m_isListening);
         assert(m_listenPort);
         assert(m_isNsEnabled);
@@ -1965,10 +1956,13 @@ void TCPTransport::StartListenInstance(ListenRequest& listenRequest)
      * We actually start the quiet advertisement there in DoStartListen, after
      * we have a valid listener to respond to remote requests.  Note that we are
      * just driving the start listen, and there is no quiet advertisement yet so
-     * the corresponding <m_isAdvertisingQuietly> must not yet be set.
+     * the corresponding <m_isAdvertising> must not yet be set.
      */
-    qcc::String routerName = DaemonConfig::Access()->Get("tcp/property@router_advertisement_prefix", "");
-    if (m_isAdvertising || m_isDiscovering || !routerName.empty()) {
+    m_maxUntrustedClients = (DaemonConfig::Access())->Get("policy/limit@max_untrusted_clients", ALLJOYN_MAX_UNTRUSTED_CLIENTS_DEFAULT);
+
+    routerName = DaemonConfig::Access()->Get("tcp/property@router_advertisement_prefix", "");
+    if (m_isAdvertising || m_isDiscovering || (!routerName.empty() && (m_numUntrustedClients < m_maxUntrustedClients))) {
+        routerName.append(m_bus.GetInternal().GetGlobalGUID().ToShortString());
         DoStartListen(listenRequest.m_requestParam);
     }
 }
@@ -1986,7 +1980,7 @@ void TCPTransport::StopListenInstance(ListenRequest& listenRequest)
 
     /*
      * If we have just removed the last listener, we have a problem if
-     * we have active advertisements.  This is because we will be
+     * we have advertisements.  This is because we will be
      * advertising soon to be non-existent endpoints.  The question is,
      * what do we want to do about it.  We could just ignore it since
      * since clients receiving advertisements may just try to connect to
@@ -1994,8 +1988,6 @@ void TCPTransport::StopListenInstance(ListenRequest& listenRequest)
      * error and then cancel any outstanding advertisements since they
      * are soon to be meaningless.
      *
-     * Note that this only affects actively advertised names.  We never
-     * time out or lose quietly advertised names.
      */
     if (empty && m_isAdvertising) {
         QCC_LogError(ER_FAIL, ("TCPTransport::StopListenInstance(): No listeners with outstanding advertisements."));
@@ -2026,18 +2018,14 @@ void TCPTransport::EnableAdvertisementInstance(ListenRequest& listenRequest)
     NewAdvertiseOp(ENABLE_ADVERTISEMENT, listenRequest.m_requestParam, isFirst);
 
     /*
-     * If it turned out that is the first active advertisement on our list, we
-     * need to prepare before actually doing the advertisement.  We do have to
-     * take the possibility that there is a quiet advertisement that already
-     * caused a previous preparation step to happen.
+     * If it turned out that is the first advertisement on our list, we
+     * need to prepare before actually doing the advertisement.
      */
     if (isFirst) {
-
         /*
          * If we don't have any listeners up and running, we need to get them
-         * up.  If this is a Windows box or if there is an in-process quiet
-         * advertisement, the listeners will start running immediately and will
-         * never go down, so they may already be running.
+         * up.  If this is a Windows box, the listeners will start running
+         * immediately and will never go down, so they may already be running.
          */
         if (!m_isListening) {
             for (list<qcc::String>::iterator i = m_listening.begin(); i != m_listening.end(); ++i) {
@@ -2110,7 +2098,7 @@ void TCPTransport::DisableAdvertisementInstance(ListenRequest& listenRequest)
      * to think about disabling our listeners and turning off the name service.
      * We only to this if there are no discovery instances in progress.
      */
-    if (isEmpty && !m_isAdvertisingQuietly && !m_isDiscovering) {
+    if (isEmpty && !m_isDiscovering) {
 
         /*
          * Since the cancel advertised name has been sent, we can disable the
@@ -2253,7 +2241,7 @@ void TCPTransport::DisableDiscoveryInstance(ListenRequest& listenRequest)
      * the name service.  We only to this if there are no advertisements in
      * progress.
      */
-    if (isEmpty && !m_isAdvertising && !m_isAdvertisingQuietly) {
+    if (isEmpty && !m_isAdvertising) {
 
         IpNameService::Instance().Enable(TRANSPORT_TCP, 0, 0, 0, 0);
         m_isNsEnabled = false;
@@ -2831,6 +2819,7 @@ QStatus TCPTransport::Connect(const char* connectSpec, const SessionOpts& opts, 
          */
         DaemonRouter& router = reinterpret_cast<DaemonRouter&>(m_bus.GetInternal().GetRouter());
         AuthListener* authListener = router.GetBusController()->GetAuthListener();
+
         status = tcpEp->Establish("ANONYMOUS", authName, redirection, authListener);
         if (status == ER_OK) {
             tcpEp->SetListener(this);
@@ -3280,16 +3269,15 @@ QStatus TCPTransport::DoStartListen(qcc::String& normSpec)
      * that we do not send gratuitous is-at (advertisements) of the name, but we
      * do respond to who-has requests on the name.
      */
-    qcc::String routerName = DaemonConfig::Access()->Get("tcp/property@router_advertisement_prefix", "");
-    if (!routerName.empty()) {
-        routerName.append(m_bus.GetInternal().GetGlobalGUID().ToShortString());
+    if (!routerName.empty() && (m_numUntrustedClients < m_maxUntrustedClients)) {
+        bool isFirst;
+        NewAdvertiseOp(ENABLE_ADVERTISEMENT, routerName, isFirst);
         QStatus status = IpNameService::Instance().AdvertiseName(TRANSPORT_TCP, routerName, true);
         if (status != ER_OK) {
             QCC_LogError(status, ("TCPTransport::DoStartListen(): Failed to AdvertiseNameQuietly \"%s\"", routerName.c_str()));
         }
-        m_isAdvertisingQuietly = true;
+        m_isAdvertising = true;
     }
-
     m_isListening = true;
     m_listenFdsLock.Unlock(MUTEX_CONTEXT);
 
@@ -3301,6 +3289,45 @@ QStatus TCPTransport::DoStartListen(qcc::String& normSpec)
         Alert();
     }
 
+    return status;
+}
+
+void TCPTransport::UntrustedClientExit() {
+
+    /* An untrusted client has exited, update the counts and re-enable the advertisement if necessary. */
+    m_listenRequestsLock.Lock();
+    m_numUntrustedClients--;
+    QCC_DbgPrintf((" TCPTransport::UntrustedClientExit() m_numUntrustedClients=%d m_maxUntrustedClients=%d", m_numUntrustedClients, m_maxUntrustedClients));
+    if (!routerName.empty() && (m_numUntrustedClients == (m_maxUntrustedClients - 1))) {
+        EnableAdvertisement(routerName, true);
+    }
+    m_listenRequestsLock.Unlock();
+
+
+}
+
+QStatus TCPTransport::UntrustedClientStart() {
+
+    /* An untrusted client Establish has finished, so update the counts and disable the advertisement if necessary */
+    QStatus status = ER_OK;
+    m_listenRequestsLock.Lock();
+    QCC_DbgPrintf((" TCPTransport::UntrustedClientStart() m_numUntrustedClients=%d m_maxUntrustedClients=%d", m_numUntrustedClients, m_maxUntrustedClients));
+
+    if (m_numUntrustedClients++ > m_maxUntrustedClients) {
+        /* This could happen in the following situation:
+         * The max untrusted clients is set to 1. Two untrusted clients try to
+         * connect to this daemon at the same time. When the 2nd one
+         * finishes the EndpointAuth::Establish, it will call into this method
+         * and hit this case and will be rejected.
+         */
+        status = ER_BUS_NOT_ALLOWED;
+        m_numUntrustedClients--;
+    }
+    if (m_numUntrustedClients >= m_maxUntrustedClients) {
+        /* Since the second param is currently unused, set it to false */
+        DisableAdvertisement(routerName, false);
+    }
+    m_listenRequestsLock.Unlock();
     return status;
 }
 

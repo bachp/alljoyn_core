@@ -107,14 +107,6 @@ class Router {
      * @param guid   GUID of bus associated with this router.
      */
     virtual void SetGlobalGUID(const qcc::GUID128& guid) = 0;
-
-    /**
-     * Get the number of allowed untrusted clients for this daemon.
-     * This method is not used for client instances of the router.
-     *
-     * @return Number of untrusted clients allowed for this daemon at any point of time.
-     */
-    virtual int32_t GetMaxUntrustedClients() { return 0; };
 };
 
 }

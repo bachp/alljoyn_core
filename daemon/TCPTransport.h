@@ -520,6 +520,16 @@ class TCPTransport : public Transport, public _RemoteEndpoint::EndpointListener,
      */
     static const uint32_t ALLJOYN_MAX_COMPLETED_CONNECTIONS_TCP_DEFAULT = 50;
 
+    /**
+     * @brief The default value for the maximum number of untrusted clients
+     *
+     * This corresponds to the configuration item "max_untrusted_clients"
+     * To override this value, change the limit, "max_untrusted_clients".
+     *
+     * @warning This maximum is enforced on incoming connections from untrusted clients only.
+     * This is to limit the amount of resources being used by untrusted clients.
+     */
+    static const uint32_t ALLJOYN_MAX_UNTRUSTED_CLIENTS_DEFAULT = 0;
     /*
      * The Android Compatibility Test Suite (CTS) is used by Google to enforce a
      * common idea of what it means to be Android.  One of their tests is to
@@ -621,9 +631,9 @@ class TCPTransport : public Transport, public _RemoteEndpoint::EndpointListener,
     void DisableAdvertisementInstance(ListenRequest& listenRequest);
     void EnableDiscoveryInstance(ListenRequest& listenRequest);
     void DisableDiscoveryInstance(ListenRequest& listenRequest);
-
+    void UntrustedClientExit();
+    QStatus UntrustedClientStart();
     bool m_isAdvertising;
-    bool m_isAdvertisingQuietly;
     bool m_isDiscovering;
     bool m_isListening;
     bool m_isNsEnabled;
@@ -632,6 +642,15 @@ class TCPTransport : public Transport, public _RemoteEndpoint::EndpointListener,
     uint16_t m_listenPort;     /**< If m_isListening, is the port on which we are listening */
 
     int32_t m_nsReleaseCount; /**< the number of times we have released the name service singleton */
+
+
+    /**< The router advertisement prefix set in the configuration file appended with the BusController's unique name */
+    qcc::String routerName;
+
+    int32_t m_maxUntrustedClients; /**< the maximum number of untrusted clients allowed at any point of time */
+
+    int32_t m_numUntrustedClients;      /**< Number of untrusted clients currently registered with the daemon */
+
 };
 
 } // namespace ajn
