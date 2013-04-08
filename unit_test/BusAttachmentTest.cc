@@ -235,16 +235,16 @@ class FindNamesByTransportListener : public BusListener {
     void FoundAdvertisedName(const char* name, TransportMask transport, const char* namePrefix) {
         printf("FoundAdvertisedName name=%s  prefix=%s\n", name, namePrefix);
         if (strcmp(name, "name.x") == 0) {
-            foundName1 = true;
             transport1 |= transport;
+            foundName1 = true;
         }
         if (strcmp(name, "name.y") == 0) {
-            foundName2 = true;
             transport2 |= transport;
+            foundName2 = true;
         }
         if (strcmp(name, "name.z") == 0) {
-            foundName3 = true;
             transport3 |= transport;
+            foundName3 = true;
         }
 
     }
@@ -278,7 +278,7 @@ TEST_F(BusAttachmentTest, find_names_by_transport)
     status = otherBus.Connect(getConnectArg().c_str());
     EXPECT_EQ(ER_OK, status) << "  Actual Status: " << QCC_StatusText(status);
 
-    status = otherBus.AdvertiseName("name.x", TRANSPORT_ANY);
+    status = otherBus.AdvertiseName("name.x", TRANSPORT_LOCAL);
     EXPECT_EQ(ER_OK, status) << "  Actual Status: " << QCC_StatusText(status);
     status = otherBus.AdvertiseName("name.y", TRANSPORT_ANY);
     EXPECT_EQ(ER_OK, status) << "  Actual Status: " << QCC_StatusText(status);
@@ -288,7 +288,7 @@ TEST_F(BusAttachmentTest, find_names_by_transport)
     //Wait upto 2 seconds for the found name signal to complete.
     for (int i = 0; i < 200; ++i) {
         qcc::Sleep(10);
-        if (foundName1 && foundName2 && foundName3) {
+        if (foundName2) {
             break;
         }
     }
