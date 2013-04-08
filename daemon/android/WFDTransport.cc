@@ -3668,7 +3668,7 @@ void WFDTransport::QueueDisableDiscovery(const char* namePrefix)
     Alert();
 }
 
-QStatus WFDTransport::EnableAdvertisement(const qcc::String& advertiseName)
+QStatus WFDTransport::EnableAdvertisement(const qcc::String& advertiseName, bool quietly)
 {
     QCC_DbgTrace(("WFDTransport::EnableAdvertisement()"));
 

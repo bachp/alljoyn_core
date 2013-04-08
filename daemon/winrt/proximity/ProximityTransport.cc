@@ -2737,7 +2737,7 @@ void ProximityTransport::QueueDisableDiscovery(const char* namePrefix)
     Alert();
 }
 
-QStatus ProximityTransport::EnableAdvertisement(const qcc::String& advertiseName)
+QStatus ProximityTransport::EnableAdvertisement(const qcc::String& advertiseName, bool quietly)
 {
     QCC_DbgPrintf(("ProximityTransport::EnableAdvertisement()"));
 

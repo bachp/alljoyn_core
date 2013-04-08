@@ -246,10 +246,10 @@ class Transport {
      * Start advertising a well-known name
      *
      * @param advertiseName   Well-known name to add to list of advertised names.
-     *
+     * @param quietly         Advertise the name quietly
      * @return  ER_NOT_IMPLEMENTED unless overridden by a derived class.
      */
-    virtual QStatus EnableAdvertisement(const qcc::String& advertiseName) { return ER_NOT_IMPLEMENTED; }
+    virtual QStatus EnableAdvertisement(const qcc::String& advertiseName, bool quietly) { return ER_NOT_IMPLEMENTED; }
 
     /**
      * Stop advertising a well-known name with a given quality of service.

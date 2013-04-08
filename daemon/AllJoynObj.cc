@@ -2333,6 +2333,7 @@ void AllJoynObj::AdvertiseName(const InterfaceDescription::Member* member, Messa
     MsgArg replyArg;
     const char* advertiseName;
     TransportMask transports = 0;
+    bool quietly = false;
 
     /* Get AdvertiseName args */
     msg->GetArgs(numArgs, args);
@@ -2366,6 +2367,14 @@ void AllJoynObj::AdvertiseName(const InterfaceDescription::Member* member, Messa
     }
 
     if (ALLJOYN_ADVERTISENAME_REPLY_SUCCESS == replyCode) {
+        qcc::String adNameStr = advertiseName;
+        // If this is a quiet advertisement, the name has a prefix of "quiet@".
+        size_t pos = adNameStr.find_first_of('@');
+        if (pos != qcc::String::npos && (0 == adNameStr.compare(0, pos, "quiet"))) {
+            quietly = true;
+            advertiseName += (pos + 1);
+        }
+
         /* Check to see if the advertise name is valid and well formed */
         if (IsLegalBusName(advertiseName)) {
 
@@ -2400,7 +2409,7 @@ void AllJoynObj::AdvertiseName(const InterfaceDescription::Member* member, Messa
                 for (size_t i = 0; i < transList.GetNumTransports(); ++i) {
                     Transport* trans = transList.GetTransport(i);
                     if (trans && trans->IsBusToBus() && (trans->GetTransportMask() & transports)) {
-                        status = trans->EnableAdvertisement(advertiseNameStr);
+                        status = trans->EnableAdvertisement(advertiseNameStr, quietly);
                         if ((status != ER_OK) && (status != ER_NOT_IMPLEMENTED)) {
                             QCC_LogError(status, ("EnableAdvertisment failed for transport %s - mask=0x%x", trans->GetTransportName(), transports));
                         }
@@ -2448,6 +2457,13 @@ void AllJoynObj::CancelAdvertiseName(const InterfaceDescription::Member* member,
     if (status != ER_OK) {
         QCC_LogError(status, ("CancelAdvertiseName: bad arg types"));
         return;
+    }
+
+    // Strip off name prefix "quiet@" if exists
+    qcc::String adNameStr = advertiseName;
+    size_t pos = adNameStr.find_first_of('@');
+    if (pos != qcc::String::npos && (0 == adNameStr.compare(0, pos, "quiet"))) {
+        advertiseName += (pos + 1);
     }
 
     QCC_DbgTrace(("AllJoynObj::CancelAdvertiseName(%s, 0x%x)", advertiseName, transports));

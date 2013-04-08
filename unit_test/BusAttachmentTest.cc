@@ -304,6 +304,64 @@ TEST_F(BusAttachmentTest, find_names_by_transport)
     otherBus.Join();
 
 }
+
+bool foundQuietAdvertisedName = false;
+class QuietAdvertiseNameListener : public BusListener {
+    void FoundAdvertisedName(const char* name, TransportMask transport, const char* namePrefix) {
+        printf("FoundAdvertisedName name=%s  prefix=%s\n", name, namePrefix);
+        if (strcmp(name, "org.alljoyn.BusNode.test") == 0) {
+            foundQuietAdvertisedName = true;
+        }
+    }
+
+    void LostAdvertisedName(const char* name, TransportMask transport, const char* namePrefix) {
+        printf("LostAdvertisedName name=%s  prefix=%s\n", name, namePrefix);
+        if (strcmp(name, "org.alljoyn.BusNode.test") == 0) {
+            foundQuietAdvertisedName = false;
+        }
+    }
+};
+
+TEST_F(BusAttachmentTest, quiet_advertise_name)
+{
+    QStatus status = ER_FAIL;
+    foundQuietAdvertisedName = false;
+    status = bus.AdvertiseName("quiet@org.alljoyn.BusNode.test", TRANSPORT_ANY);
+    EXPECT_EQ(ER_OK, status);
+
+    BusAttachment otherBus("BusAttachmentTestOther", true);
+    status = otherBus.Start();
+    EXPECT_EQ(ER_OK, status) << "  Actual Status: " << QCC_StatusText(status);
+    status = otherBus.Connect(getConnectArg().c_str());
+    EXPECT_EQ(ER_OK, status) << "  Actual Status: " << QCC_StatusText(status);
+    QuietAdvertiseNameListener testBusListener;
+    otherBus.RegisterBusListener(testBusListener);
+    status = otherBus.FindAdvertisedName("org.alljoyn.BusNode.test");
+    EXPECT_EQ(ER_OK, status) << "  Actual Status: " << QCC_StatusText(status);
+
+    //Wait upto 2 seconds for the found name signal to complete.
+    for (int i = 0; i < 200; ++i) {
+        qcc::Sleep(10);
+        if (foundQuietAdvertisedName) {
+            break;
+        }
+    }
+    EXPECT_TRUE(foundQuietAdvertisedName);
+
+    bus.CancelAdvertiseName("quiet@org.alljoyn.BusNode.test", TRANSPORT_ANY);
+    //Wait upto 2 seconds for the found name signal to complete.
+    for (int i = 0; i < 200; ++i) {
+        qcc::Sleep(10);
+        if (foundQuietAdvertisedName) {
+            break;
+        }
+    }
+    EXPECT_FALSE(foundQuietAdvertisedName);
+    otherBus.UnregisterBusListener(testBusListener);
+    otherBus.Stop();
+    otherBus.Join();
+}
+
 /*
  * listeners and variables used by the JoinSession Test.
  * This test is a mirror of the JUnit test that goes by the same name

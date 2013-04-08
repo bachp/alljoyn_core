@@ -308,7 +308,7 @@ void BTTransport::DisableDiscovery(const char* namePrefix)
 }
 
 
-QStatus BTTransport::EnableAdvertisement(const qcc::String& advertiseName)
+QStatus BTTransport::EnableAdvertisement(const qcc::String& advertiseName, bool quietly)
 {
     QCC_DbgTrace(("BTTransport::EnableAdvertisement(%s)", advertiseName.c_str()));
     if (!btmActive) {

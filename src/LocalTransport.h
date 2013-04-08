@@ -655,7 +655,7 @@ class LocalTransport : public Transport {
      *
      * @param advertiseName   Well-known name to add to list of advertised names.
      */
-    QStatus EnableAdvertisement(const qcc::String& advertiseName) { return ER_FAIL; }
+    QStatus EnableAdvertisement(const qcc::String& advertiseName, bool quietly) { return ER_FAIL; }
 
     /**
      * Stop advertising a well-known name with a given quality of service.

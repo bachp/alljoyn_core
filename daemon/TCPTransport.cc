@@ -1818,7 +1818,7 @@ void* TCPTransport::Run(void* arg)
  *   m_isNsEnabled:  The name service is up and running and listening on its
  *     sockets for incoming requests.
  *
- *   m_isAdvertising: We are actively advertising at least one well-known name.
+ *   m_isAdvertising: We are advertising at least one well-known name either actively or quietly .
  *     If we are m_isAdvertising then m_isNsEnabled must be true.
  *
  *   m_isAdvertisingQuietly: We are quitely advertising at least one well-known
@@ -2076,7 +2076,7 @@ void TCPTransport::EnableAdvertisementInstance(ListenRequest& listenRequest)
     assert(m_isNsEnabled);
     assert(IpNameService::Instance().Started() && "TCPTransport::EnableAdvertisementInstance(): IpNameService not started");
 
-    QStatus status = IpNameService::Instance().AdvertiseName(TRANSPORT_TCP, listenRequest.m_requestParam);
+    QStatus status = IpNameService::Instance().AdvertiseName(TRANSPORT_TCP, listenRequest.m_requestParam, listenRequest.m_requestParamOpt);
     if (status != ER_OK) {
         QCC_LogError(status, ("TCPTransport::EnableAdvertisementInstance(): Failed to advertise \"%s\"", listenRequest.m_requestParam.c_str()));
     }
@@ -3594,7 +3594,7 @@ void TCPTransport::QueueDisableDiscovery(const char* namePrefix)
 
 }
 
-QStatus TCPTransport::EnableAdvertisement(const qcc::String& advertiseName)
+QStatus TCPTransport::EnableAdvertisement(const qcc::String& advertiseName, bool quietly)
 {
     QCC_DbgPrintf(("TCPTransport::EnableAdvertisement()"));
 
@@ -3616,24 +3616,24 @@ QStatus TCPTransport::EnableAdvertisement(const qcc::String& advertiseName)
         return ER_BUS_TRANSPORT_NOT_STARTED;
     }
 
-    QueueEnableAdvertisement(advertiseName);
+    QueueEnableAdvertisement(advertiseName, quietly);
     return ER_OK;
 }
 
-void TCPTransport::QueueEnableAdvertisement(const qcc::String& advertiseName)
+
+void TCPTransport::QueueEnableAdvertisement(const qcc::String& advertiseName, bool quietly)
 {
     QCC_DbgPrintf(("TCPTransport::QueueEnableAdvertisement()"));
 
     ListenRequest listenRequest;
     listenRequest.m_requestOp = ENABLE_ADVERTISEMENT_INSTANCE;
     listenRequest.m_requestParam = advertiseName;
+    listenRequest.m_requestParamOpt = quietly;
 
     m_listenRequestsLock.Lock(MUTEX_CONTEXT);
     /* Process the request */
     RunListenMachine(listenRequest);
     m_listenRequestsLock.Unlock(MUTEX_CONTEXT);
-
-
 }
 
 void TCPTransport::DisableAdvertisement(const qcc::String& advertiseName, bool nameListEmpty)

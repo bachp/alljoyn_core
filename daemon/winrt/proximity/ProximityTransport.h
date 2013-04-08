@@ -203,11 +203,12 @@ class ProximityTransport : public Transport, public _RemoteEndpoint::EndpointLis
      * Start advertising a well-known name with the given quality of service.
      *
      * @param advertiseName   Well-known name to add to list of advertised names.
+     * @param quietly         Advertise the name quietly
      * @return
      *      - ER_OK if successful.
      *      - an error status otherwise.
      */
-    QStatus EnableAdvertisement(const qcc::String& advertiseName);
+    QStatus EnableAdvertisement(const qcc::String& advertiseName, bool quietly);
 
     /**
      * Stop advertising a well-known name with a given quality of service.

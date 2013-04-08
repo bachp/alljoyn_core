@@ -205,14 +205,15 @@ class TCPTransport : public Transport, public _RemoteEndpoint::EndpointListener,
     void DisableDiscovery(const char* namePrefix);
 
     /**
-     * Start advertising a well-known name with the given quality of service.
+     * Start advertising a well-known name with a given quality of service.
      *
      * @param advertiseName   Well-known name to add to list of advertised names.
+     * @param quietly         Advertise the name quietly
      * @return
      *      - ER_OK if successful.
      *      - an error status otherwise.
      */
-    QStatus EnableAdvertisement(const qcc::String& advertiseName);
+    QStatus EnableAdvertisement(const qcc::String& advertiseName, bool quietly);
 
     /**
      * Stop advertising a well-known name with a given quality of service.
@@ -329,6 +330,7 @@ class TCPTransport : public Transport, public _RemoteEndpoint::EndpointListener,
       public:
         RequestOp m_requestOp;
         qcc::String m_requestParam;
+        bool m_requestParamOpt;
     };
 
     qcc::Mutex m_listenRequestsLock;                               /**< Mutex that protects m_listenRequests */
@@ -608,7 +610,7 @@ class TCPTransport : public Transport, public _RemoteEndpoint::EndpointListener,
 
     void QueueEnableDiscovery(const char* namePrefix);
     void QueueDisableDiscovery(const char* namePrefix);
-    void QueueEnableAdvertisement(const qcc::String& advertiseName);
+    void QueueEnableAdvertisement(const qcc::String& advertiseName, bool quietly);
     void QueueDisableAdvertisement(const qcc::String& advertiseName);
 
     void RunListenMachine(ListenRequest& listenRequest);

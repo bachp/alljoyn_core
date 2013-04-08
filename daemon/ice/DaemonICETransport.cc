@@ -2507,7 +2507,7 @@ void DaemonICETransport::DisableDiscovery(const char* namePrefix)
     }
 }
 
-QStatus DaemonICETransport::EnableAdvertisement(const String& advertiseName)
+QStatus DaemonICETransport::EnableAdvertisement(const String& advertiseName, bool quietly)
 {
     /*
      * We only want to allow this call to proceed if we have a running Run
