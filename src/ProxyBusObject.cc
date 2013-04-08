@@ -5,7 +5,7 @@
  */
 
 /******************************************************************************
- * Copyright 2009-2012, Qualcomm Innovation Center, Inc.
+ * Copyright 2009-2013, Qualcomm Innovation Center, Inc.
  *
  *    Licensed under the Apache License, Version 2.0 (the "License");
  *    you may not use this file except in compliance with the License.
@@ -449,7 +449,7 @@ ProxyBusObject* ProxyBusObject::GetChild(const char* inPath)
     lock->Lock(MUTEX_CONTEXT);
     while (idx != qcc::String::npos) {
         size_t end = inPathStr.find_first_of('/', idx);
-        qcc::String item = inPathStr.substr(0, (qcc::String::npos == end) ? end : end - 1);
+        qcc::String item = inPathStr.substr(0, end);
         vector<_ProxyBusObject>& ch = cur->components->children;
         vector<_ProxyBusObject>::iterator it = ch.begin();
         while (it != ch.end()) {
@@ -489,7 +489,7 @@ void* ProxyBusObject::GetManagedChild(const char* inPath)
     lock->Lock(MUTEX_CONTEXT);
     while (idx != qcc::String::npos) {
         size_t end = inPathStr.find_first_of('/', idx);
-        qcc::String item = inPathStr.substr(0, (qcc::String::npos == end) ? end : end - 1);
+        qcc::String item = inPathStr.substr(0, end);
         vector<_ProxyBusObject>& ch = cur->components->children;
         vector<_ProxyBusObject>::iterator it = ch.begin();
         while (it != ch.end()) {
@@ -531,7 +531,7 @@ QStatus ProxyBusObject::AddChild(const ProxyBusObject& child)
     lock->Lock(MUTEX_CONTEXT);
     while (idx != qcc::String::npos) {
         size_t end = childPath.find_first_of('/', idx);
-        qcc::String item = childPath.substr(0, (qcc::String::npos == end) ? end : end - 1);
+        qcc::String item = childPath.substr(0, end);
         vector<_ProxyBusObject>& ch = cur->components->children;
         vector<_ProxyBusObject>::iterator it = ch.begin();
         while (it != ch.end()) {
@@ -581,7 +581,7 @@ QStatus ProxyBusObject::RemoveChild(const char* inPath)
     lock->Lock(MUTEX_CONTEXT);
     while (idx != qcc::String::npos) {
         size_t end = childPath.find_first_of('/', idx);
-        qcc::String item = childPath.substr(0, (qcc::String::npos == end) ? end : end - 1);
+        qcc::String item = childPath.substr(0, end);
         vector<_ProxyBusObject>& ch = cur->components->children;
         vector<_ProxyBusObject>::iterator it = ch.begin();
         while (it != ch.end()) {

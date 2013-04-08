@@ -1,5 +1,5 @@
 /******************************************************************************
- * Copyright 2012, Qualcomm Innovation Center, Inc.
+ * Copyright 2012-2013, Qualcomm Innovation Center, Inc.
  *
  *    Licensed under the Apache License, Version 2.0 (the "License");
  *    you may not use this file except in compliance with the License.
@@ -344,4 +344,99 @@ TEST_F(ProxyBusObjectTest, SecureConnectionAsync) {
     }
     EXPECT_TRUE(auth_complete_listener1_flag);
     EXPECT_TRUE(auth_complete_listener2_flag);
+}
+
+TEST_F(ProxyBusObjectTest, GetChildren) {
+    QStatus status = ER_FAIL;
+
+    InterfaceDescription* testIntf = NULL;
+    bus.CreateInterface("org.alljoyn.test.ProxyBusObjectTest", testIntf, false);
+    status = testIntf->AddMember(MESSAGE_METHOD_CALL, "ping", "s", "s", "in,out", 0);
+    EXPECT_EQ(ER_OK, status) << "  Actual Status: " << QCC_StatusText(status);
+
+    ProxyBusObject proxyObjChildOne(bus, "org.alljoyn.test.ProxyBusObjectTest", "/org/alljoyn/test/ProxyObjectTest/ChildOne", 0);
+    ProxyBusObject proxyObjChildTwo(bus, "org.alljoyn.test.ProxyBusObjectTest", "/org/alljoyn/test/ProxyObjectTest/ChildTwo", 0);
+
+    status = proxyObjChildOne.AddInterface(*testIntf);
+    EXPECT_EQ(ER_OK, status) << "  Actual Status: " << QCC_StatusText(status);
+    status = proxyObjChildTwo.AddInterface(*testIntf);
+    EXPECT_EQ(ER_OK, status) << "  Actual Status: " << QCC_StatusText(status);
+
+    ProxyBusObject proxyObj(bus, NULL, NULL, 0);
+
+    status = proxyObj.AddChild(proxyObjChildOne);
+    EXPECT_EQ(ER_OK, status) << "  Actual Status: " << QCC_StatusText(status);
+    status = proxyObj.AddChild(proxyObjChildTwo);
+    EXPECT_EQ(ER_OK, status) << "  Actual Status: " << QCC_StatusText(status);
+
+    EXPECT_TRUE(proxyObj.IsValid());
+
+    ProxyBusObject* proxyObjSub = proxyObj.GetChild("/org/alljoyn/test/ProxyObjectTest");
+
+    size_t numChildren = 0;
+    ProxyBusObject** children = NULL;
+    numChildren = proxyObjSub->GetChildren();
+    EXPECT_EQ((size_t)2, numChildren);
+
+    children = new ProxyBusObject *[numChildren];
+    proxyObjSub->GetChildren(children, numChildren);
+
+    for (size_t i = 0; i < numChildren; ++i) {
+        ASSERT_TRUE(children[i]) << "Test interface for children[" << i << "] should not be NULL.";
+        ASSERT_TRUE(children[i]->IsValid()) << "Test interface for children[" << i << "] should a valid ProxyBusObject.";
+        EXPECT_TRUE(children[i]->ImplementsInterface("org.alljoyn.test.ProxyBusObjectTest")) <<
+        "Test interface for children[" << i << "] should implement the org.alljoyn.test.ProxyBusObjectTest interface.";
+
+        const InterfaceDescription* childIntf = children[i]->GetInterface("org.alljoyn.test.ProxyBusObjectTest");
+        qcc::String introspect = childIntf->Introspect();
+
+        const char* expectedIntrospect =
+            "<interface name=\"org.alljoyn.test.ProxyBusObjectTest\">\n"
+            "  <method name=\"ping\">\n"
+            "    <arg name=\"in\" type=\"s\" direction=\"in\"/>\n"
+            "    <arg name=\"out\" type=\"s\" direction=\"out\"/>\n"
+            "  </method>\n"
+            "</interface>\n";
+        EXPECT_STREQ(expectedIntrospect, introspect.c_str()) <<
+        "Test interface for children[" << i << "] did not have expected introspection.";
+    }
+
+    status = proxyObj.RemoveChild("/org/alljoyn/test/ProxyObjectTest/ChildOne");
+    EXPECT_EQ(ER_OK, status) << "  Actual Status: " << QCC_StatusText(status);
+
+    ProxyBusObject* removedProxyChild = proxyObj.GetChild("/org/alljoyn/test/ProxyObjectTest/ChildOne");
+    EXPECT_EQ(NULL, removedProxyChild);
+}
+
+// ALLJOYN-1908
+TEST_F(ProxyBusObjectTest, AddChild_regressionTest) {
+    QStatus status = ER_FAIL;
+
+    InterfaceDescription* testIntf = NULL;
+    bus.CreateInterface("org.alljoyn.test.ProxyBusObjectTest", testIntf, false);
+    status = testIntf->AddMember(MESSAGE_METHOD_CALL, "ping", "s", "s", "in,out", 0);
+    EXPECT_EQ(ER_OK, status) << "  Actual Status: " << QCC_StatusText(status);
+
+    ProxyBusObject proxyObjChildOne(bus, "org.alljoyn.test.ProxyBusObjectTest", "/aa/a", 0);
+    ProxyBusObject proxyObjChildTwo(bus, "org.alljoyn.test.ProxyBusObjectTest", "/ab/a", 0);
+
+    status = proxyObjChildOne.AddInterface(*testIntf);
+    EXPECT_EQ(ER_OK, status) << "  Actual Status: " << QCC_StatusText(status);
+    status = proxyObjChildTwo.AddInterface(*testIntf);
+    EXPECT_EQ(ER_OK, status) << "  Actual Status: " << QCC_StatusText(status);
+
+    ProxyBusObject proxyObj(bus, NULL, NULL, 0);
+
+    status = proxyObj.AddChild(proxyObjChildOne);
+    EXPECT_EQ(ER_OK, status) << "  Actual Status: " << QCC_StatusText(status);
+    status = proxyObj.AddChild(proxyObjChildTwo);
+    EXPECT_EQ(ER_OK, status) << "  Actual Status: " << QCC_StatusText(status);
+
+    EXPECT_TRUE(proxyObj.IsValid());
+
+    size_t numChildren = 0;
+    ProxyBusObject** children = NULL;
+    numChildren = proxyObj.GetChildren();
+    //if ALLJOYN-1908 were not fixed this would return 1
+    EXPECT_EQ((size_t)2, numChildren);
 }
