@@ -155,6 +155,7 @@ _LocalEndpoint::_LocalEndpoint(BusAttachment& bus, uint32_t concurrency) :
     dispatcher(new Dispatcher(this, concurrency)),
     deferredCallbacks(new DeferredCallbacks(this)),
     running(false),
+    isRegistered(false),
     bus(&bus),
     objectsLock(),
     replyMapLock(),
@@ -286,6 +287,7 @@ QStatus _LocalEndpoint::Start()
         running = true;
         BusEndpoint busEndpoint = BusEndpoint::wrap(this);
         bus->GetInternal().GetRouter().RegisterEndpoint(busEndpoint);
+        isRegistered = true;
     }
     return status;
 }
@@ -294,9 +296,6 @@ QStatus _LocalEndpoint::Stop(void)
 {
     QCC_DbgTrace(("LocalEndpoint::Stop"));
 
-    if (running) {
-        bus->GetInternal().GetRouter().UnregisterEndpoint(this->GetUniqueName(), this->GetEndpointType());
-    }
     /* Local endpoint not longer running */
     running = false;
 
@@ -317,6 +316,15 @@ QStatus _LocalEndpoint::Stop(void)
 
 QStatus _LocalEndpoint::Join(void)
 {
+    /*
+     * Unregister the localEndpoint from the router
+     * This must be done in Join rather than Stop since UnregisteringEndpoint may block
+     */
+    if (isRegistered) {
+        bus->GetInternal().GetRouter().UnregisterEndpoint(this->GetUniqueName(), this->GetEndpointType());
+        isRegistered = false;
+    }
+
     if (peerObj) {
         peerObj->Join();
     }

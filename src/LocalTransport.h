@@ -432,6 +432,7 @@ class _LocalEndpoint : public _BusEndpoint, public qcc::AlarmListener, public Me
     std::map<uint32_t, ReplyContext*> replyMap;
 
     bool running;                      /**< Is the local endpoint up and running */
+    bool isRegistered;                 /**< true iff endpoint has been registered with router */
     MethodTable methodTable;           /**< Hash table of BusObject methods */
     SignalTable signalTable;           /**< Hash table of BusObject signal handlers */
     BusAttachment* bus;                /**< Message bus */
