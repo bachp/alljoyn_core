@@ -3311,9 +3311,10 @@ QStatus TCPTransport::UntrustedClientStart() {
     /* An untrusted client Establish has finished, so update the counts and disable the advertisement if necessary */
     QStatus status = ER_OK;
     m_listenRequestsLock.Lock();
+    m_numUntrustedClients++;
     QCC_DbgPrintf((" TCPTransport::UntrustedClientStart() m_numUntrustedClients=%d m_maxUntrustedClients=%d", m_numUntrustedClients, m_maxUntrustedClients));
 
-    if (m_numUntrustedClients++ > m_maxUntrustedClients) {
+    if (m_numUntrustedClients > m_maxUntrustedClients) {
         /* This could happen in the following situation:
          * The max untrusted clients is set to 1. Two untrusted clients try to
          * connect to this daemon at the same time. When the 2nd one
