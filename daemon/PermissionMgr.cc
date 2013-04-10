@@ -28,7 +28,7 @@ namespace ajn {
 
 PermissionMgr::DaemonBusCallPolicy PermissionMgr::GetDaemonBusCallPolicy(BusEndpoint sender)
 {
-    static bool enableRestrict = (DaemonConfig::Access())->Get("policy/property@enable_daemon_bus_call_restriction", "true") == "true";
+    static bool enableRestrict = (DaemonConfig::Access())->Get("property@restrict_untrusted_clients", "true") == "true";
 
     QCC_DbgTrace(("PermissionMgr::GetDaemonBusCallPolicy(send=%s)", sender->GetUniqueName().c_str()));
     DaemonBusCallPolicy policy = STDBUSCALL_ALLOW_ACCESS_SERVICE_ANY;

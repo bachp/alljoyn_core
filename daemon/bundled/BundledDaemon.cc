@@ -72,6 +72,8 @@ static const char bundledConfig[] =
     "  <limit auth_timeout=\"5000\"/>"
     "  <limit max_incomplete_connections=\"4\"/>"
     "  <limit max_completed_connections=\"16\"/>"
+    "  <limit max_untrusted_clients=\"0\"/>"
+    "  <property restrict_untrusted_clients=\"true\"/>"
     "  <ip_name_service>"
     "    <property interfaces=\"*\"/>"
     "    <property disable_directed_broadcast=\"false\"/>"
@@ -97,10 +99,6 @@ static const char bundledConfig[] =
 #if defined(QCC_OS_WINRT)
 //    "  <listen>proximity:addr=0::0,port=0,family=ipv6</listen>"
 #endif
-    "  <policy>"
-    "    <property enable_daemon_bus_call_restriction=\"true\"/>"
-    "    <limit max_untrusted_clients=\"0\"/>"
-    "  </policy>"
     "</busconfig>";
 
 

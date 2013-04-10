@@ -81,6 +81,8 @@ static const char defaultConfig[] =
     "  <limit auth_timeout=\"32768\"/>"
     "  <limit max_incomplete_connections=\"16\"/>"
     "  <limit max_completed_connections=\"64\"/>"
+    "  <limit max_untrusted_clients=\"0\"/>"
+    "  <property restrict_untrusted_clients=\"true\"/>"
     "  <ip_name_service>"
     "    <property interfaces=\"*\"/>"
     "    <property disable_directed_broadcast=\"false\"/>"
@@ -100,10 +102,6 @@ static const char defaultConfig[] =
     "    <property protocol=\"HTTPS\"/>"
     "    <property enable_ipv6=\"false\"/>"
     "  </ice_discovery_manager>"
-    "  <policy>"
-    "    <property enable_daemon_bus_call_restriction=\"true\"/>"
-    "    <limit max_untrusted_clients=\"0\"/>"
-    "  </policy>"
     "</busconfig>";
 
 static volatile sig_atomic_t g_interrupt = false;

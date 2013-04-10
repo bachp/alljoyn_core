@@ -1958,7 +1958,7 @@ void TCPTransport::StartListenInstance(ListenRequest& listenRequest)
      * just driving the start listen, and there is no quiet advertisement yet so
      * the corresponding <m_isAdvertising> must not yet be set.
      */
-    m_maxUntrustedClients = (DaemonConfig::Access())->Get("policy/limit@max_untrusted_clients", ALLJOYN_MAX_UNTRUSTED_CLIENTS_DEFAULT);
+    m_maxUntrustedClients = (DaemonConfig::Access())->Get("limit@max_untrusted_clients", ALLJOYN_MAX_UNTRUSTED_CLIENTS_DEFAULT);
 
     routerName = DaemonConfig::Access()->Get("tcp/property@router_advertisement_prefix", "");
     if (m_isAdvertising || m_isDiscovering || (!routerName.empty() && (m_numUntrustedClients < m_maxUntrustedClients))) {
