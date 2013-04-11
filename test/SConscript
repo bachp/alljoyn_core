@@ -40,7 +40,8 @@ if env['OS'] != 'win8':
         env.Program('compression',   ['compression.cc']),
         env.Program('rawclient',     ['rawclient.cc']),
         env.Program('rawservice',    ['rawservice.cc']),
-        env.Program('sessions',      ['sessions.cc'])
+        env.Program('sessions',      ['sessions.cc']),
+        env.Program('ledctrl',       ['ledctrl.cc'])
         ]
 
     if env['OS'] == 'linux' or env['OS'] == 'android':
