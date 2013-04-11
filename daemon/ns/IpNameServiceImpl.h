@@ -403,21 +403,20 @@ class IpNameServiceImpl : public qcc::Thread {
      * concern of the name service.
      *
      * This all means that we do not need to specify the IP addresses on which
-     * the reliable and unreliable protocols are listening.  Additionally, it
-     * turns out that TCP and UDP port numbers zero are reserved by IANA and so
-     * we can use a port number of zero to indicate a non-enabled condition.
-     * This means that the enabled parameters are not required.  This means that
-     * there are five required parameters to this call instead of thirteen:
+     * the reliable and unreliable protocols are listening. This means that
+     * there are nine required parameters to this call instead of thirteen:
      *
      *     transportMask,
      *     reliableIPv4Port, reliableIPv6Port,
-     *     unreliableIPv4Port, unreliableIPv6Port
+     *     unreliableIPv4Port, unreliableIPv6Port,
+     *     enableReliableIPv4, enableReliableIPv6,
+     *     enableUnreliableIPv4, enableUnreliableIPv6
      *
      * In many cases, the transports will not support all combinations.  For
      * example, the tcp transport currently only supports reliable IPv4
      * connections, and so the call for this transport might be:
      *
-     *     Enable(TRANSPORT_TCP, 9955, 0, 0, 0);
+     *     Enable(TRANSPORT_TCP, 9955, 0, 0, 0, true, false, false);
      *
      * The Android Compatibility Test Suite demands that an Android phone may
      * not hold an open socket in the quiescent state.  Since we provide a
@@ -434,18 +433,32 @@ class IpNameServiceImpl : public qcc::Thread {
      *
      * @param transportMask A bitmask containing the transport handling the specified
      *     endpoints.
-     * @param reliableIPv4Port If zero, indicates this protocol is not enabled.  If
-     *     non-zero, indicates the port number of a server listening for connections.
-     * @param reliableIPv6Port If zero, indicates this protocol is not enabled.  If
-     *     non-zero, indicates the port number of a server listening for connections.
-     * @param unreliableIPv4Port If zero, indicates this protocol is not enabled.  If
-     *     non-zero, indicates the port number of a server listening for connections.
-     * @param unreliableIPv6Port If zero, indicates this protocol is not enabled.  If
-     *     non-zero, indicates the port number of a server listening for connections.
+     * @param reliableIPv4Port Indicates the port number of a server listening for
+     *     connections if enableReliableIPv4 is true
+     * @param reliableIPv6Port Indicates the port number of a server listening for
+     *     connections if enableUnreliableIPv4 is true
+     * @param unreliableIPv4Port Indicates the port number of a server listening for
+     *     connections if enableReliableIPv6 is true
+     * @param unreliableIPv6Port Indicates the port number of a server listening for
+     *     connections if enableUnreliableIPv6 is true.
+     * @param enableReliableIPv4
+     *     - true indicates this protocol is enabled.
+     *     - false indicates this protocol is not enabled.
+     * @param enableReliableIPv6
+     *     - true indicates this protocol is enabled.
+     *     - false indicates this protocol is not enabled.
+     * @param enableUnreliableIPv4
+     *     - true indicates this protocol is enabled.
+     *     - false indicates this protocol is not enabled.
+     * @param enableUnreliableIPv4
+     *     - true indicates this protocol is enabled.
+     *     - false indicates this protocol is not enabled.
      */
     QStatus Enable(TransportMask transportMask,
                    uint16_t reliableIPv4Port, uint16_t reliableIPv6Port,
-                   uint16_t unreliableIPv4Port, uint16_t unreliableIPv6Port);
+                   uint16_t unreliableIPv4Port, uint16_t unreliableIPv6Port,
+                   bool enableReliableIPv4, bool enableReliableIPv6,
+                   bool enableUnreliableIPv4, bool enableUnreliableIPv6);
 
     /**
      * @brief Ask the name service whether or not it thinks there is or is not a
@@ -1029,6 +1042,13 @@ class IpNameServiceImpl : public qcc::Thread {
 
     /**
      * @internal
+     * @brief Whether the ports on this daemon that are listening for reliable (TCP)
+     * inbound connections over IPv4.
+     */
+    bool m_enabledReliableIPv4[N_TRANSPORTS];
+
+    /**
+     * @internal
      * @brief The ports on this daemon that are listening for reliable (TCP)
      * inbound connections over IPv4.
      */
@@ -1041,6 +1061,13 @@ class IpNameServiceImpl : public qcc::Thread {
      * zero.
      */
     qcc::String m_unreliableIPv4Address[N_TRANSPORTS];
+
+    /**
+     * @internal
+     * @brief Whether the ports on this daemon that are listening for unreliable (UDP)
+     * inbound connections over IPv4.
+     */
+    bool m_enabledUnreliableIPv4[N_TRANSPORTS];
 
     /**
      * @internal
@@ -1059,6 +1086,13 @@ class IpNameServiceImpl : public qcc::Thread {
 
     /**
      * @internal
+     * @brief Whether the ports on this daemon that are listening for reliable (TCP)
+     * inbound connections over IPv6.
+     */
+    bool m_enabledReliableIPv6[N_TRANSPORTS];
+
+    /**
+     * @internal
      * @brief The port on this daemon that are listening for reliable (TCP)
      * inbound connections over IPv6.
      */
@@ -1071,6 +1105,13 @@ class IpNameServiceImpl : public qcc::Thread {
      * zero.
      */
     qcc::String m_unreliableIPv6Address[N_TRANSPORTS];
+
+    /**
+     * @internal
+     * @brief Whether the ports on this daemon that are listening for reliable (UDP)
+     * inbound connections over IPv6.
+     */
+    bool m_enabledUnreliableIPv6[N_TRANSPORTS];
 
     /**
      * @internal

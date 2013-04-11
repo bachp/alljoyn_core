@@ -2049,7 +2049,7 @@ void TCPTransport::EnableAdvertisementInstance(ListenRequest& listenRequest)
          */
         if (m_isListening) {
             if (!m_isNsEnabled) {
-                IpNameService::Instance().Enable(TRANSPORT_TCP, m_listenPort, 0, 0, 0);
+                IpNameService::Instance().Enable(TRANSPORT_TCP, m_listenPort, 0, 0, 0, true, false, false, false);
                 m_isNsEnabled = true;
             }
         }
@@ -2109,7 +2109,7 @@ void TCPTransport::DisableAdvertisementInstance(ListenRequest& listenRequest)
          * name service.  We do this by telling it we don't want it to be
          * enabled on any of the possible ports.
          */
-        IpNameService::Instance().Enable(TRANSPORT_TCP, 0, 0, 0, 0);
+        IpNameService::Instance().Enable(TRANSPORT_TCP, m_listenPort, 0, 0, 0, false, false, false, false);
         m_isNsEnabled = false;
 
         /*
@@ -2173,7 +2173,7 @@ void TCPTransport::EnableDiscoveryInstance(ListenRequest& listenRequest)
          */
         if (m_isListening) {
             if (!m_isNsEnabled) {
-                IpNameService::Instance().Enable(TRANSPORT_TCP, m_listenPort, 0, 0, 0);
+                IpNameService::Instance().Enable(TRANSPORT_TCP, m_listenPort, 0, 0, 0, true, false, false, false);
                 m_isNsEnabled = true;
             }
         }
@@ -2247,7 +2247,7 @@ void TCPTransport::DisableDiscoveryInstance(ListenRequest& listenRequest)
      */
     if (isEmpty && !m_isAdvertising) {
 
-        IpNameService::Instance().Enable(TRANSPORT_TCP, 0, 0, 0, 0);
+        IpNameService::Instance().Enable(TRANSPORT_TCP, m_listenPort, 0, 0, 0, false, false, false, false);
         m_isNsEnabled = false;
 
         /*
@@ -3254,7 +3254,7 @@ QStatus TCPTransport::DoStartListen(qcc::String& normSpec)
      * service if listeners come and go.
      */
     m_listenPort = listenPort;
-    IpNameService::Instance().Enable(TRANSPORT_TCP, listenPort, 0, 0, 0);
+    IpNameService::Instance().Enable(TRANSPORT_TCP, listenPort, 0, 0, 0, true, false, false, false);
     m_isNsEnabled = true;
 
     /*

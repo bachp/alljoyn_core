@@ -269,13 +269,15 @@ class IpNameService {
      *
      *     transportMask,
      *     reliableIPv4Port, reliableIPv6Port,
-     *     unreliableIPv4Port, unreliableIPv6Port
+     *     unreliableIPv4Port, unreliableIPv6Port,
+     *     enableReliableIPv4, enableReliableIPv6,
+     *     enableUnreliableIPv4, enableUnreliableIPv6
      *
      * In many cases, the transports will not support all combinations.  For
      * example, the tcp transport currently only supports reliable IPv4
      * connections, and so the call for this transport might be:
      *
-     *     SetEndpointsForTransport(TRANSPORT_WLAN, 9955, 0, 0, 0);
+     *     SetEndpointsForTransport(TRANSPORT_WLAN, 9955, 0, 0, 0, true, false, false, false);
      *
      * The Android Compatibility Test Suite demands that an Android phone may
      * not hold an open socket in the quiescent state.  Since we provide a
@@ -292,18 +294,32 @@ class IpNameService {
      *
      * @param transportMask A bitmask containing the transport handling the specified
      *     endpoints.
-     * @param reliableIPv4Port If zero, indicates this protocol is not enabled.  If
-     *     non-zero, indicates the port number of a server listening for connections.
-     * @param reliableIPv6Port If zero, indicates this protocol is not enabled.  If
-     *     non-zero, indicates the port number of a server listening for connections.
-     * @param unreliableIPv4Port If zero, indicates this protocol is not enabled.  If
-     *     non-zero, indicates the port number of a server listening for connections.
-     * @param unreliableIPv6Port If zero, indicates this protocol is not enabled.  If
-     *     non-zero, indicates the port number of a server listening for connections.
+     * @param reliableIPv4Port Indicates the port number of a server listening for
+     *     connections if enableReliableIPv4 is true
+     * @param reliableIPv6Port Indicates the port number of a server listening for
+     *     connections if enableUnreliableIPv4 is true
+     * @param unreliableIPv4Port Indicates the port number of a server listening for
+     *     connections if enableReliableIPv6 is true
+     * @param unreliableIPv6Port Indicates the port number of a server listening for
+     *     connections if enableUnreliableIPv6 is true.
+     * @param enableReliableIPv4
+     *     - true indicates this protocol is enabled.
+     *     - false indicates this protocol is not enabled.
+     * @param enableReliableIPv6
+     *     - true indicates this protocol is enabled.
+     *     - false indicates this protocol is not enabled.
+     * @param enableUnreliableIPv4
+     *     - true indicates this protocol is enabled.
+     *     - false indicates this protocol is not enabled.
+     * @param enableUnreliableIPv4
+     *     - true indicates this protocol is enabled.
+     *     - false indicates this protocol is not enabled.
      */
     QStatus Enable(TransportMask transportMask,
                    uint16_t reliableIPv4Port, uint16_t reliableIPv6Port,
-                   uint16_t unreliableIPv4Port, uint16_t unreliableIPv6Port);
+                   uint16_t unreliableIPv4Port, uint16_t unreliableIPv6Port,
+                   bool enableReliableIPv4, bool enableReliableIPv6,
+                   bool enableUnreliableIPv4, bool enableUnreliableIPv6);
 
     /**
      * @brief Ask the name service whether or not it thinks there is or is not a

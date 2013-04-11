@@ -328,7 +328,7 @@ int main(int argc, char** argv)
     // Pretend we're the TCP transport and we want to advertise reliable and
     // unreliable IPv4 and IPv6 ports (all the same).
     //
-    status = ns.Enable(TRANSPORT_TCP, port, port, port, port);
+    status = ns.Enable(TRANSPORT_TCP, port, port, port, port, true, true, true, true);
 
     if (status != ER_OK) {
         QCC_LogError(status, ("Enable failed"));

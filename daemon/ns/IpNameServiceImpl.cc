@@ -1338,10 +1338,13 @@ void IpNameServiceImpl::LazyUpdateInterfaces(void)
 
 QStatus IpNameServiceImpl::Enable(TransportMask transportMask,
                                   uint16_t reliableIPv4Port, uint16_t reliableIPv6Port,
-                                  uint16_t unreliableIPv4Port, uint16_t unreliableIPv6Port)
+                                  uint16_t unreliableIPv4Port, uint16_t unreliableIPv6Port,
+                                  bool enableReliableIPv4, bool enableReliableIPv6,
+                                  bool enableUnreliableIPv4, bool enableUnreliableIPv6)
 {
-    QCC_DbgHLPrintf(("IpNameServiceImpl::Enable(0x%x, %d., %d., %d., %d.)", transportMask,
-                     reliableIPv4Port, reliableIPv6Port, unreliableIPv4Port, unreliableIPv6Port));
+    QCC_DbgHLPrintf(("IpNameServiceImpl::Enable(0x%x, %d., %d., %d., %d., %d, %d, %d, %d )", transportMask,
+                     reliableIPv4Port, reliableIPv6Port, unreliableIPv4Port, unreliableIPv6Port,
+                     enableReliableIPv4, enableReliableIPv6, enableUnreliableIPv4, enableUnreliableIPv6));
 
     //
     // Exactly one bit must be set in a transport mask in order to identify the
@@ -1376,12 +1379,12 @@ QStatus IpNameServiceImpl::Enable(TransportMask transportMask,
     //
     bool somethingWasEnabled = false;
     for (uint32_t j = 0; j < N_TRANSPORTS; ++j) {
-        if (m_reliableIPv4Port[j] || m_unreliableIPv4Port[j] || m_reliableIPv6Port[j] || m_unreliableIPv6Port[j]) {
+        if (m_enabledReliableIPv4[j] || m_enabledUnreliableIPv4[j] || m_enabledReliableIPv6[j] || m_enabledUnreliableIPv6[j]) {
             somethingWasEnabled = true;
         }
     }
 
-    bool enabling = reliableIPv4Port || unreliableIPv4Port || reliableIPv6Port || unreliableIPv6Port;
+    bool enabling = enableReliableIPv4 || enableUnreliableIPv4 || enableReliableIPv6 || enableUnreliableIPv6;
 
     //
     // If enabling is true, then we need to cancel any pending disables since
@@ -1405,13 +1408,17 @@ QStatus IpNameServiceImpl::Enable(TransportMask transportMask,
     m_reliableIPv6Port[i] = reliableIPv6Port;
     m_unreliableIPv6Port[i] = reliableIPv6Port;
 
+    m_enabledReliableIPv4[i] = enableReliableIPv4;
+    m_enabledUnreliableIPv4[i] = enableUnreliableIPv4;
+    m_enabledReliableIPv6[i] = enableReliableIPv6;
+    m_enabledUnreliableIPv6[i] = enableUnreliableIPv6;
     //
     // We might be wanting to disable the name service depending on whether we
     // end up disabling the last of the enabled ports.
     //
     bool somethingIsEnabled = false;
     for (uint32_t j = 0; j < N_TRANSPORTS; ++j) {
-        if (m_reliableIPv4Port[j] || m_unreliableIPv4Port[j] || m_reliableIPv6Port[j] || m_unreliableIPv6Port[j]) {
+        if (m_enabledReliableIPv4[j] || m_enabledUnreliableIPv4[j] || m_enabledReliableIPv6[j] || m_enabledUnreliableIPv6[j]) {
             somethingIsEnabled = true;
         }
     }
