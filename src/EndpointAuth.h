@@ -146,7 +146,7 @@ class EndpointAuth : public SASLEngine::ExtensionHandler {
     /* Internal methods */
 
     QStatus Hello(qcc::String& redirection);
-    QStatus WaitHello();
+    QStatus WaitHello(qcc::String& authUsed);
 };
 
 }

@@ -693,7 +693,6 @@ void* _TCPEndpoint::AuthThread::Run(void* arg)
      */
     QStatus status = m_endpoint->m_stream.PullBytes(&byte, 1, nbytes);
     if ((status != ER_OK) || (nbytes != 1) || (byte != 0)) {
-        m_endpoint->m_stream.Close();
         QCC_LogError(status, ("Failed to read first byte from stream"));
 
         /*
@@ -739,7 +738,6 @@ void* _TCPEndpoint::AuthThread::Run(void* arg)
         status = m_endpoint->Establish("ANONYMOUS", authName, redirection, authListener);
     }
     if (status != ER_OK) {
-        m_endpoint->m_stream.Close();
         QCC_LogError(status, ("Failed to establish TCP endpoint"));
 
         /*

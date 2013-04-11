@@ -117,6 +117,16 @@ class _RemoteEndpoint : public _BusEndpoint, public qcc::ThreadListener, public 
     };
 
     /**
+     * Called when a new untrusted client has connected to the daemon.
+     * This calls into the transport's UntrustedClientStart function
+     * and returns the value received to the caller.
+     * @return
+     *       - ER_OK if client is to be accepted
+     *       - ER_BUS_NOT_ALLOWED if client NOT to be accepted
+     *       - ER_NOT_IMPLEMENTED for transports that do not allow untrusted clients.
+     */
+    QStatus UntrustedClientStart();
+    /**
      * Default constructor initializes an invalid endpoint. This allows for the declaration of uninitialized RemoteEndpoint variables.
      */
     _RemoteEndpoint() : internal(NULL) { }

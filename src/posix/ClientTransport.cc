@@ -282,12 +282,12 @@ QStatus ClientTransport::Connect(const char* connectArgs, const SessionOpts& opt
     /*
      * If we got an error, we need to cleanup the socket and zero out the
      * returned endpoint.  If we got this done without a problem, we return
-     * a pointer to the new endpoint.
+     * a pointer to the new endpoint. We do not close the socket since the
+     * endpoint that was created is responsible for doing so.
      */
     if (status != ER_OK) {
         ep->Invalidate();
         qcc::Shutdown(sockFd);
-        qcc::Close(sockFd);
     } else {
         newep = BusEndpoint::cast(ep);
         m_endpoint = RemoteEndpoint::cast(ep);

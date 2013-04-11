@@ -52,6 +52,7 @@ namespace ajn {
 static const uint32_t HELLO_RESPONSE_TIMEOUT = 5000;
 
 static const char* RedirectError = "org.alljoyn.error.redirect";
+static const char* UntrustedError = "org.alljoyn.error.untrusted";
 
 
 QStatus EndpointAuth::Hello(qcc::String& redirection)
@@ -148,7 +149,7 @@ QStatus EndpointAuth::Hello(qcc::String& redirection)
 static const uint32_t REDIRECT_TIMEOUT = 30 * 1000;
 
 
-QStatus EndpointAuth::WaitHello()
+QStatus EndpointAuth::WaitHello(qcc::String& authUsed)
 {
     qcc::String redirection;
     QStatus status;
@@ -165,6 +166,7 @@ QStatus EndpointAuth::WaitHello()
             QCC_DbgPrintf(("First message must be Hello/BusHello method call"));
             return ER_BUS_ESTABLISH_FAILED;
         }
+
         if (strcmp(hello->GetInterface(), org::freedesktop::DBus::InterfaceName) == 0) {
             if (hello->GetCallSerial() == 0) {
                 QCC_DbgPrintf(("Hello expected non-zero serial"));
@@ -183,6 +185,21 @@ QStatus EndpointAuth::WaitHello()
                 return ER_BUS_ESTABLISH_FAILED;
             }
             endpoint->GetFeatures().isBusToBus = false;
+
+            bool trusted = (authUsed != "ANONYMOUS");
+
+            if (isAccepting && !trusted) {
+                /* If this is an incoming connection that is not bus-to-bus and is untrusted,
+                 * We need to make sure that the transport is accepting untrusted clients.
+                 */
+                status = endpoint->UntrustedClientStart();
+                if (status != ER_OK) {
+                    QCC_DbgPrintf(("Untrusted client is being rejected"));
+                    hello->ErrorMsg(hello, UntrustedError, "");
+                    hello->Deliver(endpoint);
+                    return status;
+                }
+            }
             endpoint->GetFeatures().allowRemote = (0 != (hello->GetFlags() & ALLJOYN_FLAG_ALLOW_REMOTE_MSG));
             /*
              * Remote name for the endpoint is the unique name we are allocating.
@@ -399,7 +416,7 @@ QStatus EndpointAuth::Establish(const qcc::String& authMechanisms,
         /*
          * Wait for the hello message
          */
-        status = WaitHello();
+        status = WaitHello(authUsed);
     } else {
         SASLEngine sasl(bus, AuthMechanism::RESPONDER, authMechanisms, NULL, authListener, endpoint->GetFeatures().isBusToBus ? NULL : this);
         while (true) {

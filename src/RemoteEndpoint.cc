@@ -232,19 +232,8 @@ QStatus _RemoteEndpoint::Establish(const qcc::String& authMechanisms, qcc::Strin
             internal->remoteName = auth.GetRemoteName();
             internal->remoteGUID = auth.GetRemoteGUID();
             internal->features.protocolVersion = auth.GetRemoteProtocolVersion();
-            internal->features.trusted = (authUsed != "ANONYMOUS") || (GetConnectSpec() == "localhost");
+            internal->features.trusted = (authUsed != "ANONYMOUS");
 
-            if (internal->incoming && !internal->features.trusted && !internal->features.isBusToBus) {
-                /* If a transport expects to accept untrusted clients, it MUST implement the
-                 * UntrustedClientStart and UntrustedClientExit methods and call SetListener
-                 * before making a call to _RemoteEndpoint::Establish(). So assert if the
-                 * internal->listener is NULL.
-                 * Note: It is required to set the listener only on the accepting end
-                 * i.e. for incoming endpoints.
-                 */
-                assert(internal->listener);
-                status = internal->listener->UntrustedClientStart();
-            }
         }
     }
     return status;
@@ -279,7 +268,19 @@ _RemoteEndpoint::~_RemoteEndpoint()
         internal = NULL;
     }
 }
+QStatus _RemoteEndpoint::UntrustedClientStart() {
 
+    /* If a transport expects to accept untrusted clients, it MUST implement the
+     * UntrustedClientStart and UntrustedClientExit methods and call SetListener
+     * before making a call to _RemoteEndpoint::Establish(). So assert if the
+     * internal->listener is NULL.
+     * Note: It is required to set the listener only on the accepting end
+     * i.e. for incoming endpoints.
+     */
+    assert(internal);
+    assert(internal->listener);
+    return internal->listener->UntrustedClientStart();
+}
 QStatus _RemoteEndpoint::SetLinkTimeout(uint32_t idleTimeout, uint32_t probeTimeout, uint32_t maxIdleProbes)
 {
     QCC_DbgTrace(("_RemoteEndpoint::SetLinkTimeout(%u, %u, %u) for %s", idleTimeout, probeTimeout, maxIdleProbes, GetUniqueName().c_str()));
