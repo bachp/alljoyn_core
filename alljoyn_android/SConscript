@@ -20,16 +20,6 @@ returnValue = []
 
 # Install source
 if env['OS'] == 'android':
-    distDir = '$CPP_DISTDIR/alljoyn_android/alljoyn'
-    returnValue += env.Install(distDir, 'alljoyn/AndroidManifest.xml')
-    returnValue += env.Install(distDir, 'alljoyn/.classpath')
-    returnValue += env.Install(distDir, 'alljoyn/.project')
-    returnValue += env.Install(distDir, Dir('alljoyn/.settings').srcnode())
-    returnValue += env.Install(distDir, 'alljoyn/default.properties')
-    returnValue += env.Install(distDir, Dir('alljoyn/jni').srcnode())
-    returnValue += env.Install(distDir, Dir('alljoyn/src').srcnode())
-    returnValue += env.Install(distDir, Dir('alljoyn/res').srcnode())
-
     distDir = '$CPP_DISTDIR/alljoyn_android/bundle_test/BundledClient'
     returnValue += env.Install(distDir, 'bundle_test/BundledClient/AndroidManifest.xml')
     returnValue += env.Install(distDir, 'bundle_test/BundledClient/.classpath')
