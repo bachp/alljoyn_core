@@ -261,7 +261,7 @@ void SessionlessObj::AddRule(const qcc::String& epName, Rule& rule)
              * this client (implicitly) if this daemon has previously received
              * sessionless signals for any client.
              */
-            if (isDiscoveryStarted) {
+            if (!changeIdMap.empty()) {
                 lock.Unlock();
                 RereceiveMessages(epName, "");
                 lock.Lock();
