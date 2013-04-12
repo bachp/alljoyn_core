@@ -2474,12 +2474,6 @@ void AllJoynObj::CancelAdvertiseName(const InterfaceDescription::Member* member,
     MsgArg replyArg("u", replyCode);
     status = MethodReply(msg, &replyArg, 1);
 
-    /* Remove advertisement from local nameMap so local discoverers are notified of advertisement going away */
-    if ((replyCode == ALLJOYN_ADVERTISENAME_REPLY_SUCCESS) && (transports & TRANSPORT_LOCAL)) {
-        vector<String> names;
-        names.push_back(advNameStr);
-        FoundNames("local:", bus.GetGlobalGUIDString(), TRANSPORT_LOCAL, &names, 0);
-    }
 
     /* Log error if reply could not be sent */
     if (ER_OK != status) {
@@ -2539,6 +2533,13 @@ QStatus AllJoynObj::ProcCancelAdvertise(const qcc::String& sender, const qcc::St
         status = ER_FAIL;
     }
     ReleaseLocks();
+
+    /* Remove advertisement from local nameMap so local discoverers are notified of advertisement going away */
+    if ((status == ER_OK) && (transports & TRANSPORT_LOCAL)) {
+        vector<String> names;
+        names.push_back(advertiseName);
+        FoundNames("local:", bus.GetGlobalGUIDString(), TRANSPORT_LOCAL, &names, 0);
+    }
 
     return status;
 }
@@ -3399,20 +3400,6 @@ void AllJoynObj::NameOwnerChanged(const qcc::String& alias, const qcc::String* o
             }
             if (ER_OK != status) {
                 QCC_LogError(status, ("Failed to send NameChanged"));
-            }
-        }
-
-        /* If a local well-known name dropped, then remove any nameMap entry */
-        if ((NULL == newOwner) && (alias[0] != ':')) {
-            multimap<String, NameMapEntry>::const_iterator it = nameMap.lower_bound(alias);
-            while ((it != nameMap.end()) && (it->first == alias)) {
-                if (it->second.transport & TRANSPORT_LOCAL) {
-                    vector<String> names;
-                    names.push_back(alias);
-                    FoundNames("local:", it->second.guid, TRANSPORT_LOCAL, &names, 0);
-                    break;
-                }
-                ++it;
             }
         }
         ReleaseLocks();
