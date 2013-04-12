@@ -37,6 +37,7 @@
 
 #include "Bus.h"
 #include "DaemonRouter.h"
+#include "NameTable.h"
 #include "RuleTable.h"
 #include "Transport.h"
 
@@ -48,7 +49,7 @@ class BusController;
 /**
  * BusObject responsible for implementing the standard AllJoyn interface org.alljoyn.Sessionless.
  */
-class SessionlessObj : public BusObject, public SessionListener, public SessionPortListener,
+class SessionlessObj : public BusObject, public NameListener, public SessionListener, public SessionPortListener,
     public BusAttachment::JoinSessionAsyncCB, public qcc::AlarmListener {
 
   public:
@@ -140,9 +141,9 @@ class SessionlessObj : public BusObject, public SessionListener, public SessionP
      * @param oldOwner  Unique name of old owner of name or NULL if none existed.
      * @param newOwner  Unique name of new owner of name or NULL if none (now) exists.
      */
-    void NameOwnerChanged(const char* busName,
-                          const char* oldOwner,
-                          const char* newOwner);
+    void NameOwnerChanged(const qcc::String& busName,
+                          const qcc::String* oldOwner,
+                          const qcc::String* newOwner);
 
     /**
      * Receive FoundAdvertisedName signals.

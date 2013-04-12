@@ -101,6 +101,9 @@ SessionlessObj::~SessionlessObj()
     /* Unbind session port */
     bus.UnbindSessionPort(sessionPort);
 
+    /* Remove name listener */
+    router.RemoveBusNameListener(this);
+
     /* Unregister bus object */
     bus.UnregisterBusObject(*this);
 }
@@ -174,6 +177,11 @@ QStatus SessionlessObj::Init()
                                        NULL);
     if (status != ER_OK) {
         QCC_LogError(status, ("Failed to register SessionLost signal handler"));
+    }
+
+    /* Register a name table listener */
+    if (status == ER_OK) {
+        router.AddBusNameListener(this);
     }
 
     /* Start the worker */
@@ -456,11 +464,11 @@ QStatus SessionlessObj::RereceiveMessages(const qcc::String& sender, const qcc::
     return status;
 }
 
-void SessionlessObj::NameOwnerChanged(const char* name,
-                                      const char* oldOwner,
-                                      const char* newOwner)
+void SessionlessObj::NameOwnerChanged(const String& name,
+                                      const String* oldOwner,
+                                      const String* newOwner)
 {
-    QCC_DbgTrace(("SessionlessObj::NameOwnerChanged(%s, %s, %s)", name, oldOwner ? oldOwner : "(null)", newOwner ? newOwner : "(null)"));
+    QCC_DbgTrace(("SessionlessObj::NameOwnerChanged(%s, %s, %s)", name.c_str(), oldOwner ? oldOwner->c_str() : "(null)", newOwner ? newOwner->c_str() : "(null)"));
 
     /* Remove entries from ruleCountMap for names exiting from the bus */
     if (oldOwner && !newOwner) {
@@ -468,6 +476,22 @@ void SessionlessObj::NameOwnerChanged(const char* name,
         map<String, uint32_t>::iterator it = ruleCountMap.find(name);
         if (it != ruleCountMap.end()) {
             ruleCountMap.erase(it);
+        }
+
+        /* Remove stored sessionless messages sent by toldOwner */
+        MessageMapKey key(oldOwner->c_str(), "", "", "");
+        map<MessageMapKey, pair<uint32_t, Message> >::iterator mit = messageMap.lower_bound(key);
+        while ((mit != messageMap.end()) && (::strcmp(oldOwner->c_str(), mit->second.second->GetSender()) == 0)) {
+            messageMap.erase(mit++);
+        }
+        /* Alert the advertiser worker if messageMap is empty */
+        if (messageMap.empty()) {
+            uint32_t zero = 0;
+            SessionlessObj* slObj = this;
+            QStatus status = timer.AddAlarm(Alarm(zero, slObj));
+            if (status != ER_OK) {
+                QCC_LogError(status, ("Timer::AddAlarm failed"));
+            }
         }
 
         /* Stop discovery if nobody is looking for sessionless signals */
