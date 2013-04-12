@@ -672,13 +672,6 @@ ThreadReturn STDCALL AllJoynObj::JoinSessionThread::RunJoin()
                             optsOut = sme.opts;
                             optsOut.transports &= optsIn.transports;
                             sme.id = newSessionId;
-
-                            /* Send session changed notification */
-                            if (sme.opts.isMultipoint && (status == ER_OK)) {
-                                ajObj.ReleaseLocks();
-                                ajObj.SendMPSessionChanged(newSessionId, sender.c_str(), true, sme.endpointName.c_str());
-                                ajObj.AcquireLocks();
-                            }
                         }
                     } else if ((sme.opts.traffic != SessionOpts::TRAFFIC_MESSAGES) && !sme.opts.isMultipoint) {
                         /* Create a raw socket pair for the two local session participants */
@@ -1042,6 +1035,10 @@ ThreadReturn STDCALL AllJoynObj::JoinSessionThread::RunJoin()
     /* Send SessionJoined to creator if creator is local since RunAttach does not run in this case */
     if ((status == ER_OK) && (replyCode == ALLJOYN_JOINSESSION_REPLY_SUCCESS) && rSessionEp->IsValid()) {
         ajObj.SendSessionJoined(sme.sessionPort, sme.id, sender.c_str(), sme.endpointName.c_str());
+        /* If session is multipoint, send MPSessionChanged to sessionHost */
+        if (sme.opts.isMultipoint) {
+            ajObj.SendMPSessionChanged(sme.id, sender.c_str(), true, sme.endpointName.c_str());
+        }
     }
 
     /* Send a series of MPSessionChanged to "catch up" the new joiner */
