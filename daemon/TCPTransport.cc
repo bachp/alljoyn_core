@@ -396,6 +396,11 @@ namespace ajn {
  */
 const char* TCPTransport::TransportName = "tcp";
 
+/**
+ * Default router advertisement prefix.
+ */
+const char* const TCPTransport::ALLJOYN_DEFAULT_ROUTER_ADVERTISEMENT_PREFIX = "org.alljoyn.BusNode.";
+
 /*
  * An endpoint class to handle the details of authenticating a connection in a
  * way that avoids denial of service attacks.
@@ -1960,7 +1965,8 @@ void TCPTransport::StartListenInstance(ListenRequest& listenRequest)
      */
     m_maxUntrustedClients = (DaemonConfig::Access())->Get("limit@max_untrusted_clients", ALLJOYN_MAX_UNTRUSTED_CLIENTS_DEFAULT);
 
-    routerName = DaemonConfig::Access()->Get("tcp/property@router_advertisement_prefix", "");
+    routerName = DaemonConfig::Access()->Get("tcp/property@router_advertisement_prefix", ALLJOYN_DEFAULT_ROUTER_ADVERTISEMENT_PREFIX);
+
     if (m_isAdvertising || m_isDiscovering || (!routerName.empty() && (m_numUntrustedClients < m_maxUntrustedClients))) {
         routerName.append(m_bus.GetInternal().GetGlobalGUID().ToShortString());
         DoStartListen(listenRequest.m_requestParam);

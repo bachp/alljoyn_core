@@ -530,6 +530,17 @@ class TCPTransport : public Transport, public _RemoteEndpoint::EndpointListener,
      * This is to limit the amount of resources being used by untrusted clients.
      */
     static const uint32_t ALLJOYN_MAX_UNTRUSTED_CLIENTS_DEFAULT = 0;
+
+    /**
+     * @brief The default value for the router advertisement prefix that untrusted thin clients
+     * will use for the discovery of the daemon.
+     *
+     * This corresponds to the configuration item "router_advertisement_prefix"
+     * To override this value, change the limit, "router_advertisement_prefix".
+     *
+     */
+    static const char* const ALLJOYN_DEFAULT_ROUTER_ADVERTISEMENT_PREFIX;
+
     /*
      * The Android Compatibility Test Suite (CTS) is used by Google to enforce a
      * common idea of what it means to be Android.  One of their tests is to
