@@ -416,7 +416,7 @@ class IpNameServiceImpl : public qcc::Thread {
      * example, the tcp transport currently only supports reliable IPv4
      * connections, and so the call for this transport might be:
      *
-     *     Enable(TRANSPORT_TCP, 9955, 0, 0, 0, true, false, false);
+     *     Enable(TRANSPORT_TCP, 9955, 0, 0, 0, true, false, false, false);
      *
      * The Android Compatibility Test Suite demands that an Android phone may
      * not hold an open socket in the quiescent state.  Since we provide a

@@ -459,6 +459,12 @@ IpNameServiceImpl::IpNameServiceImpl()
 
     memset(&m_any[0], 0, sizeof(m_any));
     memset(&m_callback[0], 0, sizeof(m_callback));
+
+    memset(&m_enabledReliableIPv4[0], 0, sizeof(m_enabledReliableIPv4));
+    memset(&m_enabledUnreliableIPv4[0], 0, sizeof(m_enabledUnreliableIPv4));
+    memset(&m_enabledReliableIPv6[0], 0, sizeof(m_enabledReliableIPv6));
+    memset(&m_enabledUnreliableIPv6[0], 0, sizeof(m_enabledUnreliableIPv6));
+
     memset(&m_reliableIPv4Port[0], 0, sizeof(m_reliableIPv4Port));
     memset(&m_unreliableIPv4Port[0], 0, sizeof(m_unreliableIPv4Port));
     memset(&m_reliableIPv6Port[0], 0, sizeof(m_reliableIPv6Port));
