@@ -18,6 +18,7 @@
 
 #include "PasswordManager.h"
 
+#include <alljoyn/PasswordManager.h>
 #include <qcc/String.h>
 #include <qcc/winrt/utility.h>
 

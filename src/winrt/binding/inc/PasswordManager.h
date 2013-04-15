@@ -18,11 +18,10 @@
 
 #pragma once
 
-#include <alljoyn/PasswordManager.h>
 #include <Status_CPP0x.h>
 
 namespace AllJoyn {
-class PasswordManager : protected ajn::PasswordManager {
+public ref class PasswordManager sealed {
   public:
     /// <summary>
     ///Set credentials used for the authentication of thin clients.
