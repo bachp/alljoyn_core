@@ -1,14 +1,10 @@
- 
-##  DRAFT WORK-IN-PROGRESS  ##  DRAFT WORK-IN-PROGRESS  ##  DRAFT WORK-IN-PROGRESS  ##
-##  DRAFT WORK-IN-PROGRESS  ##  DRAFT WORK-IN-PROGRESS  ##  DRAFT WORK-IN-PROGRESS  ##
-##  DRAFT WORK-IN-PROGRESS  ##  DRAFT WORK-IN-PROGRESS  ##  DRAFT WORK-IN-PROGRESS  ##
 
+AllJoyn SDK for WinRT
+---------------------
 
-AllJoyn SDK for Windows RT
---------------------------
-
-This subtree contains one complete copy of the AllJoyn SDK for Windows RT, built
+This subtree contains one complete copy of the AllJoyn SDK for WinRT, built
 for a single CPU (x86, x64, or arm) and VARIANT (either debug or release).
+
 The CPU and VARIANT are normally incorporated into the name of the package or
 folder containing this SDK, as follows:
 
@@ -18,44 +14,38 @@ folder containing this SDK, as follows:
     win8x64         x86_64
     win8x86         x86
 
+This SDK was built on a Windows 8 x86_64 system, using Microsoft Visual Studio 2012.
+
+NOTE:
+
+    This SDK works with the Microsoft Windows Runtime architecture, aka
+    WinRT, and supports the new generation of Windows touch-screen devices.
+    Both x86-based CPUs (Microsoft Windows 8 Operating System) and
+    ARM CPUs (Microsoft Windows RT Operating System) are supported.
+
+    This SDK does NOT work with Microsoft's Win32 architecture, used in
+    traditional Windows desktops and servers. For that, see AllJoyn SDK for
+    Windows 7.
+
+
+Windows, Win32, WinRT, and Visual Studio are registered trademarks or trademarks
+of the Microsoft group of companies.
+
+
 Please see ReleaseNotes.txt for the applicable AllJoyn release version and
 related information on new features and known issues.
+
+AllJoyn for WinRT sample apps are not found in this SDK. They are maintained in a
+separate package:
+- AllJoyn Release: www.alljoyn.org, "AllJoyn Sample Apps - Windows 8"
+- Git source repo: https://github.com/alljoyn/win8_apps
 
 
 Summary of files
 ----------------
 
-winRT/bin/AllJoyn.winmd         AllJoyn for WinRT metadata file
-winRT/bin/AllJoyn.dll           AllJoyn for WinRT assembly
-winRT/bin/AllJoyn.xml           Intellisense API documentation
+winRT/bin/AllJoyn.winmd         metadata file
+winRT/bin/AllJoyn.dll           assembly
+winRT/bin/AllJoyn.xml           API documentation (Intellisense)
 
 winRT/docs/AllJoyn.chm          stand-alone API documentation
-
-## DELETE ME ## partial list of files in Windows RT SDK
-cpp/inc/alljoyn/AllJoynStd.h
-cpp/inc/alljoyn/AuthListener.h
-cpp/inc/alljoyn/BusAttachment.h
-cpp/inc/alljoyn/BusListener.h
-cpp/inc/alljoyn/BusObject.h
-cpp/inc/alljoyn/DBusStd.h
-cpp/inc/alljoyn/DBusStdDefines.h
-cpp/inc/alljoyn/InterfaceDescription.h
-cpp/inc/alljoyn/KeyStoreListener.h
-cpp/inc/alljoyn/Message.h
-cpp/inc/alljoyn/MessageReceiver.h
-cpp/inc/alljoyn/MessageSink.h
-cpp/inc/alljoyn/MsgArg.h
-cpp/inc/alljoyn/ProxyBusObject.h
-cpp/inc/alljoyn/Session.h
-cpp/inc/alljoyn/SessionListener.h
-cpp/inc/alljoyn/SessionPortListener.h
-cpp/inc/alljoyn/SimpleBusListener.h
-cpp/inc/alljoyn/Status.h
-cpp/inc/alljoyn/Status_CPP0x.h
-cpp/inc/alljoyn/TransportMask.h
-cpp/inc/alljoyn/version.h
-winRT/bin/AllJoyn.dll
-winRT/bin/AllJoyn.winmd
-winRT/bin/AllJoyn.xml
-winRT/docs/AllJoyn.chm
-## DELETE ME ##
