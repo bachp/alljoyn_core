@@ -9,6 +9,136 @@ Each Status, class, Method, Function, or MACRO will be marked as follows:
 Each addition should contain a short explanation of what added or changed.
 For more information please refer to the API documentation.
 -------------------------------------------------------------------------------
+AllJoyn API Changes between v3.3.0 and v3.2.0 (C++ API)
+NEW MACRO
+ALLJOYN_ONAPPSUSPEND_REPLY_SUCCESS
+    OnAppSuspend reply: Success
+
+NEW MACRO
+ALLJOYN_ONAPPSUSPEND_REPLY_FAILED
+    OnAppSuspend reply: Failed
+
+NEW MACRO
+ALLJOYN_ONAPPSUSPEND_REPLY_NO_SUPPORT
+    OnAppSuspend reply: Not Supported
+
+NEW MACRO
+ALLJOYN_ONAPPRESUME_REPLY_SUCCESS
+    OnAppResume reply: Success
+
+NEW MACRO
+ALLJOYN_ONAPPRESUME_REPLY_FAILED
+    OnAppResume reply: Failed
+
+NEW MACRO
+ALLJOYN_ONAPPRESUME_REPLY_NO_SUPPORT
+    OnAppResume reply: Not Supported
+
+NEW MACRO
+ALLJOYN_CANCELSESSIONLESS_REPLY_SUCCESS
+    CancelSessionlessMessage reply: Success
+
+NEW MACRO
+ALLJOYN_CANCELSESSIONLESS_REPLY_NO_SUCH_MSG
+    CancelSessionlessMessage reply: Message with given serial num not found
+
+NEW MACRO
+ALLJOYN_CANCELSESSIONLESS_REPLY_NOT_ALLOWED
+    CancelSessionlessMessage reply: Caller is not allowed to cancel msg
+
+NEW MACRO
+ALLJOYN_CANCELSESSIONLESS_REPLY_FAILED
+    CancelSessionlessMessage reply: Failed for unspecified reason
+
+NEW STATUS
+ER_INVALID_STREAM value=0x1021
+    Attempt to reference non-existent stream entry
+
+NEW STATUS
+ER_TIMER_FULL  value=0x1022 
+    Attempt to reference non-existent stream entry
+
+NEW STATUS
+ER_ALLJOYN_ONAPPSUSPEND_REPLY_FAILED value=0x90ea 
+    OnAppSuspend reply: Failed
+
+NEW STATUS
+ER_ALLJOYN_ONAPPSUSPEND_REPLY_UNSUPPORTED value=0x90eb 
+    OnAppSuspend reply: Unsupported operation
+
+NEW STATUS
+ER_ALLJOYN_ONAPPRESUME_REPLY_FAILED value=0x90ec 
+    OnAppResume reply: Failed
+
+NEW STATUS
+ER_ALLJOYN_ONAPPRESUME_REPLY_UNSUPPORTED value=0x90ed
+    OnAppResume reply: Unsupported operation
+
+NEW STATUS
+ER_BUS_NO_SUCH_MESSAGE value=0x90ee
+    Message not found
+
+NEW METHOD
+ajn::BusAttachment.FindAdvertisedNameByTransport(const char* namePrefix, 
+                                                 TransportMask transports)
+    Register interest in a well-known name prefix for the purpose of discovery 
+    over specified transports.
+    This method is a shortcut/helper that issues an org.alljoyn.Bus.FindAdvertisedName 
+    method call to the local daemon and interprets the response.
+    [param] namePrefix - Well-known name prefix that application is interested 
+                         in receiving BusListener::FoundAdvertisedName 
+                         notifications about.
+    [param] transports - Transports over which to do well-known name discovery
+
+NEW METHOD
+ajn::BusAttachment.CancelFindAdvertisedNameByTransport(const char* namePrefix, 
+                                                       TransportMask transports)
+    Cancel interest in a well-known name prefix that was previously
+    registered with FindAdvertisedName. This cancels well-known name discovery
+    over the specified transports.  This method is a shortcut/helper that 
+    issues an org.alljoyn.Bus.CancelFindAdvertisedName method call to the local
+    daemon and interprets the response.
+    [param] namePrefix - Well-known name prefix that application is no longer 
+                         interested in receiving BusListener::FoundAdvertisedName 
+                         notifications about.
+    [param] transports - Transports over which to cancel well-known name discovery
+
+
+NEW METHOD
+ajn::BusObject.CancelSessionlessMessage(uint32_t serialNumber)
+    Remove sessionless message sent from this object from local daemon's
+    store/forward cache.
+    [param] serialNumber - Serial number of previously sent sessionless signal.
+
+NEW METHOD
+ajn::BusObject.CancelSessionlessMessage(const Message& msg)
+    Remove sessionless message sent from this object from local daemon's
+    store/forward cache.
+    [param] msg - Message to be removed.
+
+NEW ENUM
+ajn::AllJoynMessageState
+    Message states.
+
+NEW CLASS
+ajn::PasswordManager
+    Class to allow the user or application to set credentials used for the 
+    authentication of thin clients.
+    Before invoking Connect() to BusAttachment, the application should call 
+    SetCredentials if it expects to be able to communicate to/from thin clients.
+    The bundled daemon will start advertising the name as soon as it is started 
+    and MUST have the credentials set to be able to authenticate any thin 
+    clients that may try to use the bundled daemon to communicate with the app.
+
+NEW METHOD
+ajn::PasswordManager.SetCredentials(qcc::String authMechanism, 
+                                    qcc::String password)
+    Set credentials used for the authentication of thin clients.
+    [param] authMechanism - The name of the authentication mechanism issuing the 
+                            request.
+    [param] password - The password.
+
+-------------------------------------------------------------------------------
 AllJoyn API Changes between v3.0.0 and v3.2.0 (C++ API)
 NEW MACRO
 QCC_DLLEXPORT
@@ -17,8 +147,8 @@ QCC_DLLEXPORT
 NEW MACRO
 strcasecmp
     Map strcasecmp to _stricmp
-    strcasecmp does not properly map in windows this is needed to insure calls to
-    strcasecmp(const char *s1, const char *s2) will compile in windows.
+    strcasecmp does not properly map in windows this is needed to insure calls 
+    to strcasecmp(const char *s1, const char *s2) will compile in windows.
 
 NEW STATUS
 NO_SUCH_DEVICE  value=0x90dc
@@ -99,8 +229,9 @@ NEW METHOD
 ajn::BusObject.BusObject(const char* path, bool isPlaceholder = false)
     BusObject constructor
     [param] path - Object path for object.
-    [param] isPlaceholder - Place-holder objects are created by the bus itself and serve only
-                            as parent objects (in the object path sense) to other objects.
+    [param] isPlaceholder - Place-holder objects are created by the bus itself 
+                            and serve only as parent objects (in the object path 
+                            sense) to other objects.
     
 DEPRECATED METHOD
 ajn::BusObject.BusObject(BusAttachment& bus, const char* path, bool isPlaceholder = false)
@@ -122,9 +253,11 @@ ajn::_Message.IsSessionless() const
 
 NEW METHOD
 qcc::ManagedObj<T> wrap(T* naked)
-    Static method to wrap an existing T that is already managed in its managed object type.
-    This method is typically called from within a method of the inner T class to provide
-    a managed object instance that can be passed to methods that required that type.
+    Static method to wrap an existing T that is already managed in its managed
+    object type.
+    This method is typically called from within a method of the inner T class to 
+    provide a managed object instance that can be passed to methods that 
+    required that type.
     [param] naked - A unwrapped managed object instance.
 
 NEW METHOD
