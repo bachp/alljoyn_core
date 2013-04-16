@@ -12,6 +12,95 @@ Each addition should contain a short explanation of what added or changed.
 For more information please refer to the API documentation.
 -------------------------------------------------------------------------------
 AllJoyn API Changes between v3.0.0 and v3.2.0 (Java API)
+NEW STATUS
+INVALID_STREAM value=0x1021
+    Attempt to reference non-existent stream entry
+
+NEW STATUS
+TIMER_FULL  value=0x1022 
+    Attempt to reference non-existent stream entry
+
+NEW STATUS
+ALLJOYN_ONAPPSUSPEND_REPLY_FAILED value=0x90ea 
+    OnAppSuspend reply: Failed
+
+NEW STATUS
+ALLJOYN_ONAPPSUSPEND_REPLY_UNSUPPORTED value=0x90eb 
+    OnAppSuspend reply: Unsupported operation
+
+NEW STATUS
+ALLJOYN_ONAPPRESUME_REPLY_FAILED value=0x90ec 
+    OnAppResume reply: Failed
+
+NEW STATUS
+ALLJOYN_ONAPPRESUME_REPLY_UNSUPPORTED value=0x90ed
+    OnAppResume reply: Unsupported operation
+
+NEW STATUS
+BUS_NO_SUCH_MESSAGE value=0x90ee
+    Message not found
+
+NEW METHOD
+BusAttachment.FindAdvertisedNameByTransport(String namePrefix, 
+                                            short transports)
+    Register interest in a well-known name prefix for the purpose of discovery 
+    over specified transports.
+    This method is a shortcut/helper that issues an org.alljoyn.Bus.FindAdvertisedName 
+    method call to the local daemon and interprets the response.
+    [param] namePrefix - Well-known name prefix that application is interested 
+                         in receiving BusListener::FoundAdvertisedName 
+                         notifications about.
+    [param] transports - Transports over which to do well-known name discovery
+
+NEW METHOD
+BusAttachment.CancelFindAdvertisedNameByTransport(String namePrefix, 
+                                                  short transports)
+    Cancel interest in a well-known name prefix that was previously
+    registered with FindAdvertisedName. This cancels well-known name discovery
+    over the specified transports.  This method is a shortcut/helper that 
+    issues an org.alljoyn.Bus.CancelFindAdvertisedName method call to the local
+    daemon and interprets the response.
+    [param] namePrefix - Well-known name prefix that application is no longer 
+                         interested in receiving BusListener::FoundAdvertisedName 
+                         notifications about.
+    [param] transports - Transports over which to cancel well-known name discovery
+
+NEW METHOD
+BusAttachment.isConnected()
+    Indicate whether bus is currently connected.
+
+NEW PROPERTY
+MessageContext.serial
+    The serial number of the message
+
+NEW METHOD
+SignalEmitter.getMessageContext()
+    Get the MessageContext of the last signal sent from this emitter.
+
+NEW METHOD
+SignalEmitter.cancelSessionlessSignal(int serialNum)
+    Cancel a sessionless signal sent from this SignalEmitter
+    [param] serialNum - Serial number of message to cancel
+
+NEW CLASS
+PasswordManager
+    Class to allow the user or application to set credentials used for the 
+    authentication of thin clients.
+    Before invoking Connect() to BusAttachment, the application should call 
+    SetCredentials if it expects to be able to communicate to/from thin clients.
+    The bundled daemon will start advertising the name as soon as it is started 
+    and MUST have the credentials set to be able to authenticate any thin 
+    clients that may try to use the bundled daemon to communicate with the app.
+
+NEW METHOD
+PasswordManager.SetCredentials(String authMechanism, String password)
+    Set credentials used for the authentication of thin clients.
+    [param] authMechanism - The name of the authentication mechanism issuing the 
+                            request.
+    [param] password - The password.
+
+-------------------------------------------------------------------------------
+AllJoyn API Changes between v3.0.0 and v3.2.0 (Java API)
 
 NEW STATUS
 NO_SUCH_DEVICE  value=0x90dc
