@@ -1,4 +1,4 @@
-﻿//-----------------------------------------------------------------------
+//-----------------------------------------------------------------------
 // <copyright file="BusObjectTests.cs" company="Qualcomm Innovation Center, Inc.">
 //     Copyright 2012, Qualcomm Innovation Center, Inc.
 //
@@ -165,7 +165,7 @@ namespace AllJoynUnitTests
 #if DEBUG
                     string err = AllJoynException.GetErrorMessage(ex.HResult);
 #else
-                    QStatus err = AllJoynException.FromCOMException(ex.HResult);
+                    QStatus err = AllJoynException.GetErrorCode(ex.HResult);
 #endif
                     Assert.IsFalse(true);
                 }
