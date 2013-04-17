@@ -46,8 +46,8 @@ class PasswordManager {
     /**
      * @brief Set credentials used for the authentication of thin clients.
      *
-     * @param authMechanism  The name of the authentication mechanism issuing the request.
-     * @param password       The password.
+     * @param authMechanism  Mechanism to use for authentication.
+     * @param password       Password to use for authentication.
      *
      * @return   Returns ER_OK if the credentials was successfully set.
      */
