@@ -27,10 +27,10 @@ public ref class PasswordManager sealed {
     ///Set credentials used for the authentication of thin clients.
     /// </summary>
     /// <param name="authMechanism">
-    ///Name of auth mechanism.
+    ///Mechanism to use for authentication.
     /// </param>
     /// <param name="password">
-    ///Name of auth mechanism.
+    ///Password to use for authentication
     /// </param>
     /// <returns>
     ///Return ER_OK if the request is handled.
