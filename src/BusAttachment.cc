@@ -614,6 +614,14 @@ QStatus BusAttachment::StopInternal(bool blockUntilStopped)
             QCC_LogError(status, ("TransportList::Stop() failed"));
         }
 
+        /* Stop the threads currently waiting for join to complete */
+        busInternal->joinLock.Lock();
+        map<Thread*, Internal::JoinContext>::iterator jit = busInternal->joinThreads.begin();
+        while (jit != busInternal->joinThreads.end()) {
+            jit++->first->Alert(1);
+        }
+        busInternal->joinLock.Unlock();
+
         if ((status == ER_OK) && blockUntilStopped) {
             WaitStopInternal();
         }
@@ -638,6 +646,15 @@ void BusAttachment::WaitStopInternal()
          */
         IncrementAndFetch(&busInternal->stopCount);
         busInternal->stopLock.Lock(MUTEX_CONTEXT);
+
+        /* Wait for any threads stuck in JoinSession to exit */
+        busInternal->joinLock.Lock();
+        while (!busInternal->joinThreads.empty()) {
+            busInternal->joinLock.Unlock();
+            qcc::Sleep(2);
+            busInternal->joinLock.Lock();
+        }
+        busInternal->joinLock.Unlock();
 
         /*
          * In the case where more than one thread has called WaitStopInternal() the first thread in will
@@ -1533,46 +1550,80 @@ QStatus BusAttachment::JoinSession(const char* sessionHost, SessionPort sessionP
         return ER_BUS_BAD_BUS_NAME;
     }
 
-    Message reply(*this);
-    MsgArg args[3];
-    size_t numArgs = 2;
+    assert(busInternal);
+    return busInternal->JoinSession(sessionHost, sessionPort, listener, sessionId, opts);
+}
 
-    MsgArg::Set(args, numArgs, "sq", sessionHost, sessionPort);
-    SetSessionOpts(opts, args[2]);
-
-    const ProxyBusObject& alljoynObj = this->GetAllJoynProxyObj();
-
-    /*
-     * If we are running on Android, there is a possibility that we are using
-     * the Wi-Fi Direct transport.  In that case, timeouts must be long enough
-     * to admit the possibility of huge delays due to possible user intervention
-     * on the service side during authentication.  We don't really want to force
-     * normal people to wait over two minutes to wait for a doomed connection
-     * so we pay the price of a layering violation to ask the WFD Transport for
-     * a number if we are running on Android and using the WFD Transport.
-     */
-    uint32_t timeout = ProxyBusObject::DefaultCallTimeout;
-
-#if defined(QCC_OS_ANDROID)
-    if (opts.transports & TRANSPORT_WFD) {
-        timeout += WFDTransport::AddedCallTimeout;
+QStatus BusAttachment::Internal::JoinSession(const char* sessionHost, SessionPort sessionPort, SessionListener* listener, SessionId& sessionId, SessionOpts& opts)
+{
+    /* Return early if BusAttachment is stopping */
+    joinLock.Lock();
+    if (bus.IsStopping()) {
+        joinLock.Unlock();
+        return ER_BUS_STOPPING;
     }
-#endif
 
-    QStatus status = alljoynObj.MethodCall(org::alljoyn::Bus::InterfaceName, "JoinSession", args, ArraySize(args), reply, timeout);
-    if (ER_OK == status) {
-        status = GetJoinSessionResponse(reply, sessionId, opts);
+    /* Create JointSessionContext */
+    Thread* thisThread = Thread::GetThread();
+    joinThreads.insert(pair<Thread*, JoinContext>(thisThread, JoinContext()));
+    joinLock.Unlock();
+
+    /* Send JoinSessionAsync and block caller until it completes */
+    QStatus status = bus.JoinSessionAsync(sessionHost, sessionPort, listener, opts, this, (void*) thisThread);
+
+    if (status == ER_OK) {
+        /* Wait for join to succeed or fail */
+        status = Event::Wait(Event::neverSet);
+
+        /* Clear alerted state */
+        if (status == ER_ALERTED_THREAD) {
+            thisThread->GetStopEvent().ResetEvent();
+            status = ER_OK;
+        }
+    }
+    /* Fetch context */
+    joinLock.Lock();
+    map<Thread*, JoinContext>::iterator it = joinThreads.find(thisThread);
+    if (it != joinThreads.end()) {
+        if (status == ER_OK) {
+            /* Populate session details */
+            if (thisThread->GetAlertCode() == 0) {
+                status = it->second.status;
+                if (status == ER_OK) {
+                    sessionId = it->second.sessionId;
+                    opts = it->second.opts;
+                }
+            } else {
+                /* Alert came from BusAttachment::Stop */
+                status = ER_BUS_STOPPING;
+            }
+        }
+        /* Remove entry */
+        joinThreads.erase(it);
     } else {
-        sessionId = 0;
-        QCC_LogError(status, ("%s.JoinSession returned ERROR_MESSAGE (error=%s)", org::alljoyn::Bus::InterfaceName, reply->GetErrorDescription().c_str()));
+        /* JoinContext is missing */
+        if (status == ER_OK) {
+            status = ER_FAIL;
+        }
     }
-
-    if (listener && (status == ER_OK)) {
-        busInternal->sessionListenersLock.Lock(MUTEX_CONTEXT);
-        busInternal->sessionListeners[sessionId] = Internal::ProtectedSessionListener(listener);
-        busInternal->sessionListenersLock.Unlock(MUTEX_CONTEXT);
-    }
+    joinLock.Unlock();
     return status;
+}
+
+void BusAttachment::Internal::JoinSessionCB(QStatus status, SessionId sessionId, const SessionOpts& opts, void* context)
+{
+    Thread* thread = reinterpret_cast<Thread*>(context);
+    joinLock.Lock();
+    map<Thread*, JoinContext>::iterator it = joinThreads.find(thread);
+    if (it != joinThreads.end()) {
+        it->second.status = status;
+        if (status == ER_OK) {
+            it->second.sessionId = sessionId;
+            it->second.opts = opts;
+        }
+        it->first->Alert();
+    }
+    joinLock.Unlock();
 }
 
 QStatus BusAttachment::LeaveSession(const SessionId& sessionId)
