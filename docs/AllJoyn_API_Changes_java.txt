@@ -7,11 +7,11 @@ Each Status, Method, or class will be marked as follows:
            used.
 'DEPRECATED': API code that has been marked as deprecated.
 
-
 Each addition should contain a short explanation of what added or changed.
 For more information please refer to the API documentation.
+
 -------------------------------------------------------------------------------
-AllJoyn API Changes between v3.0.0 and v3.2.0 (Java API)
+AllJoyn API Changes between v3.2.0 and v3.3.0 (Java API)
 NEW STATUS
 INVALID_STREAM value=0x1021
     Attempt to reference non-existent stream entry
