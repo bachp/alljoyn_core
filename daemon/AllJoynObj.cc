@@ -1491,11 +1491,13 @@ qcc::ThreadReturn STDCALL AllJoynObj::JoinSessionThread::RunAttach()
                         replyCode = ALLJOYN_JOINSESSION_REPLY_FAILED;
                     }
                 } else {
+                    QCC_LogError(status, ("AttachSession failed (reply=%d)", replyCode));
                     if (status == ER_OK) {
                         status = ER_BUS_REPLY_IS_ERROR_MESSAGE;
                     }
-                    replyCode = ALLJOYN_JOINSESSION_REPLY_FAILED;
-                    QCC_LogError(status, ("AttachSession failed"));
+                    if (replyCode == ALLJOYN_JOINSESSION_REPLY_SUCCESS) {
+                        replyCode = ALLJOYN_JOINSESSION_REPLY_FAILED;
+                    }
                 }
             }
             if (b2bEp->IsValid()) {

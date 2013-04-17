@@ -48,7 +48,7 @@
 
 namespace ajn {
 
-class BusAttachment::Internal : public MessageReceiver {
+class BusAttachment::Internal : public MessageReceiver, public JoinSessionAsyncCB {
     friend class BusAttachment;
 
   public:
@@ -218,6 +218,12 @@ class BusAttachment::Internal : public MessageReceiver {
     void NonLocalEndpointDisconnected();
 
     /**
+     * JoinSession implementation.
+     */
+    QStatus JoinSession(const char* sessionHost, SessionPort sessionPort, SessionListener* listener,
+                        SessionId& sessionId, SessionOpts& opts);
+
+    /**
      * JoinSessionAsync method_reply handler.
      */
     void JoinSessionAsyncCB(Message& message, void* context);
@@ -256,6 +262,12 @@ class BusAttachment::Internal : public MessageReceiver {
      */
     Internal& operator=(const BusAttachment::Internal& other);
 
+    /**
+     * @internal
+     * JoinSessionAsync callback used by JoinSession
+     */
+    void JoinSessionCB(QStatus status, SessionId sessionId, const SessionOpts& opts, void* context);
+
     qcc::String application;              /* Name of the that owns the BusAttachment application */
     BusAttachment& bus;                   /* Reference back to the bus attachment that owns this state */
 
@@ -291,6 +303,15 @@ class BusAttachment::Internal : public MessageReceiver {
     SessionListenerMap sessionListeners;   /* Lookup SessionListener by session id */
 
     qcc::Mutex sessionListenersLock;       /* Lock protecting sessionListners maps */
+
+    struct JoinContext {
+        QStatus status;
+        SessionId sessionId;
+        SessionOpts opts;
+    };
+
+    std::map<qcc::Thread*, JoinContext> joinThreads;  /* List of threads waiting to join */
+    qcc::Mutex joinLock;                              /* Mutex that protects joinThreads */
 };
 
 }
