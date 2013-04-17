@@ -712,6 +712,8 @@ namespace AllJoynUnitTests
             SessionOpts[] optsOut = new SessionOpts[1];
             Task<JoinSessionResult> joinTask = client.JoinSessionAsync("org.alljoyn.testing.service", (ushort)77, csl.sl, opts, optsOut, null).AsTask<JoinSessionResult>();
             joinTask.Wait();
+            //The wait of 10ms ensures that the acceptSessionJoiner and sessionJoined callbacks are completed onthe service side.
+            Task.Delay(10).Wait();
             if (QStatus.ER_OK == joinTask.Result.Status)
             {
                 Assert.IsTrue(spl.AcceptSessionJoinerCalled && spl.SessionJoinedCalled);
