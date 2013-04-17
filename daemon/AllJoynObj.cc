@@ -1212,6 +1212,7 @@ qcc::ThreadReturn STDCALL AllJoynObj::JoinSessionThread::RunAttach()
     QStatus status = MsgArg::Get(args, 6, "qsssss", &sessionPort, &src, &sessionHost, &dest, &srcB2B, &busAddr);
     const String srcB2BStr = srcB2B;
 
+    bool sendSessionJoined = false;
     if (status == ER_OK) {
         status = GetSessionOpts(args[6], optsIn);
     }
@@ -1372,9 +1373,7 @@ qcc::ThreadReturn STDCALL AllJoynObj::JoinSessionThread::RunAttach()
 
                             /* Send SessionJoined to creator */
                             if (ER_OK == status && creatorEp->IsValid() && (destEp == creatorEp)) {
-                                ajObj.ReleaseLocks();
-                                ajObj.SendSessionJoined(sme.sessionPort, sme.id, src, sme.endpointName.c_str());
-                                ajObj.AcquireLocks();
+                                sendSessionJoined = true;
                             }
                         }
                     } else {
@@ -1526,6 +1525,10 @@ qcc::ThreadReturn STDCALL AllJoynObj::JoinSessionThread::RunAttach()
     } else {
         ajObj.ReleaseLocks();
         status = ajObj.MethodReply(msg, replyArgs, ArraySize(replyArgs));
+    }
+    /* Send SessionJoined to creator */
+    if (sendSessionJoined) {
+        ajObj.SendSessionJoined(sme.sessionPort, sme.id, src, sme.endpointName.c_str());
     }
     ajObj.AcquireLocks();
 
