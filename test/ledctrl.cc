@@ -167,7 +167,11 @@ int main(int argc, char** argv)
 
     /* Get env vars */
     Environ* env = Environ::GetAppEnviron();
-    qcc::String connectArgs = env->Find("BUS_ADDRESS");
+
+    /* Ensure that the BundledDaemon is used since the credentials will
+     * not take effect if the pre-installed daemon is used.
+     */
+    qcc::String connectArgs = "null:";
 
     QStatus status = ER_OK;
     g_msgBus = new BusAttachment("LedControl", true);
@@ -185,11 +189,7 @@ int main(int argc, char** argv)
     }
 
     if (ER_OK == status) {
-        if (!connectArgs.empty()) {
-            status = g_msgBus->Connect(connectArgs.c_str());
-        } else {
-            status = g_msgBus->Connect();
-        }
+        status = g_msgBus->Connect(connectArgs.c_str());
     }
 
     if (ER_OK == status) {
