@@ -1530,7 +1530,7 @@ qcc::ThreadReturn STDCALL AllJoynObj::JoinSessionThread::RunAttach()
     }
     /* Send SessionJoined to creator */
     if (sendSessionJoined) {
-        ajObj.SendSessionJoined(sme.sessionPort, sme.id, src, sme.endpointName.c_str());
+        ajObj.SendSessionJoined(sme.sessionPort, sme.id, srcStr.c_str(), sme.endpointName.c_str());
     }
     ajObj.AcquireLocks();
 
