@@ -396,7 +396,14 @@ QStatus _LocalEndpoint::Dispatcher::DispatchMessage(Message& msg)
     void* context = new Message(msg);
     qcc::AlarmListener* localEndpointListener = this;
     Alarm alarm(zero, localEndpointListener, context, zero);
-    return AddAlarm(alarm);
+    QStatus status = AddAlarm(alarm);
+    if (status != ER_OK) {
+        Message* temp = static_cast<Message*>(context);
+        if (temp) {
+            delete temp;
+        }
+    }
+    return status;
 }
 
 void _LocalEndpoint::EnableReentrancy()

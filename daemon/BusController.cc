@@ -60,8 +60,6 @@ BusController::~BusController()
 QStatus BusController::Init(const qcc::String& listenSpecs)
 {
     QStatus status;
-    qcc::Event initEvent;
-
 
     /*
      * Start the object initialization chain (see ObjectRegistered callback below)

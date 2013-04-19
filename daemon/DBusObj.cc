@@ -426,7 +426,9 @@ void DBusObj::ListQueuedOwners(const InterfaceDescription::Member* member, Messa
     }
     MsgArg namesArray(ALLJOYN_ARRAY);
     namesArray.v_array.SetElements("s", numNames, names);
-
+    /* Call Stabilize so that the names array can be deleted */
+    namesArray.Stabilize();
+    delete [] names;
     QStatus status = MethodReply(msg, &namesArray, 1);
     if (ER_OK != status) {
         QCC_LogError(status, ("DBusObj::ListQueuedOwners failed"));
