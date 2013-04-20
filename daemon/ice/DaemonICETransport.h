@@ -498,8 +498,8 @@ class DaemonICETransport : public Transport, public _RemoteEndpoint::EndpointLis
     ICEManager m_iceManager;                                       /**< The ICE Manager used for managing ICE operations */
     bool m_stopping;                                               /**< True if Stop() has been called but endpoints still exist */
     TransportListener* m_listener;                                 /**< Registered TransportListener */
-    std::set<DaemonICEEndpoint> m_authList;                       /**< Set of authenticating endpoints */
-    std::set<DaemonICEEndpoint> m_endpointList;                   /**< Set of active endpoints */
+    std::set<DaemonICEEndpoint> m_authList;                        /**< Set of authenticating endpoints */
+    std::set<DaemonICEEndpoint> m_endpointList;                    /**< Set of active endpoints */
     Mutex m_endpointListLock;                                      /**< Mutex that protects the endpoint and auth lists */
 
     ///< Event that indicates that a new AllocateICESession request has been received.
@@ -544,6 +544,13 @@ class DaemonICETransport : public Transport, public _RemoteEndpoint::EndpointLis
      * @brief Manage the list of endpoints for the transport.
      */
     void ManageEndpoints(qcc::Timespec tTimeout);
+
+    /**
+     * @internal
+     * @brief Delete the AllocateICESessionThread specified by threadPtr
+     * and remove it from the allocateICESessionThreads list
+     */
+    void DeleteAllocateICESessionThread(Thread* threadPtr);
 
     /**
      * @internal
@@ -708,14 +715,21 @@ class DaemonICETransport : public Transport, public _RemoteEndpoint::EndpointLis
         /* Timestamp recorded at the start of a disconnect procedure on the ICEPacketStream */
         uint64_t disconnectingTimestamp;
 
+        /* Pointer to the AllocateICESessionThread that created the packetStream corresponding to this
+         * entry */
+        AllocateICESessionThread* allocateICESessionThreadPtr;
+
         /* Default constructor */
-        _ICEPacketStreamInfo() : refCount(0), connState(ICE_PACKET_STREAM_DISCONNECTED), disconnectingTimestamp(0) { }
+        _ICEPacketStreamInfo() : refCount(0), connState(ICE_PACKET_STREAM_DISCONNECTED), disconnectingTimestamp(0), allocateICESessionThreadPtr(NULL) { }
 
         /* Destructor */
         ~_ICEPacketStreamInfo() { }
 
         /* Parameterized constructor */
-        _ICEPacketStreamInfo(uint32_t count, ICEPacketStreamConnectionState state) : refCount(count), connState(state), disconnectingTimestamp(0) { }
+        _ICEPacketStreamInfo(uint32_t count, ICEPacketStreamConnectionState state) : refCount(count), connState(state), disconnectingTimestamp(0), allocateICESessionThreadPtr(NULL) { }
+
+        /* Parameterized constructor */
+        _ICEPacketStreamInfo(uint32_t count, ICEPacketStreamConnectionState state, AllocateICESessionThread* threadPtr) : refCount(count), connState(state), disconnectingTimestamp(0), allocateICESessionThreadPtr(threadPtr) { }
 
         /* Returns true if the ICEPacketStream connection status is connected */
         bool IsConnected(void) { return(connState == ICE_PACKET_STREAM_CONNECTED); }
