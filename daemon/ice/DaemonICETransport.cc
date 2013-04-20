@@ -905,6 +905,13 @@ bool DaemonICETransport::PacketEngineAcceptCB(PacketEngine& engine, const Packet
         GetTimeNow(&tNow);
         conn->SetStartTime(tNow);
 
+        /* We are going to add the endpoint corresponding to icePktStream to the m_authList. So delete the
+         * AllocateICESessionThread instance that setup this ICEPacketStream and also remove it from the
+         * allocateICESessionThreads list */
+        if (pktStreamInfoPtr->allocateICESessionThreadPtr) {
+            DeleteAllocateICESessionThread(pktStreamInfoPtr->allocateICESessionThreadPtr);
+        }
+
         /*
          * By putting the connection on the m_authList, we are
          * transferring responsibility for the connection to the
@@ -1271,7 +1278,7 @@ ThreadReturn STDCALL DaemonICETransport::AllocateICESessionThread::Run(void* arg
 
                                                                     /* Wrap ICE session FD in a new ICEPacketStream */
                                                                     ICEPacketStream pks(*iceSession, *stunActivityPtr->stun, *selectedCandidatePairList[0]);
-                                                                    ICEPacketStreamInfo pktStreamInfo(1, ICE_PACKET_STREAM_CONNECTING);
+                                                                    ICEPacketStreamInfo pktStreamInfo(1, ICE_PACKET_STREAM_CONNECTING, reinterpret_cast<AllocateICESessionThread*>(Thread::GetThread()));
                                                                     PacketStreamMap::iterator sit = transportObj->pktStreamMap.insert(std::make_pair(connectSpec, std::make_pair(pks, pktStreamInfo)));
                                                                     pktStream = &(sit->second.first);
                                                                     ICEPacketStreamInfo* pktStreamInfoPtr = &(sit->second.second);
@@ -1401,23 +1408,42 @@ ThreadReturn STDCALL DaemonICETransport::AllocateICESessionThread::Run(void* arg
 
 void DaemonICETransport::AllocateICESessionThread::ThreadExit(Thread* thread)
 {
-    transportObj->allocateICESessionThreadsLock.Lock(MUTEX_CONTEXT);
-    vector<AllocateICESessionThread*>::iterator it = transportObj->allocateICESessionThreads.begin();
+    /* Though this instance of AllocateICESessionThread is dead at this point,
+     * we do not delete it from the allocateICESessionThreads list because we use
+     * the number of entries in allocateICESessionThreads as an indicator of the
+     * total number of active incoming ICE connect requests. We will delete the
+     * entry corresponding to this instance of the AllocateICESessionThread from
+     * the allocateICESessionThreads list once we have added the endpoint corresponding
+     * to this instance of AllocateICESessionThread to the m_authList or when the
+     * PacketEngineAccept wait times out for the ICEPacketStream setup by this
+     * AllocateICESessionThread */
+    QCC_DbgPrintf(("%s: Exiting AllocateICESessionThread %p", __FUNCTION__, thread));
+}
+
+void DaemonICETransport::DeleteAllocateICESessionThread(Thread* threadPtr)
+{
+    allocateICESessionThreadsLock.Lock(MUTEX_CONTEXT);
+    vector<AllocateICESessionThread*>::iterator it = allocateICESessionThreads.begin();
     AllocateICESessionThread* deleteMe = NULL;
-    while (it != transportObj->allocateICESessionThreads.end()) {
-        if (*it == thread) {
+    while (it != allocateICESessionThreads.end()) {
+        if (*it == threadPtr) {
             deleteMe = *it;
-            transportObj->allocateICESessionThreads.erase(it++);
+            allocateICESessionThreads.erase(it++);
             break;
         } else {
             ++it;
         }
     }
-    transportObj->allocateICESessionThreadsLock.Unlock(MUTEX_CONTEXT);
+    allocateICESessionThreadsLock.Unlock(MUTEX_CONTEXT);
     if (deleteMe) {
+        /* Just in case we ended-up getting to this point before the AllocateICESessionThread exited, wait for
+         * it to exit by calling Stop() and Join() */
+        deleteMe->Stop();
+        deleteMe->Join();
         delete deleteMe;
+        QCC_DbgPrintf(("%s: Deleted AllocateICESessionThread %p", __FUNCTION__, threadPtr));
     } else {
-        QCC_LogError(ER_FAIL, ("Internal error: AllocateICESessionThread not found on list"));
+        QCC_LogError(ER_FAIL, ("%s: AllocateICESessionThread %p not found on list", __FUNCTION__, threadPtr));
     }
 }
 
@@ -1693,39 +1719,41 @@ void* DaemonICETransport::Run(void* arg)
             m_IncomingICESessionsLock.Lock(MUTEX_CONTEXT);
 
             while (!IncomingICESessions.empty()) {
-                QCC_DbgPrintf(("DaemonICETransport::Run(): maxAuth == %d", maxAuth));
-                QCC_DbgPrintf(("DaemonICETransport::Run(): maxConn == %d", maxConn));
-                QCC_DbgPrintf(("DaemonICETransport::Run(): mAuthList.size() == %d", m_authList.size()));
-                QCC_DbgPrintf(("DaemonICETransport::Run(): mEndpointList.size() == %d", m_endpointList.size()));
-
                 /*
                  * Do we have a slot available for a new connection?  If so, use
                  * it.
                  */
+                allocateICESessionThreadsLock.Lock(MUTEX_CONTEXT);
                 m_endpointListLock.Lock(MUTEX_CONTEXT);
-                if ((m_authList.size() < maxAuth) && (m_authList.size() + m_endpointList.size() < maxConn)) {
+                /* The size of the allocateICESessionThreads list is the number of incoming ICE connect requests - the endpoints
+                 * corresponding to which have not yet made it into the m_authList. We need to take that number into account as
+                 * well before trying to process a new incoming connect request */
+                if (((m_authList.size() + allocateICESessionThreads.size()) < maxAuth) &&
+                    ((m_authList.size() +  allocateICESessionThreads.size() + m_endpointList.size()) < maxConn)) {
+                    QCC_DbgPrintf(("DaemonICETransport::Run(): maxAuth(%d) maxConn(%d) mAuthList.size(%d) mEndpointList.size(%d) allocateICESessionThreads.size(%d)",
+                                   maxAuth, maxConn, m_authList.size(), m_endpointList.size(), allocateICESessionThreads.size()));
+                    m_endpointListLock.Unlock(MUTEX_CONTEXT);
+                    allocateICESessionThreadsLock.Unlock(MUTEX_CONTEXT);
                     /* Handle AllocateICESession on another thread */
-                    allocateICESessionThreadsLock.Lock(MUTEX_CONTEXT);
-
                     if (!m_stopping) {
                         AllocateICESessionThread* ast = new AllocateICESessionThread(this, IncomingICESessions.front());
                         status = ast->Start(NULL, ast);
                         if (status == ER_OK) {
+                            allocateICESessionThreadsLock.Lock(MUTEX_CONTEXT);
                             allocateICESessionThreads.push_back(ast);
-
+                            allocateICESessionThreadsLock.Unlock(MUTEX_CONTEXT);
                         } else {
                             QCC_LogError(status, ("DaemonICETransport::Run(): Failed to start AllocateICESessionThread"));
                         }
                     }
-                    IncomingICESessions.pop_front();
-                    allocateICESessionThreadsLock.Unlock(MUTEX_CONTEXT);
-                    m_endpointListLock.Unlock(MUTEX_CONTEXT);
                 } else {
                     m_endpointListLock.Unlock(MUTEX_CONTEXT);
-                    IncomingICESessions.clear();
-                    status = ER_AUTH_FAIL;
+                    allocateICESessionThreadsLock.Unlock(MUTEX_CONTEXT);
+                    status = ER_FAIL;
                     QCC_LogError(status, ("DaemonICETransport::Run(): No slot for new connection"));
                 }
+
+                IncomingICESessions.pop_front();
             }
 
             m_IncomingICESessionsLock.Unlock(MUTEX_CONTEXT);
@@ -1733,10 +1761,6 @@ void* DaemonICETransport::Run(void* arg)
             // Reset the wakeDaemonICETransportRun
             if (*i == &wakeDaemonICETransportRun) {
                 wakeDaemonICETransportRun.ResetEvent();
-            }
-
-            if (status != ER_OK) {
-                QCC_LogError(status, ("DaemonICETransport::Run(): Error accepting new connection. Ignoring..."));
             }
         }
 
@@ -2725,6 +2749,12 @@ void DaemonICETransport::AlarmTriggered(const Alarm& alarm, QStatus reason)
 
                 /* PacketEngine Accept timeout */
                 QCC_DbgPrintf(("DaemonICETransport::AlarmTriggered: Removing pktStream %p due to PacketEngine accept timeout", ps));
+
+                /* PacketEngineAccept on an ICEPacketStream timed out. So delete the AllocateICESessionThread
+                 * instance that setup that ICEPacketStream and also remove it from the allocateICESessionThreads list */
+                if (pktStreamInfoPtr->allocateICESessionThreadPtr) {
+                    DeleteAllocateICESessionThread(pktStreamInfoPtr->allocateICESessionThreadPtr);
+                }
 
                 /* Set the ICEPacketStream connection state to disconnecting if the state is connecting */
                 pktStreamMapLock.Lock(MUTEX_CONTEXT);
