@@ -812,6 +812,21 @@ QStatus _LocalEndpoint::UnregisterAllHandlers(MessageReceiver* receiver)
 void _LocalEndpoint::AlarmTriggered(const Alarm& alarm, QStatus reason)
 {
     ReplyContext* rc = reinterpret_cast<ReplyContext*>(alarm->GetContext());
+    replyMapLock.Lock(MUTEX_CONTEXT);
+    /* Search for the ReplyContext entry in the replyMap */
+    bool found = false;
+    for (map<uint32_t, ReplyContext*>::iterator iter = replyMap.begin(); iter != replyMap.end(); iter++) {
+        if (rc == iter->second) {
+            found = true;
+            break;
+        }
+    }
+
+    if (found == false) {
+        /* If an entry for the ReplyContext is not found, it might have been deleted due to a MethodReply. */
+        replyMapLock.Unlock(MUTEX_CONTEXT);
+        return;
+    }
     uint32_t serial = rc->serial;
     Message msg(*bus);
     QStatus status = ER_OK;
@@ -820,6 +835,7 @@ void _LocalEndpoint::AlarmTriggered(const Alarm& alarm, QStatus reason)
      * Clear the encrypted flag so the error response doesn't get rejected.
      */
     rc->callFlags &= ~ALLJOYN_FLAG_ENCRYPTED;
+    replyMapLock.Unlock(MUTEX_CONTEXT);
 
     if (running) {
         QCC_DbgPrintf(("Timed out waiting for METHOD_REPLY with serial %d", serial));
@@ -844,7 +860,6 @@ void _LocalEndpoint::AlarmTriggered(const Alarm& alarm, QStatus reason)
         msg->ErrorMsg("org.alljoyn.Bus.Exiting", serial);
         HandleMethodReply(msg);
     }
-
 }
 
 QStatus _LocalEndpoint::HandleMethodCall(Message& message)
