@@ -571,24 +571,26 @@ ThreadReturn STDCALL AllJoynObj::JoinSessionThread::RunJoin()
             bool foundSessionMapEntry = false;
             SessionMapType::iterator sit = ajObj.SessionMapLowerBound(creatorName, 0);
             while ((sit != ajObj.sessionMap.end()) && (creatorName == sit->first.first)) {
-                if ((sit->first.second == 0) && (sit->second.sessionHost == creatorName) && (sit->second.sessionPort == sessionPort)) {
-                    sme = sit->second;
-                    foundSessionMapEntry = true;
-                    if (!sme.opts.isMultipoint) {
-                        break;
-                    }
-                } else if ((sit->first.second != 0) && (sit->second.sessionHost == creatorName) && (sit->second.sessionPort == sessionPort)) {
-                    /* Check if this joiner has already joined and reject in that case */
-                    vector<String>::iterator mit = sit->second.memberNames.begin();
-                    while (mit != sit->second.memberNames.end()) {
-                        if (*mit == sender) {
-                            foundSessionMapEntry = false;
-                            replyCode = ALLJOYN_JOINSESSION_REPLY_ALREADY_JOINED;
+                if ((sit->second.sessionHost == creatorName) && (sit->second.sessionPort == sessionPort)) {
+                    if (sit->first.second == 0) {
+                        sme = sit->second;
+                        foundSessionMapEntry = true;
+                        if (!sme.opts.isMultipoint) {
                             break;
                         }
-                        ++mit;
+                    } else {
+                        /* Check if this joiner has already joined and reject in that case */
+                        vector<String>::iterator mit = sit->second.memberNames.begin();
+                        while (mit != sit->second.memberNames.end()) {
+                            if (*mit == sender) {
+                                foundSessionMapEntry = false;
+                                replyCode = ALLJOYN_JOINSESSION_REPLY_ALREADY_JOINED;
+                                break;
+                            }
+                            ++mit;
+                        }
+                        sme = sit->second;
                     }
-                    sme = sit->second;
                 }
                 ++sit;
             }
