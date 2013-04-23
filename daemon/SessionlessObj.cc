@@ -381,19 +381,15 @@ QStatus SessionlessObj::CancelMessage(const qcc::String& sender, uint32_t serial
     QCC_DbgTrace(("SessionlessObj::CancelMessage(%s, 0x%x)", sender.c_str(), serialNum));
 
     lock.Lock();
-    map<MessageMapKey, pair<uint32_t, Message> >::iterator it = messageMap.begin();
-    while (it != messageMap.end()) {
+    MessageMapKey key(sender.c_str(), "", "", "");
+    map<MessageMapKey, pair<uint32_t, Message> >::iterator it = messageMap.lower_bound(key);
+    while ((it != messageMap.end()) && (sender == it->second.second->GetSender())) {
         if (it->second.second->GetCallSerial() == serialNum) {
-            if (it->second.second->IsExpired()) {
-                messageMap.erase(it);
-                messageErased = true;
-            } else if (sender == it->second.second->GetSender()) {
-                messageMap.erase(it);
-                messageErased = true;
+            if (!it->second.second->IsExpired()) {
                 status = ER_OK;
-            } else {
-                status = ER_BUS_NOT_ALLOWED;
             }
+            messageMap.erase(it);
+            messageErased = true;
             break;
         }
         ++it;
