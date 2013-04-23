@@ -247,8 +247,8 @@ TEST_F(PerfTest, ErrorMsg_does_not_exist_interface) {
                              testclient.getClientObjectPath(),
                              0);
     QStatus status = remoteObj.IntrospectRemoteObject();
-    EXPECT_TRUE(status == ER_BUS_REPLY_IS_ERROR_MESSAGE || status == ER_BUS_NO_ROUTE) <<
-    "Expected ER_BUS_REPLY_IS_ERROR_MESSAGE (non-bundled daemon) or ER_BUS_NO_ROUTE (bundled daemon) \n\tActual Status: " << QCC_StatusText(status);
+    EXPECT_TRUE(status == ER_BUS_REPLY_IS_ERROR_MESSAGE) <<
+    "Expected ER_BUS_REPLY_IS_ERROR_MESSAGE \n\tActual Status: " << QCC_StatusText(status);
 
     /* Instead of directly making an introspect...make a method call and get the error reply */
     const InterfaceDescription* introIntf = test_msgBus->GetInterface(ajn::org::freedesktop::DBus::Introspectable::InterfaceName);
@@ -260,8 +260,8 @@ TEST_F(PerfTest, ErrorMsg_does_not_exist_interface) {
     const InterfaceDescription::Member* introMember = introIntf->GetMember("Introspect");
     ASSERT_TRUE(introMember);
     status = remoteObj.MethodCall(*introMember, NULL, 0, reply, 5000);
-    EXPECT_TRUE(status == ER_BUS_REPLY_IS_ERROR_MESSAGE || status == ER_BUS_NO_ROUTE) <<
-    "Expected ER_BUS_REPLY_IS_ERROR_MESSAGE (non-bundled daemon) or ER_BUS_NO_ROUTE (bundled daemon) \n\tActual Status: " << QCC_StatusText(status);
+    EXPECT_TRUE(status == ER_BUS_REPLY_IS_ERROR_MESSAGE) <<
+    "Expected ER_BUS_REPLY_IS_ERROR_MESSAGE \n\tActual Status: " << QCC_StatusText(status);
 
     if (status == ER_BUS_REPLY_IS_ERROR_MESSAGE) {
         String errMsg;
