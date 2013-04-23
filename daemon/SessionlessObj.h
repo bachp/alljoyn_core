@@ -227,11 +227,12 @@ class SessionlessObj : public BusObject, public NameListener, public SessionList
     /**
      * Emit the range of cached sessionless signals [fromId, toId)
      *
-     * @param msg       org.alljoyn.sl.ReqeustSignals or org.alljoyn.sl.RequestRange message
+     * @param sender    Unique name of requestor/sender
+     * @param sessionId Session id
      * @param fromId    Beginning of changeId range (inclusive)
      * @param toId      End of changeId range (exclusive)
      */
-    void HandleRangeRequest(Message& msg, uint32_t fromId, uint32_t toId);
+    void HandleRangeRequest(const char* sender, SessionId sessionId, uint32_t fromId, uint32_t toId);
 
     /**
      * Internal helper for FoundAdvertisedName.
