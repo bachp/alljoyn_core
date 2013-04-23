@@ -187,6 +187,19 @@ QStatus _NullEndpoint::PushMessage(Message& msg)
         if (status == ER_OK) {
             msg->bus = &daemonBus;
             status = daemonBus.GetInternal().GetRouter().PushMessage(msg, busEndpoint);
+            if (status != ER_STOPPING_THREAD) {
+                /* The NullEndpoint is a special case where the message is pushed to the DaemonRouter.
+                 * In case of the RemoteEndpoint, the return value from PushMessage only indicates whether
+                 * the message made it through to the RemoteEndpoint's transmit queue.
+                 * We convert the error into an ER_OK here, so that the error codes from returned
+                 * from this function resemble the behavior of the RemoteEndpoint.
+                 * We preserve ER_STOPPING_THREAD.
+                 * Note: The error codes returned from RemoteEndpoint::PushMessage are ER_OK,
+                 * ER_BUS_NO_ENDPOINT(only if the endpoint was created with a default constructor),
+                 * ER_BUS_ENDPOINT_CLOSING and ER_STOPPING_THREAD.
+                 */
+                status = ER_OK;
+            }
         } else if (status == ER_BUS_AUTHENTICATION_PENDING) {
             status = ER_OK;
         }

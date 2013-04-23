@@ -789,6 +789,7 @@ QStatus ProxyBusObject::MethodCall(const InterfaceDescription::Member& method,
         } else {
             delete heapCtx;
             heapCtx = NULL;
+            goto MethodCallExit;
         }
 
         Thread* thisThread = Thread::GetThread();
@@ -797,7 +798,12 @@ QStatus ProxyBusObject::MethodCall(const InterfaceDescription::Member& method,
             if (!isExiting) {
                 components->waitingThreads.push_back(thisThread);
                 lock->Unlock(MUTEX_CONTEXT);
-                status = Event::Wait(ctxt->event, timeout);
+                /* In case of a timeout, the SyncReplyHandler will be called by the
+                 * LocalEndpoint replyTimer. So wait forever to be signalled by the
+                 * SyncReplyHandler or ProxyBusObject::DestructComponents(in case the
+                 * ProxyBusObject is being destroyed) or this thread is stopped.
+                 */
+                status = Event::Wait(ctxt->event);
                 lock->Lock(MUTEX_CONTEXT);
 
                 std::vector<Thread*>::iterator it = std::find(components->waitingThreads.begin(), components->waitingThreads.end(), thisThread);
