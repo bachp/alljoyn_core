@@ -261,7 +261,7 @@ void SessionlessObj::AddRule(const qcc::String& epName, Rule& rule)
              * this client (implicitly) if this daemon has previously received
              * sessionless signals for any client.
              */
-            if (!changeIdMap.empty()) {
+            if (!changeIdMap.empty() || !messageMap.empty()) {
                 lock.Unlock();
                 RereceiveMessages(epName, "");
                 lock.Lock();
@@ -412,12 +412,18 @@ QStatus SessionlessObj::RereceiveMessages(const qcc::String& sender, const qcc::
     QCC_DbgTrace(("SessionlessObj::RereceiveMessages(%s, %s)", sender.c_str(), guid.c_str()));
     uint64_t now = GetTimestamp64();
     const uint64_t timeoutValue = 18000;
-
+    String selfGuid = bus.GetGlobalGUIDShortString();
     lock.Lock();
 
     map<String, ChangeIdEntry>::iterator it = guid.empty() ? changeIdMap.begin() : changeIdMap.find(guid);
     while ((status == ER_OK) && (it != changeIdMap.end())) {
         String lastGuid = it->first;
+
+        /* Skip self */
+        if (lastGuid == selfGuid) {
+            ++it;
+            continue;
+        }
 
         /* Wait for inProgress to be false */
         while ((it != changeIdMap.end()) && it->second.inProgress && (GetTimestamp64() < (now + timeoutValue))) {
@@ -455,6 +461,12 @@ QStatus SessionlessObj::RereceiveMessages(const qcc::String& sender, const qcc::
             ++it;
         }
     }
+
+    /* If all guids or self guid, retrieve from our own cache */
+    if (guid.empty() || (guid == selfGuid)) {
+        HandleRangeRequest(sender.c_str(), 0, nextChangeId - (numeric_limits<uint32_t>::max() >> 1), nextChangeId);
+    }
+
     lock.Unlock();
 
     return status;
@@ -631,7 +643,7 @@ void SessionlessObj::RequestSignalsSignalHandler(const InterfaceDescription::Mem
     QStatus status = msg->GetArgs("u", &fromId);
     if (status == ER_OK) {
         /* Send all signals in the half-max-uint32 range from [fromIdx, fromIdx + max(uint32)/2) */
-        HandleRangeRequest(msg, fromId, fromId + (numeric_limits<uint32_t>::max() >> 1));
+        HandleRangeRequest(msg->GetSender(), msg->GetSessionId(), fromId, fromId + (numeric_limits<uint32_t>::max() >> 1));
     } else {
         QCC_LogError(status, ("Message::GetArgs failed"));
     }
@@ -645,13 +657,13 @@ void SessionlessObj::RequestRangeSignalHandler(const InterfaceDescription::Membe
     uint32_t fromId, toId;
     QStatus status = msg->GetArgs("uu", &fromId, &toId);
     if (status == ER_OK) {
-        HandleRangeRequest(msg, fromId, toId);
+        HandleRangeRequest(msg->GetSender(), msg->GetSessionId(), fromId, toId);
     } else {
         QCC_LogError(status, ("Message::GetArgs failed"));
     }
 }
 
-void SessionlessObj::HandleRangeRequest(Message& msg, uint32_t fromChangeId, uint32_t toChangeId)
+void SessionlessObj::HandleRangeRequest(const char* sender, SessionId sessionId, uint32_t fromChangeId, uint32_t toChangeId)
 {
     QStatus status = ER_OK;
     bool messageErased = false;
@@ -675,11 +687,11 @@ void SessionlessObj::HandleRangeRequest(Message& msg, uint32_t fromChangeId, uin
                 /* Send message */
                 lock.Unlock();
                 router.LockNameTable();
-                BusEndpoint ep = router.FindEndpoint(msg->GetSender());
+                BusEndpoint ep = router.FindEndpoint(sender);
                 if (ep->IsValid()) {
                     router.UnlockNameTable();
                     if (ep->GetEndpointType() == ENDPOINT_TYPE_VIRTUAL) {
-                        status = VirtualEndpoint::cast(ep)->PushMessage(it->second.second, msg->GetSessionId());
+                        status = VirtualEndpoint::cast(ep)->PushMessage(it->second.second, sessionId);
                     } else {
                         status = ep->PushMessage(it->second.second);
                     }
@@ -690,7 +702,7 @@ void SessionlessObj::HandleRangeRequest(Message& msg, uint32_t fromChangeId, uin
                 it = messageMap.upper_bound(key);
             }
             if (status != ER_OK) {
-                QCC_LogError(status, ("Failed to push sessionless signal to %s", msg->GetDestination()));
+                QCC_LogError(status, ("Failed to push sessionless signal to %s", sender));
             }
         } else {
             ++it;
@@ -706,9 +718,11 @@ void SessionlessObj::HandleRangeRequest(Message& msg, uint32_t fromChangeId, uin
     }
 
     /* Close the session */
-    status = bus.LeaveSession(msg->GetSessionId());
-    if (status != ER_OK) {
-        QCC_LogError(status, ("LeaveSession failed"));
+    if (sessionId != 0) {
+        status = bus.LeaveSession(sessionId);
+        if (status != ER_OK) {
+            QCC_LogError(status, ("LeaveSession failed"));
+        }
     }
 }
 
