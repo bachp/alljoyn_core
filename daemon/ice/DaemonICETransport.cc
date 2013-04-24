@@ -555,12 +555,8 @@ DaemonICETransport::~DaemonICETransport()
     vector<AllocateICESessionThread*>::iterator it = allocateICESessionThreads.begin();
     while (it != allocateICESessionThreads.end()) {
         (*it)->Stop();
+        (*it)->Join();
         ++it;
-    }
-    while (!allocateICESessionThreads.empty()) {
-        allocateICESessionThreadsLock.Unlock(MUTEX_CONTEXT);
-        qcc::Sleep(50);
-        allocateICESessionThreadsLock.Lock(MUTEX_CONTEXT);
     }
     allocateICESessionThreadsLock.Unlock(MUTEX_CONTEXT);
 
