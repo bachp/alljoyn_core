@@ -5,7 +5,7 @@
  */
 
 /******************************************************************************
- * Copyright 2009-2012, Qualcomm Innovation Center, Inc.
+ * Copyright 2009-2013, Qualcomm Innovation Center, Inc.
  *
  *    Licensed under the Apache License, Version 2.0 (the "License");
  *    you may not use this file except in compliance with the License.
@@ -33,6 +33,7 @@
 
 #include "MsgArgUtils.h"
 #include "SignatureUtils.h"
+#include "BusUtil.h"
 
 #define QCC_MODULE "ALLJOYN"
 
@@ -1038,10 +1039,18 @@ QStatus MsgArg::VBuildArgs(const char*& signature, size_t sigLen, MsgArg* arg, s
             break;
 
         case 'o':
-            arg->typeId = ALLJOYN_OBJECT_PATH;
-            arg->v_string.str = va_arg(argp, char*);
-            arg->v_string.len = arg->v_string.str ? strlen(arg->v_string.str) : 0;
-            break;
+        {
+            char* object_path = va_arg(argp, char*);
+            if (IsLegalObjectPath(object_path)) {
+                arg->typeId = ALLJOYN_OBJECT_PATH;
+                arg->v_string.str = object_path;
+                arg->v_string.len = arg->v_string.str ? strlen(arg->v_string.str) : 0;
+            } else {
+                status = ER_BUS_BAD_SIGNATURE;
+                QCC_LogError(status, ("String \"%s\" is not a legal object path", object_path));
+            }
+        }
+        break;
 
         case 'q':
             arg->typeId = ALLJOYN_UINT16;
