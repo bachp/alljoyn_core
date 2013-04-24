@@ -402,3 +402,36 @@ TEST(MsgArgTest, Dictionary)
         ASSERT_EQ(ER_OK, status) << "  Actual Status: " << QCC_StatusText(status);
     }
 }
+
+TEST(MsgArgTest, InvalidValues)
+{
+    QStatus status = ER_FAIL;
+    MsgArg arg;
+    status = arg.Set("o", "FailString"); //must be object path
+    ASSERT_EQ(ER_BUS_BAD_SIGNATURE, status) << "  Actual Status: " << QCC_StatusText(status);
+    status = arg.Set("o", "org/alljoyn/test"); //must start with '/' character
+    ASSERT_EQ(ER_BUS_BAD_SIGNATURE, status) << "  Actual Status: " << QCC_StatusText(status);
+    status = arg.Set("o", "/org/alljoyn//test"); // can not have repeated '/' characters
+    ASSERT_EQ(ER_BUS_BAD_SIGNATURE, status) << "  Actual Status: " << QCC_StatusText(status);
+    status = arg.Set("o", "/org/alljoyn/test/"); // can not end in '/' character
+    ASSERT_EQ(ER_BUS_BAD_SIGNATURE, status) << "  Actual Status: " << QCC_StatusText(status);
+    status = arg.Set("o", "/org/alljoyn/te*st"); // must be alpha numeric characters or '_'
+    ASSERT_EQ(ER_BUS_BAD_SIGNATURE, status) << "  Actual Status: " << QCC_StatusText(status);
+    status = arg.Set("o", "/"); // The only path allowed to end in '/' is the root path
+    ASSERT_EQ(ER_OK, status) << "  Actual Status: " << QCC_StatusText(status);;
+    arg.Clear();
+    status = arg.Set("o", "/org/alljoyn/test");
+    ASSERT_EQ(ER_OK, status) << "  Actual Status: " << QCC_StatusText(status);
+
+
+    status = arg.Set("g", "FailString"); //not a signature
+    ASSERT_EQ(ER_BUS_BAD_SIGNATURE, status) << "  Actual Status: " << QCC_StatusText(status);
+    status = arg.Set("g", "aaa"); //not arrays must end in a complete signature
+    ASSERT_EQ(ER_BUS_BAD_SIGNATURE, status) << "  Actual Status: " << QCC_StatusText(status);
+    status = arg.Set("g", "(sii"); //structs must end in a ')'
+    ASSERT_EQ(ER_BUS_BAD_SIGNATURE, status) << "  Actual Status: " << QCC_StatusText(status);
+    status = arg.Set("g", "sii)"); //structs must start in '('
+    ASSERT_EQ(ER_BUS_BAD_SIGNATURE, status) << "  Actual Status: " << QCC_StatusText(status);
+    status = arg.Set("g", "a{si)"); //dictionaries must end in '}'
+    ASSERT_EQ(ER_BUS_BAD_SIGNATURE, status) << "  Actual Status: " << QCC_StatusText(status);
+}
