@@ -341,20 +341,25 @@ TEST_F(BusAttachmentTest, quiet_advertise_name)
 
     //Wait upto 2 seconds for the found name signal to complete.
     for (int i = 0; i < 200; ++i) {
-        qcc::Sleep(10);
         if (foundQuietAdvertisedName) {
             break;
         }
+        qcc::Sleep(10);
     }
     EXPECT_TRUE(foundQuietAdvertisedName);
 
     bus.CancelAdvertiseName("quiet@org.alljoyn.BusNode.test", TRANSPORT_ANY);
+    /*
+     * CancelAdvertiseName causes the "LostAdvertisedName" BusListener to be
+     * called.  The LostAdvertisedName sets the FountQuietAdvertisedName flag
+     * to false.
+     */
     //Wait upto 2 seconds for the found name signal to complete.
     for (int i = 0; i < 200; ++i) {
-        qcc::Sleep(10);
-        if (foundQuietAdvertisedName) {
+        if (!foundQuietAdvertisedName) {
             break;
         }
+        qcc::Sleep(10);
     }
     EXPECT_FALSE(foundQuietAdvertisedName);
     otherBus.UnregisterBusListener(testBusListener);
