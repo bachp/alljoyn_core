@@ -109,5 +109,5 @@ std::vector<qcc::String> DaemonConfig::GetList(const char* key)
 bool DaemonConfig::Has(const char* key)
 {
     String path = key;
-    return !config->GetPath(path).empty();
+    return config ? !config->GetPath(path).empty() : false;
 }

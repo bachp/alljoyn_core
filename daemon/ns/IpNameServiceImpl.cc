@@ -2473,8 +2473,8 @@ void IpNameServiceImpl::SendProtocolMessage(
     //
     if (header.DestinationSet()) {
         QStatus status = ER_OK;
-        qcc::IPAddress destination = header.GetDestination();
-        qcc::AddressFamily family = destination.IsIPv4() ? qcc::QCC_AF_INET : qcc::QCC_AF_INET6;
+        qcc::IPEndpoint destination = header.GetDestination();
+        qcc::AddressFamily family = destination.addr.IsIPv4() ? qcc::QCC_AF_INET : qcc::QCC_AF_INET6;
 
         if (family == qcc::QCC_AF_INET && m_ipv4QuietSockFd == -1) {
             status = qcc::Socket(family, qcc::QCC_SOCK_DGRAM, m_ipv4QuietSockFd);
@@ -2492,9 +2492,9 @@ void IpNameServiceImpl::SendProtocolMessage(
             QCC_DbgHLPrintf(("IpNameServiceImpl::SendProtocolMessage(): Sending quietly to \"%s\" over \"%s\"", destination.ToString().c_str(), m_liveInterfaces[interfaceIndex].m_interfaceName.c_str()));
 
             if (family == qcc::QCC_AF_INET) {
-                status = qcc::SendTo(m_ipv4QuietSockFd, destination, MULTICAST_PORT, buffer, size, sent);
+                status = qcc::SendTo(m_ipv4QuietSockFd, destination.addr, destination.port, buffer, size, sent);
             } else {
-                status = qcc::SendTo(m_ipv6QuietSockFd, destination, MULTICAST_PORT, buffer, size, sent);
+                status = qcc::SendTo(m_ipv6QuietSockFd, destination.addr, destination.port, buffer, size, sent);
             }
         }
 
@@ -2859,7 +2859,7 @@ void IpNameServiceImpl::SendOutboundMessageQuietly(Header& header)
     // to use.
     //
     assert(header.DestinationSet() && "IpNameServiceImpl::SendOutboundMessageQuietly(): No destination IP address");
-    qcc::IPAddress destination = header.GetDestination();
+    qcc::IPEndpoint destination = header.GetDestination();
 
     //
     // We have a destination address for the message which came ultimately from
@@ -2918,7 +2918,7 @@ void IpNameServiceImpl::SendOutboundMessageQuietly(Header& header)
         // destination address we quite obviously aren't giong to send it out an
         // interface with an IPv6 address or vice versa.
         //
-        if ((destination.IsIPv4() && m_liveInterfaces[i].m_address.IsIPv6()) || (destination.IsIPv4() && m_liveInterfaces[i].m_address.IsIPv6())) {
+        if ((destination.addr.IsIPv4() && m_liveInterfaces[i].m_address.IsIPv6()) || (destination.addr.IsIPv4() && m_liveInterfaces[i].m_address.IsIPv6())) {
             QCC_DbgPrintf(("IpNameServiceImpl::SendOutboundMessageQuietly(): Interface %d. is address family mismatched", i));
             continue;
         }
@@ -2936,7 +2936,7 @@ void IpNameServiceImpl::SendOutboundMessageQuietly(Header& header)
         //
         uint32_t interfaceAddressPrefixLen = m_liveInterfaces[i].m_prefixlen;
 
-        if (SameNetwork(interfaceAddressPrefixLen, m_liveInterfaces[i].m_address, destination)) {
+        if (SameNetwork(interfaceAddressPrefixLen, m_liveInterfaces[i].m_address, destination.addr)) {
             uint32_t flags = m_liveInterfaces[i].m_flags;
 
             //
@@ -3534,7 +3534,7 @@ void* IpNameServiceImpl::Run(void* arg)
                 // run routine (above).
                 //
                 for (uint32_t index = 0; index < N_TRANSPORTS; ++index) {
-                    Retransmit(index, true, false, qcc::IPAddress("0.0.0.0"));
+                    Retransmit(index, true, false, qcc::IPEndpoint("0.0.0.0", 0));
                 }
                 m_terminal = true;
                 break;
@@ -3601,7 +3601,8 @@ void* IpNameServiceImpl::Run(void* arg)
                 //
                 // We got a message over the multicast channel.  Deal with it.
                 //
-                HandleProtocolMessage(buffer, nbytes, address);
+                qcc::IPEndpoint endpoint(address, port);
+                HandleProtocolMessage(buffer, nbytes, endpoint);
             }
         }
     }
@@ -3658,7 +3659,7 @@ void IpNameServiceImpl::Retry(void)
     }
 }
 
-void IpNameServiceImpl::Retransmit(uint32_t transportIndex, bool exiting, bool quietly, qcc::IPAddress destination)
+void IpNameServiceImpl::Retransmit(uint32_t transportIndex, bool exiting, bool quietly, const qcc::IPEndpoint& destination)
 {
     QCC_DbgPrintf(("IpNameServiceImpl::Retransmit()"));
 
@@ -4094,7 +4095,7 @@ void IpNameServiceImpl::DoPeriodicMaintenance(void)
         if (m_timer == m_tRetransmit) {
             QCC_DbgPrintf(("IpNameServiceImpl::DoPeriodicMaintenance(): Retransmit()"));
             for (uint32_t index = 0; index < N_TRANSPORTS; ++index) {
-                Retransmit(index, false, false, qcc::IPAddress("0.0.0.0"));
+                Retransmit(index, false, false, qcc::IPEndpoint("0.0.0.0", 0));
             }
             m_timer = m_tDuration;
         }
@@ -4104,9 +4105,9 @@ void IpNameServiceImpl::DoPeriodicMaintenance(void)
     m_mutex.Unlock();
 }
 
-void IpNameServiceImpl::HandleProtocolQuestion(WhoHas whoHas, qcc::IPAddress address)
+void IpNameServiceImpl::HandleProtocolQuestion(WhoHas whoHas, const qcc::IPEndpoint& endpoint)
 {
-    QCC_DbgPrintf(("IpNameServiceImpl::HandleProtocolQuestion()"));
+    QCC_DbgPrintf(("IpNameServiceImpl::HandleProtocolQuestion(%s)", endpoint.ToString().c_str()));
 
     //
     // There are at least two threads wandering through the advertised list.
@@ -4208,7 +4209,7 @@ void IpNameServiceImpl::HandleProtocolQuestion(WhoHas whoHas, qcc::IPAddress add
             // printf("%s: m_mutex.Unlock()\n", __FUNCTION__);
             m_mutex.Unlock();
 
-            Retransmit(index, false, respondQuietly, address);
+            Retransmit(index, false, respondQuietly, endpoint);
 
             // printf("%s: m_mutex.Lock()\n", __FUNCTION__);
             m_mutex.Lock();
@@ -4219,9 +4220,9 @@ void IpNameServiceImpl::HandleProtocolQuestion(WhoHas whoHas, qcc::IPAddress add
     m_mutex.Unlock();
 }
 
-void IpNameServiceImpl::HandleProtocolAnswer(IsAt isAt, uint32_t timer, qcc::IPAddress address)
+void IpNameServiceImpl::HandleProtocolAnswer(IsAt isAt, uint32_t timer, const qcc::IPEndpoint& endpoint)
 {
-    QCC_DbgPrintf(("IpNameServiceImpl::HandleProtocolAnswer()"));
+    QCC_DbgPrintf(("IpNameServiceImpl::HandleProtocolAnswer(%s)", endpoint.ToString().c_str()));
 
     //
     // We have to determine where the transport mask is going to come
@@ -4353,7 +4354,7 @@ void IpNameServiceImpl::HandleProtocolAnswer(IsAt isAt, uint32_t timer, qcc::IPA
         //
         qcc::String recvfromAddress, ipv4address, ipv6address;
 
-        recvfromAddress = address.ToString();
+        recvfromAddress = endpoint.addr.ToString();
         QCC_DbgPrintf(("IpNameServiceImpl::HandleProtocolAnswer(): Got IP %s from recvfrom", recvfromAddress.c_str()));
 
         if (isAt.GetIPv4Flag()) {
@@ -4392,7 +4393,7 @@ void IpNameServiceImpl::HandleProtocolAnswer(IsAt isAt, uint32_t timer, qcc::IPA
         // got broken out of the TCP transport.  We expect the transport to do
         // that now.
         //
-        if ((address.IsIPv4() && !ipv4address.size())) {
+        if ((endpoint.addr.IsIPv4() && !ipv4address.size())) {
             snprintf(addrbuf, sizeof(addrbuf), "r4addr=%s,r4port=%d", recvfromAddress.c_str(), port);
             qcc::String busAddress(addrbuf);
 
@@ -4547,9 +4548,9 @@ void IpNameServiceImpl::HandleProtocolAnswer(IsAt isAt, uint32_t timer, qcc::IPA
     m_mutex.Unlock();
 }
 
-void IpNameServiceImpl::HandleProtocolMessage(uint8_t const* buffer, uint32_t nbytes, qcc::IPAddress address)
+void IpNameServiceImpl::HandleProtocolMessage(uint8_t const* buffer, uint32_t nbytes, const qcc::IPEndpoint& endpoint)
 {
-    QCC_DbgPrintf(("IpNameServiceImpl::HandleProtocolMessage(0x%x, %d, %s)", buffer, nbytes, address.ToString().c_str()));
+    QCC_DbgPrintf(("IpNameServiceImpl::HandleProtocolMessage(0x%x, %d, %s)", buffer, nbytes, endpoint.ToString().c_str()));
 
 #if HAPPY_WANDERER
     if (Wander() == false) {
@@ -4585,7 +4586,7 @@ void IpNameServiceImpl::HandleProtocolMessage(uint8_t const* buffer, uint32_t nb
     // to pass on this information to other interested bystanders.
     //
     for (uint8_t i = 0; i < header.GetNumberQuestions(); ++i) {
-        HandleProtocolQuestion(header.GetQuestion(i), address);
+        HandleProtocolQuestion(header.GetQuestion(i), endpoint);
     }
 
     //
@@ -4604,7 +4605,7 @@ void IpNameServiceImpl::HandleProtocolMessage(uint8_t const* buffer, uint32_t nb
         header.GetVersion(nsVersion, msgVersion);
         isAt.SetVersion(nsVersion, msgVersion);
         if (m_loopback || (isAt.GetGuid() != m_guid)) {
-            HandleProtocolAnswer(isAt, header.GetTimer(), address);
+            HandleProtocolAnswer(isAt, header.GetTimer(), endpoint);
         }
     }
 }
