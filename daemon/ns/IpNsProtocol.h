@@ -1594,7 +1594,7 @@ class Header : public ProtocolElement {
      *
      * @param destination The destination IP address of the corresponding message.
      */
-    void SetDestination(qcc::IPAddress destination) { m_destination = destination; m_destinationSet = true; }
+    void SetDestination(qcc::IPEndpoint destination) { m_destination = destination; m_destinationSet = true; }
 
     /**
      * @internal
@@ -1606,7 +1606,7 @@ class Header : public ProtocolElement {
      *
      * @return The destination IP address of the corresponding message.
      */
-    qcc::IPAddress GetDestination(void) { return m_destination; }
+    qcc::IPEndpoint GetDestination(void) { return m_destination; }
 
     /**
      * @internal
@@ -1930,7 +1930,7 @@ class Header : public ProtocolElement {
   private:
     uint8_t m_version;
     uint8_t m_timer;
-    qcc::IPAddress m_destination;
+    qcc::IPEndpoint m_destination;
     bool m_destinationSet;
     uint32_t m_retries;
     uint32_t m_tick;

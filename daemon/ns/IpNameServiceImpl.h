@@ -994,19 +994,19 @@ class IpNameServiceImpl : public qcc::Thread {
      * @internal
      * @brief Do something with a received protocol message.
      */
-    void HandleProtocolMessage(uint8_t const* const buffer, uint32_t nbytes, qcc::IPAddress address);
+    void HandleProtocolMessage(uint8_t const* const buffer, uint32_t nbytes, const qcc::IPEndpoint& endpoint);
 
     /**
      * @internal
      * @brief Do something with a received protocol question.
      */
-    void HandleProtocolQuestion(WhoHas whoHas, qcc::IPAddress address);
+    void HandleProtocolQuestion(WhoHas whoHas, const qcc::IPEndpoint& endpoint);
 
     /**
      * @internal
      * @brief Do something with a received protocol answer.
      */
-    void HandleProtocolAnswer(IsAt isAt, uint32_t timer, qcc::IPAddress address);
+    void HandleProtocolAnswer(IsAt isAt, uint32_t timer, const qcc::IPEndpoint& address);
 
     /**
      * One possible callback for each of the corresponding transport masks in a
@@ -1138,7 +1138,7 @@ class IpNameServiceImpl : public qcc::Thread {
      * @internal
      * @brief Retransmit exported advertisements.
      */
-    void Retransmit(uint32_t index, bool exiting, bool quietly, qcc::IPAddress destination);
+    void Retransmit(uint32_t index, bool exiting, bool quietly, const qcc::IPEndpoint& destination);
 
     /**
      * @internal

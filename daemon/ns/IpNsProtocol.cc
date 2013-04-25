@@ -1316,7 +1316,7 @@ size_t WhoHas::Deserialize(uint8_t const* buffer, uint32_t bufsize)
 }
 
 Header::Header()
-    : m_version(0), m_timer(0), m_destination("0.0.0.0"), m_destinationSet(false), m_retries(0), m_tick(0)
+    : m_version(0), m_timer(0), m_destination("0.0.0.0", 0), m_destinationSet(false), m_retries(0), m_tick(0)
 {
 }
 
