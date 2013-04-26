@@ -1,4 +1,4 @@
-AllJoyn Version 3.2.0 Release Notes
+AllJoyn Version 3.3.0 Release Notes
 -----------------------------------
 
 Platform Support
@@ -15,38 +15,56 @@ Platform Support
 10) iOS 6
 11) OSX 10.7 Lion
 12) OpenWRT (trunk)
+13) Arduino 
 
 
-Features added in Release 3.2
------------------------------
+Features added in Version 3.3.0
+-------------------------------
 
-* Support for OpenWRT
-* JavaScript binding now uses asynchronous callbacks, instead of
-  method returns
-* Introduced Sessionless Signals
+* Support for AllJoyn Thin Client devices (Arduino)
+* Reduced memory/thread/file descriptor usage for alljoyn-daemon
+* C binding now has equivalent functionality to C++ and Java bindings.
+* Support for thin-client authentication in the AllJoyn daemon.
+* Support for Sessionless Signals as advertisements
+* Support for Re-reception of sessionless signals
+* Support for canceling a previously sent sessionless signal
+* Extended Time-to-live range for sessionless signals to 65000 seconds
+* Added the ability to find advertisments on specific transports via the
+  new API call: BusAttachment::FindAdvertisedNameByTransport()
 
-
-Issues Addressed in Release 3.2.0
+Issues Addressed in Version 3.3.0
 ---------------------------------
 
-ALLJOYN-1565: Bundled daemon should gracefully Stop() and Join() 
-the BusContoller and the transports before deleting their objects
+ALLJOYN-1702: Session joiners should not receive sessionJoined callback since
+this callback is only for the session creator.
 
-ALLJOYN-1569: Join raw session on WinRT causes access violation 
-in AllJoyn
+ALLJOYN-(various): Fixed daemon deadlock/exit issues related to managed endpoint
+refactoring
 
-ALLJOYN-1572: Crash and deadlock seen in ICE transport under sress
+ALLJOYN-1850: BusAttachment constructor's concurrency parameter is ignored. 
+Concurrency is always equal to 4.
 
-ALLJOYN-1591: Crash in HandleAddressCandidatesResponse while under 
-stress
+ALLJOYN-1912: Clients can miss SessionMemberChanged indication(s) that occur too
+close in time to SessionJoined event.
 
-ALLJOYN-1592: Crash in PacketEngine::RemovePacketStream while under
-stress
+ALLJOYN-1916: Pre-installed daemon caches sessionless signals even after the sending
+app has exited.
 
-ALLJOYN-1599: Crash in NameTable::RemoveUniqueName while under stress
+ALLJOYN-1918: LostAdvertisedName notification is not immediately received
+after advertisement is canceled on a remote device.
 
-ALLJOYN-1609: Cannot successfully establish a multipoint session 
-for third participant.
+ALLJOYN-1923: LostAdvertisedName is not received if requestName is not called.
+
+ALLJOYN-1932: AllJoyn client drops messages that are received too soon after 
+JoinSession() is called.
+
+ALLJOYN-1937: Java binding cannot filter signals based on sender of signal.
+
+ALLJOYN-1950: ProxyBusObject::MethodCall can fail with ER_BUS_NO_ROUTE when
+using bundled daemon
+
+ALLJOYN-1954: BusAttachment::Start can occasionally fail on Windows platform.
+
 
 
 Compatibility
@@ -83,9 +101,20 @@ Version 3.0.0 shipped with an issue (ALLJOYN-1423) that prevented earlier versio
 of AllJoyn from seeing multicast advertisements produced by 3.0.0 based
 applications. This issue was addressed in version 3.0.1.
 
+Version 3.3.0 is the first version of the AllJoyn daemon that is compatible with
+AllJoyn thin client usage. Older daemons cannot be used with AllJoyn thin-clients.
+
+Starting with version 3.3.0, the AllJoyn Java binding call BusAttachement.registerSignalHandler()
+no longer implicitly adds a match rule that allows all globally broadcast signals of
+the given interface to be received. Beginning with version 3.3.0 of the Java binding,
+the application developer is responsible for explicitly calling BusAttachment.AddMatch
+with a rule that matches the globally broadcast signals that the app wishes to receive.
+
 
 Change history
 --------------
+
+3.3.0 - Support for AllJoyn thin-clients. Enhanced sessionless signal support.
 
 3.2.0 - Support for OpenWRT, asynchronous callbacks in JavaScript binding, 
         and sessionless signals.
