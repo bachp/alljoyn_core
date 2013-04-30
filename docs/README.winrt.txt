@@ -20,8 +20,6 @@ NOTE:
 
     This SDK works with the Microsoft Windows Runtime architecture, aka
     WinRT, and supports the new generation of Windows touch-screen devices.
-    Both x86-based CPUs (Microsoft Windows 8 Operating System) and
-    ARM CPUs (Microsoft Windows RT Operating System) are supported.
 
     This SDK does NOT work with Microsoft's Win32 architecture, used in
     traditional Windows desktops and servers. For that, see AllJoyn SDK for
