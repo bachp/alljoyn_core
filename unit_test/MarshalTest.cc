@@ -1239,7 +1239,7 @@ QStatus MarshalTests()
         MsgArg arg;
         status = arg.Set("(tidbsy(n(no)ai)gvasd)", t, 1, d, true, "hello world", 0xFF, 2, 3, "/path", ArraySize(ai), ai, "signatu",
                          &beastArray,
-                         ArraySize(as), as, &d);
+                         ArraySize(as), as, d);
         if (status == ER_OK) {
             status = TestMarshal(&arg, 1);
         }

@@ -5,7 +5,7 @@
  */
 
 /******************************************************************************
- * Copyright 2009-2011, Qualcomm Innovation Center, Inc.
+ * Copyright 2009-2013, Qualcomm Innovation Center, Inc.
  *
  *    Licensed under the Apache License, Version 2.0 (the "License");
  *    you may not use this file except in compliance with the License.
@@ -879,9 +879,9 @@ QStatus MarshalTests()
         beastArray.Set("a{is}", ArraySize(dict), dict);
 
         MsgArg arg;
-        status = arg.Set("(tidbsy(n(no)ai)gvasd)", t, 1, d, true, "hello world", 0xFF, 2, 3, "path", ArraySize(ai), ai, "signatu",
+        status = arg.Set("(tidbsy(n(no)ai)gvasd)", t, 1, d, true, "hello world", 0xFF, 2, 3, "/path", ArraySize(ai), ai, "signatu",
                          &beastArray,
-                         ArraySize(as), as, &d);
+                         ArraySize(as), as, d);
         if (status == ER_OK) {
             status = TestMarshal(&arg, 1);
         }
