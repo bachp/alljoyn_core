@@ -25,8 +25,10 @@ def have_developer_license():
         if (0 == windll.wsclient.CheckDeveloperLicense(byref(filetime))):
             have_valid_license = True
     except:
-        print('Warning: No valid Windows Store developer license detected, unit tests will not be run.')
         pass
+
+    if (not(have_valid_license)):
+        print('Warning: No valid Windows Store developer license detected, unit tests will not be run.')
     return have_valid_license
 
 
@@ -187,8 +189,8 @@ if (env['OS'] == 'win8' and
                           unit_test_appx_name,
                         [   # source files to depend upon
                             'winrt/AllJoynUnitTests.sln',
-                            '$CPP_DISTDIR/bin/AllJoyn.dll',
-                            '$CPP_DISTDIR/bin/AllJoyn.winmd'
+                            '$WINRT_DISTDIR/bin/AllJoyn.dll',
+                            '$WINRT_DISTDIR/bin/AllJoyn.winmd'
                         ],
                         'msbuild.exe ${SOURCE.abspath} /t:Clean,Rebuild /p:Configuration=' + appx_env['VARIANT'] + ';Platform=' + platform,
                         )
