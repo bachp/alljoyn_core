@@ -150,7 +150,7 @@ else:
     env.Install('$CPP_TESTDIR/bin', Dir('test_report').srcnode())
 
 if (env['OS'] == 'win8' and
-    env['WINRT_UNITTEST'] == 'on' and
+    (env['WINRT_UNITTEST_RUN'] == 'on' or env['WINRT_UNITTEST_BUILD'] == 'on') and
     have_developer_license() and
     (env['CPU'] == 'x86' or env['CPU'] == 'x86_64')):
 
@@ -197,10 +197,11 @@ if (env['OS'] == 'win8' and
     #    produces no files,
     #    depends on the .appx to exist
     #    runs vstest.console.exe on the appx file.
-    run_appx_unit_test = appx_env.Command( None,
-                        unit_test_appx_name_stem,
-                        'vstest.console.exe "${SOURCE.abspath} " /InIsolation /platform:' + platform
-                        )
+    if appx_env['WINRT_UNITTEST_RUN'] == 'on':
+        run_appx_unit_test = appx_env.Command( None,
+                             unit_test_appx_name_stem,
+                             'vstest.console.exe "${SOURCE.abspath} " /InIsolation /platform:' + platform
+                             )
 
 #    # Install vsix at the same level as the architecture directory
 #    makeappx_install = appx_env.Install('$CPP_DISTDIR/../test', source = unit_test_appx_name_stem )
@@ -208,4 +209,5 @@ if (env['OS'] == 'win8' and
 
 
     # make sure the appx file is built before trying to run the unit test.
-    appx_env.Depends(run_appx_unit_test, make_appx_cmd)
+    if appx_env['WINRT_UNITTEST_RUN'] == 'on':
+        appx_env.Depends(run_appx_unit_test, make_appx_cmd)
