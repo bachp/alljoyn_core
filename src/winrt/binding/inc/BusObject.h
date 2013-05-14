@@ -214,7 +214,7 @@ public ref class BusObject sealed {
     /// <summary>
     /// Send a signal.
     /// </summary>
-    /// <param name="destination">The unique or well-known bus name or the signal recipient (NULL for broadcast signals)</param>
+    /// <param name="destination">The unique or well-known bus name or the signal recipient (Empty string for broadcast signals)</param>
     /// <param name="sessionId">A unique SessionId for this AllJoyn session instance</param>
     /// <param name="signal">Interface member of signal being emitted.</param>
     /// <param name="args">The arguments for the signal (can be NULL)</param>
