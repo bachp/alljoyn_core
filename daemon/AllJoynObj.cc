@@ -2890,9 +2890,8 @@ void AllJoynObj::RemoveBusToBusEndpoint(RemoteEndpoint& endpoint)
                 ReleaseLocks();
                 RemoveVirtualEndpoint(vepName);
                 AcquireLocks();
-                it = virtualEndpoints.upper_bound(vepName);
             }
-
+            it = virtualEndpoints.upper_bound(vepName);
         } else {
             ++it;
         }
