@@ -2819,13 +2819,21 @@ void AllJoynObj::RemoveBusToBusEndpoint(RemoteEndpoint& endpoint)
     /* Remove any virtual endpoints associated with a removed bus-to-bus endpoint */
     map<qcc::String, VirtualEndpoint>::iterator it = virtualEndpoints.begin();
     while (it != virtualEndpoints.end()) {
+        String vepName = it->first;
+        /* Check if this virtual endpoint has a route through this bus-to-bus endpoint.
+         * If not, no cleanup is required for this virtual endpoint.
+         */
+        if (!it->second->CanUseRoute(endpoint)) {
+            it = virtualEndpoints.upper_bound(vepName);
+            continue;
+        }
         /* Clean sessionMap and report lost sessions */
 
         /*
          * Remove the sessionMap entries involving endpoint
          * This call must be made without holding locks since it can trigger LostSession callback
          */
-        String vepName = it->first;
+
         ReleaseLocks();
         RemoveSessionRefs(vepName, b2bEpName);
         AcquireLocks();
@@ -2890,8 +2898,9 @@ void AllJoynObj::RemoveBusToBusEndpoint(RemoteEndpoint& endpoint)
                 ReleaseLocks();
                 RemoveVirtualEndpoint(vepName);
                 AcquireLocks();
+                it = virtualEndpoints.upper_bound(vepName);
             }
-            it = virtualEndpoints.upper_bound(vepName);
+
         } else {
             ++it;
         }
@@ -3128,7 +3137,7 @@ void AllJoynObj::NameChangedSignalHandler(const InterfaceDescription::Member* me
                 VirtualEndpoint vep = FindVirtualEndpoint(oldOwner.c_str());
                 if (vep->IsValid()) {
                     madeChanges = vep->CanUseRoute(bit->second);
-                    if (vep->RemoveBusToBusEndpoint(bit->second)) {
+                    if (madeChanges && vep->RemoveBusToBusEndpoint(bit->second)) {
                         String vepName = vep->GetUniqueName();
                         ReleaseLocks();
                         RemoveVirtualEndpoint(vepName);
