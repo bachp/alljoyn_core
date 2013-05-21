@@ -73,6 +73,20 @@ TEST_F(BusAttachmentTest, IsConnected)
     }
 }
 
+/*
+ * Call Disconnect without any parameters.
+ * Rest of test is identical to the IsConnected test
+ */
+TEST_F(BusAttachmentTest, Disconnect)
+{
+    EXPECT_TRUE(bus.IsConnected());
+    QStatus disconnectStatus = bus.Disconnect();
+    EXPECT_EQ(ER_OK, disconnectStatus) << "  Actual Status: " << QCC_StatusText(disconnectStatus);
+    if (ER_OK == disconnectStatus) {
+        EXPECT_FALSE(bus.IsConnected());
+    }
+}
+
 TEST_F(BusAttachmentTest, FindName_Join_Self)
 {
     SessionPortListener sp_listener;
