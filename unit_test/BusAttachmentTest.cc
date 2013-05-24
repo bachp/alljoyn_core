@@ -516,3 +516,19 @@ TEST_F(BusAttachmentTest, JoinSession) {
     EXPECT_TRUE(sessionJoined);
     EXPECT_EQ(busSessionId, otherBusSessionId);
 }
+
+TEST_F(BusAttachmentTest, GetDBusProxyObj) {
+    ProxyBusObject dBusProxyObj(bus.GetDBusProxyObj());
+
+    MsgArg msgArg[2];
+    msgArg[0].Set("s", "org.alljoyn.test.BusAttachment");
+    msgArg[1].Set("u", DBUS_NAME_FLAG_ALLOW_REPLACEMENT | DBUS_NAME_FLAG_REPLACE_EXISTING | DBUS_NAME_FLAG_DO_NOT_QUEUE);
+    Message replyMsg(bus);
+
+    QStatus status = dBusProxyObj.MethodCall(ajn::org::freedesktop::DBus::WellKnownName, "RequestName", msgArg, 2, replyMsg);
+    EXPECT_EQ(ER_OK, status) << "  Actual Status: " << QCC_StatusText(status);
+
+    unsigned int requestNameResponce;
+    replyMsg->GetArg(0)->Get("u", &requestNameResponce);
+    EXPECT_EQ(DBUS_REQUEST_NAME_REPLY_PRIMARY_OWNER, requestNameResponce);
+}
