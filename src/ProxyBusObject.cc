@@ -119,7 +119,9 @@ void ProxyBusObject::GetAllPropsMethodCB(Message& message, void* context)
         QStatus status = ER_BUS_NO_SUCH_PROPERTY;
         if (::strcmp(message->GetErrorName(), org::alljoyn::Bus::ErrorName) == 0) {
             const char* err;
-            if (message->GetArgs("sq", &err, &status) == ER_OK) {
+            uint16_t rawStatus;
+            if (message->GetArgs("sq", &err, &rawStatus) == ER_OK) {
+                status = static_cast<QStatus>(rawStatus);
                 QCC_DbgPrintf(("Asynch GetAllProperties call returned %s", err));
             }
         }
@@ -204,7 +206,9 @@ void ProxyBusObject::GetPropMethodCB(Message& message, void* context)
         QStatus status = ER_BUS_NO_SUCH_PROPERTY;
         if (::strcmp(message->GetErrorName(), org::alljoyn::Bus::ErrorName) == 0) {
             const char* err;
-            if (message->GetArgs("sq", &err, &status) == ER_OK) {
+            uint16_t rawStatus;
+            if (message->GetArgs("sq", &err, &rawStatus) == ER_OK) {
+                status = static_cast<QStatus>(rawStatus);
                 QCC_DbgPrintf(("Asynch GetProperty call returned %s", err));
             }
         }
@@ -292,7 +296,9 @@ void ProxyBusObject::SetPropMethodCB(Message& message, void* context)
         status = ER_BUS_NO_SUCH_PROPERTY;
         if (::strcmp(message->GetErrorName(), org::alljoyn::Bus::ErrorName) == 0) {
             const char* err;
-            if (message->GetArgs("sq", &err, &status) == ER_OK) {
+            uint16_t rawStatus;
+            if (message->GetArgs("sq", &err, &rawStatus) == ER_OK) {
+                status = static_cast<QStatus>(rawStatus);
                 QCC_DbgPrintf(("Asynch SetProperty call returned %s", err));
             }
         }
