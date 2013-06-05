@@ -285,7 +285,6 @@ class BusAttachment::Internal : public MessageReceiver, public JoinSessionAsyncC
     Router* router;                       /* Message bus router */
     PeerStateTable peerStateTable;        /* Table that maintains state information about remote peers */
     LocalEndpoint localEndpoint;          /* The local endpoint */
-    BusEndpoint daemonEndpoint;           /* Endpoint to the daemon */
     CompressionRules compressionRules;    /* Rules for compresssing and decompressing headers */
     std::map<qcc::StringMapKey, InterfaceDescription> ifaceDescriptions;
 

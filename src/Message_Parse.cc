@@ -938,14 +938,16 @@ QStatus _Message::PullBytes(RemoteEndpoint& endpoint, bool checkSender, bool ped
         toRead = (std::min)(countRead, MAX_PULL);
         if (maxFds > 0 && (numHandles == 0)) {
             /* If handlePassing was negotiated on the connection */
-            numHandles = maxFds;
-            status = source.PullBytesAndFds(bufPos, toRead, read, fdList, numHandles, timeout);
-            if ((status == ER_OK) && (numHandles > 0)) {
-                QCC_DbgHLPrintf(("Message was accompanied by %d handles", numHandles));
+            size_t num = maxFds;
+            status = source.PullBytesAndFds(bufPos, toRead, read, fdList, num, timeout);
+            if ((status == ER_OK) && (num > 0)) {
+
+                QCC_DbgHLPrintf(("Message was accompanied by %d handles", num));
                 /*
                  * If we unmarshaled handles we need to copy them into the message. Note we do this event if in
                  * the case of an unmarshal error so the handles will be closed.
                  */
+                numHandles = num;
                 handles = new qcc::SocketFd[numHandles];
                 memcpy(handles, fdList, numHandles * sizeof(qcc::SocketFd));
             }

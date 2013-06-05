@@ -71,6 +71,7 @@ QStatus ClientTransport::Join(void)
 {
     /* Join the endpoint i.e. wait for the EndpointExit callback to complete */
     m_endpoint->Join();
+    m_endpoint = RemoteEndpoint();
     return ER_OK;
 }
 
@@ -101,6 +102,7 @@ QStatus ClientTransport::Disconnect(const char* connectSpec)
     } else {
         m_endpoint->Stop();
         m_endpoint->Join();
+        m_endpoint = RemoteEndpoint();
     }
     return status;
 }
