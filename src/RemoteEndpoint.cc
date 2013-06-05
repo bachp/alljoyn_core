@@ -338,7 +338,6 @@ QStatus _RemoteEndpoint::Start()
     if (status != ER_OK) {
         Invalidate();
         internal->started = false;
-        QCC_LogError(status, ("RemoteEndoint::Start failed"));
     }
     return status;
 }
@@ -485,6 +484,14 @@ void _RemoteEndpoint::ExitCallback() {
         internal->listener->EndpointExit(rep);
         internal->listener = NULL;
     }
+    /* Since endpoints are managed, the endpoint destructor will not be called until
+     * all the references to the endpoint are released. This means that the SocketStream
+     * destructor will also not be called until then.
+     * Explicitly close the socketstream i.e. destroy the source and sink events and
+     * close the associated socket here.
+     */
+
+    internal->stream->Close();
     internal->exitCount = 1;
 }
 

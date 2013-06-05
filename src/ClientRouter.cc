@@ -99,6 +99,7 @@ void ClientRouter::UnregisterEndpoint(const String& epName, EndpointType epType)
          */
         localEndpoint->GetBus().GetInternal().NonLocalEndpointDisconnected();
         nonLocalEndpoint->Invalidate();
+        nonLocalEndpoint = BusEndpoint();
     }
 
 }

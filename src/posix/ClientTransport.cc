@@ -287,7 +287,6 @@ QStatus ClientTransport::Connect(const char* connectArgs, const SessionOpts& opt
      */
     if (status != ER_OK) {
         ep->Invalidate();
-        qcc::Shutdown(sockFd);
     } else {
         newep = BusEndpoint::cast(ep);
         m_endpoint = RemoteEndpoint::cast(ep);

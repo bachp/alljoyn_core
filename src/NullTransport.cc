@@ -43,14 +43,12 @@
  * Only the following refs to NullEndpoint should be active,
  * at the time of deletion of DaemonRouter,
  * all held by the current thread:
- *  DaemonRouter::localEndpoint
- *  ClientRouter::nonLocalEndpoint
- *  BusInternal::daemonEndpoint
- *  NullTransport::endpoint
+ *     local variable ep
+ *     NullTransport::endpoint
  * This is to ensure that there are no threads in
  * NullEndpoint::PushMessage.
  */
-const uint8_t NULLEP_REFS_AT_DELETION = 4;
+const uint8_t NULLEP_REFS_AT_DELETION = 2;
 
 using namespace std;
 using namespace qcc;
@@ -336,10 +334,8 @@ QStatus NullTransport::Disconnect(const char* connectSpec)
 
         /* Only the following refs to NullEndpoint should be active now,
          * all held by the current thread:
-         *  DaemonRouter::localEndpoint
-         *  ClientRouter::nonLocalEndpoint
-         *  BusInternal::daemonEndpoint
-         *  NullTransport::endpoint
+         *     local variable ep
+         *     NullTransport::endpoint
          */
 
         daemonLauncher->Stop(this);

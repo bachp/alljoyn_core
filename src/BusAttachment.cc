@@ -390,9 +390,6 @@ QStatus BusAttachment::TryConnect(const char* connectSpec)
     } else {
         status = ER_BUS_TRANSPORT_NOT_AVAILABLE;
     }
-    if (status == ER_OK) {
-        busInternal->daemonEndpoint = tempEp;
-    }
     return status;
 }
 

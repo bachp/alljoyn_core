@@ -444,6 +444,7 @@ void DaemonRouter::UnregisterEndpoint(const qcc::String& epName, EndpointType ep
      */
     if (endpoint == localEndpoint) {
         localEndpoint->Invalidate();
+        localEndpoint = LocalEndpoint();
     }
 }
 
