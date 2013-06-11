@@ -1,4 +1,4 @@
-# Copyright 2010 - 2011, Qualcomm Innovation Center, Inc.
+# Copyright 2010 - 2013, Qualcomm Innovation Center, Inc.
 # 
 #    Licensed under the Apache License, Version 2.0 (the "License");
 #    you may not use this file except in compliance with the License.
@@ -36,5 +36,5 @@ rsc = env.RES('DaemonResources.rc')
 alljoyn_libs = env.SharedLibrary('AllJoyn', daemon_objs + common_objs + alljoyn_core_objs + proximity_objs + os_objs)
 env.Install('$WINRT_DISTDIR/bin', 'AllJoyn.winmd') #put the *.winmd file in the bin folder
 
-progs = [alljoyn_libs[0]] # alljoyn.dll will be returned
+progs = [alljoyn_libs] # alljoyn.dll will be returned
 Return('progs', 'os_objs')
