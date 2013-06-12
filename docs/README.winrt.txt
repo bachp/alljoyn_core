@@ -46,4 +46,8 @@ winRT/bin/AllJoyn.winmd         metadata file
 winRT/bin/AllJoyn.dll           assembly
 winRT/bin/AllJoyn.xml           API documentation (Intellisense)
 
+winRT/bin/AllJoyn.pdb           Debug symbols
+winRT/bin/AllJoyn.exp           special build support
+winRT/bin/AllJoyn.lib           special build support
+
 winRT/docs/AllJoyn.chm          stand-alone API documentation
