@@ -178,7 +178,7 @@ public ref class BusObject sealed {
     /// Reply to a method call.
     /// </summary>
     /// <param name="msg">The method call message</param>
-    /// <param name="args">The reply arguments (can be NULL)</param>
+    /// <param name="args">The reply arguments (NULL if no arguments)</param>
     /// <exception cref="Platform::COMException">
     /// HRESULT will contain the AllJoyn error status code for the error.
     /// - #ER_OK if successful
