@@ -678,6 +678,7 @@ static void usage(void)
     printf("   -kx #                 = Authentication key expiration (seconds)\n");
     printf("   -m                    = Session is a multi-point session\n");
     printf("   -e                    = Echo received signals back to sender\n");
+    printf("   -s                    = Require the test interface to be secure\n");
     printf("   -x                    = Compress signals echoed back to sender\n");
     printf("   -i #                  = Signal report interval (number of signals rx per update; default = 1000)\n");
     printf("   -n <well-known name>  = Well-known name to advertise\n");
@@ -688,6 +689,7 @@ static void usage(void)
     printf("   -w                    = Advertise over Wi-Fi Direct (enables selective advertising)\n");
     printf("   -a                    = Cancel advertising while servicing a single client (causes rediscovery between iterations)\n");
     printf("   -p                    = Respond to an incoming signal by pinging back to the sender\n");
+
 }
 
 /** Main entry point */
@@ -699,6 +701,7 @@ int main(int argc, char** argv)
     QStatus status = ER_OK;
     unsigned long reportInterval = 1000;
     const char* keyStore = NULL;
+    bool secureIfce = false;
     SessionOpts opts(SessionOpts::TRAFFIC_MESSAGES, false, SessionOpts::PROXIMITY_ANY, TRANSPORT_NONE);
 
     printf("AllJoyn Library version: %s\n", ajn::GetVersion());
@@ -726,6 +729,8 @@ int main(int argc, char** argv)
                 exit(1);
             }
             g_echo_signal = true;
+        } else if (0 == strcmp("-s", argv[i])) {
+            secureIfce = true;
         } else if (0 == strcmp("-x", argv[i])) {
             g_compress = true;
         } else if (0 == strcmp("-i", argv[i])) {
@@ -806,7 +811,7 @@ int main(int argc, char** argv)
 
     /* Add org.alljoyn.alljoyn_test interface */
     InterfaceDescription* testIntf = NULL;
-    status = g_msgBus->CreateInterface(::org::alljoyn::alljoyn_test::InterfaceName, testIntf);
+    status = g_msgBus->CreateInterface(::org::alljoyn::alljoyn_test::InterfaceName, testIntf, secureIfce);
     if (ER_OK == status) {
         testIntf->AddSignal("my_signal", "a{ys}", NULL, 0);
         testIntf->AddMethod("my_ping", "s", "s", "inStr,outStr", 0);
@@ -820,7 +825,7 @@ int main(int argc, char** argv)
     /* Add org.alljoyn.alljoyn_test.values interface */
     if (ER_OK == status) {
         InterfaceDescription* valuesIntf = NULL;
-        status = g_msgBus->CreateInterface(::org::alljoyn::alljoyn_test::values::InterfaceName, valuesIntf);
+        status = g_msgBus->CreateInterface(::org::alljoyn::alljoyn_test::values::InterfaceName, valuesIntf, secureIfce);
         if (ER_OK == status) {
             valuesIntf->AddProperty("int_val", "i", PROP_ACCESS_RW);
             valuesIntf->AddProperty("str_val", "s", PROP_ACCESS_RW);
