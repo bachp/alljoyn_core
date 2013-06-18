@@ -159,11 +159,6 @@ void BusObject::MethodReply(Message ^ msg, const Platform::Array<MsgArg ^> ^ arg
         }
         // Get the unmanaged version
         ajn::Message* mMessage = *(msg->_message);
-        // Check for invalid values in args
-        if (nullptr == args || args->Length < 1) {
-            status = ER_BAD_ARG_2;
-            break;
-        }
         // Convert MsgArg wrapper array
         size_t argsCount = 0;
         if (nullptr != args & args->Length > 0) {
