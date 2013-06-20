@@ -3438,9 +3438,7 @@ void TCPTransport::DoStopListen(qcc::String& normSpec)
 
     /*
      * Find the (single) listen spec and remove it from the list of active FDs
-     * used by the server accept loop (run thread).  This is okay to do since
-     * we are assuming that, since we should only be called in the context of
-     * the server accept loop, it knows that an FD will be deleted here.
+     * used by the server accept loop (run thread).
      */
     m_listenFdsLock.Lock(MUTEX_CONTEXT);
     qcc::SocketFd stopFd = -1;
@@ -3453,24 +3451,27 @@ void TCPTransport::DoStopListen(qcc::String& normSpec)
             break;
         }
     }
+
     /* Set m_reload to false, unlock the mutex, alert the main Run thread that
      * there is a change and wait for the Run thread to finish any connections
-     * it may be accepting and then reload the set of events.
+     * it may be accepting and then reload the set of events. If the
+     * TCPTransport::Run thread is not running, exit the loop.
      */
     m_reload = false;
     m_listenFdsLock.Unlock(MUTEX_CONTEXT);
 
-    Alert();
-
-    while (!m_reload) {
-        qcc::Sleep(2);
-    }
-    /*
-     * If we took a socketFD off of the list of active FDs, we need to tear it
-     * down and alert the server accept loop that the list of FDs on which it
-     * is listening has changed.
-     */
     if (found) {
+        Alert();
+
+        while (IsRunning() && !m_reload) {
+            qcc::Sleep(2);
+        }
+        /*
+         * If we took a socketFD off of the list of active FDs, we need to tear it
+         * down and alert the server accept loop that the list of FDs on which it
+         * is listening has changed.
+         */
+
         qcc::Shutdown(stopFd);
         qcc::Close(stopFd);
     }
