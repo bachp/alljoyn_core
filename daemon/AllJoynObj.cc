@@ -1997,7 +1997,7 @@ void AllJoynObj::SendMPSessionChanged(SessionId sessionId, const char* name, boo
     args[1].Set("s", name);
     args[2].Set("b", isAdd);
     QCC_DbgPrintf(("Sending MPSessionChanged(%u, %s, %s) to %s", sessionId, name, isAdd ? "true" : "false", dest));
-    QStatus status = Signal(dest, 0, *mpSessionChangedSignal, args, ArraySize(args));
+    QStatus status = Signal(dest, sessionId, *mpSessionChangedSignal, args, ArraySize(args));
     if (status != ER_OK) {
         QCC_LogError(status, ("Failed to send MPSessionChanged to %s", dest));
     }
