@@ -53,7 +53,7 @@ class _VirtualEndpoint : public _BusEndpoint {
     /**
      * Default constructor initializes an invalid endpoint. This allows for the declaration of uninitialized VirtualEndpoint variables.
      */
-    _VirtualEndpoint() { }
+    _VirtualEndpoint() : m_epState(EP_ILLEGAL) { }
 
     /**
      * Constructor
@@ -216,7 +216,18 @@ class _VirtualEndpoint : public _BusEndpoint {
      */
     bool AllowRemoteMessages() { return true; }
 
+    enum EndpointState {
+        EP_ILLEGAL = 0,      /**< This is an invalid endpoint. i.e. constructed with the default constructor. */
+        EP_STARTED,          /**< The endpoint has at least one bus-to-bus endpoint */
+        EP_STOPPING,         /**< The endpoint is being stopped. */
+    };
 
+    /**
+     * Indicates whether the virtual endpoint is being stopped.
+     *
+     * @return true iff the endpoint is in the process of being stopped.
+     */
+    bool IsStopping(void) { return m_epState == EP_STOPPING; }
   private:
 
     const qcc::String m_uniqueName;                             /**< The unique name for this endpoint */
@@ -229,6 +240,8 @@ class _VirtualEndpoint : public _BusEndpoint {
     };
     mutable qcc::Mutex m_b2bEndpointsLock;      /**< Lock that protects m_b2bEndpoints */
     bool m_hasRefs;
+    EndpointState m_epState;                                    /**< The state of the virtual endpoint */
+
 };
 
 }

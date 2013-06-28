@@ -43,7 +43,8 @@ namespace ajn {
 _VirtualEndpoint::_VirtualEndpoint(const String& uniqueName, RemoteEndpoint& b2bEp) :
     _BusEndpoint(ENDPOINT_TYPE_VIRTUAL),
     m_uniqueName(uniqueName),
-    m_hasRefs(false)
+    m_hasRefs(false),
+    m_epState(EP_STARTED)
 {
     m_b2bEndpoints.insert(pair<SessionId, RemoteEndpoint>(0, b2bEp));
 }
@@ -59,12 +60,12 @@ QStatus _VirtualEndpoint::PushMessage(Message& msg, SessionId id)
 
     QStatus status = ER_BUS_NO_ROUTE;
     vector<RemoteEndpoint> tryEndpoints;
-
     /*
      * There may be multiple routes from this virtual endpoint so we are going to try all of
      * them until we either succeed or run out of options.
      */
     m_b2bEndpointsLock.Lock(MUTEX_CONTEXT);
+
     multimap<SessionId, RemoteEndpoint>::iterator it = (id == 0) ? m_b2bEndpoints.begin() : m_b2bEndpoints.lower_bound(id);
     while ((it != m_b2bEndpoints.end()) && (id == it->first)) {
         RemoteEndpoint ep = it->second;
@@ -109,6 +110,9 @@ bool _VirtualEndpoint::AddBusToBusEndpoint(RemoteEndpoint& endpoint)
     QCC_DbgTrace(("_VirtualEndpoint::AddBusToBusEndpoint(this=%s, b2b=%s)", GetUniqueName().c_str(), endpoint->GetUniqueName().c_str()));
 
     m_b2bEndpointsLock.Lock(MUTEX_CONTEXT);
+
+    /* Sanity check */
+    assert(m_epState == EP_STARTED);
     multimap<SessionId, RemoteEndpoint>::iterator it = m_b2bEndpoints.begin();
     bool found = false;
     while ((it != m_b2bEndpoints.end()) && (it->first == 0)) {
@@ -189,6 +193,10 @@ bool _VirtualEndpoint::RemoveBusToBusEndpoint(RemoteEndpoint& endpoint)
         }
     } else {
         isEmpty = m_b2bEndpoints.empty();
+    }
+    if (isEmpty) {
+        /* The last b2b endpoint has been removed from this virtual endpoint. Set the state to STOPPING. */
+        m_epState = EP_STOPPING;
     }
     m_b2bEndpointsLock.Unlock(MUTEX_CONTEXT);
     return isEmpty;

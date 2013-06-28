@@ -2846,6 +2846,7 @@ void AllJoynObj::RemoveBusToBusEndpoint(RemoteEndpoint& endpoint)
 
         /* Remove endpoint (b2b) reference from this vep */
         if (it->second->RemoveBusToBusEndpoint(endpoint)) {
+            /* The last b2b endpoint was removed from this vep. */
             String exitingEpName = it->second->GetUniqueName();
 
             /* Let directly connected daemons know that this virtual endpoint is gone. */
@@ -3138,6 +3139,7 @@ void AllJoynObj::NameChangedSignalHandler(const InterfaceDescription::Member* me
                 if (vep->IsValid()) {
                     madeChanges = vep->CanUseRoute(bit->second);
                     if (madeChanges && vep->RemoveBusToBusEndpoint(bit->second)) {
+                        /* The last b2b endpoint was removed from this vep. */
                         String vepName = vep->GetUniqueName();
                         ReleaseLocks();
                         RemoveVirtualEndpoint(vepName);
@@ -3218,9 +3220,25 @@ void AllJoynObj::AddVirtualEndpoint(const qcc::String& uniqueName, const String&
     AcquireLocks();
     BusEndpoint tempEp = router.FindEndpoint(b2bEpName);
     RemoteEndpoint busToBusEndpoint = RemoteEndpoint::cast(tempEp);
+
+    map<qcc::String, VirtualEndpoint>::iterator it = virtualEndpoints.find(uniqueName);
+
+    /* If there is a VirtualEndpoint with the desired unique name in the virtualEndpoints map
+     * and its state is EP_STOPPING, it means that another thread is trying to remove this
+     * VirtualEndpoint (As a part of cleanup in AllJoynObj::RemoveBusToBusEndpoint or
+     * AllJoynObj::NameChangedSignalHandler.)
+     * In that case, wait for that thread to finish removing this virtual endpoint.
+     * Also, if the busToBusEndpoint becomes invalid, we just return.
+     */
+    while (busToBusEndpoint->IsValid() && it != virtualEndpoints.end() && !it->second->IsStopping()) {
+        ReleaseLocks();
+        qcc::Sleep(10);
+        AcquireLocks();
+        it = virtualEndpoints.find(uniqueName);
+    }
+
     if (busToBusEndpoint->IsValid()) {
         VirtualEndpoint vep;
-        map<qcc::String, VirtualEndpoint>::iterator it = virtualEndpoints.find(uniqueName);
         if (it == virtualEndpoints.end()) {
             vep = VirtualEndpoint(uniqueName, busToBusEndpoint);
             /* Add new virtual endpoint */
@@ -3240,6 +3258,7 @@ void AllJoynObj::AddVirtualEndpoint(const qcc::String& uniqueName, const String&
     } else {
         ReleaseLocks();
     }
+
     if (wasAdded) {
         *wasAdded = added;
     }
@@ -3257,7 +3276,6 @@ void AllJoynObj::RemoveVirtualEndpoint(const String& vepName)
     if (it != virtualEndpoints.end()) {
         VirtualEndpoint vep = it->second;
         virtualEndpoints.erase(it);
-        vep->Invalidate();
         ReleaseLocks();
     } else {
         ReleaseLocks();
