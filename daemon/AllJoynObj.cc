@@ -3230,7 +3230,7 @@ void AllJoynObj::AddVirtualEndpoint(const qcc::String& uniqueName, const String&
      * In that case, wait for that thread to finish removing this virtual endpoint.
      * Also, if the busToBusEndpoint becomes invalid, we just return.
      */
-    while (busToBusEndpoint->IsValid() && it != virtualEndpoints.end() && !it->second->IsStopping()) {
+    while (busToBusEndpoint->IsValid() && it != virtualEndpoints.end() && it->second->IsStopping()) {
         ReleaseLocks();
         qcc::Sleep(10);
         AcquireLocks();
