@@ -64,7 +64,8 @@ static inline QStatus SendThroughEndpoint(Message& msg, BusEndpoint& ep, Session
     } else {
         status = ep->PushMessage(msg);
     }
-    if ((status != ER_OK) && (status != ER_BUS_ENDPOINT_CLOSING)) {
+    // if the bus is stopping or the endpoint is closing we don't expect to be able to send
+    if ((status != ER_OK) && (status != ER_BUS_ENDPOINT_CLOSING) && (status != ER_BUS_STOPPING)) {
         QCC_LogError(status, ("SendThroughEndpoint(dest=%s, ep=%s, id=%u) failed", msg->GetDestination(), ep->GetUniqueName().c_str(), sessionId));
     }
     return status;
@@ -152,7 +153,8 @@ QStatus DaemonRouter::PushMessage(Message& msg, BusEndpoint& origSender)
                     PushMessage(msg, busEndpoint);
                 }
             }
-            if ((ER_OK != status) && (ER_BUS_ENDPOINT_CLOSING != status)) {
+            // if the bus is stopping or the endpoint is closing we can't push the message
+            if ((ER_OK != status) && (ER_BUS_ENDPOINT_CLOSING != status) && (status != ER_BUS_STOPPING)) {
                 QCC_LogError(status, ("BusEndpoint::PushMessage failed"));
             }
             nameTable.Unlock();
@@ -176,7 +178,18 @@ QStatus DaemonRouter::PushMessage(Message& msg, BusEndpoint& origSender)
                     BusEndpoint busEndpoint = BusEndpoint::cast(localEndpoint);
                     PushMessage(msg, busEndpoint);
                 } else {
-                    QCC_LogError(status, ("Discarding %s no route to %s:%d", msg->Description().c_str(), destination, sessionId));
+                    /*
+                     * The daemon may try and push a message when the program is
+                     * shutting down this will result in a no route error. Although
+                     * it is a valid error it is not a LogError. This is typically
+                     * something like a NameLost signal because the program with the
+                     * bundled daemon just shutdown.
+                     */
+                    if (ER_BUS_NO_ROUTE == status) {
+                        QCC_DbgHLPrintf(("Discarding %s no route to %s:%d : %s", msg->Description().c_str(), destination, sessionId, QCC_StatusText(status)));
+                    } else {
+                        QCC_LogError(status, ("Discarding %s no route to %s:%d", msg->Description().c_str(), destination, sessionId));
+                    }
                 }
             }
         }

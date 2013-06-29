@@ -3431,7 +3431,8 @@ void AllJoynObj::NameOwnerChanged(const qcc::String& alias, const qcc::String* o
             } else {
                 ++it;
             }
-            if (ER_OK != status) {
+            // if the endpoint is closing we don't don't expect the NameChanged signal to send
+            if (ER_OK != status && ER_BUS_ENDPOINT_CLOSING != status) {
                 QCC_LogError(status, ("Failed to send NameChanged"));
             }
         }
@@ -3716,7 +3717,9 @@ QStatus AllJoynObj::SendLostAdvertisedName(const String& name, TransportMask tra
         QStatus tStatus = Signal(it->second.c_str(), 0, *lostAdvNameSignal, args, ArraySize(args));
         if (ER_OK != tStatus) {
             status = (ER_OK == status) ? tStatus : status;
-            QCC_LogError(tStatus, ("Failed to send LostAdvertisedName to %s (name=%s)", it->second.c_str(), name.c_str()));
+            if (status != ER_BUS_NO_ROUTE) {
+                QCC_LogError(tStatus, ("Failed to send LostAdvertisedName to %s (name=%s)", it->second.c_str(), name.c_str()));
+            }
         }
         ++it;
     }
