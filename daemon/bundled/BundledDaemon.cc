@@ -254,7 +254,7 @@ QStatus BundledDaemon::Start(NullTransport* nullTransport)
 {
     QStatus status = ER_OK;
 
-    printf("Using BundledDaemon\n");
+    QCC_DbgHLPrintf(("Using BundledDaemon"));
 
     /*
      * If the bundled daemon is in the process of stopping we need to wait until the operation is

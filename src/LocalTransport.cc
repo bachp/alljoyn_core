@@ -428,7 +428,8 @@ void _LocalEndpoint::Dispatcher::AlarmTriggered(const Alarm& alarm, QStatus reas
     if (msg) {
         if (reason == ER_OK) {
             QStatus status = endpoint->DoPushMessage(*msg);
-            if (status != ER_OK) {
+            // ER_BUS_STOPPING is a common shutdown error
+            if (status != ER_OK && status != ER_BUS_STOPPING) {
                 QCC_LogError(status, ("LocalEndpoint::DoPushMessage failed"));
             }
         }

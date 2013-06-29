@@ -498,7 +498,16 @@ void SessionlessObj::NameOwnerChanged(const String& name,
             SessionlessObj* slObj = this;
             QStatus status = timer.AddAlarm(Alarm(zero, slObj));
             if (status != ER_OK) {
-                QCC_LogError(status, ("Timer::AddAlarm failed"));
+                /*
+                 * When daemon is closing the daemon will receive multiple error
+                 * because the timer is exiting.  print a high level debug message
+                 * not a log error since this is expected behaver and should not
+                 * be presented to the user if they don't want to see it.
+                 */
+                if (ER_TIMER_EXITING == status)
+                    QCC_DbgHLPrintf(("Timer::AddAlarm failed : %s", QCC_StatusText(status)));
+                else
+                    QCC_LogError(status, ("Timer::AddAlarm failed"));
             }
         }
 

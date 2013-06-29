@@ -50,7 +50,7 @@ qcc::String NameTable::GenerateUniqueName(void)
 
 void NameTable::SetGUID(const qcc::GUID128& guid)
 {
-    Log(LOG_INFO, "AllJoyn Daemon GUID = %s (%s)\n", guid.ToString().c_str(), guid.ToShortString().c_str());
+    QCC_DbgPrintf(("AllJoyn Daemon GUID = %s (%s)\n", guid.ToString().c_str(), guid.ToShortString().c_str()));
     uniquePrefix = ":";
     uniquePrefix.append(guid.ToShortString());
     uniquePrefix.append(".");
