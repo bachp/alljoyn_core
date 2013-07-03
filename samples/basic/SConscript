@@ -38,7 +38,7 @@ elif env['OS_GROUP'] == 'windows':
     returnValue += env.Install(clientDistDir, env.Glob('*.cc'))
     returnValue += env.InstallAs(clientDistDir + '/README.txt', 'README.windows.txt')
     #install Visual Studio solution files
-    returnValue += env.Install(clientDistDir+'/VC2008Win7', 'VC2008Win7/MSVC2008-Win7.sln')
+    returnValue += env.Install(clientDistDir+'/VC2008Win7', 'VC2008Win7/VC2008Win7.sln')
     returnValue += env.Install(clientDistDir+'/VC2008Win7/basic_client', 'VC2008Win7/basic_client/basic_client.vcproj')
     returnValue += env.Install(clientDistDir+'/VC2008Win7/basic_service', 'VC2008Win7/basic_service/basic_service.vcproj')
     returnValue += env.Install(clientDistDir+'/VC2008Win7/nameChange_client', 'VC2008Win7/nameChange_client/nameChange_client.vcproj')
