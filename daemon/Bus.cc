@@ -42,8 +42,7 @@ using namespace std;
 const uint32_t EP_CONCURRENCY = 4;
 
 Bus::Bus(const char* applicationName, TransportFactoryContainer& factories, const char* listenSpecs) :
-    BusAttachment(new Internal(applicationName, *this, factories, new DaemonRouter, true, listenSpecs, EP_CONCURRENCY), EP_CONCURRENCY),
-    busListener(NULL)
+    BusAttachment(new Internal(applicationName, *this, factories, new DaemonRouter, true, listenSpecs, EP_CONCURRENCY), EP_CONCURRENCY)
 {
     GetInternal().GetRouter().SetGlobalGUID(GetInternal().GetGlobalGUID());
 }
@@ -147,25 +146,28 @@ QStatus Bus::StopListen(const char* listenSpecs)
 
 void Bus::RegisterBusListener(BusListener& listener)
 {
-    busListener = &listener;
-    /*
-     * The bus gets name changed callbacks from the daemon router.
-     */
-    reinterpret_cast<DaemonRouter&>(GetInternal().GetRouter()).AddBusNameListener(this);
+    busListeners.insert(&listener);
+
+    if (busListeners.size() == 1) {
+        /*
+         * The bus gets name changed callbacks from the daemon router.
+         */
+        reinterpret_cast<DaemonRouter&>(GetInternal().GetRouter()).AddBusNameListener(this);
+    }
 }
 
 void Bus::UnregisterBusListener(BusListener& listener) {
-    if (&listener == busListener) {
-        busListener = NULL;
+    busListeners.erase(&listener);
+    if (busListeners.size() == 0) {
         reinterpret_cast<DaemonRouter&>(GetInternal().GetRouter()).RemoveBusNameListener(this);
     }
 }
 
 void Bus::NameOwnerChanged(const qcc::String& alias, const qcc::String* oldOwner, const qcc::String* newOwner)
 {
-    BusListener* listener = busListener;
-    if (listener) {
-        listener->NameOwnerChanged(alias.c_str(), oldOwner ? oldOwner->c_str() : NULL, newOwner ? newOwner->c_str() : NULL);
+    set<BusListener*>::iterator it = busListeners.begin();
+    while (it != busListeners.end()) {
+        (*it++)->NameOwnerChanged(alias.c_str(), oldOwner ? oldOwner->c_str() : NULL, newOwner ? newOwner->c_str() : NULL);
     }
 }
 

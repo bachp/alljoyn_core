@@ -28,6 +28,7 @@
 #include <qcc/platform.h>
 
 #include <list>
+#include <set>
 
 #include <qcc/String.h>
 
@@ -150,7 +151,7 @@ class Bus : public BusAttachment, public NameListener {
     qcc::String localAddrs;      ///< Bus Addresses locally accessable
     qcc::String externalAddrs;   ///< Bus Addresses externall accessable
 
-    BusListener* busListener;
+    std::set<BusListener*> busListeners;
 };
 
 }
