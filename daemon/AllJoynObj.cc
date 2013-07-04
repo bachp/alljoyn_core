@@ -1644,6 +1644,8 @@ void AllJoynObj::RemoveSessionRefs(const char* epName, SessionId id)
 
     String epNameStr = endpoint->GetUniqueName();
     vector<pair<String, SessionId> > changedSessionMembers;
+    vector<SessionMapEntry> sessionsLost;
+
     SessionMapType::iterator it = sessionMap.begin();
     /* Look through sessionMap for entries matching id */
     while (it != sessionMap.end()) {
@@ -1677,12 +1679,11 @@ void AllJoynObj::RemoveSessionRefs(const char* epName, SessionId id)
                     SessionMapEntry tsme = it->second;
                     pair<String, SessionId> key = it->first;
                     if (!it->second.isInitializing) {
-                        sessionMap.erase(it);
+                        sessionMap.erase(it++);
+                    } else {
+                        ++it;
                     }
-                    ReleaseLocks();
-                    SendSessionLost(tsme);
-                    AcquireLocks();
-                    it = sessionMap.upper_bound(key);
+                    sessionsLost.push_back(tsme);
                 } else {
                     ++it;
                 }
@@ -1698,6 +1699,11 @@ void AllJoynObj::RemoveSessionRefs(const char* epName, SessionId id)
     while (csit != changedSessionMembers.end()) {
         SendMPSessionChanged(csit->second, epNameStr.c_str(), false, csit->first.c_str());
         csit++;
+    }
+    /* Send session lost signals */
+    vector<SessionMapEntry>::iterator slit = sessionsLost.begin();
+    while (slit != sessionsLost.end()) {
+        SendSessionLost(*slit++);
     }
 }
 
@@ -1722,6 +1728,7 @@ void AllJoynObj::RemoveSessionRefs(const String& vepName, const String& b2bEpNam
     }
 
     vector<pair<String, SessionId> > changedSessionMembers;
+    vector<SessionMapEntry> sessionsLost;
     SessionMapType::iterator it = sessionMap.begin();
     while (it != sessionMap.end()) {
         int count;
@@ -1762,12 +1769,11 @@ void AllJoynObj::RemoveSessionRefs(const String& vepName, const String& b2bEpNam
                     SessionMapEntry tsme = it->second;
                     pair<String, SessionId> key = it->first;
                     if (!it->second.isInitializing) {
-                        sessionMap.erase(it);
+                        sessionMap.erase(it++);
+                    } else {
+                        ++it;
                     }
-                    ReleaseLocks();
-                    SendSessionLost(tsme);
-                    AcquireLocks();
-                    it = sessionMap.upper_bound(key);
+                    sessionsLost.push_back(tsme);
                 } else {
                     ++it;
                 }
@@ -1783,6 +1789,11 @@ void AllJoynObj::RemoveSessionRefs(const String& vepName, const String& b2bEpNam
     while (csit != changedSessionMembers.end()) {
         SendMPSessionChanged(csit->second, vepName.c_str(), false, csit->first.c_str());
         csit++;
+    }
+    /* Send session lost signals */
+    vector<SessionMapEntry>::iterator slit = sessionsLost.begin();
+    while (slit != sessionsLost.end()) {
+        SendSessionLost(*slit++);
     }
 }
 
@@ -3321,6 +3332,7 @@ void AllJoynObj::NameOwnerChanged(const qcc::String& alias, const qcc::String* o
     if (!newOwner && (alias[0] == ':')) {
         AcquireLocks();
         vector<pair<String, SessionId> > changedSessionMembers;
+        vector<SessionMapEntry> sessionsLost;
         SessionMapType::iterator it = sessionMap.begin();
         while (it != sessionMap.end()) {
             if (it->first.first == alias) {
@@ -3372,12 +3384,11 @@ void AllJoynObj::NameOwnerChanged(const qcc::String& alias, const qcc::String* o
                     SessionMapEntry tsme = it->second;
                     pair<String, SessionId> key = it->first;
                     if (!it->second.isInitializing) {
-                        sessionMap.erase(it);
+                        sessionMap.erase(it++);
+                    } else {
+                        ++it;
                     }
-                    ReleaseLocks();
-                    SendSessionLost(tsme);
-                    AcquireLocks();
-                    it = sessionMap.upper_bound(key);
+                    sessionsLost.push_back(tsme);
                 } else {
                     ++it;
                 }
@@ -3392,6 +3403,11 @@ void AllJoynObj::NameOwnerChanged(const qcc::String& alias, const qcc::String* o
         while (csit != changedSessionMembers.end()) {
             SendMPSessionChanged(csit->second, alias.c_str(), false, csit->first.c_str());
             csit++;
+        }
+        /* Send session lost signals */
+        vector<SessionMapEntry>::iterator slit = sessionsLost.begin();
+        while (slit != sessionsLost.end()) {
+            SendSessionLost(*slit++);
         }
     }
 

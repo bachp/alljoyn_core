@@ -1870,6 +1870,13 @@ void BusAttachment::Internal::AllJoynSignalHandler(const InterfaceDescription::M
                 if (*pl) {
                     (*pl)->SessionLost(id);
                 }
+                /* Automatically remove session listener upon sessionLost */
+                sessionListenersLock.Lock(MUTEX_CONTEXT);
+                slit = sessionListeners.find(id);
+                if (slit != sessionListeners.end()) {
+                    sessionListeners.erase(slit);
+                }
+                sessionListenersLock.Unlock(MUTEX_CONTEXT);
             } else {
                 sessionListenersLock.Unlock(MUTEX_CONTEXT);
             }
@@ -2011,7 +2018,11 @@ QStatus BusAttachment::Internal::SetSessionListener(SessionId id, SessionListene
     sessionListenersLock.Lock(MUTEX_CONTEXT);
     SessionListenerMap::iterator it = sessionListeners.find(id);
     if (it != sessionListeners.end()) {
-        it->second = ProtectedSessionListener(listener);
+        if (listener) {
+            it->second = ProtectedSessionListener(listener);
+        } else {
+            sessionListeners.erase(it);
+        }
         status = ER_OK;
     }
     sessionListenersLock.Unlock(MUTEX_CONTEXT);
