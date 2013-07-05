@@ -272,9 +272,9 @@ void SessionlessObj::AddRule(const qcc::String& epName, Rule& rule)
 
         if (!isDiscoveryStarted) {
             bus.EnableConcurrentCallbacks();
-            QStatus status = bus.FindAdvertisedName(findPrefix.c_str());
+            QStatus status = bus.FindAdvertisedNameByTransport(findPrefix.c_str(), TRANSPORT_ANY & ~TRANSPORT_ICE & ~TRANSPORT_LOCAL);
             if (status != ER_OK) {
-                QCC_LogError(status, ("FindAdvertisedName failed"));
+                QCC_LogError(status, ("FindAdvertisedNameByTransport failed"));
             } else {
                 isDiscoveryStarted = true;
             }
@@ -298,9 +298,9 @@ void SessionlessObj::RemoveRule(const qcc::String& epName, Rule& rule)
 
         if (isDiscoveryStarted && ruleCountMap.empty()) {
             bus.EnableConcurrentCallbacks();
-            QStatus status = bus.CancelFindAdvertisedName(findPrefix.c_str());
+            QStatus status = bus.CancelFindAdvertisedNameByTransport(findPrefix.c_str(), TRANSPORT_ANY & ~TRANSPORT_ICE & ~TRANSPORT_LOCAL);
             if (status != ER_OK) {
-                QCC_LogError(status, ("CancelFindAdvertisedName failed"));
+                QCC_LogError(status, ("CancelFindAdvertisedNameByTransport failed"));
             }
             isDiscoveryStarted = false;
         }
@@ -513,9 +513,9 @@ void SessionlessObj::NameOwnerChanged(const String& name,
 
         /* Stop discovery if nobody is looking for sessionless signals */
         if (isDiscoveryStarted && ruleCountMap.empty()) {
-            QStatus status = bus.CancelFindAdvertisedName(findPrefix.c_str());
+            QStatus status = bus.CancelFindAdvertisedNameByTransport(findPrefix.c_str(), TRANSPORT_ANY & ~TRANSPORT_ICE & ~TRANSPORT_LOCAL);
             if (status != ER_OK) {
-                QCC_LogError(status, ("CancelFindAdvertisedName failed"));
+                QCC_LogError(status, ("CancelFindAdvertisedNameByTransport failed"));
             }
             isDiscoveryStarted = false;
         }
