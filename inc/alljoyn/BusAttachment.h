@@ -653,17 +653,6 @@ class BusAttachment : public MessageReceiver {
     QStatus Disconnect(const char* connectSpec);
 
     /**
-     * %Disconnect the %BusAttachment from the remote bus.
-     *
-     * @return
-     *          - #ER_OK if successful
-     *          - #ER_BUS_BUS_NOT_STARTED if the bus is not started
-     *          - #ER_BUS_NOT_CONNECTED if the %BusAttachment is not connected to the bus
-     *          - Other error status codes indicating a failure
-     */
-    QStatus Disconnect();
-
-    /**
      * Indicate whether bus is currently connected.
      *
      * See also these sample file(s): @n

@@ -505,11 +505,6 @@ QStatus BusAttachment::Connect(const char* connectSpec)
     return status;
 }
 
-QStatus BusAttachment::Disconnect()
-{
-    return Disconnect(this->GetConnectSpec().c_str());
-}
-
 QStatus BusAttachment::Disconnect(const char* connectSpec)
 {
     QStatus status;
