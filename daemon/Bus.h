@@ -30,6 +30,7 @@
 #include <list>
 #include <set>
 
+#include <qcc/Mutex.h>
 #include <qcc/String.h>
 
 #include <alljoyn/BusAttachment.h>
@@ -60,6 +61,11 @@ class Bus : public BusAttachment, public NameListener {
      * @param listenSpecs       A semicolon separated list of bus addresses that this daemon is capable of listening on.
      */
     Bus(const char* applicationName, TransportFactoryContainer& factories, const char* listenSpecs = NULL);
+
+    /**
+     * Destruct a Bus.
+     */
+    ~Bus();
 
     /**
      * Listen for incoming AllJoyn connections on a given transport address.
@@ -151,7 +157,9 @@ class Bus : public BusAttachment, public NameListener {
     qcc::String localAddrs;      ///< Bus Addresses locally accessable
     qcc::String externalAddrs;   ///< Bus Addresses externall accessable
 
-    std::set<BusListener*> busListeners;
+    typedef qcc::ManagedObj<BusListener*> ProtectedBusListener;
+    std::set<ProtectedBusListener> busListeners;
+    qcc::Mutex listenersLock;
 };
 
 }

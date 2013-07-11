@@ -47,6 +47,21 @@ Bus::Bus(const char* applicationName, TransportFactoryContainer& factories, cons
     GetInternal().GetRouter().SetGlobalGUID(GetInternal().GetGlobalGUID());
 }
 
+Bus::~Bus()
+{
+    /* Make sure all listeners are unregistered */
+    listenersLock.Lock(MUTEX_CONTEXT);
+    set<ProtectedBusListener>::iterator it = busListeners.begin();
+    while (it != busListeners.end()) {
+        BusListener* listener = **it;
+        listenersLock.Unlock(MUTEX_CONTEXT);
+        UnregisterBusListener(*listener);
+        listenersLock.Lock(MUTEX_CONTEXT);
+        it = busListeners.begin();
+    }
+    listenersLock.Unlock(MUTEX_CONTEXT);
+}
+
 QStatus Bus::StartListen(const qcc::String& listenSpec, bool& listening)
 {
     QStatus status;
@@ -146,7 +161,9 @@ QStatus Bus::StopListen(const char* listenSpecs)
 
 void Bus::RegisterBusListener(BusListener& listener)
 {
-    busListeners.insert(&listener);
+    listenersLock.Lock(MUTEX_CONTEXT);
+    BusListener* l = &listener;
+    busListeners.insert(ProtectedBusListener(l));
 
     if (busListeners.size() == 1) {
         /*
@@ -154,20 +171,45 @@ void Bus::RegisterBusListener(BusListener& listener)
          */
         reinterpret_cast<DaemonRouter&>(GetInternal().GetRouter()).AddBusNameListener(this);
     }
+    listenersLock.Unlock(MUTEX_CONTEXT);
 }
 
-void Bus::UnregisterBusListener(BusListener& listener) {
-    busListeners.erase(&listener);
-    if (busListeners.size() == 0) {
-        reinterpret_cast<DaemonRouter&>(GetInternal().GetRouter()).RemoveBusNameListener(this);
+void Bus::UnregisterBusListener(BusListener& listener)
+{
+    /* Find listener and remove it*/
+    listenersLock.Lock(MUTEX_CONTEXT);
+    BusListener* pListener = &listener;
+    set<ProtectedBusListener>::iterator it = busListeners.find(ProtectedBusListener(pListener));
+    if (it != busListeners.end()) {
+        ProtectedBusListener l  = *it;
+        busListeners.erase(it);
+
+        /* Unregister name listener for this attachment if no listeners are registered */
+        if (busListeners.size() == 0) {
+            reinterpret_cast<DaemonRouter&>(GetInternal().GetRouter()).RemoveBusNameListener(this);
+        }
+
+        /* Wait for any callbacks on listener to complete */
+        while (l.GetRefCount() > 1) {
+            listenersLock.Unlock(MUTEX_CONTEXT);
+            qcc::Sleep(5);
+            listenersLock.Lock(MUTEX_CONTEXT);
+        }
     }
+    listenersLock.Unlock(MUTEX_CONTEXT);
 }
 
 void Bus::NameOwnerChanged(const qcc::String& alias, const qcc::String* oldOwner, const qcc::String* newOwner)
 {
-    set<BusListener*>::iterator it = busListeners.begin();
+    listenersLock.Lock(MUTEX_CONTEXT);
+    set<ProtectedBusListener>::iterator it = busListeners.begin();
     while (it != busListeners.end()) {
-        (*it++)->NameOwnerChanged(alias.c_str(), oldOwner ? oldOwner->c_str() : NULL, newOwner ? newOwner->c_str() : NULL);
+        ProtectedBusListener l = *it;
+        listenersLock.Unlock(MUTEX_CONTEXT);
+        (*l)->NameOwnerChanged(alias.c_str(), oldOwner ? oldOwner->c_str() : NULL, newOwner ? newOwner->c_str() : NULL);
+        listenersLock.Lock(MUTEX_CONTEXT);
+        it = busListeners.upper_bound(l);
     }
+    listenersLock.Unlock(MUTEX_CONTEXT);
 }
 
