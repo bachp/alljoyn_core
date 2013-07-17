@@ -1,4 +1,4 @@
-AllJoyn Version 3.3.0 Release Notes
+AllJoyn Version 3.3.2 Release Notes
 -----------------------------------
 
 Platform Support
@@ -18,53 +18,54 @@ Platform Support
 13) Arduino 
 
 
-Features added in Version 3.3.0
+Features added in Version 3.3.2
 -------------------------------
 
-* Support for AllJoyn Thin Client devices (Arduino)
-* Reduced memory/thread/file descriptor usage for alljoyn-daemon
-* C binding now has equivalent functionality to C++ and Java bindings.
-* Support for thin-client authentication in the AllJoyn daemon.
-* Support for Sessionless Signals as advertisements
-* Support for Re-reception of sessionless signals
-* Support for canceling a previously sent sessionless signal
-* Extended Time-to-live range for sessionless signals to 65000 seconds
-* Added the ability to find advertisments on specific transports via the
-  new API call: BusAttachment::FindAdvertisedNameByTransport()
+None
 
-Issues Addressed in Version 3.3.0
+Issues Addressed in Version 3.3.2
 ---------------------------------
 
-ALLJOYN-1702: Session joiners should not receive sessionJoined callback since
-this callback is only for the session creator.
+ALLJOYN-1761: Java binding crash due to BusAttachm not garbage collected before
+VM exits
 
-ALLJOYN-(various): Fixed daemon deadlock/exit issues related to managed endpoint
-refactoring
+ALLJOYN-1946: alljoyn-daemon crashes when invoked with verbosity=5 and if the 
+config file has <syslog/>
 
-ALLJOYN-1850: BusAttachment constructor's concurrency parameter is ignored. 
-Concurrency is always equal to 4.
+ALLJOYN-1965: WinRT: MethodReply(msg, args) should support args == NULL
 
-ALLJOYN-1912: Clients can miss SessionMemberChanged indication(s) that occur too
-close in time to SessionJoined event.
+ALLJOYN-1976: References to the ClientEndpoint are being held after the 
+BusAttachment is stopped and joined
 
-ALLJOYN-1916: Pre-installed daemon caches sessionless signals even after the sending
-app has exited.
+ALLJOYN-1982: Increase the maximum number of IODispatch threads to 128
 
-ALLJOYN-1918: LostAdvertisedName notification is not immediately received
-after advertisement is canceled on a remote device.
+ALLJOYN-1988 Do not attempt to remove b2b endpoints from virtual endpoints
+they were never a part of. (affects sessionless signal delivery after many
+iterations).
 
-ALLJOYN-1923: LostAdvertisedName is not received if requestName is not called.
+ALLJOYN-2004: Java binding Variant.getSignature needs to be public
 
-ALLJOYN-1932: AllJoyn client drops messages that are received too soon after 
-JoinSession() is called.
+ALLJOYN-2019: Make the symbol file of AllJoyn.dll as part of debug build
+for Win8/RT
 
-ALLJOYN-1937: Java binding cannot filter signals based on sender of signal.
+ALLJOYN-2024: TRANSPORT_TCP not defined for Java Binding
 
-ALLJOYN-1950: ProxyBusObject::MethodCall can fail with ER_BUS_NO_ROUTE when
-using bundled daemon
+ALLJOYN-2078: Deadlock due to DoStopListen request when the TCPTransport 
+is being stopped and joined
 
-ALLJOYN-1954: BusAttachment::Start can occasionally fail on Windows platform.
+ALLJOYN-2010: Repeated join/leave session indicates possible memory leak 
+in Alljoyn About service cpp. 
 
+
+Known Issues
+------------
+
+ALLJOYN-2098: Rejected AllJoyn daemon connect attempts are not properly
+retried with backoff
+
+ALLJOYN-2100: Runtime failure using Java bindings with Java 7
+
+ALLJOYN-2138: Memory leak seen when running ConsumerService on Linux and CUS22
 
 
 Compatibility
@@ -113,6 +114,8 @@ with a rule that matches the globally broadcast signals that the app wishes to r
 
 Change history
 --------------
+
+3.3.2 - Bug fixes.
 
 3.3.0 - Support for AllJoyn thin-clients. Enhanced sessionless signal support.
 
